@@ -1,16 +1,16 @@
 ## 1. The loop helper
 
-- [ ] 1.1 Add `src/emulator/machineLoop.ts`: `createMachineLoop(contract)`
+- [x] 1.1 Add `src/emulator/machineLoop.ts`: `createMachineLoop(contract)`
       returning `{ runFrame, debugStep }`, owning cycle-debt carry-over,
       breakpoint arming, budget walk, and the once-per-slice `onSlice` hook
-- [ ] 1.2 Colocated `machineLoop.test.ts`: debt carry-over across frames,
+- [x] 1.2 Colocated `machineLoop.test.ts`: debt carry-over across frames,
       arming from `fromLine`, budget exhaustion mid-instruction, `onSlice`
       fires exactly once per `runFrame` and per `debugStep`, step errors
       surface unchanged
 
 ## 2. Migrate the self-contained Z80 family
 
-- [ ] 2.1 zx80, zx81, zxspectrum, zxspectrum128 adapters onto the helper,
+- [x] 2.1 zx80, zx81, zxspectrum, zxspectrum128 adapters onto the helper,
       deleting their copied loops; full suite green with no tolerance
       changes (`debugEquivalence`, `lineProfiling`, colocated tests)
 

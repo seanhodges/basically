@@ -16,6 +16,7 @@ import {
   PROFILE_SLICE_CYCLES,
 } from '../../../emulator/lineCostRecorder';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
+import { createMachineLoop } from '../../../emulator/machineLoop';
 import { readZx81Variables } from '../vars';
 import { readZx81Report } from '../reports';
 import { Zx81Keyboard } from './keyboard';
@@ -85,12 +86,12 @@ export class Zx81Machine implements MachineEmulator {
     () => this.readMemoryStats()?.used ?? null,
   );
 
-  /**
-   * T-states the previous frame overran its budget by, owed back to this one.
-   * An instruction cannot be cut in half at a frame boundary, so a frame always
-   * ends a few T-states late; discarding that gains time every frame.
-   */
-  private debt = 0;
+  /** Frame and debug slice, from one walk over the budget. */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: TSTATES_PER_FRAME,
+    step: () => this.stepInstruction(),
+    currentLine: () => this.currentLine(),
+  });
   private imageData: ImageData | null = null;
   private disposed = false;
   /** .P image waiting to be injected when the ROM reaches its LOAD loop. */
@@ -145,8 +146,8 @@ export class Zx81Machine implements MachineEmulator {
   /**
    * One CPU step plus the ZX81's per-instruction housekeeping (flash-load trap,
    * halted-refresh handling, maskable INT on R bit-6 falling edge, NMI
-   * generator). Returns the T-states consumed. Shared by runFrame and debugStep
-   * so they never diverge.
+   * generator). Returns the T-states consumed. This is the machine loop's
+   * step, so a frame and a debug slice run identical instructions.
    */
   private stepInstruction(): number {
     // Flash-load trap: when the ROM sits in its tape-read loop (0x0347),
@@ -216,9 +217,7 @@ export class Zx81Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    let cycles = this.debt;
-    while (cycles < TSTATES_PER_FRAME) cycles += this.stepInstruction();
-    this.debt = cycles - TSTATES_PER_FRAME;
+    this.loop.runFrame();
   }
 
   /**
@@ -233,30 +232,7 @@ export class Zx81Machine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    let cycles = this.debt;
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    while (cycles < TSTATES_PER_FRAME) {
-      cycles += this.stepInstruction();
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          this.debt = 0; // pausing abandons the rest of the slice
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) {
-          this.debt = 0;
-          return { paused: true, line };
-        }
-      }
-    }
-    this.debt = cycles - TSTATES_PER_FRAME;
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /** True once the boot screen shows the inverse-K cursor. */

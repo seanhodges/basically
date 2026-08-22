@@ -38,12 +38,7 @@ import {
   Beeper,
   BEEPER_SAMPLES_PER_FRAME,
 } from '../../zxspectrum/emulator/beeper';
-import {
-  renderScanline,
-  renderDisplay,
-  DISPLAY_WIDTH,
-  DISPLAY_HEIGHT,
-} from './display';
+import { renderScanline, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, codeTap, parseTap } from '../tapfile';
 import {
   PPC,
@@ -59,6 +54,7 @@ import {
   minBlockAddress,
 } from '../../zxspectrum/emulator/blockInject';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
+import { createMachineLoop } from '../../../emulator/machineLoop';
 
 const CPU_HZ = 3_546_900;
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
@@ -155,15 +151,40 @@ export class Spectrum128Machine implements MachineEmulator {
     () => this.readMemoryStats()?.used ?? null,
   );
 
-  /**
-   * T-states the previous frame overran its budget by, owed back to this one.
-   * An instruction cannot be cut in half at a frame boundary, so a frame always
-   * ends a few T-states late; discarding that gains time every frame. Zeroed
-   * rather than carried when a HALT ends a frame early - the CPU idles until
-   * the next interrupt, so nothing is owed.
-   */
-  private debt = 0;
   private frameCount = 0;
+  /** Next display line still to be drawn this frame (see {@link renderScanlinesTo}). */
+  private nextLine = 0;
+  /** FLASH phase for the frame in progress, fixed at its start. */
+  private flashPhase = false;
+  /**
+   * Frame and debug slice, from one walk over the budget. The overrun is
+   * carried into the next frame - an instruction cannot be cut in half at a
+   * frame boundary, so a frame always ends a few T-states late, and discarding
+   * that gains time every frame - except when a HALT ends the frame early,
+   * where the CPU idles until the next interrupt and nothing is owed.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: TSTATES_PER_FRAME,
+    idleEndsSlice: true,
+    onSliceStart: () => {
+      if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
+      this.flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
+      this.nextLine = 0;
+    },
+    step: (elapsed) => {
+      this.frameCycle = elapsed; // timestamp any beeper write in this instruction
+      const { t, halted } = this.stepInstruction();
+      return { cycles: t, idle: halted };
+    },
+    afterStep: (elapsed) => this.renderScanlinesTo(elapsed),
+    onSliceEnd: () => {
+      // A HALT or a debugger pause before the frame ended: fill the lines we
+      // never reached from the final memory contents.
+      this.renderScanlinesTo(Infinity);
+      this.frameCount++;
+    },
+    currentLine: () => this.currentLine(),
+  });
   private imageData: ImageData | null = null;
   /**
    * Display framebuffer, filled scanline-by-scanline during runFrame and blitted
@@ -275,43 +296,30 @@ export class Spectrum128Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    // Start where the last frame actually stopped, not at zero: the overrun is
-    // real emulated time, and it also puts the scanline fetch points below on
-    // the frame's true timeline.
-    let cycles = this.debt;
-    if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
+    this.loop.runFrame();
+  }
 
-    // Render whichever bank (5 or 7) the ULA is displaying (0x7FFD bit 3).
-    const reader = { read: this.memory.readScreen };
-    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
-    let nextLine = 0;
-    while (cycles < TSTATES_PER_FRAME) {
-      this.frameCycle = cycles; // timestamp any beeper write in this instruction
-      const { t, halted } = this.stepInstruction();
-      if (halted) {
-        this.debt = 0; // idle until the next frame's interrupt; nothing owed
-        break;
-      }
-      cycles += t;
-      // Draw every display line whose ULA fetch time we've now reached, so a
-      // mid-frame attribute write lands on the correct scanline (sampled at most
-      // one instruction, <=~23 T << 228 T/line, after its exact fetch point).
-      while (
-        nextLine < DISPLAY_HEIGHT &&
-        cycles >= DISPLAY_START_T + nextLine * TSTATES_PER_LINE
-      ) {
-        renderScanline(reader, this.frameBuffer, nextLine, flashPhase);
-        nextLine++;
-      }
+  /**
+   * Draw every display line whose ULA fetch time the frame has now passed,
+   * reading whichever bank (5 or 7) the ULA is displaying (0x7FFD bit 3). A
+   * line is sampled at most one instruction (<=~23 T << 228 T/line) after its
+   * exact fetch point, so a mid-frame attribute write lands on the right
+   * scanline. Called after each step, and once more at the end of the frame to
+   * fill whatever a HALT or a pause never reached.
+   */
+  private renderScanlinesTo(cycles: number): void {
+    while (
+      this.nextLine < DISPLAY_HEIGHT &&
+      cycles >= DISPLAY_START_T + this.nextLine * TSTATES_PER_LINE
+    ) {
+      renderScanline(
+        { read: this.memory.readScreen },
+        this.frameBuffer,
+        this.nextLine,
+        this.flashPhase,
+      );
+      this.nextLine++;
     }
-    if (cycles >= TSTATES_PER_FRAME) this.debt = cycles - TSTATES_PER_FRAME;
-    // HALT before the frame ended: fill any lines we never reached from the
-    // final memory contents.
-    while (nextLine < DISPLAY_HEIGHT) {
-      renderScanline(reader, this.frameBuffer, nextLine, flashPhase);
-      nextLine++;
-    }
-    this.frameCount++;
   }
 
   /**
@@ -339,59 +347,8 @@ export class Spectrum128Machine implements MachineEmulator {
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
-  /**
-   * Fill the framebuffer from the current memory contents in one pass. Used by
-   * debugStep, where the frame is paused mid-way and scanline timing is moot -
-   * the visible screen is just a snapshot of wherever execution stopped.
-   */
-  private renderWholeFrame(): void {
-    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
-    renderDisplay(
-      { read: this.memory.readScreen },
-      this.frameBuffer,
-      flashPhase,
-    );
-  }
-
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    let cycles = this.debt;
-    if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
-
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line re-pauses on the loop
-    // back round rather than on the spot.
-    let armed = opts.fromLine === null;
-    while (cycles < TSTATES_PER_FRAME) {
-      this.frameCycle = cycles; // timestamp any beeper write in this instruction
-      const { t, halted } = this.stepInstruction();
-      if (halted) {
-        this.debt = 0;
-        break;
-      }
-      cycles += t;
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          this.debt = 0; // pausing abandons the rest of the slice
-          this.frameCount++;
-          this.renderWholeFrame();
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) {
-          this.debt = 0;
-          this.frameCount++;
-          this.renderWholeFrame();
-          return { paused: true, line };
-        }
-      }
-    }
-    if (cycles >= TSTATES_PER_FRAME) this.debt = cycles - TSTATES_PER_FRAME;
-    this.frameCount++;
-    this.renderWholeFrame();
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**
