@@ -35,7 +35,7 @@
 
 ## 5. Quality gates
 
-- [ ] 5.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
-- [ ] 5.2 `npm run e2e:chromium -- e2e/hardware-transfer` (export targets
+- [x] 5.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
+- [x] 5.2 `npm run e2e:chromium -- e2e/hardware-transfer` (export targets
       are app-visible) and `npm run e2e:chromium -- e2e/ai-assistant`
       (composed prompts feed the assistant)
