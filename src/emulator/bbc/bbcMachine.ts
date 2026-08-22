@@ -35,6 +35,7 @@ import {
   type AcornScreenPort,
 } from './screenText';
 import type { GlyphSignatures } from '../fontMatcher';
+import { createMachineLoop } from '../machineLoop';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -386,8 +387,8 @@ export class BbcMachine implements MachineEmulator {
    * system trap. A forged trap halts the CPU (see
    * {@link installFilingSystemTrap}) having consumed no cycles for the
    * skipped opcode, so `execute()` returns early having run less than
-   * requested; re-invoking it for the remainder keeps callers (runFrame,
-   * debugStep, loadProgram's boot, typeViaMatrix's key holds) oblivious to
+   * requested; re-invoking it for the remainder keeps callers (the machine
+   * loop's step, loadProgram's boot, typeViaMatrix's key holds) oblivious to
    * the trap, rather than visibly stalling/skipping time. With no drive
    * installed this is exactly `cpu.execute(totalCycles)` — installing any
    * debug hook forces jsbeeb's slower instruction-by-instruction path, so
@@ -396,8 +397,9 @@ export class BbcMachine implements MachineEmulator {
   private runCycles(totalCycles: number): void {
     // Profiling: run the budget in slices and charge each to the line executing
     // at its end, which is the only way to attribute time on a core the host
-    // advances in whole budgets rather than a cycle at a time. Sliced exactly as
-    // debugStep already slices, and only while a run is being measured.
+    // advances in whole budgets rather than a cycle at a time. Slices whatever
+    // budget it is given, and only while a run is being measured - the loop
+    // already asks for one slice at a time.
     const p = this.profile;
     if (p.enabled) {
       for (let done = 0; done < totalCycles; done += DEBUG_SLICE_CYCLES) {
@@ -442,9 +444,27 @@ export class BbcMachine implements MachineEmulator {
     });
   }
 
+  /**
+   * Frame and debug slice, from one walk over the budget. jsbeeb is advanced
+   * in whole budgets rather than instruction by instruction, so the loop's
+   * step is one {@link DEBUG_SLICE_CYCLES} chunk: the smallest unit this core
+   * can honestly be asked for, and the one the profiler already charges on. So
+   * a frame is several thousand jsbeeb calls rather than one, which costs a
+   * few percent on a run nobody is measuring; a measured run - which is every
+   * run the IDE makes - was already paying it.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: CYCLES_PER_FRAME,
+    ready: () => this.initialised && !this.injecting && !this.disposed,
+    step: () => {
+      this.runCycles(DEBUG_SLICE_CYCLES);
+      return DEBUG_SLICE_CYCLES;
+    },
+    currentLine: () => this.currentLine(),
+  });
+
   runFrame(): void {
-    if (!this.initialised || this.injecting || this.disposed) return;
-    this.runCycles(CYCLES_PER_FRAME);
+    this.loop.runFrame();
   }
 
   /**
@@ -543,28 +563,7 @@ export class BbcMachine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.initialised || this.injecting || this.disposed) {
-      return { paused: false, line: null };
-    }
-    const budget = CYCLES_PER_FRAME;
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    for (let cycles = 0; cycles < budget; cycles += DEBUG_SLICE_CYCLES) {
-      this.runCycles(DEBUG_SLICE_CYCLES);
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
-      }
-    }
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**

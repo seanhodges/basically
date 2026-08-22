@@ -23,15 +23,15 @@
 
 - [x] 4.1 pet, vic20, c64 (tickOnce seam) onto the helper
 - [x] 4.2 cpc onto the helper
-- [ ] 4.3 bbc and atom (jsbeeb) onto the helper, or document in the module
+- [x] 4.3 bbc and atom (jsbeeb) onto the helper, or document in the module
       why a wrapped core keeps its own loop if its step unit cannot satisfy
       the contract honestly
 
 ## 5. Docs and quality gates
 
-- [ ] 5.1 Update `docs/contributing/architecture.md` to point at the helper
+- [x] 5.1 Update `docs/contributing/architecture.md` to point at the helper
       instead of prescribing "one step function both paths call" in prose
-- [ ] 5.2 `npm run typecheck && npm test && npm run lint && npm run format:check`
+- [x] 5.2 `npm run typecheck && npm test && npm run lint && npm run format:check`
       (and `npm run docs:build` for the docs edit)
 - [ ] 5.3 `npm run e2e:chromium -- e2e/program-execution` (run/debug path is
       app-visible)

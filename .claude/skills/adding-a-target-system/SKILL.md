@@ -225,10 +225,15 @@ profiler's charge, any free-running cycle counter the tape deck or speaker reads
 itself against, any frame counter a blink or flash attribute is driven off, any
 per-frame flush a sound chip needs.
 
-Make that structural rather than remembered: one step function both paths call
-(`stepInstruction()` on the Z80 machines, `tick()`/`tickOnce()` on the
-Commodores, a sliced `runCycles()` on the Acorns), and anything left over done
-on **every** exit the slice has, pauses included.
+That is structural rather than remembered, and the structure is
+`src/emulator/machineLoop.ts`: `createMachineLoop(contract)` owns the walk over
+the frame's budget and hands back the `runFrame`/`debugStep` pair the machine
+exposes as its own. Supply the contract - `cyclesPerFrame`, a `step()` (one
+instruction on a machine that owns its CPU, one cycle on a core ticked a cycle
+at a time, one profiler slice on a wrapped core), `currentLine()`, and the
+`onSliceStart`/`onSliceEnd` hooks for anything owed once a slice however it ends
+
+- rather than writing either path by hand.
 
 Writing the run loop first and adding the stepper afterwards is the failure
 mode, and it has produced three shipped bugs. The PMD 85's slice stepped the

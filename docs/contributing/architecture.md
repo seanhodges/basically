@@ -215,15 +215,23 @@ on an ordinary press of Play, `debugStep()` is how most machines are usually
 run, so everything `runFrame()` does around its CPU work has to happen in the
 slice too - the profiler's charge, the free-running cycle counter its tape deck
 and speaker read themselves against, its frame counter, the per-frame flush its
-sound chip needs. The way to be sure of that is structural: one step function
-that both paths call, as `stepInstruction()` is on the Z80 machines and
-`tick()`/`tickOnce()` on the Commodores, and anything left over done on every
-one of the slice's exits. A machine that instruments only its frame path
-instruments the way nobody runs it, and the symptoms read as unrelated bugs -
-the profiler reports an empty run, the machine plays no sound, blinking
-characters stop blinking. `src/dialects/debugEquivalence.test.ts` measures a
-window of frames against a window of slices on every machine that can be
-stepped, so a new one is held to this the day it declares a stepper.
+sound chip needs. A machine that instruments only its frame path instruments the
+way nobody runs it, and the symptoms read as unrelated bugs - the profiler
+reports an empty run, the machine plays no sound, blinking characters stop
+blinking.
+
+So a machine does not write the two paths. `src/emulator/machineLoop.ts` owns
+the walk over the frame's cycle budget - the carried overrun, the breakpoint
+arming, the line watch - and `createMachineLoop(contract)` hands back the
+`runFrame`/`debugStep` pair the machine exposes as its own. The contract is what
+is genuinely the machine's: its `step()` (one instruction, one cycle, or one
+chunk of a wrapped core, whichever is its smallest honest unit), what a step
+owes around it, and hooks that run exactly once per slice however it ends. A
+machine with no `currentLine()` and so no debugger has no second path to keep in
+step and may keep its own loop, as the Atom does with its reason written down at
+`runFrame`. `src/dialects/debugEquivalence.test.ts` still measures a window of
+frames against a window of slices on every machine that can be stepped, so a new
+one is held to this the day it declares a stepper.
 
 The memory-activity tap carries an obligation of its own, and it is about what
 must _not_ be recorded. The IDE polls the same bus while a program runs - the
