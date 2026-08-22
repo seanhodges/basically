@@ -56,6 +56,7 @@ import { attach as cpu } from './viciious/target/cpu.js';
 // @ts-expect-error vendored JS, no types
 import { attach as tape } from './viciious/target/tape.js';
 import { BASIC_V2_ZP, MAX_BASIC_LINE, NDX } from '../commodore/basicPointers';
+import { createMachineLoop } from '../machineLoop';
 
 /** PAL 6510 clock: the 17.734472 MHz colour carrier ÷ 18. */
 const CPU_HZ = 985_248;
@@ -75,7 +76,7 @@ const {
   memsiz: MEMSIZ,
 } = BASIC_V2_ZP;
 /**
- * Cycles ticked between line checks in {@link C64Machine.debugStep}. Any BASIC
+ * Cycles ticked between the debugger's line checks. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
  * stepped over; checking on this cadence rather than every cycle keeps the
  * always-on debugger's per-frame overhead small.
@@ -485,9 +486,25 @@ export class C64Machine implements MachineEmulator {
     });
   }
 
+  /**
+   * Frame and debug slice, from one walk over the budget. The core is ticked a
+   * cycle at a time, so the line watch runs on {@link DEBUG_SLICE_CYCLES}}
+   * rather than after every tick.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: CYCLES_PER_FRAME,
+    lineWatchCycles: DEBUG_SLICE_CYCLES,
+    ready: () =>
+      this.booted && !this.injecting && !this.disposed && this.c64 !== null,
+    step: () => {
+      this.tickOnce();
+      return 1;
+    },
+    currentLine: () => this.currentLine(),
+  });
+
   runFrame(): void {
-    if (!this.booted || this.injecting || this.disposed || !this.c64) return;
-    for (let i = 0; i < CYCLES_PER_FRAME; i++) this.tickOnce();
+    this.loop.runFrame();
   }
 
   /**
@@ -563,29 +580,7 @@ export class C64Machine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.booted || this.injecting || this.disposed || !this.c64) {
-      return { paused: false, line: null };
-    }
-    const budget = CYCLES_PER_FRAME;
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    for (let i = 0; i < budget; i++) {
-      this.tickOnce();
-      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
-      }
-    }
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   loadProgram(

@@ -21,8 +21,8 @@
 
 ## 4. Migrate the 6502 and wrapped-core machines
 
-- [ ] 4.1 pet, vic20, c64 (tickOnce seam) onto the helper
-- [ ] 4.2 cpc onto the helper
+- [x] 4.1 pet, vic20, c64 (tickOnce seam) onto the helper
+- [x] 4.2 cpc onto the helper
 - [ ] 4.3 bbc and atom (jsbeeb) onto the helper, or document in the module
       why a wrapped core keeps its own loop if its step unit cannot satisfy
       the contract honestly

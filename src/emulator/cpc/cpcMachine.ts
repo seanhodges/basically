@@ -35,6 +35,7 @@ import { CpcKeyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { cpcFontSignatures, readCpcScreenText } from './screenText';
 import type { GlyphSignatures } from '../fontMatcher';
+import { createMachineLoop } from '../machineLoop';
 
 const CPU_HZ = 4_000_000;
 /** 4MHz Z80, 64µs (256 T-state) scanlines, 312 lines → ~50.08Hz. */
@@ -103,14 +104,30 @@ export class CpcMachine implements MachineEmulator {
 
   /** Which AY register the PPI last latched (for the reg-14 keyboard read). */
   private aySelected = 0;
+  /** Next CRTC scanline still to be started this frame (see {@link beginScanlinesTo}). */
+  private nextScanline = 0;
   /**
-   * T-states the previous scanline overran its budget by, owed back to the next.
-   * Carried across scanlines *and* across frames: a Z80 instruction is a large
-   * fraction of a 256 T-state line, so a debt reset per line - once per line,
-   * 312 times a frame - is the difference between the CPU running at 4MHz and
-   * a few percent above it.
+   * Frame and debug slice, from one walk over the budget - here the whole
+   * frame's T-states, with the scanlines started off the position reached
+   * rather than run one budget at a time. The overrun is carried across
+   * scanlines *and* across frames: a Z80 instruction is a large fraction of a
+   * 256 T-state line, so a debt reset per line - 312 times a frame - is the
+   * difference between the CPU running at 4MHz and a few percent above it.
    */
-  private debt = 0;
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: () => TSTATES_PER_LINE * this.crtc.linesPerFrame(),
+    onSliceStart: () => {
+      this.nextScanline = 0;
+    },
+    step: (elapsed) => {
+      this.beginScanlinesTo(elapsed);
+      // A halted CPU executes nothing, so the BASIC line cannot have changed.
+      const idle = this.cpu.isHalted();
+      return { cycles: this.stepInstruction(), idle };
+    },
+    onSliceEnd: () => this.renderFrame(),
+    currentLine: () => this.currentLine(),
+  });
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run, and {@link stepInstruction} charges the
@@ -246,24 +263,27 @@ export class CpcMachine implements MachineEmulator {
   }
 
   runFrame(): void {
-    const lines = this.crtc.linesPerFrame();
-    for (let line = 0; line < lines; line++) this.runScanline(line);
-    this.renderFrame();
+    this.loop.runFrame();
   }
 
-  /** Emulate one CRTC scanline: clock the interrupt, then run its T-states. */
-  private runScanline(line: number): void {
-    this.beginScanline(line);
-    let t = this.debt;
-    while (t < TSTATES_PER_LINE) t += this.stepInstruction();
-    this.debt = t - TSTATES_PER_LINE;
+  /**
+   * Start every CRTC scanline the frame has now reached. Called before each
+   * instruction, so a line whose whole 256 T-states one long instruction
+   * straddles is still started - the Gate Array counts its interrupts off
+   * HSYNC, and a line that never began would lose one.
+   */
+  private beginScanlinesTo(elapsed: number): void {
+    while (this.nextScanline * TSTATES_PER_LINE <= elapsed) {
+      this.beginScanline(this.nextScanline);
+      this.nextScanline++;
+    }
   }
 
   /**
    * One instruction, or a NOP's worth of idle time while the CPU is halted
-   * waiting for the next interrupt, returning the T-states it took. Shared by
-   * {@link runScanline} and {@link debugStep} so a run and a debug slice charge
-   * the profile identically - and so a run the IDE performs to check an
+   * waiting for the next interrupt, returning the T-states it took. This is the
+   * machine loop's step, so a run and a debug slice charge the profile
+   * identically - and so a run the IDE performs to check an
    * assistant answer, which deliberately opens no debug session, is measured
    * like any other.
    */
@@ -280,9 +300,8 @@ export class CpcMachine implements MachineEmulator {
   /**
    * Start a scanline: sample VSYNC, clock the Gate Array interrupt counter off
    * HSYNC, and deliver a pending interrupt when the CPU has them enabled (this
-   * also lifts a HALT the firmware parks in waiting for frame flyback). Shared by
-   * {@link runScanline} and {@link debugStep} so run and debug keep identical
-   * timing.
+   * also lifts a HALT the firmware parks in waiting for frame flyback). Driven
+   * from the machine loop's step, so run and debug keep identical timing.
    */
   private beginScanline(line: number): void {
     this.vsync = this.crtc.inVsync(line);
@@ -514,38 +533,7 @@ export class CpcMachine implements MachineEmulator {
    * `fromLine`-arming semantics (shared with the other steppable dialects).
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    // In run mode, ignore breakpoints until execution has left the resumed-from
-    // line, so Continue off a breakpointed line doesn't immediately re-trigger.
-    let armed = opts.fromLine === null;
-    const lines = this.crtc.linesPerFrame();
-    for (let line = 0; line < lines; line++) {
-      this.beginScanline(line);
-      let t = this.debt;
-      while (t < TSTATES_PER_LINE) {
-        const idle = this.cpu.isHalted();
-        t += this.stepInstruction();
-        if (idle) continue; // nothing executed: the line cannot have changed
-        const cur = this.currentLine();
-        if (cur === null) continue;
-        if (opts.mode === 'step') {
-          if (opts.fromLine === null || cur !== opts.fromLine) {
-            this.debt = 0; // pausing abandons the rest of the scanline
-            this.renderFrame();
-            return { paused: true, line: cur };
-          }
-        } else {
-          if (!armed && cur !== opts.fromLine) armed = true;
-          if (armed && opts.breakpoints.has(cur)) {
-            this.debt = 0;
-            this.renderFrame();
-            return { paused: true, line: cur };
-          }
-        }
-      }
-      this.debt = t - TSTATES_PER_LINE;
-    }
-    this.renderFrame();
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   setProfileRecording(enabled: boolean): void {

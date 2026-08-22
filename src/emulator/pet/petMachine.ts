@@ -38,6 +38,7 @@ import {
 } from './keyboard';
 import { BASIC_4_ZP, MAX_BASIC_LINE } from '../commodore/basicPointers';
 import { PROGRAM_BASE } from '../../dialects/pet/addresses';
+import { createMachineLoop } from '../machineLoop';
 
 /**
  * Commodore PET 4032 (BASIC 4.0, 40-column graphics keyboard, discrete-TTL
@@ -108,7 +109,7 @@ const {
  * highest legal line number (63999) means no program line is executing.
  */
 /**
- * Cycles ticked between line checks in {@link PetMachine.debugStep}. Any BASIC
+ * Cycles ticked between the debugger's line checks. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
  * stepped over; checking on this cadence rather than every cycle keeps the
  * always-on debugger's per-frame overhead small (mirrors the C64).
@@ -415,9 +416,25 @@ export class PetMachine implements MachineEmulator {
     });
   }
 
+  /**
+   * Frame and debug slice, from one walk over the budget. The core is ticked a
+   * cycle at a time, so the line watch runs on {@link DEBUG_SLICE_CYCLES}}
+   * rather than after every tick.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: FRAME_CYCLES,
+    lineWatchCycles: DEBUG_SLICE_CYCLES,
+    ready: () =>
+      this.booted && !this.injecting && !this.disposed && this.cpu !== null,
+    step: () => {
+      this.tick();
+      return 1;
+    },
+    currentLine: () => this.currentLine(),
+  });
+
   runFrame(): void {
-    if (!this.booted || this.injecting || this.disposed || !this.cpu) return;
-    this.runCycles(FRAME_CYCLES);
+    this.loop.runFrame();
   }
 
   loadProgram(
@@ -631,29 +648,7 @@ export class PetMachine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
-      return { paused: false, line: null };
-    }
-    const budget = FRAME_CYCLES;
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    for (let i = 0; i < budget; i++) {
-      this.tick();
-      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
-      }
-    }
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**
