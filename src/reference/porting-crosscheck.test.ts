@@ -14,33 +14,11 @@
  * keyword-crosscheck.test.ts, so pinning to them transitively pins to the code.
  */
 import { describe, expect, it } from 'vitest';
-import { atomReference } from './atom';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { cpcReference } from './cpc';
-import { altair8800Reference } from './altair8800';
-import { pmd85Reference } from './pmd85';
-import { trs80Reference } from './trs80';
-import { zx80Reference } from './zx80';
-import { zx81Reference } from './zx81';
-import { zxspectrumReference } from './zxspectrum';
+import { referencePages as PAGES } from './pages';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import { portingFacts } from './facts';
 import { dialects } from '../dialects/registry';
-import type { ReferenceTableData } from './types';
-
-const PAGES: Record<string, ReferenceTableData> = {
-  atom: atomReference,
-  bbc: bbcReference,
-  commodore: commodoreReference,
-  cpc: cpcReference,
-  altair8800: altair8800Reference,
-  pmd85: pmd85Reference,
-  trs80: trs80Reference,
-  zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
-};
+import { referencePageOf } from '../dialects/referencePage';
 
 const namesOn = (page: string): Set<string> =>
   new Set(PAGES[page]!.entries.map((e) => e.name));
@@ -59,11 +37,11 @@ const NAMES: Record<string, Set<string>> = Object.fromEntries(
 const pageOf = (dialectId: string): string => {
   const dialect = dialects.find((d) => d.id === dialectId);
   if (!dialect) throw new Error(`unknown dialect: ${dialectId}`);
-  return dialect.docsReference ?? dialect.id;
+  return referencePageOf(dialect);
 };
 
 const machinesOn = (page: string): string[] =>
-  dialects.filter((d) => (d.docsReference ?? d.id) === page).map((d) => d.id);
+  dialects.filter((d) => referencePageOf(d) === page).map((d) => d.id);
 
 /**
  * Command names one machine has - its page's rows less those scoped to a
@@ -132,6 +110,73 @@ describe('keyword equivalences', () => {
         ).toBeUndefined();
         seen.set(key, group.concept);
       }
+    }
+  });
+});
+
+/**
+ * Pages left out of a group on purpose, keyed `<group>:<page>` with the reason.
+ *
+ * The two assertions below are the completeness half of the mirror the file
+ * opens with: the checks above prove every page a group *names* really has the
+ * spelling, and these prove every page that *has* the spelling is named. Without
+ * them a machine registered after the group was written simply never appeared in
+ * it, and the porting comparison reported its GOTO as a command the target has
+ * not got.
+ */
+const NOT_IN_GROUP: Record<string, string> = {
+  // The Atom's CLEAR selects a screen mode; it has no discard-variables command
+  // at all, which is what the CLEAR false friend below exists to say.
+  'discard-variables:atom': 'CLEAR means something else entirely there',
+};
+
+describe('porting data completeness', () => {
+  it.each(keywordEquivalences.map((e) => [e.concept, e] as const))(
+    '%s names every page that spells the command one of its ways',
+    (concept, group) => {
+      const spellings = [...new Set(Object.values(group.spellings))];
+      const missing = Object.keys(PAGES).filter(
+        (page) =>
+          !(page in group.spellings) &&
+          !NOT_IN_GROUP[`${concept}:${page}`] &&
+          spellings.some((spelling) => NAMES[page]!.has(spelling)),
+      );
+      expect(
+        missing,
+        `these pages have one of ${concept}'s spellings but are not in the ` +
+          'group - add them to porting.ts, or excuse them in NOT_IN_GROUP',
+      ).toEqual([]);
+    },
+  );
+
+  it.each(falseFriends.map((f) => [f.keyword, f] as const))(
+    '%s names every page that has the keyword',
+    (keyword, friend) => {
+      const missing = Object.keys(PAGES).filter(
+        (page) =>
+          !(page in friend.meanings) &&
+          !NOT_IN_GROUP[`${keyword}:${page}`] &&
+          NAMES[page]!.has(keyword),
+      );
+      expect(
+        missing,
+        `these pages have "${keyword}" but say nothing about what it means ` +
+          'there - add them to porting.ts, or excuse them in NOT_IN_GROUP',
+      ).toEqual([]);
+    },
+  );
+
+  // An exemption that excuses nothing is a leftover, and it would go on
+  // excusing nothing silently.
+  it('excuses only a real page from a real group', () => {
+    const groups = new Set([
+      ...keywordEquivalences.map((e) => e.concept),
+      ...falseFriends.map((f) => f.keyword),
+    ]);
+    for (const key of Object.keys(NOT_IN_GROUP)) {
+      const [group, page] = key.split(':');
+      expect(groups, `${key} names no group`).toContain(group);
+      expect(Object.keys(PAGES), `${key} names no page`).toContain(page);
     }
   });
 });

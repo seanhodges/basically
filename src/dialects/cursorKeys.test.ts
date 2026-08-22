@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { getDialect } from './registry';
+import { dialects, getDialect } from './registry';
 import {
   bootMachine,
   installNodeRomLoading,
@@ -139,4 +139,80 @@ describe('a cursor key types nothing', () => {
       }
     }, 60000);
   }
+});
+
+/**
+ * Which machines each booted representative stands for.
+ *
+ * Only one machine per emulator wiring family is booted here - the ROMs are
+ * slow and the wiring is what is at risk, each machine's own legend cells being
+ * pinned in its keyboardLayout test. But a machine covered by nobody looked
+ * exactly like a machine covered by its family until this table said which, so
+ * every registered dialect is now claimed by exactly one representative or
+ * excused by name, and a sixteenth machine has to join a family or start one.
+ */
+const CLAIMED: Record<string, string[]> = {
+  /** viciious. */
+  commodore64: ['commodore64', 'vic20'],
+  /** The shared cpu6502 core. */
+  pet: ['pet', 'atom'],
+  /** The CPC's own Z80 run loop. */
+  cpc464: ['cpc464', 'cpc6128'],
+  /** 8080 object code through the shared i8080 layer. */
+  pmd85: ['pmd85'],
+  /** jsbeeb. */
+  bbcmicro: ['bbcmicro', 'bbcmaster'],
+  /** The self-contained Z80 machines under src/dialects/<id>/. */
+  zxspectrum: ['zxspectrum', 'zxspectrum128', 'zx80', 'zx81'],
+};
+
+/** Machines neither battery can reach, and why. */
+const NO_CURSOR_KEYS: Record<string, string> = {
+  // A front panel and a teletype: the layout has no CURSOR mode to read a
+  // legend from, and the 8K BASIC image does not ship, so there would be
+  // nothing to boot and watch either.
+  altair8800: 'no cursor keys on the machine, and no ROM in this checkout',
+  // The default backend interprets BASIC statements rather than scanning a key
+  // matrix, so a cursor keypress reaches no ROM here to be shown moving - the
+  // same reason it records no memory activity (see memoryActivity.test.ts).
+  trs80: 'the interpreter backend runs no key matrix',
+};
+
+describe('every registered machine is covered by a cursor-key claim', () => {
+  it('claims each dialect exactly once, or excuses it by name', () => {
+    const claimed = Object.values(CLAIMED).flat();
+    expect(new Set(claimed).size, 'a machine is claimed twice').toBe(
+      claimed.length,
+    );
+    const covered = new Set([...claimed, ...Object.keys(NO_CURSOR_KEYS)]);
+    expect(
+      dialects.map((d) => d.id).filter((id) => !covered.has(id)),
+      'claim the machine in CLAIMED under the representative whose wiring it ' +
+        'shares, or excuse it in NO_CURSOR_KEYS with a reason',
+    ).toEqual([]);
+  });
+
+  it('claims and excuses only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of [
+      ...Object.keys(CLAIMED),
+      ...Object.values(CLAIMED).flat(),
+      ...Object.keys(NO_CURSOR_KEYS),
+    ]) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+
+  // The claims are only worth anything while each representative is really
+  // booted by one of the two batteries below.
+  it('boots every representative it claims a family for', () => {
+    const booted = new Set([
+      ...MOVES.map(([id]) => id),
+      ...NO_STRAY.map(([id]) => id),
+    ]);
+    expect(
+      Object.keys(CLAIMED).filter((id) => !booted.has(id)),
+      'a representative claims a family but is never booted here',
+    ).toEqual([]);
+  });
 });

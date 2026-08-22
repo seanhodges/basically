@@ -39,7 +39,7 @@ export interface MachineIdentity {
   name: string;
   manufacturer: string;
   year: number;
-  /** Reference page slug (`Dialect.docsReference ?? Dialect.id`). */
+  /** Reference page slug, as `referencePageOf` in src/dialects/ derives it. */
   page: string;
 }
 

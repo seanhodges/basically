@@ -1,30 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { BasicReferenceTableData } from './types';
 import { KEYWORD_DOMAINS } from './domains';
 import { CORE_PLACEHOLDERS, placeholderTokens } from './placeholders';
-import { zx81Reference } from './zx81';
-import { zx80Reference } from './zx80';
-import { zxspectrumReference } from './zxspectrum';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { atomReference } from './atom';
-import { trs80Reference } from './trs80';
-import { cpcReference } from './cpc';
-import { altair8800Reference } from './altair8800';
-import { pmd85Reference } from './pmd85';
+import { referencePages } from './pages';
 
-const SETS: [string, BasicReferenceTableData][] = [
-  ['zx81', zx81Reference],
-  ['zx80', zx80Reference],
-  ['zxspectrum', zxspectrumReference],
-  ['bbc', bbcReference],
-  ['commodore', commodoreReference],
-  ['atom', atomReference],
-  ['trs80', trs80Reference],
-  ['cpc', cpcReference],
-  ['altair8800', altair8800Reference],
-  ['pmd85', pmd85Reference],
-];
+const SETS = Object.entries(referencePages);
 
 describe.each(SETS)('reference data: %s', (_id, data) => {
   it('has a title, machine list and entries', () => {

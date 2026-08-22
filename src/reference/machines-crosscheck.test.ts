@@ -19,6 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
 import {
   groupMachinesByManufacturer,
   type MachineLike,
@@ -38,7 +39,7 @@ describe('machine list', () => {
       const choice = machines.find((m) => m.id === id);
       expect(choice).toBeDefined();
       expect(choice!.name).toBe(dialect.name);
-      expect(choice!.page).toBe(dialect.docsReference ?? dialect.id);
+      expect(choice!.page).toBe(referencePageOf(dialect));
       expect(choice!.manufacturer).toBe(dialect.manufacturer);
       expect(choice!.year).toBe(dialect.year);
       expect(choice!.blurb).toBe(dialect.blurb);

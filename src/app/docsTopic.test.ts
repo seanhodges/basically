@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { dialects, getDialect } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
 import {
   asmReferenceTopic,
   openingTopicFor,
@@ -49,7 +50,7 @@ describe('referenceTopic', () => {
       new URL('../../docs/reference/', import.meta.url),
     );
     const missing = dialects
-      .map((d) => ({ id: d.id, page: d.docsReference ?? d.id }))
+      .map((d) => ({ id: d.id, page: referencePageOf(d) }))
       .filter(({ page }) => !existsSync(`${refDir}${page}.md`));
     expect(missing).toEqual([]);
   });

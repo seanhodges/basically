@@ -14,24 +14,7 @@
  *   the rename the page shows is the rename the request carries.
  */
 import { describe, expect, it } from 'vitest';
-import { atomReference } from './atom';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { cpcReference } from './cpc';
-import { altair8800Reference } from './altair8800';
-import { pmd85Reference } from './pmd85';
-import { trs80Reference } from './trs80';
-import { zx80Reference } from './zx80';
-import { zx81Reference } from './zx81';
-import { zxspectrumReference } from './zxspectrum';
-import { atomEscapes } from './escapes/atom';
-import { bbcEscapes } from './escapes/bbc';
-import { commodoreEscapes } from './escapes/commodore';
-import { cpcEscapes } from './escapes/cpc';
-import { trs80Escapes } from './escapes/trs80';
-import { zx80Escapes } from './escapes/zx80';
-import { zx81Escapes } from './escapes/zx81';
-import { zxspectrumEscapes } from './escapes/zxspectrum';
+import { escapePages as ESCAPES, referencePages as REFERENCES } from './pages';
 import {
   diffEscapes,
   diffKeywords,
@@ -43,35 +26,11 @@ import { domainGuidance } from './domain-guidance';
 import { machines } from './machines';
 import { keywordEquivalences } from './porting';
 import { describePort, type PortSide } from './portDescription';
-import type { EscapeTableData, ReferenceTableData } from './types';
+import type { ReferenceTableData } from './types';
 import type { MemoryMap } from '../dialects/types';
 import { c64MemoryMap } from '../dialects/commodore64/memoryMap';
 import { spectrumMemoryMap } from '../dialects/zxspectrum/memoryMap';
 import { zx81MemoryMap } from '../dialects/zx81/memoryMap';
-
-const REFERENCES: Record<string, ReferenceTableData> = {
-  atom: atomReference,
-  bbc: bbcReference,
-  commodore: commodoreReference,
-  cpc: cpcReference,
-  altair8800: altair8800Reference,
-  pmd85: pmd85Reference,
-  trs80: trs80Reference,
-  zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
-};
-
-const ESCAPES: Record<string, EscapeTableData> = {
-  atom: atomEscapes,
-  bbc: bbcEscapes,
-  commodore: commodoreEscapes,
-  cpc: cpcEscapes,
-  trs80: trs80Escapes,
-  zx80: zx80Escapes,
-  zx81: zx81Escapes,
-  zxspectrum: zxspectrumEscapes,
-};
 
 /**
  * The memory layouts the write-landing verdicts are judged against, for the

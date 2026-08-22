@@ -1,3 +1,4 @@
+import { referencePageOf } from '../dialects/referencePage';
 import type { Dialect } from '../dialects/types';
 import type { EscapeTableData, ReferenceTableData } from '../reference/types';
 
@@ -63,11 +64,6 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
  */
 const cache = new Map<string, string>();
 
-/** Which reference page a dialect reads from; several machines share one. */
-export function pageFor(dialect: Dialect): string {
-  return dialect.docsReference ?? dialect.id;
-}
-
 /**
  * One page's keyword table, or `undefined` where no page is registered under
  * that slug.
@@ -107,7 +103,7 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
   const cached = cache.get(dialect.id);
   if (cached !== undefined) return cached;
 
-  const page = pageFor(dialect);
+  const page = referencePageOf(dialect);
   const loadPage = REFERENCE_PAGES[page];
   if (loadPage === undefined) {
     throw new Error(`no reference page "${page}" for dialect "${dialect.id}"`);

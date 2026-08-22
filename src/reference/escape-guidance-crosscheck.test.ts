@@ -8,34 +8,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { diffEscapes } from './compare';
-import { altair8800Escapes } from './escapes/altair8800';
-import { pmd85Escapes } from './escapes/pmd85';
-import { atomEscapes } from './escapes/atom';
-import { bbcEscapes } from './escapes/bbc';
-import { commodoreEscapes } from './escapes/commodore';
-import { cpcEscapes } from './escapes/cpc';
-import { trs80Escapes } from './escapes/trs80';
-import { zx80Escapes } from './escapes/zx80';
-import { zx81Escapes } from './escapes/zx81';
-import { zxspectrumEscapes } from './escapes/zxspectrum';
+import { escapePages as PAGES, REFERENCE_PAGE_IDS } from './pages';
 import { escapeGuidance } from './escape-guidance';
 import { ESCAPE_CLASSES } from './escape-classes';
 import type { EscapeClass } from './escape-classes';
-import type { EscapeTableData } from './types';
 
-const PAGES: Record<string, EscapeTableData> = {
-  altair8800: altair8800Escapes,
-  pmd85: pmd85Escapes,
-  atom: atomEscapes,
-  bbc: bbcEscapes,
-  commodore: commodoreEscapes,
-  cpc: cpcEscapes,
-  trs80: trs80Escapes,
-  zx80: zx80Escapes,
-  zx81: zx81Escapes,
-  zxspectrum: zxspectrumEscapes,
-};
-const IDS = Object.keys(PAGES);
+const IDS = REFERENCE_PAGE_IDS;
 
 // The same reading budget the capability guidance is held to: this renders
 // inline against a group the reader is already scanning.

@@ -8,6 +8,7 @@ import {
   atomVariableErrors,
   pmd85VariableErrors,
 } from './variableLint';
+import { dialects, getDialect } from '../dialects/registry';
 import { zx81Keywords } from '../dialects/zx81/keywords';
 import { c64Keywords } from '../dialects/commodore64/keywords';
 import { spectrumKeywords } from '../dialects/zxspectrum/keywords';
@@ -253,5 +254,61 @@ describe('pmd85VariableErrors (Microsoft model, $ the only suffix)', () => {
     // `'FF` is BASIC-G's hexadecimal form; without the prefix in the lexis the
     // scanner would report an `FF` variable that the program does not have.
     expect(pmd85("10 A='FF")).toEqual([]);
+  });
+});
+
+/**
+ * Every registered machine whose ROM restricts variable names says so in the
+ * editor.
+ *
+ * The wrappers above are wired into each dialect's own `lint()`, one line per
+ * dialect, and nothing failed when a machine was registered without that line:
+ * its editor simply accepted names the machine cannot store, and the program
+ * ran wrong on the emulator next to it. So this asks the registry rather than a
+ * list, through the dialect's whole `lint()` - the seam the editor actually
+ * calls - and a machine with no rule has to be excused by name.
+ */
+const NO_NAME_RULE: Record<string, string> = {
+  // BBC BASIC's names are fully significant; the one real restriction (a name
+  // may not embed a non-`conditional` keyword) is enforced ROM-accurately
+  // inside the tokenizer itself.
+  bbcmicro: 'names are fully significant',
+  bbcmaster: 'names are fully significant',
+  // Locomotive BASIC likewise keeps every character of a name.
+  cpc464: 'names are fully significant',
+  cpc6128: 'names are fully significant',
+};
+
+/**
+ * Two long string names differing only after the second character. Every
+ * restriction in this file rejects it, and for a different reason each time:
+ * the Sinclairs and the Atom because a string name must be one letter, the
+ * Microsoft ROMs because both names collapse to `AB$`.
+ */
+const UNSTORABLE = '10 LET ABCD$="X"\n20 LET ABCE$="Y"\n';
+
+describe('every registered machine lints the names its ROM cannot store', () => {
+  it.each(dialects.map((d) => d.id))('%s', (id) => {
+    const messages = getDialect(id)
+      .lint(UNSTORABLE)
+      .map((e) => e.message);
+    if (NO_NAME_RULE[id]) {
+      expect(messages, `${id} has a name rule after all`).toEqual([]);
+      return;
+    }
+    expect(
+      messages.filter((m) =>
+        /single letter|characters .* are significant|reserved word/.test(m),
+      ),
+      `${id} accepted a name its ROM cannot store - wire a variableLint ` +
+        'wrapper into its lint(), or list it in NO_NAME_RULE with a reason',
+    ).not.toEqual([]);
+  });
+
+  it('excuses only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of Object.keys(NO_NAME_RULE)) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
   });
 });

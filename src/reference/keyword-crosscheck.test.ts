@@ -44,33 +44,12 @@ import { describe, expect, it } from 'vitest';
 import type { EditorKeyword } from '../dialects/types';
 import type { ReferenceTableData } from './types';
 
-import { zx81Reference } from './zx81';
-import { altair8800Reference } from './altair8800';
-import { pmd85Reference } from './pmd85';
-import { zx80Reference } from './zx80';
-import { zxspectrumReference } from './zxspectrum';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { atomReference } from './atom';
-import { trs80Reference } from './trs80';
-import { cpcReference } from './cpc';
+import { referencePages as PAGES } from './pages';
 
 import { dialects } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
 import { OPERATOR_PUNCTUATION } from '../dialects/operators';
 import { zx80IntegralFunctions } from '../dialects/zx80/keywords';
-
-const PAGES: Record<string, ReferenceTableData> = {
-  altair8800: altair8800Reference,
-  pmd85: pmd85Reference,
-  atom: atomReference,
-  bbc: bbcReference,
-  commodore: commodoreReference,
-  cpc: cpcReference,
-  trs80: trs80Reference,
-  zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
-};
 
 /**
  * Words the editor knows for a machine but the tokenizer does not emit. The
@@ -87,11 +66,11 @@ function rowsFor(page: ReferenceTableData, dialectId: string) {
 }
 
 const CASES = dialects.map((dialect) => {
-  const page = PAGES[dialect.docsReference ?? dialect.id];
+  const page = PAGES[referencePageOf(dialect)];
   if (!page) {
     throw new Error(
       `No reference page registered for dialect: ${dialect.id} ` +
-        `(looked for "${dialect.docsReference ?? dialect.id}")`,
+        `(looked for "${referencePageOf(dialect)}")`,
     );
   }
   return [
@@ -131,7 +110,7 @@ describe.each(CASES)('keyword crosscheck: %s', (_id, rows, spellings) => {
 
 describe('page coverage', () => {
   it('every reference page belongs to at least one registered machine', () => {
-    const used = new Set(dialects.map((d) => d.docsReference ?? d.id));
+    const used = new Set(dialects.map((d) => referencePageOf(d)));
     expect([...Object.keys(PAGES)].filter((p) => !used.has(p))).toEqual([]);
   });
 
@@ -140,9 +119,7 @@ describe('page coverage', () => {
   it('every onlyOn names a machine the page covers', () => {
     for (const [page, data] of Object.entries(PAGES)) {
       const onPage = new Set(
-        dialects
-          .filter((d) => (d.docsReference ?? d.id) === page)
-          .map((d) => d.id),
+        dialects.filter((d) => referencePageOf(d) === page).map((d) => d.id),
       );
       for (const entry of data.entries) {
         for (const id of entry.onlyOn ?? []) {

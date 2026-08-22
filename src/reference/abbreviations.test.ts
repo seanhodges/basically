@@ -16,30 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { getDialect } from '../dialects/registry';
 import { shortSpellingsFor } from '../dialects/keywordSpellings';
 import { machinesOnPage } from './abbreviations';
-import type { ReferenceTableData } from './types';
-import { altair8800Reference } from './altair8800';
-import { pmd85Reference } from './pmd85';
-import { atomReference } from './atom';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { cpcReference } from './cpc';
-import { trs80Reference } from './trs80';
-import { zx80Reference } from './zx80';
-import { zx81Reference } from './zx81';
-import { zxspectrumReference } from './zxspectrum';
-
-const PAGES: Record<string, ReferenceTableData> = {
-  altair8800: altair8800Reference,
-  pmd85: pmd85Reference,
-  atom: atomReference,
-  bbc: bbcReference,
-  commodore: commodoreReference,
-  cpc: cpcReference,
-  trs80: trs80Reference,
-  zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
-};
+import { referencePages as PAGES } from './pages';
 
 const PAGE_LIST = Object.entries(PAGES);
 
@@ -164,11 +141,11 @@ describe('rows whose machines read them differently', () => {
     // The PET's disk commands are abbreviable and the C64 has never heard of
     // them; EDIT is `ED.` on a Master sharing a page with a Micro that has no
     // EDIT at all. Both are scoped rows, so both keep their spelling.
-    const concat = commodoreReference.entries.find((e) => e.name === 'CONCAT');
+    const concat = PAGES.commodore!.entries.find((e) => e.name === 'CONCAT');
     expect(concat?.onlyOn).toEqual(['pet']);
     expect(concat?.abbreviations).toEqual(['conC']);
 
-    const edit = bbcReference.entries.find((e) => e.name === 'EDIT');
+    const edit = PAGES.bbc!.entries.find((e) => e.name === 'EDIT');
     expect(edit?.onlyOn).toEqual(['bbcmaster']);
     expect(edit?.abbreviations).toEqual(['ED.']);
   });
