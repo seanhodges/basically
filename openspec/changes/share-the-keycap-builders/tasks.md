@@ -16,13 +16,13 @@
 
 - [x] 3.1 pet and commodore64 (screen-code legends → kit or thin local
       adapter over the kit's types)
-- [ ] 3.2 trs80 (Shift/Cursor types → kit)
-- [ ] 3.3 pmd85 and altair8800
-- [ ] 3.4 Confirm the zx-family cursor deviations (shifted-digit emits)
+- [x] 3.2 trs80 (Shift/Cursor types → kit)
+- [x] 3.3 pmd85 and altair8800
+- [x] 3.4 Confirm the zx-family cursor deviations (shifted-digit emits)
       survive as data, not builder forks
 
 ## 4. Quality gates
 
-- [ ] 4.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
+- [x] 4.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
 - [ ] 4.2 `npm run e2e:chromium -- e2e/virtual-input` (rendered keyboards
       are app-visible)

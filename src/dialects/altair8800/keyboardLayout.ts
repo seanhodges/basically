@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import { act, ins, key as kitKey } from '../../keyboard/legendKit';
 import { bottomRow } from '../../keyboard/templateRows';
 
 /**
@@ -45,14 +46,8 @@ import { bottomRow } from '../../keyboard/templateRows';
  */
 
 /** A printing key: one machine token, a base legend and an optional SHIFT one. */
-function key(token: string, main: string, shift?: string): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [{ text: main }, shift === undefined ? null : { text: shift }],
-  };
-}
+const key = (token: string, main: string, shift?: string): KeyDef =>
+  kitKey(token, [main, shift ?? null]);
 
 // SHIFT flips bit 4, so the shifted digits are the ASCII row 0x21-0x29 - and
 // SHIFT-0 (0x30 ^ 0x10) is a space, which is why the tenth key carries a `␣`
@@ -67,12 +62,7 @@ const numberRow: KeyDef[] = [
   key('Digit7', '7', "'"),
   key('Digit8', '8', '('),
   key('Digit9', '9', ')'),
-  {
-    id: 'Digit0',
-    spanX: 4,
-    emits: ['Digit0'],
-    labels: [{ text: '0' }, { text: '␣', editor: { insert: ' ' } }],
-  },
+  kitKey('Digit0', ['0', ins('␣', ' ')]),
 ];
 
 // Only K-P carry a second marking: those are the six letters whose bit-4 flip
@@ -141,24 +131,14 @@ const spaceKey = {
   labels: [{ text: '␣', editor: { insert: ' ' } }, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
-const enterKey: KeyDef = {
-  id: 'Enter',
-  spanX: 4,
-  emits: ['Enter'],
-  labels: [{ text: '↵', editor: { action: 'newline' } }, null],
-};
+const enterKey = kitKey('Enter', [act('↵', 'newline'), null]);
 
 /**
  * Not an ASR-33 key: a host keyboard's Backspace, which the machine adapter
  * maps to the underline BASIC's own line editor reads as "rub out the last
  * character typed". In the editor it does the obvious thing instead.
  */
-const backspaceKey: KeyDef = {
-  id: 'Backspace',
-  spanX: 4,
-  emits: ['Backspace'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
-};
+const backspaceKey = kitKey('Backspace', [act('⌫', 'backspace'), null]);
 
 const rows: KeyDef[][] = [
   numberRow,
