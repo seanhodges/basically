@@ -33,5 +33,5 @@
       instead of prescribing "one step function both paths call" in prose
 - [x] 5.2 `npm run typecheck && npm test && npm run lint && npm run format:check`
       (and `npm run docs:build` for the docs edit)
-- [ ] 5.3 `npm run e2e:chromium -- e2e/program-execution` (run/debug path is
+- [x] 5.3 `npm run e2e:chromium -- e2e/program-execution` (run/debug path is
       app-visible)
