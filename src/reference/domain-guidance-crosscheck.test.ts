@@ -8,35 +8,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { diffKeywords } from './compare';
-import { atomReference } from './atom';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { cpcReference } from './cpc';
-import { altair8800Reference } from './altair8800';
-import { pmd85Reference } from './pmd85';
-import { trs80Reference } from './trs80';
-import { zx80Reference } from './zx80';
-import { zx81Reference } from './zx81';
-import { zxspectrumReference } from './zxspectrum';
+import { REFERENCE_PAGE_IDS, referencePages as PAGES } from './pages';
 import { keywordEquivalences } from './porting';
 import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
 import type { KeywordDomain } from './domains';
-import type { BasicReferenceTableData } from './types';
 
-const PAGES: Record<string, BasicReferenceTableData> = {
-  atom: atomReference,
-  bbc: bbcReference,
-  commodore: commodoreReference,
-  cpc: cpcReference,
-  altair8800: altair8800Reference,
-  pmd85: pmd85Reference,
-  trs80: trs80Reference,
-  zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
-};
-const IDS = Object.keys(PAGES);
+const IDS = REFERENCE_PAGE_IDS;
 
 // The reading budget from the change proposal, made mechanical. This table is
 // read inline against a group the reader is already scanning, so it is capped

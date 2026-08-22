@@ -11,14 +11,17 @@
  *
  * One machine per emulator wiring family rather than every registered machine:
  * the thing at risk is the *wiring*, and `lineProfiling.test.ts` already boots
- * every machine to check what it measures. The list below is hand-maintained
- * and deliberately not crosschecked against the registry - a new machine joins
- * it only when it is wired to its core in a way none of these covers. Each family runs two machines of the same dialect
- * from the same program - one armed, one not - for the same number of frames,
- * and their screens have to agree afterwards.
+ * every machine to check what it measures. Each family runs two machines of the
+ * same dialect from the same program - one armed, one not - for the same number
+ * of frames, and their screens have to agree afterwards.
+ *
+ * Which family a machine belongs to is hand-decided, but *that* it belongs to
+ * one is not: the claims below are crosschecked against the registry, so a
+ * machine wired to its core in a way none of these covers fails here until it
+ * joins a family or starts one.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { getDialect } from './registry';
+import { dialects, getDialect } from './registry';
 import {
   bootMachine,
   installNodeRomLoading,
@@ -34,14 +37,32 @@ const BOOT_TIMEOUT_MS = 60_000;
  * PMD 85, whose run loop and debug loop were folded onto one stepper to carry
  * the charge the way the CPC's were.
  */
-const FAMILIES = [
-  'zxspectrum',
-  'pet',
-  'commodore64',
-  'bbcmicro',
-  'cpc464',
-  'pmd85',
-];
+const FAMILIES: Record<string, string[]> = {
+  /** The self-contained Z80 machines under src/dialects/<id>/. */
+  zxspectrum: ['zxspectrum', 'zxspectrum128', 'zx80', 'zx81'],
+  /** The shared cpu6502 core. */
+  pet: ['pet', 'vic20', 'atom'],
+  /** viciious. */
+  commodore64: ['commodore64'],
+  /** jsbeeb. */
+  bbcmicro: ['bbcmicro', 'bbcmaster'],
+  /** The CPC's own Z80 run loop. */
+  cpc464: ['cpc464', 'cpc6128'],
+  /** 8080 object code through the shared i8080 layer. */
+  pmd85: ['pmd85'],
+};
+
+/** Machines with no profiled run to compare, and why. */
+const NOT_PROFILED: Record<string, string> = {
+  // The 8K BASIC image carries no redistribution grant and does not ship, so
+  // there is no CPU to run here at all - the same split the loop-speed and
+  // memory-activity batteries make.
+  altair8800: 'its ROM does not ship, so no run can be measured',
+  // The default backend interprets BASIC statements rather than executing a CPU
+  // over a RAM image, so there is no run loop to fold a profiler onto (see
+  // memoryActivity.test.ts).
+  trs80: 'the interpreter backend executes no CPU over a RAM image',
+};
 
 /** Prints as it counts, so the screen carries the run's whole history. */
 const PROBE = '10 FOR I=1 TO 40\n20 PRINT I;\n30 NEXT I\n40 GOTO 10\n';
@@ -54,7 +75,7 @@ describe('measuring a run does not change it', () => {
   });
   afterAll(() => undoRomLoading());
 
-  for (const id of FAMILIES) {
+  for (const id of Object.keys(FAMILIES)) {
     it(
       `${id} reaches the same state measured or not`,
       async () => {
@@ -91,4 +112,38 @@ describe('measuring a run does not change it', () => {
       BOOT_TIMEOUT_MS,
     );
   }
+});
+
+describe('every registered machine is covered by a profiling family', () => {
+  it('claims each dialect exactly once, or excuses it by name', () => {
+    const claimed = Object.values(FAMILIES).flat();
+    expect(new Set(claimed).size, 'a machine is claimed twice').toBe(
+      claimed.length,
+    );
+    const covered = new Set([...claimed, ...Object.keys(NOT_PROFILED)]);
+    expect(
+      dialects.map((d) => d.id).filter((id) => !covered.has(id)),
+      'claim the machine in FAMILIES under the representative whose wiring it ' +
+        'shares, or excuse it in NOT_PROFILED with a reason',
+    ).toEqual([]);
+  });
+
+  it('claims and excuses only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of [
+      ...Object.keys(FAMILIES),
+      ...Object.values(FAMILIES).flat(),
+      ...Object.keys(NOT_PROFILED),
+    ]) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+
+  // A representative that does not stand for itself would leave its own family
+  // measured by a machine outside it.
+  it('runs each representative as a member of the family it heads', () => {
+    for (const [id, members] of Object.entries(FAMILIES)) {
+      expect(members, `${id} does not claim itself`).toContain(id);
+    }
+  });
 });

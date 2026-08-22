@@ -32,7 +32,8 @@ import type { ProgramSize, ProgramVocabulary } from '../app/programVocabulary';
 import type { PortSide } from '../reference/portDescription';
 import { vocabularyReply } from '../app/programVocabulary';
 import { buildUserMessage } from './promptBuilder';
-import { loadEscapePage, loadReferencePage, pageFor } from './machineReference';
+import { loadEscapePage, loadReferencePage } from './machineReference';
+import { referencePageOf } from '../dialects/referencePage';
 
 /** What the assistant is asked to do, once it has been told what the port is. */
 function instructionFor(toLabel: string): string {
@@ -64,7 +65,7 @@ const SETTLE_DECISIONS =
 
 /** One end of the port, with the tables its reference page owns. */
 async function sideFor(dialect: Dialect): Promise<PortSide | null> {
-  const page = pageFor(dialect);
+  const page = referencePageOf(dialect);
   const [table, escapes] = await Promise.all([
     loadReferencePage(page),
     loadEscapePage(page),

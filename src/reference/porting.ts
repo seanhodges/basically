@@ -16,10 +16,12 @@ export const keywordEquivalences: KeywordEquivalence[] = [
   {
     concept: 'unconditional-jump',
     spellings: {
+      altair8800: 'GOTO',
       atom: 'GOTO',
       bbc: 'GOTO',
       commodore: 'GOTO',
       cpc: 'GOTO',
+      pmd85: 'GOTO',
       trs80: 'GOTO',
       zx80: 'GOTO',
       zx81: 'GOTO',
@@ -29,10 +31,12 @@ export const keywordEquivalences: KeywordEquivalence[] = [
   {
     concept: 'subroutine-call',
     spellings: {
+      altair8800: 'GOSUB',
       atom: 'GOSUB',
       bbc: 'GOSUB',
       commodore: 'GOSUB',
       cpc: 'GOSUB',
+      pmd85: 'GOSUB',
       trs80: 'GOSUB',
       zx80: 'GOSUB',
       zx81: 'GOSUB',
@@ -42,8 +46,10 @@ export const keywordEquivalences: KeywordEquivalence[] = [
   {
     concept: 'resume-after-break',
     spellings: {
+      altair8800: 'CONT',
       commodore: 'CONT',
       cpc: 'CONT',
+      pmd85: 'CONT',
       trs80: 'CONT',
       zx81: 'CONT',
       zx80: 'CONTINUE',
@@ -55,9 +61,11 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     // has no discard-variables command at all.
     concept: 'discard-variables',
     spellings: {
+      altair8800: 'CLEAR',
       bbc: 'CLEAR',
       commodore: 'CLR',
       cpc: 'CLEAR',
+      pmd85: 'CLEAR',
       trs80: 'CLEAR',
       zx80: 'CLEAR',
       zx81: 'CLEAR',
@@ -104,6 +112,7 @@ export const falseFriends: FalseFriend[] = [
       bbc: 'Bitwise on integers: 5 AND 3 is 1.',
       commodore: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       cpc: 'Bitwise on integers: 5 AND 3 is 1.',
+      pmd85: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       trs80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       zx80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       zx81: 'Picks a value, not bits: a AND b is a when b is non-zero and 0 otherwise, so 5 AND 3 is 5.',
@@ -119,6 +128,7 @@ export const falseFriends: FalseFriend[] = [
       bbc: 'Bitwise on integers: 5 OR 3 is 7.',
       commodore: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       cpc: 'Bitwise on integers: 5 OR 3 is 7.',
+      pmd85: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       trs80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       zx80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       zx81: 'Picks a value, not bits: a OR b is 1 when b is non-zero and a otherwise, so 5 OR 3 is 1.',
@@ -129,10 +139,12 @@ export const falseFriends: FalseFriend[] = [
   {
     keyword: 'LOG',
     meanings: {
+      altair8800: 'Natural (base-e) logarithm. There is no LN.',
       atom: 'Base-10 logarithm; LN gives the natural logarithm.',
       bbc: 'Base-10 logarithm; LN gives the natural logarithm.',
       commodore: 'Natural (base-e) logarithm. There is no LN.',
       cpc: 'Natural (base-e) logarithm.',
+      pmd85: 'Natural (base-e) logarithm. There is no LN.',
       trs80: 'Natural (base-e) logarithm.',
     },
   },
@@ -143,9 +155,11 @@ export const falseFriends: FalseFriend[] = [
     // identical meanings raise no warning between them.
     keyword: 'CLEAR',
     meanings: {
+      altair8800: 'Discards all variables, leaving the program intact.',
       atom: 'Selects a screen mode and clears it — CLEAR 0 is the text screen.',
       bbc: 'Discards all variables, leaving the program intact.',
       cpc: 'Discards all variables, leaving the program intact.',
+      pmd85: 'Discards all variables, leaving the program intact.',
       trs80: 'Discards all variables, leaving the program intact.',
       zx80: 'Discards all variables, leaving the program intact.',
       zx81: 'Discards all variables, leaving the program intact.',
@@ -178,6 +192,8 @@ export const falseFriends: FalseFriend[] = [
     meanings: {
       bbc: 'The argument is a time: it waits up to that many centiseconds for any key and returns its code, or -1 if none came. A negative argument tests one particular key instead.',
       cpc: 'The argument is a key number: it reports whether that key is down right now and never waits, returning -1 when it is up.',
+      pmd85:
+        'Takes no argument at all: it reports which function key K0-K11 is held, or 255 when none is, and sees no other key.',
     },
   },
   {
@@ -200,6 +216,8 @@ export const falseFriends: FalseFriend[] = [
       bbc: 'The argument is the address: it calls machine code there with the registers preset from A%, X%, Y% and the carry flag, and returns them packed into one number.',
       commodore:
         'The argument is data: it calls the routine whose address is held in the USR vector at $0311, and returns that routine’s result.',
+      pmd85:
+        'The argument is the address: it calls 8080 code there and returns what the routine leaves behind, so the routine must end in RET.',
       trs80:
         'The argument is data: it calls the routine whose address was set up by POKE or DEF USR, and returns that routine’s result.',
       zx80: 'The argument is the address: it calls machine code there and returns the BC register pair.',

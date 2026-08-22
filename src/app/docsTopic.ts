@@ -1,3 +1,4 @@
+import { referencePageOf } from '../dialects/referencePage';
 import type { Cpu } from '../asm/types';
 import type { Dialect } from '../dialects/types';
 import type { ActiveTab } from './store';
@@ -16,7 +17,7 @@ export function referenceTopic(
   keyword: string,
 ): string | null {
   if (!keyword) return null;
-  const page = dialect.docsReference ?? dialect.id;
+  const page = referencePageOf(dialect);
   return `reference/${page}?q=${encodeURIComponent(keyword)}`;
 }
 

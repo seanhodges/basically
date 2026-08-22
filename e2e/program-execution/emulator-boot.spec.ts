@@ -12,6 +12,7 @@ import {
   playAndWaitRunning,
   stopEmulator,
 } from '../helpers';
+import { BOOT_MACHINES as MACHINES } from '../bootMachines';
 
 /**
  * Emulator: the machine picker's list, and one boot per emulator wiring family.
@@ -32,32 +33,6 @@ import {
  * (see REPRESENTATIVES).
  */
 
-/** Every machine the picker offers. Keep in sync with src/dialects/registry.ts -
- *  the guard test below fails with a helpful message when a machine is added,
- *  renamed or re-identified. Ids and labels both come from the rows of the
- *  shared machine picker. Only the REPRESENTATIVES below are booted.
- *
- *  The picker offers only machines that can actually start, so a registered
- *  dialect whose ROM is missing is deliberately absent from both - the Altair,
- *  whose 8K BASIC image ships with nobody. `e2e/project-setup/new-project.spec.ts`
- *  asserts that omission from the other side. */
-const MACHINES = [
-  { id: 'atom', label: 'Atom' },
-  { id: 'bbcmaster', label: 'BBC Master' },
-  { id: 'bbcmicro', label: 'BBC Micro' },
-  { id: 'commodore64', label: 'C64' },
-  { id: 'cpc464', label: 'CPC 464' },
-  { id: 'cpc6128', label: 'CPC 6128' },
-  { id: 'pet', label: 'PET' },
-  { id: 'pmd85', label: 'PMD 85-2' },
-  { id: 'zxspectrum', label: 'Spectrum' },
-  { id: 'zxspectrum128', label: 'Spectrum 128' },
-  { id: 'trs80', label: 'TRS-80' },
-  { id: 'vic20', label: 'VIC-20' },
-  { id: 'zx80', label: 'ZX80' },
-  { id: 'zx81', label: 'ZX81' },
-];
-
 test('guard: automated machine list matches the machine picker', async ({
   page,
 }) => {
@@ -77,7 +52,7 @@ test('guard: automated machine list matches the machine picker', async ({
   }));
 
   const msg =
-    'a machine was added/renamed - update MACHINES in emulator-boot.spec.ts';
+    'a machine was added/renamed - update BOOT_MACHINES in e2e/bootMachines.ts';
   expect(labels.sort(), msg).toEqual(MACHINES.map((m) => m.label).sort());
   expect(ids.sort(), msg).toEqual(MACHINES.map((m) => m.id).sort());
 

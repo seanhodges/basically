@@ -7,6 +7,7 @@ import {
   type ConstructTemplate,
 } from './constructs';
 import { buildCompletionSource } from './completions';
+import { dialects } from '../dialects/registry';
 import type { KeywordInfo } from '../dialects/types';
 
 describe('buildConstructSnippet', () => {
@@ -23,25 +24,49 @@ describe('buildConstructSnippet', () => {
   });
 });
 
+/**
+ * Machines with no construct templates, and why. An exact set rather than a
+ * silent skip: a machine registered without templates is a machine whose
+ * completion list quietly drops to bare keywords, which looks like a language
+ * with no blocks in it rather than like an omission.
+ */
+const NO_CONSTRUCT_TEMPLATES: Record<string, string> = {};
+
 describe('constructsByDialect', () => {
-  it('covers every dialect with block templates', () => {
-    for (const id of [
-      'zx81',
-      'zx80',
-      'zxspectrum',
-      'zxspectrum128',
-      'bbcmicro',
-      'bbcmaster',
-      'commodore64',
-      'atom',
-      'trs80',
-    ]) {
-      const list = constructsByDialect[id];
-      expect(list, id).toBeDefined();
-      // Every dialect offers at least IF, a loop and a subroutine/procedure.
-      expect(list!.some((c) => c.label === 'IF')).toBe(true);
-      expect(list!.some((c) => c.label === 'FOR')).toBe(true);
+  it.each(dialects.map((d) => d.id))('%s has block templates', (id) => {
+    if (NO_CONSTRUCT_TEMPLATES[id]) {
+      expect(constructsByDialect[id], id).toBeUndefined();
+      return;
     }
+    const list = constructsByDialect[id];
+    expect(
+      list,
+      `${id} has no construct templates - add them to constructsByDialect, ` +
+        'or list it in NO_CONSTRUCT_TEMPLATES with a reason',
+    ).toBeDefined();
+    // Every dialect offers at least IF, a loop and a subroutine/procedure.
+    expect(
+      list!.some((c) => c.label === 'IF'),
+      id,
+    ).toBe(true);
+    expect(
+      list!.some((c) => c.label === 'FOR'),
+      id,
+    ).toBe(true);
+  });
+
+  it('excuses only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of Object.keys(NO_CONSTRUCT_TEMPLATES)) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+
+  it('templates only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    expect(
+      Object.keys(constructsByDialect).filter((id) => !ids.has(id)),
+    ).toEqual([]);
   });
 
   it('uses the Spectrum two-word GO SUB spelling', () => {

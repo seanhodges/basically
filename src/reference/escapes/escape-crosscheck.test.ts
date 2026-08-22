@@ -30,17 +30,9 @@
 import { describe, expect, it } from 'vitest';
 import type { EscapeEntry, EscapeTableData } from '../types';
 
-import { zx81Escapes } from './zx81';
-import { zx80Escapes } from './zx80';
-import { zxspectrumEscapes } from './zxspectrum';
-import { bbcEscapes } from './bbc';
-import { commodoreEscapes } from './commodore';
-import { trs80Escapes } from './trs80';
-import { atomEscapes } from './atom';
-import { cpcEscapes } from './cpc';
-import { altair8800Escapes } from './altair8800';
-import { pmd85Escapes } from './pmd85';
+import { escapePages } from '../pages';
 import { dialects } from '../../dialects/registry';
+import { referencePageOf } from '../../dialects/referencePage';
 
 import {
   CHARSET_PROBES,
@@ -90,46 +82,31 @@ function floatParserFor(
 }
 
 /**
- * What the shared charset probes don't carry: the docs table each family is
- * pinned against, and the float-override probe where the page documents one.
- * Keyed by charset-probe id, so a new probe without a table fails loudly below
- * rather than silently going unchecked.
+ * What neither the shared charset probes nor the shared page map carries: the
+ * float-override probe, for the two pages whose docs carry float rows. Keyed by
+ * charset-probe id, which is the page slug the tables are keyed by too.
  */
-const EXTRAS: Record<string, { data: EscapeTableData; float?: FloatProbe }> = {
+const FLOATS: Record<string, FloatProbe> = {
   zx81: {
-    data: zx81Escapes,
-    float: {
-      parse: floatParserFor(zx81ParseFloat),
-      notation: zx81FloatNotation,
-    },
+    parse: floatParserFor(zx81ParseFloat),
+    notation: zx81FloatNotation,
   },
-  zx80: { data: zx80Escapes },
   zxspectrum: {
-    data: zxspectrumEscapes,
-    float: {
-      parse: floatParserFor(spectrumParseFloat),
-      notation: spectrumFloatNotation,
-    },
+    parse: floatParserFor(spectrumParseFloat),
+    notation: spectrumFloatNotation,
   },
-  bbc: { data: bbcEscapes },
-  commodore: { data: commodoreEscapes },
-  trs80: { data: trs80Escapes },
-  atom: { data: atomEscapes },
-  cpc: { data: cpcEscapes },
-  altair8800: { data: altair8800Escapes },
-  pmd85: { data: pmd85Escapes },
 };
 
 type Adapter = CharsetProbe & { data: EscapeTableData; float?: FloatProbe };
 
 const ADAPTERS: [string, Adapter][] = CHARSET_PROBES.map((probe) => {
-  const extra = EXTRAS[probe.id];
-  if (!extra) {
+  const data = escapePages[probe.id];
+  if (!data) {
     throw new Error(
-      `charset probe "${probe.id}" has no escape table registered in EXTRAS`,
+      `charset probe "${probe.id}" has no escape table in src/reference/pages.ts`,
     );
   }
-  return [probe.id, { ...probe, ...extra }];
+  return [probe.id, { ...probe, data, float: FLOATS[probe.id] }];
 });
 
 describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
@@ -216,7 +193,7 @@ describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
 
 describe('escape cross-check: table-driven extras', () => {
   it('every BBC teletext name has a row', () => {
-    const spellings = new Set(bbcEscapes.entries.map((e) => e.escape));
+    const spellings = new Set(escapePages.bbc!.entries.map((e) => e.escape));
     for (const name of Object.values(TELETEXT_NAMES)) {
       expect(spellings.has(`{${name}}`), name).toBe(true);
     }
@@ -224,7 +201,10 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every petcat alias appears as a C64 row or alias', () => {
     const spellings = new Set(
-      commodoreEscapes.entries.flatMap((e) => [e.escape, ...(e.aliases ?? [])]),
+      escapePages.commodore!.entries.flatMap((e) => [
+        e.escape,
+        ...(e.aliases ?? []),
+      ]),
     );
     for (const name of Object.keys(PETCAT_ALIASES)) {
       expect(spellings.has(`{${name}}`), name).toBe(true);
@@ -232,7 +212,9 @@ describe('escape cross-check: table-driven extras', () => {
   });
 
   it('every C64 letter-key graphic has a {CBM-x}/{SHIFT-x} row', () => {
-    const spellings = new Set(commodoreEscapes.entries.map((e) => e.escape));
+    const spellings = new Set(
+      escapePages.commodore!.entries.map((e) => e.escape),
+    );
     // A graphic printed on no key (`key` is optional - the CPC and TRS-80
     // printed none) has no {CBM-x} spelling to look for.
     for (const { key } of C64_COMMODORE_GRAPHICS) {
@@ -249,8 +231,8 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every Sinclair backslash escape has a row, with its glyph as alias', () => {
     for (const [table, escapes, graphics] of [
-      [zx81Escapes, ZX81_ESCAPES, ZX81_GRAPHICS],
-      [zx80Escapes, ZX80_ESCAPES, ZX80_GRAPHICS],
+      [escapePages.zx81!, ZX81_ESCAPES, ZX81_GRAPHICS],
+      [escapePages.zx80!, ZX80_ESCAPES, ZX80_GRAPHICS],
     ] as const) {
       const byEscape = new Map(table.entries.map((e) => [e.escape, e]));
       for (const [key, code] of Object.entries(escapes)) {
@@ -289,13 +271,10 @@ describe('escape cross-check: table-driven extras', () => {
  * row.
  */
 describe('escape machine scoping', () => {
-  const pageOf = (d: { id: string; docsReference?: string }) =>
-    d.docsReference ?? d.id;
-
   it('every onlyOn names a machine the page covers', () => {
     for (const [id, adapter] of ADAPTERS) {
       const onPage = new Set(
-        dialects.filter((d) => pageOf(d) === id).map((d) => d.id),
+        dialects.filter((d) => referencePageOf(d) === id).map((d) => d.id),
       );
       for (const entry of adapter.data.entries) {
         for (const scoped of entry.onlyOn ?? []) {

@@ -1,29 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { EscapeTableData } from '../types';
 import { ESCAPE_CLASSES } from '../escape-classes';
-import { altair8800Escapes } from './altair8800';
-import { pmd85Escapes } from './pmd85';
-import { zx81Escapes } from './zx81';
-import { zx80Escapes } from './zx80';
-import { zxspectrumEscapes } from './zxspectrum';
-import { bbcEscapes } from './bbc';
-import { commodoreEscapes } from './commodore';
-import { trs80Escapes } from './trs80';
-import { atomEscapes } from './atom';
-import { cpcEscapes } from './cpc';
+import { escapePages } from '../pages';
 
-const SETS: [string, EscapeTableData][] = [
-  ['zx81', zx81Escapes],
-  ['zx80', zx80Escapes],
-  ['zxspectrum', zxspectrumEscapes],
-  ['bbc', bbcEscapes],
-  ['commodore', commodoreEscapes],
-  ['trs80', trs80Escapes],
-  ['atom', atomEscapes],
-  ['cpc', cpcEscapes],
-  ['altair8800', altair8800Escapes],
-  ['pmd85', pmd85Escapes],
-];
+const SETS = Object.entries(escapePages);
 
 describe.each(SETS)('escape data: %s', (_id, data) => {
   it('has a title, machine list, categories and entries', () => {

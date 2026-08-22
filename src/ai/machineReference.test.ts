@@ -15,12 +15,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
 import { portingFacts } from '../reference/facts';
 import {
   loadEscapePage,
   loadMachineReference,
   loadReferencePage,
-  pageFor,
 } from './machineReference';
 
 /**
@@ -308,7 +308,7 @@ describe('the tables a port report is composed from', () => {
     'resolves both tables for %s',
     async (id) => {
       const dialect = dialects.find((d) => d.id === id)!;
-      const page = pageFor(dialect);
+      const page = referencePageOf(dialect);
       expect(await loadReferencePage(page)).toBeDefined();
       if (PAGES_WITHOUT_ESCAPES.includes(page)) {
         expect(await loadEscapePage(page)).toBeUndefined();
