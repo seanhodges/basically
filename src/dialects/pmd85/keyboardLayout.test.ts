@@ -9,7 +9,12 @@ import { splitRomImage } from './romImage';
 import { Pmd85Machine } from './emulator/pmd85Machine';
 import { DISPLAYED_BYTES_PER_LINE, VIDEO_RAM_STRIDE } from './emulator/display';
 import {
+  pmd85FontSignatures,
+  readPmd85ScreenText,
+} from './emulator/screenText';
+import {
   PMD85_KEY_TOKENS,
+  PMD85_MATRIX_TOKENS,
   Pmd85Keyboard,
   tokenForHostCode,
 } from './emulator/keyboard';
@@ -21,6 +26,13 @@ const layout = pmd85KeyboardLayout;
 const keys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
 /** Every key that drives the matrix; template spacers emit nothing. */
 const driving = keys.filter((k) => k.emits.length > 0);
+
+/**
+ * What the `⌫` keycap actually presses, taken from the layout rather than named
+ * here: the point of the test below is that whatever this keycap is wired to
+ * erases on the real Monitor.
+ */
+const backspaceToken = keys.find((k) => k.labels[0]?.text === '⌫')!.emits[0]!;
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
@@ -72,7 +84,7 @@ function romChar(row: number, bit: number, shifted: boolean): string | null {
 const position = new Map<string, { row: number; bit: number }>();
 {
   const keyboard = new Pmd85Keyboard();
-  for (const token of PMD85_KEY_TOKENS) {
+  for (const token of PMD85_MATRIX_TOKENS) {
     keyboard.releaseAll();
     keyboard.setKey(token, true);
     for (let row = 0; row < MATRIX_ROWS; row++) {
@@ -198,7 +210,7 @@ describe('pmd85 keyboard layout', () => {
         (t): t is string => t !== null,
       ),
     );
-    for (const token of PMD85_KEY_TOKENS) {
+    for (const token of PMD85_MATRIX_TOKENS) {
       expect(
         emitted.has(token) || fromHost.has(token),
         `no key and no host code reaches "${token}"`,
@@ -289,22 +301,52 @@ describe('pmd85 keyboard layout', () => {
     expect(layout.graphicsPalette).toBeUndefined();
   });
 
-  it('types onto a running machine within its own hold time', () => {
+  it('types and erases on a running machine within its own hold time', () => {
     // The layout's `minHoldFrames` is a claim about the Monitor's scan rate, so
-    // it is proved against the Monitor: three keys tapped for exactly that many
-    // frames each have to reach the screen. A hold too short for the scan drops
+    // it is proved against the Monitor: a line tapped out at exactly that many
+    // frames a key has to reach the screen. A hold too short for the scan drops
     // characters silently, which reads as a broken matrix.
     const hold = layout.options?.minHoldFrames ?? 1;
+    const tokenFor: Readonly<Record<string, string>> = {
+      P: 'KeyP',
+      R: 'KeyR',
+      I: 'KeyI',
+      N: 'KeyN',
+      T: 'KeyT',
+      ' ': 'Space',
+      '1': 'Digit1',
+      '2': 'Digit2',
+    };
     const pmd = new Pmd85Machine(splitRomImage(rom));
     pmd.bootToReady();
-    for (const token of ['KeyP', 'KeyR', 'KeyI']) {
+    const tap = (token: string) => {
       pmd.setKey(token, true);
       for (let frame = 0; frame < hold; frame++) pmd.runFrame();
       pmd.setKey(token, false);
       for (let frame = 0; frame < hold; frame++) pmd.runFrame();
-    }
+    };
+    for (const ch of 'PRINT 12') tap(tokenFor[ch]!);
     for (let frame = 0; frame < 10; frame++) pmd.runFrame();
-    expect(dialogueLine(pmd.mem.videoRam)).toBe('PRI');
+    expect(dialogueLine(pmd.mem.videoRam)).toBe('PRINT 12');
+
+    // …and erases with the token the `⌫` keycap emits, which is the one thing
+    // this machine has no key of its own for. What ENTER submits is asserted
+    // too, because the screen alone cannot tell a real erase from either half
+    // of one: DEL at the end of a line has no character under the cursor to
+    // take, and a bare `←` only steps the cursor back over the `2`, leaving it
+    // on screen and in the line for ENTER to submit.
+    tap(backspaceToken);
+    for (let frame = 0; frame < 10; frame++) pmd.runFrame();
+    expect(dialogueLine(pmd.mem.videoRam)).toBe('PRINT 1');
+
+    tap('Enter');
+    for (let frame = 0; frame < 40; frame++) pmd.runFrame();
+    const signatures = pmd85FontSignatures(splitRomImage(rom).monitor);
+    const screen = readPmd85ScreenText(
+      signatures,
+      (offset) => pmd.mem.videoRam[offset]!,
+    );
+    expect(screen.lines.map((line) => line.trimEnd())).toContain(' 1');
   });
 
   it('fills its grid exactly on every row', () => {

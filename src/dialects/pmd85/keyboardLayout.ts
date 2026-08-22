@@ -31,19 +31,20 @@ import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
  *  - Every typing band keeps the template's **ten** keys. The home row ends in
  *    `;` and the fourth in `, . /`, exactly where a typist expects them.
  *  - The symbol columns that no longer fit - `_`, `:` and `\\` - move to the
- *    bottom row beside DEL and ENTER, the way the Altair's `:` and `-` do.
- *    Between them those three carry `=`, `+`, `*` and `^`, without which no
- *    BASIC-G program can be typed at all.
+ *    bottom row beside the backspace and ENTER, the way the Altair's `:` and
+ *    `-` do. Between them those three carry `=`, `+`, `*` and `^`, without
+ *    which no BASIC-G program can be typed at all.
  *  - The function keys have the top strip to themselves, WRK included: it
  *    selects their second bank, so it belongs with them rather than on a
  *    typing band.
  *
  * What is left over is reached from the host keyboard instead of a keycap: the
- * editing block (INS, RCL, END, the cursor keys, both tab keys, C-D, CLR and
- * the numeric ENTER), STOP, and the three symbol keys BASIC-G has no use for
- * (`@`, `]`, `}`). `emulator/keyboard.ts` maps each to the `KeyboardEvent.code`
- * a browser sends, and the layout test checks that union rather than the layout
- * alone, so a key reachable by neither route fails.
+ * editing block (INS, DEL, RCL, END, the cursor keys other than `←`, both tab
+ * keys, C-D, CLR and the numeric ENTER), STOP, and the three symbol keys
+ * BASIC-G has no use for (`@`, `]`, `}`). `emulator/keyboard.ts` maps each to
+ * the `KeyboardEvent.code` a browser sends, and the layout test checks that
+ * union rather than the layout alone, so a key reachable by neither route
+ * fails.
  *
  * STOP has no keycap for a second reason: it stops a running program, which on
  * this IDE is what the toolbar's own stop control is for, and a STOP the width
@@ -103,15 +104,17 @@ const homeRow: KeyDef[] = [
 ];
 
 /**
- * DEL is the machine's delete-character key rather than a destructive
- * backspace - the Monitor sends 0x08 for that, from the `←` key - but the
- * editor wants the ordinary thing from a `⌫` legend, so its editor action
- * overrides the layer default.
+ * A `⌫` keycap, which this machine has no single key for: its editor walks the
+ * cursor left with `←` and deletes with DEL, so `Backspace` is a macro token
+ * `emulator/keyboard.ts` plays out as both. The machine's own DEL keeps no
+ * keycap of its own - it is typed on the host, like the rest of the editing
+ * block - and the editor action overrides the layer default so the keycap does
+ * the ordinary thing against source too.
  */
-const delKey: KeyDef = {
-  id: 'Del',
+const backspaceKey: KeyDef = {
+  id: 'Backspace',
   spanX: 4,
-  emits: ['Del'],
+  emits: ['Backspace'],
   labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
 };
 
@@ -170,7 +173,7 @@ const rows: KeyDef[][] = [
   bottomRow(
     [shiftKey, key('Backslash', '\\', '^'), key('Underscore', '_', '=')],
     spaceKey,
-    [key('Colon', ':', '*'), delKey, enterKey],
+    [key('Colon', ':', '*'), backspaceKey, enterKey],
   ),
 ];
 

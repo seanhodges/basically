@@ -48,7 +48,7 @@ export const pmd85Escapes: EscapeTableData = {
     },
     control(
       0x08,
-      "Backspace: the print position moves one cell left and the character there is erased. This is what the keyboard's ← key sends.",
+      "Backspace: the print position moves one cell left, over the character already there rather than erasing it, so the next thing printed overwrites it. This is what the keyboard's ← key sends, which is why ← alone does not rub a character out - the machine erases with DEL.",
     ),
     control(
       0x0a,

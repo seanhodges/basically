@@ -28,9 +28,10 @@ import { CharsetError, type CharsetMapping } from '../types';
  *    BLOCK), the same character the Sinclair and Amstrad charsets use for their
  *    own solid cell.
  *  - Everything else has no glyph. Codes 0x00-0x1F are control codes, of which
- *    the Monitor's screen driver acts on four - 0x08 backspace, 0x0A ignored,
- *    0x0D newline and 0x1C clear screen (what `GCLEAR` prints) - and ignores
- *    the rest. Codes 0x80-0xFF fall in the group-base table's unmapped groups
+ *    the Monitor's screen driver acts on four - 0x08 backspace (which steps the
+ *    print position left over the character rather than erasing it), 0x0A
+ *    ignored, 0x0D newline and 0x1C clear screen (what `GCLEAR` prints) - and
+ *    ignores the rest. Codes 0x80-0xFF fall in the group-base table's unmapped groups
  *    and draw the Monitor's placeholder glyph, but a string can still hold
  *    them, so `ASC(CHR$(255))` really is 255. All of these are written as a
  *    `{0xNN}` raw-byte escape, the braced style the Altair and TRS-80 charsets

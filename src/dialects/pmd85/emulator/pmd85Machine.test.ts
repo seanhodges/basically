@@ -187,6 +187,28 @@ describe('Pmd85Machine', () => {
     expect(hidden.some((byte) => byte !== 0)).toBe(true);
   });
 
+  it('backspaces without erasing when a program prints 0x08', () => {
+    // The Monitor's screen driver acts on 0x08, but only by stepping the print
+    // position left: the character stays until something overwrites it. Stated
+    // here because the reference and the keyboard both hang off it - `←` sends
+    // this code, which is why `←` alone is not a destructive backspace and the
+    // `⌫` keycap has to follow it with DEL.
+    const pmd = machine();
+    pmd.loadProgram(
+      tokenizeProgram(
+        '10 PRINT "AB";CHR$(8);"C"\n20 PRINT "DE";CHR$(8);\n30 END\n',
+      ).program,
+    );
+    for (let frame = 0; frame < 200 && pmd.isProgramRunning(); frame++) {
+      pmd.runFrame();
+    }
+    const lines = screenText(pmd.mem.videoRam);
+    // The print position moved back over the B, so the C landed on it…
+    expect(lines).toContain('AC');
+    // …and with nothing printed after it, the E is still there.
+    expect(lines).toContain('DE');
+  });
+
   it('starts at the line autoStart names', () => {
     const pmd = machine();
     pmd.loadProgram(

@@ -279,6 +279,9 @@ export class Pmd85Machine implements MachineEmulator {
   runFrame(): void {
     if (!this.hasFirmware) return;
     this.frames++;
+    // Before the CPU runs, so a macro's step is on the matrix for the whole
+    // frame the Monitor scans it in.
+    this.keyboard.tick();
     this.runCycles(CYCLES_PER_FRAME);
   }
 

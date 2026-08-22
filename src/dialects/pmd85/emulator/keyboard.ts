@@ -79,10 +79,10 @@ const HOST_CODES: Readonly<Record<string, string>> = {
   Backslash: 'Backslash',
   BracketRight: 'BracketLeft',
   Equal: 'BraceLeft',
-  Backspace: 'Del',
   Home: 'ClrDel',
   End: 'End',
-  Delete: 'Ins',
+  Delete: 'Del',
+  Insert: 'Ins',
   PageUp: 'Clr',
   PageDown: 'Rcl',
   Tab: 'TabRight',
@@ -91,6 +91,30 @@ const HOST_CODES: Readonly<Record<string, string>> = {
   Backquote: 'TabLeft',
   Escape: 'K0',
 };
+
+/**
+ * Host keys that are one keystroke on a modern board and a short sequence on
+ * this one, played out over the frames after the press.
+ *
+ * Backspace is the only one, and this machine has no key for it. `←` sends
+ * 0x08, which steps the cursor left *over* the character without taking it out
+ * of the line - ENTER after a bare `←` still submits everything typed - and DEL
+ * is what removes whatever the cursor then sits on. So a destructive backspace
+ * is `←` *then* DEL, in that order and one at a time: a scan reports a single
+ * key, so holding both down erases nothing at all.
+ */
+const MACROS: Readonly<Record<string, readonly string[]>> = {
+  Backspace: ['ArrowLeft', 'Del'],
+};
+
+/**
+ * Frames a macro step is held for, and then left released for, before the next
+ * one starts. One frame each is what the layout's `minHoldFrames` claims for an
+ * ordinary keycap - the Monitor scans the matrix many times over a frame - and
+ * the gap is what keeps two steps from reading as one long press.
+ */
+const MACRO_HOLD_FRAMES = 1;
+const MACRO_GAP_FRAMES = 1;
 
 interface KeyPosition {
   row: number;
@@ -107,8 +131,18 @@ for (const [token, bit] of Object.entries(MODIFIER_BITS)) {
   KEY_POSITIONS.set(token, { row: MODIFIER_ROW, bit: Math.log2(bit) });
 }
 
-/** Every token this keyboard answers to, for the layout tests to check against. */
-export const PMD85_KEY_TOKENS: readonly string[] = [...KEY_POSITIONS.keys()];
+/** Every key of the matrix, by token - one cell of the machine's own keyboard each. */
+export const PMD85_MATRIX_TOKENS: readonly string[] = [...KEY_POSITIONS.keys()];
+
+/**
+ * Every token {@link Pmd85Keyboard.setKey} answers to, for the layout tests to
+ * check against: the matrix, plus the macro keys, which press no cell of their
+ * own but stand for a sequence of them.
+ */
+export const PMD85_KEY_TOKENS: readonly string[] = [
+  ...PMD85_MATRIX_TOKENS,
+  ...Object.keys(MACROS),
+];
 
 /**
  * The PMD 85 key a host `KeyboardEvent.code` reaches, or null where the host
@@ -138,6 +172,9 @@ export class Pmd85Keyboard {
   private readonly matrix = new Uint8Array(16);
   private readonly physicalDown = new Set<string>();
   private readonly virtualDown = new Set<string>();
+  private readonly macroDown = new Set<string>();
+  private macroSteps: { token: string; down: boolean }[] = [];
+  private macroFrames = 0;
 
   /**
    * A host key event, translated to whatever PMD 85 key sits under it. Returns
@@ -145,6 +182,11 @@ export class Pmd85Keyboard {
    * own handling of it.
    */
   handleEvent(e: KeyboardEvent, down: boolean): boolean {
+    const macro = MACROS[e.code];
+    if (macro) {
+      if (down) this.startMacro(macro);
+      return true;
+    }
     const token = tokenForHostCode(e.code);
     if (token === null) return false;
     if (down) this.physicalDown.add(token);
@@ -155,16 +197,55 @@ export class Pmd85Keyboard {
 
   /** A key pressed on the virtual keyboard, by layout token. */
   setKey(token: string, down: boolean): void {
+    const macro = MACROS[token];
+    if (macro) {
+      if (down) this.startMacro(macro);
+      return;
+    }
     if (!KEY_POSITIONS.has(token)) return;
     if (down) this.virtualDown.add(token);
     else this.virtualDown.delete(token);
     this.apply(token);
   }
 
+  /**
+   * Advance a running macro by one frame. The machine calls this once per
+   * frame, which is the only clock this class has: a macro's steps have to land
+   * in separate scans, and a key event arrives with no time attached to it.
+   */
+  tick(): void {
+    if (this.macroFrames > 0) {
+      this.macroFrames--;
+      return;
+    }
+    const step = this.macroSteps.shift();
+    if (!step) return;
+    if (step.down) this.macroDown.add(step.token);
+    else this.macroDown.delete(step.token);
+    this.apply(step.token);
+    // This frame is the first of the step's own, so the wait is the rest.
+    this.macroFrames = (step.down ? MACRO_HOLD_FRAMES : MACRO_GAP_FRAMES) - 1;
+  }
+
   releaseAll(): void {
     this.physicalDown.clear();
     this.virtualDown.clear();
+    this.macroDown.clear();
+    this.macroSteps = [];
+    this.macroFrames = 0;
     this.matrix.fill(0);
+  }
+
+  /**
+   * Queue a macro's presses, unless one is still playing: a held key repeats
+   * from the browser far faster than the sequence drains, and queueing every
+   * repeat would leave the machine backspacing long after the key came up.
+   */
+  private startMacro(tokens: readonly string[]): void {
+    if (this.macroSteps.length > 0) return;
+    for (const token of tokens) {
+      this.macroSteps.push({ token, down: true }, { token, down: false });
+    }
   }
 
   /**
@@ -183,7 +264,11 @@ export class Pmd85Keyboard {
     const position = KEY_POSITIONS.get(token);
     if (!position) return;
     const down =
-      this.physicalDown.has(token) || this.virtualDown.has(token) ? 1 : 0;
+      this.physicalDown.has(token) ||
+      this.virtualDown.has(token) ||
+      this.macroDown.has(token)
+        ? 1
+        : 0;
     const mask = 1 << position.bit;
     if (down) this.matrix[position.row]! |= mask;
     else this.matrix[position.row]! &= ~mask & 0xff;
