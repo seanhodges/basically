@@ -1256,15 +1256,19 @@
   color: #dbe3ee;
 }
 
-/* PMD 85: a grey-beige wedge with a flat grid of small dark keys and an amber
-   function-key row across the top. The SHIFT legend is lower case here, not
-   upper, so it is set in the same weight as the base legend rather than being
-   played down. Activated by the layout's `theme: 'vk-theme-pmd85'`. */
+/* PMD 85: a dark graphite wedge with a flat grid of small dark keys, edged in
+   the machine's two accent colours - the pale blue K0-K11/WRK strip across the
+   top, and red for SHIFT (the board's one red cap; the machine's others, RST
+   and STOP/EOL, are not keys this layout carries). The blue caps take dark
+   legends, as they do on the machine, where every other cap takes pale ones.
+   The SHIFT legend is lower case here, not upper, so it is set in the same
+   weight as the base legend rather than being played down. Activated by the
+   layout's `theme: 'vk-theme-pmd85'`. */
 .vk-theme-pmd85 .vk-style-fn .vk-keycap {
-  background: linear-gradient(#8a5a2c, #6d4622);
+  background: linear-gradient(#7fb4d4, #6398bb);
 }
 .vk-theme-pmd85 .vk-style-fn .vk-label {
-  color: #f0dcc0;
+  color: #0d2029;
 }
 .vk-theme-pmd85:not(.vk-compact) .vk-pos-tr {
   right: 4px;
@@ -1276,8 +1280,8 @@
   color: #e8eef5;
 }
 .vk-theme-pmd85 .vk-style-shift .vk-keycap {
-  background: linear-gradient(#4a4f57, #363a41);
+  background: linear-gradient(#c0362c, #9c2a22);
 }
 .vk-theme-pmd85 .vk-style-shift .vk-label {
-  color: #dfe4ea;
+  color: #fbe5e2;
 }
