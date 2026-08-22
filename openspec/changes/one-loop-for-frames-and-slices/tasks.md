@@ -16,7 +16,7 @@
 
 ## 3. Migrate the 8080 pair
 
-- [ ] 3.1 pmd85 and altair8800 adapters onto the helper; their colocated
+- [x] 3.1 pmd85 and altair8800 adapters onto the helper; their colocated
       ROM-booting tests and the registry batteries green
 
 ## 4. Migrate the 6502 and wrapped-core machines

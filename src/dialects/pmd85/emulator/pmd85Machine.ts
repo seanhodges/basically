@@ -55,6 +55,7 @@ import { CPU_HZ, CYCLES_PER_FRAME } from './clock';
 import { Pmd85TapeDeck } from './tape';
 import { Speaker, SPEAKER_SAMPLE_RATE } from './speaker';
 import { Pmd85Gpio } from './gpio';
+import { createMachineLoop } from '../../../emulator/machineLoop';
 
 /**
  * The PMD 85's I/O map, which decodes an address rather than comparing it.
@@ -204,13 +205,32 @@ export class Pmd85Machine implements MachineEmulator {
    */
   private keyboardScans = 0;
 
-  /**
-   * Cycles the previous frame overran its budget by, owed back to this one. An
-   * instruction cannot be cut in half at a frame boundary, so a frame always
-   * ends a few cycles late; discarding that gains time every frame.
-   */
-  private debt = 0;
   private frames = 0;
+  /**
+   * Frame and debug slice, from one walk over the budget. The overrun is
+   * carried into the next frame - an instruction cannot be cut in half at a
+   * frame boundary, so a frame always ends a few cycles late, and discarding
+   * that gains time every frame.
+   *
+   * A slice counts as a frame however it ends: the blink attribute is driven
+   * off {@link frames}, and a run advanced only by slices would hold every
+   * blinking character in whichever half of its cycle the boot left it - lit
+   * for good, or invisible for good.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: CYCLES_PER_FRAME,
+    // A HALT on this machine is terminal: nothing on the motherboard raises an
+    // interrupt, so the CPU would sit there for the rest of the session. End
+    // the slice instead, owing nothing for time it was never going to run.
+    idleEndsSlice: true,
+    ready: () => this.hasFirmware,
+    onSliceStart: () => {
+      this.frames++;
+    },
+    step: () =>
+      this.cpu.isHalted() ? { cycles: 0, idle: true } : this.stepInstruction(),
+    currentLine: () => this.currentLine(),
+  });
   private disposed = false;
 
   /**
@@ -267,7 +287,7 @@ export class Pmd85Machine implements MachineEmulator {
     this.speaker.reset();
     this.gpio.reset();
     this.keyboardScans = 0;
-    this.debt = 0;
+    this.loop.reset();
     this.frames = 0;
     this.cycles = 0;
     this.tape.eject();
@@ -277,9 +297,7 @@ export class Pmd85Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    if (!this.hasFirmware) return;
-    this.frames++;
-    this.runCycles(CYCLES_PER_FRAME);
+    this.loop.runFrame();
   }
 
   /**
@@ -464,40 +482,7 @@ export class Pmd85Machine implements MachineEmulator {
    * {@link currentLine} changes, whatever that took.
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.hasFirmware) return { paused: false, line: null };
-    // A slice is a frame, so it counts as one however it ends: the blink
-    // attribute is driven off this counter, and a run advanced only by slices
-    // would hold every blinking character in whichever half of its cycle the
-    // boot happened to leave it - lit for good, or invisible for good.
-    this.frames++;
-    let cycles = this.debt;
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line does not re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    while (cycles < CYCLES_PER_FRAME) {
-      if (this.cpu.isHalted()) {
-        this.debt = 0;
-        return { paused: false, line: this.currentLine() };
-      }
-      cycles += this.stepInstruction();
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          this.debt = 0; // pausing abandons the rest of the slice
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) {
-          this.debt = 0;
-          return { paused: true, line };
-        }
-      }
-    }
-    this.debt = cycles - CYCLES_PER_FRAME;
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**
@@ -802,8 +787,8 @@ export class Pmd85Machine implements MachineEmulator {
    * Execute one instruction, and charge what it took to the BASIC line that
    * ran it. Returns the cycles consumed.
    *
-   * Shared by {@link runCycles} and {@link debugStep} so a frame and a debug
-   * slice charge the profile identically. That matters both ways round: a
+   * This is the machine loop's step, so a frame and a debug slice charge the
+   * profile identically. That matters both ways round: a
    * debug session is opened by an ordinary press of Play on every dialect that
    * models line debugging, so a charge made only on the plain path would miss
    * the way programs are usually run - and a run the IDE performs to check an
@@ -824,21 +809,6 @@ export class Pmd85Machine implements MachineEmulator {
       if (p.pending >= p.slice) p.sample(this.currentLine());
     }
     return t;
-  }
-
-  private runCycles(budget: number): void {
-    let cycles = this.debt;
-    while (cycles < budget) {
-      // A HALT on this machine is terminal: nothing on the motherboard raises
-      // an interrupt, so the CPU would sit there for the rest of the session.
-      // End the frame instead, owing nothing for time it was never going to run.
-      if (this.cpu.isHalted()) {
-        this.debt = 0;
-        return;
-      }
-      cycles += this.stepInstruction();
-    }
-    this.debt = cycles - budget;
   }
 
   private runUntil(done: () => boolean, failure: string): void {

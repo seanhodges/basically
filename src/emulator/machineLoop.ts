@@ -85,9 +85,10 @@ export interface MachineLoopContract {
   /**
    * The BASIC line about to execute, or null when none is determinable. Read
    * only when the line watch is due, so a machine that pays to introspect pays
-   * on the cadence it chose. A machine with no debugger returns null.
+   * on the cadence it chose. Omitted by a machine that cannot say which line it
+   * is on, which is the same machine that offers no debugger.
    */
-  currentLine(): number | null;
+  currentLine?(): number | null;
   /**
    * Cycles between line watches. Zero (the default) watches after every step,
    * which is what a machine stepping whole instructions wants. A core ticked a
@@ -110,6 +111,12 @@ export interface MachineLoop {
   debugStep(opts: DebugStepOptions): DebugStepResult;
   /** Drop the carried cycle debt. For a machine reset, alongside its own state. */
   reset(): void;
+  /**
+   * Cycles the last slice overran its budget by, still owed to the next one.
+   * Read-only, and only worth reading to check that a machine's time is not
+   * quietly being gained or lost.
+   */
+  readonly debt: number;
 }
 
 /**
@@ -164,7 +171,7 @@ export function createMachineLoop(contract: MachineLoopContract): MachineLoop {
       if (opts === null || idle) continue;
       if (elapsed - watched < watchEvery) continue;
       watched = elapsed;
-      const line = contract.currentLine();
+      const line = contract.currentLine?.() ?? null;
       if (line === null) continue;
       if (opts.mode === 'step') {
         if (opts.fromLine === null || line !== opts.fromLine) {
@@ -186,7 +193,7 @@ export function createMachineLoop(contract: MachineLoopContract): MachineLoop {
     contract.onSliceEnd?.();
     return {
       paused: false,
-      line: opts === null ? null : contract.currentLine(),
+      line: opts === null ? null : (contract.currentLine?.() ?? null),
     };
   }
 
@@ -199,6 +206,9 @@ export function createMachineLoop(contract: MachineLoopContract): MachineLoop {
     },
     reset(): void {
       debt = 0;
+    },
+    get debt(): number {
+      return debt;
     },
   };
 }
