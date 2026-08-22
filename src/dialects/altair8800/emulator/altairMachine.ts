@@ -26,6 +26,7 @@ import { basicImagePointers } from '../basicImage';
 import { Altair8800Keyboard } from './keyboard';
 import { Altair8800Memory } from './memory';
 import { Altair8800Serial } from './serial';
+import { createMachineLoop } from '../../../emulator/machineLoop';
 import { plainChar } from '../charset';
 import {
   Altair8800Terminal,
@@ -131,11 +132,23 @@ export class Altair8800Machine implements MachineEmulator {
   /** The CPU driven with 8080 rather than Z80 flag semantics. */
   private readonly i8080: Intel8080;
   /**
-   * Cycles the previous frame overran its budget by, owed back to this one. An
-   * instruction cannot be cut in half at a frame boundary, so a frame always
-   * ends a few cycles late; discarding that gains time every frame.
+   * The frame walk. No `currentLine` and so no `debugStep`: the interpreter
+   * keeps no line pointer this adapter can read, so the Altair offers no
+   * debugger and the loop is here only for the budget and the cycle debt. The
+   * overrun is carried into the next frame - an instruction cannot be cut in
+   * half at a frame boundary, so a frame always ends a few cycles late, and
+   * discarding that gains time every frame.
    */
-  private debt = 0;
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: CYCLES_PER_FRAME,
+    // Nothing wakes a HALT on this machine - there is no interrupt source on
+    // the base backplane - so end the frame rather than spinning. Nothing is
+    // owed for time the CPU was never going to run.
+    idleEndsSlice: true,
+    ready: () => this.hasInterpreter,
+    step: () =>
+      this.cpu.isHalted() ? { cycles: 0, idle: true } : this.i8080.step(),
+  });
   private disposed = false;
 
   constructor(opts: { rom: Uint8Array }) {
@@ -167,8 +180,7 @@ export class Altair8800Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    if (!this.hasInterpreter) return;
-    this.runCycles(CYCLES_PER_FRAME);
+    this.loop.runFrame();
   }
 
   /**
@@ -435,24 +447,9 @@ export class Altair8800Machine implements MachineEmulator {
     }
   }
 
-  private runCycles(budget: number): void {
-    let cycles = this.debt;
-    while (cycles < budget) {
-      // Nothing wakes a HALT on this machine - there is no interrupt source on
-      // the base backplane - so end the frame rather than spinning. Nothing is
-      // owed for time the CPU was never going to run.
-      if (this.cpu.isHalted()) {
-        this.debt = 0;
-        return;
-      }
-      cycles += this.i8080.step();
-    }
-    this.debt = cycles - budget;
-  }
-
   private runUntil(done: () => boolean, failure: string): void {
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
-      this.runCycles(CYCLES_PER_FRAME);
+      this.loop.runFrame();
       if (done()) return;
     }
     throw new Error(

@@ -561,6 +561,18 @@ export class AtomMachine implements MachineEmulator {
     });
   }
 
+  /**
+   * The one way this machine is advanced, and so the one place it keeps its own
+   * loop rather than driving `src/emulator/machineLoop.ts`.
+   *
+   * The helper exists to stop a debug slice drifting from the frame it is meant
+   * to be. The Atom has no {@link MachineEmulator.currentLine} to pause on, so
+   * it offers no debugger and no profiler: there is no second path to keep in
+   * step. What the helper would cost is real - it would ask this core for
+   * several thousand small budgets a frame instead of one, and split the
+   * filing-system trap's retry allowance across every one of them - so it buys
+   * an invariant this machine cannot break.
+   */
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
     this.runCycles(CYCLES_PER_FRAME);

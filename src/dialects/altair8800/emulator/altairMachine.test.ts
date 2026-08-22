@@ -15,6 +15,7 @@ import {
   VARTAB,
 } from '../addresses';
 import { READ_BIT, WRITE_BIT } from '../../../emulator/memoryActivityBuffer';
+import type { MachineLoop } from '../../../emulator/machineLoop';
 
 /**
  * Unlike the other machine tests here, these cannot assert on display memory -
@@ -344,7 +345,7 @@ describe('altair8800 machine', () => {
     // is not owed - there is no interrupt source here, so the CPU was never
     // going to use it - and recording it as a debt would leave the next frame
     // owing a whole frame's worth and running almost nothing.
-    expect((machine as unknown as { debt: number }).debt).toBe(0);
+    expect((machine as unknown as { loop: MachineLoop }).loop.debt).toBe(0);
   });
 
   it('stops at a HLT instead of spinning out the frame', () => {
