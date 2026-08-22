@@ -27,10 +27,10 @@
 
 ## 4. Microsoft-BASIC loader
 
-- [ ] 4.1 Add `loadMicrosoftBasicProgram()` in `src/emulator/`
+- [x] 4.1 Add `loadMicrosoftBasicProgram()` in `src/emulator/`
       parameterised by `{ programBase, pointers, typeRun }`, with a
       colocated test
-- [ ] 4.2 Migrate the altair8800, pmd85, and trs80 adapters; their
+- [x] 4.2 Migrate the altair8800, pmd85, and trs80 adapters; their
       ROM-booting colocated tests green
 
 ## 5. Quality gates

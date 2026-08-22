@@ -5,6 +5,7 @@ import { Trs80Memory } from './memory';
 import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
 import { PROG_START, KEYBOARD_BASE, KEYBOARD_END } from '../addresses';
+import { loadMicrosoftBasicProgram } from '../../../emulator/microsoftBasicLoad';
 
 const CPU_HZ = 1_775_000; // Model I Z80
 /** One 50 Hz frame of CPU time. */
@@ -155,33 +156,24 @@ export class Trs80Machine {
     this.reset();
     this.bootToReady();
 
-    for (let i = 0; i < image.length; i++) {
-      this.memory.write(PROG_START + i, image[i]!);
-    }
     // The program already ends in its 0x0000 null link; variables start just
     // past it. TXTTAB stays at the program base.
     const end = PROG_START + image.length;
-    this.memory.writeWord(PTR_TXTTAB, PROG_START);
-    this.memory.writeWord(PTR_VARTAB, end);
-    this.memory.writeWord(PTR_ARYTAB, end);
-    this.memory.writeWord(PTR_STREND, end);
-
-    // Memory blocks (machine code / data at a fixed address, alongside the
-    // BASIC program - see MemoryBlock) are written straight into RAM now, after
-    // the program and its pointers are in place and before RUN starts it -
-    // mirroring how a real loader pokes code in once the tape has finished.
-    const blocks = opts?.blocks;
-    if (blocks && blocks.length > 0) {
-      for (const block of blocks) {
-        for (let i = 0; i < block.bytes.length; i++) {
-          this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
-        }
-      }
-    }
-
-    this.keyboard.releaseAll();
-    for (const c of ['KeyR', 'KeyU', 'KeyN']) this.tapKeys([c]);
-    this.tapKeys(['Enter']);
+    loadMicrosoftBasicProgram(this.memory, image, {
+      programBase: PROG_START,
+      pointers: [
+        { address: PTR_TXTTAB, value: PROG_START },
+        { address: PTR_VARTAB, value: end },
+        { address: PTR_ARYTAB, value: end },
+        { address: PTR_STREND, value: end },
+      ],
+      blocks: opts?.blocks,
+      typeRun: () => {
+        this.keyboard.releaseAll();
+        for (const c of ['KeyR', 'KeyU', 'KeyN']) this.tapKeys([c]);
+        this.tapKeys(['Enter']);
+      },
+    });
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
