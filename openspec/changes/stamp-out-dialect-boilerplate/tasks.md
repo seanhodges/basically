@@ -17,10 +17,10 @@
 
 ## 3. AI profile composer
 
-- [ ] 3.1 Add `composeAiProfile()` in `src/ai/` owning the shared scaffold
+- [x] 3.1 Add `composeAiProfile()` in `src/ai/` owning the shared scaffold
       (OUTPUT FORMAT block, flush-left line-number rule, steps-of-10 tip,
       section headings), with a colocated test
-- [ ] 3.2 Migrate all fifteen `aiProfile.ts` files with a byte-identical
+- [x] 3.2 Migrate all fifteen `aiProfile.ts` files with a byte-identical
       assertion against the pre-change composed text (assertion removed
       once migration lands); `src/ai/promptStability.test.ts` ceilings
       unchanged
