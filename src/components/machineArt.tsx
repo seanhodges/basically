@@ -63,13 +63,8 @@ const ALTAIR_CASE = '#3c4757'; // VirtualKeyboard.css .vk-theme-altair8800
 const ALTAIR_LED = '#e05a3c';
 const ALTAIR_SWITCH = '#b9bcc2';
 const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
-const PMD_KEYS = '#363a41'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-shift
-/* The PMD's two accent keycaps are the exception to the reuse rule above: the
-   virtual keyboard tints its function row amber, but the machine's own K0-K11
-   caps are pale blue and its RST/STOP/EOL caps are red, and those two colours
-   are the whole point of this portrait. Taken from the hardware, not the CSS. */
-const PMD_BLUE = '#5f9fc4';
-const PMD_RED = '#c0362c';
+const PMD_BLUE = '#7fb4d4'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-fn
+const PMD_RED = '#c0362c'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-shift
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
 const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc6128
 
@@ -91,6 +86,10 @@ const CPC_CASE = '#1e1e22';
 const PMD_CASE = '#5a5e64';
 const PMD_DECK = '#4e5258';
 const PMD_PANEL = '#6b6f76';
+/* The PMD's ordinary caps: charcoal rather than the near-black every virtual
+   keyboard uses for an unthemed cap, because at portrait size a black grid on
+   a dark case is one shape, not fifteen columns of keys. */
+const PMD_KEYS = '#363a41';
 const SCREEN_BLACK = '#0b0d0a';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
