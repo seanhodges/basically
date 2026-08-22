@@ -10,7 +10,7 @@ import {
   composeAtomDskFiles,
   type AtomDskExportEntry,
 } from './atomDsk';
-import { samplesToWav } from '../../transfer/wav';
+import { cassetteWavTarget, fileTarget } from '../targetHelpers';
 
 /**
  * Tokenize `source` into the `#2900` program image, or an empty array for a
@@ -51,57 +51,28 @@ export function exportAtomDskEntries(
  * blocks to them.
  */
 export const atomBuildTargets: BuildTarget[] = [
-  {
-    id: 'atom-atm',
-    label: 'Export .ATM binary',
-    fileExtension: 'atm',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.atm`,
-          blob: new Blob(
-            [buildAtm(buildAtomImage(source), programName) as BlobPart],
-            { type: 'application/octet-stream' },
-          ),
-        },
-      ]),
-  },
-  {
-    id: 'atom-dsk',
-    label: 'Export .dsk disk',
-    fileExtension: 'dsk',
+  fileTarget(
+    'atom-atm',
+    'Export .ATM binary',
+    'atm',
+    (source, { programName }) => buildAtm(buildAtomImage(source), programName),
+  ),
+  fileTarget(
+    'atom-dsk',
+    'Export .dsk disk',
+    'dsk',
+    (source, { programName, blocks, loader }) =>
+      buildAtomDsk(
+        exportAtomDskEntries(source, programName, blocks, loader),
+        programName,
+      ),
     // A DFS-family disc image carries the BASIC program plus each memory block as
     // its own file, with the load/exec attributes that tell BASIC from code.
-    supportsBlocks: true,
-    build: (source, { programName, blocks, loader }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.dsk`,
-          blob: new Blob(
-            [
-              buildAtomDsk(
-                exportAtomDskEntries(source, programName, blocks, loader),
-                programName,
-              ) as BlobPart,
-            ],
-            { type: 'application/octet-stream' },
-          ),
-        },
-      ]),
-  },
-  {
-    id: 'wav',
-    label: 'Export cassette .wav',
-    fileExtension: 'wav',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.wav`,
-          blob: samplesToWav(
-            buildCassetteSamples(source, programName),
-            CASSETTE_SAMPLE_RATE,
-          ),
-        },
-      ]),
-  },
+    { supportsBlocks: true },
+  ),
+  cassetteWavTarget({
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, { programName }) =>
+      buildCassetteSamples(source, programName),
+  }),
 ];

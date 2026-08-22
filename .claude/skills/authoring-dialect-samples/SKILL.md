@@ -63,6 +63,33 @@ real hardware reason, and document it in the `samples.ts` doc comment. Precedent
 - `atom/` adds `files.bas` (Data files) in breakout's slot to exercise its filesystem.
 - `trs80/` and `zxspectrum128/` ship no `kaleido.asm` (no machine-code block).
 
+## Registering the set (`samples.ts`)
+
+Only the program text is per-dialect: every machine ships the canonical five
+under the same file names, the same menu titles and the same order, so
+`standardSamples()` (`src/dialects/sampleKit.ts`) builds the list and the
+dialect supplies just its imported sources:
+
+```ts
+import { standardSamples } from '../sampleKit';
+import hello from './samples/hello.bas?raw';
+// …
+
+export const <id>Samples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: <ID>_KALEIDO_BLOCK },
+);
+```
+
+- **A sample this machine can't offer** is a key left out (the ZX80 and the Atom
+  pass no `breakout`, the TRS-80 no `kaleido`); the rest keep their order.
+- **`kaleidoBlock`** attaches the machine-code block to `kaleido.bas` and
+  nothing else. Omit it where the routine rides in a `#BIN` REM instead.
+- **A sample of the dialect's own** goes in `insertBefore`, keyed by the
+  canonical sample it sits ahead of - the Atom's `files.bas` before `kaleido`.
+- A dialect whose set deviates further than that hand-writes the array; the
+  helper is there to make the common case cheap, not to be mandatory.
+
 ## Per-sample accuracy
 
 ### circles — the Pitteway integrator (the classic bug)
@@ -135,10 +162,9 @@ export const <ID>_KALEIDO_BLOCK = {
   asmSource: kaleidoAsm,
   entry: 0x8003,          // where BASIC CALL/SYS/USRs
 } as const;
-
-// …
-{ name: 'kaleido.bas', title: 'Kaleidoscope', text: kaleido, blocks: [<ID>_KALEIDO_BLOCK] },
 ```
+
+and pass it to `standardSamples()` as `kaleidoBlock` (see above).
 
 The `.bas` `INPUT`s the parameters, `POKE`s them to the block's low bytes, and
 `CALL`/`SYS`/`RANDOMIZE USR`s the entry. `src/app/sampleBlocks.ts` assembles the

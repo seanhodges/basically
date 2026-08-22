@@ -35,6 +35,7 @@ import {
   DISPLAY_WIDTH,
   ROWS as DISPLAY_ROWS,
 } from './terminal';
+import { loadMicrosoftBasicProgram } from '../../../emulator/microsoftBasicLoad';
 
 const CPU_HZ = 2_000_000;
 /**
@@ -197,30 +198,15 @@ export class Altair8800Machine implements MachineEmulator {
     if (!this.hasInterpreter) return;
     this.bootToReady();
 
-    for (let i = 0; i < image.length; i++) {
-      this.memory.write(PROGRAM_BASE + i, image[i]!);
-    }
-    // Bytes alone are only half a load: BASIC finds the end of the program, and
-    // therefore where its variables start, through the workspace words
-    // basicImagePointers() derives from the image.
-    for (const pointer of basicImagePointers(image)) {
-      this.memory.writeWord(pointer.address, pointer.value);
-    }
-
-    // Memory blocks (machine code or data at a fixed address, alongside the
-    // BASIC program - see MemoryBlock) go in once the program and its pointers
-    // are in place and before RUN starts it, mirroring how a real loader poked
-    // code in after the tape had finished.
-    for (const block of opts?.blocks ?? []) {
-      for (let i = 0; i < block.bytes.length; i++) {
-        this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
-      }
-    }
-
-    // Typed at the console rather than jumped to: BASIC's RUN sets up its own
-    // stack and variable space, and nothing here knows how to do that for it.
-    this.serial.clearInput();
-    this.serial.queueText('RUN\r');
+    loadMicrosoftBasicProgram(this.memory, image, {
+      programBase: PROGRAM_BASE,
+      pointers: basicImagePointers(image),
+      blocks: opts?.blocks,
+      typeRun: () => {
+        this.serial.clearInput();
+        this.serial.queueText('RUN\r');
+      },
+    });
   }
 
   /**

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import breakout from './samples/breakout.bas?raw';
@@ -40,10 +41,10 @@ import kaleido from './samples/kaleido.bas?raw';
  * does not tokenize cleanly fails the build; `samples.test.ts` alongside checks
  * the set, the maze's solvability and the keyword-as-variable trap.
  */
-export const altair8800Samples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  { name: 'kaleido.bas', title: 'Kaleidoscope', text: kaleido },
-];
+export const altair8800Samples: SampleFile[] = standardSamples({
+  hello,
+  circles,
+  breakout,
+  maze,
+  kaleido,
+});

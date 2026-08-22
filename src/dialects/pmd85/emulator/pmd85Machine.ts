@@ -56,6 +56,7 @@ import { Pmd85TapeDeck } from './tape';
 import { Speaker, SPEAKER_SAMPLE_RATE } from './speaker';
 import { Pmd85Gpio } from './gpio';
 import { createMachineLoop } from '../../../emulator/machineLoop';
+import { loadMicrosoftBasicProgram } from '../../../emulator/microsoftBasicLoad';
 
 /**
  * The PMD 85's I/O map, which decodes an address rather than comparing it.
@@ -328,40 +329,29 @@ export class Pmd85Machine implements MachineEmulator {
     if (!this.hasFirmware) return;
     this.bootToReady();
 
-    for (let i = 0; i < image.length; i++) {
-      this.memory.write(PROGRAM_BASE + i, image[i]!);
-    }
-    // Bytes alone are only half a load: BASIC-G finds the end of the program,
-    // and so where its variables start, through the workspace words
-    // basicImagePointers() derives from the image.
-    for (const pointer of basicImagePointers(image)) {
-      this.memory.writeWord(pointer.address, pointer.value);
-    }
+    loadMicrosoftBasicProgram(this.memory, image, {
+      programBase: PROGRAM_BASE,
+      pointers: basicImagePointers(image),
+      blocks: opts?.blocks,
+      typeRun: () => {
+        // Extra files off a multi-file tape go on the deck rather than into
+        // RAM: what they are for is the program's own `LOAD n`, and that reads
+        // a tape.
+        const tapeFiles = opts?.tapeFiles ?? [];
+        if (tapeFiles.length > 0) {
+          this.playTape(tapeFiles.flatMap((f) => parseTapeImage(f.tap).files));
+        }
 
-    // Memory blocks (machine code or data at a fixed address alongside the
-    // BASIC program - see MemoryBlock) go in once the program and its pointers
-    // are in place and before RUN starts it, mirroring how a real loader poked
-    // code in after the tape had finished.
-    for (const block of opts?.blocks ?? []) {
-      for (let i = 0; i < block.bytes.length; i++) {
-        this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
-      }
-    }
-
-    // Extra files off a multi-file tape go on the deck rather than into RAM:
-    // what they are for is the program's own `LOAD n`, and that reads a tape.
-    const tapeFiles = opts?.tapeFiles ?? [];
-    if (tapeFiles.length > 0) {
-      this.playTape(tapeFiles.flatMap((f) => parseTapeImage(f.tap).files));
-    }
-
-    // Armed before the keystrokes that start the program rather than after
-    // them: a program short enough to finish inside the frames those keystrokes
-    // pump would otherwise end before anything was watching for it.
-    this.runStarted = false;
-    this.runLatch.arm();
-    const autoStart = opts?.autoStart;
-    this.type(typeof autoStart === 'number' ? `RUN ${autoStart}` : 'RUN');
+        // Armed before the keystrokes that start the program rather than after
+        // them: a program short enough to finish inside the frames those
+        // keystrokes pump would otherwise end before anything was watching for
+        // it.
+        this.runStarted = false;
+        this.runLatch.arm();
+        const autoStart = opts?.autoStart;
+        this.type(typeof autoStart === 'number' ? `RUN ${autoStart}` : 'RUN');
+      },
+    });
   }
 
   /**

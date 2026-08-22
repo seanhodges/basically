@@ -1,5 +1,9 @@
 import type { BuildTarget, MemoryBlock } from '../types';
-import { fatalErrors } from '../types';
+import {
+  buildImageOrThrow,
+  cassetteWavTarget,
+  fileTarget,
+} from '../targetHelpers';
 import { tokenizeProgram } from './tokenizer';
 import {
   codeTapBlocks,
@@ -9,7 +13,6 @@ import {
 } from './tapfile';
 import { loaderTapBlocks } from '../zxspectrum/loader';
 import { encodeSpectrumTape } from '../zxspectrum/audio/cassetteEncoder';
-import { samplesToWav } from '../../transfer/wav';
 
 // The .TAP image and cassette codecs are byte-for-byte identical to the 48K
 // Spectrum; only the tokenizer differs, so that PLAY/SPECTRUM programs export
@@ -23,20 +26,6 @@ import { samplesToWav } from '../../transfer/wav';
 // identical bytes for it). blockExportRoundTrip.test.ts asserts the two
 // machines produce the same tape shape and is what holds them in step.
 export const CASSETTE_SAMPLE_RATE = 44100;
-
-function buildProgramBytes(source: string): Uint8Array {
-  const { bytes, errors } = tokenizeProgram(source);
-  const fatal = fatalErrors(errors);
-  if (fatal.length > 0) {
-    throw new Error(
-      `Program has ${fatal.length} error(s) - fix them before building`,
-    );
-  }
-  if (bytes.length === 0) {
-    throw new Error('Program is empty');
-  }
-  return bytes;
-}
 
 /**
  * The full tape as an ordered {@link TapBlock} list - the single layout
@@ -60,7 +49,7 @@ export function exportTapBlockList(
   memoryBlocks: readonly MemoryBlock[] = [],
   loader = false,
 ): TapBlock[] {
-  const programBytes = buildProgramBytes(source);
+  const programBytes = buildImageOrThrow(tokenizeProgram(source));
   if (memoryBlocks.length === 0) {
     return tapBlocks(programBytes, { name: programName, autoStart: null });
   }
@@ -115,36 +104,18 @@ export function buildCassetteSamples(
 }
 
 export const spectrum128BuildTargets: BuildTarget[] = [
-  {
-    id: 'tap-file',
-    label: 'Export .TAP file',
-    fileExtension: 'tap',
+  fileTarget(
+    'tap-file',
+    'Export .TAP file',
+    'tap',
+    (source, { programName, blocks, loader }) =>
+      buildTapImage(source, programName, blocks, loader),
+    { supportsBlocks: true },
+  ),
+  cassetteWavTarget({
+    sampleRate: CASSETTE_SAMPLE_RATE,
     supportsBlocks: true,
-    build: (source, { programName, blocks, loader }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.tap`,
-          blob: new Blob(
-            [buildTapImage(source, programName, blocks, loader) as BlobPart],
-            { type: 'application/octet-stream' },
-          ),
-        },
-      ]),
-  },
-  {
-    id: 'wav',
-    label: 'Export cassette .wav',
-    fileExtension: 'wav',
-    supportsBlocks: true,
-    build: (source, { programName, blocks, loader }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.wav`,
-          blob: samplesToWav(
-            buildCassetteSamples(source, programName, false, blocks, loader),
-            CASSETTE_SAMPLE_RATE,
-          ),
-        },
-      ]),
-  },
+    buildSamples: (source, { programName, blocks, loader }) =>
+      buildCassetteSamples(source, programName, false, blocks, loader),
+  }),
 ];

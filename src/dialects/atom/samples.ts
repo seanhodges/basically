@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import maze from './samples/maze.bas?raw';
@@ -21,15 +22,12 @@ export const ATOM_KALEIDO_BLOCK = {
  * keyboard read, so a real-time paddle game isn't practical. `files.bas`
  * demonstrates the virtual filesystem via FOUT/BPUT then FIN/BGET.
  */
-export const atomSamples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  { name: 'files.bas', title: 'Data files', text: files },
+export const atomSamples: SampleFile[] = standardSamples(
+  { hello, circles, maze, kaleido },
   {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [ATOM_KALEIDO_BLOCK],
+    kaleidoBlock: ATOM_KALEIDO_BLOCK,
+    insertBefore: {
+      kaleido: [{ name: 'files.bas', title: 'Data files', text: files }],
+    },
   },
-];
+);
