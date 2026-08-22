@@ -1,9 +1,9 @@
 ## 1. The legend kit
 
-- [ ] 1.1 Add `src/keyboard/legendKit.ts`: `Legend`/`Legends` types and the
+- [x] 1.1 Add `src/keyboard/legendKit.ts`: `Legend`/`Legends` types and the
       `lbl` / `act` / `word` / `ins` / `cursorKey` / `key(token, legends)`
       builders, generic over `readonly Legend[]` layers
-- [ ] 1.2 Colocated `legendKit.test.ts` for builder semantics (label
+- [x] 1.2 Colocated `legendKit.test.ts` for builder semantics (label
       shaping, editor actions, `emits` passthrough, layer counts 3–5)
 
 ## 2. Migrate the verbatim six
