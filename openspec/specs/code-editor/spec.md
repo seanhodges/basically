@@ -6,9 +6,7 @@ Give every dialect a first-class BASIC editing experience from one generic
 editor: authentic keyword highlighting, dialect-aware completion, inline
 diagnostics as you type, and line-number management — all driven by the
 active dialect's own data, with no per-machine editor code.
-
 ## Requirements
-
 ### Requirement: Dialect-aware highlighting and completion
 
 The editor SHALL highlight the active dialect's keywords and offer completion
@@ -466,18 +464,19 @@ also dismiss whatever surface stands behind the editor.
 ### Requirement: Disposable scratch buffers
 
 The editor SHALL let the user create scratch buffers: additional BASIC buffers,
-held alongside the program, for writing code that is not part of the document.
-The user SHALL be able to hold several at once, choose which one the editor
-shows, rename one, and close one without being asked to confirm.
+held alongside the program, for writing code that is not part of the program
+itself. The user SHALL be able to hold several at once, choose which one the
+editor shows, rename one, and close one without being asked to confirm.
 
 A scratch buffer SHALL offer the same editing the program does — the active
 dialect's highlighting, completion, inline diagnostics and line-number
 management — since it holds the same kind of code.
 
-Editing a scratch buffer SHALL NOT alter the program, SHALL NOT mark the
-document as having unsaved changes, and SHALL NOT change what saving, sharing or
-exporting the document produces. Which buffer the editor is showing SHALL be
-apparent to the user.
+Editing a scratch buffer SHALL NOT alter the program, and SHALL NOT mark the
+document as having unsaved changes. What the document builds, runs, shares or
+exports SHALL be the program, never a scratch buffer, whichever buffer the editor
+is showing; a saved project carries its buffers alongside that program without
+changing it. Which buffer the editor is showing SHALL be apparent to the user.
 
 Closing a scratch buffer SHALL discard it and everything attached to it.
 
@@ -503,10 +502,13 @@ Closing a scratch buffer SHALL discard it and everything attached to it.
 
 - **WHEN** the user saves or shares the document while a scratch buffer is the
   one on screen
-- **THEN** what is saved or shared is the program, not the scratch buffer
+- **THEN** the program is what is shared, and what is saved is the program
+  together with the scratch buffers held beside it — never the scratch buffer in
+  the program's place
 
 #### Scenario: Closing a scratch buffer
 
 - **WHEN** the user closes a scratch buffer
 - **THEN** it is discarded without a confirmation step, and the program and any
   other scratch buffers are unaffected
+
