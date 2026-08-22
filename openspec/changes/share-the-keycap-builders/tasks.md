@@ -8,7 +8,7 @@
 
 ## 2. Migrate the verbatim six
 
-- [ ] 2.1 atom, bbcmicro, cpc464, zx80, zx81, zxspectrum
+- [x] 2.1 atom, bbcmicro, cpc464, zx80, zx81, zxspectrum
       `keyboardLayout.ts` onto the kit; their colocated tests and
       `layoutGeometry.test.ts` / `cursorKeys.test.ts` unchanged and green
 

@@ -1,9 +1,10 @@
-import type {
-  EditorKeyAction,
-  KeyDef,
-  KeyLabel,
-  KeyboardLayout,
-} from '../../keyboard/layoutSchema';
+import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import {
+  type Legend,
+  act,
+  cursorKey,
+  key as kitKey,
+} from '../../keyboard/legendKit';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
 import {
   CPC_LINE_GRAPHICS,
@@ -40,53 +41,15 @@ import {
  * the CPC 6128 sibling (`../cpc6128/`) re-exports these rows under its own theme.
  */
 
-type Legend =
-  | string
-  | { text: string; editor: EditorKeyAction | null; emits?: string[] }
-  | null;
+/** The three character layers, index-aligned with `layout.layers` below. */
 type Legends = [Legend, Legend, Legend];
-
-/** Legend bound to an editing action. */
-const act = (
-  text: string,
-  action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
-): Legend => ({ text, editor: { action } });
-
-/**
- * A CURSOR-layer legend: it moves the editor caret, and on the machine it
- * presses the cursor cluster's own matrix cell instead of the letter the keycap
- * carries on its base layer.
- */
-const cursorKey = (
-  text: string,
-  action: 'left' | 'right' | 'up' | 'down',
-  token: string,
-): Legend => ({ text, editor: { action }, emits: [token] });
-
-const lbl = (legend: Legend): KeyLabel | null =>
-  legend === null
-    ? null
-    : typeof legend === 'string'
-      ? { text: legend }
-      : {
-          text: legend.text,
-          editor: legend.editor,
-          ...(legend.emits ? { emits: legend.emits } : {}),
-        };
 
 /**
  * A standard key: [base, shifted, sym] legends plus an optional CURSOR-layer
- * legend (the ↑←↓→ overlay on the WASD keys), one matrix token. The four layers
- * are index-aligned with `layout.layers` below.
+ * legend (the ↑←↓→ overlay on the WASD keys), one matrix token.
  */
-function key(token: string, legends: Legends, cursor: Legend = null): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [...legends.map(lbl), lbl(cursor)],
-  };
-}
+const key = (token: string, legends: Legends, cursor: Legend = null): KeyDef =>
+  kitKey(token, [...legends, cursor]);
 
 // Shifted number row + the SYM punctuation overflow (editor inserts only).
 const numberRow = [
@@ -125,12 +88,7 @@ const homeRow = [
   key('J', ['J', null, null]),
   key('K', ['K', null, null]),
   key('L', ['L', null, null]),
-  {
-    id: 'Return',
-    spanX: 4,
-    emits: ['Return'],
-    labels: [lbl(act('↵', 'newline')), null, null, null],
-  } satisfies KeyDef,
+  key('Return', [act('↵', 'newline'), null, null]),
 ];
 
 const zxcvRow = centerRow([

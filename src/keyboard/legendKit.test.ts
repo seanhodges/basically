@@ -41,7 +41,7 @@ describe('legend builders', () => {
     });
   });
 
-  it('omits emits entirely on a legend that presses its key's own cell', () => {
+  it("omits emits entirely on a legend that presses its key's own cell", () => {
     expect(lbl(word('PRINT'))).not.toHaveProperty('emits');
   });
 
