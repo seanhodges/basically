@@ -24,5 +24,5 @@
 ## 4. Quality gates
 
 - [x] 4.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
-- [ ] 4.2 `npm run e2e:chromium -- e2e/virtual-input` (rendered keyboards
+- [x] 4.2 `npm run e2e:chromium -- e2e/virtual-input` (rendered keyboards
       are app-visible)
