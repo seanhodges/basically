@@ -14,7 +14,7 @@
 
 ## 3. Migrate the hand-rolled six
 
-- [ ] 3.1 pet and commodore64 (screen-code legends → kit or thin local
+- [x] 3.1 pet and commodore64 (screen-code legends → kit or thin local
       adapter over the kit's types)
 - [ ] 3.2 trs80 (Shift/Cursor types → kit)
 - [ ] 3.3 pmd85 and altair8800

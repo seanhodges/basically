@@ -1,8 +1,14 @@
-import type {
-  KeyDef,
-  KeyLabel,
-  KeyboardLayout,
-} from '../../keyboard/layoutSchema';
+import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import {
+  type CursorAction,
+  type Legend,
+  act,
+  cursorKey,
+  ins,
+  key as kitKey,
+  lbl,
+  withLegend,
+} from '../../keyboard/legendKit';
 import { bottomRow } from '../../keyboard/templateRows';
 import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
 
@@ -33,24 +39,17 @@ import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
  * overlay on the WASD keys instead.
  */
 
+/** Index of the CURSOR layer in `layers` below. */
+const CURSOR_LAYER = 2;
+
 /**
- * A key: base label and optional shifted label. Label tuple order matches
- * `layers` below: [base, shift, cursor].
+ * A key: base label and optional shifted label. The punctuation keys are named
+ * for their position but emit the PET's own direct-key token, so the id and the
+ * matrix token are given separately. Label tuple order matches `layers` below:
+ * [base, shift, cursor] - only the four WASD keys populate the last.
  */
-function key(
-  id: string,
-  emit: string,
-  base: string,
-  shift?: string,
-  spanX = 4,
-): KeyDef {
-  const labels: (KeyLabel | null)[] = [
-    { text: base },
-    shift ? { text: shift } : null,
-    null, // CURSOR layer: only the four WASD keys populate this.
-  ];
-  return { id, spanX, emits: [emit], labels };
-}
+const key = (id: string, emit: string, base: string, shift?: string): KeyDef =>
+  kitKey(id, [base, shift ?? null, null], { emits: [emit] });
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
@@ -63,22 +62,14 @@ const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 const cursorLetter = (
   l: string,
   arrow: string,
-  action: 'left' | 'right' | 'up' | 'down',
+  action: CursorAction,
   token: string,
   shift?: string,
-): KeyDef => {
-  const def = letter(l, shift);
-  return {
-    ...def,
-    labels: [
-      ...def.labels.slice(0, 2),
-      { text: arrow, editor: { action }, emits: [token] },
-    ],
-  };
-};
+): KeyDef =>
+  withLegend(letter(l, shift), CURSOR_LAYER, cursorKey(arrow, action, token));
 
 /** A bottom-row / strip key with only a main label (no shift, no cursor). */
-const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null, null];
+const plainLabels = (main: Legend) => [lbl(main), null, null];
 
 // Numeric row: the graphics keyboard's pad digits, with the PET's top-row
 // punctuation offered as SHIFT editor inserts (! " # $ % & ' ( )).
@@ -119,12 +110,7 @@ const homeRow = [
   letter('J', ';'),
   letter('K', '@'),
   letter('L', '£'),
-  {
-    id: 'Return',
-    spanX: 4,
-    emits: ['Return'],
-    labels: plainLabels({ text: '↵', editor: { action: 'newline' } }),
-  } satisfies KeyDef,
+  kitKey('Return', [act('↵', 'newline'), null, null]),
 ];
 
 const zxcvRow = [
@@ -146,30 +132,20 @@ const shiftKey: KeyDef = {
   emits: ['LeftShift'],
   modifier: 'shift',
   style: 'shift',
-  labels: plainLabels({ text: '⇧' }),
+  labels: plainLabels('⇧'),
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: plainLabels({ text: '␣', editor: { insert: ' ' } }),
+  labels: plainLabels(ins('␣', ' ')),
 } satisfies Omit<KeyDef, 'spanX'>;
 
 // The PET graphics keyboard has a dedicated " key (matrix token '"').
-const quoteKey: KeyDef = {
-  id: 'Quote',
-  spanX: 4,
-  emits: ['"'],
-  labels: plainLabels({ text: '"' }),
-};
+const quoteKey = kitKey('Quote', ['"', null, null], { emits: ['"'] });
 
-const backspaceKey: KeyDef = {
-  id: 'InstDel',
-  spanX: 4,
-  emits: ['InstDel'],
-  labels: plainLabels({ text: '⌫', editor: { action: 'backspace' } }),
-};
+const backspaceKey = kitKey('InstDel', [act('⌫', 'backspace'), null, null]);
 
 const rows: KeyDef[][] = [
   numberRow,
