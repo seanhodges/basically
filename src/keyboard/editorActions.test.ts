@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { isRepeatable, resolveEditorAction } from './editorActions';
+import {
+  isRepeatable,
+  resolveEditorAction,
+  resolveEmits,
+} from './editorActions';
 import type { KeyDef, KeyboardLayout } from './layoutSchema';
 
 const layout: KeyboardLayout = {
@@ -71,6 +75,19 @@ const glyphOnly: KeyDef = {
   labels: [{ text: 'G' }, null, null, { glyph: 'unmapped' }],
 };
 
+/** A letter whose top layer legend presses a different key on the machine. */
+const cursorW: KeyDef = {
+  id: 'KeyW',
+  spanX: 1,
+  emits: ['KeyW'],
+  labels: [
+    { text: 'W' },
+    null,
+    null,
+    { text: '↑', editor: { action: 'up' }, emits: ['ArrowUp'] },
+  ],
+};
+
 const shiftKey: KeyDef = {
   id: 'Shift',
   spanX: 1,
@@ -129,8 +146,26 @@ describe('resolveEditorAction', () => {
 describe('isRepeatable', () => {
   it('repeats editing motions but not inserts or newline', () => {
     expect(isRepeatable({ action: 'backspace' })).toBe(true);
+    expect(isRepeatable({ action: 'delete' })).toBe(true);
     expect(isRepeatable({ action: 'left' })).toBe(true);
     expect(isRepeatable({ action: 'newline' })).toBe(false);
     expect(isRepeatable({ insert: 'A' })).toBe(false);
+  });
+});
+
+describe('resolveEmits', () => {
+  it("takes the layer legend's tokens when it names any", () => {
+    expect(resolveEmits(layout, cursorW, 'graphic')).toEqual(['ArrowUp']);
+  });
+
+  it("falls back to the key's own tokens on every other layer", () => {
+    expect(resolveEmits(layout, cursorW, 'main')).toEqual(['KeyW']);
+    expect(resolveEmits(layout, cursorW, 'shift')).toEqual(['KeyW']);
+    // A legend with no tokens of its own does not clear the key's.
+    expect(resolveEmits(layout, keyP, 'graphic')).toEqual(['KeyP']);
+  });
+
+  it('falls back for an unknown layer rather than emitting nothing', () => {
+    expect(resolveEmits(layout, cursorW, 'nope')).toEqual(['KeyW']);
   });
 });

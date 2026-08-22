@@ -3,12 +3,23 @@ import { bbcKeyboardLayout } from './keyboardLayout';
 import { bbcCharset } from './charset';
 import { matrixForToken } from '../../emulator/bbc/keyboard';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = bbcKeyboardLayout;
 const functionKeys = layout.functionKeys ?? [];
 const allKeys = [...layout.rows.flat(), ...functionKeys];
 /** Filler cells (spacers) emit nothing and carry no modifier. */
 const realKeys = allKeys.filter((k) => k.emits.length > 0 || k.modifier);
+
+/**
+ * Every token a key can press: its own, plus any a layer's legend names in
+ * place of them (the CURSOR arrows over WASD). A legend's tokens bypass
+ * `emits`, so a check that walked `emits` alone would not see them.
+ */
+const tokensOf = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
+];
 
 describe('bbcmicro keyboard layout', () => {
   it('uses the standard 40-column template', () => {
@@ -129,7 +140,7 @@ describe('bbcmicro keyboard layout', () => {
 
   it('every emitted token maps to the BBC matrix', () => {
     for (const key of realKeys) {
-      for (const token of key.emits) {
+      for (const token of tokensOf(key)) {
         expect(matrixForToken(token), `${key.id} → ${token}`).toBeDefined();
       }
     }

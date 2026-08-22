@@ -56,7 +56,27 @@ function key(token: string, [main, shift, keyword]: Legends): KeyDef {
     id: token,
     spanX: 4,
     emits: [token],
-    labels: [lbl(main), lbl(shift), lbl(keyword)],
+    labels: [lbl(main), lbl(shift), lbl(keyword), null],
+  };
+}
+
+/**
+ * A key that also carries a CURSOR-layer arrow. The machine has no arrow keys:
+ * its cursor is SHIFT over 5/6/7/8, so the legend presses that pair rather
+ * than the letter's own cell, exactly as the real keyboard would.
+ */
+function withCursor(
+  def: KeyDef,
+  arrow: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  digit: string,
+): KeyDef {
+  return {
+    ...def,
+    labels: [
+      ...def.labels.slice(0, 3),
+      { text: arrow, editor: { action }, emits: ['Shift', digit] },
+    ],
   };
 }
 
@@ -75,7 +95,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', ['Q', null, 'NEW']),
-  key('KeyW', ['W', null, 'LOAD']),
+  withCursor(key('KeyW', ['W', null, 'LOAD']), '↑', 'up', 'Digit7'),
   key('KeyE', ['E', null, 'SAVE']),
   key('KeyR', ['R', null, 'RUN']),
   key('KeyT', ['T', null, 'CONTINUE']),
@@ -87,9 +107,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  key('KeyA', ['A', null, 'LIST']),
-  key('KeyS', ['S', null, 'STOP']),
-  key('KeyD', ['D', null, 'DIM']),
+  withCursor(key('KeyA', ['A', null, 'LIST']), '←', 'left', 'Digit5'),
+  withCursor(key('KeyS', ['S', null, 'STOP']), '↓', 'down', 'Digit6'),
+  withCursor(key('KeyD', ['D', null, 'DIM']), '→', 'right', 'Digit8'),
   key('KeyF', ['F', null, 'FOR']),
   key('KeyG', ['G', null, 'GOTO']),
   key('KeyH', ['H', '**', 'POKE']),
@@ -117,28 +137,28 @@ const shiftKey: KeyDef = {
   emits: ['Shift'],
   modifier: 'shift',
   style: 'shift',
-  labels: [{ text: '⇧' }, null, null],
+  labels: [{ text: '⇧' }, null, null, null],
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: '␣', editor: { insert: ' ' } }, { text: '£' }, null],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, { text: '£' }, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['Shift', 'KeyY'],
-  labels: [{ text: '"' }, null, null],
+  labels: [{ text: '"' }, null, null, null],
 };
 
 const backspaceKey: KeyDef = {
   id: 'Backspace',
   spanX: 4,
   emits: ['Shift', 'Digit0'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
 };
 
 const rows: KeyDef[][] = [
@@ -175,9 +195,16 @@ export const zx80KeyboardLayout: KeyboardLayout = {
       activeWhen: [],
       editorInsertStyle: 'word',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'main' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
     { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
     // No graphics key layer: the mode shows the palette, whose cells insert
     // the characters directly.

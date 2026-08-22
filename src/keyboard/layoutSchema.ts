@@ -117,7 +117,16 @@ export interface LayerDef {
 /** What a key does when the keyboard targets a text editor. */
 export type EditorKeyAction =
   | { insert: string }
-  | { action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down' };
+  | {
+      action:
+        | 'backspace'
+        | 'delete'
+        | 'newline'
+        | 'left'
+        | 'right'
+        | 'up'
+        | 'down';
+    };
 
 /** A selectable editor-target input mode (mirrors the ZX81 K/F/G cursor). */
 export interface EditorModeDef {
@@ -203,6 +212,13 @@ export interface KeyLabel {
   text?: string;
   /** Name of a glyph in the layout's glyph registry. */
   glyph?: string;
+  /**
+   * Machine tokens this legend presses instead of the key's own `emits`, while
+   * its layer is the active one. Lets one keycap be a letter on the base layer
+   * and a cursor key under a CURSOR mode, so a legend declares both halves of
+   * what it does - to the editor and to the machine - in one place.
+   */
+  emits?: string[];
   /**
    * Editor action override for this legend; null forces a no-op even when
    * the layer has a derivable default. undefined = use the layer default.

@@ -167,8 +167,9 @@ Reuse `src/keyboard/templateRows.ts` (`GRID_COLUMNS`, `KEY_SPAN`, the
 `NUMBER_ROW_TOKENS`/`QWERTY_ROW_TOKENS`/… token orders, `centerRow`, and the
 `bottomRow` factory) so your layout supplies only its legends and modifiers and
 inherits the template's proportions. Prefer icons/abbreviations (`⇧ ⌫ ↵ "`) over
-wide text; do **not** add arrow keys (the editor handles cursor placement by
-touch). Deviate from the template only where the machine genuinely requires it
+wide text; do **not** add arrow keycaps to the rows - the cursor keys belong in
+CURSOR mode (below). Deviate from the template only where the machine genuinely
+requires it
 (see the BBC's SYM mode and the C64's SHIFT-layer symbols for examples of
 trading authenticity for a clean, thumb-sized grid).
 
@@ -194,7 +195,35 @@ By default the editor action is derived from the label text + the layer's
 { text: 'PRINT',   editor: { insert: 'PRINT ' } }  // insert different text than shown
 ```
 
-Available actions: `'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down'`.
+Available actions:
+`'backspace' | 'delete' | 'newline' | 'left' | 'right' | 'up' | 'down'`.
+Use `'delete'` only for a machine whose key deletes at the cursor rather than
+behind it, and label that key as the machine labels it - the PMD 85's `DEL`
+key, not a borrowed `⌫`.
+
+#### Cursor keys
+
+There is no room on the template for an arrow cluster, so a machine's cursor
+keys are a `cursor` layer pinned by a `CURSOR` editor mode, overlaying
+`↑ ← ↓ →` on the W/A/S/D keycaps. A cursor legend carries **both** halves of
+what it does:
+
+```ts
+{ text: '↑', editor: { action: 'up' }, emits: ['ArrowUp'] }
+```
+
+`KeyLabel.emits` replaces the key's own `emits` while that layer is the active
+one, so the keycap is a letter normally and the machine's real cursor key under
+CURSOR mode. Without it the key would press `KeyW` on the matrix while showing
+an arrow.
+
+Give the legend the tokens the machine's own arrow keys reach, including the
+combination where a machine produces its cursor keys by holding shift - the
+Spectrum's are `['CapsShift', 'Digit7']`, not an invented `ArrowUp`. Offer only
+the keys the machine has: the PMD 85 has three and no down key, so its S keycap
+carries no arrow, and the Altair has none at all and declares no CURSOR mode.
+`src/keyboard/layoutGeometry.test.ts` enforces this - a new dialect either
+wires its cursor keys up or is listed there as a machine that has none.
 
 #### Glyphs, editor modes, function keys (optional)
 

@@ -40,7 +40,10 @@ import {
  * the CPC 6128 sibling (`../cpc6128/`) re-exports these rows under its own theme.
  */
 
-type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
+type Legend =
+  | string
+  | { text: string; editor: EditorKeyAction | null; emits?: string[] }
+  | null;
 type Legends = [Legend, Legend, Legend];
 
 /** Legend bound to an editing action. */
@@ -49,12 +52,27 @@ const act = (
   action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
 ): Legend => ({ text, editor: { action } });
 
+/**
+ * A CURSOR-layer legend: it moves the editor caret, and on the machine it
+ * presses the cursor cluster's own matrix cell instead of the letter the keycap
+ * carries on its base layer.
+ */
+const cursorKey = (
+  text: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  token: string,
+): Legend => ({ text, editor: { action }, emits: [token] });
+
 const lbl = (legend: Legend): KeyLabel | null =>
   legend === null
     ? null
     : typeof legend === 'string'
       ? { text: legend }
-      : { text: legend.text, editor: legend.editor };
+      : {
+          text: legend.text,
+          editor: legend.editor,
+          ...(legend.emits ? { emits: legend.emits } : {}),
+        };
 
 /**
  * A standard key: [base, shifted, sym] legends plus an optional CURSOR-layer
@@ -86,7 +104,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('Q', ['Q', null, '{']),
-  key('W', ['W', null, '}'], act('↑', 'up')),
+  key('W', ['W', null, '}'], cursorKey('↑', 'up', 'CursorUp')),
   key('E', ['E', null, '\\']),
   key('R', ['R', null, '|']),
   key('T', ['T', null, '£']),
@@ -98,9 +116,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  key('A', ['A', null, null], act('←', 'left')),
-  key('S', ['S', null, null], act('↓', 'down')),
-  key('D', ['D', null, null], act('→', 'right')),
+  key('A', ['A', null, null], cursorKey('←', 'left', 'CursorLeft')),
+  key('S', ['S', null, null], cursorKey('↓', 'down', 'CursorDown')),
+  key('D', ['D', null, null], cursorKey('→', 'right', 'CursorRight')),
   key('F', ['F', null, null]),
   key('G', ['G', null, null]),
   key('H', ['H', null, null]),

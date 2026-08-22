@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { dialects } from '../dialects/registry';
-import { resolveEditorAction } from './editorActions';
+import { resolveEditorAction, resolveEmits } from './editorActions';
 import type { KeyDef } from './layoutSchema';
 import { GRID_COLUMNS, KEY_SPAN, ROW_KEYS } from './templateRows';
 
@@ -66,6 +66,55 @@ describe('every function key is a function key', () => {
           `${dialect.id} ${key.id}`,
         ).toBeNull();
       }
+    });
+  }
+});
+
+/**
+ * Machines whose keyboards carry no cursor keys, so their layouts must not
+ * pretend otherwise. Listed rather than derived, because "does this machine
+ * have arrow keys" is a fact about the hardware that only a person can answer.
+ */
+const NO_CURSOR_KEYS = new Set(['altair8800']);
+
+/** Direction → the arrow a CURSOR legend prints for it. */
+const ARROWS = { up: '↑', down: '↓', left: '←', right: '→' } as const;
+
+describe('every machine offers the cursor keys it has', () => {
+  for (const dialect of dialects) {
+    const layout = dialect.keyboardLayout;
+    const mode = layout.editorModes?.find((m) => m.id === 'cursor');
+
+    if (NO_CURSOR_KEYS.has(dialect.id)) {
+      it(`${dialect.id} has none, and offers none`, () => {
+        expect(mode).toBeUndefined();
+      });
+      continue;
+    }
+
+    it(`${dialect.id} presses its own cursor keys, not the letters`, () => {
+      // A new dialect that ships without this either has to wire its cursor
+      // keys up or say, above, that the machine has none.
+      expect(mode, `${dialect.id} declares no CURSOR mode`).toBeDefined();
+
+      const keys = new Map(layout.rows.flat().map((k) => [k.id, k]));
+      const found = new Map<string, string[]>();
+      for (const [action, arrow] of Object.entries(ARROWS)) {
+        for (const key of keys.values()) {
+          const label = layout.layers
+            .map((l, i) => (l.id === mode!.layer ? key.labels[i] : null))
+            .find((l) => l?.text === arrow);
+          if (!label) continue;
+          // The legend moves the caret in the editor and presses the machine's
+          // own key on the machine - never the letter the keycap carries.
+          expect(label.editor, `${dialect.id} ${arrow}`).toEqual({ action });
+          const tokens = resolveEmits(layout, key, mode!.layer);
+          expect(tokens, `${dialect.id} ${arrow}`).not.toEqual(key.emits);
+          found.set(action, tokens);
+        }
+      }
+      // Three is the floor: the PMD 85 has no down key, and its layout says so.
+      expect(found.size, `${dialect.id} cursor directions`).toBeGreaterThan(2);
     });
   }
 });

@@ -112,6 +112,31 @@ describe('trs80 keyboard layout', () => {
     expect(new Set(entries.map((e) => e.code)).size).toBe(entries.length);
   });
 
+  it("gives the CURSOR arrows the machine's own matrix cells", () => {
+    const cursorIdx = layout.layers.findIndex((l) => l.id === 'cursor');
+    const found = new Map<string, string[] | undefined>();
+    for (const key of layout.rows.flat()) {
+      const label = key.labels[cursorIdx];
+      if (label?.text) found.set(label.text, label.emits);
+    }
+    expect(found.get('↑')).toEqual(['ArrowUp']);
+    expect(found.get('↓')).toEqual(['ArrowDown']);
+    expect(found.get('←')).toEqual(['ArrowLeft']);
+    expect(found.get('→')).toEqual(['ArrowRight']);
+  });
+
+  it('keeps ← as the destructive backspace, since there is no DEL', () => {
+    // The Model I has no delete key at all: `←` sends 0x08, which the screen
+    // driver reads as "backspace and erase". The PMD 85 is the other way round
+    // - a delete key and no backspace - so the two must not be made to match.
+    const left = layout.rows.flat().find((k) => k.id === 'Backspace')!;
+    expect(left.emits).toEqual(['ArrowLeft']);
+    expect(left.labels[0]?.text).toBe('←');
+    expect(resolveEditorAction(layout, left, 'base')).toEqual({
+      action: 'backspace',
+    });
+  });
+
   it('reaches the palette from an editor mode', () => {
     const mode = layout.editorModes!.find((m) => m.palette === 'graphics');
     expect(mode).toBeDefined();

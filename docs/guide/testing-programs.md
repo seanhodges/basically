@@ -91,6 +91,14 @@ It reproduces the target machine's real key legends, including its shift/mode
 keys, and sends keystrokes to whichever surface is active - into the editor while
 you're editing, or into the running program when the emulator is in front.
 
+Machines with cursor keys put them on a **CURSOR** tab above the keys, as
+`↑ ← ↓ →` over the W, A, S and D keycaps. Those keys move the caret in the
+editor, and press the machine's own cursor keys when the emulator is in front -
+so you can drive a program's screen editor by touch, without a real keyboard.
+Machines whose cursor keys need a shift held on the real keyboard send that same
+combination. A machine that has no cursor keys, like the Altair 8800, has no
+CURSOR tab.
+
 A few options under **Settings ▸ Keyboard** tune it:
 
 - **Show automatically on focus** pops the keyboard up when you tap the editor or
