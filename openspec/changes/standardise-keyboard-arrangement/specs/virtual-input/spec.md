@@ -64,10 +64,13 @@ symbol.
 
 Tapping a mapped symbol SHALL insert it into the code editor when the
 editor has focus, and SHALL press the machine's own key or key combination
-for that symbol when the emulator has focus. Every character that was
-offered by a dedicated punctuation keycap before SHALL be reachable in
-symbol mode, and each machine's authentic shifted legends SHALL remain
-usable alongside it.
+for that symbol when the emulator has focus. Where a machine reaches a
+symbol only through a mode sequence that no single key combination can
+send, the cell SHALL still insert into the editor but SHALL press nothing
+on the machine, rather than a key that would type something else. Every
+character that was offered by a dedicated punctuation keycap before SHALL
+be reachable in symbol mode, and each machine's authentic shifted legends
+SHALL remain usable alongside it.
 
 The number row and the bottom row SHALL keep their normal function while
 symbol mode is active. Where a machine maps a symbol on the second page,

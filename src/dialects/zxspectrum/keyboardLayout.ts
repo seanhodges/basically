@@ -211,7 +211,10 @@ const rows: KeyDef[][] = [
 /**
  * How the Spectrum reaches each canonical SYM symbol: the SYMBOL SHIFT
  * combination the red legends record. The `^` slot shows the machine's own
- * `↑` (the Spectrum's exponent character).
+ * `↑` (the Spectrum's exponent character). `~ | \ { }` are extended-mode
+ * characters - CAPS+SYM first, then SYMBOL SHIFT + the letter - a two-chord
+ * sequence no single combination sends (plain SymShift+A types STOP), so
+ * their cells insert into the editor and press nothing on the machine.
  */
 const SPECTRUM_SYMBOLS: SymbolTable = {
   '+': { emits: ['SymShift', 'KeyK'] },
@@ -236,11 +239,11 @@ const SPECTRUM_SYMBOLS: SymbolTable = {
   ';': { emits: ['SymShift', 'KeyO'] },
   ',': { emits: ['SymShift', 'KeyN'] },
   '.': { emits: ['SymShift', 'KeyM'] },
-  '~': { emits: ['SymShift', 'KeyA'] },
-  '|': { emits: ['SymShift', 'KeyS'] },
-  '\\': { emits: ['SymShift', 'KeyD'] },
-  '{': { emits: ['SymShift', 'KeyF'] },
-  '}': { emits: ['SymShift', 'KeyG'] },
+  '~': { emits: [] },
+  '|': { emits: [] },
+  '\\': { emits: [] },
+  '{': { emits: [] },
+  '}': { emits: [] },
   '£': { emits: ['SymShift', 'KeyX'] },
   '?': { emits: ['SymShift', 'KeyC'] },
 };

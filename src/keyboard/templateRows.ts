@@ -108,7 +108,13 @@ export const SYMBOL_PAGE_2: readonly (readonly SymbolSlot[])[] = [
 
 /** How one machine reaches one canonical symbol. */
 export interface SymbolBinding {
-  /** The machine's own key or combination for the symbol. */
+  /**
+   * The machine's own key or combination for the symbol. Empty for a
+   * character the machine reaches only through a mode sequence no single
+   * combination can send (the Spectrum's extended-mode `~ | \ { }`): the
+   * cell then inserts into the editor and presses nothing, rather than a
+   * wrong key.
+   */
   emits: string[];
   /** Editor insert when it differs from the symbol (default: the symbol). */
   insert?: string;
