@@ -27,8 +27,11 @@ import { ZX80_GRAPHICS } from './graphics';
  * legend cannot tell them apart.
  *
  * The ZX80 has no FUNCTION cursor mode, so there is no function layer. As with
- * the rest of the template the dedicated cursor/HOME/RUBOUT keys are dropped and
- * a quote + backspace key live on the common bottom row.
+ * the rest of the template the dedicated HOME/RUBOUT keys are dropped and a
+ * quote + backspace key live on the common bottom row. The cursor keys are
+ * SHIFT + 5/6/7/8, so the arrows sit on those number keys, where the machine
+ * prints them: they are the SHIFT legends there, and CURSOR mode repeats them
+ * on the same keycaps so the pair can be sent without the modifier held.
  */
 
 // Label tuple order matches `layers` below: [main, shift, keyword].
@@ -41,34 +44,38 @@ const key = (token: string, legends: Legends): KeyDef =>
 const CURSOR_LAYER = 3;
 
 /**
- * A key that also carries a CURSOR-layer arrow. The machine has no arrow keys:
- * its cursor is SHIFT over 5/6/7/8, so the legend presses that pair rather
- * than the letter's own cell, exactly as the real keyboard would.
+ * A digit key that is also one of the machine's cursor keys. Both legends move
+ * the editor caret, and the CURSOR one presses SHIFT + the digit - the pair the
+ * real keyboard sends - rather than the digit's own cell.
  */
-const withCursor = (
-  def: KeyDef,
+const arrowDigit = (
+  token: string,
+  digit: string,
   arrow: string,
   action: CursorAction,
-  digit: string,
 ): KeyDef =>
-  withLegend(def, CURSOR_LAYER, cursorKey(arrow, action, ['Shift', digit]));
+  withLegend(
+    key(token, [digit, act(arrow, action), null]),
+    CURSOR_LAYER,
+    cursorKey(arrow, action, ['Shift', token]),
+  );
 
 const numberRow = [
   key('Digit1', ['1', word('NOT'), null]),
   key('Digit2', ['2', word('AND'), null]),
   key('Digit3', ['3', word('THEN'), null]),
   key('Digit4', ['4', word('TO'), null]),
-  key('Digit5', ['5', { text: '←', editor: null }, null]),
-  key('Digit6', ['6', { text: '↓', editor: null }, null]),
-  key('Digit7', ['7', { text: '↑', editor: null }, null]),
-  key('Digit8', ['8', { text: '→', editor: null }, null]),
+  arrowDigit('Digit5', '5', '←', 'left'),
+  arrowDigit('Digit6', '6', '↓', 'down'),
+  arrowDigit('Digit7', '7', '↑', 'up'),
+  arrowDigit('Digit8', '8', '→', 'right'),
   key('Digit9', ['9', null, null]),
   key('Digit0', ['0', null, null]),
 ];
 
 const qwertyRow = [
   key('KeyQ', ['Q', null, 'NEW']),
-  withCursor(key('KeyW', ['W', null, 'LOAD']), '↑', 'up', 'Digit7'),
+  key('KeyW', ['W', null, 'LOAD']),
   key('KeyE', ['E', null, 'SAVE']),
   key('KeyR', ['R', null, 'RUN']),
   key('KeyT', ['T', null, 'CONTINUE']),
@@ -80,9 +87,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  withCursor(key('KeyA', ['A', null, 'LIST']), '←', 'left', 'Digit5'),
-  withCursor(key('KeyS', ['S', null, 'STOP']), '↓', 'down', 'Digit6'),
-  withCursor(key('KeyD', ['D', null, 'DIM']), '→', 'right', 'Digit8'),
+  key('KeyA', ['A', null, 'LIST']),
+  key('KeyS', ['S', null, 'STOP']),
+  key('KeyD', ['D', null, 'DIM']),
   key('KeyF', ['F', null, 'FOR']),
   key('KeyG', ['G', null, 'GOTO']),
   key('KeyH', ['H', '**', 'POKE']),

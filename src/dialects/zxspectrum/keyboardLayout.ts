@@ -29,10 +29,10 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
  * not key legends because a UDG has no fixed shape to print.
  *
  * CAPS and SYMBOL shift sit on the common bottom row either side of the space
- * bar, with a quote and backspace. The number row keeps its CAPS-layer arrow
- * legends, which is where the machine prints them, and CURSOR mode puts the
- * same four keys on WASD - the legends there press the CAPS SHIFT + 5/6/7/8
- * pair the real keyboard sends.
+ * bar, with a quote and backspace. The cursor keys are CAPS SHIFT + 5/6/7/8, so
+ * the arrows sit on those number keys, where the machine prints them: they are
+ * the CAPS legends there, and CURSOR mode repeats them on the same keycaps so
+ * the pair can be sent without the modifier held.
  */
 
 type Legends = [Legend, Legend, Legend, Legend, Legend];
@@ -61,39 +61,39 @@ function letter(
 const CURSOR_LAYER = 5;
 
 /**
- * A key that also carries a CURSOR-layer arrow. The machine has no arrow keys:
- * its cursor is CAPS SHIFT over 5/6/7/8, so the legend presses that pair rather
- * than the letter's own cell, exactly as the real keyboard would.
+ * A digit key that is also one of the machine's cursor keys. Both legends move
+ * the editor caret, and the CURSOR one presses CAPS SHIFT + the digit - the
+ * pair the real keyboard sends - rather than the digit's own cell.
  */
-const withCursor = (
-  def: KeyDef,
+const arrowDigit = (
+  token: string,
+  digit: string,
   arrow: string,
   action: CursorAction,
-  digit: string,
+  symbol: Legend,
 ): KeyDef =>
-  withLegend(def, CURSOR_LAYER, cursorKey(arrow, action, ['CapsShift', digit]));
+  withLegend(
+    key(token, [digit, act(arrow, action), symbol, null, null]),
+    CURSOR_LAYER,
+    cursorKey(arrow, action, ['CapsShift', token]),
+  );
 
 const numberRow = [
   key('Digit1', ['1', null, '!', null, null]),
   key('Digit2', ['2', null, '@', null, null]),
   key('Digit3', ['3', null, '#', null, null]),
   key('Digit4', ['4', null, '$', null, null]),
-  key('Digit5', ['5', { text: '←', editor: null }, '%', null, null]),
-  key('Digit6', ['6', { text: '↓', editor: null }, '&', null, null]),
-  key('Digit7', ['7', { text: '↑', editor: null }, ins("'", "'"), null, null]),
-  key('Digit8', ['8', { text: '→', editor: null }, '(', null, null]),
+  arrowDigit('Digit5', '5', '←', 'left', '%'),
+  arrowDigit('Digit6', '6', '↓', 'down', '&'),
+  arrowDigit('Digit7', '7', '↑', 'up', ins("'", "'")),
+  arrowDigit('Digit8', '8', '→', 'right', '('),
   key('Digit9', ['9', null, ')', null, null]),
   key('Digit0', ['0', null, '_', null, null]),
 ];
 
 const qwertyRow = [
   letter('KeyQ', 'q', '<=', 'PLOT', word('SIN')),
-  withCursor(
-    letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
-    '↑',
-    'up',
-    'Digit7',
-  ),
+  letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
   letter('KeyE', 'e', '>=', 'REM', word('TAN')),
   letter('KeyR', 'r', '<', 'RUN', word('INT')),
   letter('KeyT', 't', '>', 'RANDOMIZE', word('RND')),
@@ -105,24 +105,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  withCursor(
-    letter('KeyA', 'a', '~', 'NEW', word('READ')),
-    '←',
-    'left',
-    'Digit5',
-  ),
-  withCursor(
-    letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
-    '↓',
-    'down',
-    'Digit6',
-  ),
-  withCursor(
-    letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
-    '→',
-    'right',
-    'Digit8',
-  ),
+  letter('KeyA', 'a', '~', 'NEW', word('READ')),
+  letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
+  letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
   letter('KeyF', 'f', '{', 'FOR', word('SGN')),
   letter('KeyG', 'g', '}', 'GO TO', word('ABS')),
   letter('KeyH', 'h', ins('↑', '↑'), 'GO SUB', word('SQR')),

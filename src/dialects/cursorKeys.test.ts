@@ -16,9 +16,9 @@ import type { Dialect, MachineEmulator } from './types';
  * The on-screen keyboard's cursor keys, proved against the real ROMs.
  *
  * The tokens are read out of each dialect's own layout rather than restated
- * here, so this fails if a CURSOR legend is ever wired back to the letter its
- * keycap carries - which is what it did before these legends carried tokens of
- * their own, and which no amount of layout-shape checking would catch.
+ * here, so this fails if a CURSOR legend is ever wired back to the character
+ * its keycap carries - which is what it did before these legends carried tokens
+ * of their own, and which no amount of layout-shape checking would catch.
  *
  * One machine per emulator wiring family: viciious (C64), cpu6502 (PET), the
  * CPC's own core, and the 8080 (PMD 85) all show the moved cursor in their
@@ -46,14 +46,16 @@ async function tap(machine: MachineEmulator, tokens: string[]): Promise<void> {
 }
 
 /**
- * The layout's CURSOR legend for `arrow`: the tokens it presses, and the letter
- * printed on the same keycap's base layer - what it would type if the legend
- * were ever wired back to the key's own cell.
+ * The layout's CURSOR legend for `arrow`: the tokens it presses, and the
+ * character printed on the same keycap's base layer - what it would type if the
+ * legend were ever wired back to the key's own cell. That character is a letter
+ * on a machine whose arrows overlay letter keys, and a digit on the Sinclairs,
+ * whose cursor keys are their 5/6/7/8 keys.
  */
 function cursorLegend(
   dialect: Dialect,
   arrow: string,
-): { tokens: string[]; letter: string } {
+): { tokens: string[]; base: string } {
   const layout = dialect.keyboardLayout;
   const mode = layout.editorModes?.find((m) => m.id === 'cursor');
   expect(mode, `${dialect.id} has no CURSOR mode`).toBeDefined();
@@ -63,7 +65,7 @@ function cursorLegend(
     if (key.labels[idx]?.text === arrow) {
       return {
         tokens: resolveEmits(layout, key, mode!.layer),
-        letter: (key.labels[base]?.text ?? '').toUpperCase(),
+        base: (key.labels[base]?.text ?? '').toUpperCase(),
       };
     }
   }
@@ -110,8 +112,8 @@ describe("the on-screen cursor keys move the machine's own cursor", () => {
  * Machines whose editors do not show the move: the BBC's cursor keys start its
  * copy editor rather than moving the write cursor, and the Spectrum's open its
  * edit line, redrawing the boot screen. What both still prove is the regression
- * this change fixes - a cursor keycap presses a cursor key, not the letter
- * printed under it, which is exactly what these keys used to do.
+ * that matters - a cursor keycap presses a cursor key, not the character
+ * printed under it.
  */
 const NO_STRAY: [string, 16 | 32 | 64][] = [
   ['bbcmicro', 32],
@@ -120,22 +122,25 @@ const NO_STRAY: [string, 16 | 32 | 64][] = [
 
 describe('a cursor key types nothing', () => {
   for (const [id, ramKb] of NO_STRAY) {
-    it(`${id} puts no letter on screen when a cursor key is pressed`, async () => {
+    it(`${id} types nothing when a cursor key is pressed`, async () => {
       const dialect = getDialect(id)!;
       const machine = await bootMachine(dialect, { ramKb });
       await runFrames(machine, 300);
 
       for (const arrow of ['↑', '←', '↓', '→']) {
-        const { tokens, letter } = cursorLegend(dialect, arrow);
-        const before = count(screenText(machine), letter);
+        const { tokens, base } = cursorLegend(dialect, arrow);
+        const before = count(screenText(machine), base);
         await tap(machine, tokens);
         await runFrames(machine, 20);
-        // Counted rather than compared whole: these keys legitimately redraw
-        // the screen (the BBC's copy cursor, the Spectrum's edit line), but
-        // neither may add the letter the keycap carries.
-        expect(count(screenText(machine), letter), `${id} ${arrow}`).toBe(
-          before,
-        );
+        // Counted, and only upwards: these keys legitimately redraw the screen
+        // (the BBC's copy cursor, the Spectrum's edit line clearing a boot
+        // message that carries a digit one of its cursor keycaps is printed
+        // with), so text may disappear - but none of them may add the
+        // character the keycap carries.
+        expect(
+          count(screenText(machine), base),
+          `${id} ${arrow}`,
+        ).toBeLessThanOrEqual(before);
       }
     }, 60000);
   }

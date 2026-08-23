@@ -205,25 +205,30 @@ key, not a borrowed `⌫`.
 
 There is no room on the template for an arrow cluster, so a machine's cursor
 keys are a `cursor` layer pinned by a `CURSOR` editor mode, overlaying
-`↑ ← ↓ →` on the W/A/S/D keycaps. A cursor legend carries **both** halves of
-what it does:
+`↑ ← ↓ →` on keys the rows already have. Put the overlay where the machine
+prints its arrows: on the Sinclairs that is the 5/6/7/8 keycaps, whose SHIFT
+legends _are_ the cursor keys; a machine with an arrow cluster of its own has
+nowhere printed to put them, so those go on W/A/S/D. A cursor legend carries
+**both** halves of what it does:
 
 ```ts
 { text: '↑', editor: { action: 'up' }, emits: ['ArrowUp'] }
 ```
 
 `KeyLabel.emits` replaces the key's own `emits` while that layer is the active
-one, so the keycap is a letter normally and the machine's real cursor key under
-CURSOR mode. Without it the key would press `KeyW` on the matrix while showing
-an arrow.
+one, so the keycap types its own character normally and presses the machine's
+real cursor key under CURSOR mode. Without it the key would press `KeyW` on the
+matrix while showing an arrow.
 
 Give the legend the tokens the machine's own arrow keys reach, including the
 combination where a machine produces its cursor keys by holding shift - the
-Spectrum's are `['CapsShift', 'Digit7']`, not an invented `ArrowUp`. Offer only
-the keys the machine has: the PMD 85 has three and no down key, so its S keycap
-carries no arrow, and the Altair has none at all and declares no CURSOR mode.
-`src/keyboard/layoutGeometry.test.ts` enforces this - a new dialect either
-wires its cursor keys up or is listed there as a machine that has none.
+Spectrum's are `['CapsShift', 'Digit7']`, not an invented `ArrowUp`. Where the
+keycap already prints that arrow as a shift legend, give that legend the
+matching `editor: { action }` too, so the shifted chord moves the caret as well.
+Offer only the keys the machine has: the PMD 85 has three and no down key, so
+its S keycap carries no arrow, and the Altair has none at all and declares no
+CURSOR mode. `src/keyboard/layoutGeometry.test.ts` enforces this - a new dialect
+either wires its cursor keys up or is listed there as a machine that has none.
 
 #### Glyphs, editor modes, function keys (optional)
 

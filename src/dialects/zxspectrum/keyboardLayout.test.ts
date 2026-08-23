@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumCharset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 
 const layout = spectrumKeyboardLayout;
 const allKeys = layout.rows.flat();
@@ -89,5 +92,43 @@ describe('zxspectrum keyboard layout', () => {
         insert: '3',
       },
     );
+  });
+
+  it('puts the cursor arrows on 5/6/7/8, where the machine prints them', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    const arrows: [string, 'left' | 'down' | 'up' | 'right'][] = [
+      ['Digit5', 'left'],
+      ['Digit6', 'down'],
+      ['Digit7', 'up'],
+      ['Digit8', 'right'],
+    ];
+    for (const [id, action] of arrows) {
+      const key = byId.get(id)!;
+      // The arrow the machine prints on the CAPS layer and the CURSOR
+      // overlay are the same key, and both move the caret.
+      expect(resolveEditorAction(layout, key, 'caps'), id).toEqual({
+        action,
+      });
+      expect(resolveEditorAction(layout, key, 'cursor'), id).toEqual({
+        action,
+      });
+      // On the machine the CURSOR legend presses the pair the real keyboard
+      // sends, not the digit on its own.
+      expect(resolveEmits(layout, key, 'cursor'), id).toEqual([
+        'CapsShift',
+        id,
+      ]);
+    }
+    // The letter keys carry no arrow: in CURSOR mode they type themselves.
+    for (const [id, ch] of [
+      ['KeyW', 'w'],
+      ['KeyA', 'a'],
+      ['KeyS', 's'],
+      ['KeyD', 'd'],
+    ]) {
+      expect(resolveEditorAction(layout, byId.get(id)!, 'cursor'), id).toEqual({
+        insert: ch,
+      });
+    }
   });
 });

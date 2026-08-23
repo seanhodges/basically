@@ -110,7 +110,7 @@ export function key(
 
 /**
  * Add or replace one layer's legend on an already-built key - how a key picks
- * up a marking that only some keys carry, such as the CURSOR overlay on WASD.
+ * up a marking that only some keys carry, such as a CURSOR overlay.
  * Layers between the key's existing legends and `layer` are left blank.
  */
 export function withLegend(def: KeyDef, layer: number, legend: Legend): KeyDef {
