@@ -5,16 +5,28 @@ import {
   cursorKey,
   key as kitKey,
 } from '../../keyboard/legendKit';
-import { bottomRow } from '../../keyboard/templateRows';
+import {
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 import { TRS80_GRAPHICS } from './graphics';
 
 /**
- * The TRS-80 keyboard on the standard virtual-keyboard template. The
- * TRS-80 is a plain QWERTY with SHIFT - no keyword or graphics typing layers -
- * so there are two character layers: base and SHIFT. Each key `emits` the
- * DOM-`code`-style token the interpreter's input adapter understands
- * (`interpreter/input.ts`), and the SHIFT legends double as editor inserts for
- * the symbols and operators that ride the shifted number/letter keys.
+ * The TRS-80 keyboard on the standard virtual-keyboard template: number row,
+ * ten-key QWERTY row, centred nine-key home row, the bottom letter row
+ * flanked by SHIFT and the machine's own `←` key, and a bottom row of BREAK,
+ * space, quote, and Enter at the far right.
+ *
+ * The TRS-80 is a plain QWERTY with SHIFT - no keyword or graphics typing
+ * layers - so there are two character layers: base and SHIFT. Each key
+ * `emits` the DOM-`code`-style token the interpreter's input adapter
+ * understands (`interpreter/input.ts`), whose pair table also records the
+ * machine's shift pairs (`,<` `.>` `;+` `:*` `-=` `/?`). The machine's
+ * symbols live in the SYM mode at the template's canonical positions, each
+ * cell pressing the machine's own key or SHIFT pair.
  *
  * A third `cursor` layer (pinned by the CURSOR mode tab, bottom-right on the
  * keycap since SHIFT already sits top-right) overlays `↑ ← ↓ →` on the W/A/S/D
@@ -61,32 +73,17 @@ const qwertyRow = [
   key('KeyP', 'P'),
 ];
 
-// SHIFT legends on the home row expose the common operators as editor inserts.
-const homeRow = [
-  key('KeyA', 'A', '+', cursorKey('←', 'left', 'ArrowLeft')),
-  key('KeyS', 'S', '-', cursorKey('↓', 'down', 'ArrowDown')),
-  key('KeyD', 'D', '*', cursorKey('→', 'right', 'ArrowRight')),
-  key('KeyF', 'F', '/'),
-  key('KeyG', 'G', '='),
-  key('KeyH', 'H', ':'),
-  key('KeyJ', 'J', ';'),
-  key('KeyK', 'K', '@'),
+const homeRow = centerRow([
+  key('KeyA', 'A', null, cursorKey('←', 'left', 'ArrowLeft')),
+  key('KeyS', 'S', null, cursorKey('↓', 'down', 'ArrowDown')),
+  key('KeyD', 'D', null, cursorKey('→', 'right', 'ArrowRight')),
+  key('KeyF', 'F'),
+  key('KeyG', 'G'),
+  key('KeyH', 'H'),
+  key('KeyJ', 'J'),
+  key('KeyK', 'K'),
   key('KeyL', 'L'),
-  kitKey('Enter', [act('↵', 'newline'), null, null]),
-];
-
-const zxcvRow = [
-  key('KeyZ', 'Z'),
-  key('KeyX', 'X'),
-  key('KeyC', 'C'),
-  key('KeyV', 'V'),
-  key('KeyB', 'B'),
-  key('KeyN', 'N'),
-  key('KeyM', 'M'),
-  key('Comma', ',', '<'),
-  key('Period', '.', '>'),
-  key('Slash', '/', '?'),
-];
+]);
 
 const shiftKey: KeyDef = {
   id: 'Shift',
@@ -96,6 +93,38 @@ const shiftKey: KeyDef = {
   style: 'shift',
   labels: [{ text: '⇧' }, null, null],
 };
+
+/**
+ * The Model I has no backspace and no delete key: `←` is its destructive
+ * backspace, sending 0x08, which the screen driver reads as "backspace and
+ * erase". So the keycap carries the machine's own legend, and the editor action
+ * matches what the machine does with it - move back one and erase. CURSOR mode
+ * reaches the same cell, and the other three arrows besides; this cap is here
+ * for the reach.
+ */
+const leftArrowKey: KeyDef = {
+  ...kitKey('Backspace', [act('←', 'backspace'), null, null], {
+    emits: ['ArrowLeft'],
+  }),
+  spanX: 6,
+};
+
+const zxcvRow = flankedRow(
+  shiftKey,
+  [
+    key('KeyZ', 'Z'),
+    key('KeyX', 'X'),
+    key('KeyC', 'C'),
+    key('KeyV', 'V'),
+    key('KeyB', 'B'),
+    key('KeyN', 'N'),
+    key('KeyM', 'M'),
+  ],
+  leftArrowKey,
+);
+
+/** BREAK, in the bottom-left machine region; no editor insert. */
+const breakKey = kitKey('Break', [{ text: 'BRK', editor: null }, null, null]);
 
 const spaceKey = {
   id: 'Space',
@@ -109,76 +138,100 @@ const quoteKey = kitKey('Quote', ['"', null, null], {
   emits: ['Shift', 'Digit2'],
 });
 
-const breakKey = kitKey('Break', ['BRK', null, null]);
-
-/**
- * The Model I has no backspace and no delete key: `←` is its destructive
- * backspace, sending 0x08, which the screen driver reads as "backspace and
- * erase". So the keycap carries the machine's own legend, and the editor action
- * matches what the machine does with it - move back one and erase. CURSOR mode
- * reaches the same cell, and the other three arrows besides; this cap is here
- * for the reach.
- */
-const leftArrowKey = kitKey('Backspace', [act('←', 'backspace'), null, null], {
-  emits: ['ArrowLeft'],
-});
+const enterKey: KeyDef = kitKey('Enter', [act('↵', 'newline')], { spanX: 6 });
 
 const rows: KeyDef[][] = [
   numberRow,
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([shiftKey], spaceKey, [quoteKey, breakKey, leftArrowKey]),
+  bottomRow([breakKey], spaceKey, [quoteKey, enterKey]),
 ];
 
-export const trs80KeyboardLayout: KeyboardLayout = {
-  id: 'trs80',
-  name: 'TRS-80',
-  theme: 'vk-theme-trs80',
-  gridColumns: 40,
-  layers: [
-    {
-      id: 'base',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'shift',
-      name: 'SHIFT',
-      position: 'tr',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'cursor',
-      name: 'CURSOR',
-      position: 'br',
-      activeWhen: [],
-    },
-  ],
-  editorModes: [
-    { id: 'abc', name: 'ABC', layer: 'base' },
-    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
-    // The TRS-80 prints no graphics on its keycaps, so this mode pins no layer:
-    // the palette below carries the characters and labels each with the code
-    // CHR$ takes, which is how the machine itself reached them.
-    { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
-  ],
-  modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
-  rows,
-  graphicsPalette: { sections: [{ entries: TRS80_GRAPHICS }] },
-  glyphs: {},
-  options: { minHoldFrames: 1 },
-  // WASD movement + Space/Enter fire (the convention the bundled TRS-80 games use).
-  controller: {
-    bindings: {
-      up: 'KeyW',
-      down: 'KeyS',
-      left: 'KeyA',
-      right: 'KeyD',
-      fire1: 'Space',
-      fire2: 'Enter',
+/**
+ * How the TRS-80 reaches each canonical SYM symbol: the input adapter's
+ * pair table (`,<` `.>` `;+` `:*` `-=` `/?`), the dedicated `@` key, and
+ * the shifted number row.
+ */
+const TRS80_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
+  '-': { emits: ['Minus'] },
+  '=': { emits: ['Shift', 'Minus'] },
+  '/': { emits: ['Slash'] },
+  '*': { emits: ['Shift', 'Colon'] },
+  '<': { emits: ['Shift', 'Comma'] },
+  '>': { emits: ['Shift', 'Period'] },
+  '@': { emits: ['At'] },
+  '#': { emits: ['Shift', 'Digit3'] },
+  $: { emits: ['Shift', 'Digit4'] },
+  '%': { emits: ['Shift', 'Digit5'] },
+  '&': { emits: ['Shift', 'Digit6'] },
+  '(': { emits: ['Shift', 'Digit8'] },
+  ')': { emits: ['Shift', 'Digit9'] },
+  "'": { emits: ['Shift', 'Digit7'] },
+  '"': { emits: ['Shift', 'Digit2'] },
+  ':': { emits: ['Colon'] },
+  ';': { emits: ['Semicolon'] },
+  ',': { emits: ['Comma'] },
+  '.': { emits: ['Period'] },
+  '?': { emits: ['Shift', 'Slash'] },
+};
+
+export const trs80KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
+    id: 'trs80',
+    name: 'TRS-80',
+    theme: 'vk-theme-trs80',
+    gridColumns: 40,
+    layers: [
+      {
+        id: 'base',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shift',
+        name: 'SHIFT',
+        position: 'tr',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'cursor',
+        name: 'CURSOR',
+        position: 'br',
+        activeWhen: [],
+      },
+    ],
+    editorModes: [
+      { id: 'abc', name: 'ABC', layer: 'base' },
+      { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+      // The TRS-80 prints no graphics on its keycaps, so this mode pins no
+      // layer: the palette below carries the characters and labels each with
+      // the code CHR$ takes, which is how the machine itself reached them.
+      { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
+    ],
+    modifiers: [
+      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+    ],
+    rows,
+    graphicsPalette: { sections: [{ entries: TRS80_GRAPHICS }] },
+    glyphs: {},
+    options: { minHoldFrames: 1 },
+    // WASD movement + Space/Enter fire (the convention the bundled TRS-80
+    // games use).
+    controller: {
+      bindings: {
+        up: 'KeyW',
+        down: 'KeyS',
+        left: 'KeyA',
+        right: 'KeyD',
+        fire1: 'Space',
+        fire2: 'Enter',
+      },
     },
   },
-};
+  TRS80_SYMBOLS,
+);
