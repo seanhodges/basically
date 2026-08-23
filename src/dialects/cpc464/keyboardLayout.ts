@@ -188,6 +188,7 @@ const controllerKeys: KeyDef[] = [
  */
 const CPC_SYMBOLS: SymbolTable = {
   '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
   '-': { emits: ['Minus'] },
   '=': { emits: ['Shift', 'Minus'] },
   '/': { emits: ['Slash'] },

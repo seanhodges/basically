@@ -171,6 +171,7 @@ const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
  */
 const BBC_SYMBOLS: SymbolTable = {
   '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
   '-': { emits: ['Minus'] },
   '=': { emits: ['Shift', 'Minus'] },
   '/': { emits: ['Slash'] },

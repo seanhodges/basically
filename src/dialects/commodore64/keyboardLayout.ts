@@ -198,6 +198,7 @@ const functionKeys: KeyDef[] = [
  */
 const C64_SYMBOLS: SymbolTable = {
   '+': { emits: ['Plus'] },
+  '!': { emits: ['LeftShift', 'Num1'] },
   '-': { emits: ['Minus'] },
   '=': { emits: ['Equal'] },
   '/': { emits: ['Slash'] },

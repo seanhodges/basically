@@ -95,7 +95,7 @@ export const ZXCV_ROW_TOKENS = [
 export type SymbolSlot = string | null;
 
 export const SYMBOL_PAGE_1: readonly (readonly SymbolSlot[])[] = [
-  ['+', null, null, '=', '/', '_', '<', '>', '[', ']'],
+  ['+', '!', null, '=', '/', '_', '<', '>', '[', ']'],
   ['@', '#', '$', '%', '^', '&', '*', '(', ')'],
   ['-', "'", '"', ':', ';', ',', '.'],
 ];

@@ -218,6 +218,7 @@ const rows: KeyDef[][] = [
  */
 const SPECTRUM_SYMBOLS: SymbolTable = {
   '+': { emits: ['SymShift', 'KeyK'] },
+  '!': { emits: ['SymShift', 'Digit1'] },
   '-': { emits: ['SymShift', 'KeyJ'] },
   '=': { emits: ['SymShift', 'KeyL'] },
   '/': { emits: ['SymShift', 'KeyV'] },
