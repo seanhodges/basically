@@ -279,9 +279,9 @@ CURSOR mode. `src/keyboard/layoutGeometry.test.ts` enforces this - a new dialect
 either wires its cursor keys up or is listed there as a machine that has none.
 
 Mark the `cursor` layer `modeOnly: true`. `withSymbolMode` then finishes the
-mode: between the number row and the bottom row, every key the overlay leaves
-unlabelled is blanked - inert, like an unmapped SYM cell - so CURSOR mode
-shows only its arrows while the number row and the bottom row keep working.
+mode: above the bottom row, every key the overlay leaves unlabelled is
+blanked - inert, like an unmapped SYM cell - so CURSOR mode shows only its
+arrows while the bottom row keeps working.
 
 #### Glyphs, editor modes, function keys (optional)
 

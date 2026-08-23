@@ -280,13 +280,14 @@ describe('every machine offers the cursor keys it has', () => {
       expect(found.size, `${dialect.id} cursor directions`).toBeGreaterThan(2);
     });
 
-    it(`${dialect.id} blanks the letter bands in CURSOR mode`, () => {
-      // Between the number row and the bottom row, CURSOR mode owns every
-      // key: one that carries no arrow is blank and inert, like an unmapped
-      // SYM cell, never a letter that would type. The number row (where the
-      // Sinclairs' arrows live) and the bottom row keep working.
+    it(`${dialect.id} blanks every non-arrow key in CURSOR mode`, () => {
+      // Above the bottom row, CURSOR mode owns every key: one that carries
+      // no arrow is blank and inert, like an unmapped SYM cell, never a
+      // character that would type. Only the bottom row keeps working - and
+      // the arrows themselves, wherever they sit (the Sinclairs' are on the
+      // number row).
       const idx = layout.layers.findIndex((l) => l.id === mode!.layer);
-      for (const row of layout.rows.slice(1, 4)) {
+      for (const row of layout.rows.slice(0, 4)) {
         for (const key of row.filter((k) => k.emits.length > 0 || k.modifier)) {
           const label = key.labels[idx];
           const cell = `${dialect.id} ${key.id}`;

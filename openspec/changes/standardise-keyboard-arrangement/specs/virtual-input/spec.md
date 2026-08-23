@@ -74,10 +74,10 @@ never in an authentic legend colour, and a key whose symbol-mode cell is
 blank shows no hint. A machine's printed keyword and function-name legends
 remain. Cursor overlays SHALL appear only while cursor mode is selected: in
 that mode a key carrying an arrow shows the arrow alone, and every other key
-between the number row and the bottom row SHALL be blank and inert - no
-legend, nothing typed, nothing pressed - like a symbol-mode key the machine
-leaves unmapped. The number row and the bottom row keep their normal
-function in cursor mode, and outside it no key shows an arrow.
+above the bottom row SHALL be blank and inert - no legend, nothing typed,
+nothing pressed - like a symbol-mode key the machine leaves unmapped. Only
+the bottom row keeps its normal function in cursor mode, and outside it no
+key shows an arrow.
 
 Where a machine's letters exist in both cases, a letter key SHALL show one
 letter, in the case the shift key currently gives - switching when SHIFT is
@@ -104,10 +104,10 @@ keyboards do - rather than both cases at once.
 
 #### Scenario: Cursor mode blanks the keys it does not use
 
-- **WHEN** the user selects cursor mode and taps a letter key that carries
-  no arrow
+- **WHEN** the user selects cursor mode and taps a letter or number key
+  that carries no arrow
 - **THEN** the key is blank, nothing is typed and nothing is pressed on the
-  machine, while the number row and the bottom row still work
+  machine, while the bottom row still works
 
 ### Requirement: Symbols at fixed positions
 

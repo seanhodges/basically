@@ -199,10 +199,10 @@ describe('withSymbolMode', () => {
     ).toThrow(/no canonical SYM position/);
   });
 
-  it('blanks the letter bands under a modeOnly overlay mode', () => {
-    // A CURSOR-style overlay owns rows 1-3: a key it labels keeps the label,
-    // every other key there - flanks included - is blanked inert, and the
-    // number row and bottom row are left alone.
+  it('blanks everything above the bottom row under a modeOnly overlay mode', () => {
+    // A CURSOR-style overlay owns rows 0-3: a key it labels keeps the label,
+    // every other key there - the number row and the flanks included - is
+    // blanked inert, and only the bottom row is left alone.
     const base = testLayout();
     const cursorized: KeyboardLayout = {
       ...base,
@@ -239,10 +239,10 @@ describe('withSymbolMode', () => {
       editor: { action: 'up' },
       emits: ['Up'],
     });
-    for (const id of ['KeyQ', 'KeyA', 'KeyZ', 'Shift', 'Backspace']) {
+    for (const id of ['Key1', 'KeyQ', 'KeyA', 'KeyZ', 'Shift', 'Backspace']) {
       expect(at(id), id).toEqual({ editor: null, emits: [] });
     }
-    for (const id of ['Key1', 'Space', 'Quote', 'Enter']) {
+    for (const id of ['Space', 'Quote', 'Enter']) {
       expect(at(id) ?? null, id).toBeNull();
     }
   });

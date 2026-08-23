@@ -83,12 +83,13 @@ the keyboard subsystem's structure; this design only names what changes.
   one case-following letter per key. The editor types symbols only through
   SYM cells and the quote key; an engaged SHIFT still reaches whatever the
   hardware matrix makes of it on the machine target.
-- **An overlay mode owns the letter bands.** CURSOR pins a `modeOnly` layer
-  the way SYM does, so `withSymbolMode` finishes it the same way: between
-  the number row and the bottom row, a key the overlay leaves unlabelled is
+- **An overlay mode owns everything above the bottom row.** CURSOR pins a
+  `modeOnly` layer the way SYM does, so `withSymbolMode` finishes it the
+  same way: above the bottom row, a key the overlay leaves unlabelled is
   blanked - inert, like an unmapped SYM cell - rather than falling back to
-  typing its letter. The mode shows only its arrows; the number row (home
-  of the Sinclairs' arrows) and the bottom row keep their normal function.
+  typing its character. The mode shows only its arrows, wherever they sit
+  (the Sinclairs' are on the number row); only the bottom row keeps its
+  normal function. SYM is different by design: its number row stays live.
 - **KEYWORD/FUNCTION modes are removed on zx80/zx81/zxspectrum(+128)** —
   tabs only; the layers and their printed legends stay, and
   `compactDefaultLayer: 'keyword'` remains valid. Keyword entry is the
