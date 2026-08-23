@@ -150,16 +150,14 @@ describe('zx80 keyboard layout editor mapping', () => {
       // sends, not the digit on its own.
       expect(resolveEmits(layout, key, 'cursor'), id).toEqual(['Shift', id]);
     }
-    // The letter keys carry no arrow: in CURSOR mode they type themselves.
-    for (const [id, ch] of [
-      ['KeyW', 'W'],
-      ['KeyA', 'A'],
-      ['KeyS', 'S'],
-      ['KeyD', 'D'],
-    ]) {
-      expect(resolveEditorAction(layout, byId.get(id)!, 'cursor'), id).toEqual({
-        insert: ch,
-      });
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
     }
   });
 });

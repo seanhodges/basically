@@ -93,3 +93,15 @@
       canonical symbol on the typing bands
 - [x] 6.5 Spec delta: "The layered key display" requirement, the
       symbols-only-via-SYM rule, and the reworded authenticity paragraph
+
+## 7. CURSOR mode blanks the letter bands (follow-up)
+
+- [x] 7.1 `withSymbolMode` blanks every rows-1..3 key a modeOnly overlay
+      mode leaves unlabelled (flanks included), with a `templateRows.test.ts`
+      case
+- [x] 7.2 Registry-wide rule in `layoutGeometry.test.ts`: in CURSOR mode a
+      rows-1..3 key carries an arrow or the inert blank label
+- [x] 7.3 Update the seven dialect tests that asserted base-layer fallback
+      typing in CURSOR mode, and the layout header comments claiming it
+- [x] 7.4 Spec delta + `adding-a-dialect.md`: cursor mode shows only its
+      arrows; the number row and bottom row stay live

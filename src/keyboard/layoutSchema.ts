@@ -111,7 +111,9 @@ export interface LayerDef {
    * cursor overlays, which are not printed on the machine's keycaps and so
    * must not decorate them outside their mode. A key with a label on the
    * pinned layer shows exactly that label (an empty label blanks the key);
-   * a key without one keeps its ordinary legends and behaviour. One
+   * a key without one keeps its ordinary legends and behaviour - and
+   * `withSymbolMode` gives every key between the number row and the bottom
+   * row a label, blanking the ones the overlay leaves out. One
    * exception: the layered key display prints the first SYM page's symbol
    * as a small theme-coloured hint on each key, the way a phone keyboard
    * prints its long-press hints.

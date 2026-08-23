@@ -67,10 +67,9 @@ describe('atom keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
-    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('KeyF')!, 'cursor')).toEqual([]);
   });
 
   it('labels are index-aligned with the layers', () => {

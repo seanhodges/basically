@@ -39,8 +39,8 @@ import {
  *
  * A `cursor` layer (pinned by the CURSOR mode tab, top-right on the keycap)
  * overlays `↑ ← ↓ →` on the W/A/S/D keys, moving the editor caret - the
- * same concept as the CPC 464 sibling. Non-WASD keys keep typing normally in
- * CURSOR mode via the base-layer fallback.
+ * same concept as the CPC 464 sibling. Every other key between the number
+ * row and the bottom row is blank and inert in CURSOR mode.
  */
 
 /** The two character layers, index-aligned with `layout.layers` below. */

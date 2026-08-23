@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { bbcKeyboardLayout } from './keyboardLayout';
 import { bbcCharset } from './charset';
 import { matrixForToken } from '../../emulator/bbc/keyboard';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = bbcKeyboardLayout;
@@ -109,10 +112,9 @@ describe('bbcmicro keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
-    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('KeyF')!, 'cursor')).toEqual([]);
   });
 
   it('labels are index-aligned with the layers', () => {

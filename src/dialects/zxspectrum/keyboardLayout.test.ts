@@ -119,16 +119,14 @@ describe('zxspectrum keyboard layout', () => {
         id,
       ]);
     }
-    // The letter keys carry no arrow: in CURSOR mode they type themselves.
-    for (const [id, ch] of [
-      ['KeyW', 'w'],
-      ['KeyA', 'a'],
-      ['KeyS', 's'],
-      ['KeyD', 'd'],
-    ]) {
-      expect(resolveEditorAction(layout, byId.get(id)!, 'cursor'), id).toEqual({
-        insert: ch,
-      });
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
     }
   });
 });

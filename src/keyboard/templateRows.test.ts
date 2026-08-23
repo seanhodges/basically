@@ -198,4 +198,52 @@ describe('withSymbolMode', () => {
       withSymbolMode(testLayout(), { '¶': { emits: ['KeyP'] } }),
     ).toThrow(/no canonical SYM position/);
   });
+
+  it('blanks the letter bands under a modeOnly overlay mode', () => {
+    // A CURSOR-style overlay owns rows 1-3: a key it labels keeps the label,
+    // every other key there - flanks included - is blanked inert, and the
+    // number row and bottom row are left alone.
+    const base = testLayout();
+    const cursorized: KeyboardLayout = {
+      ...base,
+      layers: [
+        ...base.layers,
+        { id: 'cursor', position: 'br', activeWhen: [], modeOnly: true },
+      ],
+      editorModes: [
+        ...base.editorModes!,
+        { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+      ],
+      rows: base.rows.map((row, i) =>
+        i !== 1
+          ? row
+          : row.map((k) =>
+              k.id !== 'KeyW'
+                ? k
+                : {
+                    ...k,
+                    labels: [
+                      ...k.labels,
+                      { text: '↑', editor: { action: 'up' }, emits: ['Up'] },
+                    ],
+                  },
+            ),
+      ),
+    };
+    const welded = withSymbolMode(cursorized, table);
+    const idx = welded.layers.findIndex((l) => l.id === 'cursor');
+    const at = (id: string) =>
+      welded.rows.flat().find((k) => k.id === id)!.labels[idx];
+    expect(at('KeyW')).toEqual({
+      text: '↑',
+      editor: { action: 'up' },
+      emits: ['Up'],
+    });
+    for (const id of ['KeyQ', 'KeyA', 'KeyZ', 'Shift', 'Backspace']) {
+      expect(at(id), id).toEqual({ editor: null, emits: [] });
+    }
+    for (const id of ['Key1', 'Space', 'Quote', 'Enter']) {
+      expect(at(id) ?? null, id).toBeNull();
+    }
+  });
 });

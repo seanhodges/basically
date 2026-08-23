@@ -168,6 +168,12 @@ function labelAt(def: KeyDef, layerIdx: number, label: KeyLabel): KeyDef {
  * page-2 layer, and the page toggle on the shift keycap, exist only when
  * the table maps a page-2 symbol; with no second page the shift keycap is
  * blank and inert in SYM mode, like any other unmapped key.
+ *
+ * It also finishes the layout's own overlay modes (CURSOR): a mode that pins
+ * a modeOnly layer owns everything between the number row and the bottom row,
+ * so a key there that the overlay leaves unlabelled is blanked - inert, like
+ * an unmapped SYM cell - rather than falling back to typing its letter. The
+ * number row and the bottom row keep their normal function in every mode.
  */
 export function withSymbolMode(
   layout: KeyboardLayout,
@@ -227,6 +233,25 @@ export function withSymbolMode(
     );
     if (hasPage2) next = labelAt(next, layer2, { text: '2/2', editor: null });
     welded.set(shift.id, next);
+  }
+
+  // The layout's own overlay modes (CURSOR): between the number row and the
+  // bottom row, a key the pinned overlay leaves unlabelled is blanked with
+  // the same inert label an unmapped SYM cell gets, so the mode shows only
+  // its own keys - the arrows - instead of letters that would type.
+  const overlayIdxs = (layout.editorModes ?? [])
+    .map((m) => layout.layers.findIndex((l) => l.id === m.layer))
+    .filter((idx) => layout.layers[idx]?.modeOnly);
+  for (const row of layout.rows.slice(1, 4)) {
+    for (const k of row) {
+      if (k.emits.length === 0 && !k.modifier) continue;
+      let next = welded.get(k.id) ?? k;
+      for (const idx of overlayIdxs) {
+        if (next.labels[idx] == null)
+          next = labelAt(next, idx, { editor: null, emits: [] });
+      }
+      welded.set(k.id, next);
+    }
   }
 
   // Every key's label tuple stays index-aligned with the final layer list;

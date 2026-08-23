@@ -278,6 +278,11 @@ its S keycap carries no arrow, and the Altair has none at all and declares no
 CURSOR mode. `src/keyboard/layoutGeometry.test.ts` enforces this - a new dialect
 either wires its cursor keys up or is listed there as a machine that has none.
 
+Mark the `cursor` layer `modeOnly: true`. `withSymbolMode` then finishes the
+mode: between the number row and the bottom row, every key the overlay leaves
+unlabelled is blanked - inert, like an unmapped SYM cell - so CURSOR mode
+shows only its arrows while the number row and the bottom row keep working.
+
 #### Glyphs, editor modes, function keys (optional)
 
 Glyphs are SVG path data stored as constrained objects (never raw `innerHTML`):

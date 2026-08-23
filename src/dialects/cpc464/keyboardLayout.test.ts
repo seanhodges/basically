@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { cpc464KeyboardLayout as layout } from './keyboardLayout';
 import { cpcCharset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import { CONTROLLER_ROLES } from '../../keyboard/controllerConfig';
 import {
   CpcKeyboard,
@@ -88,11 +91,10 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('D')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster falls back to typing itself in CURSOR
-    // mode (only W/A/S/D carry the overlay).
-    expect(resolveEditorAction(layout, byId.get('F')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode
+    // (only W/A/S/D carry the overlay).
+    expect(resolveEditorAction(layout, byId.get('F')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('F')!, 'cursor')).toEqual([]);
     // The bottom-row quote key inserts a double quote.
     expect(resolveEditorAction(layout, byId.get('Quote')!, 'base')).toEqual({
       insert: '"',

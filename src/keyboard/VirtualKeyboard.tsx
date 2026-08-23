@@ -755,9 +755,11 @@ export function VirtualKeyboard({
   const renderExclusiveLabel = (def: KeyDef) => {
     const label = def.labels[activeLabelIdx];
     if (!label) return null;
+    // The key's only legend, so it sits centred whatever corner the layer
+    // uses when its legends share a keycap (the cursor overlays' 'br').
     return (
       <span
-        className={`vk-label vk-pos-${highlightLayer!.position} vk-layer-${highlightLayerId} vk-active`}
+        className={`vk-label vk-pos-center vk-layer-${highlightLayerId} vk-active`}
       >
         {label.glyph ? (
           <GlyphSvg glyph={layout.glyphs[label.glyph]} />
