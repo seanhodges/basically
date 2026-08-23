@@ -74,27 +74,25 @@ describe('zx80 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyO')!, 'keyword')).toEqual({
       insert: 'PRINT ',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit2')!, 'shift')).toEqual({
-      insert: 'AND ',
-    });
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shift')).toEqual({
-      insert: 'NOT ',
-    });
-    // '−' on the key legend is U+2212 - the editor must get an ASCII hyphen.
-    expect(resolveEditorAction(layout, byId.get('KeyJ')!, 'shift')).toEqual({
+    // The symbols are the SYM mode's alone now: '-' on the Z slot inserting
+    // the ASCII hyphen, '$' on its canonical home-row slot, '£' on page 2 -
+    // each pressing the SHIFT pair the machine reads.
+    expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyC')!, 'shift')).toEqual({
-      insert: '?',
-    });
-    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'shift')).toEqual({
-      insert: '"',
-    });
-    expect(resolveEditorAction(layout, byId.get('KeyU')!, 'shift')).toEqual({
+    expect(resolveEmits(layout, byId.get('KeyZ')!, 'symbols')).toEqual([
+      'Shift',
+      'KeyJ',
+    ]);
+    expect(resolveEditorAction(layout, byId.get('KeyD')!, 'symbols')).toEqual({
       insert: '$',
     });
-    expect(resolveEditorAction(layout, byId.get('Space')!, 'shift')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyU')!, 'symbols2')).toEqual({
       insert: '£',
+    });
+    // SHIFT alone types nothing different in the editor any more.
+    expect(resolveEditorAction(layout, byId.get('Digit2')!, 'shift')).toEqual({
+      insert: '2',
     });
     expect(resolveEditorAction(layout, byId.get('Enter')!, 'main')).toEqual({
       action: 'newline',
@@ -152,16 +150,14 @@ describe('zx80 keyboard layout editor mapping', () => {
       // sends, not the digit on its own.
       expect(resolveEmits(layout, key, 'cursor'), id).toEqual(['Shift', id]);
     }
-    // The letter keys carry no arrow: in CURSOR mode they type themselves.
-    for (const [id, ch] of [
-      ['KeyW', 'W'],
-      ['KeyA', 'A'],
-      ['KeyS', 'S'],
-      ['KeyD', 'D'],
-    ]) {
-      expect(resolveEditorAction(layout, byId.get(id)!, 'cursor'), id).toEqual({
-        insert: ch,
-      });
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
     }
   });
 });

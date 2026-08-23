@@ -157,21 +157,69 @@ with five bands:
   a board's worth fits across, and a machine with more scrolls the rest into
   reach rather than shrinking or wrapping them. On wide screens the strip
   relocates into the left gutter beside the centred keyboard.
-- **Number row** - the ten digits.
-- **QWERTY + home rows** - the letters; Enter is the home row's tenth key.
-- **ZXCV row** - the remaining letters and punctuation, centred when short.
-- **Common bottom row** - a centred space bar, a quote and backspace key on the
-  right, and the shift / machine modifiers either side.
+- **Number row** - the ten digits, with the machine's authentic shifted
+  legends.
+- **QWERTY row** - ten letter keys.
+- **Home row** - nine letter keys, centred with `centerRow` for the half-key
+  stagger a phone keyboard has.
+- **Flanked row** - SHIFT, the seven remaining letters, and the machine's
+  delete key under its own legend, assembled with `flankedRow` so the flanks
+  come out half again a keycap wide.
+- **Bottom row** - machine-specific keys (a second modifier, Escape, CTRL,
+  BREAK…) in the bottom-left region - left empty when the machine has none -
+  then a centred space bar, a quote key, and a wide Enter at the far bottom
+  right.
 
-Reuse `src/keyboard/templateRows.ts` (`GRID_COLUMNS`, `KEY_SPAN`, the
-`NUMBER_ROW_TOKENS`/`QWERTY_ROW_TOKENS`/… token orders, `centerRow`, and the
-`bottomRow` factory) so your layout supplies only its legends and modifiers and
-inherits the template's proportions. Prefer icons/abbreviations (`⇧ ⌫ ↵ "`) over
-wide text; do **not** add arrow keycaps to the rows - the cursor keys belong in
-CURSOR mode (below). Deviate from the template only where the machine genuinely
-requires it
-(see the BBC's SYM mode and the C64's SHIFT-layer symbols for examples of
-trading authenticity for a clean, thumb-sized grid).
+The arrangement is the same on every machine - a phone keyboard's - so the
+legends, matrix wiring, and theme carry the authenticity, never the key
+positions. Letter rows carry only letters: every punctuation keycap's matrix
+cell moves behind the SYM mode (below). Reuse `src/keyboard/templateRows.ts`
+(`GRID_COLUMNS`, `KEY_SPAN`, the token orders, `centerRow`, `flankedRow`, the
+`bottomRow` factory, and `withSymbolMode`) so your layout supplies only its
+legends, modifiers, and symbol table, and inherits the template's
+proportions. Prefer icons/abbreviations (`⇧ ⌫ ↵ "`) over wide text; do
+**not** add arrow keycaps to the rows - the cursor keys belong in CURSOR
+mode (below). `src/keyboard/layoutGeometry.test.ts` enforces all of this by
+name, so a drifting layout fails before it ships.
+
+#### The SYM mode
+
+Symbols live on two fixed pages - the canonical positions in
+`SYMBOL_PAGE_1`/`SYMBOL_PAGE_2` (`templateRows.ts`), shared by every machine
+so `,` is always in the same place - welded onto the letter bands by
+`withSymbolMode(layout, table)` as the last step of building the layout. The
+machine supplies only a `SymbolTable`: for each symbol it has, the key or
+combination its own keyboard sends (`{ emits: ['Shift', 'Semicolon'] }`),
+optionally with a machine-variant glyph and insert (the Spectrum's `↑` in
+the `^` slot). The rules:
+
+- A symbol the machine lacks stays out of the table; its cell renders blank
+  and presses nothing. Never invent a key or symbol to fill a slot.
+- A symbol the machine reaches only through a mode _sequence_ no single
+  combination can send (the Spectrum's extended-mode `~ | \ { }`) gets
+  `emits: []`: the cell inserts into the editor and presses nothing, rather
+  than a wrong key.
+- A symbol of the machine's that has no canonical slot is a decision, not a
+  gap-fill: extend the pages deliberately (an unassigned slot is free for
+  exactly this) rather than moving an existing symbol.
+- A modifier whose only work the SYM mode already does gets no keycap -
+  the Spectrum's SYMBOL SHIFT has none. The flanked shift is sticky and
+  lockable: a tap shifts the next key, a second tap locks it.
+- The SYM cells and the quote key are the only editor paths to a symbol:
+  shift layers carry no symbol legends (`layoutGeometry.test.ts` enforces
+  it), only letter case pairs and the Sinclair arrows. The layered key
+  display draws each key's page-1 cell as a small theme-ink hint, and a
+  machine with both letter cases shows one case-following letter per key.
+- The page-2 toggle appears on the shift flank only when the table maps a
+  page-2 symbol; `withSymbolMode` handles that, and the layers it adds are
+  `modeOnly`, so the canonical symbols never decorate the keycaps in ABC
+  mode.
+
+Every mapped cell's claim - "this combination sends this character" - is
+proved against the machine itself: `src/dialects/symbolKeys.test.ts` boots
+each machine, presses every cell, and reads the echo off the screen. A new
+dialect either boots there or is excused by name to the test that proves its
+table another way (the TRS-80's input adapter, the Altair's `tokenToByte`).
 
 Three things are needed:
 
@@ -230,6 +278,11 @@ its S keycap carries no arrow, and the Altair has none at all and declares no
 CURSOR mode. `src/keyboard/layoutGeometry.test.ts` enforces this - a new dialect
 either wires its cursor keys up or is listed there as a machine that has none.
 
+Mark the `cursor` layer `modeOnly: true`. `withSymbolMode` then finishes the
+mode: above the bottom row, every key the overlay leaves unlabelled is
+blanked - inert, like an unmapped SYM cell - so CURSOR mode shows only its
+arrows while the bottom row keeps working.
+
 #### Glyphs, editor modes, function keys (optional)
 
 Glyphs are SVG path data stored as constrained objects (never raw `innerHTML`):
@@ -245,18 +298,19 @@ glyphs: {
 
 Reference a glyph in a label with `glyph: 'arrowUp'` instead of `text`.
 
-If your machine has multiple typing layers (like the ZX81's K/F/G cursor, or a
-SYM layer for punctuation overflow), expose them as top-strip mode tabs. Each
-tab pins a layer's legends and editor inserts.
+The top-strip mode tabs pin a layer's legends and editor inserts. Every
+machine has at least ABC and the SYM tab `withSymbolMode` slots in second;
+most add CURSOR, and a machine with block graphics adds its GRAPHICS palette
+mode. Do not add keyword- or function-name entry modes: keyword entry is the
+editor autocomplete's job, and a machine whose keycaps print keyword legends
+(the Sinclairs) keeps them as display layers only.
 
 ```ts
 editorModes: [
-  { id: 'text',    name: 'TEXT',    layer: 'main' },
-  { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
+  { id: 'abc',    name: 'ABC',    layer: 'base' },
+  { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
 ],
 ```
-
-Omit `editorModes` entirely if the base layer + modifiers cover everything.
 
 Machine function keys (e.g. the C64's f1/f3/f5/f7, the BBC's f0–f9) live in the
 top strip as ordinary keys - they `emit` matrix tokens and have no editor

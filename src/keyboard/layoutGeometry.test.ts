@@ -1,20 +1,46 @@
 import { describe, it, expect } from 'vitest';
 import { dialects } from '../dialects/registry';
 import { resolveEditorAction, resolveEmits } from './editorActions';
-import type { KeyDef } from './layoutSchema';
-import { GRID_COLUMNS, KEY_SPAN, ROW_KEYS } from './templateRows';
+import type { KeyDef, KeyboardLayout } from './layoutSchema';
+import {
+  FLANK_SPAN,
+  GRID_COLUMNS,
+  KEY_SPAN,
+  ROW_KEYS,
+  SYMBOL_LAYER_1,
+  SYMBOL_LAYER_2,
+  SYMBOL_MODE_ID,
+  SYMBOL_PAGE_1,
+  SYMBOL_PAGE_2,
+} from './templateRows';
 
 /**
- * The shared template's geometry, pinned for every registered machine: a keycap
- * is the same size on all of them, which is the whole reason the layouts author
- * legends and matrix tokens but never a width.
+ * The standard arrangement, pinned for every registered machine: the
+ * mobile-convention bands (number row, ten-key letter row, centred nine-key
+ * home row, the shift/delete-flanked seven-letter row, and a bottom row
+ * ending quote-then-Enter), a keycap the same size on all of them, and the
+ * SYM pages at the canonical positions. These are the rules a new dialect's
+ * keyboard is authored to; a layout that drifts from them fails here by
+ * name.
  *
- * The function-key strip is the part that drifted. Its tracks are the key rows'
- * own, so a strip key is a keycap whether a machine has three of them or more
- * than a row's worth - past that the strip scrolls rather than shrinking them,
- * which is why `spanX` is the load-bearing number here.
+ * The function-key strip: its tracks are the key rows' own, so a strip key
+ * is a keycap whether a machine has three of them or more than a row's
+ * worth - past that the strip scrolls rather than shrinking them, which is
+ * why `spanX` is the load-bearing number here.
  */
 const span = (keys: KeyDef[]): number => keys.reduce((n, k) => n + k.spanX, 0);
+
+const printing = (row: KeyDef[]): KeyDef[] =>
+  row.filter((k) => k.emits.length > 0 || k.modifier);
+
+/** The letter bands the SYM pages weld onto: Q row, home row, flanked letters. */
+function letterBands(layout: KeyboardLayout): KeyDef[][] {
+  return [
+    printing(layout.rows[1]!),
+    printing(layout.rows[2]!),
+    printing(layout.rows[3]!).slice(1, -1),
+  ];
+}
 
 describe('every keyboard keeps the template grid', () => {
   for (const dialect of dialects) {
@@ -26,23 +52,160 @@ describe('every keyboard keeps the template grid', () => {
         expect(span(row), `${dialect.id} row ${i}`).toBe(layout.gridColumns);
       }
 
-      // The four typing bands are keycaps only, ten at most - a band that ran
-      // to eleven, or paid for an extra key by widening one, would be reading
-      // its own machine's board rather than the template. A short band (the
-      // Sinclairs' ZXCV row) is centred instead of stretched.
-      for (const [i, row] of layout.rows.slice(0, 4).entries()) {
-        const printing = row.filter((k) => k.emits.length > 0);
-        expect(printing.length, `${dialect.id} band ${i}`).toBeLessThanOrEqual(
-          ROW_KEYS,
-        );
-        for (const key of printing) {
+      // The mobile-convention bands: number row, ten-key letter row, a
+      // centred nine-key home row, and a bottom letter row of seven keys
+      // flanked by shift and the machine's delete key at half again a
+      // keycap's width.
+      expect(layout.rows, `${dialect.id} rows`).toHaveLength(5);
+      expect(printing(layout.rows[0]!), `${dialect.id} numbers`).toHaveLength(
+        ROW_KEYS,
+      );
+      expect(printing(layout.rows[1]!), `${dialect.id} Q row`).toHaveLength(
+        ROW_KEYS,
+      );
+      expect(printing(layout.rows[2]!), `${dialect.id} home row`).toHaveLength(
+        9,
+      );
+      for (const row of layout.rows.slice(0, 3)) {
+        for (const key of printing(row)) {
           expect(key.spanX, `${dialect.id} ${key.id}`).toBe(KEY_SPAN);
+        }
+      }
+      const flanked = printing(layout.rows[3]!);
+      expect(flanked, `${dialect.id} flanked row`).toHaveLength(9);
+      expect(flanked[0]!.modifier, `${dialect.id} shift flank`).toBeTruthy();
+      expect(flanked[0]!.spanX, `${dialect.id} shift flank`).toBe(FLANK_SPAN);
+      expect(flanked.at(-1)!.spanX, `${dialect.id} delete flank`).toBe(
+        FLANK_SPAN,
+      );
+      for (const key of flanked.slice(1, -1)) {
+        expect(key.spanX, `${dialect.id} ${key.id}`).toBe(KEY_SPAN);
+      }
+
+      // The letter bands carry letters, never punctuation keycaps: those
+      // live in the SYM mode.
+      const base =
+        layout.layers.find((l) => l.activeWhen.length === 0) ??
+        layout.layers[0]!;
+      const baseIdx = layout.layers.indexOf(base);
+      for (const band of letterBands(layout)) {
+        for (const key of band) {
+          const text = key.labels[baseIdx]?.text ?? '';
+          expect(text, `${dialect.id} ${key.id}`).toMatch(/^[A-Za-z]$/);
         }
       }
 
       for (const key of layout.functionKeys ?? []) {
         expect(key.spanX, `${dialect.id} ${key.id}`).toBe(KEY_SPAN);
       }
+    });
+
+    it(`${dialect.id} ends its bottom row quote-then-Enter`, () => {
+      const layout = dialect.keyboardLayout;
+      const bottom = printing(layout.rows[4]!);
+      const enter = bottom.at(-1)!;
+      expect(
+        resolveEditorAction(layout, enter, layout.layers[0]!.id),
+        `${dialect.id} ${enter.id}`,
+      ).toEqual({ action: 'newline' });
+      expect(enter.spanX, `${dialect.id} ${enter.id}`).toBeGreaterThanOrEqual(
+        FLANK_SPAN,
+      );
+      const quote = bottom.at(-2)!;
+      expect(
+        resolveEditorAction(layout, quote, layout.layers[0]!.id),
+        `${dialect.id} ${quote.id}`,
+      ).toEqual({ insert: '"' });
+    });
+
+    it(`${dialect.id} types symbols only through the SYM mode`, () => {
+      // The quote key is the one dedicated symbol keycap the bottom row
+      // keeps; everywhere else, a symbol on a typing band would be a second
+      // way in - a shifted legend or stray keycap the normalised layered
+      // view no longer shows.
+      const layout = dialect.keyboardLayout;
+      const canonical = new Set(
+        [...SYMBOL_PAGE_1, ...SYMBOL_PAGE_2].flat().filter((c) => c !== null),
+      );
+      for (const row of layout.rows.slice(0, 4)) {
+        for (const key of printing(row)) {
+          for (const [layerIdx, layer] of layout.layers.entries()) {
+            if (layer.modeOnly || !key.labels[layerIdx]) continue;
+            const action = resolveEditorAction(layout, key, layer.id);
+            if (!action || !('insert' in action)) continue;
+            expect(
+              canonical.has(action.insert),
+              `${dialect.id} ${key.id} types "${action.insert}" on ` +
+                `layer ${layer.id} outside the SYM mode`,
+            ).toBe(false);
+          }
+        }
+      }
+    });
+
+    it(`${dialect.id} keeps the SYM pages at the canonical positions`, () => {
+      const layout = dialect.keyboardLayout;
+      const pages: [string, readonly (readonly (string | null)[])[]][] = [
+        [SYMBOL_LAYER_1, SYMBOL_PAGE_1],
+        [SYMBOL_LAYER_2, SYMBOL_PAGE_2],
+      ];
+      // Page 1 is mandatory; page 2 - and the toggle - only where something
+      // is mapped on it.
+      expect(
+        layout.layers.find((l) => l.id === SYMBOL_LAYER_1)?.modeOnly,
+        `${dialect.id} has no SYM layer`,
+      ).toBe(true);
+      const mode = layout.editorModes?.[1];
+      expect(mode?.id, `${dialect.id} second tab`).toBe(SYMBOL_MODE_ID);
+      const hasPage2 = layout.layers.some((l) => l.id === SYMBOL_LAYER_2);
+      expect(mode?.shiftedLayer, `${dialect.id} page toggle`).toBe(
+        hasPage2 ? SYMBOL_LAYER_2 : undefined,
+      );
+
+      const canonical = new Set(
+        [...SYMBOL_PAGE_1, ...SYMBOL_PAGE_2].flat().filter((c) => c !== null),
+      );
+      let mapped = 0;
+      for (const [layerId, page] of pages) {
+        const idx = layout.layers.findIndex((l) => l.id === layerId);
+        if (idx < 0) continue;
+        for (const [bandIdx, band] of letterBands(layout).entries()) {
+          for (const [i, key] of band.entries()) {
+            const slot = page[bandIdx]![i]!;
+            const label = key.labels[idx];
+            const cell = `${dialect.id} ${layerId} ${key.id}`;
+            if (!label?.text) {
+              // A blank cell: present, inert, and pressing nothing.
+              expect(label, cell).toEqual({ editor: null, emits: [] });
+              continue;
+            }
+            const insert =
+              label.editor && 'insert' in label.editor
+                ? label.editor.insert
+                : null;
+            if (label.editor === null) {
+              // The page toggle rides the shift flank and only there.
+              expect(key.modifier, cell).toBeTruthy();
+              expect(label.text, cell).toBe(
+                layerId === SYMBOL_LAYER_1 ? '1/2' : '2/2',
+              );
+              continue;
+            }
+            // A symbol never squats on an unassigned or foreign slot: its
+            // insert is the slot's own symbol, or a machine variant of it
+            // that is no other slot's symbol.
+            expect(slot, cell).not.toBeNull();
+            if (insert !== null && canonical.has(insert)) {
+              expect(insert, cell).toBe(slot);
+            }
+            mapped++;
+          }
+        }
+      }
+      // A SYM mode with nothing in it would satisfy every rule above.
+      expect(mapped, `${dialect.id} maps no symbols at all`).toBeGreaterThan(
+        10,
+      );
     });
   }
 });
@@ -115,6 +278,24 @@ describe('every machine offers the cursor keys it has', () => {
       }
       // Three is the floor: the PMD 85 has no down key, and its layout says so.
       expect(found.size, `${dialect.id} cursor directions`).toBeGreaterThan(2);
+    });
+
+    it(`${dialect.id} blanks every non-arrow key in CURSOR mode`, () => {
+      // Above the bottom row, CURSOR mode owns every key: one that carries
+      // no arrow is blank and inert, like an unmapped SYM cell, never a
+      // character that would type. Only the bottom row keeps working - and
+      // the arrows themselves, wherever they sit (the Sinclairs' are on the
+      // number row).
+      const idx = layout.layers.findIndex((l) => l.id === mode!.layer);
+      for (const row of layout.rows.slice(0, 4)) {
+        for (const key of row.filter((k) => k.emits.length > 0 || k.modifier)) {
+          const label = key.labels[idx];
+          const cell = `${dialect.id} ${key.id}`;
+          expect(label, `${cell} has no CURSOR label`).toBeTruthy();
+          if (label!.editor && 'action' in label!.editor) continue;
+          expect(label, cell).toEqual({ editor: null, emits: [] });
+        }
+      }
     });
   }
 });

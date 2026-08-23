@@ -5,7 +5,13 @@ import {
   cursorKey,
   key as kitKey,
 } from '../../keyboard/legendKit';
-import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import {
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 import {
   CPC_LINE_GRAPHICS,
   CPC_MOSAIC_GRAPHICS,
@@ -13,95 +19,80 @@ import {
 } from './graphics';
 
 /**
- * The Amstrad CPC 464 keyboard as pure layout data.
+ * The Amstrad CPC 464 keyboard on the standard virtual-keyboard template:
+ * number row, ten-key QWERTY row, centred nine-key home row, the
+ * shift/DEL-flanked bottom letter row, and a bottom row of space, quote,
+ * and Return at the far right.
  *
- * Three layers, like the BBC/Atom siblings:
+ * Two character layers:
  *  - base:    the unshifted character
  *  - shifted: the shifted symbol (top-left), active while SHIFT is held
- *  - sym:     the punctuation overflow (pinned by the SYM mode tab)
  *
  * Key tokens are exactly the matrix tokens the emulator's `setKey` decodes
  * (`src/emulator/cpc/keyboard.ts` — single letters `A`-`Z`, `Digit0`-`Digit9`,
  * `Return`, `Del`, `Shift`, `CursorUp`…, `F0`-`F9`), so the virtual
- * keyboard and the physical `keyEvent` map share one vocabulary. The CPC has
- * more dedicated punctuation keys (`- = ^ @ [ ] : ; \\ …`) than fit a uniform
- * ten-key grid, so — as the BBC/Atom layouts do — the overflow symbols are the
- * SYM mode's editor inserts on the number/QWERTY rows; the key still emits its
- * base matrix token, but code is written in the editor where SYM applies.
+ * keyboard and the physical `keyEvent` map share one vocabulary. The
+ * machine's punctuation lives in the SYM mode at the template's canonical
+ * positions, each cell pressing the CPC's own key or SHIFT pair - the
+ * dedicated `- ^ @ [ ] ; : / , . \` keys keep their matrix cells even
+ * though their keycaps left the board.
  *
- * The main block sits on the standard 40-column five-row template, assembled
- * with the shared `templateRows` helpers (`centerRow`/`bottomRow`) like every
- * other dialect: the bottom row is SHIFT · a centred SPACE · " · DEL. Rather
- * than four dedicated cursor keys, the cursor cluster is a CURSOR mode that
- * overlays `↑ ← ↓ →` on the W/A/S/D keys (moving the editor caret); the real
- * `CursorUp`/… matrix cells stay reachable via the physical arrow keys and the
- * keyboard-joystick, which binds to them through `controllerKeys`. The
- * numeric-keypad function keys `f0`-`f9` live in the top strip. The 464's
- * coloured keycaps come from the `vk-theme-cpc464` block in VirtualKeyboard.css;
- * the CPC 6128 sibling (`../cpc6128/`) re-exports these rows under its own theme.
+ * Rather than four dedicated cursor keys, the cursor cluster is a CURSOR mode
+ * that overlays `↑ ← ↓ →` on the W/A/S/D keys (moving the editor caret); the
+ * real `CursorUp`/… matrix cells stay reachable via the physical arrow keys
+ * and the keyboard-joystick, which binds to them through `controllerKeys`.
+ * The numeric-keypad function keys `f0`-`f9` live in the top strip. The 464's
+ * coloured keycaps come from the `vk-theme-cpc464` block in
+ * VirtualKeyboard.css; the CPC 6128 sibling (`../cpc6128/`) re-exports these
+ * rows under its own theme.
  */
 
-/** The three character layers, index-aligned with `layout.layers` below. */
-type Legends = [Legend, Legend, Legend];
+/** The two character layers, index-aligned with `layout.layers` below. */
+type Legends = [Legend, Legend];
 
 /**
- * A standard key: [base, shifted, sym] legends plus an optional CURSOR-layer
+ * A standard key: [base, shifted] legends plus an optional CURSOR-layer
  * legend (the ↑←↓→ overlay on the WASD keys), one matrix token.
  */
 const key = (token: string, legends: Legends, cursor: Legend = null): KeyDef =>
   kitKey(token, [...legends, cursor]);
 
-// Shifted number row + the SYM punctuation overflow (editor inserts only).
 const numberRow = [
-  key('Digit1', ['1', '!', '-']),
-  key('Digit2', ['2', '"', '=']),
-  key('Digit3', ['3', '#', '+']),
-  key('Digit4', ['4', '$', '*']),
-  key('Digit5', ['5', '%', '^']),
-  key('Digit6', ['6', '&', '@']),
-  key('Digit7', ['7', "'", '[']),
-  key('Digit8', ['8', '(', ']']),
-  key('Digit9', ['9', ')', ':']),
-  key('Digit0', ['0', '_', ';']),
+  key('Digit1', ['1', null]),
+  key('Digit2', ['2', null]),
+  key('Digit3', ['3', null]),
+  key('Digit4', ['4', null]),
+  key('Digit5', ['5', null]),
+  key('Digit6', ['6', null]),
+  key('Digit7', ['7', null]),
+  key('Digit8', ['8', null]),
+  key('Digit9', ['9', null]),
+  key('Digit0', ['0', null]),
 ];
 
 const qwertyRow = [
-  key('Q', ['Q', null, '{']),
-  key('W', ['W', null, '}'], cursorKey('↑', 'up', 'CursorUp')),
-  key('E', ['E', null, '\\']),
-  key('R', ['R', null, '|']),
-  key('T', ['T', null, '£']),
-  key('Y', ['Y', null, '~']),
-  key('U', ['U', null, null]),
-  key('I', ['I', null, null]),
-  key('O', ['O', null, null]),
-  key('P', ['P', null, null]),
+  key('Q', ['Q', null]),
+  key('W', ['W', null], cursorKey('↑', 'up', 'CursorUp')),
+  key('E', ['E', null]),
+  key('R', ['R', null]),
+  key('T', ['T', null]),
+  key('Y', ['Y', null]),
+  key('U', ['U', null]),
+  key('I', ['I', null]),
+  key('O', ['O', null]),
+  key('P', ['P', null]),
 ];
 
-const homeRow = [
-  key('A', ['A', null, null], cursorKey('←', 'left', 'CursorLeft')),
-  key('S', ['S', null, null], cursorKey('↓', 'down', 'CursorDown')),
-  key('D', ['D', null, null], cursorKey('→', 'right', 'CursorRight')),
-  key('F', ['F', null, null]),
-  key('G', ['G', null, null]),
-  key('H', ['H', null, null]),
-  key('J', ['J', null, null]),
-  key('K', ['K', null, null]),
-  key('L', ['L', null, null]),
-  key('Return', [act('↵', 'newline'), null, null]),
-];
-
-const zxcvRow = centerRow([
-  key('Z', ['Z', null, null]),
-  key('X', ['X', null, null]),
-  key('C', ['C', null, null]),
-  key('V', ['V', null, null]),
-  key('B', ['B', null, null]),
-  key('N', ['N', null, null]),
-  key('M', ['M', null, null]),
-  key('Comma', [',', '<', null]),
-  key('Period', ['.', '>', null]),
-  key('Slash', ['/', '?', null]),
+const homeRow = centerRow([
+  key('A', ['A', null], cursorKey('←', 'left', 'CursorLeft')),
+  key('S', ['S', null], cursorKey('↓', 'down', 'CursorDown')),
+  key('D', ['D', null], cursorKey('→', 'right', 'CursorRight')),
+  key('F', ['F', null]),
+  key('G', ['G', null]),
+  key('H', ['H', null]),
+  key('J', ['J', null]),
+  key('K', ['K', null]),
+  key('L', ['L', null]),
 ]);
 
 const shiftKey: KeyDef = {
@@ -110,44 +101,55 @@ const shiftKey: KeyDef = {
   emits: ['Shift'],
   modifier: 'shift',
   style: 'shift',
-  labels: [{ text: '⇧' }, null, null, null],
+  labels: [{ text: '⇧' }, null, null],
 };
+
+const delKey: KeyDef = {
+  id: 'Del',
+  spanX: 6,
+  emits: ['Del'],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null],
+};
+
+const zxcvRow = flankedRow(
+  shiftKey,
+  [
+    key('Z', ['Z', null]),
+    key('X', ['X', null]),
+    key('C', ['C', null]),
+    key('V', ['V', null]),
+    key('B', ['B', null]),
+    key('N', ['N', null]),
+    key('M', ['M', null]),
+  ],
+  delKey,
+);
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null, null],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
-
-const delKey: KeyDef = {
-  id: 'Del',
-  spanX: 4,
-  emits: ['Del'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
-};
 
 /** Double quote, typed as SHIFT+2 on the CPC matrix (as the BBC/Atom do). */
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['Shift', 'Digit2'],
-  labels: [{ text: '"' }, null, null, null],
+  labels: [{ text: '"' }, null, null],
 };
 
-// Bottom row: SHIFT · centred SPACE · " · DEL, via the shared helper that pads
-// the flanks and sizes the space bar to the 40-col grid (BBC/Atom shape).
-const bottomRowKeys: KeyDef[] = bottomRow([shiftKey], spaceKey, [
-  quoteKey,
-  delKey,
-]);
+const returnKey: KeyDef = kitKey('Return', [act('↵', 'newline')], {
+  spanX: 6,
+});
 
 const rows: KeyDef[][] = [
   numberRow,
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRowKeys,
+  bottomRow([], spaceKey, [quoteKey, returnKey]),
 ];
 
 // The numeric-keypad function keys f0–f9, in the top strip behind the toggle.
@@ -156,7 +158,7 @@ const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
   spanX: 4,
   emits: [`F${i}`],
   style: 'fn',
-  labels: [{ text: `f${i}`, editor: null }, null, null, null],
+  labels: [{ text: `f${i}`, editor: null }, null, null],
 }));
 
 // The cursor cluster is not a set of keycaps (it's the CURSOR overlay on WASD),
@@ -167,7 +169,7 @@ const cursorControllerKey = (token: string, glyph: string): KeyDef => ({
   spanX: 4,
   emits: [token],
   style: 'cursor',
-  labels: [{ text: glyph }, null, null, null],
+  labels: [{ text: glyph }, null, null],
 });
 
 const controllerKeys: KeyDef[] = [
@@ -177,73 +179,113 @@ const controllerKeys: KeyDef[] = [
   cursorControllerKey('CursorRight', '→'),
 ];
 
-export const cpc464KeyboardLayout: KeyboardLayout = {
-  id: 'cpc464',
-  name: 'CPC 464',
-  theme: 'vk-theme-cpc464',
-  gridColumns: 40,
-  layers: [
-    {
-      id: 'base',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'shifted',
-      name: 'SHIFT',
-      position: 'tl',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'sym',
-      name: 'SYM',
-      position: 'br',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'cursor',
-      name: 'CURSOR',
-      position: 'tr',
-      activeWhen: [],
-    },
-  ],
-  editorModes: [
-    { id: 'abc', name: 'ABC', layer: 'base' },
-    { id: 'sym', name: 'SYM', layer: 'sym' },
-    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
-    // The CPC prints no graphics on its keycaps, so this mode pins no layer:
-    // the palette below carries the characters and labels each with the code
-    // CHR$ takes, which is how the machine itself reached them.
-    { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
-  ],
-  modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
-  rows,
-  graphicsPalette: {
-    sections: [
-      { title: 'Mosaics', entries: CPC_MOSAIC_GRAPHICS },
-      { title: 'Lines', entries: CPC_LINE_GRAPHICS },
-      { title: 'Shades and diagonals', entries: CPC_SHADE_GRAPHICS },
-    ],
-  },
-  functionKeys,
-  controllerKeys,
-  glyphs: {},
-  options: { minHoldFrames: 4 },
-  // CPC keyboard-joystick: the cursor cluster steers, SPACE / ENTER fire.
-  // The cursor keys are the non-rendered `controllerKeys` above (surfaced to the
-  // typist as the CURSOR overlay on WASD); the real hardware joystick (matrix
-  // line 9 via setJoystick, `native` mode) is a separate path.
-  controller: {
-    bindings: {
-      up: 'CursorUp',
-      down: 'CursorDown',
-      left: 'CursorLeft',
-      right: 'CursorRight',
-      fire1: 'Space',
-      fire2: 'Return',
-    },
-  },
+/**
+ * How the CPC reaches each canonical SYM symbol: the dedicated keys' shift
+ * pairs as the CPC keyboard engraves them (`-=`, `^£`, `@|`, `[{`, `]}`,
+ * `;+`, `:*`, `,<`, `.>`, `/?`, `` \` ``), plus the shifted number row.
+ * The CPC displays 0x5E as `↑`; its charset accepts both, so the `^` cell
+ * shows and inserts the machine's own form.
+ */
+const CPC_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
+  '-': { emits: ['Minus'] },
+  '=': { emits: ['Shift', 'Minus'] },
+  '/': { emits: ['Slash'] },
+  _: { emits: ['Shift', 'Digit0'] },
+  '<': { emits: ['Shift', 'Comma'] },
+  '>': { emits: ['Shift', 'Period'] },
+  '[': { emits: ['BracketOpen'] },
+  ']': { emits: ['BracketClose'] },
+  '@': { emits: ['At'] },
+  '#': { emits: ['Shift', 'Digit3'] },
+  $: { emits: ['Shift', 'Digit4'] },
+  '%': { emits: ['Shift', 'Digit5'] },
+  '^': { emits: ['Caret'], insert: '↑', text: '↑' },
+  '&': { emits: ['Shift', 'Digit6'] },
+  '*': { emits: ['Shift', 'Colon'] },
+  '(': { emits: ['Shift', 'Digit8'] },
+  ')': { emits: ['Shift', 'Digit9'] },
+  "'": { emits: ['Shift', 'Digit7'] },
+  '"': { emits: ['Shift', 'Digit2'] },
+  ':': { emits: ['Colon'] },
+  ';': { emits: ['Semicolon'] },
+  ',': { emits: ['Comma'] },
+  '.': { emits: ['Period'] },
+  '`': { emits: ['Shift', 'Backslash'] },
+  '\\': { emits: ['Backslash'] },
+  '|': { emits: ['Shift', 'At'] },
+  '{': { emits: ['Shift', 'BracketOpen'] },
+  '}': { emits: ['Shift', 'BracketClose'] },
+  '£': { emits: ['Shift', 'Caret'] },
+  '?': { emits: ['Shift', 'Slash'] },
 };
+
+export const cpc464KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
+    id: 'cpc464',
+    name: 'CPC 464',
+    theme: 'vk-theme-cpc464',
+    gridColumns: 40,
+    layers: [
+      {
+        id: 'base',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shifted',
+        name: 'SHIFT',
+        position: 'tl',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'cursor',
+        name: 'CURSOR',
+        position: 'tr',
+        activeWhen: [],
+        modeOnly: true,
+      },
+    ],
+    editorModes: [
+      { id: 'abc', name: 'ABC', layer: 'base' },
+      { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+      // The CPC prints no graphics on its keycaps, so this mode pins no layer:
+      // the palette below carries the characters and labels each with the code
+      // CHR$ takes, which is how the machine itself reached them.
+      { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
+    ],
+    modifiers: [
+      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+    ],
+    rows,
+    graphicsPalette: {
+      sections: [
+        { title: 'Mosaics', entries: CPC_MOSAIC_GRAPHICS },
+        { title: 'Lines', entries: CPC_LINE_GRAPHICS },
+        { title: 'Shades and diagonals', entries: CPC_SHADE_GRAPHICS },
+      ],
+    },
+    functionKeys,
+    controllerKeys,
+    glyphs: {},
+    options: { minHoldFrames: 4 },
+    // CPC keyboard-joystick: the cursor cluster steers, SPACE / ENTER fire.
+    // The cursor keys are the non-rendered `controllerKeys` above (surfaced to
+    // the typist as the CURSOR overlay on WASD); the real hardware joystick
+    // (matrix line 9 via setJoystick, `native` mode) is a separate path.
+    controller: {
+      bindings: {
+        up: 'CursorUp',
+        down: 'CursorDown',
+        left: 'CursorLeft',
+        right: 'CursorRight',
+        fire1: 'Space',
+        fire2: 'Return',
+      },
+    },
+  },
+  CPC_SYMBOLS,
+);

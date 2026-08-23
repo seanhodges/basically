@@ -56,8 +56,8 @@ describe('zx81 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'function')).toEqual({
       insert: 'SIN ',
     });
-    // '−' on the key legend is U+2212 - the editor must get an ASCII hyphen.
-    expect(resolveEditorAction(layout, byId.get('KeyJ')!, 'shift')).toEqual({
+    // '-' is a SYM cell now (the Z slot), inserting the ASCII hyphen.
+    expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
     expect(resolveEditorAction(layout, byId.get('Enter')!, 'main')).toEqual({
@@ -116,16 +116,14 @@ describe('zx81 keyboard layout editor mapping', () => {
       // sends, not the digit on its own.
       expect(resolveEmits(layout, key, 'cursor'), id).toEqual(['Shift', id]);
     }
-    // The letter keys carry no arrow: in CURSOR mode they type themselves.
-    for (const [id, ch] of [
-      ['KeyW', 'W'],
-      ['KeyA', 'A'],
-      ['KeyS', 'S'],
-      ['KeyD', 'D'],
-    ]) {
-      expect(resolveEditorAction(layout, byId.get(id)!, 'cursor'), id).toEqual({
-        insert: ch,
-      });
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
     }
   });
 });

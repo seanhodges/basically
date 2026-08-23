@@ -106,6 +106,20 @@ export interface LayerDef {
   /** Modifier ids that make this the active layer; [] = base layer. */
   activeWhen: string[];
   /**
+   * Draw this layer's legends only while an editor mode pins it, and then
+   * draw them alone on the keys that carry them - the SYM pages and the
+   * cursor overlays, which are not printed on the machine's keycaps and so
+   * must not decorate them outside their mode. A key with a label on the
+   * pinned layer shows exactly that label (an empty label blanks the key);
+   * a key without one keeps its ordinary legends and behaviour - and
+   * `withSymbolMode` gives every key above the bottom row a label,
+   * blanking the ones the overlay leaves out. One
+   * exception: the layered key display prints the first SYM page's symbol
+   * as a small theme-coloured hint on each key, the way a phone keyboard
+   * prints its long-press hints.
+   */
+  modeOnly?: boolean;
+  /**
    * Default editor action derived from a key's text label on this layer:
    * 'char' inserts the label text verbatim, 'word' inserts it plus a
    * trailing space (keywords). Absent = no default; keys need an explicit
@@ -136,11 +150,14 @@ export interface EditorModeDef {
   /** Layer whose editor mapping applies (and is visually emphasised). */
   layer: string;
   /**
-   * Layer used while the SHIFT modifier is engaged within this mode, letting one
-   * mode carry two legend sets (e.g. the C64's GRAPHICS mode: the C= graphics
-   * unmodified, the SHIFT graphics with shift held). Omit when SHIFT has no
-   * distinct meaning in the mode. Ignored for a mode whose `layer` is the base
-   * layer (there the engaged modifier already drives the layer).
+   * Second legend set this mode can flip to, letting one mode carry two
+   * (the SYM mode's second symbol page). For a mode pinning a `modeOnly`
+   * layer the flip is a UI page toggle on the shift keycap - it presses
+   * nothing on the machine, because the second page's symbols carry their
+   * own combinations. For any other mode it is the layer used while the
+   * SHIFT modifier is engaged. Omit when the mode has a single legend set.
+   * Ignored for a mode whose `layer` is the base layer (there the engaged
+   * modifier already drives the layer).
    */
   shiftedLayer?: string;
   /**

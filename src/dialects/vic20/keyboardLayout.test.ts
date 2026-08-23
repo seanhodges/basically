@@ -46,11 +46,11 @@ describe('vic20 keyboard layout', () => {
     const [cmd, shifted] = layout.graphicsPalette!.sections;
     expect(cmd!.entries.find((e) => e.key === 'A')?.char).toBe('┌');
     expect(shifted!.entries.find((e) => e.key === 'A')?.char).toBe('♠');
-    // The six graphics symbols (+ - £ @ * ↑) sit on the number row's SYM layer.
-    expect(resolveEditorAction(layout, byId.get('Num1')!, 'sym')).toEqual({
+    // '+' sits at its canonical SYM position, pressing the machine's own key.
+    expect(resolveEditorAction(layout, byId.get('Q')!, 'symbols')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('Num6')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('G')!, 'symbols')).toEqual({
       insert: '↑',
     });
   });

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { trs80KeyboardLayout as layout } from './keyboardLayout';
 import { trs80Charset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import { Trs80Input } from './interpreter/input';
 
 const allKeys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
@@ -26,9 +29,10 @@ describe('trs80 keyboard layout', () => {
     }
   });
 
-  it('offers ABC, CURSOR and GRAPHICS modes', () => {
+  it('offers ABC, SYM, CURSOR and GRAPHICS modes', () => {
     expect((layout.editorModes ?? []).map((m) => m.id)).toEqual([
       'abc',
+      'sym',
       'cursor',
       'graphic',
     ]);
@@ -48,10 +52,9 @@ describe('trs80 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
-    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('KeyF')!, 'cursor')).toEqual([]);
   });
 
   it('every referenced modifier exists', () => {
@@ -74,9 +77,37 @@ describe('trs80 keyboard layout', () => {
         action: 'backspace',
       },
     );
-    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'shift')).toEqual({
+    // '+' sits at its canonical SYM position, typing the machine's own
+    // SHIFT+; pair through the input adapter.
+    expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'symbols')).toEqual({
       insert: '+',
     });
+    expect(resolveEmits(layout, byId.get('KeyQ')!, 'symbols')).toEqual([
+      'Shift',
+      'Semicolon',
+    ]);
+  });
+
+  it('every SYM cell types its own character through the input adapter', () => {
+    // The interpreter has no matrix for the booted-machine SYM battery to
+    // press, so the table is proved here instead: each mapped cell's tokens
+    // go through the real input adapter and must come back as the very
+    // character the cell inserts.
+    for (const layerId of ['symbols', 'symbols2']) {
+      const idx = layout.layers.findIndex((l) => l.id === layerId);
+      if (idx < 0) continue;
+      for (const key of layout.rows.flat()) {
+        const label = key.labels[idx];
+        if (!label?.emits?.length || !label.editor) continue;
+        if (!('insert' in label.editor)) continue;
+        const input = new Trs80Input();
+        for (const t of label.emits) input.setToken(t, true);
+        expect(
+          input.inkey(),
+          `${label.text} via ${label.emits.join('+')}`,
+        ).toBe(label.editor.insert);
+      }
+    }
   });
 
   it('emits tokens the interpreter input adapter actually types', () => {

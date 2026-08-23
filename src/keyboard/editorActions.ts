@@ -1,4 +1,10 @@
-import type { EditorKeyAction, KeyDef, KeyboardLayout } from './layoutSchema';
+import type {
+  EditorKeyAction,
+  EditorModeDef,
+  KeyDef,
+  KeyboardLayout,
+  LayerDef,
+} from './layoutSchema';
 
 /**
  * Resolve what a key does when the keyboard targets the text editor, on the
@@ -51,6 +57,33 @@ function resolveOnLayer(
 /** Actions that auto-repeat while the key is held (editor target only). */
 export function isRepeatable(action: EditorKeyAction): boolean {
   return 'action' in action && action.action !== 'newline';
+}
+
+/**
+ * The layer a non-base editor mode pins, or null when the mode's layer is the
+ * base layer (there the engaged modifier drives the layer instead). A mode
+ * with a `shiftedLayer` carries two legend sets: pinning a `modeOnly` layer
+ * (the SYM pages), the flip is the UI page toggle - `pageTwo` - because the
+ * second page's legends carry their own machine combinations and holding the
+ * real shift would corrupt them; otherwise the flip follows the engaged SHIFT
+ * modifier (the layer the machine is really in).
+ */
+export function modePinnedLayerId(
+  layout: KeyboardLayout,
+  mode: EditorModeDef | null,
+  baseLayerId: string,
+  activeLayer: LayerDef,
+  pageTwo: boolean,
+): string | null {
+  if (!mode || mode.layer === baseLayerId) return null;
+  if (mode.shiftedLayer) {
+    const pinned = layout.layers.find((l) => l.id === mode.layer);
+    const flipped = pinned?.modeOnly
+      ? pageTwo
+      : activeLayer.activeWhen.includes('shift');
+    if (flipped) return mode.shiftedLayer;
+  }
+  return mode.layer;
 }
 
 /**

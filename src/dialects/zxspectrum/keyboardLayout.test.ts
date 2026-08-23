@@ -12,7 +12,6 @@ const allKeys = layout.rows.flat();
 const editorLayerIds = [
   ...(layout.editorModes ?? []).map((m) => m.layer),
   'caps',
-  'symbol',
 ];
 
 describe('zxspectrum keyboard layout', () => {
@@ -67,7 +66,8 @@ describe('zxspectrum keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyG')!, 'keyword')).toEqual({
       insert: 'GO TO ',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyP')!, 'symbol')).toEqual({
+    // '"' is the SYM cell on the C slot, pressing SymShift+P for the machine.
+    expect(resolveEditorAction(layout, byId.get('KeyC')!, 'symbols')).toEqual({
       insert: '"',
     });
     expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'function')).toEqual({
@@ -119,16 +119,14 @@ describe('zxspectrum keyboard layout', () => {
         id,
       ]);
     }
-    // The letter keys carry no arrow: in CURSOR mode they type themselves.
-    for (const [id, ch] of [
-      ['KeyW', 'w'],
-      ['KeyA', 'a'],
-      ['KeyS', 's'],
-      ['KeyD', 'd'],
-    ]) {
-      expect(resolveEditorAction(layout, byId.get(id)!, 'cursor'), id).toEqual({
-        insert: ch,
-      });
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
     }
   });
 });

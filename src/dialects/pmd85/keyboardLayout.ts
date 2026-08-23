@@ -8,7 +8,14 @@ import {
   key as kitKey,
   withLegend,
 } from '../../keyboard/legendKit';
-import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
+import {
+  GRID_COLUMNS,
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 
 /**
  * The on-screen PMD 85-2 keyboard, on the project's five-band template.
@@ -30,19 +37,14 @@ import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
  * The real keyboard is a flat 15x5 grid of identical keycaps: twelve columns of
  * alphanumerics and symbols, then a three-column editing block, with the
  * function keys along the top. Reproducing that width would put fifteen keys
- * across a band the template gives ten, which is narrower than a thumb, so this
- * follows the Altair's arrangement instead - the other machine here whose
- * keyboard is wider than the template:
- *
- *  - Every typing band keeps the template's **ten** keys. The home row ends in
- *    `;` and the fourth in `, . /`, exactly where a typist expects them.
- *  - The symbol columns that no longer fit - `_`, `:` and `\\` - move to the
- *    bottom row beside DEL and ENTER, the way the Altair's `:` and `-` do.
- *    Between them those three carry `=`, `+`, `*` and `^`, without which no
- *    BASIC-G program can be typed at all.
- *  - The function keys have the top strip to themselves, WRK included: it
- *    selects their second bank, so it belongs with them rather than on a
- *    typing band.
+ * across a band the template gives ten, which is narrower than a thumb, so the
+ * board is the standard template - centred nine-letter home row, the
+ * SHIFT/DEL-flanked bottom letter row, ENTER at the bottom right - and the
+ * symbol keys that no longer fit (`; _ : \\ , . /` and their SHIFT pairs
+ * `+ = * ^ < > ?`) live in the SYM mode at the template's canonical
+ * positions, each cell pressing the machine's own key or SHIFT pair. The
+ * function keys have the top strip to themselves, WRK included: it selects
+ * their second bank, so it belongs with them rather than on a typing band.
  *
  * The editing block's three cursor keys are the CURSOR mode's ← ↑ → overlay on
  * the A/W/D keys; there is no fourth, so S keeps only its letter.
@@ -79,20 +81,17 @@ const withCursor = (
   token: string,
 ): KeyDef => withLegend(def, CURSOR_LAYER, cursorKey(arrow, action, token));
 
-// The symbol pairings are the machine's rather than a PC's: `_`/`=`, `:`/`*`,
-// `\`/`^`, `;`/`+`. Note the shifted digits stop at `0`/`-`: `+` and `*` are
-// not up here, which is why the bottom row's symbol keys are not optional.
 const numberRow: KeyDef[] = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
-  key('Digit0', '0', '-'),
+  kitKey('Digit1', ['1']),
+  kitKey('Digit2', ['2']),
+  kitKey('Digit3', ['3']),
+  kitKey('Digit4', ['4']),
+  kitKey('Digit5', ['5']),
+  kitKey('Digit6', ['6']),
+  kitKey('Digit7', ['7']),
+  kitKey('Digit8', ['8']),
+  kitKey('Digit9', ['9']),
+  kitKey('Digit0', ['0']),
 ];
 
 const qwertzRow: KeyDef[] = [
@@ -108,7 +107,7 @@ const qwertzRow: KeyDef[] = [
   key('KeyP', 'P', 'p'),
 ];
 
-const homeRow: KeyDef[] = [
+const homeRow: KeyDef[] = centerRow([
   withCursor(key('KeyA', 'A', 'a'), '←', 'left', 'ArrowLeft'),
   key('KeyS', 'S', 's'),
   withCursor(key('KeyD', 'D', 'd'), '→', 'right', 'ArrowRight'),
@@ -118,8 +117,7 @@ const homeRow: KeyDef[] = [
   key('KeyJ', 'J', 'j'),
   key('KeyK', 'K', 'k'),
   key('KeyL', 'L', 'l'),
-  key('Semicolon', ';', '+'),
-];
+]);
 
 /**
  * DEL takes the character the cursor is on. The machine has no backspace key at
@@ -127,22 +125,12 @@ const homeRow: KeyDef[] = [
  * left arrow. So this keycap carries the machine's own legend and deletes
  * forwards on both surfaces - move the cursor back, then delete.
  */
-const delKey = kitKey('Del', [act('DEL', 'delete'), null]);
+const delKey: KeyDef = {
+  ...kitKey('Del', [act('DEL', 'delete'), null]),
+  spanX: 6,
+};
 
-const enterKey = kitKey('Enter', [act('↵', 'newline'), null]);
-
-const yxcvRow: KeyDef[] = [
-  key('KeyZ', 'Y', 'y'),
-  key('KeyX', 'X', 'x'),
-  key('KeyC', 'C', 'c'),
-  key('KeyV', 'V', 'v'),
-  key('KeyB', 'B', 'b'),
-  key('KeyN', 'N', 'n'),
-  key('KeyM', 'M', 'm'),
-  key('Comma', ',', '<'),
-  key('Period', '.', '>'),
-  key('Slash', '/', '?'),
-];
+const enterKey = kitKey('Enter', [act('↵', 'newline'), null], { spanX: 6 });
 
 const shiftKey: KeyDef = {
   id: 'Shift',
@@ -153,6 +141,20 @@ const shiftKey: KeyDef = {
   labels: [{ text: '⇧' }, null],
 };
 
+const yxcvRow: KeyDef[] = flankedRow(
+  shiftKey,
+  [
+    key('KeyZ', 'Y', 'y'),
+    key('KeyX', 'X', 'x'),
+    key('KeyC', 'C', 'c'),
+    key('KeyV', 'V', 'v'),
+    key('KeyB', 'B', 'b'),
+    key('KeyN', 'N', 'n'),
+    key('KeyM', 'M', 'm'),
+  ],
+  delKey,
+);
+
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -160,28 +162,51 @@ const spaceKey = {
   labels: [{ text: '␣', editor: { insert: ' ' } }, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
-/**
- * The three symbol columns the typing bands could not keep, either side of the
- * space bar with DEL and ENTER. They are not decoration: `_` and `:` carry `=`
- * and `*` on SHIFT, so a board without them cannot assign a variable or
- * multiply, and `\\` carries `^`.
- *
- * `_` and `:` take the two places against the space bar because they are the
- * pair a program reaches for most, and the split three-and-three keeps the
- * space bar at twelve columns - narrower than a machine with fewer keys to
- * place, but wide enough to hit.
- */
+// The quote is SHIFT+2 on the machine, given its own bottom-row key as on
+// every board (BASIC-G strings need it constantly).
+const quoteKey = kitKey('Quote', ['"', null], { emits: ['Shift', 'Digit2'] });
+
 const rows: KeyDef[][] = [
   numberRow,
   qwertzRow,
   homeRow,
   yxcvRow,
-  bottomRow(
-    [shiftKey, key('Backslash', '\\', '^'), key('Underscore', '_', '=')],
-    spaceKey,
-    [key('Colon', ':', '*'), delKey, enterKey],
-  ),
+  bottomRow([], spaceKey, [quoteKey, enterKey]),
 ];
+
+/**
+ * How the PMD 85 reaches each canonical SYM symbol: the Monitor's own
+ * pairings (`;+`, `_=`, `:*`, `\^`, `,<`, `.>`, `/?`, and `-` on SHIFT+0 -
+ * the shifted digits stop at `0`/`-`, so `+ = *` live on the symbol keys),
+ * every one crosschecked against the ROM key-code table by the layout test
+ * and typed on the booted machine by the SYM battery.
+ */
+const PMD85_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
+  '-': { emits: ['Shift', 'Digit0'] },
+  '=': { emits: ['Shift', 'Underscore'] },
+  '/': { emits: ['Slash'] },
+  _: { emits: ['Underscore'] },
+  '<': { emits: ['Shift', 'Comma'] },
+  '>': { emits: ['Shift', 'Period'] },
+  '#': { emits: ['Shift', 'Digit3'] },
+  $: { emits: ['Shift', 'Digit4'] },
+  '%': { emits: ['Shift', 'Digit5'] },
+  '^': { emits: ['Shift', 'Backslash'] },
+  '&': { emits: ['Shift', 'Digit6'] },
+  '*': { emits: ['Shift', 'Colon'] },
+  '(': { emits: ['Shift', 'Digit8'] },
+  ')': { emits: ['Shift', 'Digit9'] },
+  "'": { emits: ['Shift', 'Digit7'] },
+  '"': { emits: ['Shift', 'Digit2'] },
+  ':': { emits: ['Colon'] },
+  ';': { emits: ['Semicolon'] },
+  ',': { emits: ['Comma'] },
+  '.': { emits: ['Period'] },
+  '?': { emits: ['Shift', 'Slash'] },
+  '\\': { emits: ['Backslash'] },
+};
 
 /**
  * The top strip: the twelve function keys and WRK, which selects their second
@@ -212,59 +237,65 @@ const functionKeys: KeyDef[] = [
   },
 ];
 
-export const pmd85KeyboardLayout: KeyboardLayout = {
-  id: 'pmd85',
-  name: 'PMD 85-2',
-  theme: 'vk-theme-pmd85',
-  gridColumns: GRID_COLUMNS,
-  layers: [
-    {
-      id: 'base',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
+export const pmd85KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
+    id: 'pmd85',
+    name: 'PMD 85-2',
+    theme: 'vk-theme-pmd85',
+    gridColumns: GRID_COLUMNS,
+    layers: [
+      {
+        id: 'base',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shift',
+        name: 'SHIFT',
+        position: 'tr',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'cursor',
+        name: 'CURSOR',
+        position: 'br',
+        activeWhen: [],
+        modeOnly: true,
+      },
+    ],
+    editorModes: [
+      { id: 'abc', name: 'ABC', layer: 'base' },
+      { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+    ],
+    modifiers: [
+      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+    ],
+    rows,
+    functionKeys,
+    glyphs: {},
+    // One frame is enough: the Monitor rescans the whole matrix many times over
+    // a 2.048 MHz frame, so a tap that survives a single `runFrame` is seen.
+    options: { minHoldFrames: 1 },
+    /**
+     * The on-screen controller drives the function keys, not WASD.
+     *
+     * `INKEY` is the machine's only key-at-a-time read and it sees nothing but
+     * K0-K11 - so a controller bound to the letter keys would press keys no
+     * real-time program on this machine can notice. The bundled games read
+     * K0-K3, which is what these four bind to.
+     */
+    controller: {
+      bindings: {
+        up: 'K0',
+        left: 'K1',
+        right: 'K2',
+        down: 'K3',
+        fire1: 'K4',
+      },
+      labels: { up: 'K0', left: 'K1', right: 'K2', down: 'K3', fire1: 'K4' },
     },
-    {
-      id: 'shift',
-      name: 'SHIFT',
-      position: 'tr',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'cursor',
-      name: 'CURSOR',
-      position: 'br',
-      activeWhen: [],
-    },
-  ],
-  editorModes: [
-    { id: 'abc', name: 'ABC', layer: 'base' },
-    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
-  ],
-  modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
-  rows,
-  functionKeys,
-  glyphs: {},
-  // One frame is enough: the Monitor rescans the whole matrix many times over
-  // a 2.048 MHz frame, so a tap that survives a single `runFrame` is seen.
-  options: { minHoldFrames: 1 },
-  /**
-   * The on-screen controller drives the function keys, not WASD.
-   *
-   * `INKEY` is the machine's only key-at-a-time read and it sees nothing but
-   * K0-K11 - so a controller bound to the letter keys would press keys no
-   * real-time program on this machine can notice. The bundled games read
-   * K0-K3, which is what these four bind to.
-   */
-  controller: {
-    bindings: {
-      up: 'K0',
-      left: 'K1',
-      right: 'K2',
-      down: 'K3',
-      fire1: 'K4',
-    },
-    labels: { up: 'K0', left: 'K1', right: 'K2', down: 'K3', fire1: 'K4' },
   },
-};
+  PMD85_SYMBOLS,
+);

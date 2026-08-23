@@ -9,59 +9,52 @@ import {
   lbl,
   withLegend,
 } from '../../keyboard/legendKit';
-import { bottomRow } from '../../keyboard/templateRows';
+import {
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
 
 /**
- * The Commodore 64 keyboard on the standard 10-wide virtual-keyboard template.
+ * The Commodore 64 keyboard on the standard virtual-keyboard template:
+ * number row, ten-key QWERTY row, centred nine-key home row, the
+ * SHIFT/INST-DEL-flanked bottom letter row, and a bottom row of C=, space,
+ * quote, and Return at the far right.
  *
- * Three top-strip modes let a single key carry an operator *and* its two block
- * graphics without clashing (the real machine prints both graphics on the key's
- * front face):
- *  - **ABC** - letters/digits; SHIFT gives the shifted symbols and the editor
- *    operators (`+ - * / = : ; @ £`, `! " # …`) that ride the SHIFT layer.
- *  - **SYM** - the six C64 graphics-key characters `+ - £ @ * ↑`, which have no
- *    dedicated key on the 10-wide grid, surfaced as editor inserts on the number
- *    row (keys 1-6). Editor-only, like the BBC's SYM overflow layer.
- *  - **GRAPHICS** - the sixty-odd block graphics as a palette in two sections
- *    (the C= set and the SHIFT set) rather than as key legends: they do not fit
- *    on the keycaps legibly, and the palette labels each one with the key and
- *    modifier that produces it on the real machine.
+ * The machine's symbols live in the SYM mode at the template's canonical
+ * positions, each cell pressing the C64's own key - the dedicated
+ * `+ - £ @ * ↑ = : ; , . /` keys keep their matrix cells (see the token
+ * table in c64Machine.ts) even though their keycaps left the board - or the
+ * SHIFT pair the machine reads (`[` is SHIFT+`:`, `]` SHIFT+`;`). SHIFT
+ * over a letter produces block graphics on the real machine, so the letter
+ * keys carry no shifted legend; the graphics are the GRAPHICS palette's
+ * job, in two sections (the C= set and the SHIFT set), each labelled with
+ * the key and modifier that produces it.
  *
  * The four physical function keys yield eight values (f2/f4/f6/f8 are SHIFT of
  * the odd keys); all eight are shown as separate keys in the top strip, behind
  * the strip's mode/function toggle. RUN/STOP and RESTORE are dropped.
  *
- * The two CRSR keys have no keycaps of their own - the bottom row is full - so
- * they are the CURSOR mode's ↑←↓→ overlay on the WASD keys instead. Each key
- * `emits` a VIC-II button name (see c64Machine.ts).
+ * The two CRSR keys have no keycaps of their own, so they are the CURSOR
+ * mode's ↑←↓→ overlay on the WASD keys instead. Each key `emits` a VIC-II
+ * button name (see c64Machine.ts).
  */
 
 /** Index of the CURSOR layer in `layers` below. */
-const CURSOR_LAYER = 3;
+const CURSOR_LAYER = 2;
 
 /**
- * A key: base label, optional shifted label, an empty SYM slot. Label tuple
- * order matches `layers` below: [base, shift, sym, cursor] - only the
- * symbol-hosting number keys populate SYM, only the four WASD keys CURSOR.
+ * A key: base label, optional shifted label. Label tuple order matches
+ * `layers` below: [base, shift, cursor] - only the four WASD keys populate
+ * CURSOR.
  */
 const key = (id: string, emit: string, base: string, shift?: string): KeyDef =>
-  kitKey(id, [base, shift ?? null, null, null], { emits: [emit] });
+  kitKey(id, [base, shift ?? null, null], { emits: [emit] });
 
-/**
- * A number-row key that also hosts one of the six C64 graphics-key symbols. It
- * keeps its digit + SHIFT punctuation and adds the symbol character on the SYM
- * layer. The key still emits its own digit matrix token, so the SYM character is
- * editor-only.
- */
-const symbolKey = (
-  id: string,
-  base: string,
-  shift: string,
-  symChar: string,
-): KeyDef => kitKey(id, [base, shift, symChar, null]);
-
-const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
+const letter = (l: string): KeyDef => key(l, l, l);
 
 /**
  * A letter key that also carries a CURSOR-layer arrow. The legend moves the
@@ -74,25 +67,22 @@ const cursorLetter = (
   arrow: string,
   action: CursorAction,
   token: string,
-  shift?: string,
 ): KeyDef =>
-  withLegend(letter(l, shift), CURSOR_LAYER, cursorKey(arrow, action, token));
+  withLegend(letter(l), CURSOR_LAYER, cursorKey(arrow, action, token));
 
-/** A bottom-row / strip key with only a main label (no shift, no SYM). */
-const plainLabels = (main: Legend) => [lbl(main), null, null, null];
+/** A bottom-row / strip key with only a main label (no shift). */
+const plainLabels = (main: Legend) => [lbl(main), null, null];
 
-// Keys 1-6 double as the SYM layer's + - £ @ * ↑ (in physical keyboard order);
-// those six keys' block graphics live in the palette, under their own keycaps.
 const numberRow = [
-  symbolKey('Num1', '1', '!', '+'),
-  symbolKey('Num2', '2', '"', '-'),
-  symbolKey('Num3', '3', '#', '£'),
-  symbolKey('Num4', '4', '$', '@'),
-  symbolKey('Num5', '5', '%', '*'),
-  symbolKey('Num6', '6', '&', '↑'),
-  key('Num7', 'Num7', '7', "'"),
-  key('Num8', 'Num8', '8', '('),
-  key('Num9', 'Num9', '9', ')'),
+  key('Num1', 'Num1', '1'),
+  key('Num2', 'Num2', '2'),
+  key('Num3', 'Num3', '3'),
+  key('Num4', 'Num4', '4'),
+  key('Num5', 'Num5', '5'),
+  key('Num6', 'Num6', '6'),
+  key('Num7', 'Num7', '7'),
+  key('Num8', 'Num8', '8'),
+  key('Num9', 'Num9', '9'),
   key('Num0', 'Num0', '0'),
 ];
 
@@ -109,31 +99,17 @@ const qwertyRow = [
   letter('P'),
 ];
 
-const homeRow = [
-  cursorLetter('A', '←', 'left', 'CursorLeft', '+'),
-  cursorLetter('S', '↓', 'down', 'CursorDown', '-'),
-  cursorLetter('D', '→', 'right', 'CursorRight', '*'),
-  letter('F', '/'),
-  letter('G', '='),
-  letter('H', ':'),
-  letter('J', ';'),
-  letter('K', '@'),
-  letter('L', '£'),
-  kitKey('Return', [act('↵', 'newline'), null, null, null]),
-];
-
-const zxcvRow = [
-  letter('Z'),
-  letter('X'),
-  letter('C'),
-  letter('V'),
-  letter('B'),
-  letter('N'),
-  letter('M'),
-  key('Comma', 'Comma', ',', '<'),
-  key('Period', 'Period', '.', '>'),
-  key('Slash', 'Slash', '/', '?'),
-];
+const homeRow = centerRow([
+  cursorLetter('A', '←', 'left', 'CursorLeft'),
+  cursorLetter('S', '↓', 'down', 'CursorDown'),
+  cursorLetter('D', '→', 'right', 'CursorRight'),
+  letter('F'),
+  letter('G'),
+  letter('H'),
+  letter('J'),
+  letter('K'),
+  letter('L'),
+]);
 
 const shiftKey: KeyDef = {
   id: 'LeftShift',
@@ -144,9 +120,28 @@ const shiftKey: KeyDef = {
   labels: plainLabels('⇧'),
 };
 
+const backspaceKey: KeyDef = {
+  ...kitKey('InstDel', [act('⌫', 'backspace'), null, null]),
+  spanX: 6,
+};
+
+const zxcvRow = flankedRow(
+  shiftKey,
+  [
+    letter('Z'),
+    letter('X'),
+    letter('C'),
+    letter('V'),
+    letter('B'),
+    letter('N'),
+    letter('M'),
+  ],
+  backspaceKey,
+);
+
 const commodoreKey: KeyDef = {
   id: 'Commodore',
-  spanX: 5,
+  spanX: 6,
   emits: ['Commodore'],
   modifier: 'commodore',
   labels: plainLabels({ text: 'C=', editor: null }),
@@ -159,23 +154,20 @@ const spaceKey = {
   labels: plainLabels(ins('␣', ' ')),
 } satisfies Omit<KeyDef, 'spanX'>;
 
-const quoteKey = kitKey('Quote', ['"', null, null, null], {
+const quoteKey = kitKey('Quote', ['"', null, null], {
   emits: ['LeftShift', 'Num2'],
 });
 
-const backspaceKey = kitKey('InstDel', [
-  act('⌫', 'backspace'),
-  null,
-  null,
-  null,
-]);
+const returnKey: KeyDef = kitKey('Return', [act('↵', 'newline'), null, null], {
+  spanX: 6,
+});
 
 const rows: KeyDef[][] = [
   numberRow,
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([shiftKey, commodoreKey], spaceKey, [quoteKey, backspaceKey]),
+  bottomRow([commodoreKey], spaceKey, [quoteKey, returnKey]),
 ];
 
 // f1/f3/f5/f7 have their own matrix lines; f2/f4/f6/f8 are SHIFT of the odd keys.
@@ -198,71 +190,101 @@ const functionKeys: KeyDef[] = [
   fnKey('f8', ['LeftShift', 'F7']),
 ];
 
-export const c64KeyboardLayout: KeyboardLayout = {
-  id: 'commodore64',
-  name: 'Commodore 64',
-  theme: 'vk-theme-commodore64',
-  gridColumns: 40,
-  layers: [
-    {
-      id: 'base',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'shift',
-      name: 'SHIFT',
-      position: 'tr',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-    // The six graphics-key characters (+ - £ @ * ↑), pinned by the SYM mode.
-    {
-      id: 'sym',
-      name: 'SYM',
-      position: 'tl',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    // Bottom-right: SHIFT and SYM already hold the two top corners.
-    {
-      id: 'cursor',
-      name: 'CURSOR',
-      position: 'br',
-      activeWhen: [],
-    },
-  ],
-  editorModes: [
-    { id: 'abc', name: 'ABC', layer: 'base' },
-    { id: 'sym', name: 'SYM', layer: 'sym' },
-    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
-    // GRAPHICS shows the palette; it pins no layer, so SHIFT keeps its ordinary
-    // meaning while the palette is open.
-    { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
-  ],
-  modifiers: [
-    { id: 'shift', emits: ['LeftShift'], sticky: true, lockable: true },
-    { id: 'commodore', emits: ['Commodore'], sticky: true, lockable: true },
-  ],
-  rows,
-  graphicsPalette: {
-    sections: [
-      { title: 'C= graphics', entries: C64_COMMODORE_GRAPHICS },
-      { title: 'SHIFT graphics', entries: C64_SHIFT_GRAPHICS },
-    ],
-  },
-  functionKeys,
-  glyphs: {},
-  // WASD movement + Space/Return fire (the convention the bundled C64 games use).
-  controller: {
-    bindings: {
-      up: 'W',
-      down: 'S',
-      left: 'A',
-      right: 'D',
-      fire1: 'Space',
-      fire2: 'Return',
-    },
-  },
+/**
+ * How the C64 reaches each canonical SYM symbol: its dedicated symbol keys'
+ * own matrix cells, the bracket pair the machine reads as SHIFT+`:` /
+ * SHIFT+`;`, and the shifted number row. The `^` slot shows the machine's
+ * own `↑` (the PETSCII exponent character).
+ */
+const C64_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Plus'] },
+  '!': { emits: ['LeftShift', 'Num1'] },
+  '-': { emits: ['Minus'] },
+  '=': { emits: ['Equal'] },
+  '/': { emits: ['Slash'] },
+  '*': { emits: ['Asterisk'] },
+  '<': { emits: ['LeftShift', 'Comma'] },
+  '>': { emits: ['LeftShift', 'Period'] },
+  '[': { emits: ['LeftShift', 'Colon'] },
+  ']': { emits: ['LeftShift', 'Semicolon'] },
+  '@': { emits: ['At'] },
+  '#': { emits: ['LeftShift', 'Num3'] },
+  $: { emits: ['LeftShift', 'Num4'] },
+  '%': { emits: ['LeftShift', 'Num5'] },
+  '^': { emits: ['UpArrow'], insert: '↑', text: '↑' },
+  '&': { emits: ['LeftShift', 'Num6'] },
+  '(': { emits: ['LeftShift', 'Num8'] },
+  ')': { emits: ['LeftShift', 'Num9'] },
+  "'": { emits: ['LeftShift', 'Num7'] },
+  '"': { emits: ['LeftShift', 'Num2'] },
+  ':': { emits: ['Colon'] },
+  ';': { emits: ['Semicolon'] },
+  ',': { emits: ['Comma'] },
+  '.': { emits: ['Period'] },
+  '£': { emits: ['Pound'] },
+  '?': { emits: ['LeftShift', 'Slash'] },
 };
+
+export const c64KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
+    id: 'commodore64',
+    name: 'Commodore 64',
+    theme: 'vk-theme-commodore64',
+    gridColumns: 40,
+    layers: [
+      {
+        id: 'base',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shift',
+        name: 'SHIFT',
+        position: 'tr',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'cursor',
+        name: 'CURSOR',
+        position: 'br',
+        activeWhen: [],
+        modeOnly: true,
+      },
+    ],
+    editorModes: [
+      { id: 'abc', name: 'ABC', layer: 'base' },
+      { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+      // GRAPHICS shows the palette; it pins no layer, so SHIFT keeps its
+      // ordinary meaning while the palette is open.
+      { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
+    ],
+    modifiers: [
+      { id: 'shift', emits: ['LeftShift'], sticky: true, lockable: true },
+      { id: 'commodore', emits: ['Commodore'], sticky: true, lockable: true },
+    ],
+    rows,
+    graphicsPalette: {
+      sections: [
+        { title: 'C= graphics', entries: C64_COMMODORE_GRAPHICS },
+        { title: 'SHIFT graphics', entries: C64_SHIFT_GRAPHICS },
+      ],
+    },
+    functionKeys,
+    glyphs: {},
+    // WASD movement + Space/Return fire (the convention the bundled C64 games
+    // use).
+    controller: {
+      bindings: {
+        up: 'W',
+        down: 'S',
+        left: 'A',
+        right: 'D',
+        fire1: 'Space',
+        fire2: 'Return',
+      },
+    },
+  },
+  C64_SYMBOLS,
+);

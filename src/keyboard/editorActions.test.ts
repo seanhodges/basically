@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isRepeatable,
+  modePinnedLayerId,
   resolveEditorAction,
   resolveEmits,
 } from './editorActions';
@@ -167,5 +168,64 @@ describe('resolveEmits', () => {
 
   it('falls back for an unknown layer rather than emitting nothing', () => {
     expect(resolveEmits(layout, cursorW, 'nope')).toEqual(['KeyW']);
+  });
+});
+
+describe('modePinnedLayerId', () => {
+  const withSym: KeyboardLayout = {
+    ...layout,
+    layers: [
+      ...layout.layers,
+      { id: 'symbols', position: 'center', activeWhen: [], modeOnly: true },
+      { id: 'symbols2', position: 'center', activeWhen: [], modeOnly: true },
+    ],
+  };
+  const base = withSym.layers[0]!;
+  const shifted = withSym.layers[1]!;
+  const symMode = {
+    id: 'sym',
+    name: 'SYM',
+    layer: 'symbols',
+    shiftedLayer: 'symbols2',
+  };
+  const graphicMode = {
+    id: 'g',
+    name: 'G',
+    layer: 'graphic',
+    shiftedLayer: 'keyword',
+  };
+
+  it('pins nothing for the base mode or no mode', () => {
+    expect(
+      modePinnedLayerId(
+        withSym,
+        { id: 'abc', name: 'ABC', layer: 'main' },
+        'main',
+        base,
+        false,
+      ),
+    ).toBeNull();
+    expect(modePinnedLayerId(withSym, null, 'main', base, false)).toBeNull();
+  });
+
+  it('flips a modeOnly mode by its page toggle, ignoring real shift', () => {
+    expect(modePinnedLayerId(withSym, symMode, 'main', base, false)).toBe(
+      'symbols',
+    );
+    expect(modePinnedLayerId(withSym, symMode, 'main', shifted, false)).toBe(
+      'symbols',
+    );
+    expect(modePinnedLayerId(withSym, symMode, 'main', base, true)).toBe(
+      'symbols2',
+    );
+  });
+
+  it('flips any other two-page mode by the engaged SHIFT modifier', () => {
+    expect(modePinnedLayerId(withSym, graphicMode, 'main', base, true)).toBe(
+      'graphic',
+    );
+    expect(
+      modePinnedLayerId(withSym, graphicMode, 'main', shifted, false),
+    ).toBe('keyword');
   });
 });

@@ -69,6 +69,20 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   await expect(page.locator(EDITOR)).not.toContainText('5');
   await expect(page.locator(EDITOR)).not.toContainText('8');
 
+  // SYM mode: the letter keys become the canonical symbol cells - ',' on the
+  // N slot - while the digits stay live, so a list types without leaving the
+  // mode. Only a browser shows the tab re-labelling and re-targeting the
+  // same keycaps.
+  await page
+    .getByRole('radiogroup', { name: 'Input mode' })
+    .getByRole('radio', { name: 'SYM', exact: true })
+    .click();
+  await page.locator('[data-keyid="KeyN"]').click(); // ',' under SYM
+  await page.locator('[data-keyid="Digit3"]').click();
+  // (The slide above typed H and J once each on press and once on entry, so
+  // the line reads HHJJ before the SYM taps append to it.)
+  await expect(page.locator(EDITOR)).toContainText('J,3');
+
   // Advancing to the gamepad state clears the keyboard - and with the editor
   // focused the gamepad can't show either, so the overlay goes away.
   await toggle.click();
