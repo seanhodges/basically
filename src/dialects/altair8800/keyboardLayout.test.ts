@@ -13,6 +13,11 @@ const layout = altair8800KeyboardLayout;
 const keys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
 /** Every key that actually drives the machine (spacers emit nothing). */
 const driving = keys.filter((k) => k.emits.length > 0);
+/** A key's own tokens plus any its legends press in place of them. */
+const allTokens = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
+];
 
 /** The editor text a key inserts on a layer, or null when it inserts nothing. */
 function insertOn(key: KeyDef, layerId: string): string | null {
@@ -39,15 +44,23 @@ describe('altair8800 keyboard layout', () => {
   it('offers a key for every token the machine understands', () => {
     // …and the other direction: a token the adapter translates but no key emits
     // is a character the on-screen keyboard cannot produce.
-    const emitted = new Set(driving.flatMap((k) => k.emits));
+    // Including the SYM legends' own tokens, which bypass `emits`.
+    const emitted = new Set(driving.flatMap(allTokens));
     for (const token of altair8800KeyTokens()) {
       expect(emitted.has(token), `no key emits "${token}"`).toBe(true);
     }
   });
 
-  it('offers only base and SHIFT layers - no keyword or graphics layer', () => {
-    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift']);
-    expect(layout.editorModes).toBeUndefined();
+  it('offers base, SHIFT and the SYM pages - no keyword or graphics layer', () => {
+    expect(layout.layers.map((l) => l.id)).toEqual([
+      'base',
+      'shift',
+      'symbols',
+      'symbols2',
+    ]);
+    // ABC and SYM only: the machine is the one registered dialect with no
+    // cursor keys at all (see layoutGeometry.test.ts).
+    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'sym']);
   });
 
   it('declares no graphics palette, so it stays out of paletteMachines', () => {
@@ -64,13 +77,17 @@ describe('altair8800 keyboard layout', () => {
     // the machine received another.
     for (const key of driving) {
       if (key.modifier) continue;
-      for (const [layerId, mods] of [
-        ['base', {}],
-        ['shift', { shift: true }],
+      for (const [layerId, shifted] of [
+        ['base', false],
+        ['shift', true],
       ] as const) {
         const insert = insertOn(key, layerId);
         if (insert === null || insert.length !== 1) continue; // ↵ and ⌫ act
-        const byte = tokenToByte(key.emits[0]!, mods);
+        // A synthesized combination (the quote key) carries its SHIFT in its
+        // own tokens.
+        const token = key.emits.find((t) => t !== 'Shift')!;
+        const shift = shifted || key.emits.includes('Shift');
+        const byte = tokenToByte(token, { shift });
         expect(
           byte,
           `${key.id} on ${layerId} inserts "${insert}" but sends nothing`,
@@ -80,6 +97,28 @@ describe('altair8800 keyboard layout', () => {
         );
       }
     }
+
+    // The SYM cells make the same claim, so they are held to the same check:
+    // the byte their combination sends is the character they insert.
+    let symChecked = 0;
+    for (const layerId of ['symbols', 'symbols2']) {
+      const idx = layout.layers.findIndex((l) => l.id === layerId);
+      for (const key of layout.rows.flat()) {
+        const label = key.labels[idx];
+        if (!label?.emits?.length || !label.editor) continue;
+        if (!('insert' in label.editor)) continue;
+        const token = label.emits.find((t) => t !== 'Shift')!;
+        const byte = tokenToByte(token, {
+          shift: label.emits.includes('Shift'),
+        });
+        expect(
+          byte === null ? '' : String.fromCharCode(byte),
+          `SYM ${label.text} via ${label.emits.join('+')}`,
+        ).toBe(label.editor.insert);
+        symChecked++;
+      }
+    }
+    expect(symChecked).toBe(27);
   });
 
   it('produces CTRL-C (0x03) for breaking a running program', () => {

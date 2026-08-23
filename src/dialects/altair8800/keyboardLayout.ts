@@ -3,7 +3,13 @@
 
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
 import { act, ins, key as kitKey } from '../../keyboard/legendKit';
-import { bottomRow } from '../../keyboard/templateRows';
+import {
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 
 /**
  * The on-screen keyboard for the Altair - which, strictly, the Altair did not
@@ -38,11 +44,14 @@ import { bottomRow } from '../../keyboard/templateRows';
  * letter and the mechanism simply does not do it. They fall back to their base
  * legend on the SHIFT layer, which is exactly what the machine does.
  *
- * Row order follows the teletype: digits, QWERTY, a home row ending in `;`, and
- * the punctuation row. `:` and `-` sat at the end of the teletype's own digit
- * band; here they move to the bottom row so every typing row keeps the project's
- * ten-key grid. The teletype's function keys - LINE FEED, RUB OUT and ALT MODE -
- * sit in the top strip rather than taking keycaps from the typing rows.
+ * The board is the standard template: digits, QWERTY, a centred nine-letter
+ * home row, the CTRL... rather, SHIFT/backspace-flanked bottom letter row,
+ * and CTRL in the bottom-left machine region beside the space bar, quote,
+ * and ENTER. The teletype's `; : -` keys keep their matrix tokens behind
+ * the canonical SYM positions, alongside the bit-4 pairs the letter keys
+ * carry (`[ \ ] ^ _ @` on K L M N O P). The teletype's function keys -
+ * LINE FEED, RUB OUT and ALT MODE - sit in the top strip rather than
+ * taking keycaps from the typing rows.
  */
 
 /** A printing key: one machine token, a base legend and an optional SHIFT one. */
@@ -80,7 +89,7 @@ const qwertyRow: KeyDef[] = [
   key('KeyP', 'P', '@'),
 ];
 
-const homeRow: KeyDef[] = [
+const homeRow: KeyDef[] = centerRow([
   key('KeyA', 'A'),
   key('KeyS', 'S'),
   key('KeyD', 'D'),
@@ -90,21 +99,7 @@ const homeRow: KeyDef[] = [
   key('KeyJ', 'J'),
   key('KeyK', 'K', '['),
   key('KeyL', 'L', '\\'),
-  key('Semicolon', ';', '+'),
-];
-
-const punctuationRow: KeyDef[] = [
-  key('KeyZ', 'Z'),
-  key('KeyX', 'X'),
-  key('KeyC', 'C'),
-  key('KeyV', 'V'),
-  key('KeyB', 'B'),
-  key('KeyN', 'N', '^'),
-  key('KeyM', 'M', ']'),
-  key('Comma', ',', '<'),
-  key('Period', '.', '>'),
-  key('Slash', '/', '?'),
-];
+]);
 
 const ctrlKey: KeyDef = {
   id: 'Control',
@@ -138,20 +133,72 @@ const enterKey = kitKey('Enter', [act('↵', 'newline'), null]);
  * maps to the underline BASIC's own line editor reads as "rub out the last
  * character typed". In the editor it does the obvious thing instead.
  */
-const backspaceKey = kitKey('Backspace', [act('⌫', 'backspace'), null]);
+const backspaceKey: KeyDef = {
+  ...kitKey('Backspace', [act('⌫', 'backspace'), null]),
+  spanX: 6,
+};
+
+const punctuationRow: KeyDef[] = flankedRow(
+  shiftKey,
+  [
+    key('KeyZ', 'Z'),
+    key('KeyX', 'X'),
+    key('KeyC', 'C'),
+    key('KeyV', 'V'),
+    key('KeyB', 'B'),
+    key('KeyN', 'N', '^'),
+    key('KeyM', 'M', ']'),
+  ],
+  backspaceKey,
+);
+
+// The quote is SHIFT+2 on the teletype, given its own bottom-row key as on
+// every board.
+const quoteKey = kitKey('Quote', ['"', null], { emits: ['Shift', 'Digit2'] });
 
 const rows: KeyDef[][] = [
   numberRow,
   qwertyRow,
   homeRow,
   punctuationRow,
-  bottomRow([ctrlKey, shiftKey], spaceKey, [
-    key('Colon', ':', '*'),
-    key('Minus', '-', '='),
-    enterKey,
-    backspaceKey,
-  ]),
+  bottomRow([ctrlKey], spaceKey, [quoteKey, enterKey]),
 ];
+
+/**
+ * How the teletype reaches each canonical SYM symbol: SHIFT flips bit 4, so
+ * the pairs are fixed by ASCII itself (`[ \ ] ^ _ @` on K L M N O P, the
+ * shifted digits, and the `;+ :* -= ,< .> /?` keys) - each checked against
+ * `tokenToByte` by the layout test.
+ */
+const ALTAIR_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
+  '-': { emits: ['Minus'] },
+  '=': { emits: ['Shift', 'Minus'] },
+  '/': { emits: ['Slash'] },
+  _: { emits: ['Shift', 'KeyO'] },
+  '<': { emits: ['Shift', 'Comma'] },
+  '>': { emits: ['Shift', 'Period'] },
+  '[': { emits: ['Shift', 'KeyK'] },
+  ']': { emits: ['Shift', 'KeyM'] },
+  '@': { emits: ['Shift', 'KeyP'] },
+  '#': { emits: ['Shift', 'Digit3'] },
+  $: { emits: ['Shift', 'Digit4'] },
+  '%': { emits: ['Shift', 'Digit5'] },
+  '^': { emits: ['Shift', 'KeyN'] },
+  '&': { emits: ['Shift', 'Digit6'] },
+  '*': { emits: ['Shift', 'Colon'] },
+  '(': { emits: ['Shift', 'Digit8'] },
+  ')': { emits: ['Shift', 'Digit9'] },
+  "'": { emits: ['Shift', 'Digit7'] },
+  '"': { emits: ['Shift', 'Digit2'] },
+  ':': { emits: ['Colon'] },
+  ';': { emits: ['Semicolon'] },
+  ',': { emits: ['Comma'] },
+  '.': { emits: ['Period'] },
+  '\\': { emits: ['Shift', 'KeyL'] },
+  '?': { emits: ['Shift', 'Slash'] },
+};
 
 /** A top-strip key: matrix token only, `editor: null` so it types nothing. */
 const fnKey = (id: string, text: string): KeyDef => ({
@@ -173,7 +220,8 @@ const functionKeys: KeyDef[] = [
   fnKey('Escape', 'ALT'),
 ];
 
-export const altair8800KeyboardLayout: KeyboardLayout = {
+export const altair8800KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
   id: 'altair8800',
   name: 'Altair 8800',
   theme: 'vk-theme-altair8800',
@@ -193,6 +241,7 @@ export const altair8800KeyboardLayout: KeyboardLayout = {
       editorInsertStyle: 'char',
     },
   ],
+  editorModes: [{ id: 'abc', name: 'ABC', layer: 'base' }],
   modifiers: [
     { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
     { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
@@ -201,4 +250,6 @@ export const altair8800KeyboardLayout: KeyboardLayout = {
   functionKeys,
   glyphs: {},
   options: { minHoldFrames: 1 },
-};
+  },
+  ALTAIR_SYMBOLS,
+);
