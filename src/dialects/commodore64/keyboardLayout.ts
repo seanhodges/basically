@@ -1,8 +1,14 @@
-import type {
-  KeyDef,
-  KeyLabel,
-  KeyboardLayout,
-} from '../../keyboard/layoutSchema';
+import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import {
+  type CursorAction,
+  type Legend,
+  act,
+  cursorKey,
+  ins,
+  key as kitKey,
+  lbl,
+  withLegend,
+} from '../../keyboard/legendKit';
 import { bottomRow } from '../../keyboard/templateRows';
 import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
 
@@ -31,25 +37,16 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  * `emits` a VIC-II button name (see c64Machine.ts).
  */
 
+/** Index of the CURSOR layer in `layers` below. */
+const CURSOR_LAYER = 3;
+
 /**
  * A key: base label, optional shifted label, an empty SYM slot. Label tuple
- * order matches `layers` below: [base, shift, sym].
+ * order matches `layers` below: [base, shift, sym, cursor] - only the
+ * symbol-hosting number keys populate SYM, only the four WASD keys CURSOR.
  */
-function key(
-  id: string,
-  emit: string,
-  base: string,
-  shift?: string,
-  spanX = 4,
-): KeyDef {
-  const labels: (KeyLabel | null)[] = [
-    { text: base },
-    shift ? { text: shift } : null,
-    null, // SYM layer: only the symbol-hosting number keys populate this.
-    null, // CURSOR layer: only the four WASD keys populate this.
-  ];
-  return { id, spanX, emits: [emit], labels };
-}
+const key = (id: string, emit: string, base: string, shift?: string): KeyDef =>
+  kitKey(id, [base, shift ?? null, null, null], { emits: [emit] });
 
 /**
  * A number-row key that also hosts one of the six C64 graphics-key symbols. It
@@ -57,20 +54,12 @@ function key(
  * layer. The key still emits its own digit matrix token, so the SYM character is
  * editor-only.
  */
-function symbolKey(
+const symbolKey = (
   id: string,
   base: string,
   shift: string,
   symChar: string,
-): KeyDef {
-  const labels: (KeyLabel | null)[] = [
-    { text: base },
-    { text: shift },
-    { text: symChar },
-    null,
-  ];
-  return { id, spanX: 4, emits: [id], labels };
-}
+): KeyDef => kitKey(id, [base, shift, symChar, null]);
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
@@ -83,27 +72,14 @@ const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 const cursorLetter = (
   l: string,
   arrow: string,
-  action: 'left' | 'right' | 'up' | 'down',
+  action: CursorAction,
   token: string,
   shift?: string,
-): KeyDef => {
-  const def = letter(l, shift);
-  return {
-    ...def,
-    labels: [
-      ...def.labels.slice(0, 3),
-      { text: arrow, editor: { action }, emits: [token] },
-    ],
-  };
-};
+): KeyDef =>
+  withLegend(letter(l, shift), CURSOR_LAYER, cursorKey(arrow, action, token));
 
 /** A bottom-row / strip key with only a main label (no shift, no SYM). */
-const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [
-  main,
-  null,
-  null,
-  null,
-];
+const plainLabels = (main: Legend) => [lbl(main), null, null, null];
 
 // Keys 1-6 double as the SYM layer's + - £ @ * ↑ (in physical keyboard order);
 // those six keys' block graphics live in the palette, under their own keycaps.
@@ -143,12 +119,7 @@ const homeRow = [
   letter('J', ';'),
   letter('K', '@'),
   letter('L', '£'),
-  {
-    id: 'Return',
-    spanX: 4,
-    emits: ['Return'],
-    labels: plainLabels({ text: '↵', editor: { action: 'newline' } }),
-  } satisfies KeyDef,
+  kitKey('Return', [act('↵', 'newline'), null, null, null]),
 ];
 
 const zxcvRow = [
@@ -170,7 +141,7 @@ const shiftKey: KeyDef = {
   emits: ['LeftShift'],
   modifier: 'shift',
   style: 'shift',
-  labels: plainLabels({ text: '⇧' }),
+  labels: plainLabels('⇧'),
 };
 
 const commodoreKey: KeyDef = {
@@ -185,22 +156,19 @@ const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: plainLabels({ text: '␣', editor: { insert: ' ' } }),
+  labels: plainLabels(ins('␣', ' ')),
 } satisfies Omit<KeyDef, 'spanX'>;
 
-const quoteKey: KeyDef = {
-  id: 'Quote',
-  spanX: 4,
+const quoteKey = kitKey('Quote', ['"', null, null, null], {
   emits: ['LeftShift', 'Num2'],
-  labels: plainLabels({ text: '"' }),
-};
+});
 
-const backspaceKey: KeyDef = {
-  id: 'InstDel',
-  spanX: 4,
-  emits: ['InstDel'],
-  labels: plainLabels({ text: '⌫', editor: { action: 'backspace' } }),
-};
+const backspaceKey = kitKey('InstDel', [
+  act('⌫', 'backspace'),
+  null,
+  null,
+  null,
+]);
 
 const rows: KeyDef[][] = [
   numberRow,

@@ -1,4 +1,10 @@
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import {
+  type Legend,
+  act,
+  cursorKey,
+  key as kitKey,
+} from '../../keyboard/legendKit';
 import { bottomRow } from '../../keyboard/templateRows';
 import { TRS80_GRAPHICS } from './graphics';
 
@@ -16,40 +22,17 @@ import { TRS80_GRAPHICS } from './graphics';
  * Non-WASD keys keep typing normally in CURSOR mode via the base-layer fallback.
  */
 
-type Shift = string | { text: string; insert: string };
-type Cursor = {
-  text: string;
-  action: 'up' | 'down' | 'left' | 'right';
-  /** The arrow key's own matrix cell, pressed instead of the letter's. */
-  token: string;
-};
-
-function key(
+/**
+ * A key: base legend, the SHIFT legend where the keycap carries one, and the
+ * CURSOR arrow the four WASD keys carry. Label tuple order matches `layers`
+ * below: [base, shift, cursor].
+ */
+const key = (
   token: string,
   main: string,
-  shift?: Shift,
-  cursor?: Cursor,
-): KeyDef {
-  const shiftLabel =
-    shift === undefined
-      ? null
-      : typeof shift === 'string'
-        ? { text: shift }
-        : { text: shift.text, editor: { insert: shift.insert } as const };
-  const cursorLabel = cursor
-    ? {
-        text: cursor.text,
-        editor: { action: cursor.action } as const,
-        emits: [cursor.token],
-      }
-    : null;
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [{ text: main }, shiftLabel, cursorLabel],
-  };
-}
+  shift: Legend = null,
+  cursor: Legend = null,
+): KeyDef => kitKey(token, [main, shift, cursor]);
 
 // Shifted number keys (US TRS-80): matches input.ts SHIFTED_DIGIT.
 const numberRow = [
@@ -67,7 +50,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', 'Q'),
-  key('KeyW', 'W', undefined, { text: '↑', action: 'up', token: 'ArrowUp' }),
+  key('KeyW', 'W', null, cursorKey('↑', 'up', 'ArrowUp')),
   key('KeyE', 'E'),
   key('KeyR', 'R'),
   key('KeyT', 'T'),
@@ -80,21 +63,16 @@ const qwertyRow = [
 
 // SHIFT legends on the home row expose the common operators as editor inserts.
 const homeRow = [
-  key('KeyA', 'A', '+', { text: '←', action: 'left', token: 'ArrowLeft' }),
-  key('KeyS', 'S', '-', { text: '↓', action: 'down', token: 'ArrowDown' }),
-  key('KeyD', 'D', '*', { text: '→', action: 'right', token: 'ArrowRight' }),
+  key('KeyA', 'A', '+', cursorKey('←', 'left', 'ArrowLeft')),
+  key('KeyS', 'S', '-', cursorKey('↓', 'down', 'ArrowDown')),
+  key('KeyD', 'D', '*', cursorKey('→', 'right', 'ArrowRight')),
   key('KeyF', 'F', '/'),
   key('KeyG', 'G', '='),
   key('KeyH', 'H', ':'),
   key('KeyJ', 'J', ';'),
   key('KeyK', 'K', '@'),
   key('KeyL', 'L'),
-  {
-    id: 'Enter',
-    spanX: 4,
-    emits: ['Enter'],
-    labels: [{ text: '↵', editor: { action: 'newline' } }, null, null],
-  } satisfies KeyDef,
+  kitKey('Enter', [act('↵', 'newline'), null, null]),
 ];
 
 const zxcvRow = [
@@ -126,19 +104,12 @@ const spaceKey = {
   labels: [{ text: '␣', editor: { insert: ' ' } }, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
-const quoteKey: KeyDef = {
-  id: 'Quote',
-  spanX: 4,
-  emits: ['Shift', 'Digit2'], // " is SHIFT-2
-  labels: [{ text: '"' }, null, null],
-};
+// " is SHIFT-2.
+const quoteKey = kitKey('Quote', ['"', null, null], {
+  emits: ['Shift', 'Digit2'],
+});
 
-const breakKey: KeyDef = {
-  id: 'Break',
-  spanX: 4,
-  emits: ['Break'],
-  labels: [{ text: 'BRK' }, null, null],
-};
+const breakKey = kitKey('Break', ['BRK', null, null]);
 
 /**
  * The Model I has no backspace and no delete key: `←` is its destructive
@@ -148,12 +119,9 @@ const breakKey: KeyDef = {
  * reaches the same cell, and the other three arrows besides; this cap is here
  * for the reach.
  */
-const leftArrowKey: KeyDef = {
-  id: 'Backspace',
-  spanX: 4,
+const leftArrowKey = kitKey('Backspace', [act('←', 'backspace'), null, null], {
   emits: ['ArrowLeft'],
-  labels: [{ text: '←', editor: { action: 'backspace' } }, null, null],
-};
+});
 
 const rows: KeyDef[][] = [
   numberRow,

@@ -1,9 +1,14 @@
-import type {
-  EditorKeyAction,
-  KeyDef,
-  KeyLabel,
-  KeyboardLayout,
-} from '../../keyboard/layoutSchema';
+import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import {
+  type CursorAction,
+  type Legend,
+  act,
+  cursorKey,
+  ins,
+  key as kitKey,
+  withLegend,
+  word,
+} from '../../keyboard/legendKit';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
 import { ZX80_GRAPHICS } from './graphics';
 
@@ -27,58 +32,26 @@ import { ZX80_GRAPHICS } from './graphics';
  */
 
 // Label tuple order matches `layers` below: [main, shift, keyword].
-type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
-
-const word = (text: string): Legend => ({
-  text,
-  editor: { insert: `${text} ` },
-});
-const act = (
-  text: string,
-  action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
-): Legend => ({ text, editor: { action } });
-const ins = (text: string, insert: string): Legend => ({
-  text,
-  editor: { insert },
-});
-
 type Legends = [Legend, Legend, Legend];
 
-const lbl = (legend: Legend): KeyLabel | null =>
-  legend === null
-    ? null
-    : typeof legend === 'string'
-      ? { text: legend }
-      : { text: legend.text, editor: legend.editor };
+const key = (token: string, legends: Legends): KeyDef =>
+  kitKey(token, [...legends, null]);
 
-function key(token: string, [main, shift, keyword]: Legends): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [lbl(main), lbl(shift), lbl(keyword), null],
-  };
-}
+/** Index of the CURSOR layer in `layers` below - the last of them. */
+const CURSOR_LAYER = 3;
 
 /**
  * A key that also carries a CURSOR-layer arrow. The machine has no arrow keys:
  * its cursor is SHIFT over 5/6/7/8, so the legend presses that pair rather
  * than the letter's own cell, exactly as the real keyboard would.
  */
-function withCursor(
+const withCursor = (
   def: KeyDef,
   arrow: string,
-  action: 'left' | 'right' | 'up' | 'down',
+  action: CursorAction,
   digit: string,
-): KeyDef {
-  return {
-    ...def,
-    labels: [
-      ...def.labels.slice(0, 3),
-      { text: arrow, editor: { action }, emits: ['Shift', digit] },
-    ],
-  };
-}
+): KeyDef =>
+  withLegend(def, CURSOR_LAYER, cursorKey(arrow, action, ['Shift', digit]));
 
 const numberRow = [
   key('Digit1', ['1', word('NOT'), null]),

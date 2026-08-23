@@ -2,6 +2,12 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import {
+  act,
+  cursorKey,
+  key as kitKey,
+  withLegend,
+} from '../../keyboard/legendKit';
 import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
 
 /**
@@ -53,15 +59,12 @@ import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
  * of a SHIFT sitting under the space bar invited being pressed by accident.
  */
 
+/** Index of the CURSOR layer in `layers` below. */
+const CURSOR_LAYER = 2;
+
 /** Base and SHIFT legends for one printing key, index-aligned with `layers`. */
-function key(token: string, main: string, shift: string): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [{ text: main }, { text: shift }],
-  };
-}
+const key = (token: string, main: string, shift: string): KeyDef =>
+  kitKey(token, [main, shift]);
 
 /**
  * A key that also carries a CURSOR-layer arrow. The PMD 85's editing block has
@@ -69,20 +72,12 @@ function key(token: string, main: string, shift: string): KeyDef {
  * below `|<-` no code at all, and the two beside it are halves of the wide
  * ENTER. So S carries no arrow, and the overlay is ← ↑ → only.
  */
-function withCursor(
+const withCursor = (
   def: KeyDef,
   arrow: string,
   action: 'left' | 'right' | 'up',
   token: string,
-): KeyDef {
-  return {
-    ...def,
-    labels: [
-      ...def.labels,
-      { text: arrow, editor: { action }, emits: [token] },
-    ],
-  };
-}
+): KeyDef => withLegend(def, CURSOR_LAYER, cursorKey(arrow, action, token));
 
 // The symbol pairings are the machine's rather than a PC's: `_`/`=`, `:`/`*`,
 // `\`/`^`, `;`/`+`. Note the shifted digits stop at `0`/`-`: `+` and `*` are
@@ -132,19 +127,9 @@ const homeRow: KeyDef[] = [
  * left arrow. So this keycap carries the machine's own legend and deletes
  * forwards on both surfaces - move the cursor back, then delete.
  */
-const delKey: KeyDef = {
-  id: 'Del',
-  spanX: 4,
-  emits: ['Del'],
-  labels: [{ text: 'DEL', editor: { action: 'delete' } }, null],
-};
+const delKey = kitKey('Del', [act('DEL', 'delete'), null]);
 
-const enterKey: KeyDef = {
-  id: 'Enter',
-  spanX: 4,
-  emits: ['Enter'],
-  labels: [{ text: '↵', editor: { action: 'newline' } }, null],
-};
+const enterKey = kitKey('Enter', [act('↵', 'newline'), null]);
 
 const yxcvRow: KeyDef[] = [
   key('KeyZ', 'Y', 'y'),
