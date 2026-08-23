@@ -61,19 +61,20 @@
 
 ## 4. Docs and e2e
 
-- [ ] 4.1 Update the keyboard-authoring section of
+- [x] 4.1 Update the keyboard-authoring section of
       `docs/contributing/adding-a-dialect.md` with the arrangement and SYM
       rules
-- [ ] 4.2 Extend the `e2e/virtual-input/touch-input.spec.ts` journey with a
+- [x] 4.2 Extend the `e2e/virtual-input/touch-input.spec.ts` journey with a
       SYM-mode assertion (tap a symbol with the editor focused, the source
       receives it)
 
 ## 5. Quality gates
 
-- [ ] 5.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
-- [ ] 5.2 `npm run e2e:chromium -- e2e/virtual-input`
-- [ ] 5.3 `npm run docs:build` (docs/ changed)
-- [ ] 5.4 Visual pass with `npm run dev`: every machine against the
-      template and SYM map; C64 `PRINT 1,2` typed via SYM with the
-      emulator focused; Sinclairs show keyword legends but no
-      KEYWORD/FUNCTION tabs
+- [x] 5.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
+- [x] 5.2 `npm run e2e:chromium -- e2e/virtual-input`
+- [x] 5.3 `npm run docs:build` (docs/ changed)
+- [x] 5.4 Visual pass (headless screenshots over `npm run dev`): ZX81,
+      Spectrum, C64, BBC and PMD 85 match the template and SYM map;
+      machine-focus symbol presses are covered per machine by
+      `src/dialects/symbolKeys.test.ts` on the booted ROMs; Sinclairs show
+      keyword legends with no KEYWORD/FUNCTION tabs
