@@ -255,9 +255,12 @@ describe('pmd85 keyboard layout', () => {
     // as a Spectrum's. This machine's own keyboard is fifteen columns wide, so
     // the temptation to widen the grid for it is real and was once given in to.
     expect(layout.gridColumns).toBe(40);
-    for (const row of layout.rows.slice(0, 4)) {
-      expect(row.filter((k) => k.emits.length > 0)).toHaveLength(10);
-    }
+    const printing = (row: KeyDef[]) =>
+      row.filter((k) => k.emits.length > 0 || k.modifier);
+    expect(printing(layout.rows[0]!)).toHaveLength(10);
+    expect(printing(layout.rows[1]!)).toHaveLength(10);
+    expect(printing(layout.rows[2]!)).toHaveLength(9);
+    expect(printing(layout.rows[3]!)).toHaveLength(9); // ⇧ + 7 letters + DEL
     // …and so is the strip: a K key is a keycap like any other. More function
     // keys than a board is wide is the one thing this machine has that the
     // template has no room for, and they are the reason the strip scrolls -
@@ -296,9 +299,32 @@ describe('pmd85 keyboard layout', () => {
         checked++;
       }
     }
-    // Both layers of every printing key: four full bands of ten, the three
-    // symbol keys the bands could not keep, and the space bar.
-    expect(checked).toBe(2 * (10 * 4 + 3 + 1));
+    // Both layers of every printing key: the number row, the ten- and
+    // nine-key letter bands, the seven flanked letters, and the space bar.
+    expect(checked).toBe(2 * (10 + 10 + 9 + 7 + 1));
+
+    // The SYM cells make the same claim - "this combination sends this
+    // character" - so they are held to the same table.
+    let symChecked = 0;
+    for (const layerId of ['symbols', 'symbols2']) {
+      const idx = layout.layers.findIndex((l) => l.id === layerId);
+      if (idx < 0) continue;
+      for (const key of layout.rows.flat()) {
+        const label = key.labels[idx];
+        if (!label?.emits?.length || !label.editor) continue;
+        if (!('insert' in label.editor)) continue;
+        const shifted = label.emits[0] === 'Shift';
+        const token = shifted ? label.emits[1]! : label.emits[0]!;
+        const at = position.get(token);
+        expect(at, `${label.text} presses unknown "${token}"`).toBeDefined();
+        expect(
+          label.editor.insert,
+          `SYM ${label.text} via ${label.emits.join('+')}`,
+        ).toBe(romChar(at!.row, at!.bit, shifted));
+        symChecked++;
+      }
+    }
+    expect(symChecked).toBe(24);
   });
 
   it('is QWERTZ, and types capitals unshifted', () => {
@@ -316,8 +342,18 @@ describe('pmd85 keyboard layout', () => {
     // The machine has no block graphics at all - see charset.ts - so it must
     // stay out of e2e/paletteMachines.ts, which graphicsPalette.test.ts pins to
     // the dialects that declare a palette.
-    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift', 'cursor']);
-    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'cursor']);
+    expect(layout.layers.map((l) => l.id)).toEqual([
+      'base',
+      'shift',
+      'cursor',
+      'symbols',
+      'symbols2',
+    ]);
+    expect(layout.editorModes?.map((m) => m.id)).toEqual([
+      'abc',
+      'sym',
+      'cursor',
+    ]);
     expect(layout.graphicsPalette).toBeUndefined();
   });
 
