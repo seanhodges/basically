@@ -54,15 +54,15 @@ const key = (token: string, legends: Legends, cursor: Legend = null): KeyDef =>
   kitKey(token, [...legends, cursor]);
 
 const numberRow = [
-  key('Digit1', ['1', '!']),
-  key('Digit2', ['2', '"']),
-  key('Digit3', ['3', '#']),
-  key('Digit4', ['4', '$']),
-  key('Digit5', ['5', '%']),
-  key('Digit6', ['6', '&']),
-  key('Digit7', ['7', "'"]),
-  key('Digit8', ['8', '(']),
-  key('Digit9', ['9', ')']),
+  key('Digit1', ['1', null]),
+  key('Digit2', ['2', null]),
+  key('Digit3', ['3', null]),
+  key('Digit4', ['4', null]),
+  key('Digit5', ['5', null]),
+  key('Digit6', ['6', null]),
+  key('Digit7', ['7', null]),
+  key('Digit8', ['8', null]),
+  key('Digit9', ['9', null]),
   key('Digit0', ['0', null]),
 ];
 
@@ -214,6 +214,7 @@ export const atomKeyboardLayout: KeyboardLayout = withSymbolMode(
         name: 'CURSOR',
         position: 'tr',
         activeWhen: [],
+        modeOnly: true,
       },
     ],
     editorModes: [

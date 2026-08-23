@@ -341,6 +341,17 @@
   font-weight: 700;
 }
 
+/* The layered view's SYM hint: the key's page-1 symbol, small in the
+   top-right corner in the theme's own ink - never a machine's authentic
+   legend colour. Kept out of the vk-pos-* classes so theme corner colours
+   and the compact-mode slot collapse leave it alone. */
+.vk-label.vk-sym-hint {
+  top: 3px;
+  right: 4px;
+  font-size: 8px;
+  opacity: 0.45;
+}
+
 .vk-pos-tr {
   top: 4px;
   right: 4px;

@@ -283,6 +283,8 @@ describe('pmd85 keyboard layout', () => {
     // Monitor's own code table, so the QWERTZ swap, the SHIFT-gives-lower-case
     // inversion and the machine's own symbol pairings are all pinned to the
     // ROM rather than to whoever typed this file.
+    const layerIndex = (id: string) =>
+      layout.layers.findIndex((l) => l.id === id);
     let checked = 0;
     for (const key of driving) {
       if (key.modifier) continue;
@@ -292,6 +294,9 @@ describe('pmd85 keyboard layout', () => {
         ['base', false],
         ['shift', true],
       ] as const) {
+        // Only a key's own legend makes a claim about the ROM; a layer with
+        // no label falls back to the base insert, which is not one.
+        if (!key.labels[layerIndex(layerId)]) continue;
         const insert = insertOn(key, layerId);
         if (insert === null) continue;
         const expected = romChar(at.row, at.bit, shifted);
@@ -299,9 +304,9 @@ describe('pmd85 keyboard layout', () => {
         checked++;
       }
     }
-    // Both layers of every printing key: the number row, the ten- and
-    // nine-key letter bands, the seven flanked letters, and the space bar.
-    expect(checked).toBe(2 * (10 + 10 + 9 + 7 + 1));
+    // Both cases of every letter, and the digits and space bar unshifted -
+    // the shift layer carries only the lower-case pairs now.
+    expect(checked).toBe(2 * (10 + 9 + 7) + 10 + 1);
 
     // The SYM cells make the same claim - "this combination sends this
     // character" - so they are held to the same table.

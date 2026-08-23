@@ -534,9 +534,9 @@ interface IdeState {
   keyboardSound: boolean;
   /** Haptic buzz on virtual key presses (where supported). */
   keyboardHaptics: boolean;
-  /** Virtual-keyboard keycap legends: every legend ('authentic') or only the
+  /** Virtual-keyboard keycap legends: every legend ('layered') or only the
    *  active mode's character, centered and larger ('compact'). */
-  keyboardKeyDisplay: 'authentic' | 'compact';
+  keyboardKeyDisplay: 'layered' | 'compact';
   /** Master enable for run-time emulator sound (default on). */
   emulatorAudio: boolean;
   /** Whether the Run gate counts editor lint errors too (default on). */
@@ -956,7 +956,7 @@ interface IdeState {
   setControllerRemapRole(role: ControllerRole | null): void;
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
-  setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void;
+  setKeyboardKeyDisplay(v: 'layered' | 'compact'): void;
   setEmulatorAudio(on: boolean): void;
   setRunGateLint(on: boolean): void;
   setEmulatorVolume(n: number): void;
@@ -1580,7 +1580,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   keyboardHaptics:
     typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
   keyboardKeyDisplay:
-    typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'authentic',
+    typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'layered',
   emulatorAudio:
     typeof localStorage !== 'undefined' ? getEmulatorAudio() : true,
   runGateLint: typeof localStorage !== 'undefined' ? getRunGateLint() : true,

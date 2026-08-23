@@ -74,15 +74,15 @@ const cursorLetter = (
 const plainLabels = (main: Legend) => [lbl(main), null, null];
 
 const numberRow = [
-  key('Num1', 'Num1', '1', '!'),
-  key('Num2', 'Num2', '2', '"'),
-  key('Num3', 'Num3', '3', '#'),
-  key('Num4', 'Num4', '4', '$'),
-  key('Num5', 'Num5', '5', '%'),
-  key('Num6', 'Num6', '6', '&'),
-  key('Num7', 'Num7', '7', "'"),
-  key('Num8', 'Num8', '8', '('),
-  key('Num9', 'Num9', '9', ')'),
+  key('Num1', 'Num1', '1'),
+  key('Num2', 'Num2', '2'),
+  key('Num3', 'Num3', '3'),
+  key('Num4', 'Num4', '4'),
+  key('Num5', 'Num5', '5'),
+  key('Num6', 'Num6', '6'),
+  key('Num7', 'Num7', '7'),
+  key('Num8', 'Num8', '8'),
+  key('Num9', 'Num9', '9'),
   key('Num0', 'Num0', '0'),
 ];
 
@@ -250,6 +250,7 @@ export const c64KeyboardLayout: KeyboardLayout = withSymbolMode(
         name: 'CURSOR',
         position: 'br',
         activeWhen: [],
+        modeOnly: true,
       },
     ],
     editorModes: [

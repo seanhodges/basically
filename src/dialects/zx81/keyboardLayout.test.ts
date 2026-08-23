@@ -56,8 +56,8 @@ describe('zx81 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'function')).toEqual({
       insert: 'SIN ',
     });
-    // '−' on the key legend is U+2212 - the editor must get an ASCII hyphen.
-    expect(resolveEditorAction(layout, byId.get('KeyJ')!, 'shift')).toEqual({
+    // '-' is a SYM cell now (the Z slot), inserting the ASCII hyphen.
+    expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
     expect(resolveEditorAction(layout, byId.get('Enter')!, 'main')).toEqual({

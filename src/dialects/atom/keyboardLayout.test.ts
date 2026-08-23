@@ -174,21 +174,23 @@ describe('atom keyboard layout', () => {
     );
   });
 
-  it('reaches the Atom BASIC essentials through SHIFT', () => {
+  it('reaches the Atom BASIC essentials through the SYM mode', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    // ! for byte work, " for strings, # for hex, $ for the string area.
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
-      { insert: '!' },
-    );
-    expect(resolveEditorAction(layout, byId.get('Digit2')!, 'shifted')).toEqual(
-      { insert: '"' },
-    );
-    expect(resolveEditorAction(layout, byId.get('Digit3')!, 'shifted')).toEqual(
-      { insert: '#' },
-    );
-    expect(resolveEditorAction(layout, byId.get('Digit4')!, 'shifted')).toEqual(
-      { insert: '$' },
-    );
+    // ! for byte work, # for hex, $ for the string area - each cell pressing
+    // the shifted digit the machine reads for it.
+    expect(resolveEditorAction(layout, byId.get('KeyW')!, 'symbols')).toEqual({
+      insert: '!',
+    });
+    expect(resolveEmits(layout, byId.get('KeyW')!, 'symbols')).toEqual([
+      'Shift',
+      'Digit1',
+    ]);
+    expect(resolveEditorAction(layout, byId.get('KeyS')!, 'symbols')).toEqual({
+      insert: '#',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyD')!, 'symbols')).toEqual({
+      insert: '$',
+    });
     // ? indirection lives on the SYM second page, pressing SHIFT+/ - the
     // combination the machine's own slash key sends.
     const question = byId.get('KeyM')!;

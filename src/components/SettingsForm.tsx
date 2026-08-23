@@ -392,10 +392,10 @@ export function SettingsForm() {
             <select
               value={keyboardKeyDisplay}
               onChange={(e) =>
-                setKeyboardKeyDisplay(e.target.value as 'authentic' | 'compact')
+                setKeyboardKeyDisplay(e.target.value as 'layered' | 'compact')
               }
             >
-              <option value="authentic">Authentic</option>
+              <option value="layered">Layered</option>
               <option value="compact">Compact</option>
             </select>
           </label>

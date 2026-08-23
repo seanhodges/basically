@@ -118,6 +118,31 @@ describe('every keyboard keeps the template grid', () => {
       ).toEqual({ insert: '"' });
     });
 
+    it(`${dialect.id} types symbols only through the SYM mode`, () => {
+      // The quote key is the one dedicated symbol keycap the bottom row
+      // keeps; everywhere else, a symbol on a typing band would be a second
+      // way in - a shifted legend or stray keycap the normalised layered
+      // view no longer shows.
+      const layout = dialect.keyboardLayout;
+      const canonical = new Set(
+        [...SYMBOL_PAGE_1, ...SYMBOL_PAGE_2].flat().filter((c) => c !== null),
+      );
+      for (const row of layout.rows.slice(0, 4)) {
+        for (const key of printing(row)) {
+          for (const [layerIdx, layer] of layout.layers.entries()) {
+            if (layer.modeOnly || !key.labels[layerIdx]) continue;
+            const action = resolveEditorAction(layout, key, layer.id);
+            if (!action || !('insert' in action)) continue;
+            expect(
+              canonical.has(action.insert),
+              `${dialect.id} ${key.id} types "${action.insert}" on ` +
+                `layer ${layer.id} outside the SYM mode`,
+            ).toBe(false);
+          }
+        }
+      }
+    });
+
     it(`${dialect.id} keeps the SYM pages at the canonical positions`, () => {
       const layout = dialect.keyboardLayout;
       const pages: [string, readonly (readonly (string | null)[])[]][] = [

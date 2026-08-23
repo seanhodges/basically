@@ -17,7 +17,6 @@ const allKeys = layout.rows.flat();
 const editorLayerIds = [
   ...(layout.editorModes ?? []).map((m) => m.layer),
   'caps',
-  'symbol',
 ];
 
 describe('zxspectrum128 keyboard layout', () => {
@@ -104,7 +103,8 @@ describe('zxspectrum128 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyP')!, 'keyword')).toEqual({
       insert: 'PRINT ',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyP')!, 'symbol')).toEqual({
+    // '"' is the SYM cell on the C slot, as on the 48K parent.
+    expect(resolveEditorAction(layout, byId.get('KeyC')!, 'symbols')).toEqual({
       insert: '"',
     });
     expect(resolveEditorAction(layout, byId.get('Enter')!, 'main')).toEqual({

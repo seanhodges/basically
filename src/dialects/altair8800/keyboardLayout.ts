@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
-import { act, ins, key as kitKey } from '../../keyboard/legendKit';
+import { act, key as kitKey } from '../../keyboard/legendKit';
 import {
   type SymbolTable,
   bottomRow,
@@ -31,18 +31,12 @@ import {
  *   depends on - above all CTRL-C to break a running program - so it is a real
  *   modifier here rather than decoration.
  *
- * **The SHIFT legends are not decoration either.** `emulator/keyboard.ts` sends
- * the byte the teletype's code bars would have sent, which is the unshifted
- * character with bit 4 flipped - so SHIFT-K really is `[`, SHIFT-P really is
- * `@`, and SHIFT-0 really is a space. Every shifted legend below is that byte,
- * and `keyboardLayout.test.ts` checks each one against `tokenToByte` rather than
- * trusting this file: a legend that disagreed would type one character into the
- * editor and send a different one to the machine.
- *
- * The keys carrying no second marking on a real ASR-33 - A-J, Q-Z and the space
- * bar - have no SHIFT legend, because flipping their bit 4 would land on another
- * letter and the mechanism simply does not do it. They fall back to their base
- * legend on the SHIFT layer, which is exactly what the machine does.
+ * **SHIFT is a bit-4 flip.** `emulator/keyboard.ts` sends the byte the
+ * teletype's code bars would have sent, which is the unshifted character with
+ * bit 4 flipped - so SHIFT-K really is `[` and SHIFT-P really is `@` on the
+ * machine. Those pairs are the SYM table's, not keycap legends: the keycaps
+ * carry the letter alone, symbols are the SYM mode's work, and
+ * `keyboardLayout.test.ts` checks every SYM cell against `tokenToByte`.
  *
  * The board is the standard template: digits, QWERTY, a centred nine-letter
  * home row, the SHIFT/backspace-flanked bottom letter row, and CTRL in the
@@ -58,24 +52,19 @@ import {
 const key = (token: string, main: string, shift?: string): KeyDef =>
   kitKey(token, [main, shift ?? null]);
 
-// SHIFT flips bit 4, so the shifted digits are the ASCII row 0x21-0x29 - and
-// SHIFT-0 (0x30 ^ 0x10) is a space, which is why the tenth key carries a `␣`
-// legend that inserts one.
 const numberRow: KeyDef[] = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
-  kitKey('Digit0', ['0', ins('␣', ' ')]),
+  key('Digit1', '1'),
+  key('Digit2', '2'),
+  key('Digit3', '3'),
+  key('Digit4', '4'),
+  key('Digit5', '5'),
+  key('Digit6', '6'),
+  key('Digit7', '7'),
+  key('Digit8', '8'),
+  key('Digit9', '9'),
+  key('Digit0', '0'),
 ];
 
-// Only K-P carry a second marking: those are the six letters whose bit-4 flip
-// lands outside A-Z, on `[ \ ] ^ _ @`.
 const qwertyRow: KeyDef[] = [
   key('KeyQ', 'Q'),
   key('KeyW', 'W'),
@@ -85,8 +74,8 @@ const qwertyRow: KeyDef[] = [
   key('KeyY', 'Y'),
   key('KeyU', 'U'),
   key('KeyI', 'I'),
-  key('KeyO', 'O', '_'),
-  key('KeyP', 'P', '@'),
+  key('KeyO', 'O'),
+  key('KeyP', 'P'),
 ];
 
 const homeRow: KeyDef[] = centerRow([
@@ -97,8 +86,8 @@ const homeRow: KeyDef[] = centerRow([
   key('KeyG', 'G'),
   key('KeyH', 'H'),
   key('KeyJ', 'J'),
-  key('KeyK', 'K', '['),
-  key('KeyL', 'L', '\\'),
+  key('KeyK', 'K'),
+  key('KeyL', 'L'),
 ]);
 
 const ctrlKey: KeyDef = {
@@ -146,8 +135,8 @@ const punctuationRow: KeyDef[] = flankedRow(
     key('KeyC', 'C'),
     key('KeyV', 'V'),
     key('KeyB', 'B'),
-    key('KeyN', 'N', '^'),
-    key('KeyM', 'M', ']'),
+    key('KeyN', 'N'),
+    key('KeyM', 'M'),
   ],
   backspaceKey,
 );

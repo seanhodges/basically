@@ -4,10 +4,8 @@ import {
   type Legend,
   act,
   cursorKey,
-  ins,
   key as kitKey,
   withLegend,
-  word,
 } from '../../keyboard/legendKit';
 import {
   type SymbolTable,
@@ -69,10 +67,10 @@ const arrowDigit = (
   );
 
 const numberRow = [
-  key('Digit1', ['1', word('NOT'), null]),
-  key('Digit2', ['2', word('AND'), null]),
-  key('Digit3', ['3', word('THEN'), null]),
-  key('Digit4', ['4', word('TO'), null]),
+  key('Digit1', ['1', null, null]),
+  key('Digit2', ['2', null, null]),
+  key('Digit3', ['3', null, null]),
+  key('Digit4', ['4', null, null]),
   arrowDigit('Digit5', '5', '←', 'left'),
   arrowDigit('Digit6', '6', '↓', 'down'),
   arrowDigit('Digit7', '7', '↑', 'up'),
@@ -87,11 +85,11 @@ const qwertyRow = [
   key('KeyE', ['E', null, 'SAVE']),
   key('KeyR', ['R', null, 'RUN']),
   key('KeyT', ['T', null, 'CONTINUE']),
-  key('KeyY', ['Y', '"', 'REM']),
-  key('KeyU', ['U', '$', 'IF']),
-  key('KeyI', ['I', '(', 'INPUT']),
-  key('KeyO', ['O', ')', 'PRINT']),
-  key('KeyP', ['P', '*', null]),
+  key('KeyY', ['Y', null, 'REM']),
+  key('KeyU', ['U', null, 'IF']),
+  key('KeyI', ['I', null, 'INPUT']),
+  key('KeyO', ['O', null, 'PRINT']),
+  key('KeyP', ['P', null, null]),
 ];
 
 const homeRow = centerRow([
@@ -100,11 +98,10 @@ const homeRow = centerRow([
   key('KeyD', ['D', null, 'DIM']),
   key('KeyF', ['F', null, 'FOR']),
   key('KeyG', ['G', null, 'GOTO']),
-  key('KeyH', ['H', '**', 'POKE']),
-  // '−' is U+2212 (not in the ZX80 charset); insert the ASCII hyphen.
-  key('KeyJ', ['J', ins('−', '-'), 'RANDOMISE']),
-  key('KeyK', ['K', '+', 'LET']),
-  key('KeyL', ['L', '=', null]),
+  key('KeyH', ['H', null, 'POKE']),
+  key('KeyJ', ['J', null, 'RANDOMISE']),
+  key('KeyK', ['K', null, 'LET']),
+  key('KeyL', ['L', null, null]),
 ]);
 
 const shiftKey: KeyDef = {
@@ -126,13 +123,13 @@ const backspaceKey: KeyDef = {
 const zxcvRow = flankedRow(
   shiftKey,
   [
-    key('KeyZ', ['Z', ':', null]),
-    key('KeyX', ['X', ';', 'CLEAR']),
-    key('KeyC', ['C', '?', 'CLS']),
-    key('KeyV', ['V', '/', 'GOSUB']),
-    key('KeyB', ['B', word('OR'), 'RETURN']),
-    key('KeyN', ['N', '<', 'NEXT']),
-    key('KeyM', ['M', '>', null]),
+    key('KeyZ', ['Z', null, null]),
+    key('KeyX', ['X', null, 'CLEAR']),
+    key('KeyC', ['C', null, 'CLS']),
+    key('KeyV', ['V', null, 'GOSUB']),
+    key('KeyB', ['B', null, 'RETURN']),
+    key('KeyN', ['N', null, 'NEXT']),
+    key('KeyM', ['M', null, null]),
   ],
   backspaceKey,
 );
@@ -141,7 +138,7 @@ const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: '␣', editor: { insert: ' ' } }, { text: '£' }, null, null],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
@@ -218,6 +215,7 @@ export const zx80KeyboardLayout: KeyboardLayout = withSymbolMode(
         name: 'CURSOR',
         position: 'br',
         activeWhen: [],
+        modeOnly: true,
       },
     ],
     editorModes: [

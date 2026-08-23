@@ -74,8 +74,15 @@ the keyboard subsystem's structure; this design only names what changes.
   that do their own work (C=, CTRL) keep their bottom-left keycaps.
 - **Existing SYM/SYMBOL modes are re-pointed, not removed.** Spectrum, C64,
   Atom, CPC and BBC keep their mode tab; it pins the new canonical layers.
-  Their authentic symbol-shift display layers remain (still driven by the
-  machine's modifier), preserving keycap authenticity in ABC mode.
+- **Symbols are the SYM mode's alone; the display is "Layered".** The full
+  key display (formerly "Authentic") is renamed Layered and normalised: the
+  shift layers carry no symbol or keyword legends any more (only the letter
+  case pairs and the Sinclair arrows), each letter-band key shows its SYM
+  cell as a small theme-ink hint, cursor layers are `modeOnly` so arrows
+  appear only in CURSOR mode, and a machine with both letter cases shows
+  one case-following letter per key. The editor types symbols only through
+  SYM cells and the quote key; an engaged SHIFT still reaches whatever the
+  hardware matrix makes of it on the machine target.
 - **KEYWORD/FUNCTION modes are removed on zx80/zx81/zxspectrum(+128)** —
   tabs only; the layers and their printed legends stay, and
   `compactDefaultLayer: 'keyword'` remains valid. Keyword entry is the

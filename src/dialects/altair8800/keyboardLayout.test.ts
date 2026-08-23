@@ -81,6 +81,10 @@ describe('altair8800 keyboard layout', () => {
         ['base', false],
         ['shift', true],
       ] as const) {
+        // Only a key's own legend makes a claim; a layer with no label falls
+        // back to the base insert, which is not one.
+        const layerIdx = layout.layers.findIndex((l) => l.id === layerId);
+        if (!key.labels[layerIdx]) continue;
         const insert = insertOn(key, layerId);
         if (insert === null || insert.length !== 1) continue; // ↵ and ⌫ act
         // A synthesized combination (the quote key) carries its SHIFT in its

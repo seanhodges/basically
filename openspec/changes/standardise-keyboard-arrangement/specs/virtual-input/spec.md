@@ -19,7 +19,7 @@ again. The board SHALL NOT offer a second shift-like keycap whose only
 work the symbol mode already does - a modifier earns a keycap by doing
 something of its own, like a control key or a graphics modifier - so the
 Spectrum's SYMBOL SHIFT has no keycap: its combinations are sent by the
-symbol-mode cells, and its red legends stay printed on the keys.
+symbol-mode cells.
 
 On the bottom row, the Enter/Return key SHALL sit at the far bottom right,
 wider than a letter key, with the quote key immediately to its left, and
@@ -65,6 +65,40 @@ carry keyword or function legends SHALL keep them printed on the keys.
 - **THEN** the mode strip offers no keyword or function mode, and the
   legends remain printed on the keycaps
 
+### Requirement: The layered key display
+
+The keyboard's full key display SHALL be named "Layered". On it, each
+letter-band key SHALL show its symbol-mode character as a small hint in the
+theme's own ink - the way a phone keyboard prints its long-press hints -
+never in an authentic legend colour, and a key whose symbol-mode cell is
+blank shows no hint. A machine's printed keyword and function-name legends
+remain. Cursor overlays SHALL appear only while cursor mode is selected: in
+that mode a key carrying an arrow shows the arrow alone, and outside it the
+key shows no arrow.
+
+Where a machine's letters exist in both cases, a letter key SHALL show one
+letter, in the case the shift key currently gives - switching when SHIFT is
+pressed or locked and back when it is released, as the native mobile
+keyboards do - rather than both cases at once.
+
+#### Scenario: A key hints at its symbol
+
+- **WHEN** the user looks at a letter key in the layered display
+- **THEN** the symbol its symbol-mode cell holds shows as a small hint in
+  the theme's ink, and a key with no symbol shows none
+
+#### Scenario: Letter case follows the shift key
+
+- **WHEN** the user taps SHIFT on a machine whose letters have both cases
+- **THEN** the letter keys change case, and change back when the shift
+  releases
+
+#### Scenario: Arrows only in cursor mode
+
+- **WHEN** the user reads the keys in ABC mode and then selects cursor mode
+- **THEN** no arrow decorates a key in ABC mode, and in cursor mode the
+  keys that carry arrows show the arrow alone
+
 ### Requirement: Symbols at fixed positions
 
 The on-screen keyboard SHALL offer a symbol mode that places symbols at the
@@ -81,10 +115,11 @@ editor has focus, and SHALL press the machine's own key or key combination
 for that symbol when the emulator has focus. Where a machine reaches a
 symbol only through a mode sequence that no single key combination can
 send, the cell SHALL still insert into the editor but SHALL press nothing
-on the machine, rather than a key that would type something else. Every
-character that was offered by a dedicated punctuation keycap before SHALL
-be reachable in symbol mode, and the shifted legends reachable through the
-board's own SHIFT key SHALL remain usable alongside it.
+on the machine, rather than a key that would type something else. Symbol
+mode - and the dedicated quote key - SHALL be the only way the keyboard
+types a symbol: in the editor, SHIFT gives letter case and nothing else,
+while on the machine an engaged SHIFT still reaches whatever the hardware
+matrix makes of it.
 
 The number row and the bottom row SHALL keep their normal function while
 symbol mode is active. Where a machine maps a symbol on the second page,
@@ -127,13 +162,14 @@ machine with nothing mapped on the second page SHALL offer no toggle.
 
 ### Requirement: Authentic per-machine keyboard
 
-The on-screen keyboard SHALL carry the active machine's authentic key
-legends and glyphs (including shifted layers and keyword legends where the
-machine has them), and pressing a key SHALL drive the emulated machine's
-own key matrix. Key positions follow the standard arrangement rather than
-the machine's physical board, so authenticity lives in the legends, the
-theme, and the matrix wiring — never in an invented key: the keyboard SHALL
-NOT offer a key or symbol the machine does not have.
+The on-screen keyboard SHALL carry the active machine's own markings where
+the standard arrangement shows one - its keyword and function-name legends,
+its delete key's legend, its letter cases - and pressing a key SHALL drive
+the emulated machine's own key matrix. Key positions follow the standard
+arrangement rather than the machine's physical board, so authenticity lives
+in the legends kept, the theme, and the matrix wiring — never in an
+invented key: the keyboard SHALL NOT offer a key or symbol the machine does
+not have.
 
 The machine's function keys SHALL be offered as a single row above the keys, and
 a function key SHALL be drawn the size of a letter key on the board below it,

@@ -20,24 +20,24 @@ import { TRS80_GRAPHICS } from './graphics';
  * flanked by SHIFT and the machine's own `←` key, and a bottom row of BREAK,
  * space, quote, and Enter at the far right.
  *
- * The TRS-80 is a plain QWERTY with SHIFT - no keyword or graphics typing
- * layers - so there are two character layers: base and SHIFT. Each key
- * `emits` the DOM-`code`-style token the interpreter's input adapter
- * understands (`interpreter/input.ts`), whose pair table also records the
- * machine's shift pairs (`,<` `.>` `;+` `:*` `-=` `/?`). The machine's
- * symbols live in the SYM mode at the template's canonical positions, each
- * cell pressing the machine's own key or SHIFT pair.
+ * The TRS-80 is a plain QWERTY with SHIFT. Each key `emits` the
+ * DOM-`code`-style token the interpreter's input adapter understands
+ * (`interpreter/input.ts`), whose pair table also records the machine's
+ * shift pairs (`,<` `.>` `;+` `:*` `-=` `/?`). The machine's symbols live in
+ * the SYM mode at the template's canonical positions, each cell pressing
+ * the machine's own key or SHIFT pair; the keycaps themselves carry no
+ * symbol legends.
  *
- * A third `cursor` layer (pinned by the CURSOR mode tab, bottom-right on the
- * keycap since SHIFT already sits top-right) overlays `↑ ← ↓ →` on the W/A/S/D
- * keys, moving the editor caret - the same concept as the CPC 464 sibling.
- * Non-WASD keys keep typing normally in CURSOR mode via the base-layer fallback.
+ * A `cursor` layer (pinned by the CURSOR mode tab) overlays `↑ ← ↓ →` on
+ * the W/A/S/D keys, moving the editor caret - the same concept as the CPC
+ * 464 sibling. Non-WASD keys keep typing normally in CURSOR mode via the
+ * base-layer fallback.
  */
 
 /**
- * A key: base legend, the SHIFT legend where the keycap carries one, and the
- * CURSOR arrow the four WASD keys carry. Label tuple order matches `layers`
- * below: [base, shift, cursor].
+ * A key: base legend plus the CURSOR arrow the four WASD keys carry. Label
+ * tuple order matches `layers` below: [base, shift, cursor]; the shift
+ * layer holds no legends (SHIFT only matters to the machine matrix here).
  */
 const key = (
   token: string,
@@ -46,17 +46,16 @@ const key = (
   cursor: Legend = null,
 ): KeyDef => kitKey(token, [main, shift, cursor]);
 
-// Shifted number keys (US TRS-80): matches input.ts SHIFTED_DIGIT.
 const numberRow = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
+  key('Digit1', '1'),
+  key('Digit2', '2'),
+  key('Digit3', '3'),
+  key('Digit4', '4'),
+  key('Digit5', '5'),
+  key('Digit6', '6'),
+  key('Digit7', '7'),
+  key('Digit8', '8'),
+  key('Digit9', '9'),
   key('Digit0', '0'),
 ];
 
@@ -203,6 +202,7 @@ export const trs80KeyboardLayout: KeyboardLayout = withSymbolMode(
         name: 'CURSOR',
         position: 'br',
         activeWhen: [],
+        modeOnly: true,
       },
     ],
     editorModes: [

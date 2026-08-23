@@ -203,9 +203,13 @@ the `^` slot). The rules:
   gap-fill: extend the pages deliberately (an unassigned slot is free for
   exactly this) rather than moving an existing symbol.
 - A modifier whose only work the SYM mode already does gets no keycap -
-  the Spectrum's SYMBOL SHIFT has none; its legends stay printed and the
-  SYM cells press its combinations. The flanked shift is sticky and
+  the Spectrum's SYMBOL SHIFT has none. The flanked shift is sticky and
   lockable: a tap shifts the next key, a second tap locks it.
+- The SYM cells and the quote key are the only editor paths to a symbol:
+  shift layers carry no symbol legends (`layoutGeometry.test.ts` enforces
+  it), only letter case pairs and the Sinclair arrows. The layered key
+  display draws each key's page-1 cell as a small theme-ink hint, and a
+  machine with both letter cases shows one case-following letter per key.
 - The page-2 toggle appears on the shift flank only when the table maps a
   page-2 symbol; `withSymbolMode` handles that, and the layers it adds are
   `modeOnly`, so the canonical symbols never decorate the keycaps in ABC

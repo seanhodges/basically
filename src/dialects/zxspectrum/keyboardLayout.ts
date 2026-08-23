@@ -26,20 +26,17 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
  * at the template's canonical positions, each pressing the SYMBOL SHIFT
  * combination the real keyboard sends.
  *
- * Each alphanumeric key carries up to five legends, matching the real machine:
- *  - main:     the big white letter / digit
- *  - caps:     CAPS SHIFT (the uppercase letter)
- *  - symbol:   SYMBOL SHIFT - the red symbol
+ * Each alphanumeric key carries:
+ *  - main:     the letter or digit; a letter shows the case the shift key
+ *    currently gives, as a phone keyboard's do (CAPS SHIFT on the matrix -
+ *    a tap shifts the next key, a second tap locks)
  *  - keyword:  the white K-mode BASIC keyword
  *  - function: the green extended-mode function
  *
  * The keyword and function legends stay printed on the keys but are not
- * input modes - keyword entry is the editor autocomplete's job. Neither
- * SHIFT keycap carries the machine's name: the one shift key is the flank
- * (CAPS SHIFT on the matrix - a tap shifts the next key, a second tap locks
- * it), and there is no SYMBOL SHIFT keycap at all. The red symbol legends
- * stay printed where the machine prints them, and are typed through the SYM
- * mode, whose cells press the SYMBOL SHIFT combinations themselves.
+ * input modes - keyword entry is the editor autocomplete's job - and the
+ * SYM mode is the only way to type a symbol (bar the quote key). There is
+ * no SYMBOL SHIFT keycap; the SYM cells press its combinations themselves.
  *
  * The machine's graphics mode (CAPS SHIFT + 9 on the real keyboard) is a
  * GRAPHICS tab showing the palette: the sixteen block graphics on the digit
@@ -53,7 +50,7 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
  * the modifier held.
  */
 
-type Legends = [Legend, Legend, Legend, Legend, Legend];
+type Legends = [Legend, Legend, Legend, Legend];
 
 const key = (token: string, legends: Legends): KeyDef =>
   kitKey(token, [...legends, null]);
@@ -62,21 +59,19 @@ const key = (token: string, legends: Legends): KeyDef =>
 function letter(
   token: string,
   ch: string,
-  symbol: Legend,
   keyword: string,
   fn: Legend,
 ): KeyDef {
   return key(token, [
     ch,
     ins(ch.toUpperCase(), ch.toUpperCase()),
-    symbol,
     word(keyword),
     fn,
   ]);
 }
 
 /** Index of the CURSOR layer in `layers` below - the last of them. */
-const CURSOR_LAYER = 5;
+const CURSOR_LAYER = 4;
 
 /**
  * A digit key that is also one of the machine's cursor keys. Both legends move
@@ -88,50 +83,49 @@ const arrowDigit = (
   digit: string,
   arrow: string,
   action: CursorAction,
-  symbol: Legend,
 ): KeyDef =>
   withLegend(
-    key(token, [digit, act(arrow, action), symbol, null, null]),
+    key(token, [digit, act(arrow, action), null, null]),
     CURSOR_LAYER,
     cursorKey(arrow, action, ['CapsShift', token]),
   );
 
 const numberRow = [
-  key('Digit1', ['1', null, '!', null, null]),
-  key('Digit2', ['2', null, '@', null, null]),
-  key('Digit3', ['3', null, '#', null, null]),
-  key('Digit4', ['4', null, '$', null, null]),
-  arrowDigit('Digit5', '5', '←', 'left', '%'),
-  arrowDigit('Digit6', '6', '↓', 'down', '&'),
-  arrowDigit('Digit7', '7', '↑', 'up', ins("'", "'")),
-  arrowDigit('Digit8', '8', '→', 'right', '('),
-  key('Digit9', ['9', null, ')', null, null]),
-  key('Digit0', ['0', null, '_', null, null]),
+  key('Digit1', ['1', null, null, null]),
+  key('Digit2', ['2', null, null, null]),
+  key('Digit3', ['3', null, null, null]),
+  key('Digit4', ['4', null, null, null]),
+  arrowDigit('Digit5', '5', '←', 'left'),
+  arrowDigit('Digit6', '6', '↓', 'down'),
+  arrowDigit('Digit7', '7', '↑', 'up'),
+  arrowDigit('Digit8', '8', '→', 'right'),
+  key('Digit9', ['9', null, null, null]),
+  key('Digit0', ['0', null, null, null]),
 ];
 
 const qwertyRow = [
-  letter('KeyQ', 'q', '<=', 'PLOT', word('SIN')),
-  letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
-  letter('KeyE', 'e', '>=', 'REM', word('TAN')),
-  letter('KeyR', 'r', '<', 'RUN', word('INT')),
-  letter('KeyT', 't', '>', 'RANDOMIZE', word('RND')),
-  letter('KeyY', 'y', word('AND'), 'RETURN', word('STR$')),
-  letter('KeyU', 'u', word('OR'), 'IF', word('CHR$')),
-  letter('KeyI', 'i', word('AT'), 'INPUT', word('CODE')),
-  letter('KeyO', 'o', ';', 'POKE', word('PEEK')),
-  letter('KeyP', 'p', '"', 'PRINT', word('TAB')),
+  letter('KeyQ', 'q', 'PLOT', word('SIN')),
+  letter('KeyW', 'w', 'DRAW', word('COS')),
+  letter('KeyE', 'e', 'REM', word('TAN')),
+  letter('KeyR', 'r', 'RUN', word('INT')),
+  letter('KeyT', 't', 'RANDOMIZE', word('RND')),
+  letter('KeyY', 'y', 'RETURN', word('STR$')),
+  letter('KeyU', 'u', 'IF', word('CHR$')),
+  letter('KeyI', 'i', 'INPUT', word('CODE')),
+  letter('KeyO', 'o', 'POKE', word('PEEK')),
+  letter('KeyP', 'p', 'PRINT', word('TAB')),
 ];
 
 const homeRow = centerRow([
-  letter('KeyA', 'a', '~', 'NEW', word('READ')),
-  letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
-  letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
-  letter('KeyF', 'f', '{', 'FOR', word('SGN')),
-  letter('KeyG', 'g', '}', 'GO TO', word('ABS')),
-  letter('KeyH', 'h', ins('↑', '↑'), 'GO SUB', word('SQR')),
-  letter('KeyJ', 'j', '-', 'LOAD', word('VAL')),
-  letter('KeyK', 'k', '+', 'LIST', word('LEN')),
-  letter('KeyL', 'l', '=', 'LET', word('USR')),
+  letter('KeyA', 'a', 'NEW', word('READ')),
+  letter('KeyS', 's', 'SAVE', word('RESTORE')),
+  letter('KeyD', 'd', 'DIM', word('DATA')),
+  letter('KeyF', 'f', 'FOR', word('SGN')),
+  letter('KeyG', 'g', 'GO TO', word('ABS')),
+  letter('KeyH', 'h', 'GO SUB', word('SQR')),
+  letter('KeyJ', 'j', 'LOAD', word('VAL')),
+  letter('KeyK', 'k', 'LIST', word('LEN')),
+  letter('KeyL', 'l', 'LET', word('USR')),
 ]);
 
 const capsKey: KeyDef = {
@@ -140,7 +134,7 @@ const capsKey: KeyDef = {
   emits: ['CapsShift'],
   modifier: 'caps',
   style: 'shift',
-  labels: [{ text: '⇧' }, null, null, null, null, null],
+  labels: [{ text: '⇧' }, null, null, null, null],
 };
 
 const backspaceKey: KeyDef = {
@@ -153,20 +147,19 @@ const backspaceKey: KeyDef = {
     null,
     null,
     null,
-    null,
   ],
 };
 
 const zxcvRow = flankedRow(
   capsKey,
   [
-    letter('KeyZ', 'z', ':', 'COPY', word('LN')),
-    letter('KeyX', 'x', ins('£', '£'), 'CLEAR', word('EXP')),
-    letter('KeyC', 'c', '?', 'CONTINUE', word('INKEY$')),
-    letter('KeyV', 'v', '/', 'CLS', word('VAL$')),
-    letter('KeyB', 'b', '*', 'BORDER', word('BIN')),
-    letter('KeyN', 'n', ',', 'NEXT', word('INKEY$')),
-    letter('KeyM', 'm', '.', 'PAUSE', word('PI')),
+    letter('KeyZ', 'z', 'COPY', word('LN')),
+    letter('KeyX', 'x', 'CLEAR', word('EXP')),
+    letter('KeyC', 'c', 'CONTINUE', word('INKEY$')),
+    letter('KeyV', 'v', 'CLS', word('VAL$')),
+    letter('KeyB', 'b', 'BORDER', word('BIN')),
+    letter('KeyN', 'n', 'NEXT', word('INKEY$')),
+    letter('KeyM', 'm', 'PAUSE', word('PI')),
   ],
   backspaceKey,
 );
@@ -175,21 +168,14 @@ const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [
-    { text: '␣', editor: { insert: ' ' } },
-    null,
-    null,
-    null,
-    null,
-    null,
-  ],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['SymShift', 'KeyP'],
-  labels: [{ text: '"' }, null, null, null, null, null],
+  labels: [{ text: '"' }, null, null, null, null],
 };
 
 const enterKey: KeyDef = kitKey('Enter', [act('↵', 'newline')], { spanX: 6 });
@@ -204,11 +190,12 @@ const rows: KeyDef[][] = [
 
 /**
  * How the Spectrum reaches each canonical SYM symbol: the SYMBOL SHIFT
- * combination the red legends record. The `^` slot shows the machine's own
- * `↑` (the Spectrum's exponent character). `~ | \ { }` are extended-mode
- * characters - CAPS+SYM first, then SYMBOL SHIFT + the letter - a two-chord
- * sequence no single combination sends (plain SymShift+A types STOP), so
- * their cells insert into the editor and press nothing on the machine.
+ * combination the machine's red legends record. The `^` slot shows the
+ * machine's own `↑` (the Spectrum's exponent character). `~ | \ { }` are
+ * extended-mode characters - CAPS+SYM first, then SYMBOL SHIFT + the letter
+ * - a two-chord sequence no single combination sends (plain SymShift+A
+ * types STOP), so their cells insert into the editor and press nothing on
+ * the machine.
  */
 const SPECTRUM_SYMBOLS: SymbolTable = {
   '+': { emits: ['SymShift', 'KeyK'] },
@@ -263,16 +250,6 @@ export const spectrumKeyboardLayout: KeyboardLayout = withSymbolMode(
         activeWhen: ['caps'],
         editorInsertStyle: 'char',
       },
-      // Display-only: no keycap engages a 'symbol' modifier any more, so the
-      // red legends stay printed where the machine prints them while the SYM
-      // mode does the typing.
-      {
-        id: 'symbol',
-        name: 'SYMBOL',
-        position: 'tr',
-        activeWhen: ['symbol'],
-        editorInsertStyle: 'char',
-      },
       {
         id: 'keyword',
         name: 'KEYWORD',
@@ -292,13 +269,14 @@ export const spectrumKeyboardLayout: KeyboardLayout = withSymbolMode(
         name: 'CURSOR',
         position: 'br',
         activeWhen: [],
+        modeOnly: true,
       },
     ],
     editorModes: [
       { id: 'abc', name: 'ABC', layer: 'main' },
       { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
-      // GRAPHICS pins no layer - the palette carries the characters, and CAPS /
-      // SYMBOL keep their ordinary meaning while it is open.
+      // GRAPHICS pins no layer - the palette carries the characters, and CAPS
+      // keeps its ordinary meaning while it is open.
       { id: 'graphics', name: 'GRAPHICS', layer: 'main', palette: 'graphics' },
     ],
     modifiers: [

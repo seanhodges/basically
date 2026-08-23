@@ -12,7 +12,6 @@ const allKeys = layout.rows.flat();
 const editorLayerIds = [
   ...(layout.editorModes ?? []).map((m) => m.layer),
   'caps',
-  'symbol',
 ];
 
 describe('zxspectrum keyboard layout', () => {
@@ -67,7 +66,8 @@ describe('zxspectrum keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyG')!, 'keyword')).toEqual({
       insert: 'GO TO ',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyP')!, 'symbol')).toEqual({
+    // '"' is the SYM cell on the C slot, pressing SymShift+P for the machine.
+    expect(resolveEditorAction(layout, byId.get('KeyC')!, 'symbols')).toEqual({
       insert: '"',
     });
     expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'function')).toEqual({

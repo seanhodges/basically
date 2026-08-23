@@ -54,12 +54,15 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Del')!, 'base')).toEqual({
       action: 'backspace',
     });
-    // SHIFT keeps the authentic pairs; SYM offers the canonical positions.
+    // SHIFT types nothing different in the editor - symbols are SYM's alone.
     expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
       {
-        insert: '!',
+        insert: '1',
       },
     );
+    expect(resolveEditorAction(layout, byId.get('W')!, 'symbols')).toEqual({
+      insert: '!',
+    });
     // The '^' slot (G on page 1) shows and inserts the CPC's own ↑ form.
     expect(resolveEditorAction(layout, byId.get('G')!, 'symbols')).toEqual({
       insert: '↑',

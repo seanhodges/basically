@@ -107,11 +107,14 @@ export interface LayerDef {
   activeWhen: string[];
   /**
    * Draw this layer's legends only while an editor mode pins it, and then
-   * draw them alone on the keys that carry them - the SYM pages, whose
-   * canonical symbols are not printed on the machine's keycaps and so must
-   * not decorate them outside their mode. A key with a label on the pinned
-   * layer shows exactly that label (an empty label blanks the key); a key
-   * without one keeps its ordinary legends and behaviour.
+   * draw them alone on the keys that carry them - the SYM pages and the
+   * cursor overlays, which are not printed on the machine's keycaps and so
+   * must not decorate them outside their mode. A key with a label on the
+   * pinned layer shows exactly that label (an empty label blanks the key);
+   * a key without one keeps its ordinary legends and behaviour. One
+   * exception: the layered key display prints the first SYM page's symbol
+   * as a small theme-coloured hint on each key, the way a phone keyboard
+   * prints its long-press hints.
    */
   modeOnly?: boolean;
   /**

@@ -29,6 +29,12 @@ and gives future dialects a fixed set of rules to follow.
   function keycap legends stay printed on the keys.
 - The PMD 85 and Altair 8800 lose their deviant arrangement and follow the
   same rules; their extra symbol keys move into the SYM map.
+- The full key display is renamed from "Authentic" to "Layered" and
+  normalised: each letter key shows its symbol-mode character as a small
+  theme-coloured hint, letters follow the shift key's case on machines with
+  both cases, cursor arrows appear only in CURSOR mode, and the shift
+  layers type no symbols - the symbol mode and the quote key are the only
+  symbol paths in the editor.
 - The arrangement rules become part of the virtual-input capability spec, so
   every future dialect's keyboard is authored to them.
 

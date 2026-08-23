@@ -399,13 +399,15 @@ export function setKeyboardHaptics(on: boolean): void {
   localStorage.setItem(KEYS.keyboardHaptics, on ? 'true' : 'false');
 }
 
-export function getKeyboardKeyDisplay(): 'authentic' | 'compact' {
+export function getKeyboardKeyDisplay(): 'layered' | 'compact' {
+  // 'authentic' was this option's stored name before the layered rename;
+  // reading it as 'layered' migrates old settings silently.
   return localStorage.getItem(KEYS.keyboardKeyDisplay) === 'compact'
     ? 'compact'
-    : 'authentic'; // default authentic
+    : 'layered'; // default layered
 }
 
-export function setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void {
+export function setKeyboardKeyDisplay(v: 'layered' | 'compact'): void {
   localStorage.setItem(KEYS.keyboardKeyDisplay, v);
 }
 

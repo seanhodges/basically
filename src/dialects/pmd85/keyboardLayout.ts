@@ -81,20 +81,17 @@ const withCursor = (
   token: string,
 ): KeyDef => withLegend(def, CURSOR_LAYER, cursorKey(arrow, action, token));
 
-// The symbol pairings are the machine's rather than a PC's: `_`/`=`, `:`/`*`,
-// `\`/`^`, `;`/`+`. Note the shifted digits stop at `0`/`-`: `+` and `*` are
-// not up here, which is why the bottom row's symbol keys are not optional.
 const numberRow: KeyDef[] = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
-  key('Digit0', '0', '-'),
+  kitKey('Digit1', ['1']),
+  kitKey('Digit2', ['2']),
+  kitKey('Digit3', ['3']),
+  kitKey('Digit4', ['4']),
+  kitKey('Digit5', ['5']),
+  kitKey('Digit6', ['6']),
+  kitKey('Digit7', ['7']),
+  kitKey('Digit8', ['8']),
+  kitKey('Digit9', ['9']),
+  kitKey('Digit0', ['0']),
 ];
 
 const qwertzRow: KeyDef[] = [
@@ -265,6 +262,7 @@ export const pmd85KeyboardLayout: KeyboardLayout = withSymbolMode(
         name: 'CURSOR',
         position: 'br',
         activeWhen: [],
+        modeOnly: true,
       },
     ],
     editorModes: [

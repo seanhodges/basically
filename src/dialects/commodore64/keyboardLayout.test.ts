@@ -147,9 +147,14 @@ describe('commodore64 keyboard layout', () => {
     }
   });
 
-  it('keeps the SHIFT layer authentic: digits shift, letters do not', () => {
+  it('keeps SHIFT out of the editor: symbols are the SYM mode alone', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
+    // SHIFT+digit still types ! on the machine matrix, but the editor path
+    // goes through the SYM cells; the keycap carries no shifted legend.
     expect(resolveEditorAction(layout, byId.get('Num1')!, 'shift')).toEqual({
+      insert: '1',
+    });
+    expect(resolveEditorAction(layout, byId.get('W')!, 'symbols')).toEqual({
       insert: '!',
     });
     // SHIFT over a letter is a block graphic on the real machine, offered by

@@ -78,3 +78,18 @@
       machine-focus symbol presses are covered per machine by
       `src/dialects/symbolKeys.test.ts` on the booted ROMs; Sinclairs show
       keyword legends with no KEYWORD/FUNCTION tabs
+
+## 6. Layered display normalisation (follow-up)
+
+- [x] 6.1 Rename the key display from "Authentic" to "Layered" (setting
+      value migrates on read; UI label, prop and store types renamed)
+- [x] 6.2 Renderer: SYM page-1 hints on letter keys in the theme's ink,
+      case-following single letters where base+shift are a case pair, and
+      `modeOnly` cursor layers so arrows appear only in CURSOR mode
+- [x] 6.3 Strip symbol and keyword legends from every shift layer (letters'
+      case pairs and the Sinclair arrows stay); remove the Spectrum's
+      display-only symbol layer; update the per-dialect tests
+- [x] 6.4 Extend `layoutGeometry.test.ts`: no non-SYM layer types a
+      canonical symbol on the typing bands
+- [x] 6.5 Spec delta: "The layered key display" requirement, the
+      symbols-only-via-SYM rule, and the reworded authenticity paragraph

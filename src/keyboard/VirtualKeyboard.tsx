@@ -39,9 +39,10 @@ interface VirtualKeyboardProps {
   enabled: boolean;
   sound: boolean;
   haptics: boolean;
-  /** Keycap legends: every legend ('authentic') or only the active mode's
-   *  character, centered and larger ('compact'). */
-  keyDisplay: 'authentic' | 'compact';
+  /** Keycap legends: the layered view (the letter with its symbol hint and
+   *  the machine's own markings) or only the active mode's character,
+   *  centered and larger ('compact'). */
+  keyDisplay: 'layered' | 'compact';
   /** When set, the keyboard acts as a key picker: a tap on a matrix-driving
    *  key reports its id instead of typing into the target. */
   onPickKey?: (keyId: string) => void;
@@ -717,6 +718,39 @@ export function VirtualKeyboard({
     );
   };
 
+  // The shift-driven layer and the base layer form a case pair on keys where
+  // they carry the same letter in two cases (the Spectrum's q/Q, the PMD 85's
+  // Q/q). Such a key shows one centred letter whose case follows the shift
+  // key - pressed or locked - as a phone keyboard's do, never both cases at
+  // once.
+  const modifierLayerIdx = modifierLayer
+    ? layout.layers.indexOf(modifierLayer)
+    : -1;
+  const casePairOf = (def: KeyDef): { off: string; on: string } | null => {
+    if (modifierLayerIdx < 0) return null;
+    const off = def.labels[baseIdx]?.text;
+    const on = def.labels[modifierLayerIdx]?.text;
+    if (!off || !on || off.length !== 1 || on.length !== 1) return null;
+    return off !== on && off.toUpperCase() === on.toUpperCase()
+      ? { off, on }
+      : null;
+  };
+  const shiftEngaged = activeLayer.id === modifierLayer?.id;
+
+  // The layered view's symbol hint: the key's page-1 SYM cell, small in the
+  // top-right corner in the theme's own ink - a reminder of what the SYM mode
+  // holds there, exactly as a phone keyboard prints its long-press hints.
+  const symHintIdx = layout.layers.findIndex(
+    (l) => l.modeOnly && l.id === 'symbols',
+  );
+  const renderSymHint = (def: KeyDef) => {
+    const label = symHintIdx >= 0 ? def.labels[symHintIdx] : null;
+    // Blank cells and the page toggle (editor: null) hint nothing.
+    if (!label?.text || !label.editor || !('insert' in label.editor))
+      return null;
+    return <span className="vk-label vk-sym-hint">{label.text}</span>;
+  };
+
   /** The single label a pinned modeOnly layer draws on a key it covers. */
   const renderExclusiveLabel = (def: KeyDef) => {
     const label = def.labels[activeLabelIdx];
@@ -777,33 +811,51 @@ export function VirtualKeyboard({
                 // key shows that label alone (blank where the label is empty),
                 // never its other legends underneath.
                 renderExclusiveLabel(def)
-              : layout.layers.map((layer, layerIdx) => {
-                  const label = def.labels[layerIdx];
-                  if (!label) return null;
-                  if (layer.modeOnly && layer.id !== highlightLayerId)
-                    return null;
-                  if (
-                    compact &&
-                    layer !== baseLayer &&
-                    layer.id !== visibleSecondaryId
-                  )
-                    return null;
-                  const cls = [
-                    'vk-label',
-                    `vk-pos-${layer.position}`,
-                    `vk-layer-${layer.id}`,
-                  ];
-                  if (layer.id === highlightLayerId) cls.push('vk-active');
+              : (() => {
+                  const pair = casePairOf(def);
                   return (
-                    <span key={layer.id} className={cls.join(' ')}>
-                      {label.glyph ? (
-                        <GlyphSvg glyph={layout.glyphs[label.glyph]} />
-                      ) : (
-                        label.text
-                      )}
-                    </span>
+                    <>
+                      {layout.layers.map((layer, layerIdx) => {
+                        const label = def.labels[layerIdx];
+                        if (!label) return null;
+                        if (layer.modeOnly && layer.id !== highlightLayerId)
+                          return null;
+                        // A case pair renders as one letter on the base slot,
+                        // in the case the shift key currently gives.
+                        if (pair && layerIdx === modifierLayerIdx) return null;
+                        if (
+                          compact &&
+                          layer !== baseLayer &&
+                          layer.id !== visibleSecondaryId
+                        )
+                          return null;
+                        const cls = [
+                          'vk-label',
+                          `vk-pos-${layer.position}`,
+                          `vk-layer-${layer.id}`,
+                        ];
+                        if (layer.id === highlightLayerId)
+                          cls.push('vk-active');
+                        const text =
+                          pair && layerIdx === baseIdx
+                            ? shiftEngaged
+                              ? pair.on
+                              : pair.off
+                            : label.text;
+                        return (
+                          <span key={layer.id} className={cls.join(' ')}>
+                            {label.glyph ? (
+                              <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+                            ) : (
+                              text
+                            )}
+                          </span>
+                        );
+                      })}
+                      {renderSymHint(def)}
+                    </>
                   );
-                })}
+                })()}
         </span>
       </div>
     );
