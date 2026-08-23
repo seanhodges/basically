@@ -45,13 +45,13 @@ import {
  * legend on the SHIFT layer, which is exactly what the machine does.
  *
  * The board is the standard template: digits, QWERTY, a centred nine-letter
- * home row, the CTRL... rather, SHIFT/backspace-flanked bottom letter row,
- * and CTRL in the bottom-left machine region beside the space bar, quote,
- * and ENTER. The teletype's `; : -` keys keep their matrix tokens behind
- * the canonical SYM positions, alongside the bit-4 pairs the letter keys
- * carry (`[ \ ] ^ _ @` on K L M N O P). The teletype's function keys -
- * LINE FEED, RUB OUT and ALT MODE - sit in the top strip rather than
- * taking keycaps from the typing rows.
+ * home row, the SHIFT/backspace-flanked bottom letter row, and CTRL in the
+ * bottom-left machine region beside the space bar, quote, and ENTER. The
+ * teletype's `; : -` keys keep their matrix tokens behind the canonical SYM
+ * positions, alongside the bit-4 pairs the letter keys carry (`[ \ ] ^ _ @`
+ * on K L M N O P). The teletype's function keys - LINE FEED, RUB OUT and
+ * ALT MODE - sit in the top strip rather than taking keycaps from the
+ * typing rows.
  */
 
 /** A printing key: one machine token, a base legend and an optional SHIFT one. */
@@ -126,7 +126,7 @@ const spaceKey = {
   labels: [{ text: '␣', editor: { insert: ' ' } }, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
-const enterKey = kitKey('Enter', [act('↵', 'newline'), null]);
+const enterKey = kitKey('Enter', [act('↵', 'newline'), null], { spanX: 6 });
 
 /**
  * Not an ASR-33 key: a host keyboard's Backspace, which the machine adapter
@@ -222,34 +222,34 @@ const functionKeys: KeyDef[] = [
 
 export const altair8800KeyboardLayout: KeyboardLayout = withSymbolMode(
   {
-  id: 'altair8800',
-  name: 'Altair 8800',
-  theme: 'vk-theme-altair8800',
-  gridColumns: 40,
-  layers: [
-    {
-      id: 'base',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'shift',
-      name: 'SHIFT',
-      position: 'tr',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-  ],
-  editorModes: [{ id: 'abc', name: 'ABC', layer: 'base' }],
-  modifiers: [
-    { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
-    { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
-  ],
-  rows,
-  functionKeys,
-  glyphs: {},
-  options: { minHoldFrames: 1 },
+    id: 'altair8800',
+    name: 'Altair 8800',
+    theme: 'vk-theme-altair8800',
+    gridColumns: 40,
+    layers: [
+      {
+        id: 'base',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shift',
+        name: 'SHIFT',
+        position: 'tr',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+    ],
+    editorModes: [{ id: 'abc', name: 'ABC', layer: 'base' }],
+    modifiers: [
+      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+      { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
+    ],
+    rows,
+    functionKeys,
+    glyphs: {},
+    options: { minHoldFrames: 1 },
   },
   ALTAIR_SYMBOLS,
 );

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { getDialect } from './registry';
+import { dialects, getDialect } from './registry';
 import {
   bootMachine,
   installNodeRomLoading,
@@ -106,14 +106,37 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64][] = [
   ['pmd85', 64],
 ];
 
+/** Machines whose tables are proved elsewhere, and by what. */
+const EXCUSED: Record<string, string> = {
+  trs80: 'no key matrix - the input adapter is exercised in its layout test',
+  altair8800: 'no ROM in this checkout - tokenToByte is checked in its test',
+  vic20: 'reuses the commodore64 layout',
+  cpc6128: 'reuses the cpc464 layout',
+  zxspectrum128: 'reuses the zxspectrum layout',
+  bbcmaster: 'reuses the bbcmicro layout',
+};
+
+describe('every registered machine is covered', () => {
+  it('boots here, or is excused by name', () => {
+    const covered = new Set([
+      ...BOOTABLE.map(([id]) => id),
+      ...Object.keys(EXCUSED),
+    ]);
+    expect(
+      dialects.map((d) => d.id).filter((id) => !covered.has(id)),
+      'boot the machine in BOOTABLE, or excuse it in EXCUSED with where its ' +
+        'table is proved instead',
+    ).toEqual([]);
+  });
+});
+
 describe('every SYM cell types its own character on the machine', () => {
   for (const [id, ramKb] of BOOTABLE) {
     const dialect = getDialect(id)!;
     const cells = symbolCells(dialect.keyboardLayout);
-    // Transitional: a machine still on the old template has no SYM cells yet.
-    if (cells.length === 0) continue;
 
     it(`${id} echoes every mapped symbol`, async () => {
+      expect(cells.length, `${id} maps no SYM cells`).toBeGreaterThan(10);
       const machine = await bootMachine(dialect, {
         ramKb: ramKb as 16 | 32 | 64,
       });
