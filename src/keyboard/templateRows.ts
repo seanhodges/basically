@@ -1,4 +1,10 @@
-import type { KeyDef } from './layoutSchema';
+import type {
+  EditorModeDef,
+  KeyDef,
+  KeyLabel,
+  KeyboardLayout,
+  LayerDef,
+} from './layoutSchema';
 
 /**
  * Shared building blocks for the standard virtual-keyboard template.
@@ -69,6 +75,193 @@ export const ZXCV_ROW_TOKENS = [
   'KeyM',
 ] as const;
 
+/**
+ * The SYM mode: every machine's symbols at the same fixed positions.
+ *
+ * The two pages transcribe the familiar phone keyboard's symbol pages onto
+ * the template's three letter bands (the number row stays a number row, so
+ * the pages start below it). The canonical position of a symbol is fixed
+ * here for every machine; whether a machine offers it comes from the
+ * machine's {@link SymbolTable}. A slot whose symbol a machine lacks is
+ * blank and inert on that machine, and a slot no registered machine's table
+ * claims holds `null` - unassigned, free for a future machine (never invent
+ * a symbol to fill one).
+ *
+ * Two deliberate departures from the phone original, both for BASIC: `$`
+ * (the string sigil) takes the page-1 slot the phone gives its local
+ * currency, with `£` on page 2; and `.` takes the `?` slot (`?` moves to
+ * page 2), because the letter rows carry no punctuation keycaps at all.
+ */
+export type SymbolSlot = string | null;
+
+export const SYMBOL_PAGE_1: readonly (readonly SymbolSlot[])[] = [
+  ['+', null, null, '=', '/', '_', '<', '>', '[', ']'],
+  ['@', '#', '$', '%', '^', '&', '*', '(', ')'],
+  ['-', "'", '"', ':', ';', ',', '.'],
+];
+
+export const SYMBOL_PAGE_2: readonly (readonly SymbolSlot[])[] = [
+  [null, '~', '\\', '|', '{', '}', '£', null, null, null],
+  [null, null, null, null, null, null, null, null, null],
+  [null, null, null, null, null, null, '?'],
+];
+
+/** How one machine reaches one canonical symbol. */
+export interface SymbolBinding {
+  /** The machine's own key or combination for the symbol. */
+  emits: string[];
+  /** Editor insert when it differs from the symbol (default: the symbol). */
+  insert?: string;
+  /**
+   * Keycap glyph when the machine's own character differs from the
+   * canonical one (the Spectrum's `↑` in the `^` slot) - the position is
+   * canonical, the character shown is the machine's.
+   */
+  text?: string;
+}
+
+/** symbol → binding, for the symbols this machine has. */
+export type SymbolTable = Readonly<Record<string, SymbolBinding>>;
+
+export const SYMBOL_LAYER_1 = 'symbols';
+export const SYMBOL_LAYER_2 = 'symbols2';
+export const SYMBOL_MODE_ID = 'sym';
+
+/** A non-null slot's label: what it shows, inserts, and presses. */
+function symbolLabel(slot: SymbolSlot, table: SymbolTable): KeyLabel {
+  const binding = slot === null ? undefined : table[slot];
+  // A key the page leaves unmapped on this machine is blanked outright: a
+  // present-but-empty label, which the renderer draws as nothing and which
+  // presses nothing and inserts nothing.
+  if (!binding || slot === null) return { editor: null, emits: [] };
+  return {
+    text: binding.text ?? slot,
+    editor: { insert: binding.insert ?? slot },
+    emits: binding.emits,
+  };
+}
+
+/** Set one layer's label on a key, padding intermediate layers with null. */
+function labelAt(def: KeyDef, layerIdx: number, label: KeyLabel): KeyDef {
+  const labels = [...def.labels];
+  while (labels.length < layerIdx) labels.push(null);
+  labels[layerIdx] = label;
+  return { ...def, labels };
+}
+
+/**
+ * Give a layout the SYM mode: the canonical symbol layers welded onto its
+ * three letter bands, and the mode tab that pins them. Call it last, on the
+ * otherwise-finished layout - it reads the standard rows (number row, two
+ * letter rows, the flanked row, the bottom row) and the machine's table,
+ * and returns the layout with the layers, rows, and mode in place. The
+ * page-2 layer, and the page toggle on the shift keycap, exist only when
+ * the table maps a page-2 symbol; with no second page the shift keycap is
+ * blank and inert in SYM mode, like any other unmapped key.
+ */
+export function withSymbolMode(
+  layout: KeyboardLayout,
+  table: SymbolTable,
+): KeyboardLayout {
+  const known = new Set([...SYMBOL_PAGE_1, ...SYMBOL_PAGE_2].flat());
+  for (const symbol of Object.keys(table)) {
+    if (!known.has(symbol))
+      throw new Error(
+        `no canonical SYM position for ${JSON.stringify(symbol)}`,
+      );
+  }
+  const hasPage2 = SYMBOL_PAGE_2.flat().some((s) => s !== null && table[s]);
+  const layer1 = layout.layers.length;
+  const layer2 = layer1 + 1;
+
+  // rows[1..3] are the letter bands; the flanked row's first and last
+  // printing keys are the shift and delete flanks, not letter slots.
+  const bands = layout.rows.slice(1, 4).map((row, bandIdx) => {
+    const printing = row.filter((k) => k.emits.length > 0 || k.modifier);
+    return bandIdx === 2 ? printing.slice(1, -1) : printing;
+  });
+  for (const [i, band] of bands.entries()) {
+    const want = SYMBOL_PAGE_1[i]!.length;
+    if (band.length !== want)
+      throw new Error(
+        `letter band ${i} has ${band.length} keys, the SYM page wants ${want}`,
+      );
+  }
+
+  const welded = new Map<string, KeyDef>();
+  for (const [bandIdx, band] of bands.entries()) {
+    for (const [i, keyDef] of band.entries()) {
+      let next = labelAt(
+        keyDef,
+        layer1,
+        symbolLabel(SYMBOL_PAGE_1[bandIdx]![i]!, table),
+      );
+      if (hasPage2)
+        next = labelAt(
+          next,
+          layer2,
+          symbolLabel(SYMBOL_PAGE_2[bandIdx]![i]!, table),
+        );
+      welded.set(keyDef.id, next);
+    }
+  }
+  // The shift flank: the page toggle where there is a page 2, blank where
+  // there is not - never the machine's shift, whose held tokens would bleed
+  // into symbol combinations that do not want them.
+  const shift = layout.rows[3]!.find((k) => k.modifier);
+  if (shift) {
+    let next = labelAt(
+      shift,
+      layer1,
+      hasPage2 ? { text: '1/2', editor: null } : { editor: null, emits: [] },
+    );
+    if (hasPage2) next = labelAt(next, layer2, { text: '2/2', editor: null });
+    welded.set(shift.id, next);
+  }
+
+  const rows = layout.rows.map((row) => row.map((k) => welded.get(k.id) ?? k));
+  const layers: LayerDef[] = [
+    ...layout.layers,
+    {
+      id: SYMBOL_LAYER_1,
+      name: 'SYM',
+      position: 'center',
+      activeWhen: [],
+      modeOnly: true,
+    },
+    ...(hasPage2
+      ? [
+          {
+            id: SYMBOL_LAYER_2,
+            name: 'SYM 2',
+            position: 'center',
+            activeWhen: [],
+            modeOnly: true,
+          } satisfies LayerDef,
+        ]
+      : []),
+  ];
+  const mode: EditorModeDef = {
+    id: SYMBOL_MODE_ID,
+    name: 'SYM',
+    layer: SYMBOL_LAYER_1,
+    ...(hasPage2 ? { shiftedLayer: SYMBOL_LAYER_2 } : {}),
+  };
+  const others = (layout.editorModes ?? []).filter(
+    (m) => m.id !== 'sym' && m.id !== 'symbol',
+  );
+  // SYM is a mode among modes: without at least an ABC tab to return to, the
+  // keyboard could never leave it.
+  if (others.length === 0)
+    throw new Error('withSymbolMode needs an editor mode to sit beside');
+  return {
+    ...layout,
+    layers,
+    rows,
+    editorModes: [others[0]!, mode, ...others.slice(1)],
+  };
+}
+
 let spacerSeq = 0;
 /** A non-interactive filler that reserves grid columns (emits nothing, so the
     input engine and layout tests ignore it). Used to centre the space bar. */
@@ -99,6 +292,29 @@ export function centerRow(keys: KeyDef[]): KeyDef[] {
     ...(left > 0 ? [spacer(left)] : []),
     ...keys,
     ...(right > 0 ? [spacer(right)] : []),
+  ];
+}
+
+/** Width of the shift/delete flanks on the bottom letter row. */
+export const FLANK_SPAN = 6;
+
+/**
+ * Assemble the bottom letter row: the shift key, exactly seven letters, and
+ * the machine's delete key, the flanks half again as wide as a letter key
+ * (6 + 7×4 + 6 = 40) - the arrangement of a phone keyboard's bottom letter
+ * row. The spans are imposed here so a layout cannot drift them.
+ */
+export function flankedRow(
+  shift: KeyDef,
+  letters: KeyDef[],
+  del: KeyDef,
+): KeyDef[] {
+  if (letters.length !== 7)
+    throw new Error(`flankedRow wants 7 letters, got ${letters.length}`);
+  return [
+    { ...shift, spanX: FLANK_SPAN },
+    ...letters.map((k) => ({ ...k, spanX: KEY_SPAN })),
+    { ...del, spanX: FLANK_SPAN },
   ];
 }
 

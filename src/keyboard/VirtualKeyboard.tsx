@@ -9,7 +9,11 @@ import type {
   LayerDef,
 } from './layoutSchema';
 import { KeyboardInputEngine } from './inputEngine';
-import { isRepeatable, resolveEditorAction } from './editorActions';
+import {
+  isRepeatable,
+  modePinnedLayerId,
+  resolveEditorAction,
+} from './editorActions';
 import { pickableKeys } from './controllerConfig';
 import { GlyphSvg } from './GlyphSvg';
 import { ControlChipSvg } from './ControlChipSvg';
@@ -69,23 +73,6 @@ interface RepeatTimer {
 }
 
 /**
- * The layer a non-base editor mode pins, or null when the mode's layer is the
- * base layer (there the engaged modifier drives the layer instead). A mode with
- * a `shiftedLayer` switches to it while SHIFT is engaged, so one mode can carry
- * two legend sets (e.g. the C64's C= / SHIFT graphics).
- */
-function modePinnedLayerId(
-  mode: EditorModeDef | null,
-  baseLayerId: string,
-  activeLayer: LayerDef,
-): string | null {
-  if (!mode || mode.layer === baseLayerId) return null;
-  if (mode.shiftedLayer && activeLayer.activeWhen.includes('shift'))
-    return mode.shiftedLayer;
-  return mode.layer;
-}
-
-/**
  * How a palette cell names itself: the character, then how the machine reaches
  * it - the key it is printed on, or its character code where the machine had no
  * graphics keys.
@@ -135,6 +122,13 @@ export function VirtualKeyboard({
     [layout],
   );
 
+  const keyById = useMemo(() => {
+    const map = new Map<string, KeyDef>();
+    for (const row of layout.rows) for (const k of row) map.set(k.id, k);
+    for (const k of layout.functionKeys ?? []) map.set(k.id, k);
+    return map;
+  }, [layout]);
+
   // Top-strip input modes (the ZX81 K/F/G cursor as a selector bar). Each mode
   // pins a layer. Shown for both targets: the pinned layer picks the legend,
   // and a legend may carry its own matrix tokens, which is how CURSOR mode
@@ -156,6 +150,13 @@ export function VirtualKeyboard({
     selected && paletteUnavailable(selected) ? editorModes[0]! : selected;
   const modeRef = useRef(mode);
   modeRef.current = mode;
+
+  // Which of the SYM mode's two symbol pages shows. Component state, never a
+  // machine modifier: flipping pages must press nothing on the machine.
+  const [symPage2, setSymPage2] = useState(false);
+  const symPage2Ref = useRef(symPage2);
+  symPage2Ref.current = symPage2;
+  useEffect(() => setSymPage2(false), [layout, modeId]);
 
   // Top-strip function keys (the C64's f1/f3/f5/f7, the BBC's f0–f9). When a
   // layout has both modes and function keys the strip shows one at a time
@@ -198,10 +199,15 @@ export function VirtualKeyboard({
       onKeyPress: (key: KeyDef, activeLayer: LayerDef) => {
         const m = modeRef.current;
         // In the base (ABC) mode the engine's layer applies (shift works);
-        // other modes pin the layer (with their optional shifted variant).
+        // other modes pin the layer (with their optional second page).
         const layerId =
-          modePinnedLayerId(m, baseLayerRef.current.id, activeLayer) ??
-          activeLayer.id;
+          modePinnedLayerId(
+            layout,
+            m,
+            baseLayerRef.current.id,
+            activeLayer,
+            symPage2Ref.current,
+          ) ?? activeLayer.id;
         const action = resolveEditorAction(layout, key, layerId);
         lastActionRef.current = action;
         const t = targetRef.current;
@@ -340,8 +346,10 @@ export function VirtualKeyboard({
   const displayRows = layout.rows;
   const gridCols = layout.gridColumns;
 
+  // modeOnly layers never decorate keycaps outside their mode, so they are
+  // not offerable as a compact-mode secondary legend either.
   const secondaryLayers = useMemo(
-    () => layout.layers.filter((l) => l !== baseLayer),
+    () => layout.layers.filter((l) => l !== baseLayer && !l.modeOnly),
     [layout, baseLayer],
   );
   const legendLayerId =
@@ -400,6 +408,28 @@ export function VirtualKeyboard({
     pressFeedback();
   };
 
+  /**
+   * A tap on the shift flank while a mode pins a modeOnly layer: the page
+   * toggle when the mode has a second page, inert when it does not. Either
+   * way the tap must never reach the engine - an engaged shift's held
+   * tokens would bleed into symbol combinations that do not include it.
+   * Only the flanked shift carries a label on the pinned layer; other
+   * modifiers (a bottom-row SymShift, CTRL) keep working normally.
+   */
+  const handleModeOnlyShift = (keyId: string): boolean => {
+    const m = modeRef.current;
+    if (!m) return false;
+    const pinnedIdx = layout.layers.findIndex((l) => l.id === m.layer);
+    if (!layout.layers[pinnedIdx]?.modeOnly) return false;
+    const def = keyById.get(keyId);
+    if (!def?.modifier || def.labels[pinnedIdx] == null) return false;
+    if (m.shiftedLayer) {
+      setSymPage2((p) => !p);
+      pressFeedback();
+    }
+    return true;
+  };
+
   /** The palette cell a pointer went down on, until it taps or pans away. */
   const paletteTap = useRef<{
     pointerId: number;
@@ -452,6 +482,7 @@ export function VirtualKeyboard({
       return;
     }
     if (!keyId) return;
+    if (handleModeOnlyShift(keyId)) return;
     if ((e.target as Element).closest('.vk-fn-row'))
       stripPointers.current.add(e.pointerId);
     // Capture on the container: pointermove keeps firing here while we
@@ -575,7 +606,7 @@ export function VirtualKeyboard({
       e.preventDefault();
     } else if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
       const key = flatKeys[focusIdx];
-      if (key) {
+      if (key && !handleModeOnlyShift(key.id)) {
         engine.pointerDown(key.id, KEYBOARD_POINTER_ID);
         takeLastAction(); // no hold-to-repeat on the a11y path
         pressFeedback();
@@ -597,8 +628,10 @@ export function VirtualKeyboard({
   // is this component's state, so push it down: it decides both which legend a
   // key shows and which tokens it presses.
   useEffect(() => {
-    engine.setPinnedLayer(modePinnedLayerId(mode, baseLayer.id, activeLayer));
-  }, [engine, mode, baseLayer.id, activeLayer]);
+    engine.setPinnedLayer(
+      modePinnedLayerId(layout, mode, baseLayer.id, activeLayer, symPage2),
+    );
+  }, [engine, layout, mode, baseLayer.id, activeLayer, symPage2]);
   const focusKeyId = flatKeys[focusIdx]?.id;
 
   // Roving focus is a class rather than DOM focus, so the browser will not
@@ -610,9 +643,15 @@ export function VirtualKeyboard({
       ?.querySelector(`.vk-fn-row [data-keyid="${CSS.escape(focusKeyId)}"]`)
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [focusKeyId]);
-  // A non-base editor mode pins the highlighted layer (honouring its shifted
-  // variant); otherwise an engaged modifier decides it.
-  const modeLayerId = modePinnedLayerId(mode, baseLayer.id, activeLayer);
+  // A non-base editor mode pins the highlighted layer (honouring its second
+  // page); otherwise an engaged modifier decides it.
+  const modeLayerId = modePinnedLayerId(
+    layout,
+    mode,
+    baseLayer.id,
+    activeLayer,
+    symPage2,
+  );
   const highlightLayerId = modeLayerId ?? activeLayer.id;
   // In compact mode the displayed secondary legends follow the same choice.
   // For the editor target in the base mode, show the modifier-driven layer
@@ -631,6 +670,7 @@ export function VirtualKeyboard({
   const activeLabelIdx = layout.layers.findIndex(
     (l) => l.id === highlightLayerId,
   );
+  const highlightLayer = layout.layers[activeLabelIdx];
   // The legend shown on a key in single (Compact) display: the active mode's
   // label, falling back to the dimmed base label when the mode has none.
   const resolveSingleLabel = (def: KeyDef) => {
@@ -668,6 +708,23 @@ export function VirtualKeyboard({
     else cls.push('vk-active');
     return (
       <span className={cls.join(' ')}>
+        {label.glyph ? (
+          <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+        ) : (
+          label.text
+        )}
+      </span>
+    );
+  };
+
+  /** The single label a pinned modeOnly layer draws on a key it covers. */
+  const renderExclusiveLabel = (def: KeyDef) => {
+    const label = def.labels[activeLabelIdx];
+    if (!label) return null;
+    return (
+      <span
+        className={`vk-label vk-pos-${highlightLayer!.position} vk-layer-${highlightLayerId} vk-active`}
+      >
         {label.glyph ? (
           <GlyphSvg glyph={layout.glyphs[label.glyph]} />
         ) : (
@@ -715,31 +772,38 @@ export function VirtualKeyboard({
         <span className="vk-keycap" aria-hidden="true">
           {keyDisplay === 'compact' && !inStrip
             ? renderSingleLabel(def)
-            : layout.layers.map((layer, layerIdx) => {
-                const label = def.labels[layerIdx];
-                if (!label) return null;
-                if (
-                  compact &&
-                  layer !== baseLayer &&
-                  layer.id !== visibleSecondaryId
-                )
-                  return null;
-                const cls = [
-                  'vk-label',
-                  `vk-pos-${layer.position}`,
-                  `vk-layer-${layer.id}`,
-                ];
-                if (layer.id === highlightLayerId) cls.push('vk-active');
-                return (
-                  <span key={layer.id} className={cls.join(' ')}>
-                    {label.glyph ? (
-                      <GlyphSvg glyph={layout.glyphs[label.glyph]} />
-                    ) : (
-                      label.text
-                    )}
-                  </span>
-                );
-              })}
+            : highlightLayer?.modeOnly && def.labels[activeLabelIdx] != null
+              ? // A pinned modeOnly layer owns the keys it labels outright: the
+                // key shows that label alone (blank where the label is empty),
+                // never its other legends underneath.
+                renderExclusiveLabel(def)
+              : layout.layers.map((layer, layerIdx) => {
+                  const label = def.labels[layerIdx];
+                  if (!label) return null;
+                  if (layer.modeOnly && layer.id !== highlightLayerId)
+                    return null;
+                  if (
+                    compact &&
+                    layer !== baseLayer &&
+                    layer.id !== visibleSecondaryId
+                  )
+                    return null;
+                  const cls = [
+                    'vk-label',
+                    `vk-pos-${layer.position}`,
+                    `vk-layer-${layer.id}`,
+                  ];
+                  if (layer.id === highlightLayerId) cls.push('vk-active');
+                  return (
+                    <span key={layer.id} className={cls.join(' ')}>
+                      {label.glyph ? (
+                        <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+                      ) : (
+                        label.text
+                      )}
+                    </span>
+                  );
+                })}
         </span>
       </div>
     );
