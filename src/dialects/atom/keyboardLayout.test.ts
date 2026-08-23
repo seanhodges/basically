@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { atomKeyboardLayout } from './keyboardLayout';
 import { atomCharset } from './charset';
 import { matrixForToken } from '../../emulator/atom/keyboard';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = atomKeyboardLayout;
@@ -132,21 +135,43 @@ describe('atom keyboard layout', () => {
     }
   });
 
-  it('surfaces the punctuation overflow as SYM-mode editor inserts', () => {
+  it('offers the punctuation at the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'sym')).toEqual({
+    // Page 1: '[' and ']' on the O/P slots, '@' on A, '^' on G - the same
+    // positions every machine uses.
+    expect(resolveEditorAction(layout, byId.get('KeyO')!, 'symbols')).toEqual({
       insert: '[',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit4')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyP')!, 'symbols')).toEqual({
+      insert: ']',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'symbols')).toEqual({
       insert: '@',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyG')!, 'symbols')).toEqual({
       insert: '^',
     });
-    // Digits with no SYM legend keep typing through the base-layer fallback.
-    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'sym')).toEqual({
-      insert: '0',
+    // Page 2 holds the rarities: backslash on E, question mark on M.
+    expect(resolveEditorAction(layout, byId.get('KeyE')!, 'symbols2')).toEqual({
+      insert: '\\',
     });
+    expect(resolveEditorAction(layout, byId.get('KeyM')!, 'symbols2')).toEqual({
+      insert: '?',
+    });
+    // On the machine, a SYM cell presses the Atom's own key for the symbol,
+    // not the letter underneath.
+    expect(resolveEmits(layout, byId.get('KeyO')!, 'symbols')).toEqual([
+      'BracketLeft',
+    ]);
+    // A blanked cell (the Atom has no '~') presses and types nothing.
+    expect(resolveEmits(layout, byId.get('KeyW')!, 'symbols2')).toEqual([]);
+    expect(
+      resolveEditorAction(layout, byId.get('KeyW')!, 'symbols2'),
+    ).toBeNull();
+    // Digits keep typing through the base-layer fallback in SYM mode.
+    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'symbols')).toEqual(
+      { insert: '0' },
+    );
   });
 
   it('reaches the Atom BASIC essentials through SHIFT', () => {
@@ -164,10 +189,16 @@ describe('atom keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Digit4')!, 'shifted')).toEqual(
       { insert: '$' },
     );
-    // ? indirection sits on SHIFT+/.
-    expect(resolveEditorAction(layout, byId.get('Slash')!, 'shifted')).toEqual({
+    // ? indirection lives on the SYM second page, pressing SHIFT+/ - the
+    // combination the machine's own slash key sends.
+    const question = byId.get('KeyM')!;
+    expect(resolveEditorAction(layout, question, 'symbols2')).toEqual({
       insert: '?',
     });
+    expect(resolveEmits(layout, question, 'symbols2')).toEqual([
+      'Shift',
+      'Slash',
+    ]);
   });
 
   it('spot checks the common bottom row', () => {
