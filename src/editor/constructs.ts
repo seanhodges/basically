@@ -413,6 +413,30 @@ const ALTAIR: ConstructTemplate[] = [
  * `DISP` and its `_` twin print into the dialogue line rather than the screen,
  * so they earn their own string templates alongside PRINT.
  */
+/**
+ * Integer BASIC's blocks. Deliberately short: there is no ELSE, no WHILE and no
+ * multi-line IF, and the functions all take one numeric argument except LEN,
+ * whose argument is a string.
+ *
+ * Exported rather than listed in {@link constructsByDialect} because the Apple I
+ * is not registered yet and that record names registered machines only - the
+ * same arrangement `PMD85_LEXIS` has next door in `variableLexis.ts`. It moves
+ * into the record in the change that registers the dialect.
+ */
+export const APPLE1_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  ...fns([
+    ['ABS', 'n'],
+    ['LEN', 's'],
+    ['PEEK', 'n'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+  ]),
+];
+
 const PMD85: ConstructTemplate[] = [
   ifThen(),
   forNext(),

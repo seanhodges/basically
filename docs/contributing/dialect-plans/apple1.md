@@ -142,7 +142,7 @@ authoritative until a test reads it back off the running machine.
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
+| 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ⬜     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
@@ -151,48 +151,77 @@ authoritative until a test reads it back off the running machine.
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change.
 
-- [ ] `keywords.ts` — `KeywordInfo[]` for Apple 1 Integer BASIC, derived from the
-      _Apple-1 BASIC Users Manual_ **and** cross-checked against the token table
-      in the supplied `basic.bin`. This is a small language: no floating point,
-      no string functions beyond `LEN`/`ASC`, no `GR`/`PLOT`/`HLIN`/`VLIN` (those
-      are Apple II Integer BASIC and must not be copied in), no `LOAD`/`SAVE`
-      (Stage 4 explains why). Include the line-entry commands `AUTO`, `MAN`,
-      `DEL` and the `HIMEM:` / `LOMEM:` pseudo-variables.
-- [ ] `charset.ts` — `CharsetMapping` over the 64-glyph uppercase set
-      (`$20`–`$5F`), stored with bit 7 set on the real machine. Lower-case input
-      folds to upper case; codes outside the set have no glyph. No block
-      graphics, so no escapes beyond the control codes the terminal honours.
-- [ ] `language.ts` — `languageSupport()` + `completionSource`.
-      `BasicLanguageOptions`: no `hexPrefix` and no `binaryPrefix` (Integer BASIC
-      has no hex literal — `PEEK`/`POKE` take signed decimal), no `suffixChars`
-      (no `$`/`%` type markers; string variables are declared with `DIM A$(n)`),
-      `crunched: true` if the entry-time tokenizer is confirmed to ignore spaces
-      outside strings and `REM`.
-- [ ] `constructsByDialect.apple1` in `src/editor/constructs.ts`
-- [ ] `apple1VariableErrors` in `src/editor/variableLint.ts` — Integer BASIC
-      names are significant to more than one character but are **not** the
-      Microsoft family; check what the ROM actually truncates to before picking
-      the helper.
-- [ ] `variableLexis.apple1` in `src/editor/variableLexis.ts`
-      (`variableLexis.test.ts` requires an entry per registered machine)
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never throw.
-      Integer BASIC tokenizes **on entry**, so the stored form is what `LIST`
-      prints back; the round-trip test is therefore a real equivalence, not an
-      approximation. Line format and token values are read off the supplied
-      image, not from memory.
-- [ ] `basicImage.ts` — the image builder. This machine's "image" is the pair of
-      regions the ACI dumps: the zero-page housekeeping block `$4A`–`$FF`
-      (carrying `LOMEM`/`HIMEM` and the interpreter's pointers) and the program
-      area between them. Build both, and parse both back.
-- [ ] `addresses.ts` — the zero-page pointers, entry points and the RAM layout,
-      each with the source it was read from
-- [ ] `lint` wired through `tokenize`
-- [ ] tests: tokenizer round-trip, charset injectivity, image-builder pointer
-      consistency, keyword table vs. the manual
+Everything below was settled against the shipped firmware rather than against a
+manual: `public/roms/apple1.rom` boots on the vendored 6502 core, and each
+construct was typed at the interpreter's `>` prompt and read back out of the
+program area. The golden bytes in `tokenizer.test.ts` are that capture.
+
+- [x] `keywords.ts` — the token constants and `KeywordInfo[]`. **There is no
+      reserved-word table on this machine**: there is a syntax table at
+      `$EC53`–`$EDFF` and a token is an ordinal into it, so a keyword's byte
+      depends on the grammar rule that matched — `PRINT` has three, `,` has
+      eight, `(` has six. `keywords.test.ts` re-runs the ROM's own decoder over
+      the shipped image and requires every claimed token to spell its word.
+- [x] `charset.ts` — the 64 glyphs of the Signetics 2513 (`$A0`–`$DF`, ASCII
+      `$20`–`$5F` with bit 7 set), `{0xNN}` escapes elsewhere, lower case folded
+      (the interpreter refuses `10 print a`).
+- [x] `language.ts` — `crunched: true` (confirmed: `FORI=1TO10` stores as FOR I
+      = 1 TO 10), no hex/binary prefix, no graphics escapes.
+- [x] `apple1VariableErrors` in `src/editor/variableLint.ts` — the
+      embedded-reserved-word half of the Microsoft rules only: there is no
+      truncation to warn about (see below), but the ROM crunches, so a name the
+      parser will read as a keyword is a real `*** SYNTAX ERR`.
+- [x] the block templates (`APPLE1_CONSTRUCTS`) and the name lexis
+      (`APPLE1_LEXIS`) exist as named exports rather than as entries in
+      `constructsByDialect` / `VARIABLE_LEXIS`, because those records are pinned
+      to the **registered** machines and this one registers in Stage 3. **Stage 3
+      moves both into their records** and adds the `keywordSpellings` entry;
+      until then `keywordSpellingsFor('apple1')` resolves to the empty answer,
+      which happens to be the right one (no dotted prefix, no shifted letter, and
+      **no `?` for PRINT**). `PMD85_LEXIS` is the precedent for the arrangement.
+- [x] `tokenizer.ts` / `detokenizer.ts` — a recursive-descent parser, because a
+      scanner cannot pick a context-dependent token. Line format
+      `[length][lineNo lo][lineNo hi][tokens][$01]`, length inclusive.
+- [x] `basicImage.ts` — the two ACI ranges (`$4A`–`$FF` housekeeping, then the
+      `LOMEM`–`HIMEM` workspace), built and parsed.
+- [x] `addresses.ts` — pointers, entry points and limits.
+- [x] `lint` wired through `tokenize`.
+- [x] tests: 59 ROM-captured byte strings, the LIST fixed point, charset
+      totality/injectivity, image pointer consistency, keyword table vs. image.
+
+### What the machine turned out to be
+
+Six things the plan above assumed differently. Stage 2 onwards should work from
+these rather than from the summary at the top of this file.
+
+1. **A variable name is one letter and at most one digit.** `A1` is a variable;
+   `AB`, `ABC`, `A12` and `A1$` are each `*** SYNTAX ERR`. The interpreter
+   identifies a variable by exactly two bytes, and a string's `$` is stored as
+   token `$40` rather than as a name character — which is why a string variable
+   is a bare letter plus `$`. This is the tightest naming in the project and it
+   shapes the whole sample set.
+2. **`HIMEM=` and `LOMEM=`, not `HIMEM:`/`LOMEM:`.** The colon spelling is Apple
+   II. Both are also direct-mode only: inside a numbered line they are refused,
+   along with `LIST`, `RUN`, `DEL`, `AUTO`, `OFF`, `SCR` and `CLR`.
+3. **There is no `MAN` and no `ASC`.** `AUTO` is cancelled with `OFF`. The
+   string functions are `LEN` alone.
+4. **`COLOR=`, `PLOT`, `HLIN` and `AT` _are_ in the syntax table** — Woz's work
+   towards the Apple II, left in the image — but they reach POKE's handler on a
+   machine with no graphics hardware. `VLIN`, `VTAB`, `GR` and `TEXT` are absent
+   entirely. `USR` parses and jumps to `$0000`; `HIMEM`, `LOMEM` and `COLOR`
+   used as expressions all evaluate to 0. All of them are recognised by the
+   tokenizer and refused with a message rather than offered as keywords.
+5. **`:` is the statement separator** (token `$03`), so `statementSeparator` is
+   no longer null.
+6. **The program grows _down_ from HIMEM and the variables _up_ from LOMEM.**
+   `PP` (`$CA`) is the lowest byte of program text, `PV` (`$CC`) the first free
+   byte above the variables, `PLINE` (`$DC`) the line being executed. Lines are
+   stored in ascending line-number order from PP up to HIMEM, with no link field
+   and no terminator. Max line number 32767; max integer 32767.
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
@@ -425,9 +454,9 @@ audit, all of them Stage 3 unless noted:
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/dialects/registry.ts`                                                                        | import + array entry (array order = menu order)                                                                                                                                                                           |
 | `src/player/routes.ts`                                                                            | `SHARE_VERBS` verb — bijection is test-enforced                                                                                                                                                                           |
-| `src/editor/constructs.ts`                                                                        | `constructsByDialect.apple1` (Stage 1)                                                                                                                                                                                    |
-| `src/editor/variableLint.ts`                                                                      | `apple1VariableErrors` wrapper (Stage 1)                                                                                                                                                                                  |
-| `src/editor/variableLexis.ts`                                                                     | name lexis — one entry per registered machine (Stage 1)                                                                                                                                                                   |
+| `src/editor/constructs.ts`                                                                        | move `APPLE1_CONSTRUCTS` into `constructsByDialect` (written in Stage 1; the record is registered-machines-only)                                                                                                          |
+| `src/editor/variableLint.ts`                                                                      | `apple1VariableErrors` wrapper (done in Stage 1)                                                                                                                                                                          |
+| `src/editor/variableLexis.ts`                                                                     | move `APPLE1_LEXIS` into `VARIABLE_LEXIS` — one entry per registered machine                                                                                                                                              |
 | `src/dialects/semigraphicsAudit.ts`                                                               | `SEMIGRAPHIC_CODES.apple1 = []`, cited                                                                                                                                                                                    |
 | `src/dialects/glyphSources.ts`                                                                    | `GLYPH_SOURCES.apple1` + `ADDRESS_SIGIL.apple1`; the keys are pinned against the registry                                                                                                                                 |
 | `src/dialects/charsetProbes.ts`                                                                   | charset probe for the new family                                                                                                                                                                                          |
