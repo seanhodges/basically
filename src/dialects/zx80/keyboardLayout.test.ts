@@ -75,8 +75,8 @@ describe('zx80 keyboard layout editor mapping', () => {
       insert: 'PRINT ',
     });
     // The symbols are the SYM mode's alone now: '-' on the Z slot inserting
-    // the ASCII hyphen, '$' on its canonical home-row slot, '£' on page 2 -
-    // each pressing the SHIFT pair the machine reads.
+    // the ASCII hyphen, '$' on its canonical home-row slot, '£' on the Y
+    // slot - each pressing the SHIFT pair the machine reads.
     expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
@@ -87,7 +87,7 @@ describe('zx80 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'symbols')).toEqual({
       insert: '$',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyU')!, 'symbols2')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'symbols')).toEqual({
       insert: '£',
     });
     // SHIFT alone types nothing different in the editor any more.

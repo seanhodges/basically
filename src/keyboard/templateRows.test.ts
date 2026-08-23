@@ -112,7 +112,7 @@ describe('withSymbolMode', () => {
     '+': { emits: ['Shift', 'KeySemicolon'] },
     ',': { emits: ['Comma'] },
     '^': { emits: ['Shift', 'KeyH'], insert: '↑', text: '↑' },
-    '£': { emits: ['Shift', 'KeyX'] },
+    _: { emits: ['Shift', 'KeyX'] },
   };
   const layout = withSymbolMode(testLayout(), table);
   const layerIdx = (id: string) => layout.layers.findIndex((l) => l.id === id);

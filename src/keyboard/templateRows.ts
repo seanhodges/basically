@@ -91,23 +91,24 @@ export const ZXCV_ROW_TOKENS = [
  * claims holds `null` - unassigned, free for a future machine (never invent
  * a symbol to fill one).
  *
- * Two deliberate departures from the phone original, both for BASIC: `$`
- * (the string sigil) takes the page-1 slot the phone gives its local
- * currency, with `£` on page 2; and `.` takes the `?` slot because the
- * letter rows carry no punctuation keycaps at all, with `?` - a key every
- * machine maps - on the page-1 slot the phone gives `÷`, a symbol no
- * machine has.
+ * Deliberate departures from the phone original, all for BASIC: `$` (the
+ * string sigil) takes the page-1 slot the phone gives its local currency,
+ * and `£` - which most machines map - takes the page-1 `_` slot (`_`,
+ * which no machine maps, moves to page 2); `.` takes the `?` slot because
+ * the letter rows carry no punctuation keycaps at all, with `?` - a key
+ * every machine maps - on the page-1 slot the phone gives `÷`, a symbol
+ * no machine has.
  */
 export type SymbolSlot = string | null;
 
 export const SYMBOL_PAGE_1: readonly (readonly SymbolSlot[])[] = [
-  ['+', '!', '?', '=', '/', '_', '<', '>', '[', ']'],
+  ['+', '!', '?', '=', '/', '£', '<', '>', '[', ']'],
   ['@', '#', '$', '%', '^', '&', '*', '(', ')'],
   ['-', "'", '"', ':', ';', ',', '.'],
 ];
 
 export const SYMBOL_PAGE_2: readonly (readonly SymbolSlot[])[] = [
-  ['`', '~', '\\', '|', '{', '}', '£', null, null, null],
+  ['`', '~', '\\', '|', '{', '}', '_', null, null, null],
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null],
 ];

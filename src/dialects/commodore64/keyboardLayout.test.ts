@@ -33,7 +33,8 @@ describe('commodore64 keyboard layout', () => {
     ]);
     const sym = layout.editorModes?.find((m) => m.id === 'sym');
     expect(sym?.layer).toBe('symbols');
-    expect(sym?.shiftedLayer).toBe('symbols2');
+    // Every C64 symbol fits on page 1, so there is no page 2 or toggle.
+    expect(sym?.shiftedLayer).toBeUndefined();
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
     expect(graphics?.palette).toBe('graphics');
     // The graphics sets are the palette's, not a pinned key layer's.
@@ -43,7 +44,6 @@ describe('commodore64 keyboard layout', () => {
       'shift',
       'cursor',
       'symbols',
-      'symbols2',
     ]);
   });
 
@@ -88,16 +88,16 @@ describe('commodore64 keyboard layout', () => {
 
   it('presses the dedicated symbol keys from the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    // '+' leads the Q row and presses the C64's own + key; £ and ↑ sit on
-    // page 2 (£ on the U slot) and page 1's ^ slot (the machine's ↑).
+    // '+' leads the Q row and presses the C64's own + key; £ sits on the Y
+    // slot and ↑ on page 1's ^ slot (the machine's ↑).
     expect(resolveEditorAction(layout, byId.get('Q')!, 'symbols')).toEqual({
       insert: '+',
     });
     expect(resolveEmits(layout, byId.get('Q')!, 'symbols')).toEqual(['Plus']);
-    expect(resolveEditorAction(layout, byId.get('U')!, 'symbols2')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('Y')!, 'symbols')).toEqual({
       insert: '£',
     });
-    expect(resolveEmits(layout, byId.get('U')!, 'symbols2')).toEqual(['Pound']);
+    expect(resolveEmits(layout, byId.get('Y')!, 'symbols')).toEqual(['Pound']);
     expect(resolveEditorAction(layout, byId.get('G')!, 'symbols')).toEqual({
       insert: '↑',
     });

@@ -161,8 +161,8 @@ describe('bbcmicro keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyV')!, 'symbols')).toEqual({
       insert: ':',
     });
-    // Page 2: £ on the U slot presses the machine's own pound key unshifted.
-    expect(resolveEditorAction(layout, byId.get('KeyU')!, 'symbols2')).toEqual({
+    // £ on the Y slot presses the machine's own pound key unshifted.
+    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'symbols')).toEqual({
       insert: '£',
     });
     // Digits keep typing through the base-layer fallback in SYM mode.
