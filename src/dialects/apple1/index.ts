@@ -24,13 +24,14 @@ import { Apple1Machine } from '../../emulator/apple1/apple1Machine';
  * Every member below is a throwing stub, and the dialect is deliberately absent
  * from `src/dialects/registry.ts` so an unfinished machine cannot be picked.
  *
- * The one thing worth knowing before reading further: like the Altair, this
- * machine's firmware does not ship. WozMon and Integer BASIC are both Apple
- * copyright with no redistribution grant, and the ROM seam carries one image per
- * dialect, so the user supplies both as a single 4352-byte file - the monitor
- * first, then the interpreter. `romBundled: false` is what turns the missing
- * file into an offer to supply one rather than a fetch error, and what keeps the
- * machine out of the picker until there is one.
+ * The one thing worth knowing before reading further: this machine's firmware is
+ * two chips, and the ROM seam carries one image per dialect, so `apple1.rom` is
+ * both of them concatenated - the 256-byte monitor PROM first, then the 4K
+ * Integer BASIC image. `scripts/build-apple1-rom.mts` builds it and
+ * `public/roms/ATTRIBUTION.md` records where the two halves come from. The
+ * monitor leads so that an image carrying only the monitor still boots: the seam
+ * pads a short image with 0xFF, which this machine reads as "no interpreter
+ * fitted" rather than as a broken ROM.
  */
 export const apple1: Dialect = {
   id: 'apple1',
@@ -62,9 +63,13 @@ export const apple1: Dialect = {
     throw new Error('apple1: not implemented');
   },
 
+  /**
+   * The monitor and Integer BASIC as one image. `romBundled` is left at its
+   * default: the file ships, so a missing one really is a fetch failure rather
+   * than a state to explain.
+   */
   romUrl: `${import.meta.env.BASE_URL}roms/apple1.rom`,
   romBytes: FIRMWARE_BYTES,
-  romBundled: false,
 
   // A 40x24 terminal at the machine's own 7x8 cell.
   displaySize: { width: 280, height: 192 },

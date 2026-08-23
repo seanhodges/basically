@@ -162,6 +162,36 @@ for these machines is the full 32K, both banks.)
 If you are a rights holder (Amstrad or Locomotive Software) and want these files
 removed, please open an issue and they will be taken out.
 
+# Apple ROM attribution
+
+`apple1.rom` is the Apple I firmware, copyright © 1976 Apple Computer, Inc. It is
+two images in one file, because the machine needs both and the emulator seam
+carries one image: the first 256 bytes are the monitor PROM that lives at `$FF00`
+(the "WozMon"), and the remaining 4096 bytes are Integer BASIC, which the machine
+loaded into RAM at `$E000` from cassette. The monitor comes **first** rather than
+in address order, so that a file carrying only the monitor pads into a machine
+that boots to the monitor prompt with no interpreter fitted — which is a real
+Apple I with no BASIC tape loaded, rather than one that cannot reset.
+`scripts/build-apple1-rom.mts` builds the file from the two images and verifies
+both before writing.
+
+Both are Steve Wozniak's code, written for a computer Apple sold some two hundred
+of and discontinued in 1977. As with the Acorn and Commodore ROMs above there is
+no formal permission from the rights holder, but these two images have been
+distributed for decades on a de-facto-tolerated basis: they ship with the
+Apple-1 replica and reproduction kits, with the Apple-1 emulators (POM1, Sim6502,
+MAME and others), and are published alongside the machine's documentation by the
+Apple-1 Registry (https://www.apple1registry.com). They are included here,
+unmodified, solely for use with the bundled emulator.
+
+(The IDE also supports supplying your own ROM image at runtime, from Settings ▸
+Emulator, so the bundled copy can be removed without disabling the feature. A
+replacement image may be any size; it is fitted to the machine's ROM area, which
+for this machine is the full 4352 bytes, both parts.)
+
+If you are the rights holder and want this file removed, please open an issue and
+it will be taken out.
+
 # MITS Altair 8800 — the image that is missing
 
 `altair8800.rom` is **not here, and will not be**. This section exists so its

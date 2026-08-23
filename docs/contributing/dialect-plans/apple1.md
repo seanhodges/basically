@@ -31,8 +31,8 @@
   256×192, so `displaySize` must be declared.
 - **Image / tape format:** no disc, no `.p`/`.prg` equivalent. The machine's only
   file is an **ACI cassette dump of two memory ranges** — see Stage 4.
-- **ROM:** `public/roms/apple1.rom` — **user-supplied, does not ship**, one
-  concatenated 4352-byte file. See _Supplying the firmware_ below.
+- **ROM:** `public/roms/apple1.rom` — **bundled**, one concatenated 4352-byte
+  file built by `scripts/build-apple1-rom.mts`. See _The bundled firmware_ below.
 - **Share verb:** `auto` — `AUTO` (automatic line numbering) is an Apple 1
   Integer BASIC command and is unused in `SHARE_VERBS`. Confirm it against the
   _Apple-1 BASIC Users Manual_ when the keyword table is derived in Stage 1;
@@ -46,37 +46,45 @@
   `src/emulator/microsoftBasicLoad.ts` is **not** reusable: Integer BASIC is
   Woz's own interpreter, not a Microsoft BASIC, and stores programs differently.
 - **Licence note:** none for code. The two firmware images are Apple copyright
-  and are user-supplied for that reason (below).
+  and ship on the same de-facto tolerance the Acorn and Commodore ROMs already
+  do — see `public/roms/ATTRIBUTION.md` and _The bundled firmware_ below.
 
-### Supplying the firmware
+### The bundled firmware
 
-The Apple I needs two pieces of 6502 object code that this project cannot ship,
-for the same reason the Altair's 8K BASIC does not ship: both are Apple
-copyright with no redistribution grant.
+The Apple I needs two pieces of 6502 object code, and both ship.
 
 | Part          | Size | Address on the machine | What it is                                             |
 | ------------- | ---- | ---------------------- | ------------------------------------------------------ |
 | WozMon        | 256  | `$FF00`–`$FFFF`        | The monitor PROM. Without it the machine cannot reset. |
 | Integer BASIC | 4096 | `$E000`–`$EFFF`        | Woz's interpreter, loaded into RAM from tape in 1976.  |
 
-The ROM seam carries **one image per dialect** — `romUrl` + `romBytes` +
-`romBundled: false`, one custom-ROM slot per dialect id in
-`src/storage/customRom.ts` — so the Apple I follows the PMD 85 precedent and
-takes **one concatenated file**:
+The ROM seam carries **one image per dialect** — `romUrl` + `romBytes`, one
+custom-ROM slot per dialect id in `src/storage/customRom.ts` — so the Apple I
+follows the PMD 85 precedent and ships **one concatenated file**:
 
 ```
 apple1.rom  =  wozmon.bin (256 bytes)  ++  basic.bin (4096 bytes)   # 4352 bytes
 ```
 
-built with `cat wozmon.bin basic.bin > apple1.rom`. `romBytes: 4352`.
+`romBytes: 4352`, and `romBundled` stays at its default: the file ships, so a
+missing one is a genuine fetch failure rather than a state to explain. Build it
+with
+
+```
+npm run gen:apple1rom -- <wozmon.bin> <apple1basic.bin>
+```
+
+which checks both sizes and that the monitor's reset vector points at `$FF00`
+before writing anything — a swapped or truncated input otherwise produces a
+machine that boots to nothing, three stages later.
 
 WozMon comes **first** deliberately. `app/romImage.fitRomImage` pads a short
-image to `romBytes` with `0xFF`, so a user who supplies only the 256-byte
-`wozmon.bin` gets a machine that boots to the monitor's `\` prompt with an
-all-`0xFF` BASIC region — which the machine reads as "no interpreter fitted" and
-says so, exactly as a real Apple I with no BASIC tape loaded behaves. Adding
-BASIC is what makes Play work. That ordering is the whole reason for it; do not
-reorder to address order.
+image to `romBytes` with `0xFF`, so an image carrying only the 256-byte
+`wozmon.bin` — the bundled file replaced by a user's own, say — gives a machine
+that boots to the monitor's `\` prompt with an all-`0xFF` BASIC region, which the
+machine reads as "no interpreter fitted" and says so, exactly as a real Apple I
+with no BASIC tape loaded behaves. That ordering is the whole reason for it; do
+not reorder to address order.
 
 Everything else the machine needs is **emulated as logic, not supplied**:
 
@@ -84,14 +92,14 @@ Everything else the machine needs is **emulated as logic, not supplied**:
   display driven by discrete logic and a Signetics 2513 character generator. None
   of it is CPU-addressable, so none of it has to be an image: `terminal.ts`
   models the 40×24 grid, the scroll and the cursor directly, and glyphs are drawn
-  with the host font — the same deliberate choice `src/dialects/trs80/emulator/
-display.ts` documents, for the same reason (no second copyrighted asset).
+  with the host font — the same deliberate choice the TRS-80's `display.ts`
+  documents, for the same reason (no second copyrighted asset).
 - **The ACI PROM.** The Apple Cassette Interface's 256-byte PROM at `$C100` is
   replaced by a host-side codec of the same FSK encoding (Stage 4) plus an
   optional `$C100` trap in the bus, so the authentic `C100R` / `0800.0FFFW`
   syntax still works without the image. See Stage 4.
 
-So the user supplies two files' worth of bytes in one file, and nothing else.
+So the machine needs two chips' worth of bytes in one file, and nothing else.
 
 ### Hardware facts this plan is built on
 
@@ -230,23 +238,23 @@ The bus goes in `src/emulator/apple1/`, next to `pet/` and `vic20/`.
 - [ ] `isProgramRunning()` (see `src/emulator/programEndLatch.ts`) and
       `readScreenText()` — the screen _is_ the output on this machine, so the
       screen reader is load-bearing for tests, not a nicety
-- [ ] The no-image state: constructible with an empty or short image, printing a
-      "supply your own firmware" notice on its own terminal rather than throwing
-      (`NO_IMAGE_NOTICE` in `altairMachine.ts` is the pattern), and detecting an
-      all-`0xFF` BASIC region as "monitor only"
+- [ ] The monitor-only state: an image whose BASIC half is all `0xFF` (a user's
+      own 256-byte monitor, padded by the seam) boots to the monitor and reports
+      no interpreter fitted, rather than running off into the padding.
+      `NO_IMAGE_NOTICE` in `altairMachine.ts` is the wording pattern
 - [ ] `displaySize` on the dialect
-- [ ] **No ROM is added to `public/roms/`.** Add the "the image that is missing"
-      section to `public/roms/ATTRIBUTION.md` instead, alongside the Altair's,
-      naming both parts, their sizes, the concatenation order and the md5 of the
-      images the plan was derived against
+- [ ] `public/roms/apple1.rom` and its `public/roms/ATTRIBUTION.md` block are
+      **already committed** — the file is built by
+      `scripts/build-apple1-rom.mts`, not by hand, so a rebuild from different
+      inputs stays checkable
 - [ ] tests: boot the monitor and assert its prompt; boot BASIC and assert its
-      `>` prompt; inject a program and read it back. **Tests that need the
-      firmware must skip, not fail, when `public/roms/apple1.rom` is absent** —
-      that is the Altair's arrangement and CI has no image either.
+      `>` prompt; inject a program and read it back. These read the real ROM out
+      of `public/roms/`, like every other machine's emulator tests — there is no
+      skip-when-absent arrangement here, because the image ships.
 
 **Depends on:** Stage 1 (charset for the terminal, image builder for
 `loadProgram`).
-**Verify:** emulator boot test passes with an image present, skips without one.
+**Verify:** emulator boot test passes.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
@@ -272,12 +280,18 @@ The bus goes in `src/emulator/apple1/`, next to `pet/` and `vic20/`.
 - [ ] **register in `src/dialects/registry.ts` and add the `auto` verb for
       `apple1` to `SHARE_VERBS` in `src/player/routes.ts` in the same change** — `routes.test.ts` enforces a strict bijection
 - [ ] the registry-driven tables that fail the build until they have an entry —
-      see _Registry-driven tables_ below
+      see _Registry-driven tables_ below, and note that this machine **does**
+      belong in `e2e/bootMachines.ts`: the ROM ships, so the picker offers it
 - [ ] optional `.virtual-keyboard.vk-theme-apple1` block in
       `src/keyboard/VirtualKeyboard.css` (colour and label position only)
 - [ ] tests: keyboard matrix reachability, samples tokenize cleanly. Geometry,
       layout, profiling and debug-equivalence tests pick the dialect up from the
-      registry automatically and need no per-dialect test
+      registry automatically and need no per-dialect test — including
+      `src/dialects/romImage.test.ts`, which on registration starts asserting
+      that the committed `apple1.rom` is exactly `romBytes` long **and** that the
+      machine visibly changes when handed a different image. A machine that
+      ignores `opts.rom` fails it, so the bus must really boot from what the seam
+      passes rather than from a copy of its own
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +
@@ -375,9 +389,10 @@ support has to model, and it shapes every item here.
 - [ ] reference docs via the **`dialect-reference-docs`** sub-skill:
       `docs/reference/apple1.md` + `apple1/{hardware,escapes,formats}.md`, table
       data in `src/reference/apple1.ts` and `src/reference/escapes/apple1.ts`,
-      and the crosscheck-test extensions. A **Supplying the firmware** section on
-      the parent page, modelled on `docs/reference/altair8800.md`'s, is required
-      rather than optional: without it the machine looks broken.
+      and the crosscheck-test extensions. No "supply your own image" section is
+      needed — the firmware ships — but the parent page should say what the two
+      halves of `apple1.rom` are, because a reader who knows the machine will
+      expect Integer BASIC to have come off a tape.
 - [ ] **Ask before touching the sidebar.** `CLAUDE.md` forbids adding, removing
       or reordering `docs/.vitepress/config.ts` sidebar entries unless the user
       explicitly asks, and the reference-docs skill wires the sidebar by default.
@@ -406,25 +421,25 @@ The skill's checklist of per-dialect tables outside the dialect folder is
 test that fails on a registered dialect with no entry. The full set as of this
 audit, all of them Stage 3 unless noted:
 
-| File                                                                                              | Entry needed                                                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/dialects/registry.ts`                                                                        | import + array entry (array order = menu order)                                                                                                                                                                                                   |
-| `src/player/routes.ts`                                                                            | `SHARE_VERBS` verb — bijection is test-enforced                                                                                                                                                                                                   |
-| `src/editor/constructs.ts`                                                                        | `constructsByDialect.apple1` (Stage 1)                                                                                                                                                                                                            |
-| `src/editor/variableLint.ts`                                                                      | `apple1VariableErrors` wrapper (Stage 1)                                                                                                                                                                                                          |
-| `src/editor/variableLexis.ts`                                                                     | name lexis — one entry per registered machine (Stage 1)                                                                                                                                                                                           |
-| `src/dialects/semigraphicsAudit.ts`                                                               | `SEMIGRAPHIC_CODES.apple1 = []`, cited                                                                                                                                                                                                            |
-| `src/dialects/glyphSources.ts`                                                                    | `GLYPH_SOURCES.apple1` + `ADDRESS_SIGIL.apple1`; the keys are pinned against the registry                                                                                                                                                         |
-| `src/dialects/charsetProbes.ts`                                                                   | charset probe for the new family                                                                                                                                                                                                                  |
-| `src/dialects/keywordSpellings.ts`                                                                | how (or that) this ROM shortens keywords                                                                                                                                                                                                          |
-| `src/dialects/loopSpeedProbes.ts`                                                                 | the two programs `loopSpeed.test.ts` times                                                                                                                                                                                                        |
-| `src/dialects/operatorProbes.ts`                                                                  | operator battery — keyed by language family                                                                                                                                                                                                       |
-| `src/components/machineArtIds.ts` + `machineArt.tsx`                                              | picker portrait; the id list is typed against the drawings, so one without the other fails `tsc`                                                                                                                                                  |
-| `src/reference/machines.ts`, `pages.ts`, `porting.ts`, `domain-guidance.ts`, `escape-guidance.ts` | reference/porting wiring (Stage 6)                                                                                                                                                                                                                |
-| `src/ai/machineReference.ts`, `machineObservability.ts`                                           | lazy reference loading + what the assistant can observe                                                                                                                                                                                           |
-| `e2e/bootMachines.ts`                                                                             | **no entry.** The picker only offers machines that can start, and this one cannot without a user-supplied image — the Altair is absent for the same reason, and `e2e/project-setup/new-project.spec.ts` asserts that omission from the other side |
-| `e2e/paletteMachines.ts`                                                                          | **no entry** — no graphics palette                                                                                                                                                                                                                |
-| `public/roms/ATTRIBUTION.md`                                                                      | "the image that is missing" section (Stage 2)                                                                                                                                                                                                     |
+| File                                                                                              | Entry needed                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/dialects/registry.ts`                                                                        | import + array entry (array order = menu order)                                                                                                                                                                           |
+| `src/player/routes.ts`                                                                            | `SHARE_VERBS` verb — bijection is test-enforced                                                                                                                                                                           |
+| `src/editor/constructs.ts`                                                                        | `constructsByDialect.apple1` (Stage 1)                                                                                                                                                                                    |
+| `src/editor/variableLint.ts`                                                                      | `apple1VariableErrors` wrapper (Stage 1)                                                                                                                                                                                  |
+| `src/editor/variableLexis.ts`                                                                     | name lexis — one entry per registered machine (Stage 1)                                                                                                                                                                   |
+| `src/dialects/semigraphicsAudit.ts`                                                               | `SEMIGRAPHIC_CODES.apple1 = []`, cited                                                                                                                                                                                    |
+| `src/dialects/glyphSources.ts`                                                                    | `GLYPH_SOURCES.apple1` + `ADDRESS_SIGIL.apple1`; the keys are pinned against the registry                                                                                                                                 |
+| `src/dialects/charsetProbes.ts`                                                                   | charset probe for the new family                                                                                                                                                                                          |
+| `src/dialects/keywordSpellings.ts`                                                                | how (or that) this ROM shortens keywords                                                                                                                                                                                  |
+| `src/dialects/loopSpeedProbes.ts`                                                                 | the two programs `loopSpeed.test.ts` times                                                                                                                                                                                |
+| `src/dialects/operatorProbes.ts`                                                                  | operator battery — keyed by language family                                                                                                                                                                               |
+| `src/components/machineArtIds.ts` + `machineArt.tsx`                                              | picker portrait; the id list is typed against the drawings, so one without the other fails `tsc`                                                                                                                          |
+| `src/reference/machines.ts`, `pages.ts`, `porting.ts`, `domain-guidance.ts`, `escape-guidance.ts` | reference/porting wiring (Stage 6)                                                                                                                                                                                        |
+| `src/ai/machineReference.ts`, `machineObservability.ts`                                           | lazy reference loading + what the assistant can observe                                                                                                                                                                   |
+| `e2e/bootMachines.ts`                                                                             | id + picker label. The ROM ships, so the picker offers this machine and `src/e2eBootMachines.test.ts` fails until the list follows — unlike the Altair, which is absent from it precisely because its image does not ship |
+| `e2e/paletteMachines.ts`                                                                          | **no entry** — no graphics palette                                                                                                                                                                                        |
+| `public/roms/ATTRIBUTION.md`                                                                      | "the image that is missing" section (Stage 2)                                                                                                                                                                             |
 
 ## Open decisions
 
@@ -445,10 +460,12 @@ customRom.ts`, `SettingsForm`, `machineAvailability`, `romImage`), which is a
 3. **A 7×8 cell (280×192) with host-font glyphs.** Authentic cell, no new asset.
    The alternative is a taller cell for legibility (the Altair uses 8×16, the
    TRS-80 8×12) or a hand-authored 5×7 table (Stage 6).
-4. **Both firmware images user-supplied.** Instructed, and the safe default.
-   Worth noting only that the WozMon and Integer BASIC images sit closer to the
-   Commodore/Acorn "decades-old de-facto tolerance" that
-   `public/roms/ATTRIBUTION.md` already leans on than to the Altair's actively-licensed
-   Microsoft BASIC — every Apple-1 replica kit ships them. Changing that is the
-   project owner's call, not this plan's, and nothing here depends on it: the
-   only difference is whether the machine appears in the picker out of the box.
+4. **Both firmware images bundled** — settled by the project owner, on the same
+   de-facto tolerance `public/roms/ATTRIBUTION.md` already leans on for the
+   Acorn and Commodore ROMs. The Apple I is a better fit for that basis than the
+   Altair was for its own: Apple discontinued the machine in 1977 and has never
+   moved against the replica kits and emulators that have shipped these two
+   images for decades, whereas Altair 8K BASIC is Microsoft code that is still
+   actively licensed. The consequence to keep in mind is that the machine is
+   offerable out of the box, which is why it takes an `e2e/bootMachines.ts` entry
+   and why its emulator tests read the real ROM rather than skipping.
