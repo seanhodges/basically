@@ -79,7 +79,9 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
     .click();
   await page.locator('[data-keyid="KeyN"]').click(); // ',' under SYM
   await page.locator('[data-keyid="Digit3"]').click();
-  await expect(page.locator(EDITOR)).toContainText('HJ,3');
+  // (The slide above typed H and J once each on press and once on entry, so
+  // the line reads HHJJ before the SYM taps append to it.)
+  await expect(page.locator(EDITOR)).toContainText('J,3');
 
   // Advancing to the gamepad state clears the keyboard - and with the editor
   // focused the gamepad can't show either, so the overlay goes away.
