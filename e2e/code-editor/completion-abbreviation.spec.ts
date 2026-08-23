@@ -86,15 +86,21 @@ test('on-screen keyboard: "." accepts the top suggestion, or inserts a period', 
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('PRINT');
 
-  // Tap "." - it accepts the suggestion and is consumed, not inserted.
-  await vkKey(page, 'Period').click();
+  // Tap "." - now a SYM-mode cell (the M slot) - it accepts the suggestion
+  // and is consumed, not inserted. Selecting the mode tab preventDefaults,
+  // so the editor keeps focus and the popup stays open across the switch.
+  await page
+    .getByRole('radiogroup', { name: 'Input mode' })
+    .getByRole('radio', { name: 'SYM' })
+    .click();
+  await vkKey(page, 'KeyM').click();
   const content = page.locator('.cm-content');
   await expect(content).toContainText('PRINT');
   await expect(content).not.toContainText('.');
   await expect(popup).toBeHidden();
 
-  // No completion active, so the keycap falls through to a literal period.
+  // No completion active, so the cell falls through to a literal period.
   await clearEditor(page);
-  await vkKey(page, 'Period').click();
+  await vkKey(page, 'KeyM').click();
   await expect(content).toContainText('.');
 });

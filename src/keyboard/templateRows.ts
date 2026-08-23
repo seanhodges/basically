@@ -9,11 +9,15 @@ import type {
 /**
  * Shared building blocks for the standard virtual-keyboard template.
  *
- * Every dialect's keyboard is the same five bands - a top strip (mode tabs or
- * function keys), a number row, three QWERTY rows, and a common bottom row - on
- * a uniform grid. Legends and matrix tokens differ per machine, so a layout
- * still authors its own keys; these helpers fix the grid geometry and assemble
- * the common bottom row so the proportions stay identical across machines.
+ * Every dialect's keyboard is the same five bands on a uniform grid, arranged
+ * the way a phone keyboard is: a top strip (mode tabs or function keys), the
+ * number row, a ten-key letter row, a centred nine-key home row, a
+ * seven-letter row flanked by shift and the machine's delete key, and a
+ * bottom row of machine keys, space, quote, and Enter at the far right.
+ * Legends and matrix tokens differ per machine, so a layout still authors its
+ * own keys; these helpers fix the grid geometry, assemble the shared rows,
+ * and weld the SYM pages on, so the arrangement stays identical across
+ * machines.
  */
 
 /** Grid units across one row: ten standard keys of {@link KEY_SPAN}. */
@@ -52,7 +56,7 @@ export const QWERTY_ROW_TOKENS = [
   'KeyO',
   'KeyP',
 ] as const;
-/** Nine letters; the home row's tenth key is always Enter (`↵`). */
+/** Nine letters, centred with {@link centerRow} for the half-key stagger. */
 export const HOME_ROW_TOKENS = [
   'KeyA',
   'KeyS',
@@ -64,7 +68,7 @@ export const HOME_ROW_TOKENS = [
   'KeyK',
   'KeyL',
 ] as const;
-/** Seven letters; the bottom row is padded out with three punctuation keys. */
+/** Seven letters; {@link flankedRow} adds the shift and delete flanks. */
 export const ZXCV_ROW_TOKENS = [
   'KeyZ',
   'KeyX',
