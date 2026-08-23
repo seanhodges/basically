@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { c64KeyboardLayout } from './keyboardLayout';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import type { GraphicEntry } from '../../keyboard/layoutSchema';
 import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
 
@@ -29,7 +32,8 @@ describe('commodore64 keyboard layout', () => {
       'graphics',
     ]);
     const sym = layout.editorModes?.find((m) => m.id === 'sym');
-    expect(sym?.layer).toBe('sym');
+    expect(sym?.layer).toBe('symbols');
+    expect(sym?.shiftedLayer).toBe('symbols2');
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
     expect(graphics?.palette).toBe('graphics');
     // The graphics sets are the palette's, not a pinned key layer's.
@@ -37,8 +41,9 @@ describe('commodore64 keyboard layout', () => {
     expect(layout.layers.map((l) => l.id)).toEqual([
       'base',
       'shift',
-      'sym',
       'cursor',
+      'symbols',
+      'symbols2',
     ]);
   });
 
@@ -81,18 +86,24 @@ describe('commodore64 keyboard layout', () => {
       }
   });
 
-  it('hosts the six graphics symbols (+ - £ @ * ↑) on the number row', () => {
+  it('presses the dedicated symbol keys from the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    // SYM mode types the symbol char (Num1-Num6 = + - £ @ * ↑).
-    expect(resolveEditorAction(layout, byId.get('Num1')!, 'sym')).toEqual({
+    // '+' leads the Q row and presses the C64's own + key; £ and ↑ sit on
+    // page 2 (£ on the U slot) and page 1's ^ slot (the machine's ↑).
+    expect(resolveEditorAction(layout, byId.get('Q')!, 'symbols')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('Num3')!, 'sym')).toEqual({
+    expect(resolveEmits(layout, byId.get('Q')!, 'symbols')).toEqual(['Plus']);
+    expect(resolveEditorAction(layout, byId.get('U')!, 'symbols2')).toEqual({
       insert: '£',
     });
-    expect(resolveEditorAction(layout, byId.get('Num6')!, 'sym')).toEqual({
+    expect(resolveEmits(layout, byId.get('U')!, 'symbols2')).toEqual(['Pound']);
+    expect(resolveEditorAction(layout, byId.get('G')!, 'symbols')).toEqual({
       insert: '↑',
     });
+    expect(resolveEmits(layout, byId.get('G')!, 'symbols')).toEqual([
+      'UpArrow',
+    ]);
   });
 
   it("carries those six keys' graphics in the palette, under their keycaps", () => {
@@ -109,7 +120,6 @@ describe('commodore64 keyboard layout', () => {
 
   it('keeps the number keys emitting their own digit matrix token', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    // The SYM symbols are editor-only; the live matrix still sees the digit.
     expect(byId.get('Num1')!.emits).toEqual(['Num1']);
     expect(byId.get('Num6')!.emits).toEqual(['Num6']);
   });
@@ -137,13 +147,15 @@ describe('commodore64 keyboard layout', () => {
     }
   });
 
-  it('puts the operators on the SHIFT layer as editor inserts', () => {
+  it('keeps the SHIFT layer authentic: digits shift, letters do not', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('A')!, 'shift')).toEqual({
-      insert: '+',
-    });
     expect(resolveEditorAction(layout, byId.get('Num1')!, 'shift')).toEqual({
       insert: '!',
+    });
+    // SHIFT over a letter is a block graphic on the real machine, offered by
+    // the palette; the key carries no invented shifted legend.
+    expect(resolveEditorAction(layout, byId.get('A')!, 'shift')).toEqual({
+      insert: 'A',
     });
   });
 
