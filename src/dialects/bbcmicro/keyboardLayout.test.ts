@@ -146,21 +146,27 @@ describe('bbcmicro keyboard layout', () => {
     }
   });
 
-  it('surfaces the punctuation overflow as SYM-mode editor inserts', () => {
+  it('offers the punctuation at the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'sym')).toEqual({
+    // Page 1: '-' leads the flanked row (Z slot), '+' the Q row, ':' on the V
+    // slot - the same positions every machine uses.
+    expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit3')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'symbols')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyV')!, 'symbols')).toEqual({
       insert: ':',
     });
-    // Letters with no SYM legend keep typing through the base-layer fallback.
-    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'sym')).toEqual({
-      insert: 'A',
+    // Page 2: £ on the U slot presses the machine's own pound key unshifted.
+    expect(resolveEditorAction(layout, byId.get('KeyU')!, 'symbols2')).toEqual({
+      insert: '£',
     });
+    // Digits keep typing through the base-layer fallback in SYM mode.
+    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'symbols')).toEqual(
+      { insert: '1' },
+    );
   });
 
   it('spot checks the common bottom row', () => {
