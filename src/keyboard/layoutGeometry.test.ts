@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { dialects } from '../dialects/registry';
 import { resolveEditorAction, resolveEmits } from './editorActions';
 import type { KeyDef } from './layoutSchema';
-import { GRID_COLUMNS, KEY_SPAN, ROW_KEYS } from './templateRows';
+import { FLANK_SPAN, GRID_COLUMNS, KEY_SPAN, ROW_KEYS } from './templateRows';
 
 /**
  * The shared template's geometry, pinned for every registered machine: a keycap
@@ -26,17 +26,52 @@ describe('every keyboard keeps the template grid', () => {
         expect(span(row), `${dialect.id} row ${i}`).toBe(layout.gridColumns);
       }
 
-      // The four typing bands are keycaps only, ten at most - a band that ran
-      // to eleven, or paid for an extra key by widening one, would be reading
-      // its own machine's board rather than the template. A short band (the
-      // Sinclairs' ZXCV row) is centred instead of stretched.
-      for (const [i, row] of layout.rows.slice(0, 4).entries()) {
-        const printing = row.filter((k) => k.emits.length > 0);
-        expect(printing.length, `${dialect.id} band ${i}`).toBeLessThanOrEqual(
+      const printing = (row: KeyDef[]) =>
+        row.filter((k) => k.emits.length > 0 || k.modifier);
+      if (layout.layers.some((l) => l.id === 'symbols')) {
+        // The mobile-convention arrangement: number row, ten-key letter row,
+        // a centred nine-key home row, and a bottom letter row of seven keys
+        // flanked by shift and the machine's delete key at half again a
+        // keycap's width. (Layouts still on the old template take the branch
+        // below until their migration lands.)
+        expect(printing(layout.rows[0]!), `${dialect.id} numbers`).toHaveLength(
           ROW_KEYS,
         );
-        for (const key of printing) {
+        expect(printing(layout.rows[1]!), `${dialect.id} Q row`).toHaveLength(
+          ROW_KEYS,
+        );
+        expect(
+          printing(layout.rows[2]!),
+          `${dialect.id} home row`,
+        ).toHaveLength(9);
+        for (const row of layout.rows.slice(0, 3)) {
+          for (const key of printing(row)) {
+            expect(key.spanX, `${dialect.id} ${key.id}`).toBe(KEY_SPAN);
+          }
+        }
+        const flanked = printing(layout.rows[3]!);
+        expect(flanked, `${dialect.id} flanked row`).toHaveLength(9);
+        expect(flanked[0]!.modifier, `${dialect.id} shift flank`).toBeTruthy();
+        expect(flanked[0]!.spanX, `${dialect.id} shift flank`).toBe(FLANK_SPAN);
+        expect(flanked.at(-1)!.spanX, `${dialect.id} delete flank`).toBe(
+          FLANK_SPAN,
+        );
+        for (const key of flanked.slice(1, -1)) {
           expect(key.spanX, `${dialect.id} ${key.id}`).toBe(KEY_SPAN);
+        }
+      } else {
+        // The four typing bands are keycaps only, ten at most - a band that
+        // ran to eleven, or paid for an extra key by widening one, would be
+        // reading its own machine's board rather than the template. A short
+        // band (the Sinclairs' ZXCV row) is centred instead of stretched.
+        for (const [i, row] of layout.rows.slice(0, 4).entries()) {
+          const keys = row.filter((k) => k.emits.length > 0);
+          expect(keys.length, `${dialect.id} band ${i}`).toBeLessThanOrEqual(
+            ROW_KEYS,
+          );
+          for (const key of keys) {
+            expect(key.spanX, `${dialect.id} ${key.id}`).toBe(KEY_SPAN);
+          }
         }
       }
 
