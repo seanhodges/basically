@@ -219,7 +219,23 @@ export function withSymbolMode(
     welded.set(shift.id, next);
   }
 
-  const rows = layout.rows.map((row) => row.map((k) => welded.get(k.id) ?? k));
+  // Every key's label tuple stays index-aligned with the final layer list;
+  // the pad is null (no label), so an untouched key keeps its ordinary
+  // legends and behaviour in SYM mode.
+  const layerCount = layout.layers.length + (hasPage2 ? 2 : 1);
+  const aligned = (k: KeyDef): KeyDef =>
+    k.style === 'spacer' || k.labels.length >= layerCount
+      ? k
+      : {
+          ...k,
+          labels: [
+            ...k.labels,
+            ...Array<null>(layerCount - k.labels.length).fill(null),
+          ],
+        };
+  const rows = layout.rows.map((row) =>
+    row.map((k) => aligned(welded.get(k.id) ?? k)),
+  );
   const layers: LayerDef[] = [
     ...layout.layers,
     {

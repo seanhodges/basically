@@ -9,29 +9,37 @@ import {
   withLegend,
   word,
 } from '../../keyboard/legendKit';
-import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import {
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 import { ZX80_GRAPHICS } from './graphics';
 
 /**
- * The Sinclair ZX80 keyboard on the standard virtual-keyboard template.
+ * The Sinclair ZX80 keyboard on the standard virtual-keyboard template:
+ * number row, ten-key QWERTY row, centred nine-key home row, the
+ * shift/backspace-flanked bottom letter row, and a bottom row ending
+ * quote-then-Enter - the machine's symbols in the SYM mode at the template's
+ * canonical positions.
  *
  * The ZX80 shares the ZX81's 8×5 matrix (so the machine key tokens - `emits` -
  * are identical) but has fewer legends. Each alphanumeric key carries up to
- * four:
+ * three:
  *  - main:     the letter / digit
  *  - shift:    the symbol/operator typed with SHIFT held
- *  - keyword:  the white K-mode command (pinned by the KEYWORD mode tab)
+ *  - keyword:  the white K-mode command
  *
- * As on the ZX81, the block graphics are shown as a palette rather than as key
- * legends (see ./graphics) - there are twenty-one of them and a keycap-sized
- * legend cannot tell them apart.
- *
- * The ZX80 has no FUNCTION cursor mode, so there is no function layer. As with
- * the rest of the template the dedicated HOME/RUBOUT keys are dropped and a
- * quote + backspace key live on the common bottom row. The cursor keys are
- * SHIFT + 5/6/7/8, so the arrows sit on those number keys, where the machine
- * prints them: they are the SHIFT legends there, and CURSOR mode repeats them
- * on the same keycaps so the pair can be sent without the modifier held.
+ * The keyword legends stay printed on the keys but are not an input mode -
+ * keyword entry is the editor autocomplete's job. As on the ZX81, the block
+ * graphics are shown as a palette rather than as key legends (see ./graphics).
+ * The ZX80 has no FUNCTION cursor mode, so there is no function layer. The
+ * cursor keys are SHIFT + 5/6/7/8, so the arrows sit on those number keys,
+ * where the machine prints them: they are the SHIFT legends there, and CURSOR
+ * mode repeats them on the same keycaps so the pair can be sent without the
+ * modifier held.
  */
 
 // Label tuple order matches `layers` below: [main, shift, keyword].
@@ -86,7 +94,7 @@ const qwertyRow = [
   key('KeyP', ['P', '*', null]),
 ];
 
-const homeRow = [
+const homeRow = centerRow([
   key('KeyA', ['A', null, 'LIST']),
   key('KeyS', ['S', null, 'STOP']),
   key('KeyD', ['D', null, 'DIM']),
@@ -97,18 +105,6 @@ const homeRow = [
   key('KeyJ', ['J', ins('−', '-'), 'RANDOMISE']),
   key('KeyK', ['K', '+', 'LET']),
   key('KeyL', ['L', '=', null]),
-  key('Enter', [act('↵', 'newline'), null, null]),
-];
-
-const zxcvRow = centerRow([
-  key('KeyZ', ['Z', ':', null]),
-  key('KeyX', ['X', ';', 'CLEAR']),
-  key('KeyC', ['C', '?', 'CLS']),
-  key('KeyV', ['V', '/', 'GOSUB']),
-  key('KeyB', ['B', word('OR'), 'RETURN']),
-  key('KeyN', ['N', '<', 'NEXT']),
-  key('KeyM', ['M', '>', null]),
-  key('Period', ['.', ',', null]),
 ]);
 
 const shiftKey: KeyDef = {
@@ -119,6 +115,27 @@ const shiftKey: KeyDef = {
   style: 'shift',
   labels: [{ text: '⇧' }, null, null, null],
 };
+
+const backspaceKey: KeyDef = {
+  id: 'Backspace',
+  spanX: 6,
+  emits: ['Shift', 'Digit0'],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
+};
+
+const zxcvRow = flankedRow(
+  shiftKey,
+  [
+    key('KeyZ', ['Z', ':', null]),
+    key('KeyX', ['X', ';', 'CLEAR']),
+    key('KeyC', ['C', '?', 'CLS']),
+    key('KeyV', ['V', '/', 'GOSUB']),
+    key('KeyB', ['B', word('OR'), 'RETURN']),
+    key('KeyN', ['N', '<', 'NEXT']),
+    key('KeyM', ['M', '>', null]),
+  ],
+  backspaceKey,
+);
 
 const spaceKey = {
   id: 'Space',
@@ -134,77 +151,101 @@ const quoteKey: KeyDef = {
   labels: [{ text: '"' }, null, null, null],
 };
 
-const backspaceKey: KeyDef = {
-  id: 'Backspace',
-  spanX: 4,
-  emits: ['Shift', 'Digit0'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
-};
+const enterKey: KeyDef = kitKey('Enter', [act('↵', 'newline')], { spanX: 6 });
 
 const rows: KeyDef[][] = [
   numberRow,
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([shiftKey], spaceKey, [quoteKey, backspaceKey]),
+  bottomRow([], spaceKey, [quoteKey, enterKey]),
 ];
 
-export const zx80KeyboardLayout: KeyboardLayout = {
-  id: 'zx80',
-  name: 'ZX80',
-  theme: 'vk-theme-zx81',
-  gridColumns: 40,
-  layers: [
-    {
-      id: 'main',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'shift',
-      name: 'SHIFT',
-      position: 'tr',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'keyword',
-      name: 'KEYWORD',
-      position: 'bl',
-      activeWhen: [],
-      editorInsertStyle: 'word',
-    },
-    {
-      id: 'cursor',
-      name: 'CURSOR',
-      position: 'br',
-      activeWhen: [],
-    },
-  ],
-  editorModes: [
-    { id: 'abc', name: 'ABC', layer: 'main' },
-    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
-    { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
-    // No graphics key layer: the mode shows the palette, whose cells insert
-    // the characters directly.
-    { id: 'graphic', name: 'GRAPHICS', layer: 'main', palette: 'graphics' },
-  ],
-  modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
-  rows,
-  graphicsPalette: { sections: [{ entries: ZX80_GRAPHICS }] },
-  glyphs: {},
-  options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
-  // Sinclair joystick convention: 5/6/7/8 = left/down/up/right; Space/Enter as
-  // fire (key-mapped mode).
-  controller: {
-    bindings: {
-      up: 'Digit7',
-      down: 'Digit6',
-      left: 'Digit5',
-      right: 'Digit8',
-      fire1: 'Space',
-      fire2: 'Enter',
+/**
+ * How the ZX80 reaches each canonical SYM symbol: everything is SHIFT + a
+ * key, except the full stop, whose own key keeps its matrix cell even though
+ * the keycap left the board.
+ */
+const ZX80_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Shift', 'KeyK'] },
+  '-': { emits: ['Shift', 'KeyJ'] },
+  '=': { emits: ['Shift', 'KeyL'] },
+  '/': { emits: ['Shift', 'KeyV'] },
+  '*': { emits: ['Shift', 'KeyP'] },
+  '<': { emits: ['Shift', 'KeyN'] },
+  '>': { emits: ['Shift', 'KeyM'] },
+  '(': { emits: ['Shift', 'KeyI'] },
+  ')': { emits: ['Shift', 'KeyO'] },
+  $: { emits: ['Shift', 'KeyU'] },
+  '"': { emits: ['Shift', 'KeyY'] },
+  ':': { emits: ['Shift', 'KeyZ'] },
+  ';': { emits: ['Shift', 'KeyX'] },
+  ',': { emits: ['Shift', 'Period'] },
+  '.': { emits: ['Period'] },
+  '?': { emits: ['Shift', 'KeyC'] },
+  '£': { emits: ['Shift', 'Space'] },
+};
+
+export const zx80KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
+    id: 'zx80',
+    name: 'ZX80',
+    theme: 'vk-theme-zx81',
+    gridColumns: 40,
+    layers: [
+      {
+        id: 'main',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shift',
+        name: 'SHIFT',
+        position: 'tr',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'keyword',
+        name: 'KEYWORD',
+        position: 'bl',
+        activeWhen: [],
+        editorInsertStyle: 'word',
+      },
+      {
+        id: 'cursor',
+        name: 'CURSOR',
+        position: 'br',
+        activeWhen: [],
+      },
+    ],
+    editorModes: [
+      { id: 'abc', name: 'ABC', layer: 'main' },
+      { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+      // No graphics key layer: the mode shows the palette, whose cells insert
+      // the characters directly.
+      { id: 'graphic', name: 'GRAPHICS', layer: 'main', palette: 'graphics' },
+    ],
+    modifiers: [
+      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+    ],
+    rows,
+    graphicsPalette: { sections: [{ entries: ZX80_GRAPHICS }] },
+    glyphs: {},
+    options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
+    // Sinclair joystick convention: 5/6/7/8 = left/down/up/right; Space/Enter
+    // as fire (key-mapped mode).
+    controller: {
+      bindings: {
+        up: 'Digit7',
+        down: 'Digit6',
+        left: 'Digit5',
+        right: 'Digit8',
+        fire1: 'Space',
+        fire2: 'Enter',
+      },
     },
   },
-};
+  ZX80_SYMBOLS,
+);
