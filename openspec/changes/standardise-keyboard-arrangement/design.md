@@ -65,6 +65,13 @@ the keyboard subsystem's structure; this design only names what changes.
   selector skips such layers. Alternative considered: inferring visibility
   from "layer referenced only by a mode" — rejected, the Sinclair keyword/
   function layers have exactly that shape and must stay visible.
+- **One shift keycap per board, double-tap to lock.** The flanked shift is
+  sticky and lockable (a tap shifts the next key, a second tap locks - the
+  behaviour `ModifierDef` already models), and a second shift-like keycap
+  whose only work the SYM mode now does gets no place: the Spectrum's
+  SYMBOL SHIFT keycap is removed, its red legends staying printed as a
+  display-only layer while the SYM cells press its combinations. Modifiers
+  that do their own work (C=, CTRL) keep their bottom-left keycaps.
 - **Existing SYM/SYMBOL modes are re-pointed, not removed.** Spectrum, C64,
   Atom, CPC and BBC keep their mode tab; it pins the new canonical layers.
   Their authentic symbol-shift display layers remain (still driven by the

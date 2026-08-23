@@ -974,19 +974,6 @@
   color: #62c46f;
 }
 
-/* SYMBOL SHIFT key itself tinted red to match the legends. */
-.vk-theme-zxspectrum .vk-style-symshift .vk-pos-center {
-  inset: 0 0 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  white-space: normal;
-  text-align: center;
-  line-height: 1.2;
-  color: #ec6a6a;
-}
-
 /* ---------------------------------------------------------------------------
    BBC Micro keyboard theme: the red f0–f9 (and Break) function strip, like the
    real machine. Activated by the layout's `theme: 'vk-theme-bbc'`. */

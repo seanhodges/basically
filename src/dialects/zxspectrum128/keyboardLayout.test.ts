@@ -43,10 +43,16 @@ describe('zxspectrum128 keyboard layout', () => {
   });
 
   it('covers the physical + virtual key union with matrix tokens', () => {
-    // The reused SpectrumKeyboard scans an 8x5 matrix; every key in the layout
-    // (bar spacers) must carry a token it understands so the virtual keyboard
-    // and the emulator agree.
-    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    // The reused SpectrumKeyboard scans an 8x5 matrix; every one of these
+    // tokens must be pressable from the layout so the virtual keyboard and
+    // the emulator agree. SymShift has no keycap of its own - the SYM cells
+    // and the quote key press it inside their own combinations.
+    const emitted = new Set(
+      allKeys.flatMap((k) => [
+        ...k.emits,
+        ...k.labels.flatMap((l) => l?.emits ?? []),
+      ]),
+    );
     for (const token of [
       'CapsShift',
       'SymShift',
@@ -57,7 +63,7 @@ describe('zxspectrum128 keyboard layout', () => {
       'Digit6',
       'Digit7',
     ]) {
-      expect(byId.has(token), token).toBe(true);
+      expect(emitted.has(token), token).toBe(true);
     }
   });
 

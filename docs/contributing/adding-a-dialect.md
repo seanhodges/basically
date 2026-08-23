@@ -202,6 +202,10 @@ the `^` slot). The rules:
 - A symbol of the machine's that has no canonical slot is a decision, not a
   gap-fill: extend the pages deliberately (an unassigned slot is free for
   exactly this) rather than moving an existing symbol.
+- A modifier whose only work the SYM mode already does gets no keycap -
+  the Spectrum's SYMBOL SHIFT has none; its legends stay printed and the
+  SYM cells press its combinations. The flanked shift is sticky and
+  lockable: a tap shifts the next key, a second tap locks it.
 - The page-2 toggle appears on the shift flank only when the table maps a
   page-2 symbol; `withSymbolMode` handles that, and the layers it adds are
   `modeOnly`, so the canonical symbols never decorate the keycaps in ABC

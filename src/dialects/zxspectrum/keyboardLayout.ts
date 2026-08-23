@@ -20,11 +20,11 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
 
 /**
  * The ZX Spectrum 48K keyboard on the standard virtual-keyboard template:
- * number row, ten-key QWERTY row, centred nine-key home row, the CAPS
- * SHIFT/backspace-flanked bottom letter row, and a bottom row of SYMBOL
- * SHIFT, space, quote, and Enter at the far right - the machine's symbols
- * in the SYM mode at the template's canonical positions, each pressing the
- * SYMBOL SHIFT combination the real keyboard sends.
+ * number row, ten-key QWERTY row, centred nine-key home row, the
+ * shift/backspace-flanked bottom letter row, and a bottom row of space,
+ * quote, and Enter at the far right - the machine's symbols in the SYM mode
+ * at the template's canonical positions, each pressing the SYMBOL SHIFT
+ * combination the real keyboard sends.
  *
  * Each alphanumeric key carries up to five legends, matching the real machine:
  *  - main:     the big white letter / digit
@@ -34,9 +34,12 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
  *  - function: the green extended-mode function
  *
  * The keyword and function legends stay printed on the keys but are not
- * input modes - keyword entry is the editor autocomplete's job. The SYMBOL
- * SHIFT modifier keeps its authentic red legends and still works in ABC
- * mode; the SYM mode is the same characters at the canonical positions.
+ * input modes - keyword entry is the editor autocomplete's job. Neither
+ * SHIFT keycap carries the machine's name: the one shift key is the flank
+ * (CAPS SHIFT on the matrix - a tap shifts the next key, a second tap locks
+ * it), and there is no SYMBOL SHIFT keycap at all. The red symbol legends
+ * stay printed where the machine prints them, and are typed through the SYM
+ * mode, whose cells press the SYMBOL SHIFT combinations themselves.
  *
  * The machine's graphics mode (CAPS SHIFT + 9 on the real keyboard) is a
  * GRAPHICS tab showing the palette: the sixteen block graphics on the digit
@@ -137,7 +140,7 @@ const capsKey: KeyDef = {
   emits: ['CapsShift'],
   modifier: 'caps',
   style: 'shift',
-  labels: [{ text: '⇧ Cap' }, null, null, null, null, null],
+  labels: [{ text: '⇧' }, null, null, null, null, null],
 };
 
 const backspaceKey: KeyDef = {
@@ -168,15 +171,6 @@ const zxcvRow = flankedRow(
   backspaceKey,
 );
 
-const symKey: KeyDef = {
-  id: 'SymShift',
-  spanX: 6,
-  emits: ['SymShift'],
-  modifier: 'symbol',
-  style: 'symshift',
-  labels: [{ text: '⇧ Sym' }, null, null, null, null, null],
-};
-
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -205,7 +199,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([symKey], spaceKey, [quoteKey, enterKey]),
+  bottomRow([], spaceKey, [quoteKey, enterKey]),
 ];
 
 /**
@@ -269,6 +263,9 @@ export const spectrumKeyboardLayout: KeyboardLayout = withSymbolMode(
         activeWhen: ['caps'],
         editorInsertStyle: 'char',
       },
+      // Display-only: no keycap engages a 'symbol' modifier any more, so the
+      // red legends stay printed where the machine prints them while the SYM
+      // mode does the typing.
       {
         id: 'symbol',
         name: 'SYMBOL',
@@ -306,7 +303,6 @@ export const spectrumKeyboardLayout: KeyboardLayout = withSymbolMode(
     ],
     modifiers: [
       { id: 'caps', emits: ['CapsShift'], sticky: true, lockable: true },
-      { id: 'symbol', emits: ['SymShift'], sticky: true, lockable: true },
     ],
     rows,
     graphicsPalette: {

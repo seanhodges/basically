@@ -13,12 +13,20 @@ each half again as wide as a letter key; and a bottom row. The letter rows
 SHALL carry only the machine's letters — dedicated punctuation keycaps are
 offered through the symbol mode instead.
 
+The SHIFT flank SHALL be one sticky shift key, as on a phone keyboard: a
+tap shifts only the next key, and a second tap locks it until it is tapped
+again. The board SHALL NOT offer a second shift-like keycap whose only
+work the symbol mode already does - a modifier earns a keycap by doing
+something of its own, like a control key or a graphics modifier - so the
+Spectrum's SYMBOL SHIFT has no keycap: its combinations are sent by the
+symbol-mode cells, and its red legends stay printed on the keys.
+
 On the bottom row, the Enter/Return key SHALL sit at the far bottom right,
 wider than a letter key, with the quote key immediately to its left, and
 the space bar between the quote key and the bottom-left region. The
-bottom-left region SHALL be reserved for machine-specific keys (such as a
-second modifier, Escape, Control, or Break); a machine with none SHALL
-leave it empty rather than filling it with invented keys.
+bottom-left region SHALL be reserved for machine-specific keys (such as
+Escape, Control, Break, or the C64's C= graphics modifier); a machine with
+none SHALL leave it empty rather than filling it with invented keys.
 
 The mode strip SHALL NOT offer keyword or function-name entry modes:
 keyword entry is the editor's completion feature. A machine whose keycaps
@@ -40,9 +48,15 @@ carry keyword or function legends SHALL keep them printed on the keys.
 #### Scenario: Machine-specific keys keep to the bottom left
 
 - **WHEN** the user opens the on-screen keyboard for a machine with extra
-  machine keys (a second shift, Escape, Control, Break)
+  machine keys (Escape, Control, Break, a graphics modifier)
 - **THEN** those keys sit in the bottom-left region, and a machine without
   them shows empty space there instead of invented keys
+
+#### Scenario: Shift locks on a double tap
+
+- **WHEN** the user taps the SHIFT key twice and then types several letters
+- **THEN** every letter is shifted, until SHIFT is tapped once more to
+  release it
 
 #### Scenario: Keyword legends without a keyword mode
 
@@ -69,8 +83,8 @@ symbol only through a mode sequence that no single key combination can
 send, the cell SHALL still insert into the editor but SHALL press nothing
 on the machine, rather than a key that would type something else. Every
 character that was offered by a dedicated punctuation keycap before SHALL
-be reachable in symbol mode, and each machine's authentic shifted legends
-SHALL remain usable alongside it.
+be reachable in symbol mode, and the shifted legends reachable through the
+board's own SHIFT key SHALL remain usable alongside it.
 
 The number row and the bottom row SHALL keep their normal function while
 symbol mode is active. Where a machine maps a symbol on the second page,
