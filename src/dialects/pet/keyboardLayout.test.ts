@@ -67,9 +67,9 @@ describe('pet keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('R')!, 'symbols')).toEqual({
       insert: '=',
     });
-    // '!' has its own key on the graphics keyboard; '?' sits on page 2.
+    // '!' and '?' have their own keys on the graphics keyboard.
     expect(resolveEmits(layout, byId.get('W')!, 'symbols')).toEqual(['!']);
-    expect(resolveEmits(layout, byId.get('M')!, 'symbols2')).toEqual(['?']);
+    expect(resolveEmits(layout, byId.get('E')!, 'symbols')).toEqual(['?']);
     // The key VICE names backslash types PETSCII 0x5C - the £ character.
     expect(resolveEditorAction(layout, byId.get('U')!, 'symbols2')).toEqual({
       insert: '£',

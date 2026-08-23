@@ -93,13 +93,15 @@ export const ZXCV_ROW_TOKENS = [
  *
  * Two deliberate departures from the phone original, both for BASIC: `$`
  * (the string sigil) takes the page-1 slot the phone gives its local
- * currency, with `£` on page 2; and `.` takes the `?` slot (`?` moves to
- * page 2), because the letter rows carry no punctuation keycaps at all.
+ * currency, with `£` on page 2; and `.` takes the `?` slot because the
+ * letter rows carry no punctuation keycaps at all, with `?` - a key every
+ * machine maps - on the page-1 slot the phone gives `÷`, a symbol no
+ * machine has.
  */
 export type SymbolSlot = string | null;
 
 export const SYMBOL_PAGE_1: readonly (readonly SymbolSlot[])[] = [
-  ['+', '!', null, '=', '/', '_', '<', '>', '[', ']'],
+  ['+', '!', '?', '=', '/', '_', '<', '>', '[', ']'],
   ['@', '#', '$', '%', '^', '&', '*', '(', ')'],
   ['-', "'", '"', ':', ';', ',', '.'],
 ];
@@ -107,7 +109,7 @@ export const SYMBOL_PAGE_1: readonly (readonly SymbolSlot[])[] = [
 export const SYMBOL_PAGE_2: readonly (readonly SymbolSlot[])[] = [
   ['`', '~', '\\', '|', '{', '}', '£', null, null, null],
   [null, null, null, null, null, null, null, null, null],
-  [null, null, null, null, null, null, '?'],
+  [null, null, null, null, null, null, null],
 ];
 
 /** How one machine reaches one canonical symbol. */
