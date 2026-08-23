@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Charset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import { spectrumKeyboardLayout } from '../zxspectrum/keyboardLayout';
 
 // The 128 layout is reused from the 48K Spectrum (the matrix and key tokens are
@@ -77,6 +80,17 @@ describe('zxspectrum128 keyboard layout', () => {
         (s) => s.title === 'User-defined graphics',
       )!.entries,
     ).toHaveLength(21);
+  });
+
+  it("keeps the cursor arrows on the 48K's 5/6/7/8 keycaps", () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'cursor')).toEqual({
+      action: 'left',
+    });
+    expect(resolveEmits(layout, byId.get('Digit5')!, 'cursor')).toEqual([
+      'CapsShift',
+      'Digit5',
+    ]);
   });
 
   it('spot checks the headline keys', () => {

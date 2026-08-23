@@ -53,19 +53,21 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   await keyJ.click();
   await expect(page.locator(EDITOR)).toContainText('J');
 
-  // CURSOR mode: the WASD keys stop typing letters and move the caret instead.
-  // The mode bar is a real radiogroup in the strip, so only a browser shows
-  // that selecting it actually re-targets the keycaps.
+  // CURSOR mode: the 5/6/7/8 keys, where this machine prints its arrows, stop
+  // typing digits and move the caret instead. The mode bar is a real radiogroup
+  // in the strip, so only a browser shows that selecting it actually re-targets
+  // the keycaps.
   await page
     .getByRole('radiogroup', { name: 'Input mode' })
     .getByRole('radio', { name: 'CURSOR' })
     .click();
-  await page.locator('[data-keyid="KeyA"]').click(); // ← under CURSOR
-  await page.locator('[data-keyid="KeyD"]').click(); // → under CURSOR
-  // Neither typed its own letter, so the text is unchanged - and the caret is
+  await page.locator('[data-keyid="Digit5"]').click(); // ← under CURSOR
+  await page.locator('[data-keyid="Digit8"]').click(); // → under CURSOR
+  // Neither typed its own digit, so the text is unchanged - and the caret is
   // back where it started, so the next key appends rather than inserting.
   await expect(page.locator(EDITOR)).toContainText('HJ');
-  await expect(page.locator(EDITOR)).not.toContainText('A');
+  await expect(page.locator(EDITOR)).not.toContainText('5');
+  await expect(page.locator(EDITOR)).not.toContainText('8');
 
   // Advancing to the gamepad state clears the keyboard - and with the editor
   // focused the gamepad can't show either, so the overlay goes away.
