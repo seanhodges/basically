@@ -101,7 +101,7 @@ export const SYMBOL_PAGE_1: readonly (readonly SymbolSlot[])[] = [
 ];
 
 export const SYMBOL_PAGE_2: readonly (readonly SymbolSlot[])[] = [
-  [null, '~', '\\', '|', '{', '}', '£', null, null, null],
+  ['`', '~', '\\', '|', '{', '}', '£', null, null, null],
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, '?'],
 ];
@@ -242,6 +242,8 @@ export function withSymbolMode(
   const rows = layout.rows.map((row) =>
     row.map((k) => aligned(welded.get(k.id) ?? k)),
   );
+  const functionKeys = layout.functionKeys?.map(aligned);
+  const controllerKeys = layout.controllerKeys?.map(aligned);
   const layers: LayerDef[] = [
     ...layout.layers,
     {
@@ -280,6 +282,8 @@ export function withSymbolMode(
     ...layout,
     layers,
     rows,
+    ...(functionKeys ? { functionKeys } : {}),
+    ...(controllerKeys ? { controllerKeys } : {}),
     editorModes: [others[0]!, mode, ...others.slice(1)],
   };
 }

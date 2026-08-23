@@ -54,14 +54,23 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Del')!, 'base')).toEqual({
       action: 'backspace',
     });
-    // SHIFT and SYM layers surface the punctuation as editor inserts.
+    // SHIFT keeps the authentic pairs; SYM offers the canonical positions.
     expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
       {
         insert: '!',
       },
     );
-    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'sym')).toEqual({
-      insert: '^',
+    // The '^' slot (G on page 1) shows and inserts the CPC's own ↑ form.
+    expect(resolveEditorAction(layout, byId.get('G')!, 'symbols')).toEqual({
+      insert: '↑',
+    });
+    // '[' sits on the O slot and presses the CPC's own bracket key.
+    expect(resolveEditorAction(layout, byId.get('O')!, 'symbols')).toEqual({
+      insert: '[',
+    });
+    // £ lives on page 2 (the U slot), pressing SHIFT plus the caret key.
+    expect(resolveEditorAction(layout, byId.get('U')!, 'symbols2')).toEqual({
+      insert: '£',
     });
     // CURSOR mode overlays the caret moves onto W/A/S/D.
     expect(resolveEditorAction(layout, byId.get('W')!, 'cursor')).toEqual({
