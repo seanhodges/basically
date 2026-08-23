@@ -150,11 +150,11 @@ describe('atom keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyG')!, 'symbols')).toEqual({
       insert: '^',
     });
-    // Page 2 holds the rarities: backslash on E, question mark on M.
+    // Page 2 holds the rarities: backslash on E; '?' sits above it on page 1.
     expect(resolveEditorAction(layout, byId.get('KeyE')!, 'symbols2')).toEqual({
       insert: '\\',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyM')!, 'symbols2')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyE')!, 'symbols')).toEqual({
       insert: '?',
     });
     // On the machine, a SYM cell presses the Atom's own key for the symbol,
@@ -190,13 +190,13 @@ describe('atom keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'symbols')).toEqual({
       insert: '$',
     });
-    // ? indirection lives on the SYM second page, pressing SHIFT+/ - the
+    // ? indirection lives on the SYM first page, pressing SHIFT+/ - the
     // combination the machine's own slash key sends.
-    const question = byId.get('KeyM')!;
-    expect(resolveEditorAction(layout, question, 'symbols2')).toEqual({
+    const question = byId.get('KeyE')!;
+    expect(resolveEditorAction(layout, question, 'symbols')).toEqual({
       insert: '?',
     });
-    expect(resolveEmits(layout, question, 'symbols2')).toEqual([
+    expect(resolveEmits(layout, question, 'symbols')).toEqual([
       'Shift',
       'Slash',
     ]);

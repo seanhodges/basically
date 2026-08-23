@@ -112,7 +112,7 @@ describe('withSymbolMode', () => {
     '+': { emits: ['Shift', 'KeySemicolon'] },
     ',': { emits: ['Comma'] },
     '^': { emits: ['Shift', 'KeyH'], insert: '↑', text: '↑' },
-    '£': { emits: ['Shift', 'KeyX'] },
+    _: { emits: ['Shift', 'KeyX'] },
   };
   const layout = withSymbolMode(testLayout(), table);
   const layerIdx = (id: string) => layout.layers.findIndex((l) => l.id === id);
@@ -157,13 +157,18 @@ describe('withSymbolMode', () => {
   });
 
   it('blanks unmapped and unassigned slots so they press nothing', () => {
-    // '=' is unmapped by this machine; the '×' slot is assigned to nobody.
+    // '=' and '!' are unmapped by this machine.
     for (const id of ['KeyR', 'KeyW']) {
       expect(findKey(id).labels[layerIdx(SYMBOL_LAYER_1)]).toEqual({
         editor: null,
         emits: [],
       });
     }
+    // Page 2's KeyI slot is assigned to nobody; it blanks the same way.
+    expect(findKey('KeyI').labels[layerIdx(SYMBOL_LAYER_2)]).toEqual({
+      editor: null,
+      emits: [],
+    });
   });
 
   it('leaves the delete flank, bottom row, and number row alone', () => {

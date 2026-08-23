@@ -32,11 +32,11 @@ describe('pet keyboard layout', () => {
     ]);
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
     expect(graphics?.palette).toBe('graphics');
+    // Every PET symbol fits on page 1, so there is no page-2 layer.
     expect(layout.layers.map((l) => l.id)).toEqual([
       'base',
       'cursor',
       'symbols',
-      'symbols2',
     ]);
     // The graphics keyboard has no Commodore key or modifier - only SHIFT.
     expect(layout.modifiers.map((m) => m.id)).toEqual(['shift']);
@@ -67,14 +67,14 @@ describe('pet keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('R')!, 'symbols')).toEqual({
       insert: '=',
     });
-    // '!' has its own key on the graphics keyboard; '?' sits on page 2.
+    // '!' and '?' have their own keys on the graphics keyboard.
     expect(resolveEmits(layout, byId.get('W')!, 'symbols')).toEqual(['!']);
-    expect(resolveEmits(layout, byId.get('M')!, 'symbols2')).toEqual(['?']);
+    expect(resolveEmits(layout, byId.get('E')!, 'symbols')).toEqual(['?']);
     // The key VICE names backslash types PETSCII 0x5C - the £ character.
-    expect(resolveEditorAction(layout, byId.get('U')!, 'symbols2')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('Y')!, 'symbols')).toEqual({
       insert: '£',
     });
-    expect(resolveEmits(layout, byId.get('U')!, 'symbols2')).toEqual(['\\']);
+    expect(resolveEmits(layout, byId.get('Y')!, 'symbols')).toEqual(['\\']);
   });
 
   it('keeps the number keys emitting their own digit matrix token', () => {

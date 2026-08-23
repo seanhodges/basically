@@ -74,8 +74,8 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('O')!, 'symbols')).toEqual({
       insert: '[',
     });
-    // £ lives on page 2 (the U slot), pressing SHIFT plus the caret key.
-    expect(resolveEditorAction(layout, byId.get('U')!, 'symbols2')).toEqual({
+    // £ lives on page 1 (the Y slot), pressing SHIFT plus the caret key.
+    expect(resolveEditorAction(layout, byId.get('Y')!, 'symbols')).toEqual({
       insert: '£',
     });
     // CURSOR mode overlays the caret moves onto W/A/S/D.
