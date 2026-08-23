@@ -27,7 +27,8 @@
     "gen:reference": "vite-node scripts/gen-reference-scaffold.mts",
     "gen:escapes": "vite-node scripts/gen-escape-scaffold.mts",
     "gen:semigraphics": "vite-node scripts/gen-semigraphics-audit.mts",
-    "gen:glyphs": "vite-node scripts/gen-glyph-addresses.mts"
+    "gen:glyphs": "vite-node scripts/gen-glyph-addresses.mts",
+    "gen:apple1rom": "vite-node scripts/build-apple1-rom.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
