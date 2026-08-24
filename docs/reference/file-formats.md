@@ -79,20 +79,21 @@ reference page:
 
 ## Native binary formats
 
-| Dialect            | Export         | Import         | What it is                                                         |
-| ------------------ | -------------- | -------------- | ------------------------------------------------------------------ |
-| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                         |
-| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                         |
-| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                          |
-| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks     |
-| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                        |
-| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                        |
-| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                        |
-| TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
-| Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
-| Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
-| MITS Altair 8800   | `.bin`         | `.bin`         | `CSAVE` image: three `0xD3` markers, a one-character name, program |
-| Tesla PMD 85       | `.ptp`, `.pmd` | `.ptp`, `.pmd` | header + body tape blocks; `.ptp` puts a length in front of each   |
+| Dialect            | Export         | Import         | What it is                                                          |
+| ------------------ | -------------- | -------------- | ------------------------------------------------------------------- |
+| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                          |
+| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                          |
+| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                           |
+| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks      |
+| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                         |
+| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                         |
+| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                         |
+| TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks      |
+| Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks        |
+| Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape  |
+| MITS Altair 8800   | `.bin`         | `.bin`         | `CSAVE` image: three `0xD3` markers, a one-character name, program  |
+| Tesla PMD 85       | `.ptp`, `.pmd` | `.ptp`, `.pmd` | header + body tape blocks; `.ptp` puts a length in front of each    |
+| Apple I            | `.bin`         | `.bin`         | cassette dump: the zero-page housekeeping block, then the workspace |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -112,6 +113,7 @@ full on its own page:
 - [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
 - [Altair 8800 file formats](./altair8800/formats) — `.bin`, paper tape `.txt`
 - [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
+- [Apple I file formats](./apple1/formats) — `.bin` cassette dump
 
 ## Machine code & data blocks
 
@@ -171,8 +173,9 @@ as inline assembly in the `.bbc`), the Commodore in a
 [`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
 machine code inside the listing as `#BIN` REM records. The rest — the Amstrad
-CPC, the Altair and the PMD 85 — export the BASIC program only, and the Transfer
-dialog says which blocks would be left behind before it writes the file.
+CPC, the Altair, the PMD 85 and the Apple I — export the BASIC program only, and
+the Transfer dialog says which blocks would be left behind before it writes the
+file.
 
 ## Cassette audio
 
@@ -211,3 +214,6 @@ its format page:
   own FSK, 2400 Hz against 1850 Hz at 300 baud rather than Kansas City Standard.
 - [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
   whose phase carries the bit, eleven bit periods to a byte.
+- [Apple I](./apple1/formats#cassette-audio) — the cassette card's square wave,
+  where a bit's duration is its value: a 2 kHz cycle for a zero, 1 kHz for a
+  one, behind ten seconds of leader per memory range.
