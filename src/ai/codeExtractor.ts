@@ -222,10 +222,21 @@ function directivesOf(text: string): Array<{ no: number; line: string }> {
  * neither default is safe (replacing with a fragment destroys the program,
  * merging a listing leaves stale lines), so the user chooses.
  */
-export function classifyBlock(block: CodeBlock, source: string): ResolvedKind {
+export function classifyBlock(
+  block: CodeBlock,
+  source: string,
+  unnumbered?: UnnumberedLineKey,
+): ResolvedKind {
   // Nothing to merge into: merging and replacing are the same operation, so a
-  // `partial` declaration is moot rather than contradicted.
-  if (parseLines(source, false).size === 0) return 'full';
+  // `partial` declaration is moot rather than contradicted. A program that is
+  // only a preamble is not nothing - replacing it outright would throw the
+  // preamble away, which is exactly what a fragment must not do.
+  if (
+    parseLines(source, false).size === 0 &&
+    carriedOf(source, unnumbered).length === 0
+  ) {
+    return 'full';
+  }
 
   const heuristic = classifyByLineNumbers(block.code, source);
   if (block.declared === undefined) return heuristic;
@@ -277,6 +288,59 @@ export interface MergeOptions {
    * stray bare number must not silently destroy a line.
    */
   allowDeletes?: boolean;
+  /**
+   * The active machine's reading of a line it takes without a line number (see
+   * {@link Dialect.unnumberedLineKey}). Absent on a machine whose source is
+   * numbered lines and nothing else, which merges exactly as it did before.
+   */
+  unnumbered?: UnnumberedLineKey;
+}
+
+/** See {@link Dialect.unnumberedLineKey}. */
+export type UnnumberedLineKey = (lineText: string) => string | null;
+
+/** A line a merge must carry: it has no number, so nothing can key it. */
+interface CarriedLine {
+  /** What the line commands, so two spellings of one do not double up. */
+  key: string;
+  /** The number it sits above, or past the end for one below the last line. */
+  anchor: number;
+  text: string;
+}
+
+/**
+ * The unnumbered lines of a source, each anchored to the numbered line below
+ * it.
+ *
+ * The merge is a map keyed by line number, and these have none - so, like a
+ * `#BIN` directive, they ride alongside it. Unlike a directive they carry no
+ * number of their own either, so the anchor is what fixes their place: a
+ * preamble sits above the first line of the program, and a listing's trailing
+ * `RUN`, with no numbered line below it, sits at the foot.
+ */
+function carriedOf(
+  text: string,
+  unnumbered?: UnnumberedLineKey,
+): CarriedLine[] {
+  if (!unnumbered) return [];
+  const rows = text.split('\n').map((raw) => raw.trim());
+  const out: CarriedLine[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const line = rows[i]!;
+    if (line === '' || isBinaryDirective(line)) continue;
+    const key = unnumbered(line);
+    if (key === null) continue;
+    let anchor = Number.POSITIVE_INFINITY;
+    for (let j = i + 1; j < rows.length; j++) {
+      const m = LINE_RE.exec(rows[j]!);
+      if (m) {
+        anchor = parseInt(m[1]!, 10);
+        break;
+      }
+    }
+    out.push({ key, anchor, text: line });
+  }
+  return out;
 }
 
 /**
@@ -305,13 +369,16 @@ export function mergePlan(
   const directives =
     existingDirectives.length > 0 ? existingDirectives : directivesOf(fragment);
 
-  // `pri` orders a directive ahead of an equal-numbered text line.
+  // `pri` orders a carried line ahead of an equal-numbered text line, and a
+  // line with no number of its own ahead of a `#BIN` record.
   const rows: Array<MergeRow & { pri: number }> = directives.map((d) => ({
     kind: 'context',
     lineNo: d.no,
     text: d.line,
     pri: 0,
   }));
+
+  rows.push(...carriedRows(existing, fragment, opts.unnumbered));
 
   const numbers = new Set([...before.keys(), ...after.keys(), ...deletes]);
   for (const no of numbers) {
@@ -358,6 +425,52 @@ export function mergePlan(
 }
 
 /**
+ * The rows for lines neither side can key by number.
+ *
+ * A fragment has no way to address a line that has no number, so what the
+ * program already holds is what is kept: its lines are context, in the places
+ * the program puts them, and no bare number can reach them. The assistant may
+ * still write one - a preamble is ordinary readable BASIC, unlike a `#BIN`
+ * payload - so one naming something the program does not hold is added, and one
+ * naming something it does with different text is a change rather than a
+ * duplicate.
+ */
+function carriedRows(
+  existing: string,
+  fragment: string,
+  unnumbered?: UnnumberedLineKey,
+): Array<MergeRow & { pri: number }> {
+  const held = carriedOf(existing, unnumbered);
+  const offered = carriedOf(fragment, unnumbered);
+  const byKey = new Map(held.map((c) => [c.key, c]));
+
+  const rows: Array<MergeRow & { pri: number }> = held.map((c) => {
+    const replacement = offered.find((o) => o.key === c.key);
+    return replacement && replacement.text !== c.text
+      ? {
+          kind: 'changed' as const,
+          lineNo: c.anchor,
+          text: replacement.text,
+          before: c.text,
+          pri: -1,
+        }
+      : {
+          kind: 'context' as const,
+          lineNo: c.anchor,
+          text: c.text,
+          before: c.text,
+          pri: -1,
+        };
+  });
+
+  for (const o of offered) {
+    if (byKey.has(o.key)) continue;
+    rows.push({ kind: 'added', lineNo: o.anchor, text: o.text, pri: -1 });
+  }
+  return rows;
+}
+
+/**
  * Merge a generated BASIC fragment into existing source by line number: lines
  * with matching numbers are replaced, new ones inserted in order, and - when
  * `allowDeletes` is set - a bare line number removes that line, the way the
@@ -394,13 +507,14 @@ export function mergeBasicLines(
 export function candidateProgram(
   block: CodeBlock,
   base: string,
+  unnumbered?: UnnumberedLineKey,
 ): string | null {
-  const kind = classifyBlock(block, base);
+  const kind = classifyBlock(block, base, unnumbered);
   if (kind === 'unknown') return null;
   // A whole listing replaces outright, so a stray bare number in it must not
   // read as a deletion - the same rule the panel's apply actions follow.
   if (kind === 'full') {
     return block.code.endsWith('\n') ? block.code : block.code + '\n';
   }
-  return mergeBasicLines(base, block.code, { allowDeletes: true });
+  return mergeBasicLines(base, block.code, { allowDeletes: true, unnumbered });
 }

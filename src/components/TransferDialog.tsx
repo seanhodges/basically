@@ -234,7 +234,9 @@ export function TransferDialog() {
             <p>
               Connect this device&apos;s headphone output to the machine&apos;s
               EAR socket and set the volume to maximum.{' '}
-              {dialect.audio.loadInstructions}
+              {typeof dialect.audio.loadInstructions === 'function'
+                ? dialect.audio.loadInstructions(source)
+                : dialect.audio.loadInstructions}
             </p>
             <label className={dialog.inline}>
               <input

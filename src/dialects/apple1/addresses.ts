@@ -83,6 +83,23 @@ export const DEFAULT_HIMEM = 0x1000;
 export const COLD_START_BYTES_FREE = DEFAULT_HIMEM - DEFAULT_LOMEM;
 
 /**
+ * Lowest address a program may move LOMEM to.
+ *
+ * The monitor assembles a typed line at `$0200-$027F` and Integer BASIC crunches
+ * it there, so a workspace reaching into that page is overwritten by the next
+ * thing typed - including the `RUN` that starts the program. `$0280` is the
+ * first byte above it, and the bottom of the free RAM the memory map names.
+ */
+export const MIN_LOMEM = 0x0280;
+
+/**
+ * One past the highest address HIMEM may be set to. HIMEM is an exclusive top,
+ * and `$0FFF` is the last byte of the fitted RAM, so a program may claim the
+ * whole of it and no more.
+ */
+export const MAX_HIMEM = RAM_TOP + 1;
+
+/**
  * The zero-page housekeeping block the cassette interface dumps, `4A.FF W` at
  * the monitor. It carries LOMEM, HIMEM, PP and PV, so a tape that holds it plus
  * the program area is a complete BASIC workspace.

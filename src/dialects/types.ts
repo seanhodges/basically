@@ -802,8 +802,13 @@ export interface MemoryBlocksSupport {
    * bytes, for the linter's block/program collision check. Dialect-specific:
    * knows where the program area starts and how much slack beyond the raw
    * program bytes to reserve.
+   *
+   * `source` is the open program's text, for a machine whose workspace the
+   * program itself moves - the Apple I's `LOMEM=`/`HIMEM=` preamble. Every
+   * other machine's area is fixed wherever the program sits and ignores it,
+   * which lints exactly as it did before.
    */
-  programArea(programByteSize: number): MemoryRange;
+  programArea(programByteSize: number, source?: string): MemoryRange;
   /**
    * Ranges the machine claims only for an optional feature, which a block may
    * occupy while the open program's text proves the feature unused - whether or
@@ -1154,6 +1159,20 @@ export interface Dialect {
   /** Tokenizer dry-run for editor linting. */
   lint(source: string): TokenizeError[];
   /**
+   * This machine's reading of a physical source line that carries no line
+   * number and is program text all the same - the commands a real Apple I
+   * listing opens and closes with (`SCR`, `LOMEM=768`, a trailing `RUN`).
+   *
+   * Answers a stable key naming what the line commands, so that two spellings
+   * of the same one merge rather than doubling, and null for an ordinary line.
+   *
+   * Absent on every machine whose source is numbered lines and nothing else,
+   * which behaves exactly as it did before. The line-numbering and AI-merge
+   * paths read it to leave such a line alone: numbering it, moving it among the
+   * numbered lines, or dropping it each change what it means.
+   */
+  unnumberedLineKey?(lineText: string): string | null;
+  /**
    * URL of the machine ROM (resolved against the deployed base path). Omitted by
    * dialects whose emulator needs no ROM image - e.g. a pure high-level
    * interpreter - in which case the app skips the ROM fetch entirely.
@@ -1352,8 +1371,16 @@ export interface Dialect {
       robust: boolean,
       opts?: { blocks?: readonly MemoryBlock[]; loader?: boolean },
     ): Float32Array;
-    /** Loading instructions shown to the user, e.g. how to type LOAD "". */
-    loadInstructions: string;
+    /**
+     * Loading instructions shown to the user, e.g. how to type LOAD "".
+     *
+     * A function where the instructions depend on the program being sent. The
+     * Apple I is the case: it has no LOAD, so the user types the monitor
+     * address range by hand, and that range is the workspace the program's own
+     * `LOMEM=`/`HIMEM=` asked for. A fixed range there is not merely vague, it
+     * loads the wrong bytes.
+     */
+    loadInstructions: string | ((source: string) => string);
     /**
      * Decode recorded cassette samples back into an editable program (the
      * inverse of {@link buildSamples}). Throws when no valid signal is found.

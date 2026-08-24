@@ -92,7 +92,9 @@ import {
   renumberProgram,
   MIN_LINE_NO,
   MAX_LINE_NO,
+  type UnnumberedLine,
 } from '../editor/lineNumbering';
+import { isBinaryDirective } from '../dialects/binaryDirective';
 import { findRowForLineNumber } from '../editor/programOutline';
 import { isMobileViewport } from '../app/useMediaQuery';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
@@ -114,6 +116,26 @@ function replaceDoc(
   });
 }
 
+/**
+ * A machine's own unnumbered program lines as a predicate, or nothing at all
+ * for a machine whose source is numbered lines and nothing else.
+ */
+function unnumberedFor(dialect: Dialect): UnnumberedLine | undefined {
+  const key = dialect.unnumberedLineKey;
+  return key ? (line: string) => key(line) !== null : undefined;
+}
+
+/**
+ * The active machine's unnumbered program lines, as the facet carries them.
+ *
+ * The numbering handlers are keymap callbacks taking only a view, so the
+ * dialect reaches them the same way the increment does - through the facet the
+ * host configures - rather than by widening every signature.
+ */
+function unnumberedOf(view: EditorView): UnnumberedLine | undefined {
+  return view.state.facet(numberingConfig).unnumbered;
+}
+
 /** Enter handler: auto-prefix a line number on the new line (and bootstrap the current one). */
 function autoNumberOnEnter(view: EditorView): boolean {
   const { autoLineNumbering, lineNumberIncrement } = useIdeStore.getState();
@@ -131,6 +153,7 @@ function autoNumberOnEnter(view: EditorView): boolean {
     physical,
     line.number - 1,
     lineNumberIncrement,
+    unnumberedOf(view),
   );
   if (!result) return false; // nothing to number - fall back to default newline
   replaceDoc(view, result.lines, result.cursorLine);
@@ -232,6 +255,8 @@ function renumberCurrentLine(view: EditorView): boolean {
   const line = state.doc.lineAt(state.selection.main.head);
   const m = /^\s*(\d+)\s?/.exec(line.text);
   if (!m) return numberCurrentLineInPlace(view, line.number - 1);
+  // A line the machine takes unnumbered never had a number to change.
+  if (unnumberedOf(view)?.(line.text)) return true;
   const oldNo = parseInt(m[1]!, 10);
 
   const input = window.prompt(`Renumber line ${oldNo} to:`, String(oldNo));
@@ -250,7 +275,12 @@ function renumberCurrentLine(view: EditorView): boolean {
     return true;
   }
 
-  const newLines = renumberLine(docText, oldNo, newNo).split('\n');
+  const newLines = renumberLine(
+    docText,
+    oldNo,
+    newNo,
+    unnumberedOf(view),
+  ).split('\n');
   const ci = newLines.findIndex((l) =>
     new RegExp(`^\\s*${newNo}(\\s|$)`).test(l),
   );
@@ -270,7 +300,15 @@ function numberCurrentLineInPlace(view: EditorView, idx: number): boolean {
   if (state.doc.line(idx + 1).text.trim() === '') return false; // blank - let the key pass
   const increment = useIdeStore.getState().lineNumberIncrement;
   const physical = state.doc.toString().split('\n');
-  const result = numberLineInPlace(physical, idx, increment);
+  const result = numberLineInPlace(
+    physical,
+    idx,
+    increment,
+    unnumberedOf(view),
+  );
+  // Nothing to number: a line the machine takes as it stands, or a blank one.
+  if (!result && unnumberedOf(view)?.(state.doc.line(idx + 1).text))
+    return true;
   if (!result) {
     window.alert(
       `No room to number this line without exceeding ${MAX_LINE_NO}.`,
@@ -291,7 +329,8 @@ function renumberFile(view: EditorView): boolean {
   const { state } = view;
   const docText = state.doc.toString();
   const increment = useIdeStore.getState().lineNumberIncrement;
-  const renumbered = renumberProgram(docText, increment, increment);
+  const keep = unnumberedOf(view);
+  const renumbered = renumberProgram(docText, increment, increment, keep);
   if (renumbered === null) {
     window.alert(
       `Too many lines to renumber with an increment of ${increment} - the ` +
@@ -301,15 +340,19 @@ function renumberFile(view: EditorView): boolean {
   }
   if (renumbered === docText) return true; // empty program - nothing to do
 
-  // Keep the cursor on the same program line. Every non-blank line becomes
-  // numbered in source order, so the cursor line's new number is `increment ×`
-  // its 1-based rank among non-blank lines. A blank cursor line has no rank of
-  // its own and falls back to the nearest line above it (or the file end).
+  // Keep the cursor on the same program line. Each line that gets renumbered
+  // takes its number from its 1-based rank in source order, so the cursor
+  // line's new number is `increment ×` that rank. Only the lines renumbering
+  // actually numbers may be counted - a blank line, a `#BIN` payload or a line
+  // the machine takes unnumbered would each push the rank past the number the
+  // line really got, and land the cursor somewhere else.
   const cursorIdx = state.doc.lineAt(state.selection.main.head).number - 1;
   const physical = docText.split('\n');
+  const numbered = (row: string) =>
+    row.trim() !== '' && !isBinaryDirective(row) && !keep?.(row);
   let rank = 0;
   for (let i = 0; i <= cursorIdx && i < physical.length; i++) {
-    if (physical[i]!.trim() !== '') rank++;
+    if (numbered(physical[i]!)) rank++;
   }
   const newNo = rank === 0 ? null : rank * increment;
 
@@ -779,6 +822,7 @@ export function CodeMirrorHost({
           numberingConfig.of({
             auto: useIdeStore.getState().autoLineNumbering,
             increment: useIdeStore.getState().lineNumberIncrement,
+            unnumbered: unnumberedFor(dialect),
           }),
           fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
         ]),
@@ -984,11 +1028,12 @@ export function CodeMirrorHost({
         numberingConfig.of({
           auto: autoLineNumbering,
           increment: lineNumberIncrement,
+          unnumbered: unnumberedFor(dialect),
         }),
         fullCompletion.of(fullCodeCompletion),
       ]),
     });
-  }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
+  }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion, dialect]);
 
   // Re-render the combined gutter whenever either of the things it draws from
   // the store changes: the breakpoint set and the profile, both of the buffer on

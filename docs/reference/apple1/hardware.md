@@ -89,8 +89,11 @@ notation BASIC itself uses, since it has no hexadecimal at all); new blocks
 default to **0x0300**. The block editor accepts an address either way round, as
 `0x0300` or as `768`.
 
-That window is the free RAM below LOMEM, and it is the only RAM BASIC never
-touches — which is what lets this machine hold a routine and a program at once.
+That window is the free RAM below the stock LOMEM, and it is the only RAM BASIC
+never touches — which is what lets this machine hold a routine and a program at
+once. A program that lowers LOMEM with a
+[preamble](../apple1#the-preamble-a-listing-opens-with) claims that RAM for its
+own workspace instead, so it cannot also keep a block there.
 It stops short of `0x0280` because the monitor assembles a typed line at
 `0x0200`–`0x027F` and the interpreter crunches it to tokens there, so a block
 reaching into that page is overwritten by the next thing typed, the `RUN` that

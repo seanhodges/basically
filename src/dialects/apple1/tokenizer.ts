@@ -10,6 +10,12 @@ import {
   T,
 } from './keywords';
 import { MAX_INT, MAX_LINE, MAX_LINE_BYTES } from './addresses';
+import {
+  parseDirectLine,
+  workspaceFault,
+  STOCK_WORKSPACE,
+  type Workspace,
+} from './directLine';
 
 export interface TokenizedProgram {
   /**
@@ -22,6 +28,17 @@ export interface TokenizedProgram {
    */
   program: Uint8Array;
   errors: TokenizeError[];
+  /**
+   * The workspace the listing asks for with `LOMEM=`/`HIMEM=`, or the stock
+   * pair when it asks for nothing. Whoever builds an image passes this to
+   * `buildBasicImage`, because the program is stored at the *top* of the
+   * workspace: where it loads is a function of HIMEM, not of a base address.
+   *
+   * Always a workspace the machine could hold. Bounds it could not are a fatal
+   * error and leave this at the stock pair, so that a caller building an image
+   * from a program that failed to tokenize still gets a usable one.
+   */
+  workspace: Workspace;
 }
 
 /** What an expression evaluated to, which decides several tokens' bytes. */
@@ -710,6 +727,14 @@ interface LineRecord {
   body: number[];
 }
 
+/** One `LOMEM=`/`HIMEM=` line, kept so a bad pair is reported where it was written. */
+interface Declaration {
+  value: number;
+  line: number;
+  column: number;
+  endColumn: number;
+}
+
 /**
  * Editor text -> the bytes Integer BASIC stores after entry.
  *
@@ -727,6 +752,10 @@ export function tokenizeProgram(source: string): TokenizedProgram {
   const records: LineRecord[] = [];
   let prevLineNo = -1;
 
+  /** The last `LOMEM=`/`HIMEM=` read; each one overwrites the pointer. */
+  let lomem: Declaration | null = null;
+  let himem: Declaration | null = null;
+
   const lines = source.split('\n');
   for (let li = 0; li < lines.length; li++) {
     let raw = lines[li]!;
@@ -736,11 +765,32 @@ export function tokenizeProgram(source: string): TokenizedProgram {
 
     const m = /^(\s*)(\d+)(.*)$/.exec(raw);
     if (!m) {
-      errors.push({
-        line: editorLine,
-        column: 0,
-        message: 'Missing line number',
-      });
+      // A listing writes the interpreter's prompt-only commands on a line of
+      // their own, with no number - the `SCR` / `LOMEM=` / `HIMEM=` preamble it
+      // opens with, and often a bare `RUN` at the foot. They store no bytes and
+      // take no part in the ascending-order rule the numbered lines are held
+      // to; only `LOMEM=`/`HIMEM=` change what is built.
+      const direct = parseDirectLine(raw);
+      if (direct.kind === 'error') {
+        errors.push({
+          line: editorLine,
+          column: direct.column,
+          endColumn: direct.endColumn,
+          message: direct.message,
+        });
+      } else if (direct.kind === 'line') {
+        const { command, args, column, endColumn } = direct.line;
+        if (command === 'LOMEM=')
+          lomem = { value: args[0]!, column, endColumn, line: editorLine };
+        if (command === 'HIMEM=')
+          himem = { value: args[0]!, column, endColumn, line: editorLine };
+      } else {
+        errors.push({
+          line: editorLine,
+          column: 0,
+          message: 'Missing line number',
+        });
+      }
       continue;
     }
     const lineNo = parseInt(m[2]!, 10);
@@ -794,5 +844,38 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     prog.push(...body, T.EOL);
   }
 
-  return { program: Uint8Array.from(prog), errors };
+  return {
+    program: Uint8Array.from(prog),
+    errors,
+    workspace: resolveWorkspace(lomem, himem, errors),
+  };
+}
+
+/**
+ * The declared bounds, or the stock pair when the listing declared none - or
+ * declared a pair the machine could not hold, which is reported at the later of
+ * the two lines, that being the one the reader would change.
+ */
+function resolveWorkspace(
+  lomem: Declaration | null,
+  himem: Declaration | null,
+  errors: TokenizeError[],
+): Workspace {
+  if (!lomem && !himem) return STOCK_WORKSPACE;
+
+  const low = lomem?.value ?? STOCK_WORKSPACE.lomem;
+  const high = himem?.value ?? STOCK_WORKSPACE.himem;
+  const fault = workspaceFault(low, high);
+  if (!fault) return { lomem: low, himem: high, declared: true };
+
+  const at = [lomem, himem]
+    .filter((d) => d !== null)
+    .sort((a, b) => b.line - a.line)[0]!;
+  errors.push({
+    line: at.line,
+    column: at.column,
+    endColumn: at.endColumn,
+    message: fault,
+  });
+  return STOCK_WORKSPACE;
 }

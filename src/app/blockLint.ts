@@ -165,10 +165,11 @@ export function lintBlocks(
   support: MemoryBlocksSupport,
   programByteSize: number,
   vocabulary?: ProgramVocabulary,
+  source?: string,
 ): BlockIssue[] {
   const issues: BlockIssue[] = [];
   const duplicates = duplicatedNames(blocks);
-  const program = support.programArea(programByteSize);
+  const program = support.programArea(programByteSize, source);
 
   for (const block of blocks) {
     if (!isValidBlockName(block.name)) {

@@ -35,7 +35,9 @@ followed it.
 - Multiple statements per line are allowed with `:`, and line numbers run 0 to 32767. There is no abbreviation of any kind — not even `?` for `PRINT`.
 - `HIMEM=` and `LOMEM=` take `=`, not the Apple II's `:`, and they — along with
   `LIST`, `RUN`, `DEL`, `AUTO`, `OFF`, `SCR` and `CLR` — are refused inside a
-  numbered line.
+  numbered line. On a line of their own with no line number, which is how a
+  printed listing writes them, all nine are accepted: see
+  [the preamble](#the-preamble-a-listing-opens-with) below.
 - Falling off the last line reports `*** END ERR`. The program stops cleanly
   either way, but a listing that ends without `END` leaves a report on screen.
 - Upper case only: the interpreter refuses a lower-case name or keyword, and
@@ -43,6 +45,50 @@ followed it.
 - `PEEK`, `POKE` and `CALL` take **signed decimal** addresses. There is no
   hexadecimal notation anywhere in this BASIC, which is why an I/O address is
   written negative — `PEEK(-12272)` reads the keyboard.
+
+## The preamble a listing opens with
+
+An Apple 1 listing is not only numbered lines. The commands the interpreter
+takes at its `>` prompt are written above the program, and often a bare `RUN`
+below it:
+
+```
+SCR
+LOMEM=768
+HIMEM=4096
+10 PRINT "HELLO"
+20 END
+RUN
+```
+
+Paste that in as it stands. A line with no number is accepted anywhere in the
+program as long as it holds one of those nine commands; anything else without a
+number is still an error, and the same nine are still refused inside a numbered
+line.
+
+`LOMEM=` and `HIMEM=` are the two that change anything. They set the workspace
+the program is built into and loaded with — the area the program grows down
+through and its variables grow up through — so `LOMEM=768` gives a program 3328
+bytes instead of the stock 2048. Bounds the machine could not hold are reported
+where they are written: the workspace has to sit above the monitor's input
+buffer at `$0280` and inside the 4K of RAM the machine has fitted, and its top
+has to be above its bottom. Where the same bound is set twice, the last one is
+the one that takes effect.
+
+Lowering `LOMEM` claims the free RAM a machine-code block would otherwise use.
+`$0300`–`$07FF` is the only RAM Integer BASIC never touches on a stock machine,
+so a program cannot both move `LOMEM` down there and keep a block.
+
+The other seven — `SCR`, `CLR`, `RUN`, `LIST`, `DEL`, `AUTO` and `OFF` — are
+kept with the program and change nothing about it. A program built here is
+already scratched and holds no variables, and the IDE starts it for you.
+
+The preamble is part of the program text, so renumbering leaves it where it is
+and the assistant will not drop it. A cassette export writes the workspace into
+the dump alongside the program, and importing one restates whatever `LOMEM=` and
+`HIMEM=` it was saved with — but note that the monitor range you type at a real
+machine follows those bounds too, which is why the Transfer dialog spells the
+range out rather than always saying `800.FFF`.
 
 ## What is in the interpreter but does not work
 

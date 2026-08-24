@@ -870,6 +870,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
               dialect.memoryBlocks,
               result.byteSize,
               vocabulary,
+              runSource,
             );
             const blocking = issues.find((i) => i.severity === 'error');
             if (blocking) {
