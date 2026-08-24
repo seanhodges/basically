@@ -182,7 +182,10 @@ describe('apple1 tokenizer', () => {
       ['10 A=NOT NOT 1', 'one unary operator'],
       // A trailing comma has no token; a trailing semicolon does.
       ['10 PRINT "X",', 'Expected an expression'],
-      // Direct-mode commands are refused inside a numbered line.
+      // Direct-mode commands are refused inside a numbered line. On a line of
+      // their own, with no line number, the same words are accepted - see
+      // `directLine.ts` and the block below; these rows are the other half of
+      // that rule, not a contradiction of it.
       ['10 CLR', 'direct-mode command'],
       ['10 HIMEM=4096', 'direct-mode command'],
       ['10 SCR', 'direct-mode command'],
@@ -229,5 +232,108 @@ describe('apple1 tokenizer', () => {
 
   it('stores nothing for a bare line number', () => {
     expect(tokenizeProgram('10\n').program).toHaveLength(0);
+  });
+
+  /**
+   * A printed listing opens with the interpreter's prompt-only commands and
+   * often closes with a bare `RUN`. They are program text here in the sense
+   * that they must survive editing, but they store no bytes: only `LOMEM=` and
+   * `HIMEM=` change anything, and what they change is the workspace the image
+   * is built into.
+   */
+  describe('unnumbered direct-mode lines', () => {
+    const PREAMBLE = 'SCR\nLOMEM=768\nHIMEM=4096\n';
+
+    it('stores exactly what the numbered lines alone would store', () => {
+      const withIt = tokenizeProgram(`${PREAMBLE}10 A=1\n20 PRINT A\nRUN\n`);
+      const without = tokenizeProgram('10 A=1\n20 PRINT A');
+      expect(withIt.errors).toEqual([]);
+      expect(hex(withIt.program)).toBe(hex(without.program));
+    });
+
+    it('reads the workspace the preamble asks for', () => {
+      expect(tokenizeProgram(`${PREAMBLE}10 END`).workspace).toEqual({
+        lomem: 768,
+        himem: 4096,
+        declared: true,
+      });
+    });
+
+    it('leaves the workspace stock when nothing asks', () => {
+      expect(tokenizeProgram('10 END').workspace).toEqual({
+        lomem: 0x0800,
+        himem: 0x1000,
+        declared: false,
+      });
+    });
+
+    it.each([
+      'SCR',
+      'CLR',
+      'OFF',
+      'RUN',
+      'LIST',
+      'RUN 100',
+      'LIST 10,20',
+      'DEL 10,20',
+      'AUTO 10,10',
+    ])('accepts %s on a line of its own, storing nothing', (line) => {
+      const { program, errors } = tokenizeProgram(`${line}\n10 END`);
+      expect(errors).toEqual([]);
+      expect(hex(program)).toBe(hex(tokenizeProgram('10 END').program));
+    });
+
+    /**
+     * They have no line number, so there is nothing for the ascending rule to
+     * compare - a `RUN` between two lines must not read as a step backwards.
+     */
+    it('takes no part in the ascending-order rule', () => {
+      expect(tokenizeProgram('10 A=1\nRUN\n20 A=2').errors).toEqual([]);
+    });
+
+    it.each([
+      ['PRINT "HI"', 'Missing line number'],
+      ['LOMEM 768', 'Missing line number'],
+      ['RUNNING=1', 'Missing line number'],
+      ['LOMEM=100', "monitor's input buffer"],
+      ['HIMEM=8192', 'RAM an Apple I has fitted'],
+      ['LOMEM=4096\nHIMEM=768', 'leaves no workspace'],
+      ['DEL', 'needs a number'],
+      ['SCR 1', 'takes no arguments'],
+    ])('refuses %s', (src, fragment) => {
+      const { errors } = tokenizeProgram(`${src}\n10 END`);
+      expect(hasFatalErrors(errors)).toBe(true);
+      expect(errors.map((e) => e.message).join(' | ')).toContain(fragment);
+    });
+
+    /**
+     * `buildBasicImage` sizes an array from these bounds and throws on a pair
+     * that describes no workspace, so a refused declaration must never reach a
+     * caller building an image from the program that failed.
+     */
+    it.each(['LOMEM=100', 'HIMEM=8192', 'LOMEM=4096\nHIMEM=768'])(
+      'falls back to the stock workspace after refusing %s',
+      (src) => {
+        expect(tokenizeProgram(`${src}\n10 END`).workspace).toEqual({
+          lomem: 0x0800,
+          himem: 0x1000,
+          declared: false,
+        });
+      },
+    );
+
+    it('takes the last of a repeated bound', () => {
+      const { workspace, errors } = tokenizeProgram(
+        'LOMEM=768\nLOMEM=1024\n10 END',
+      );
+      expect(errors).toEqual([]);
+      expect(workspace.lomem).toBe(1024);
+    });
+
+    it('reports a bad pair at the later of the two lines', () => {
+      const { errors } = tokenizeProgram('LOMEM=4096\n10 END\nHIMEM=768');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.line).toBe(3);
+    });
   });
 });

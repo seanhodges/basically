@@ -27,6 +27,26 @@ export const MIN_LINE_NO = 1;
 export const MAX_LINE_NO = 65535;
 
 /**
+ * The active dialect's reading of a physical line it takes without a line
+ * number - the commands an Apple I listing opens and closes with. See
+ * {@link Dialect.unnumberedLineKey}, which is where this comes from.
+ *
+ * Every function here takes it optionally and defaults to not having one, so a
+ * machine whose source is numbered lines and nothing else numbers, renumbers
+ * and re-emits exactly as it always did.
+ */
+export type UnnumberedLine = (lineText: string) => boolean;
+
+/**
+ * True when a line must keep its place and its text through a numbering
+ * operation: an opaque `#BIN` payload, or a line the dialect takes unnumbered.
+ * Numbering either one changes what it means.
+ */
+function isKept(line: string, keep?: UnnumberedLine): boolean {
+  return isBinaryDirective(line) || (keep?.(line) ?? false);
+}
+
+/**
  * Regex fragments for keywords whose immediately-following integer literal is a
  * line reference. `GO\s*TO` / `GO\s*SUB` cover both the joined (`GOTO`) and
  * Sinclair-spaced (`GO TO`) spellings; `THEN`/`ELSE`/`RESTORE` are line targets
@@ -178,11 +198,12 @@ export function planConstructNumbering(
   idx: number,
   increment: number,
   extra: number,
+  keep?: UnnumberedLine,
 ): ConstructNumbering | null {
   if (extra <= 0)
     return { currentLineNo: null, continuationNos: [], cascade: new Map() };
-  // Never bootstrap a line number onto an opaque #BIN directive.
-  if (isBinaryDirective(physical[idx]!)) return null;
+  // Never bootstrap a line number onto a line that must not carry one.
+  if (isKept(physical[idx]!, keep)) return null;
 
   const { prev, next: nextNo } = neighbours(physical, idx);
 
@@ -300,6 +321,7 @@ function rewriteLineReferences(
 export function applyRenumberMap(
   source: string,
   map: Map<number, number>,
+  keep?: UnnumberedLine,
 ): string {
   if (map.size === 0) return source;
   const referenced = rewriteReferences(source, map);
@@ -307,7 +329,7 @@ export function applyRenumberMap(
     const moved = map.get(l.lineNo);
     return { ...l, lineNo: moved ?? l.lineNo };
   });
-  return joinLines(lines, directiveEntries(referenced));
+  return joinLines(lines, carriedLines(referenced, keep, map));
 }
 
 /**
@@ -319,6 +341,7 @@ export function renumberLine(
   source: string,
   oldNo: number,
   newNo: number,
+  keep?: UnnumberedLine,
 ): string {
   if (oldNo === newNo) return source;
   const lines = parseLines(source);
@@ -328,7 +351,7 @@ export function renumberLine(
   const renumbered = parseLines(referenced).map((l) =>
     l.lineNo === oldNo ? { ...l, lineNo: newNo } : l,
   );
-  return joinLines(renumbered, directiveEntries(referenced));
+  return joinLines(renumbered, carriedLines(referenced, keep, remap));
 }
 
 /**
@@ -339,11 +362,17 @@ export function renumberLine(
  * clean numbered listing. Returns `null` if the highest resulting number would
  * exceed {@link MAX_LINE_NO} - the caller should surface that and abort. An
  * empty program (only blank lines) is returned unchanged.
+ *
+ * A line the dialect takes unnumbered is the exception, alongside a `#BIN`
+ * directive: it keeps its place and its text. Its *references* are still
+ * rewritten, so a listing closing with `RUN 100` follows the renumber to
+ * whatever 100 became.
  */
 export function renumberProgram(
   source: string,
   start: number,
   increment: number,
+  keep?: UnnumberedLine,
 ): string | null {
   const rows = source
     .split('\n')
@@ -351,9 +380,9 @@ export function renumberProgram(
     .filter((row) => row !== '');
   if (rows.length === 0) return source;
 
-  // #BIN directives keep their place and their embedded number verbatim -
-  // renumbering must never touch an opaque payload.
-  const renumberable = rows.filter((row) => !isBinaryDirective(row));
+  // Kept lines hold their place and their text - renumbering must never touch
+  // an opaque payload, nor put a number on a line whose machine has none.
+  const renumberable = rows.filter((row) => !isKept(row, keep));
   if (renumberable.length === 0) return rows.join('\n');
   const highest = start + (renumberable.length - 1) * increment;
   if (highest > MAX_LINE_NO) return null;
@@ -363,7 +392,7 @@ export function renumberProgram(
   const remap = new Map<number, number>();
   let n = 0;
   rows.forEach((row) => {
-    if (isBinaryDirective(row)) return;
+    if (isKept(row, keep)) return;
     const oldNo = lineNumberOf(row);
     if (oldNo !== null) remap.set(oldNo, start + n * increment);
     n++;
@@ -373,6 +402,7 @@ export function renumberProgram(
   return rows
     .map((row) => {
       if (isBinaryDirective(row)) return row;
+      if (keep?.(row)) return rewriteReferences(row, remap);
       const newNo = start + k++ * increment;
       const refd = rewriteReferences(row, remap);
       // Strip the old leading number when present; unnumbered lines keep their
@@ -384,42 +414,68 @@ export function renumberProgram(
     .join('\n');
 }
 
-/** A `#BIN` directive line with its embedded record line number as sort key. */
-interface DirectiveEntry {
+/** A line a re-emit must carry, with the number it sorts by. */
+interface CarriedLine {
+  /** A `#BIN` record's own number, or the number an unnumbered line sits above. */
   lineNo: number;
+  /** -1 for a line the dialect takes unnumbered, 0 for a `#BIN` directive. */
+  pri: number;
   raw: string;
 }
 
 /**
- * Collect the `#BIN` directive lines of a source, in order, keyed by their
- * embedded record line number (0 for a malformed payload). `parseLines` skips
- * them (no leading digit), so re-emitting flows must carry them separately.
+ * Collect the lines of a source that `parseLines` cannot represent, in order,
+ * each with the number it should sort by. Both kinds lack a leading digit, so
+ * `parseLines` skips them and re-emitting flows must carry them separately.
+ *
+ * A `#BIN` directive sorts by its own embedded record number (0 for a malformed
+ * payload). A line the dialect takes unnumbered has no number of its own, so it
+ * sorts by the one it sits *above* - a preamble rides with the first line of the
+ * program wherever renumbering moves it, and a listing's trailing `RUN`, with no
+ * numbered line below it, stays at the foot.
  */
-function directiveEntries(source: string): DirectiveEntry[] {
-  const out: DirectiveEntry[] = [];
-  for (const rawLine of source.split('\n')) {
-    const line = rawLine.trim();
-    if (line === '' || !isBinaryDirective(line)) continue;
-    const parsed = parseBinaryDirective(line);
-    const lineNo =
-      parsed && 'record' in parsed ? binaryRecordInfo(parsed.record).lineNo : 0;
-    out.push({ lineNo, raw: line });
+function carriedLines(
+  source: string,
+  keep?: UnnumberedLine,
+  remap?: Map<number, number>,
+): CarriedLine[] {
+  const rows = source.split('\n').map((raw) => raw.trim());
+  const out: CarriedLine[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const line = rows[i]!;
+    if (line === '') continue;
+    if (isBinaryDirective(line)) {
+      const parsed = parseBinaryDirective(line);
+      const lineNo =
+        parsed && 'record' in parsed
+          ? binaryRecordInfo(parsed.record).lineNo
+          : 0;
+      out.push({ lineNo, pri: 0, raw: line });
+      continue;
+    }
+    if (!keep?.(line)) continue;
+    let anchor = Number.POSITIVE_INFINITY;
+    for (let j = i + 1; j < rows.length; j++) {
+      const no = lineNumberOf(rows[j]!);
+      if (no !== null) {
+        anchor = remap?.get(no) ?? no;
+        break;
+      }
+    }
+    out.push({ lineNo: anchor, pri: -1, raw: line });
   }
   return out;
 }
 
 /**
  * Re-emit parsed lines as "<lineNo> <body>", sorted ascending by number,
- * merging any `#BIN` directives back in by their embedded line number - a
- * directive sorts before an equal-numbered text line, and duplicates keep
- * their original relative order (real files repeat binary line numbers).
+ * merging the carried lines back in by their sort number - a carried line
+ * sorts before an equal-numbered text line, and duplicates keep their original
+ * relative order (real files repeat binary line numbers).
  */
-function joinLines(
-  lines: BasicLine[],
-  directives: DirectiveEntry[] = [],
-): string {
+function joinLines(lines: BasicLine[], carried: CarriedLine[] = []): string {
   const entries = [
-    ...directives.map((d) => ({ no: d.lineNo, pri: 0, text: d.raw })),
+    ...carried.map((d) => ({ no: d.lineNo, pri: d.pri, text: d.raw })),
     ...lines.map((l) => ({
       no: l.lineNo,
       pri: 1,
@@ -493,10 +549,11 @@ export function numberLineInPlace(
   physical: string[],
   idx: number,
   increment: number,
+  keep?: UnnumberedLine,
 ): { lines: string[]; lineNo: number } | null {
   let lines = [...physical];
   const cur = lines[idx]!.trim();
-  if (cur === '' || isBinaryDirective(cur)) return null;
+  if (cur === '' || isKept(cur, keep)) return null;
 
   const existing = lineNumberOf(lines[idx]!);
   if (existing !== null) return { lines, lineNo: existing };
@@ -532,9 +589,10 @@ export function insertNumberedLineBelow(
   physical: string[],
   idx: number,
   increment: number,
+  keep?: UnnumberedLine,
 ): InsertResult | null {
   // 1. Ensure the current line has text and carries a number.
-  const bootstrapped = numberLineInPlace(physical, idx, increment);
+  const bootstrapped = numberLineInPlace(physical, idx, increment, keep);
   if (!bootstrapped) return null;
   let lines = bootstrapped.lines;
   const curNo = bootstrapped.lineNo;

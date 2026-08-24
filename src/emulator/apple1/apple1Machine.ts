@@ -22,6 +22,7 @@ import {
   HIMEM,
   LOMEM,
   MAX_LINE,
+  MIN_LOMEM,
   MONITOR_BYTES,
   PLINE,
   PP,
@@ -291,9 +292,12 @@ export class Apple1Machine implements MachineEmulator {
     }
 
     const { program, lomem, himem } = parseBasicImage(image);
-    const fits = lomem < himem && himem <= RAM_TOP + 1;
+    const fits = lomem >= MIN_LOMEM && lomem < himem && himem <= RAM_TOP + 1;
     // A workspace outside the fitted 4K is not one this machine can hold, so
-    // keep the bounds the cold start chose and lay the program under those.
+    // keep the bounds the cold start chose and lay the program under those. The
+    // floor matters as much as the ceiling: a workspace reaching below $0280
+    // covers the monitor's input buffer, which the `RUN` typed below would
+    // overwrite before the program could run.
     const top = fits ? himem : this.memory.peekWord(HIMEM);
     const bottom = fits ? lomem : this.memory.peekWord(LOMEM);
     // An image whose program does not fit the workspace it describes is a

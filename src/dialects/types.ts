@@ -1154,6 +1154,20 @@ export interface Dialect {
   /** Tokenizer dry-run for editor linting. */
   lint(source: string): TokenizeError[];
   /**
+   * This machine's reading of a physical source line that carries no line
+   * number and is program text all the same - the commands a real Apple I
+   * listing opens and closes with (`SCR`, `LOMEM=768`, a trailing `RUN`).
+   *
+   * Answers a stable key naming what the line commands, so that two spellings
+   * of the same one merge rather than doubling, and null for an ordinary line.
+   *
+   * Absent on every machine whose source is numbered lines and nothing else,
+   * which behaves exactly as it did before. The line-numbering and AI-merge
+   * paths read it to leave such a line alone: numbering it, moving it among the
+   * numbered lines, or dropping it each change what it means.
+   */
+  unnumberedLineKey?(lineText: string): string | null;
+  /**
    * URL of the machine ROM (resolved against the deployed base path). Omitted by
    * dialects whose emulator needs no ROM image - e.g. a pure high-level
    * interpreter - in which case the app skips the ROM fetch entirely.

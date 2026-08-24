@@ -9,11 +9,14 @@ import { CLEAR_SCREEN_TOKEN, RESET_TOKEN } from './keyboard';
 import { apple1 } from '../../dialects/apple1';
 import { fitRomImage } from '../../app/romImage';
 import {
+  DEFAULT_HIMEM,
+  DEFAULT_LOMEM,
   FIRMWARE_BYTES,
   HIMEM,
   LOMEM,
   MONITOR_BYTES,
   PP,
+  ZP_BLOCK_BASE,
 } from '../../dialects/apple1/addresses';
 
 /**
@@ -319,6 +322,45 @@ describe('Apple1Machine', () => {
     const stats = machine.readMemoryStats()!;
     expect(stats.used).toBeGreaterThan(0);
     expect(stats.used + stats.free).toBe(apple1.programRamBytes);
+  });
+
+  /**
+   * The whole chain, on the real ROM: a listing's own `LOMEM=`/`HIMEM=` reach
+   * the machine's pointers and the program runs in the room it asked for.
+   * Nothing types the preamble - the bounds ride in the image's zero-page block
+   * and are written straight into the pointers, the same way the program text
+   * is written rather than typed.
+   */
+  it('gives a program the workspace its preamble asked for', () => {
+    const machine = new Apple1Machine({ rom: ROM });
+    machine.loadProgram(
+      tokenize('LOMEM=768\nHIMEM=4096\n10 PRINT "HI"\n20 END\n'),
+    );
+    expect(machine.mem.peekWord(LOMEM)).toBe(768);
+    expect(machine.mem.peekWord(HIMEM)).toBe(4096);
+    // 3328 bytes between them, against the cold start's 2048.
+    const stats = machine.readMemoryStats()!;
+    expect(stats.used + stats.free).toBe(4096 - 768);
+
+    runUntil(machine, () => machine.isProgramRunning() === false, 600);
+    expect(machine.display.text()).toContain('HI');
+  });
+
+  /**
+   * An image is not necessarily one of ours - a truncated tape, or a range
+   * captured with BASIC not running. Bounds the machine could not hold are
+   * refused in favour of the ones the cold start laid down.
+   */
+  it('refuses a workspace an image describes but the machine cannot hold', () => {
+    const machine = new Apple1Machine({ rom: ROM });
+    const image = tokenize('10 END\n');
+    // LOMEM under the monitor's input buffer: the RUN typed to start the
+    // program would be assembled straight over the workspace.
+    image[LOMEM - ZP_BLOCK_BASE] = 0x10;
+    image[LOMEM - ZP_BLOCK_BASE + 1] = 0x00;
+    machine.loadProgram(image);
+    expect(machine.mem.peekWord(LOMEM)).toBe(DEFAULT_LOMEM);
+    expect(machine.mem.peekWord(HIMEM)).toBe(DEFAULT_HIMEM);
   });
 
   it('stamps the addresses its CPU touches, only while asked to', () => {

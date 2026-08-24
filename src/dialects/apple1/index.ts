@@ -21,6 +21,7 @@ import { apple1MemoryMap } from './memoryMap';
 import { apple1Samples } from './samples';
 import { apple1BuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
+import { apple1UnnumberedLineKey, workspacePreamble } from './directLine';
 import { decodeCassette } from './audio/aciDecoder';
 import { CASSETTE_SAMPLE_RATE, buildCassetteSamples } from './audio/aciEncoder';
 import { buildBasicImage, parseBasicImage } from './basicImage';
@@ -45,6 +46,21 @@ import { Apple1Machine } from '../../emulator/apple1/apple1Machine';
  * pads a short image with 0xFF, which this machine reads as "no interpreter
  * fitted" rather than as a broken ROM.
  */
+/**
+ * Restate a non-stock workspace ahead of a recovered listing.
+ *
+ * The bounds live in the dump's zero-page block, and the text form's only way
+ * of carrying them is the preamble the machine's own listings write. Without
+ * this an imported program would be rebuilt into the stock workspace, which is
+ * a different image and, for a program that needed the room, a different
+ * program.
+ */
+function withPreamble(source: string, lomem: number, himem: number): string {
+  const preamble = workspacePreamble(lomem, himem);
+  if (preamble.length === 0) return source;
+  return `${preamble.join('\n')}\n${source}`;
+}
+
 export const apple1: Dialect = {
   id: 'apple1',
   name: 'Apple I',
@@ -69,23 +85,33 @@ export const apple1: Dialect = {
    * grows down, so `image` is built around it rather than from a base address.
    */
   tokenize(source: string): TokenizeResult {
-    const { program, errors } = tokenizeProgram(source);
+    const { program, errors, workspace } = tokenizeProgram(source);
     const all = [...errors, ...apple1VariableErrors(source, apple1Keywords)];
-    if (program.length > COLD_START_BYTES_FREE) {
+    const capacity = workspace.himem - workspace.lomem;
+    if (program.length > capacity) {
       all.push({
         line: 1,
         column: 0,
-        message: `Program is ${program.length} bytes; the stock workspace holds ${COLD_START_BYTES_FREE}, shared with its variables`,
+        message: workspace.declared
+          ? `Program is ${program.length} bytes; the workspace this listing asks for holds ${capacity}, shared with its variables`
+          : `Program is ${program.length} bytes; the stock workspace holds ${capacity}, shared with its variables`,
       });
     }
     const runnable = hasFatalErrors(all) ? new Uint8Array(0) : program;
     return {
       programBytes: runnable,
-      image: buildBasicImage(runnable),
+      image: buildBasicImage(runnable, workspace),
       errors: all,
       byteSize: program.length,
     };
   },
+
+  /**
+   * The commands this machine takes without a line number. Consulted by the
+   * editor's numbering and the AI merge, so neither numbers one, reorders one,
+   * or drops one - each would change what the line means.
+   */
+  unnumberedLineKey: apple1UnnumberedLineKey,
 
   /**
    * The seam hands over the whole image - both ACI ranges - so the program text
@@ -93,11 +119,14 @@ export const apple1: Dialect = {
    * the address the housekeeping block's PP pointer gives.
    */
   detokenize(image: Uint8Array): string {
-    return detokenizeProgram(parseBasicImage(image).program);
+    const { program, lomem, himem } = parseBasicImage(image);
+    return withPreamble(detokenizeProgram(program), lomem, himem);
   },
 
   detokenizeWithReport(image: Uint8Array) {
-    return detokenizeProgramWithReport(parseBasicImage(image).program);
+    const { program, lomem, himem } = parseBasicImage(image);
+    const result = detokenizeProgramWithReport(program);
+    return { ...result, source: withPreamble(result.source, lomem, himem) };
   },
 
   lint(source: string): TokenizeError[] {

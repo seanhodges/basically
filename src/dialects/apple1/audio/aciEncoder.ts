@@ -144,8 +144,11 @@ function renderPhases(
  * workspace with pointers into nothing instead of failing loudly.
  */
 export function buildCassetteImage(source: string): Uint8Array {
-  const { program, errors } = tokenizeProgram(source);
-  return buildBasicImage(buildImageOrThrow({ bytes: program, errors }));
+  const { program, errors, workspace } = tokenizeProgram(source);
+  return buildBasicImage(
+    buildImageOrThrow({ bytes: program, errors }),
+    workspace,
+  );
 }
 
 /**
