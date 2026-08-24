@@ -121,6 +121,10 @@ export const apple1: Dialect = {
   statementSeparator: ':',
   memoryReads: { forms: ['peek'] },
 
+  // Integer BASIC keeps a pointer to the line it is executing (PLINE), so the
+  // machine can name a line and be stepped a line at a time.
+  debuggable: true,
+
   memoryMap: apple1MemoryMap,
   memoryBlocks: apple1MemoryBlocks,
 

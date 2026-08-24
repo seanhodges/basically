@@ -40,6 +40,20 @@ export const FIRMWARE_BYTES = MONITOR_BYTES + BASIC_BYTES;
 export const BASIC_COLD_ENTRY = 0xe000;
 export const BASIC_WARM_ENTRY = 0xe2b3;
 
+/**
+ * The head of the interpreter's command loop, and the one address every way of
+ * finishing with a program arrives at.
+ *
+ * The warm start is `JSR $E3CD` (print a carriage return) and falls straight
+ * into it; the three instructions here are `LSR $D9` (drop the flag that says a
+ * program is running), `LDA #$BE` and `JSR $E3C9`, which is the `>` prompt
+ * being printed. Falling off the end, `END`, a break from the keyboard and every
+ * `*** ... ERR` report all reach it, whereas the warm start itself is reached by
+ * only some of them - which is why this is the address the emulator watches to
+ * know a run is over.
+ */
+export const BASIC_COMMAND_LOOP = 0xe2b6;
+
 /** 6821 PIA: keyboard data/control, display data/control. */
 export const KBD = 0xd010;
 export const KBDCR = 0xd011;

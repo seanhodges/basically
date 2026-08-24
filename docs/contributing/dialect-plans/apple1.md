@@ -143,7 +143,7 @@ authoritative until a test reads it back off the running machine.
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core                          | ⬜     |
+| 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Memory map & runtime introspection     | ⬜     |
@@ -226,64 +226,79 @@ these rather than from the summary at the top of this file.
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
-The bus goes in `src/emulator/apple1/`, next to `pet/` and `vic20/`.
+The bus went in `src/emulator/apple1/`, next to `pet/` and `vic20/`.
 
-- [ ] `src/emulator/apple1/apple1Machine.ts` implementing `MachineEmulator` over
+- [x] `src/emulator/apple1/apple1Machine.ts` implementing `MachineEmulator` over
       the vendored 6502 core, plus `memory.ts`, `terminal.ts`, `keyboard.ts`,
       `pia.ts`
-- [ ] `memory.ts` — RAM at `$0000`–`$0FFF` and `$E000`–`$EFFF`, the supplied
-      image split into WozMon at `$FF00` and BASIC at `$E000`, PIA decode at
-      `$D010`–`$D013` (the real board mirrors `$D010` across the `$Dxxx` page —
-      model the mirroring or document why not), open bus elsewhere
-- [ ] `terminal.ts` — **the terminal PROMs as logic.** 40×24 grid, CR-only line
-      discipline (the machine has no LF, no backspace-as-erase, no clear-screen
-      escape and no cursor addressing), hardware scroll on overflow, flashing `@`
-      cursor, and the DSP busy bit at `$D012` bit 7 held for one character time
-      so software that polls it paces correctly (~60 characters/second — confirm
-      against the Operation Manual). `renderTo` draws the grid with the host font,
-      as `trs80/emulator/display.ts` does; a hand-authored 5×7 bitmap table is a
-      Stage 6 option, not a Stage 2 requirement.
-- [ ] `keyboard.ts` — the PIA keyboard: a key press latches ASCII with bit 7 set
-      into `$D010` and raises `$D011` bit 7 until `$D010` is read. Also the
-      machine's `CLEAR SCREEN` and `RESET` buttons, which are wired to hardware,
-      not to the CPU's keyboard port.
-- [ ] Build the run loop with `createMachineLoop` — its contract takes
-      `cyclesPerFrame`, a `step`, a `currentLine` and the `onSliceStart` /
-      `onSliceEnd` hooks — **through the shared factory, never by hand.** `runFrame` and `debugStep` must share one step function; a debug
-      session opens on any press of Play, so anything owed once per slice (the
-      profile charge, the free-running cycle counter the terminal paces itself
-      against, the cursor-flash counter) has to be owed through the hooks. This
-      is the failure mode the skill documents with three shipped bugs.
-- [ ] `currentLine()` / `debugStep()` + `debuggable: true` on the dialect —
-      `currentLine` reads Integer BASIC's current-line pointer out of zero page
-- [ ] `loadProgram()` — boot to the monitor, type `E000R` to cold-start BASIC (or
-      `E2B3R` to warm-start when BASIC is already up), then inject the tokenized
-      program straight into the program area and fix up the zero-page pointers,
-      rather than typing the listing in through the keyboard PIA at 60 cps. Model
-      it on the Altair's boot dialogue (`altairMachine.ts`), which drives the same
-      shape of problem through a console.
-- [ ] `isProgramRunning()` (see `src/emulator/programEndLatch.ts`) and
-      `readScreenText()` — the screen _is_ the output on this machine, so the
-      screen reader is load-bearing for tests, not a nicety
-- [ ] The monitor-only state: an image whose BASIC half is all `0xFF` (a user's
-      own 256-byte monitor, padded by the seam) boots to the monitor and reports
-      no interpreter fitted, rather than running off into the padding.
-      `NO_IMAGE_NOTICE` in `altairMachine.ts` is the wording pattern
-- [ ] `displaySize` on the dialect
-- [ ] `public/roms/apple1.rom` and its `public/roms/ATTRIBUTION.md` block are
-      **already committed** — the file is built by
-      `scripts/build-apple1-rom.mts`, not by hand, so a rebuild from different
-      inputs stays checkable
-- [ ] tests: boot the monitor and assert its prompt; boot BASIC and assert its
-      `>` prompt; inject a program and read it back. These read the real ROM out
-      of `public/roms/`, like every other machine's emulator tests — there is no
-      skip-when-absent arrangement here, because the image ships.
+- [x] `memory.ts` — RAM at `$0000`–`$0FFF` and `$E000`–`$EFFF` (the interpreter
+      block is RAM: BASIC arrived on tape, so a program really can overwrite it),
+      the supplied image split into WozMon at `$FF00` and BASIC at `$E000`, and
+      the PIA repeated across the whole `$Dxxx` page — the board hands the chip
+      its page select and **A4** alone, so `$D014`, `$D110` and `$D9F2` are the
+      same four cells as `$D010`. Everything unfitted reads `$FF`.
+- [x] `terminal.ts` — the terminal PROMs as logic: 40×24 grid, carriage return
+      as the whole line discipline, hardware scroll, flashing `@` cursor, and
+      the DSP busy bit held for one character time.
+- [x] `keyboard.ts` — the PIA keyboard, with a typeahead queue in front of the
+      board's single latch, plus the CLEAR SCREEN and RESET buttons as tokens
+      that send no character
+- [x] the run loop through `createMachineLoop`, with the keyboard drained at
+      `onSliceStart` and the cursor's flash counted at `onSliceEnd`, so a debug
+      slice owes exactly what a frame owes
+- [x] `currentLine()` / `debugStep()` + `debuggable: true` on the dialect, and
+      the profiler (`LineCostRecorder`) charged from the shared step
+- [x] `loadProgram()` — boot to the monitor, type `E000R`, then write the
+      program into the workspace and fix LOMEM/HIMEM/PP/PV, and type `RUN`
+- [x] `isProgramRunning()` (via `ProgramEndLatch`) and `readScreenText()`
+- [x] the monitor-only state: an image whose BASIC half is all `0xFF` boots to
+      the monitor and says `NO BASIC FITTED.` rather than running into the
+      padding. An image with no monitor either says so and steps nothing.
+- [x] `displaySize` on the dialect (Stage 1 already declared it)
+- [x] `public/roms/apple1.rom` and its `public/roms/ATTRIBUTION.md` block
+- [x] tests: 50 across the five files — the monitor prompt, the `>` prompt, a
+      program injected and read back with `LIST` typed at the virtual keyboard,
+      the character-a-field pacing, CTRL-C, the RESET button, both missing-image
+      states, and a local debug-slice parity check until the registry-driven one
+      picks the dialect up
+
+### What the emulator turned out to be
+
+Seven things later stages should work from.
+
+1. **The display is one character per video field, and that is the machine.**
+   The shift register has to rotate once for a character to go in, so the
+   Apple I writes exactly 60 characters a second — a frame each. `CYCLES_PER_FIELD`
+   is both the frame budget and the character time for that reason. It is the
+   single biggest fact about how the machine feels, and Stage 3's samples have
+   to be written knowing that a screenful of text costs sixteen seconds.
+2. **`PLINE` (`$DC`) is a pointer, not a line number.** It holds the address of
+   the current line's length byte; the number is the word after it. Zero in
+   direct mode, and left pointing at the last line executed once a program
+   stops.
+3. **`$E2B6` is the head of the command loop, and the address to watch.** The
+   warm start at `$E2B3` is `JSR $E3CD` and falls into it, but only _some_
+   endings go through the warm start: `END` does, and falling off the end does
+   not. Every ending reaches `$E2B6`.
+4. **`$D9` bit 7 is Integer BASIC's "a program is running" flag** — the command
+   loop's first instruction is `LSR $D9`. Not used here (the latch describes the
+   run the IDE started, which is what every caller asks about) but it is the
+   cell Stage 5 wants if a direct reading is ever preferred.
+5. **Falling off the end is an error**, reported as `*** END ERR`. A program
+   without a final `END` still terminates cleanly, but its last line on screen
+   is a report. Worth knowing for Stage 5's `readReport` and for the samples.
+6. **CTRL-C breaks a running program**, and the interpreter answers
+   `STOPPED AT <line>`. The keyboard sends it the way the encoder did, by
+   clearing bits 5 and 6.
+7. **Cold start fixes LOMEM `$0800` and HIMEM `$1000`** whatever RAM is fitted —
+   they are defaults, not the result of a sizing walk — which is why
+   `programRamBytes: 2048` describes the machine rather than this emulator.
 
 **Depends on:** Stage 1 (charset for the terminal, image builder for
 `loadProgram`).
-**Verify:** emulator boot test passes.
+**Verify:** `npx vitest run src/emulator/apple1` + `npm run typecheck`.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
