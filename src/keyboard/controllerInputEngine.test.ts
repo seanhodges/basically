@@ -238,12 +238,30 @@ describe('ControllerInputEngine (joystick mode)', () => {
     expect(rec.joystick.length).toBe(before); // onFrame is a no-op here
   });
 
-  it('cancelAll centres the joystick and releases keys', () => {
+  it('cancelAll releases the keys it was holding, and only then', () => {
+    const rec = recorder();
+    const e = new ControllerInputEngine(
+      ROLE_TOKENS,
+      { getMachine: () => rec.machine },
+      { mode: 'keymapped', minHoldFrames: 0 },
+    );
+    e.cancelAll();
+    // Nothing was held, so the machine's own key state is not ours to reset:
+    // the overlay is rebuilt on every focus hand-off, over a running machine.
+    expect(rec.releasedAll).toBe(0);
+    e.pressRole(1, 'fire1');
+    e.cancelAll();
+    expect(rec.releasedAll).toBe(1);
+  });
+
+  it('cancelAll centres the joystick', () => {
     const rec = recorder();
     const e = controller(rec);
     e.setPointerRoles(1, roles('down', 'fire1'));
     e.cancelAll();
-    expect(rec.releasedAll).toBe(1);
+    // Native mode drives the port, not the matrix, so there are no keys to
+    // release - centring the stick is the whole of it.
+    expect(rec.releasedAll).toBe(0);
     expect(rec.joystick.at(-1)![1]).toEqual({
       up: false,
       down: false,

@@ -288,6 +288,16 @@ describe('KeyboardInputEngine', () => {
     expect(machine.down.size).toBe(0);
   });
 
+  it('cancelAll leaves the machine alone when it was holding nothing', () => {
+    // The keyboard overlay is built and torn down whenever focus moves between
+    // the editor and the emulator, which on the tab layout is exactly when a
+    // run starts. `releaseAllKeys` resets every key state the machine has, so
+    // an overlay that never pressed a key must not send one on its way out.
+    const { machine, engine } = setup();
+    engine.cancelAll();
+    expect(machine.releaseAllCalls).toBe(0);
+  });
+
   it('pointercancel on a held modifier releases it without going sticky', () => {
     const { machine, engine } = setup();
     engine.pointerDown('Shift', 1);

@@ -226,6 +226,9 @@ export class Apple1Machine implements MachineEmulator {
     this.terminal.clear();
     this.pia.reset();
     this.keyboard.releaseAll();
+    // A power cycle abandons the loader's command too, which `releaseAll`
+    // deliberately does not: there is no machine left for it to be typed at.
+    this.keyboard.clearInput();
     this.keyLatch = 0x80;
     this.runLatch.clear();
     this.loop.reset();

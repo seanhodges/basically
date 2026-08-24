@@ -119,11 +119,38 @@ describe('apple1 keyboard', () => {
   it('drops modifiers and typeahead on release-all', () => {
     const h = harness();
     h.keyboard.setToken('Shift', true);
-    h.keyboard.type('AB');
+    h.press('KeyA');
+    h.press('KeyB');
     h.keyboard.releaseAll();
     expect(h.drain()).toBe('');
     h.press('Digit2');
     expect(h.drain()).toBe('2'); // shift is no longer held
+  });
+
+  it('keeps the loader’s command through a release-all', () => {
+    // The IDE releases every key whenever focus moves off the emulator - an
+    // on-screen keyboard going away as a run starts, a blur, a pause - and the
+    // `RUN` the loader types takes a field per character to go in. Dropping it
+    // there leaves the machine at `>R`, waiting for the rest to be typed by
+    // hand.
+    const h = harness();
+    h.keyboard.type('RUN\r');
+    h.keyboard.releaseAll();
+    expect(h.drain()).toBe('RUN\r');
+  });
+
+  it('takes the loader’s command before anything typed at it', () => {
+    const h = harness();
+    h.keyboard.type('RUN\r');
+    h.press('KeyX'); // a keypress while the command is still going in
+    expect(h.drain()).toBe('RUN\rX');
+  });
+
+  it('drops the loader’s command on a reset', () => {
+    const h = harness();
+    h.keyboard.type('RUN\r');
+    h.keyboard.clearInput();
+    expect(h.drain()).toBe('');
   });
 
   it('translates every token it advertises', () => {
