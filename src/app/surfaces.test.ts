@@ -20,7 +20,8 @@ beforeAll(() => {
 });
 
 const { useIdeStore } = await import('./store');
-const { SURFACES, isOpenValue } = await import('./surfaces');
+const { SURFACES, isOpenValue, editorPopupsRetired } =
+  await import('./surfaces');
 const { computeSnapshot, openKeys } = await import('./historyNav');
 
 /**
@@ -278,5 +279,93 @@ describe('the docs value carries its topic', () => {
 
     useIdeStore.getState().closeDocs();
     expect(read()).toBe(null);
+  });
+});
+
+describe("what a surface does to the editor's popups", () => {
+  /**
+   * How to open each registered surface, so this file can raise every one of
+   * them in turn. Kept complete by the first test below: a surface added to the
+   * registry without an entry here fails, rather than quietly going untested.
+   *
+   * `write` won't do: the two confirmations and the variable detail are
+   * close-only by design (see the registry), so a value written to them opens
+   * nothing.
+   */
+  const OPEN_PATCH: Record<string, Record<string, unknown>> = {
+    tab: { mobileTab: 'ai' },
+    settings: { settingsOpen: true },
+    ai: { aiPanelOpen: true },
+    keyboard: { keyboardEnabled: true },
+    controller: { controllerEnabled: true },
+    remap: { controllerRemapRole: 'fire1' },
+    docs: { docsDrawerOpen: true },
+    import: { importOpen: true },
+    transfer: { transferOpen: true },
+    share: { shareLinkOpen: true },
+    vfs: { vfsInspectorOpen: true },
+    outline: { procedureListOpen: true },
+    runProfile: { runProfileOpen: true },
+    memoryMap: { memoryMapOpen: true },
+    welcome: { welcomeOpen: true },
+    newProject: { newProjectOpen: true },
+    machinePicker: { machinePickerOpen: true },
+    blockSettings: { blockSettingsId: 'block-1' },
+    variableDetail: {
+      variableDetail: { name: 'A', kind: 'number', value: '0' },
+    },
+    deleteBlock: { pendingDeleteBlockId: 'block-1' },
+    switchTarget: { pendingDialectId: 'zxspectrum' },
+  };
+
+  /** The mobile `tab` surface only reads open in the mobile layout. */
+  const layoutFor = (key: string) => key === 'tab';
+
+  it('has a way to open every registered surface', () => {
+    expect(
+      SURFACES.map((s) => s.key).filter((k) => !(k in OPEN_PATCH)),
+    ).toEqual([]);
+  });
+
+  it('retires them for everything the user raises over the editor', () => {
+    // Registry-driven rather than a list of dialogs: a surface registered later
+    // retires the popups by default, and this fails if it silently doesn't.
+    const retiring = SURFACES.filter((surface) => {
+      closeEverything();
+      useIdeStore.setState(OPEN_PATCH[surface.key] as never);
+      return editorPopupsRetired(
+        useIdeStore.getState(),
+        layoutFor(surface.key),
+      );
+    }).map((s) => s.key);
+
+    const expected = SURFACES.filter((s) => !s.editorInput).map((s) => s.key);
+    expect(retiring).toEqual(expected);
+    // Sanity: the set has to be most of the registry, or a broken read would
+    // agree with a broken expectation.
+    expect(expected.length).toBeGreaterThan(10);
+  });
+
+  it('leaves them alone for the on-screen input overlays', () => {
+    // The keyboard is how the editor is typed into, and it appears of its own
+    // accord when a pane takes focus - taking the completion list away as it
+    // arrives would remove the offer the user was reaching for.
+    const input = SURFACES.filter((s) => s.editorInput).map((s) => s.key);
+    expect(input).toEqual(['keyboard', 'controller', 'remap']);
+
+    for (const key of input) {
+      closeEverything();
+      useIdeStore.setState(OPEN_PATCH[key] as never);
+      expect(
+        editorPopupsRetired(useIdeStore.getState(), false),
+        `${key} should not retire the editor's popups`,
+      ).toBe(false);
+    }
+  });
+
+  it('retires nothing while nothing is open', () => {
+    for (const isMobile of [false, true]) {
+      expect(editorPopupsRetired(useIdeStore.getState(), isMobile)).toBe(false);
+    }
   });
 });

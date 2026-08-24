@@ -73,7 +73,9 @@
    the toolbar dropdown look (Toolbar.module.css .menuItems). */
 .contextMenu {
   position: fixed;
-  z-index: 100;
+  /* Anchored at the pointer rather than inside the tab bar, so it needs its own
+     band on the overlay scale (src/styles.css) to clear the editor's popups. */
+  z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
   min-width: 140px;
