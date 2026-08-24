@@ -33,7 +33,12 @@
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import type { BasicLanguageOptions } from './basicLanguage';
 import { eachOccurrence, type Occurrence } from './variables';
-import { PMD85_LEXIS, VARIABLE_LEXIS, variableRules } from './variableLexis';
+import {
+  APPLE1_LEXIS,
+  PMD85_LEXIS,
+  VARIABLE_LEXIS,
+  variableRules,
+} from './variableLexis';
 
 /** The lexis a machine's names follow; see {@link VARIABLE_LEXIS}. */
 function lexisFor(dialectId: string): BasicLanguageOptions {
@@ -258,6 +263,36 @@ export function altair8800VariableErrors(
     label: 'Altair',
     lexis: lexisFor('altair8800'),
   });
+}
+
+/**
+ * Apple 1 Integer BASIC has only the embedded-keyword half of the Microsoft
+ * rules, and it has it for a different reason.
+ *
+ * There is no two-character truncation to warn about: a name here *is* one
+ * letter and at most one digit, so nothing is long enough to collide - `AB=2`
+ * and `A12=1` are refused outright by the tokenizer rather than quietly folded
+ * together. What survives is the crunch hazard, because the entry parser skips
+ * spaces and tries its keyword rules first: a name written where the ROM will
+ * see a reserved word instead is a real `*** SYNTAX ERR`.
+ */
+export function apple1VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules(APPLE1_LEXIS, keywords);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const kw = occ.embedsKeyword;
+    if (!kw) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: `Apple I variable name '${occ.name}' embeds the reserved word '${kw}'.`,
+    });
+  });
+  return errors;
 }
 
 /**

@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { Dialect, TokenizeError, TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type TokenizeError,
+  type TokenizeResult,
+} from '../types';
 import { apple1AiProfile } from './aiProfile';
 import { apple1Charset } from './charset';
 import { apple1KeyboardLayout } from './keyboardLayout';
@@ -16,13 +21,18 @@ import { apple1MemoryMap } from './memoryMap';
 import { apple1Samples } from './samples';
 import { apple1BuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
+import { buildBasicImage } from './basicImage';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
+import { tokenizeProgram } from './tokenizer';
+import { apple1VariableErrors } from '../../editor/variableLint';
 import { Apple1Machine } from '../../emulator/apple1/apple1Machine';
 
 /**
  * The Apple I (Apple 1 Integer BASIC).
  *
- * Every member below is a throwing stub, and the dialect is deliberately absent
- * from `src/dialects/registry.ts` so an unfinished machine cannot be picked.
+ * The dialect is deliberately absent from `src/dialects/registry.ts` until it
+ * has an emulator, a keyboard and samples, so an unfinished machine cannot be
+ * picked.
  *
  * The one thing worth knowing before reading further: this machine's firmware is
  * two chips, and the ROM seam carries one image per dialect, so `apple1.rom` is
@@ -51,16 +61,43 @@ export const apple1: Dialect = {
   completionSource: apple1CompletionSource,
   crunched: apple1Crunched,
 
-  tokenize(_source: string): TokenizeResult {
-    throw new Error('apple1: not implemented');
+  /**
+   * Text to the bytes the interpreter stores, plus the pair of memory ranges a
+   * cassette dump holds. The program sits at the *top* of the workspace and
+   * grows down, so `image` is built around it rather than from a base address.
+   */
+  tokenize(source: string): TokenizeResult {
+    const { program, errors } = tokenizeProgram(source);
+    const all = [...errors, ...apple1VariableErrors(source, apple1Keywords)];
+    if (program.length > COLD_START_BYTES_FREE) {
+      all.push({
+        line: 1,
+        column: 0,
+        message: `Program is ${program.length} bytes; the stock workspace holds ${COLD_START_BYTES_FREE}, shared with its variables`,
+      });
+    }
+    const runnable = hasFatalErrors(all) ? new Uint8Array(0) : program;
+    return {
+      programBytes: runnable,
+      image: buildBasicImage(runnable),
+      errors: all,
+      byteSize: program.length,
+    };
   },
 
-  detokenize(_image: Uint8Array): string {
-    throw new Error('apple1: not implemented');
+  detokenize(image: Uint8Array): string {
+    return detokenizeProgram(image);
   },
 
-  lint(_source: string): TokenizeError[] {
-    throw new Error('apple1: not implemented');
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(image);
+  },
+
+  lint(source: string): TokenizeError[] {
+    return [
+      ...tokenizeProgram(source).errors,
+      ...apple1VariableErrors(source, apple1Keywords),
+    ];
   },
 
   /**
@@ -77,10 +114,11 @@ export const apple1: Dialect = {
   // Integer BASIC has no hex literal: PEEK and POKE take signed decimal, which
   // is why an I/O address is written negative.
   addressNotation: 'hex',
-  // Null until somebody establishes whether this BASIC accepts more than one
-  // statement per line, and with which separator. Apple II Integer BASIC's ':'
-  // is not evidence for the 1976 interpreter.
-  statementSeparator: null,
+  // `:` really is the separator here, not just on the Apple II: the
+  // interpreter's own `null_stmt` handler is annotated "used to execute LET
+  // keyword or colon (statement separator)", and `10 A=1: PRINT A` stores the
+  // colon as token $03.
+  statementSeparator: ':',
   memoryReads: { forms: ['peek'] },
 
   memoryMap: apple1MemoryMap,

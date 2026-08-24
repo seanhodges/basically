@@ -184,6 +184,19 @@ MAME and others), and are published alongside the machine's documentation by the
 Apple-1 Registry (https://www.apple1registry.com). They are included here,
 unmodified, solely for use with the bundled emulator.
 
+The two halves are unmodified copies of the images distributed with
+[alangarf/apple-one](https://github.com/alangarf/apple-one) (the monitor) and
+[alexander-akhmetov/apple1](https://github.com/alexander-akhmetov/apple1) (the
+interpreter), each checked against a second independent copy before being built
+into the file. The interpreter is the original Apple release rather than the
+Replica 1 revision: it addresses the display register through its `$D0F2` mirror
+at `$E3D6`/`$E3DB`, where the Replica 1 image was changed to the canonical
+`$D012`. For anyone rebuilding the file, the SHA-256 of each part is
+
+    monitor  256 bytes  e5af0d1c4057bd8e0ef5cb069c208ff7cc0984a7dff53b12c5cf119de8cb5c25
+    BASIC   4096 bytes  bf80009454610a1066489da635a8afb51ad42442d307251896a53bedbeaadd46
+    file    4352 bytes  c8b17a7c2da55eca91e38fced792108ddca0be12192b810fbb0ebd1be14e30eb
+
 (The IDE also supports supplying your own ROM image at runtime, from Settings ▸
 Emulator, so the bundled copy can be removed without disabling the feature. A
 replacement image may be any size; it is fitted to the machine's ROM area, which
