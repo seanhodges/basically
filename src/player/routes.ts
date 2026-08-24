@@ -31,6 +31,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'fill', dialectId: 'cpc6128' }, // FILL - a BASIC 1.1-only keyword the 464 lacks
   { verb: 'csave', dialectId: 'altair8800' }, // CSAVE - Altair 8K BASIC cassette save
   { verb: 'plot', dialectId: 'pmd85' }, // PLOT - BASIC-G's draw-to-here command
+  { verb: 'auto', dialectId: 'apple1' }, // AUTO - Integer BASIC's automatic line numbering
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).

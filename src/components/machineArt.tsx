@@ -90,6 +90,11 @@ const PMD_PANEL = '#6b6f76';
    keyboard uses for an unthemed cap, because at portrait size a black grid on
    a dark case is one shape, not fifteen columns of keys. */
 const PMD_KEYS = '#363a41';
+const APPLE_BOARD = '#2f6b4a';
+const APPLE_BOARD_DIM = '#27593e';
+const APPLE_CHIP = '#1b1d21';
+const APPLE_GOLD = '#c9a227';
+const APPLE_WOOD = '#8c5a34'; // the Byte Shop's koa tray, not a factory case
 const SCREEN_BLACK = '#0b0d0a';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
@@ -107,6 +112,7 @@ const BASE = {
   cpc: '#0e0e10',
   altair: '#20262f',
   pmd: '#3f4247',
+  apple: '#5e3b21',
 };
 
 /* ---------------------------------------------------------------------------
@@ -536,6 +542,57 @@ function Pmd85Art({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Apple */
+
+/**
+ * Apple I: the one machine here with no case of its own. Apple sold a bare
+ * board, and the wooden tray under this one is the Byte Shop's - which is why
+ * the silhouette is a circuit board rather than a computer: a green PCB carrying
+ * four rows of black DIPs, the two big sockets of the monitor PROM pair standing
+ * out at the left of the top row, and the gold edge-connector fingers along the
+ * bottom where the board met its power supply and expansion.
+ */
+function Apple1Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M1 25h46v4H1z" fill={BASE.apple} />
+      <path d="M1 6h46v19H1z" fill={APPLE_WOOD} />
+      <path d="M4 8h40v16H4z" fill={APPLE_BOARD} />
+      {/* The ground plane across the top third of the board. */}
+      <path d="M4 8h40v3H4z" fill={APPLE_BOARD_DIM} />
+      {/* Four rows of DIPs. The first two of the top row are the wide sockets
+          the monitor PROMs sat in; every other package is a 14- or 16-pin. */}
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: r === 0 ? 8 : 9 }, (_, c) => {
+          const wide = r === 0 && c < 2;
+          return (
+            <rect
+              key={`c${r}-${c}`}
+              x={5.5 + (r === 0 ? c * 4.7 : c * 4.2)}
+              y={9 + r * 3.6}
+              width={wide ? 4 : 3.2}
+              height="2.4"
+              fill={APPLE_CHIP}
+            />
+          );
+        }),
+      )}
+      {/* The edge connector: gold fingers on the board's bottom lip. */}
+      {Array.from({ length: 12 }, (_, i) => (
+        <rect
+          key={`f${i}`}
+          x={7 + i * 2.9}
+          y="22.4"
+          width="1.8"
+          height="1.6"
+          fill={APPLE_GOLD}
+        />
+      ))}
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -556,6 +613,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   cpc6128: Cpc6128Art,
   altair8800: Altair8800Art,
   pmd85: Pmd85Art,
+  apple1: Apple1Art,
 };
 
 /** A machine's portrait, `size` px tall. */

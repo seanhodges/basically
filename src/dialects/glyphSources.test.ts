@@ -235,6 +235,13 @@ const ANCHORS: Record<
  */
 const WITHOUT_GLYPHS = new Set(['altair8800']);
 
+/**
+ * The code that means "A" on a dialect with no ROM anchor above and no ASCII
+ * `A` either. The Apple I's display and keyboard both carry bit 7 as part of
+ * the code, so its letters sit at 0xC1-0xDA.
+ */
+const LETTER_A: Record<string, number> = { apple1: 0xc1 };
+
 /** Dialect ids that declare at least one ROM-backed source. */
 const romBacked = Object.entries(GLYPH_SOURCES)
   .filter(([, sources]) => sources.some((s) => s.kind === 'rom'))
@@ -561,7 +568,10 @@ describe('glyph sources', () => {
       // unless it has no glyphs of its own at all, which is a claim in itself
       // and is pinned below.
       if (WITHOUT_GLYPHS.has(id)) continue;
-      expect(sourceFor(id, ANCHORS[id]?.code ?? 0x41), id).toBeDefined();
+      expect(
+        sourceFor(id, ANCHORS[id]?.code ?? LETTER_A[id] ?? 0x41),
+        id,
+      ).toBeDefined();
     }
   });
 

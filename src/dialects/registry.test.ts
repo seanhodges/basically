@@ -34,6 +34,7 @@ describe('dialect registry', () => {
     cpc6128: 'hex',
     altair8800: 'dec',
     pmd85: 'hex',
+    apple1: 'hex',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -63,6 +64,10 @@ describe('dialect registry', () => {
     // Ships its ROM pair concatenated in one image, and takes a replacement
     // the same way - Monitor 2 first, then the BASIC-G module.
     'pmd85',
+    // Likewise two chips in one image: WozMon first, then Integer BASIC. The
+    // monitor leads so that a short replacement - the monitor alone - still
+    // boots, the seam padding the rest with 0xFF.
+    'apple1',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {

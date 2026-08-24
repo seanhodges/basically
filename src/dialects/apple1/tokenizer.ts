@@ -59,7 +59,6 @@ const BINARY_OPS: [string, number][] = [
   ['<=', T.LE],
   ['>=', T.GE],
   ['<>', T.NE_ANGLE],
-  ['^', T.POW],
   ['*', T.MUL],
   ['/', T.DIV],
   ['+', T.ADD],
@@ -392,6 +391,15 @@ class LineParser {
         this.emit(named);
         this.operand();
         continue;
+      }
+      // `^` is in the syntax table and reaches no handler: a line carrying one
+      // tokenizes, runs as far as the operator and never comes back, which is
+      // worse than being told. Refused here rather than emitted, on the same
+      // footing as the vestigial graphics words.
+      if (this.body[this.pos] === '^') {
+        this.fail(
+          'The Apple I has no power operator: ^ is in the syntax table but reaches no handler, and a program using it hangs. Multiply, or loop',
+        );
       }
       const symbol = BINARY_OPS.find(([text]) => this.eat(text));
       if (!symbol) return type;

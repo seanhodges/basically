@@ -279,6 +279,46 @@ describe('Apple1Machine', () => {
     throw new Error('the slice never paused on line 20');
   });
 
+  it('reports the workspace the cold start lays down, from both ends', () => {
+    // The machine has no Ready prompt to read this at: left alone it stops in
+    // the monitor with no interpreter running and no pointers to read, which is
+    // why programRamBudget.test.ts excuses it and the figure is pinned here
+    // instead. Once BASIC is up, the cold start fixes LOMEM and HIMEM at $0800
+    // and $1000 whatever RAM is fitted, which is the 2048 the dialect declares.
+    const machine = new Apple1Machine({ rom: ROM });
+    expect(machine.readMemoryStats()).toBeNull();
+    machine.bootToBasic();
+    expect(machine.readMemoryStats()).toEqual({
+      used: 0,
+      free: apple1.programRamBytes,
+    });
+
+    // A loaded program is charged against the same 2048: the text goes in at
+    // the top and the figure counts it from there, so used + free is the whole
+    // workspace whatever is in it.
+    const image = tokenize('10 A=1\n20 END\n');
+    machine.loadProgram(image);
+    const stats = machine.readMemoryStats()!;
+    expect(stats.used).toBeGreaterThan(0);
+    expect(stats.used + stats.free).toBe(apple1.programRamBytes);
+  });
+
+  it('stamps the addresses its CPU touches, only while asked to', () => {
+    const machine = new Apple1Machine({ rom: ROM });
+    // Off by default, and nothing to drain while off.
+    expect(machine.drainMemoryActivity()).toBeNull();
+    machine.setMemoryActivityRecording(true);
+    machine.runFrame();
+    const hits = machine.drainMemoryActivity()!;
+    expect(hits).toHaveLength(0x10000);
+    // The monitor is where the CPU is, so its page is the one being read.
+    expect(hits.subarray(0xff00).some((b) => b !== 0)).toBe(true);
+    // Reading a pointer back is the host's business, not the program's, so it
+    // must not appear as activity.
+    machine.readMemoryStats();
+    expect(machine.drainMemoryActivity()!.some((b) => b !== 0)).toBe(false);
+  });
+
   it('budgets a frame at one video field of CPU time', () => {
     expect(CYCLES_PER_FIELD).toBe(17045);
     const machine = new Apple1Machine({ rom: ROM });

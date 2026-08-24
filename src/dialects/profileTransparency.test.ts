@@ -50,6 +50,8 @@ const FAMILIES: Record<string, string[]> = {
   cpc464: ['cpc464', 'cpc6128'],
   /** 8080 object code through the shared i8080 layer. */
   pmd85: ['pmd85'],
+  /** Its own bus over the shared cpu6502 core. */
+  apple1: ['apple1'],
 };
 
 /** Machines with no profiled run to compare, and why. */

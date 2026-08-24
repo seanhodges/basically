@@ -21,6 +21,7 @@ import type { EscapeTableData, ReferenceTableData } from '../reference/types';
 const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
   altair8800: () =>
     import('../reference/altair8800').then((m) => m.altair8800Reference),
+  apple1: () => import('../reference/apple1').then((m) => m.apple1Reference),
   atom: () => import('../reference/atom').then((m) => m.atomReference),
   bbc: () => import('../reference/bbc').then((m) => m.bbcReference),
   commodore: () =>
@@ -44,6 +45,8 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
 const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
   altair8800: () =>
     import('../reference/escapes/altair8800').then((m) => m.altair8800Escapes),
+  apple1: () =>
+    import('../reference/escapes/apple1').then((m) => m.apple1Escapes),
   atom: () => import('../reference/escapes/atom').then((m) => m.atomEscapes),
   bbc: () => import('../reference/escapes/bbc').then((m) => m.bbcEscapes),
   commodore: () =>

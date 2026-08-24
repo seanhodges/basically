@@ -106,7 +106,6 @@ const STORED: [string, string][] = [
     '10 A=NOT 1 AND 2 OR 3',
     '12 0a 00 c1 71 37 b1 01 00 1d b2 02 00 1e b3 03 00 01',
   ],
-  ['10 A=B^2', '0b 0a 00 c1 71 c2 20 b2 02 00 01'],
   ['10 A=((1))', '0d 0a 00 c1 71 38 38 b1 01 00 72 72 01'],
 
   // Statement separator, and REM's verbatim tail.
@@ -191,6 +190,10 @@ describe('apple1 tokenizer', () => {
       ['10 A=USR(1)', 'handler address is $0000'],
       ['10 PRINT HIMEM', 'reads as 0'],
       ['10 PLOT 1,2', 'no graphics hardware'],
+      // ^ crunches to token 0x20 and reaches no handler: typed at the machine,
+      // `10 A=B^2` stores and lists back, and running it prints the line before
+      // it and then nothing at all - the interpreter never comes back.
+      ['10 A=B^2', 'no power operator'],
       // Over the interpreter's own integer limit.
       ['10 A=32768', 'over 32767'],
       ['32768 END', 'out of range'],

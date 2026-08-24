@@ -74,6 +74,10 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // host is given a chance to redraw the terminal, not a hardware figure.
   altair8800: 50.0,
   pmd85: 50.0,
+  // 1023000Hz / 17050. The odd one out: the terminal writes one character per
+  // video field, so a field is both the frame budget and the character time,
+  // and the field rate is the American 60Hz rather than PAL's 50.
+  apple1: 60.0,
 };
 
 describe('machine frame rates', () => {

@@ -41,6 +41,7 @@ const EXPECTED_WIDTHS: Record<string, number> = {
   cpc6128: 1280, // 640 x2
   altair8800: 1280, // 640 x2
   pmd85: 1152, // 288 x4
+  apple1: 1120, // 280 x4
 };
 
 describe('screenshotScale', () => {

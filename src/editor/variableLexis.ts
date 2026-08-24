@@ -88,11 +88,7 @@ export const PMD85_LEXIS: VariableLexis = {
 };
 
 /**
- * Integer BASIC's lexis. Named like {@link PMD85_LEXIS} and for the same reason:
- * the record below holds registered machines only, and the Apple I registers a
- * stage later.
- *
- * Its names are one letter and at most one digit - `A1` is a variable, `AB` and
+ * Integer BASIC's lexis. Its names are one letter and at most one digit - `A1` is a variable, `AB` and
  * `A12` are syntax errors - so both significant characters are always written
  * out and `significantChars` has nothing to truncate. `$` is the only marker,
  * and the ROM crunches: it skips spaces everywhere outside a string literal and
@@ -162,6 +158,7 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   cpc464: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   cpc6128: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   pmd85: PMD85_LEXIS,
+  apple1: APPLE1_LEXIS,
 };
 
 /**

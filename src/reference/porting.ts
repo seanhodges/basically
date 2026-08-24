@@ -17,6 +17,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     concept: 'unconditional-jump',
     spellings: {
       altair8800: 'GOTO',
+      apple1: 'GOTO',
       atom: 'GOTO',
       bbc: 'GOTO',
       commodore: 'GOTO',
@@ -32,6 +33,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     concept: 'subroutine-call',
     spellings: {
       altair8800: 'GOSUB',
+      apple1: 'GOSUB',
       atom: 'GOSUB',
       bbc: 'GOSUB',
       commodore: 'GOSUB',
@@ -62,6 +64,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     concept: 'discard-variables',
     spellings: {
       altair8800: 'CLEAR',
+      apple1: 'CLR',
       bbc: 'CLEAR',
       commodore: 'CLR',
       cpc: 'CLEAR',
@@ -79,6 +82,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     // rather than a rename (see below).
     concept: 'run-machine-code',
     spellings: {
+      apple1: 'CALL',
       atom: 'LINK',
       bbc: 'CALL',
       commodore: 'SYS',
@@ -108,6 +112,8 @@ export const falseFriends: FalseFriend[] = [
     keyword: 'AND',
     meanings: {
       altair8800: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      apple1:
+        'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
       atom: 'Bitwise on integers: 5 AND 3 is 1. The & operator is the same thing.',
       bbc: 'Bitwise on integers: 5 AND 3 is 1.',
       commodore: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
@@ -124,6 +130,8 @@ export const falseFriends: FalseFriend[] = [
     keyword: 'OR',
     meanings: {
       altair8800: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      apple1:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
       atom: 'Bitwise on integers: 5 OR 3 is 7. There is no symbolic spelling.',
       bbc: 'Bitwise on integers: 5 OR 3 is 7.',
       commodore: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',

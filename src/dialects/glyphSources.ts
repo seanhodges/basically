@@ -88,7 +88,7 @@ export interface RomGlyphSource extends GlyphSourceBase {
 /** Bitmaps inside a video chip's mask ROM - no CPU address exists. */
 export interface ChipGlyphSource extends GlyphSourceBase {
   kind: 'chip';
-  chip: 'SAA5050' | 'MC6847' | 'MCM6670';
+  chip: 'SAA5050' | 'MC6847' | 'MCM6670' | '2513';
   /** Machine code -> the chip's own index into its internal character ROM. */
   indexOf: (code: number) => number | undefined;
 }
@@ -147,6 +147,10 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // which is the notation this machine's own listings carry; it mirrors
   // memoryWrites.hexPrefix like the Acorn and Amstrad entries above.
   pmd85: "'",
+  // Integer BASIC has no hex literal - PEEK and POKE take signed decimal, which
+  // is why an I/O address is written `PEEK(-12272)` - but `$` is the Apple house
+  // notation and what every Apple 1 listing and the monitor's own prompt use.
+  apple1: '$',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -502,6 +506,24 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   // that any glyph can be traced to. Recording a source would be inventing one;
   // the key is present so the omission is deliberate rather than forgotten.
   altair8800: [],
+
+  apple1: [
+    {
+      kind: 'chip',
+      chip: '2513',
+      codes: range(0xa0, 0xdf),
+      cell: { w: 7, h: 8 },
+      // The chip holds 64 glyphs indexed by the low six bits of the ASCII code,
+      // which is the whole of what this machine can draw.
+      indexOf: (code) => code - 0xa0,
+      note:
+        'No character ROM is shipped: src/emulator/apple1/terminal.ts draws the ' +
+        'terminal with the host font deliberately, to avoid bundling a second ' +
+        'copyrighted asset. The real shapes are 5x7 bitmaps in the Signetics ' +
+        '2513, which the CPU cannot address - the terminal section is a shift ' +
+        'register the 6502 only ever writes characters into.',
+    },
+  ],
 };
 
 /** What a dialect's glyph for `code` comes from, or undefined if nothing claims it. */

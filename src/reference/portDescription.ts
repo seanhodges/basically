@@ -213,7 +213,9 @@ function describeLanguageRuleChanges(from: PortSide, to: PortSide): string {
       (f) =>
         f.logicalOperators === 'bitwise'
           ? 'bitwise on integers'
-          : 'value logic - A AND B is A or 0',
+          : f.logicalOperators === 'logical'
+            ? 'true/false logic - A AND B is 1 or 0'
+            : 'value logic - A AND B is A or 0',
     ],
     ['Exclusive-OR', (f) => f.xorOperator ?? 'none'],
     ['A true comparison', (f) => String(f.comparisonTrue)],

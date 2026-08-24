@@ -44,6 +44,7 @@ import { cpc464Keywords } from './cpc464/keywords';
 import { cpc6128Keywords } from './cpc6128/keywords';
 import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
 import { pmd85Keywords, PMD85_ALIASES } from './pmd85/keywords';
+import { apple1Keywords } from './apple1/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -96,6 +97,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   cpc6128: cpc6128Keywords,
   altair8800: [...altair8800Keywords, ...ALTAIR8800_ALIASES],
   pmd85: [...pmd85Keywords, ...PMD85_ALIASES],
+  apple1: apple1Keywords,
 };
 
 /** The registered machines this module knows a keyword table for. */

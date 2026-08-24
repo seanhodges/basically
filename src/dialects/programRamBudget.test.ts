@@ -49,6 +49,13 @@ const UNMEASURABLE: Record<string, string> = {
   // (see public/roms/ATTRIBUTION.md). Its figure is pinned instead against the
   // machine's own "BYTES FREE" banner in altairMachine.test.ts.
   altair8800: 'no redistributable ROM ships, so the machine cannot boot here',
+  // This machine has no Ready prompt to read at. Left alone it boots to WozMon
+  // and stops, exactly as the real one does, and Integer BASIC's pointers do
+  // not exist until somebody types E000R at it - which is what `loadProgram`
+  // does, and what the harness deliberately does not. Its 2048 is pinned
+  // instead against the pointers the cold start lays down, in
+  // src/emulator/apple1/apple1Machine.test.ts.
+  apple1: 'the machine boots to its monitor, with no interpreter running',
 };
 
 /** How far above the reading a budget may sit: the empty program's end marker. */

@@ -89,12 +89,13 @@ function echoForms(dialect: Dialect, insert: string): string[] {
 }
 
 /**
- * Machines with a bootable ROM in this checkout and their RAM fit. The
- * TRS-80's default backend interprets BASIC without a key matrix and the
- * Altair ships no ROM, so their tables (once they have one) are pinned by
- * their own keyboardLayout tests instead.
+ * Machines with a bootable ROM in this checkout and their RAM fit, `null`
+ * where the machine has no choice to make and ignores the size (the Apple I's
+ * 4K is soldered on the board). The TRS-80's default backend interprets BASIC
+ * without a key matrix and the Altair ships no ROM, so their tables (once they
+ * have one) are pinned by their own keyboardLayout tests instead.
  */
-const BOOTABLE: [string, 16 | 32 | 48 | 64][] = [
+const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
   ['zx80', 16],
   ['zx81', 16],
   ['zxspectrum', 48],
@@ -104,6 +105,7 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64][] = [
   ['commodore64', 64],
   ['pet', 32],
   ['pmd85', 64],
+  ['apple1', null],
 ];
 
 /** Machines whose tables are proved elsewhere, and by what. */
@@ -137,9 +139,10 @@ describe('every SYM cell types its own character on the machine', () => {
 
     it(`${id} echoes every mapped symbol`, async () => {
       expect(cells.length, `${id} maps no SYM cells`).toBeGreaterThan(10);
-      const machine = await bootMachine(dialect, {
-        ramKb: ramKb as 16 | 32 | 64,
-      });
+      const machine = await bootMachine(
+        dialect,
+        ramKb === null ? {} : { ramKb: ramKb as 16 | 32 | 64 },
+      );
       await runFrames(machine, 300);
 
       for (const cell of cells) {

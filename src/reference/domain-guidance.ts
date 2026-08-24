@@ -1651,4 +1651,183 @@ export const domainGuidance: DomainGuidance[] = [
     },
     reachFor: ['ERR'],
   },
+  // -------------------------------------------------------------- apple1 --
+  {
+    to: 'apple1',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN and a GOTO whose target may be an expression.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. GOTO takes an expression, which is the only computed jump there is.',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'GOTO'],
+  },
+  {
+    to: 'apple1',
+    domain: 'data',
+    support: 'partial',
+    summary: 'DIM for arrays and strings, LET for assignment, CLR to discard.',
+    instead:
+      'No DATA, READ or RESTORE: assign the values in a loop, or hold them in a string and read it a position at a time.',
+    example: {
+      caption: 'A table without DATA',
+      code: ['10 DIM T(4)', '20 FOR I=1 TO 4', '30 T(I)=I*I', '40 NEXT I'],
+    },
+    reachFor: ['DIM', 'LET', 'CLR'],
+  },
+  {
+    to: 'apple1',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'ABS, SGN, RND and MOD over 16-bit signed integers, -32767 to 32767.',
+    instead:
+      'No fractions and no maths library: no SQR, LOG, EXP or trig, and no power operator. Rescale to whole units - work in tenths and divide at the end - and write SQR as a search.',
+    example: {
+      caption: 'Rescale instead of using fractions',
+      code: [
+        '10 REM 3.75 AS TENTHS',
+        '20 T=375',
+        '30 PRINT T/100;".";T MOD 100',
+      ],
+    },
+    reachFor: ['ABS', 'RND', 'SGN', 'MOD'],
+  },
+  {
+    to: 'apple1',
+    domain: 'strings',
+    support: 'partial',
+    summary: 'LEN, and A$(first,last) to read a substring of a DIMed string.',
+    instead:
+      'No CHR$, ASC, MID$, STR$ or VAL, and no concatenation. Build a string left to right by assigning at each position, which truncates what follows.',
+    example: {
+      caption: 'Build a line a character at a time',
+      code: ['10 DIM A$(8)', '20 FOR I=1 TO 8', '30 A$(I)="*"', '40 NEXT I'],
+    },
+    reachFor: ['LEN'],
+  },
+  {
+    to: 'apple1',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT, and TAB to move the print column - which counts from 1 and moves right only.',
+    instead:
+      'No cursor addressing, no CLS and no screen memory: the display decodes carriage return and nothing else. Print a picture again rather than changing part of it.',
+    example: {
+      caption: 'TAB is a statement of its own',
+      code: ['10 TAB 10', '20 PRINT "HELLO"'],
+    },
+    reachFor: ['PRINT', 'TAB'],
+  },
+  {
+    to: 'apple1',
+    domain: 'input',
+    support: 'partial',
+    summary: 'INPUT, which reads a whole typed line and takes a prompt.',
+    instead:
+      'No key-at-a-time read, and none can be built: any keypress stops a running program, so the interpreter has the key before the program could. One turn per typed line.',
+    example: {
+      caption: 'One typed line per turn',
+      code: ['10 DIM K$(4)', '20 INPUT "MOVE",K$', '30 IF K$="Q" THEN 50'],
+    },
+    reachFor: ['INPUT'],
+  },
+  {
+    to: 'apple1',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE and CALL, plus HIMEM= and LOMEM= to move the ends of the workspace.',
+    instead:
+      'No hex literals anywhere: every address is signed decimal, which is why an I/O address is written negative. There is no port I/O - the hardware is memory-mapped.',
+    example: {
+      caption: 'An I/O address, written negative',
+      code: ['10 PRINT PEEK(-12272)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM='],
+  },
+  {
+    to: 'apple1',
+    domain: 'program-editing',
+    support: 'partial',
+    summary: 'LIST, DEL, AUTO with OFF, and SCR to erase the program.',
+    instead:
+      'These are direct-mode commands: typed inside a numbered line every one answers *** SYNTAX ERR, so a program cannot edit or list itself.',
+    example: {
+      caption: 'Direct mode only',
+      code: ['10 REM LIST HERE IS A SYNTAX ERR'],
+    },
+    reachFor: ['LIST', 'DEL', 'AUTO', 'SCR'],
+  },
+  {
+    to: 'apple1',
+    domain: 'graphics',
+    support: 'none',
+    summary: 'None: the machine has no graphics hardware and no glyphs for it.',
+    instead:
+      'No graphics of any kind, and no block characters either. Plot on the text grid with the 64 characters there are, sizing the picture 8 columns to 7 rows so it reads round.',
+    example: {
+      caption: 'Plot with characters',
+      code: ['10 TAB 20', '20 PRINT "*"'],
+    },
+  },
+  {
+    to: 'apple1',
+    domain: 'colour',
+    support: 'none',
+    summary:
+      'None: the display is monochrome, and inverse video does not exist.',
+    instead:
+      'No colour and nothing standing in for it. Drop the colour, or say in words what it meant.',
+    example: { caption: 'Say it instead', code: ['10 PRINT "WARNING"'] },
+  },
+  {
+    to: 'apple1',
+    domain: 'sound',
+    support: 'none',
+    summary: 'None: no speaker, no bell, no port to click at.',
+    instead:
+      'No sound keywords and no hardware under them: drop the effect, or print a message in its place.',
+    example: { caption: 'Print instead of a beep', code: ['10 PRINT "BEEP"'] },
+  },
+  {
+    to: 'apple1',
+    domain: 'storage',
+    support: 'none',
+    summary: 'None from BASIC: saving is done from the monitor, not a program.',
+    instead:
+      'No LOAD, SAVE or file commands. A program is saved by leaving BASIC for the monitor and dumping two memory ranges through the cassette interface.',
+    example: {
+      caption: 'Saved from the monitor, not from BASIC',
+      code: ['10 REM C100R THEN 4A.FF W AND 800.FFF W'],
+    },
+  },
+  {
+    to: 'apple1',
+    domain: 'error-handling',
+    support: 'none',
+    summary: 'None: an error stops the program and prints its own report.',
+    instead:
+      'No ON ERROR and nothing to resume with: test for the condition before the statement that would fail, and jump past it.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF D=0 THEN 40',
+        '20 PRINT N/D',
+        '30 GOTO 50',
+        '40 PRINT "NO"',
+      ],
+    },
+  },
 ];

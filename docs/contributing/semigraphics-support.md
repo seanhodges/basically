@@ -50,6 +50,7 @@ reported as such rather than guessed at.
 | CPC 6128 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 | Altair 8800 | — | _none_ | — | — | — | — | — |
 | PMD 85-2 | — | _none_ | — | — | — | — | — |
+| Apple I | — | _none_ | — | — | — | — | — |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -186,15 +187,27 @@ Spelled as: 1 escape-raw, 20 glyph-astral, 43 glyph-bmp.
 
 ### Altair 8800
 
-This machine has no block graphics at all: it has no video hardware
-and no character generator, so every byte it can display is plain
-ASCII drawn by whatever terminal is attached.
+This machine has no block graphics at all - not a range nobody has
+read off it yet, but a character set with no mosaic in it. Every byte
+it can display is an ordinary character; see the citation beside its
+entry in src/dialects/semigraphicsAudit.ts for how that was
+established.
 
 ### PMD 85-2
 
-This machine has no block graphics at all: it has no video hardware
-and no character generator, so every byte it can display is plain
-ASCII drawn by whatever terminal is attached.
+This machine has no block graphics at all - not a range nobody has
+read off it yet, but a character set with no mosaic in it. Every byte
+it can display is an ordinary character; see the citation beside its
+entry in src/dialects/semigraphicsAudit.ts for how that was
+established.
+
+### Apple I
+
+This machine has no block graphics at all - not a range nobody has
+read off it yet, but a character set with no mosaic in it. Every byte
+it can display is an ordinary character; see the citation beside its
+entry in src/dialects/semigraphicsAudit.ts for how that was
+established.
 
 ## Characters the machines need
 

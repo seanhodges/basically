@@ -138,6 +138,12 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // set anywhere in it (charset.ts reads it out of the ROM). Graphics on this
   // machine are drawn - PLOT, FILL, BPLOT - rather than typed.
   pmd85: [],
+  // Empty on the same footing: the Signetics 2513 holds 64 glyphs - ASCII
+  // 0x20-0x5F, which this machine carries with bit 7 set - and there is no
+  // sixty-fifth. charset.ts reads that range off the terminal's own decode, and
+  // the machine has no graphics hardware for a mosaic to reach even if the chip
+  // held one.
+  apple1: [],
 };
 
 /** Classify one byte from its canonical text form. */

@@ -21,6 +21,7 @@ import { atomKeywords } from '../src/dialects/atom/keywords';
 import { trs80Keywords } from '../src/dialects/trs80/keywords';
 import { locoKeywordTable } from '../src/dialects/cpc464/keywords';
 import { altair8800Keywords } from '../src/dialects/altair8800/keywords';
+import { apple1Keywords } from '../src/dialects/apple1/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -168,6 +169,15 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       title: 'Altair 8K BASIC',
       machines: ['MITS Altair 8800'],
       entries: dedupe(altair8800Keywords.map((k) => toEntry(k))),
+    },
+  },
+  {
+    id: 'apple1',
+    varName: 'apple1Reference',
+    data: {
+      title: 'Apple 1 Integer BASIC',
+      machines: ['Apple I'],
+      entries: dedupe(apple1Keywords.map((k) => toEntry(k))),
     },
   },
   {

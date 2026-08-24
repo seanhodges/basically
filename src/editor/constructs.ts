@@ -417,11 +417,6 @@ const ALTAIR: ConstructTemplate[] = [
  * Integer BASIC's blocks. Deliberately short: there is no ELSE, no WHILE and no
  * multi-line IF, and the functions all take one numeric argument except LEN,
  * whose argument is a string.
- *
- * Exported rather than listed in {@link constructsByDialect} because the Apple I
- * is not registered yet and that record names registered machines only - the
- * same arrangement `PMD85_LEXIS` has next door in `variableLexis.ts`. It moves
- * into the record in the change that registers the dialect.
  */
 export const APPLE1_CONSTRUCTS: ConstructTemplate[] = [
   ifThen(),
@@ -560,6 +555,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   trs80: TRS80,
   altair8800: ALTAIR,
   pmd85: PMD85,
+  apple1: APPLE1_CONSTRUCTS,
   cpc464: CPC,
   // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's blocks are the 464's.
   cpc6128: CPC,

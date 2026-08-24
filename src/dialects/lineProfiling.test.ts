@@ -104,6 +104,22 @@ const CHURN =
   '50 LET A$=""\n' +
   '60 GOTO 20\n';
 
+/**
+ * The same probe in a dialect's own BASIC, where the shared spelling is not one
+ * that machine has. Integer BASIC has no string concatenation at all: a string
+ * is a fixed buffer DIMed once and written into by position, which is the whole
+ * reason the Apple I is excused below rather than measured.
+ */
+const CHURN_BY_DIALECT: Record<string, string> = {
+  apple1:
+    '10 DIM A$(20)\n' +
+    '20 FOR I=1 TO 20\n' +
+    '30 A$(I)="X"\n' +
+    '40 NEXT I\n' +
+    '50 A$="X"\n' +
+    '60 GOTO 20\n',
+};
+
 /** Frames measured for the memory probe; the slowest machine needs the room. */
 const CHURN_FRAMES = 300;
 
@@ -129,6 +145,8 @@ const NO_CHURN_IN_FIGURE: Record<string, string> = {
   cpc464: 'string churn happens above the ceiling its figure counts up to',
   cpc6128: 'string churn happens above the ceiling its figure counts up to',
   zx80: 'the ROM has no string concatenation, so the probe cannot churn',
+  apple1:
+    'a string is a fixed buffer allocated at DIM, so no loop grows the heap',
 };
 
 function costOf(costs: readonly LineCost[], line: number): number {
@@ -261,7 +279,7 @@ describe('every registered machine measures what it can', () => {
           // The other half: bytes charged to the line that took them. Measured
           // on the same booted machine, because booting the ROM is the whole
           // cost of this file.
-          const churn = dialect.tokenize(CHURN);
+          const churn = dialect.tokenize(CHURN_BY_DIALECT[dialect.id] ?? CHURN);
           expect(churn.errors).toEqual([]);
           const taken = (await measureProbe(
             machine,

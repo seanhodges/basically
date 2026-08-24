@@ -28,4 +28,5 @@ export const BOOT_MACHINES = [
   { id: 'cpc464', label: 'CPC 464' },
   { id: 'cpc6128', label: 'CPC 6128' },
   { id: 'pmd85', label: 'PMD 85-2' },
+  { id: 'apple1', label: 'Apple I' },
 ];

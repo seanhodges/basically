@@ -87,6 +87,11 @@ const ROM_NAME_FACTS: Record<
   // `10 A=1:a=2:PRINT A;a` prints 1 and 2 on a booted PMD 85, because the
   // crunch stores the name as typed and the lookup compares the bytes.
   pmd85: { significant: 2, case: 'sensitive', dataItems: 'verbatim' },
+  // Nothing to truncate: an Integer BASIC name is one letter and at most one
+  // digit, so both of its significant characters are always written out and
+  // `A1` and `A2` are different variables. Lower case is refused outright, as
+  // on the Atom, and there is no DATA keyword to read items from.
+  apple1: { significant: 'all', case: 'folded', dataItems: 'none' },
 };
 
 describe('name facts are stated per machine', () => {

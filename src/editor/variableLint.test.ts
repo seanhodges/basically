@@ -283,7 +283,8 @@ const NO_NAME_RULE: Record<string, string> = {
  * Two long string names differing only after the second character. Every
  * restriction in this file rejects it, and for a different reason each time:
  * the Sinclairs and the Atom because a string name must be one letter, the
- * Microsoft ROMs because both names collapse to `AB$`.
+ * Microsoft ROMs because both names collapse to `AB$`, the Apple I because a
+ * name is one letter and at most one digit.
  */
 const UNSTORABLE = '10 LET ABCD$="X"\n20 LET ABCE$="Y"\n';
 
@@ -298,7 +299,9 @@ describe('every registered machine lints the names its ROM cannot store', () => 
     }
     expect(
       messages.filter((m) =>
-        /single letter|characters .* are significant|reserved word/.test(m),
+        /single letter|one letter|characters .* are significant|reserved word/.test(
+          m,
+        ),
       ),
       `${id} accepted a name its ROM cannot store - wire a variableLint ` +
         'wrapper into its lint(), or list it in NO_NAME_RULE with a reason',

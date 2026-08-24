@@ -318,12 +318,18 @@ export const apple1Keywords: KeywordInfo[] = TABLE.map(
  * `#` is this BASIC's "not equal"; `<>` is accepted as well and both store a
  * token of their own. There is no `<>` for strings - a string comparison takes
  * only `=` and `#`.
+ *
+ * `^` is not here, and it is the interesting omission: the syntax table has a
+ * token for it, so `10 PRINT 2^3` tokenizes, but the interpreter reaches no
+ * handler for it and the program stops there and never comes back - typed at
+ * the machine, which prints the line before it and then nothing at all. The
+ * tokenizer refuses it with a message instead, exactly as it refuses the
+ * vestigial graphics words above.
  */
 export const apple1Operators: readonly string[] = [
   '<=',
   '>=',
   '<>',
-  '^',
   '*',
   '/',
   '+',

@@ -1059,4 +1059,115 @@ export const escapeGuidance: EscapeGuidance[] = [
     support: 'full',
     instead: RESPELL_HEX,
   },
+  // -------------------------------------------------------------- apple1 --
+  // 64 characters, no colour, and a display that decodes carriage return and
+  // nothing else: every class but the raw byte is 'none' or a respelling.
+  {
+    to: 'apple1',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour anywhere — the display is monochrome. Drop the code, or mark the text some other way where the colour carried meaning.',
+    example: {
+      caption: 'Mark the text instead of colouring it',
+      code: ['10 PRINT "*** ALERT ***"'],
+    },
+  },
+  {
+    to: 'apple1',
+    class: 'cursor',
+    support: 'none',
+    instead:
+      'No addressable cursor: the display decodes carriage return and nothing else, so output only moves forward. Reach a column with TAB, which is a statement of its own.',
+    example: {
+      caption: 'Reach a column with TAB',
+      code: ['10 TAB 10', '20 PRINT "SCORE"'],
+    },
+  },
+  {
+    to: 'apple1',
+    class: 'editing',
+    support: 'none',
+    instead:
+      'Nothing can be erased once printed, and only the board’s own CLEAR SCREEN button blanks the display. Print a run of blank lines, or print the picture again.',
+  },
+  {
+    to: 'apple1',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'One character set and one screen: drop the switch. The display draws 64 characters — ASCII 0x20-0x5F, upper case only — and has no second mode.',
+  },
+  {
+    to: 'apple1',
+    class: 'screen-effect',
+    support: 'none',
+    instead:
+      'No attribute to flash, conceal or double: drop the effect, or give the text a line of its own where it has to catch the eye.',
+  },
+  {
+    to: 'apple1',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No function keys, and no key read at all from a program — any keypress stops it. Ask with INPUT and branch on what was typed.',
+  },
+  {
+    to: 'apple1',
+    class: 'block-graphics',
+    support: 'none',
+    instead:
+      'No graphics characters at all — the 64 the character generator holds are ASCII and nothing else. Redraw the shape from punctuation, or drop the picture.',
+    example: {
+      caption: 'A bar from punctuation',
+      code: ['10 PRINT "##########"'],
+    },
+  },
+  {
+    to: 'apple1',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'No redefinable characters: the shapes are in a chip the CPU cannot address. Build the shape from several ordinary characters, or drop it.',
+  },
+  {
+    to: 'apple1',
+    class: 'inverse-video',
+    support: 'none',
+    instead:
+      'No inverse range and nothing to reverse it with — every code is drawn one way. Use capitals, or bracket the text with punctuation, where inverse marked it out.',
+  },
+  {
+    to: 'apple1',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces, or skip to the column with TAB. Each space costs a video field either way.',
+  },
+  {
+    to: 'apple1',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'apple1',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'Type the character itself where the machine has it. There is no backslash, backtick, brace, bar or tilde, and no lower case — a lower-case letter folds to its capital, the rest have to be dropped.',
+  },
+  {
+    to: 'apple1',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Only three codes mean anything — {0x8D} carriage return, {0x83} CTRL-C and {0x9B} escape, all with bit 7 set as this machine carries every character. Drop anything else.',
+  },
+  {
+    to: 'apple1',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
+  },
 ];
