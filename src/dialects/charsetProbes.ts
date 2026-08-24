@@ -29,6 +29,10 @@ import {
   parseChar as pmd85ParseChar,
   decodeSpan as pmd85DecodeSpan,
 } from './pmd85/charset';
+import {
+  parseChar as apple1ParseChar,
+  decodeSpan as apple1DecodeSpan,
+} from './apple1/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -263,6 +267,22 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     dialects: ['pmd85'],
     decode: (b) => pmd85DecodeSpan(Uint8Array.of(b), 0, 1).text,
     ...parseAll(pmd85ParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
+  },
+  {
+    // The one set here that is not 7-bit: the Apple I's keyboard has PA7
+    // strapped high and its display reads bit 7 as part of the code, so the 64
+    // glyphs of the Signetics 2513 sit at 0xA0-0xDF rather than at 0x20-0x5F.
+    // Everything else - including the whole low half - is a raw-byte escape.
+    id: 'apple1',
+    varName: 'apple1Escapes',
+    title: 'Apple I escape codes',
+    machines: ['Apple I'],
+    dialects: ['apple1'],
+    decode: (b) => apple1DecodeSpan(Uint8Array.of(b), 0, 1).text,
+    ...parseAll(apple1ParseChar),
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',

@@ -502,6 +502,118 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'dec',
   },
   {
+    id: 'apple1',
+    basicDialect: 'Apple 1 Integer BASIC',
+    portingNotes: [
+      {
+        text: 'Any keypress stops a running program: the interpreter takes the key first and reports STOPPED AT, so nothing can poll the keyboard. INPUT is the only key read there is, one typed line per turn.',
+        topics: ['input'],
+      },
+      {
+        text: 'The display decodes only carriage return: no cursor addressing, no clear-screen, no screen memory. Nothing is redrawn in place — a changed picture is printed again, one character per video field.',
+        topics: ['text-screen', 'graphics'],
+      },
+      {
+        text: 'A variable name is one letter and at most one digit. A1 is a variable; AB, ABC and A12 are each a syntax error, and a string variable is a bare letter and $ — A1$ is refused.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'HIMEM= and LOMEM= take = rather than the Apple II’s :, and they — with LIST, RUN, DEL, AUTO, OFF, SCR and CLR — are refused inside a numbered line. Falling off the last line reports *** END ERR.',
+        topics: ['statement-layout', 'control-flow'],
+      },
+      {
+        text: 'A string is a fixed buffer, DIMed before use and never grown; assigning at a position truncates it, so A$(5)="X" leaves five characters. There is no concatenation and no string function but LEN.',
+        topics: ['strings'],
+      },
+      {
+        text: 'The program and its variables share 2048 bytes, growing towards each other from the two ends; when they meet the machine answers *** MEM FULL ERR. REM text spends the same budget.',
+        topics: ['memory'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: write a second IF, or invert the test and jump.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'No key-at-a-time read, and no building one: any keypress stops the program. INPUT takes a line, so a real-time loop becomes one turn per line typed.',
+      },
+      {
+        keyword: 'CHR$',
+        note: 'No CHR$ and no ASC: a character can only be written as a literal, or POKEd as a byte.',
+      },
+      {
+        keyword: 'MID$',
+        note: 'A substring is A$(first,last), read only — there is no MID$, LEFT$ or RIGHT$, and no way to concatenate.',
+      },
+      {
+        keyword: 'DATA',
+        note: 'No DATA and no READ: assign the values into a string a position at a time, or POKE a table into the free RAM below LOMEM.',
+      },
+      {
+        keyword: 'PLOT',
+        note: 'No graphics of any kind. COLOR=, PLOT, HLIN and AT are in the interpreter — Woz’s work towards the Apple II — but reach a machine with no graphics hardware.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'Nothing clears the display from a program — only the board’s own CLEAR SCREEN button does. Print blank lines, or let the old output scroll away.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound hardware at all, and no bell: the machine is silent.',
+      },
+      { keyword: 'COLOUR', note: 'No colour: the display is monochrome text.' },
+    ],
+    lineNumberRange: '0–32767',
+    lineNumbers: { min: 0, max: 32767 },
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
+    variableNaming:
+      'One letter and at most one digit: A and A1 are variables, AB and A12 are syntax errors. A string name is a bare letter and $, so A1$ is refused too.',
+    // Recorded the way the Sinclairs record their one-letter string names: the
+    // number is the longest name the machine will take, which is what a port has
+    // to rename into. Nothing is actually truncated here - A1 and A2 really are
+    // two variables - so the prose above carries the exact rule.
+    variableSignificance: {
+      plain: 1,
+      marked: 1,
+      markerDistinguishes: true,
+      markers: '$',
+    },
+    numberHandling: 'Integer only, -32767 to 32767.',
+    numbers: { fractions: false, range: { min: -32767, max: 32767 } },
+    logicalOperators: 'logical',
+    comparisonTrue: 1,
+    remainderOperator: 'MOD',
+    // The 64 glyphs of the character generator are ASCII 0x20-0x5F, so the
+    // backtick, the braces, the bar and the tilde have no shape on this machine.
+    unsupportedCharacters: ['`', '{', '|', '}', '~'],
+    screen: '40×24 text, monochrome and upper case only.',
+    textScreen: { columns: 40, rows: 24 },
+    // The empty list is the fact: there is no timer, no clock and no delay
+    // statement anywhere in this BASIC.
+    waitIdiom: {
+      text: 'an empty FOR loop: the machine has no timer and no delay statement',
+      keywords: [],
+    },
+    // Fast for its clock, integer arithmetic costing nothing next to a
+    // floating-point BASIC's - and irrelevant to most programs here, which
+    // spend their time waiting on a display that takes sixty characters a
+    // second.
+    loopSpeed: 816,
+    // No screenBase to give: the display is a shift register the CPU pushes
+    // characters into, so there is no display memory at any address.
+    programStart: '$0800',
+    freeRamBytes: 2048,
+    colour: 'None — the display is monochrome text.',
+    sound: 'None: the machine has no sound hardware.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'hex',
+  },
+  {
     id: 'atom',
     basicDialect: 'Atom BASIC',
     portingNotes: [

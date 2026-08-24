@@ -1283,3 +1283,36 @@
 .vk-theme-pmd85 .vk-style-shift .vk-label {
   color: #fbe5e2;
 }
+
+/* Apple I: a bare kit machine, so there is no product styling to borrow - what
+   there is instead is the Datanetics keyboard most owners bolted to it, whose
+   caps were plain beige with dark legends. The SHIFT legends sit top-right in a
+   faded ink; the two board buttons take the warning red a panel button gets, and
+   CTRL and SHIFT the same beige as the caps they sit beside. Activated by the
+   layout's `theme: 'vk-theme-apple1'`. */
+.vk-theme-apple1:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+  font-size: 9px;
+  color: #8d8272;
+}
+
+.vk-theme-apple1 .vk-pos-tr.vk-active {
+  color: #e8dfcd;
+}
+
+.vk-theme-apple1 .vk-style-shift .vk-keycap {
+  background: linear-gradient(#4a4438, #35312a);
+}
+
+.vk-theme-apple1 .vk-style-shift .vk-label {
+  color: #e8dfcd;
+}
+
+.vk-theme-apple1 .vk-style-fn .vk-keycap {
+  background: linear-gradient(#8c3a30, #6c2a22);
+}
+
+.vk-theme-apple1 .vk-style-fn .vk-label {
+  color: #f6e2dd;
+}

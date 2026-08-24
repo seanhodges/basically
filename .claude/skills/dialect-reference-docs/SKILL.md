@@ -71,6 +71,11 @@ has no sound hardware.").
    formats, in that order; a sibling with no sub-pages of its own links the
    shared ones — see the PET group), index bullet in registry order, the CPU's
    assembly-page machine lists, `docsReference` on any sibling dialect.
+   **Ask the user before adding the sidebar entry.** `CLAUDE.md` forbids
+   adding, removing or reordering entries in `docs/.vitepress/config.ts`
+   without an explicit request, and a page absent from the sidebar fails
+   `src/app/docsNavigation.test.ts` — so the permission is needed, and asking
+   for it at the start of the work beats discovering it at the end.
 5. **Extend the crosscheck layer.** Add the new set to
    `src/reference/reference-data.test.ts`,
    `src/reference/keyword-crosscheck.test.ts` and
@@ -112,7 +117,12 @@ Run before finishing:
 - `npm test` — the crosscheck layer (`reference-data`, `keyword-crosscheck`,
   `escape-crosscheck`) plus `src/app/docsTopic.test.ts`, which asserts every
   registered dialect resolves (via `docsReference` or its id) to a real
-  reference page.
+  reference page. For a **new** machine these pages are only half of what its
+  registration demands: `facts-crosscheck`, `machines-crosscheck`,
+  `porting-crosscheck` and the two guidance crosschecks want entries in
+  `facts.ts`, `machines.ts`, `porting.ts`, `domain-guidance.ts` and
+  `escape-guidance.ts` as well, and `loopSpeed.test.ts` wants a **measured**
+  loop speed in the porting facts. Budget for those in the same pass.
 - `npm run typecheck` · `npm run lint` · `npm run format:check`
 - `npm run docs:build` — VitePress fails on dead links; new pages, anchors and
   retargeted links all get checked here.

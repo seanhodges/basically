@@ -238,7 +238,7 @@ describe('every function key is a function key', () => {
  * pretend otherwise. Listed rather than derived, because "does this machine
  * have arrow keys" is a fact about the hardware that only a person can answer.
  */
-const NO_CURSOR_KEYS = new Set(['altair8800']);
+const NO_CURSOR_KEYS = new Set(['altair8800', 'apple1']);
 
 /** Direction → the arrow a CURSOR legend prints for it. */
 const ARROWS = { up: '↑', down: '↓', left: '←', right: '→' } as const;

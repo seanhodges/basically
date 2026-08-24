@@ -118,6 +118,16 @@ export default withPwa(
               ],
             },
             {
+              text: 'Apple 1 Integer BASIC',
+              link: '/reference/apple1',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/apple1/hardware' },
+                { text: 'Escape codes', link: '/reference/apple1/escapes' },
+                { text: 'File formats', link: '/reference/apple1/formats' },
+              ],
+            },
+            {
               text: 'Atom BASIC',
               link: '/reference/atom',
               collapsed: true,

@@ -122,6 +122,15 @@ const LOCOMOTIVE: PositionSyntax = {
 
 /** Machines that state positions, by dialect id. */
 const POSITION_SYNTAX: Record<string, PositionSyntax> = {
+  // TAB is a statement here rather than a print formatter - `TAB 5` on a line
+  // of its own moves the print column and prints nothing - and it counts from
+  // one: `TAB 1` lands in the leftmost column, read off the running machine.
+  // There is no row command at all, the display having no cursor addressing.
+  apple1: {
+    origin: 1,
+    commands: [{ keyword: 'TAB', kind: 'column' }],
+    escapes: [],
+  },
   zx81: { origin: 0, commands: SINCLAIR_COMMANDS, escapes: [] },
   zxspectrum: SPECTRUM,
   zxspectrum128: SPECTRUM,

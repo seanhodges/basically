@@ -21,7 +21,7 @@ import { apple1MemoryMap } from './memoryMap';
 import { apple1Samples } from './samples';
 import { apple1BuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
-import { buildBasicImage } from './basicImage';
+import { buildBasicImage, parseBasicImage } from './basicImage';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 import { apple1VariableErrors } from '../../editor/variableLint';
@@ -48,7 +48,7 @@ export const apple1: Dialect = {
   name: 'Apple I',
   manufacturer: 'Apple',
   year: 1976,
-  blurb: "Woz's hand-built kit computer. Runs Apple 1 Integer BASIC.",
+  blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
 
   // Stock LOMEM/HIMEM leave 2048 bytes, shared between program and variables.
   programRamBytes: COLD_START_BYTES_FREE,
@@ -85,12 +85,17 @@ export const apple1: Dialect = {
     };
   },
 
+  /**
+   * The seam hands over the whole image - both ACI ranges - so the program text
+   * has to be located inside it first: it sits at the TOP of the workspace, at
+   * the address the housekeeping block's PP pointer gives.
+   */
   detokenize(image: Uint8Array): string {
-    return detokenizeProgram(image);
+    return detokenizeProgram(parseBasicImage(image).program);
   },
 
   detokenizeWithReport(image: Uint8Array) {
-    return detokenizeProgramWithReport(image);
+    return detokenizeProgramWithReport(parseBasicImage(image).program);
   },
 
   lint(source: string): TokenizeError[] {

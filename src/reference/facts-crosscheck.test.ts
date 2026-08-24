@@ -313,7 +313,11 @@ describe('variable-name significance is the one each lint enforces', () => {
   /** Two names sharing `shared` characters and differing at the next one. */
   const probe = (shared: number, marker: string): string => {
     const stem = 'Q'.repeat(shared);
-    return `10 LET ${stem}X${marker}=1\n20 LET ${stem}Y${marker}=2\n`;
+    // A `$` name is given a string: a machine that type-checks its assignments
+    // otherwise complains about the value, which is not the question, and the
+    // control below reads that as "these two names are one here".
+    const [a, b] = marker === '$' ? ['"A"', '"B"'] : ['1', '2'];
+    return `10 LET ${stem}X${marker}=${a}\n20 LET ${stem}Y${marker}=${b}\n`;
   };
 
   /** Whether the machine's own linter objects to a program. */
@@ -664,10 +668,15 @@ describe('operator facts match the machine', () => {
     const probe = OPERATOR_PROBES.find((p) => p.dialects.includes(id));
     expect(probe, `no operator probe covers ${id}`).toBeDefined();
 
-    // `5 AND 3`: 1 where AND combines bits, 5 where it picks an operand.
-    expect(facts.logicalOperators, `${id}: ANDV is ${probe!.expect.ANDV}`).toBe(
-      probe!.expect.ANDV === '1' ? 'bitwise' : 'value',
-    );
+    // Two probes, because three kinds of logic answer these. `5 AND 3` is 5
+    // only where AND picks an operand; among the rest, `5 OR 3` is 7 only where
+    // OR combines bits, leaving true/false logic as the machine that answers 1
+    // to both.
+    const { ANDV, ORV } = probe!.expect;
+    expect(
+      facts.logicalOperators,
+      `${id}: ANDV is ${ANDV} and ORV is ${ORV}`,
+    ).toBe(ANDV !== '1' ? 'value' : ORV === '7' ? 'bitwise' : 'logical');
 
     expect(String(facts.comparisonTrue), `${id}: TRU`).toBe(probe!.expect.TRU);
   });

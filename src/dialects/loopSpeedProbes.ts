@@ -93,6 +93,23 @@ function programs(iterations: number): { base: string; loop: string } {
   };
 }
 
+/** The same pair on an Apple I, which reports falling off the end as an error. */
+function integerBasicPrograms(iterations: number): {
+  base: string;
+  loop: string;
+} {
+  return {
+    base: [`10 ${PRINT_MARKER}`, '20 END', ''].join('\n'),
+    loop: [
+      `10 FOR I=1 TO ${iterations}`,
+      '20 NEXT I',
+      `30 ${PRINT_MARKER}`,
+      '40 END',
+      '',
+    ].join('\n'),
+  };
+}
+
 /** The same pair on an Atom, where PRINT does not end the line - ' does. */
 function atomPrograms(iterations: number): { base: string; loop: string } {
   return {
@@ -150,5 +167,14 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
     dialects: ['atom'],
     iterations: 5000,
     ...atomPrograms(5000),
+  },
+  {
+    // Integer BASIC's own pair. It needs the END that `programs` leaves off:
+    // falling off the last line is `*** END ERR` on this machine, and the
+    // report would land on screen beside the marker.
+    id: 'apple1',
+    dialects: ['apple1'],
+    iterations: 2000,
+    ...integerBasicPrograms(2000),
   },
 ];

@@ -57,6 +57,14 @@ export const machines: MachineChoice[] = [
     blurb: 'The microcomputer that started it all. Runs Altair 8K BASIC.',
   },
   {
+    id: 'apple1',
+    page: 'apple1',
+    name: 'Apple I',
+    manufacturer: 'Apple',
+    year: 1976,
+    blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
+  },
+  {
     id: 'atom',
     page: 'atom',
     name: 'Atom',

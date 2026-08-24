@@ -70,7 +70,14 @@ const STRUCTURAL_RULES: [string, (syntax: string) => boolean][] = [
     'attaches the repetition mark to what repeats',
     (y) => !new RegExp(`[,\\s]${ELLIPSIS}`).test(y),
   ],
-  ['binds a channel marker to its placeholder', (y) => !/#\s+</.test(y)],
+  [
+    // R6, with the one exception the Apple I brings: there `#` is the "not
+    // equal" operator, so a `#` whose left operand is a placeholder is a binary
+    // operator taking its spaces from R3 rather than a marker that has come
+    // loose from its file number.
+    'binds a channel marker to its placeholder',
+    (y) => !/(?<!> )#\s+</.test(y),
+  ],
 ];
 
 /**

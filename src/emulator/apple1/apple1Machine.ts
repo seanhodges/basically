@@ -3,11 +3,13 @@
 
 // Vendored ESM 6502 core; typed by the sibling ../6502/cpu6502.d.ts.
 import { StateMachineCpu } from '../6502/cpu6502.js';
+import type { BusInterface } from '../6502/cpu6502.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
   LineCost,
   MachineEmulator,
+  MachineMemoryStats,
   MachineScreenText,
   MemoryBlock,
 } from '../../dialects/types';
@@ -28,6 +30,11 @@ import { parseBasicImage } from '../../dialects/apple1/basicImage';
 import { createMachineLoop } from '../machineLoop';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { ProgramEndLatch } from '../programEndLatch';
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../memoryActivityBuffer';
 import { Apple1Keyboard } from './keyboard';
 import { Apple1Memory } from './memory';
 import { Apple1Pia } from './pia';
@@ -140,10 +147,18 @@ export class Apple1Machine implements MachineEmulator {
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run and {@link tick} charges the cycle it runs to
-   * the line executing at the time. No memory attribution yet - the machine has
-   * no `readMemoryStats` - so the drained figures are cycles alone.
+   * the line executing at the time, plus whatever the workspace figure moved by
+   * while that line was executing.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+  /**
+   * The live memory-activity overlay's touched-address set. Off by default, so
+   * a closed overlay costs one not-taken branch per bus access.
+   */
+  private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
   /**
    * The answer is latched from the one address the interpreter reaches when it
    * has finished with a program: the head of its command loop, three
@@ -197,7 +212,7 @@ export class Apple1Machine implements MachineEmulator {
       reset: () => this.pressReset(),
       clearScreen: () => this.terminal.clear(),
     });
-    this.cpu = new StateMachineCpu(this.memory.bus());
+    this.cpu = new StateMachineCpu(this.recordingBus());
     this.reset();
   }
 
@@ -246,14 +261,27 @@ export class Apple1Machine implements MachineEmulator {
    * the block rather than all 182 bytes of it - the rest is interpreter state
    * that the cold start has already set correctly, and a freshly built image
    * carries zeros there rather than a coherent snapshot of a running machine.
+   *
+   * Any machine-code blocks are written straight into RAM alongside it, which
+   * is what `CALL` in the loaded program then jumps to.
    */
   loadProgram(
     image: Uint8Array,
-    _opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
   ): void {
     this.reset();
     if (!this.hasMonitor || !this.hasInterpreter) return;
     this.bootToBasic();
+
+    // Machine-code blocks go into RAM after the interpreter is up and before
+    // `RUN` starts anything: the cold start walks the workspace, so a block
+    // written before it would be walked over. They live below LOMEM, which is
+    // the only RAM Integer BASIC never touches.
+    for (const block of opts?.blocks ?? []) {
+      for (let i = 0; i < block.bytes.length; i++) {
+        this.memory.mem[(block.address + i) & 0xffff] = block.bytes[i]! & 0xff;
+      }
+    }
 
     const { program, lomem, himem } = parseBasicImage(image);
     const fits = lomem < himem && himem <= RAM_TOP + 1;
@@ -352,6 +380,68 @@ export class Apple1Machine implements MachineEmulator {
   isProgramRunning(): boolean | null {
     if (this.disposed) return null;
     return this.runLatch.read(this.currentLine() !== null);
+  }
+
+  /**
+   * What the workspace holds, and what is left of it.
+   *
+   * The one figure on this machine that has to count from both ends: the
+   * variables run up from LOMEM to PV and the program down from PP to HIMEM,
+   * with the free space in the middle. A reading that counted only the program
+   * text would report a program that allocates nothing.
+   *
+   * Read through `peek`, never the bus, so asking does not stamp the
+   * memory-activity overlay with the IDE's own polling.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (this.disposed || !this.hasInterpreter) return null;
+    const lomem = this.memory.peekWord(LOMEM);
+    const himem = this.memory.peekWord(HIMEM);
+    const pp = this.memory.peekWord(PP);
+    const pv = this.memory.peekWord(PV);
+    // Before the cold start has laid the pointers down there is no workspace to
+    // describe - at the monitor they are all zero - and a machine part-way
+    // through an injection describes one that does not hold together.
+    if (himem <= lomem) return null;
+    if (!(lomem <= pv && pv <= pp && pp <= himem)) return null;
+    return { used: himem - lomem - (pp - pv), free: pp - pv };
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memoryActivity.enabled = enabled;
+    // Drop what a previous session accumulated, so a reopened overlay starts
+    // clean rather than flashing stale activity.
+    if (!enabled) this.memoryActivity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memoryActivity.enabled) return null;
+    return this.memoryActivity.drain(recycle);
+  }
+
+  /**
+   * The CPU's bus, wrapped so every access can be stamped for the overlay.
+   * {@link Apple1Memory} stays a pure address decoder; the recording is layered
+   * on here and gated on the buffer's own flag. The side-effect-free
+   * `peek`/`poke` helpers are left unwrapped, so host introspection reads
+   * without polluting what the overlay reports as the program's accesses.
+   */
+  private recordingBus(): BusInterface {
+    const bus = this.memory.bus();
+    const activity = this.memoryActivity;
+    const { read, write } = bus;
+    return {
+      ...bus,
+      read: (address: number): number => {
+        const value = read(address);
+        if (activity.enabled) activity.hits[address & 0xffff] |= READ_BIT;
+        return value;
+      },
+      write: (address: number, value: number): void => {
+        if (activity.enabled) activity.hits[address & 0xffff] |= WRITE_BIT;
+        write(address, value);
+      },
+    };
   }
 
   /**

@@ -634,16 +634,18 @@ export interface PortingFacts {
   /**
    * What AND, OR and NOT do to their operands. 'bitwise' combines them bit by
    * bit on integers - the Microsoft, Acorn and Locomotive machines, and the ZX80
-   * - so `5 AND 3` is 1. 'value' returns one of the operands: on the ZX81 and
-   * the Spectrum `a AND b` is `a` when `b` is non-zero and 0 otherwise, so the
-   * same expression is 5.
+   * - so `5 AND 3` is 1 and `5 OR 3` is 7. 'value' returns one of the operands:
+   * on the ZX81 and the Spectrum `a AND b` is `a` when `b` is non-zero and 0
+   * otherwise, so the same expressions are 5 and 1. 'logical' reduces both
+   * operands to a truth value first, so `5 AND 3` and `5 OR 3` are both 1 and
+   * `NOT 5` is 0 - Apple 1 Integer BASIC, which has no bitwise operator at all.
    *
    * Required, and read off each running machine by
    * src/dialects/operatorBattery.test.ts. Nothing else in these facts implies
    * it, and a condition that reads identically on both machines gives different
    * answers - the failure a porter finds last, because nothing errors.
    */
-  logicalOperators: 'bitwise' | 'value';
+  logicalOperators: 'bitwise' | 'value' | 'logical';
   /**
    * What a true comparison evaluates to: -1 on the Microsoft, BBC and Locomotive
    * machines and the ZX80, 1 on the ZX81, the Spectrum and the Atom.

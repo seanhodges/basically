@@ -2477,10 +2477,13 @@ function fmtIntegerArithmetic(f: PortingFacts): string {
     ? 'Neither - use INT(a/b) and a-b*INT(a/b)'
     : parts.join(', ');
 }
-/** Bitwise or Sinclair value logic, with the exclusive-OR spelling folded in. */
+/** Bitwise, Sinclair value or true/false logic, with exclusive-OR folded in. */
 function fmtLogicalOperators(f: PortingFacts): string {
   if (f.logicalOperators === 'value') {
     return 'Value logic - A AND B is A or 0, not a bit pattern';
+  }
+  if (f.logicalOperators === 'logical') {
+    return 'True/false logic - A AND B is 1 or 0, not a bit pattern';
   }
   return f.xorOperator
     ? `Bitwise on integers; ${f.xorOperator} for exclusive-OR`

@@ -144,10 +144,10 @@ authoritative until a test reads it back off the running machine.
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Memory map & runtime introspection     | ⬜     |
-| 6     | Docs & polish                          | ⬜     |
+| 6     | Docs & polish                          | 🔨     |
 
 ---
 
@@ -300,35 +300,35 @@ Seven things later stages should work from.
 `loadProgram`).
 **Verify:** `npx vitest run src/emulator/apple1` + `npm run typecheck`.
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
-- [ ] `keyboardLayout.ts` — the Apple I's ASCII keyboard. Geometry comes from
+- [x] `keyboardLayout.ts` — the Apple I's ASCII keyboard. Geometry comes from
       `src/keyboard/templateRows.ts` (`gridColumns: GRID_COLUMNS`, every key
       `KEY_SPAN`, `centerRow`/`bottomRow`); never author a width. The machine's
       `CLEAR SCREEN` and `RESET` buttons belong on the function-key strip with
       `style: 'fn'` and `editor: null`, since neither types anything.
-- [ ] **No `graphics.ts`, no `graphicsPalette`, no `e2e/paletteMachines.ts`
+- [x] **No `graphics.ts`, no `graphicsPalette`, no `e2e/paletteMachines.ts`
       entry** — the machine has no graphics characters
-- [ ] `SEMIGRAPHIC_CODES.apple1 = []` in `src/dialects/semigraphicsAudit.ts`,
+- [x] `SEMIGRAPHIC_CODES.apple1 = []` in `src/dialects/semigraphicsAudit.ts`,
       cited (the Altair's `[]` is the precedent for an honest empty)
-- [ ] `samples/` + `samples.ts` — `hello`, `circles`, `breakout`, `maze`,
+- [x] `samples/` + `samples.ts` — `hello`, `circles`, `breakout`, `maze`,
       `kaleido`, in that order, via the `authoring-dialect-samples` sub-skill.
       **Read the risk note below before starting.** Every sample must be run on
       the machine and fixed until its screen is right; tokenizing clean proves
       nothing.
-- [ ] `aiProfile.ts` — teach the model that this BASIC is integer-only,
+- [x] `aiProfile.ts` — teach the model that this BASIC is integer-only,
       uppercase-only, 2 KB, has no `GR`/`PLOT`/`HLIN`/`VLIN` and no `LOAD`/`SAVE`.
       The Apple II Integer BASIC in the model's training data is a near-miss that
       will otherwise leak into generated programs.
-- [ ] `index.ts` — assemble the full `Dialect` with the picker identity above
-- [ ] **register in `src/dialects/registry.ts` and add the `auto` verb for
+- [x] `index.ts` — assemble the full `Dialect` with the picker identity above
+- [x] **register in `src/dialects/registry.ts` and add the `auto` verb for
       `apple1` to `SHARE_VERBS` in `src/player/routes.ts` in the same change** — `routes.test.ts` enforces a strict bijection
-- [ ] the registry-driven tables that fail the build until they have an entry —
+- [x] the registry-driven tables that fail the build until they have an entry —
       see _Registry-driven tables_ below, and note that this machine **does**
       belong in `e2e/bootMachines.ts`: the ROM ships, so the picker offers it
-- [ ] optional `.virtual-keyboard.vk-theme-apple1` block in
+- [x] optional `.virtual-keyboard.vk-theme-apple1` block in
       `src/keyboard/VirtualKeyboard.css` (colour and label position only)
-- [ ] tests: keyboard matrix reachability, samples tokenize cleanly. Geometry,
+- [x] tests: keyboard matrix reachability, samples tokenize cleanly. Geometry,
       layout, profiling and debug-equivalence tests pick the dialect up from the
       registry automatically and need no per-dialect test — including
       `src/dialects/romImage.test.ts`, which on registration starts asserting
@@ -399,17 +399,24 @@ support has to model, and it shapes every item here.
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection 🔨
 
-- [ ] `memoryMap.ts` — zero page (with the BASIC pointers called out), stack,
+Registering the dialect in Stage 3 turned on the registry-driven batteries, and
+several of them are answered from here: the memory map, the block window and
+`loadProgram`'s block injection, `readMemoryStats` and the memory-activity hooks
+all landed with the registration rather than waiting, because the alternative was
+excusing a machine that can answer. What is left is the variable table and the
+error reports.
+
+- [x] `memoryMap.ts` — zero page (with the BASIC pointers called out), stack,
       monitor scratch, the `$0800`–`$0FFF` program area, the `$Cxxx` ACI window,
       the `$D010`–`$D013` PIA, the `$E000` interpreter and the `$FF00` monitor.
       `addressNotation: 'hex'` for the map, but note that BASIC itself takes
       **signed decimal** addresses in `PEEK`/`POKE`, so `memoryReads` /
       `memoryWrites` declare no `hexPrefix`.
-- [ ] `ADDRESS_SIGIL.apple1 = '$'` in `src/dialects/glyphSources.ts` (the Apple
+- [x] `ADDRESS_SIGIL.apple1 = '$'` in `src/dialects/glyphSources.ts` (the Apple
       house notation, and what every Apple 1 listing is written in)
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport` with `cpu: '6502'`. Valid ranges
+- [x] `memoryBlocks.ts` — `MemoryBlocksSupport` with `cpu: '6502'`. Valid ranges
       are narrow on this machine: below `LOMEM` (`$0300`–`$07FF` is the usual
       home) and nothing else, since `$1000`–`$DFFF` is not fitted. Wire block
       load/inject into `loadProgram`.
@@ -417,27 +424,33 @@ support has to model, and it shapes every item here.
       BASIC's variable table is walked from `LOMEM`; its errors are terse
       (`*** SYNTAX ERR`, `*** >32767 ERR`, `*** MEM FULL ERR`) and carry the line
       number, so `MachineReport.line` is fillable
-- [ ] `readMemoryStats()` — **must span every pool a program spends.** On this
+- [x] `readMemoryStats()` — **must span every pool a program spends.** On this
       machine program text and variables share one region and grow towards each
       other, so a figure that counts only the program text reads as a program
       that allocates nothing. Count the whole `LOMEM`–`HIMEM` region from both
       ends.
-- [ ] memory-activity hooks (`setMemoryActivityRecording` / `drainMemoryActivity`)
+- [x] memory-activity hooks (`setMemoryActivityRecording` / `drainMemoryActivity`)
 - [ ] tests: memory-map layout, block round-trip, variable watching
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; the variable watcher shows live vars.
 
-## Stage 6 — Docs & polish ⬜
+## Stage 6 — Docs & polish 🔨
 
-- [ ] reference docs via the **`dialect-reference-docs`** sub-skill:
+The reference pages landed with the registration for the same reason: the docs
+crosschecks are pinned to the registry, so a registered machine with no reference
+page fails the build. The sidebar entry was added with the project owner's
+explicit agreement. What is left is the file-formats entry (which waits on Stage
+4's codec), the optional glyph table, and the closing accuracy pass.
+
+- [x] reference docs via the **`dialect-reference-docs`** sub-skill:
       `docs/reference/apple1.md` + `apple1/{hardware,escapes,formats}.md`, table
       data in `src/reference/apple1.ts` and `src/reference/escapes/apple1.ts`,
       and the crosscheck-test extensions. No "supply your own image" section is
       needed — the firmware ships — but the parent page should say what the two
       halves of `apple1.rom` are, because a reader who knows the machine will
       expect Integer BASIC to have come off a tape.
-- [ ] **Ask before touching the sidebar.** `CLAUDE.md` forbids adding, removing
+- [x] **Ask before touching the sidebar.** `CLAUDE.md` forbids adding, removing
       or reordering `docs/.vitepress/config.ts` sidebar entries unless the user
       explicitly asks, and the reference-docs skill wires the sidebar by default.
       The user's answer decides; leave it untouched until then.

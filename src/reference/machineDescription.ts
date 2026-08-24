@@ -126,7 +126,9 @@ function describeLanguageRules(facts: PortingFacts): string {
   lines.push(
     facts.logicalOperators === 'bitwise'
       ? '- AND, OR and NOT combine their operands bit by bit on integers.'
-      : '- AND, OR and NOT are NOT bitwise: A AND B is A when B is non-zero and 0 otherwise; A OR B is 1 when B is non-zero and A otherwise.',
+      : facts.logicalOperators === 'logical'
+        ? '- AND, OR and NOT are NOT bitwise: they reduce their operands to a truth value, so A AND B and A OR B are 1 or 0 and NOT 5 is 0.'
+        : '- AND, OR and NOT are NOT bitwise: A AND B is A when B is non-zero and 0 otherwise; A OR B is 1 when B is non-zero and A otherwise.',
   );
   lines.push(
     `- A true comparison evaluates to ${facts.comparisonTrue}; false is 0.`,

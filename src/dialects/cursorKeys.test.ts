@@ -181,6 +181,10 @@ const NO_CURSOR_KEYS: Record<string, string> = {
   // matrix, so a cursor keypress reaches no ROM here to be shown moving - the
   // same reason it records no memory activity (see memoryActivity.test.ts).
   trs80: 'the interpreter backend runs no key matrix',
+  // An ASCII keyboard sends one character per key and the machine has no
+  // cursor addressing to move to: the monitor and Integer BASIC both edit a
+  // line by rubbing the last character out, so there is no arrow to press.
+  apple1: 'no cursor keys on the machine, and nothing on screen to move',
 };
 
 describe('every registered machine is covered by a cursor-key claim', () => {

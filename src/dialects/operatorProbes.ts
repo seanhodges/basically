@@ -28,9 +28,9 @@ export const PROBE_MEANINGS: Record<string, string> = {
   POWR: 'the exponent operator exists, and its spelling on this machine',
   ASSC: 'associativity: 64 if a^b^c folds left, 512 if it folds right',
   UNMI: 'whether the exponent binds tighter than a leading minus',
-  ANDV: 'AND on operands that are not 0 or 1: bitwise gives 1, Sinclair value logic gives 5',
-  ORV: 'OR likewise: bitwise gives 7, value logic gives 1',
-  NOTV: 'NOT likewise: bitwise gives -6, value logic gives 0',
+  ANDV: 'AND on operands that are not 0 or 1: bitwise gives 1, Sinclair value logic gives 5, true/false logic gives 1',
+  ORV: 'OR likewise: bitwise gives 7, value logic gives 1, true/false logic gives 1 - so ANDV and ORV together tell the three apart',
+  NOTV: 'NOT likewise: bitwise gives -6, value and true/false logic both give 0',
   TRU: 'what a true comparison evaluates to: -1 or 1',
   DIVV: 'whether / keeps the fraction or truncates',
   IDIV: 'the integer-division operator, where the machine has one',
@@ -263,6 +263,41 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
     // this machine's ASCII font.
     program: microsoftProgram('^'),
     expect: MICROSOFT_EXPECT,
+  },
+  {
+    id: 'apple1',
+    machines: ['Apple I'],
+    dialects: ['apple1'],
+    // Integer BASIC is its own family and shares none of the Microsoft
+    // battery's answers: `/` truncates rather than returning a fraction, there
+    // is no `^`, `MOD` or `EOR`, and AND/OR/NOT are logical rather than
+    // bitwise - `NOT 5` is 0, not -6. A true comparison is 1, not -1, and
+    // strings do not concatenate at all. `#` is MOD's spelling here.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "UNMI";0-2*2',
+      '30 PRINT "ANDV";5 AND 3',
+      '40 PRINT "ORV";5 OR 3',
+      '50 PRINT "NOTV";NOT 5',
+      '60 PRINT "TRU";(1=1)',
+      '70 PRINT "DIVV";7/2',
+      '80 PRINT "REMD";7 MOD 2',
+      '90 PRINT "REL";(1<=2)',
+      '100 PRINT "ZZEND"',
+      '110 END',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '1',
+      NOTV: '0',
+      TRU: '1',
+      DIVV: '3',
+      REMD: '1',
+      REL: '1',
+    },
   },
   {
     id: 'cpc',
