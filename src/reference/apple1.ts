@@ -185,7 +185,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'data',
       syntax: 'CLR',
       description:
-        'Discards every variable, leaving the program alone. Refused inside a program.',
+        'Discards every variable, leaving the program alone. Refused inside a program line; on an unnumbered line of its own it is accepted and kept, though a program the IDE builds starts with no variables anyway.',
     },
     {
       name: 'DEL',
@@ -193,7 +193,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'program-editing',
       syntax: 'DEL <line>[, <line>]',
       description:
-        'Deletes a line, or an inclusive range of them. Refused inside a program.',
+        'Deletes a line, or an inclusive range of them. Refused inside a program line; on an unnumbered line of its own it is accepted and kept, but the IDE builds every line the listing holds - delete them from the listing instead.',
     },
     {
       name: 'HIMEM=',
@@ -201,7 +201,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'memory-hardware',
       syntax: 'HIMEM= <addr>',
       description:
-        "Sets the top of the workspace, which the program grows down from. `=`, not the Apple II's `:`. A stock machine has 4K fitted and the cold start already puts HIMEM at the top of it, so raising this needs more RAM on the board. Refused inside a program.",
+        "Sets the top of the workspace, which the program grows down from. `=`, not the Apple II's `:`. A stock machine has 4K fitted and the cold start already puts HIMEM at the top of it, so raising this needs more RAM on the board. Refused inside a program line; on an unnumbered line of its own - the way a listing writes it - it sets the workspace the IDE builds the program into.",
     },
     {
       name: 'LIST',
@@ -209,7 +209,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'program-editing',
       syntax: 'LIST [<line>[, <line>]]',
       description:
-        'Lists the program, or one line, or an inclusive range. Refused inside a program.',
+        'Lists the program, or one line, or an inclusive range. Refused inside a program line; on an unnumbered line of its own it is accepted and kept, having nothing to print here.',
     },
     {
       name: 'LOMEM=',
@@ -217,7 +217,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'memory-hardware',
       syntax: 'LOMEM= <addr>',
       description:
-        'Sets the bottom of the workspace, which the variables grow up from, and discards every variable. Lowering it to 768 buys a larger workspace at the cost of the free RAM a machine-code block would go in. Refused inside a program.',
+        'Sets the bottom of the workspace, which the variables grow up from, and discards every variable. Lowering it to 768 buys a larger workspace at the cost of the free RAM a machine-code block would go in. Refused inside a program line; on an unnumbered line of its own - the way a listing writes it - it sets the workspace the IDE builds the program into.',
     },
     {
       name: 'OFF',
@@ -225,7 +225,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'program-editing',
       syntax: 'OFF',
       description:
-        'Cancels AUTO line numbering. Refused inside a program - which is a difficulty, AUTO being on while you type one.',
+        'Cancels AUTO line numbering. Refused inside a program line - which is a difficulty, AUTO being on while you type one. On an unnumbered line of its own it is accepted and kept.',
     },
     {
       name: 'RUN',
@@ -233,7 +233,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'control-flow',
       syntax: 'RUN [<line>]',
       description:
-        'Clears the variables and starts the program, at the given line or at the first. Refused inside a program.',
+        'Clears the variables and starts the program, at the given line or at the first. Refused inside a program line; on an unnumbered line of its own - a listing often ends with one - it is accepted and kept, the IDE starting the program itself.',
     },
     {
       name: 'SCR',
@@ -241,7 +241,7 @@ const apple1Table: BasicReferenceTableData = {
       domain: 'program-editing',
       syntax: 'SCR',
       description:
-        'Scratch: erases the whole program. Refused inside a program, which is the only thing standing between a listing and a typing slip.',
+        'Scratch: erases the whole program. Refused inside a program line, which is the only thing standing between a listing and a typing slip. On an unnumbered line of its own - the way a listing opens - it is accepted and kept, a program the IDE builds being scratched to begin with.',
     },
     {
       name: 'ABS',

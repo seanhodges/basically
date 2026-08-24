@@ -21,7 +21,11 @@ import { apple1MemoryMap } from './memoryMap';
 import { apple1Samples } from './samples';
 import { apple1BuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
-import { apple1UnnumberedLineKey, workspacePreamble } from './directLine';
+import {
+  apple1UnnumberedLineKey,
+  declaredWorkspace,
+  workspacePreamble,
+} from './directLine';
 import { decodeCassette } from './audio/aciDecoder';
 import { CASSETTE_SAMPLE_RATE, buildCassetteSamples } from './audio/aciEncoder';
 import { buildBasicImage, parseBasicImage } from './basicImage';
@@ -55,6 +59,11 @@ import { Apple1Machine } from '../../emulator/apple1/apple1Machine';
  * a different image and, for a program that needed the room, a different
  * program.
  */
+/** An address as the monitor writes it: uppercase hex, no prefix, no padding. */
+function monitorHex(address: number): string {
+  return address.toString(16).toUpperCase();
+}
+
 function withPreamble(source: string, lomem: number, himem: number): string {
   const preamble = workspacePreamble(lomem, himem);
   if (preamble.length === 0) return source;
@@ -190,12 +199,17 @@ export const apple1: Dialect = {
     sampleRate: CASSETTE_SAMPLE_RATE,
     buildSamples: (source, _programName, robust) =>
       buildCassetteSamples(source, robust),
-    loadInstructions:
-      'On the Apple I type C100R and press Return to start the cassette ' +
-      'interface, then type 4A.FF R 800.FFF R - but press Return only once ' +
-      'playback has reached the steady leader tone. The monitor answers with ' +
-      '\\ when both ranges have loaded; type E2B3R to re-enter BASIC, and the ' +
-      'program is there to LIST or RUN.',
+    loadInstructions: (source: string) => {
+      const { lomem, himem } = declaredWorkspace(source);
+      const range = `${monitorHex(lomem)}.${monitorHex(himem - 1)}`;
+      return (
+        'On the Apple I type C100R and press Return to start the cassette ' +
+        `interface, then type 4A.FF R ${range} R - but press Return only once ` +
+        'playback has reached the steady leader tone. The monitor answers with ' +
+        '\\ when both ranges have loaded; type E2B3R to re-enter BASIC, and the ' +
+        'program is there to LIST or RUN.'
+      );
+    },
     decodeSamples: (samples, sampleRate) => {
       const { programName, data } = decodeCassette(samples, sampleRate);
       const { source, warnings } = detokenizeProgramWithReport(
@@ -204,10 +218,13 @@ export const apple1: Dialect = {
       return { programName, source, warnings };
     },
     saveInstructions:
-      'Start the recorder, then on the Apple I type C100R and press Return, ' +
-      'followed by 4A.FF W 800.FFF W - the card writes both ranges, ten ' +
-      'seconds of leader in front of each, and answers \\ when it is done. ' +
-      'Feed that into this device, then start listening.',
+      "At the monitor type 4A.4D to read the machine's own LOMEM and HIMEM " +
+      'back - the second range below is theirs, and 800.FFF W is right only ' +
+      'for a program that never moved them. Start the recorder, then type ' +
+      'C100R and press Return, followed by 4A.FF W <LOMEM>.<HIMEM-1> W - the ' +
+      'card writes both ranges, ten seconds of leader in front of each, and ' +
+      'answers \\ when it is done. Feed that into this device, then start ' +
+      'listening.',
   },
 
   aiProfile: apple1AiProfile,

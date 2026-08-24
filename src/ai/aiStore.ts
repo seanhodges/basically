@@ -1163,7 +1163,11 @@ function checkLatestAnswer(mergeBase: string, stalenessBase: string): void {
   const block = blocks[blocks.length - 1];
   if (!block) return; // an answer with no program is not a thing to run
 
-  const candidate = candidateProgram(block, mergeBase);
+  const candidate = candidateProgram(
+    block,
+    mergeBase,
+    state.dialect.unnumberedLineKey,
+  );
   if (candidate === null) return; // kind unknown - offered as it is, unchecked
 
   // A candidate that will not tokenize never reaches the machine, and the run

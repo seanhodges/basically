@@ -99,3 +99,35 @@ describe('a block through the machine', () => {
     expect(pp).toBeGreaterThan(defaultAddress! + bytes.length);
   });
 });
+
+/**
+ * A program that lowers LOMEM takes the block window's RAM for its own
+ * workspace, so a block sitting there would be written over. The collision lint
+ * only sees that if the area follows the program's own bounds.
+ */
+describe('a workspace the program moved', () => {
+  const stock = { start: DEFAULT_LOMEM, end: DEFAULT_HIMEM - 1 };
+
+  it('follows a LOMEM= preamble down into the block window', () => {
+    expect(programArea(0, 'LOMEM=768\n10 END')).toEqual({
+      start: 0x0300,
+      end: 0x0fff,
+    });
+  });
+
+  it('follows a HIMEM= preamble down from the top', () => {
+    expect(programArea(0, 'LOMEM=768\nHIMEM=2048\n10 END')).toEqual({
+      start: 0x0300,
+      end: 0x07ff,
+    });
+  });
+
+  it('is the stock workspace for a listing that asks for nothing', () => {
+    expect(programArea(0, '10 END')).toEqual(stock);
+    expect(programArea(0)).toEqual(stock);
+  });
+
+  it('ignores bounds the machine could not hold', () => {
+    expect(programArea(0, 'LOMEM=16\n10 END')).toEqual(stock);
+  });
+});

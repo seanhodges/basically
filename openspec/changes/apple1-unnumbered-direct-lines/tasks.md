@@ -1,58 +1,58 @@
 ## 1. Tokenizer accepts unnumbered direct-mode lines
 
-- [ ] 1.1 In `src/dialects/apple1/tokenizer.ts`, add a `directLine()` entry point on the existing `LineParser` that parses one of the nine `APPLE1_DIRECT_ONLY` commands and returns what it asks for, reusing `eat`/`expression`/`fail` so error positions and messages match the rest of the tokenizer
-- [ ] 1.2 Widen `TokenizedProgram` with the workspace the source declares, defaulted to the stock `DEFAULT_LOMEM`/`DEFAULT_HIMEM`
-- [ ] 1.3 In the top-level loop, try `directLine()` before emitting `Missing line number`; a direct line contributes no program bytes and does not touch `prevLineNo`
-- [ ] 1.4 Apply `LOMEM=`/`HIMEM=` (last declaration wins) and validate the bounds fatally: `lomem < himem`, `himem <= RAM_TOP + 1`, `lomem` at or above the byte after the monitor's input buffer
-- [ ] 1.5 Emit the non-fatal notes: each command that cannot affect a stored program, a repeated bound, `SCR`/`CLR` after a numbered line, and a declared lower bound below the stock one (it covers the machine-code block window)
-- [ ] 1.6 Leave `rejectDirectOnly()` untouched so all nine stay refused inside a numbered line
-- [ ] 1.7 Add the cases to `src/dialects/apple1/tokenizer.test.ts`: an accepted preamble, a trailing `RUN`, the declared workspace coming back, each fatal bounds failure, each non-fatal note, an unnumbered `PRINT 1` still fatal, and the `Missing line number` case this dialect currently has no test for. The existing `STORED` and `REJECTED` tables must pass unchanged
+- [x] 1.1 Add `src/dialects/apple1/directLine.ts`: parse one physical line as one of the nine `APPLE1_DIRECT_ONLY` commands with its own argument grammar, tolerating the spaces the interpreter skips inside a keyword. Kept out of `tokenizer.ts` because the block lint needs the declared workspace on every keystroke and cannot afford to tokenize a program for it
+- [x] 1.2 Add `MIN_LOMEM`/`MAX_HIMEM` to `addresses.ts`
+- [x] 1.3 Widen `TokenizedProgram` with the workspace the source declares, defaulted to the stock pair
+- [x] 1.4 In the top-level loop, try the direct-line parse before emitting `Missing line number`; a direct line stores no bytes and does not touch `prevLineNo`
+- [x] 1.5 Apply `LOMEM=`/`HIMEM=` (last wins) and validate the pair fatally, reporting at the later of the two lines and falling back to the stock workspace so no caller can build an image from an impossible one
+- [x] 1.6 Accept the other seven in silence — the run gate counts non-fatal errors too, so a note would refuse to run a listing for ending the way listings end
+- [x] 1.7 Leave `rejectDirectOnly()` untouched: all nine stay refused inside a numbered line
+- [x] 1.8 `directLine.test.ts` (new) and the `unnumbered direct-mode lines` block in `tokenizer.test.ts`; the existing `STORED` and `REJECTED` tables pass unchanged
 
 ## 2. The declared workspace reaches the image
 
-- [ ] 2.1 `src/dialects/apple1/index.ts` `tokenize()`: pass the workspace to `buildBasicImage`, and budget-check the program against `himem - lomem`, rewording the message to name the workspace the program asked for
-- [ ] 2.2 `src/dialects/apple1/audio/aciEncoder.ts` `buildCassetteImage`: same
-- [ ] 2.3 Reword the Apple I's cassette `loadInstructions`/`saveInstructions` so the monitor range is stated as coming from the program's own bounds, with the stock pair as the example
-- [ ] 2.4 Extend `src/dialects/apple1/basicImage.test.ts`: a non-stock workspace builds, and `parseBasicImage` recovers the same bounds
-- [ ] 2.5 Add a ROM-booted case to `src/dialects/apple1/samples.test.ts` (via the existing boot harness): a program declaring a larger workspace runs on the real ROM and the machine reports the larger workspace
-- [ ] 2.6 Confirm `src/dialects/apple1/audio/aci.test.ts` still round-trips, and extend it with a non-stock workspace
+- [x] 2.1 `index.ts` `tokenize()`: pass the workspace to `buildBasicImage` and budget the program against it
+- [x] 2.2 `audio/aciEncoder.ts` `buildCassetteImage`: same
+- [x] 2.3 `detokenize`/`detokenizeWithReport` restate a non-stock workspace as the preamble — without it an imported program rebuilds into the stock workspace, which the round-trip requirement forbids
+- [x] 2.4 Make `audio.loadInstructions` optionally a function of the program text and render the monitor range the program's own bounds describe; reword `saveInstructions` to say how to read those bounds off a real machine
+- [x] 2.5 `basicImage.test.ts`: a declared workspace sizes the image, recovers as a preamble, re-tokenizes byte-exactly, and is what the size budget is measured against
+- [x] 2.6 Tighten `loadProgram`'s workspace guard with the floor it lacked, and add the real-ROM end-to-end plus the malformed-image case to `apple1Machine.test.ts`
 
 ## 3. The editor stops renumbering these lines
 
-- [ ] 3.1 Add one optional member to `Dialect` in `src/dialects/types.ts` letting a dialect say a physical line is a legal unnumbered line, documented as absent on every machine that requires a number
-- [ ] 3.2 Implement it on `apple1` from the same command table the tokenizer parses with
-- [ ] 3.3 Thread it into `src/editor/lineNumbering.ts` as an optional parameter alongside the existing `isBinaryDirective` guard, at every guard site plus `parseLines` and `renumberProgram`; every new parameter defaults to today's behaviour
-- [ ] 3.4 Pass it from `src/components/CodeMirrorHost.tsx` (the only non-test caller of the mutating functions) into renumber-file, renumber-line and auto-number-on-Enter
-- [ ] 3.5 Check `src/editor/basicLanguage.ts` does not mis-tag an unnumbered line, and that the nine commands highlight as the keywords they already are
-- [ ] 3.6 Confirm the read-only consumers (`programOutline`, `pokeAddresses`, `runProfile`, `programVocabulary`, `variables`) degrade acceptably and need no change
-- [ ] 3.7 Extend `src/editor/lineNumbering.test.ts`: renumber, number-in-place and insert-below leave an accepted unnumbered line alone when the predicate is supplied, and behave exactly as today when it is not. Every existing case must pass unchanged
+- [x] 3.1 Add `Dialect.unnumberedLineKey`, absent on every machine that requires a number
+- [x] 3.2 Implement it on `apple1` from the same command table the tokenizer parses with
+- [x] 3.3 Thread an optional predicate through `lineNumbering.ts` beside the `#BIN` guard; generalise the directive side-channel to carry unnumbered lines, anchored to the numbered line they sit above
+- [x] 3.4 Carry it to the keymap handlers through the numbering facet, and fix the `renumberFile` cursor rank, which counted rows renumbering does not number
+- [x] 3.5 Confirm the highlighter and the read-only consumers (`programOutline`, `pokeAddresses`, `runProfile`, `programVocabulary`, `variables`) need no change
+- [x] 3.6 `lineNumbering.test.ts`: kept in place, references still rewritten, and — with no predicate — the very same lines numbered as before
 
 ## 4. AI merge preserves them
 
-- [ ] 4.1 In `src/ai/codeExtractor.ts`, collect accepted unnumbered lines with an anchor (the number of the next numbered line below, or past the end for a trailing line) and emit them as context rows sorted ahead of that line, reusing the `#BIN` side-channel and its priority ordering
-- [ ] 4.2 Make the existing program's unnumbered lines win over a fragment's, as `#BIN` directives already do, so a partial merge can neither drop nor duplicate them
-- [ ] 4.3 Check `classifyBlock`/`classifyByLineNumbers` still classify correctly for a program whose only unnumbered lines are these
-- [ ] 4.4 Add an Apple I wording to `LINE_NUMBER_RULES` in `src/ai/aiProfileComposer.ts` and point the dialect's `aiProfile` at it; leave `RETURNING_CODE_RULES` in `src/ai/promptBuilder.ts` untouched so the prompt cache prefix is unchanged
-- [ ] 4.5 Update the Apple I `aiProfile` trap bullet that currently says these commands are direct-mode only, so it also says what an unnumbered line does
-- [ ] 4.6 Extend `src/ai/codeExtractor.test.ts`: a partial merge preserves a preamble and a trailing `RUN` in place, and neither is shown as a change
+- [x] 4.1 Carry unnumbered lines through `mergePlan` anchored to the line below them, sorted ahead of it
+- [x] 4.2 The program's own win over a fragment's, so a partial merge can neither drop nor duplicate one; a different value for the same command reads as a change, a new one as an addition
+- [x] 4.3 Stop a preamble-only program reading as nothing to merge into, which would have replaced it outright
+- [x] 4.4 Add an `apple1` wording to `LINE_NUMBER_RULES` — the shared one asserts the tokeniser needs a leading digit, which is no longer true here — and fit it inside the per-machine prompt budget by cutting a duplicated RAM reminder. `RETURNING_CODE_RULES` untouched, so the prompt cache prefix is unchanged
+- [x] 4.5 Update the Apple I profile's trap and block-window bullets
+- [x] 4.6 `codeExtractor.test.ts`, including the no-key case that pins the old behaviour this fixes
 
-## 5. Sample, reference and docs
+## 5. Blocks, reference and docs
 
-- [ ] 5.1 Give `src/dialects/apple1/samples/hello.bas` a preamble; leave `circles.bas` and `kaleido.bas` alone (both use the free RAM below LOMEM that a lowered bound would swallow)
-- [ ] 5.2 Update `src/reference/apple1.ts` entries for the nine commands so each says what it does on an unnumbered line as well as inside a numbered one
-- [ ] 5.3 Update `docs/reference/apple1.md` the same way, and leave the sidebar in `docs/.vitepress/config.ts` untouched
-- [ ] 5.4 Check the reference crosscheck tests still pass
+- [x] 5.1 `MemoryBlocksSupport.programArea` takes the program text optionally; the Apple I reads its declared bounds, `lintBlocks` and `EmulatorPane` pass it through
+- [x] 5.2 `memoryBlocks.test.ts` for the moved workspace
+- [x] 5.3 `src/reference/apple1.ts`: each of the nine says what it does unnumbered as well as inside a numbered line
+- [x] 5.4 `docs/reference/apple1.md` gains a worked preamble section; `apple1/formats.md` and `apple1/hardware.md` stop implying the ranges and the block window are fixed. Sidebar untouched
+- [x] 5.5 No sample gains a preamble: two use the low RAM a lowered LOMEM would swallow, and the starter must stay the simplest listing on the machine
 
 ## 6. Browser check
 
-- [ ] 6.1 Extend an existing journey in `e2e/code-editor/editor-shortcuts.spec.ts` (no new cold `page.goto('/')`) to prove renumber and Enter leave a preamble alone — CodeMirror keymap and transaction behaviour a unit test cannot reach
+- [ ] 6.1 `npm run e2e:chromium -- e2e/code-editor` as a regression check on the shared numbering path. No new spec: the only browser-shaped fact here is that Enter does not number one of these lines, which is `insertNumberedLineBelow` returning null and is already unit-tested from both sides
 
 ## 7. Quality gates
 
-- [ ] 7.1 `npm run typecheck`
-- [ ] 7.2 `npm test`
-- [ ] 7.3 `npm run lint`
-- [ ] 7.4 `npm run format:check` (or `npm run format`)
-- [ ] 7.5 `npm run docs:build` (docs/ changed)
-- [ ] 7.6 `npm run e2e:chromium -- e2e/code-editor e2e/dialect-toolchain`
-- [ ] 7.7 `npx openspec validate --specs`
+- [x] 7.1 `npm run typecheck`
+- [x] 7.2 `npm test`
+- [x] 7.3 `npm run lint`
+- [x] 7.4 `npm run format:check`
+- [x] 7.5 `npm run docs:build`
+- [x] 7.6 `npx openspec validate --specs`

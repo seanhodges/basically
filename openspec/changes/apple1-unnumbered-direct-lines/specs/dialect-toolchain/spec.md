@@ -60,6 +60,30 @@ and SHALL continue to report a missing line number for any unnumbered line.
   BASIC requires a line number on every line
 - **THEN** an error identifies that line as missing its line number
 
+### Requirement: A declared workspace survives export and import
+
+Where a program declares the bounds of its workspace, exporting it SHALL record
+those bounds with it, and importing that image SHALL recover source that
+declares them again - so that re-tokenizing what was imported rebuilds the same
+workspace rather than the machine's default.
+
+Where the user must address the machine's own memory by hand to load or save an
+exported program, the instructions shown SHALL name the range that program
+actually occupies, rather than the range a program that took the default would.
+
+#### Scenario: A declared workspace round-trips
+
+- **WHEN** the user exports a program that declares its own workspace and
+  imports the result
+- **THEN** the recovered source declares the same workspace, and re-tokenizing
+  it reproduces the same image
+
+#### Scenario: Transfer instructions follow the program
+
+- **WHEN** the user is shown how to load a program that declared its own
+  workspace onto real hardware
+- **THEN** the memory range named is the one that program occupies
+
 ### Requirement: A workspace the program declares is honoured
 
 Where a machine's BASIC lets a program declare the bounds of the memory its
@@ -75,9 +99,12 @@ memory - SHALL be reported as errors at their line and column, and SHALL not be
 carried into an image. Where the same bound is declared more than once, the last
 declaration SHALL be the one that takes effect.
 
-A declaration that changes nothing about the built program SHALL be accepted and
-preserved, and SHALL be reported as having no effect rather than being silently
-ignored; such a report SHALL NOT prevent the program building or running.
+An unnumbered command that cannot change what is built SHALL be accepted and
+preserved without comment. Reporting each one would be worse than silence: the
+run gate refuses a program with any error against it, fatal or not, so a listing
+would stop being runnable because it ends the way listings end. What each command
+does on an unnumbered line SHALL instead be stated in the machine's language
+reference.
 
 #### Scenario: A program asks for a larger workspace
 
@@ -101,5 +128,5 @@ ignored; such a report SHALL NOT prevent the program building or running.
 
 - **WHEN** a program holds an unnumbered command that cannot affect a stored
   program
-- **THEN** the line is kept, the user is told it has no effect here, and the
-  program still builds and runs
+- **THEN** the line is kept as it stands and the program still builds and runs,
+  with nothing reported against it

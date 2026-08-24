@@ -802,8 +802,13 @@ export interface MemoryBlocksSupport {
    * bytes, for the linter's block/program collision check. Dialect-specific:
    * knows where the program area starts and how much slack beyond the raw
    * program bytes to reserve.
+   *
+   * `source` is the open program's text, for a machine whose workspace the
+   * program itself moves - the Apple I's `LOMEM=`/`HIMEM=` preamble. Every
+   * other machine's area is fixed wherever the program sits and ignores it,
+   * which lints exactly as it did before.
    */
-  programArea(programByteSize: number): MemoryRange;
+  programArea(programByteSize: number, source?: string): MemoryRange;
   /**
    * Ranges the machine claims only for an optional feature, which a block may
    * occupy while the open program's text proves the feature unused - whether or
@@ -1366,8 +1371,16 @@ export interface Dialect {
       robust: boolean,
       opts?: { blocks?: readonly MemoryBlock[]; loader?: boolean },
     ): Float32Array;
-    /** Loading instructions shown to the user, e.g. how to type LOAD "". */
-    loadInstructions: string;
+    /**
+     * Loading instructions shown to the user, e.g. how to type LOAD "".
+     *
+     * A function where the instructions depend on the program being sent. The
+     * Apple I is the case: it has no LOAD, so the user types the monitor
+     * address range by hand, and that range is the workspace the program's own
+     * `LOMEM=`/`HIMEM=` asked for. A fixed range there is not merely vague, it
+     * loads the wrong bytes.
+     */
+    loadInstructions: string | ((source: string) => string);
     /**
      * Decode recorded cassette samples back into an editable program (the
      * inverse of {@link buildSamples}). Throws when no valid signal is found.

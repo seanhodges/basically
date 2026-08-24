@@ -20,8 +20,14 @@ though the machine and the image format both support it.
   one and its RAM budget is measured against it. Out-of-range or inverted bounds
   are reported at their line and column.
 - The remaining commands are accepted and preserved but change nothing about the
-  built program; each is flagged with a non-blocking note saying so, rather than
-  doing nothing silently.
+  built program, and nothing is reported against them. Reporting each would be
+  worse than silence: the run gate refuses a program with any error against it,
+  fatal or not, so a listing would stop being runnable because it ends the way
+  listings end. The language reference says what each one does instead.
+- A cassette export records the declared workspace with the program, importing
+  one restates it, and the monitor range the Transfer dialog tells the user to
+  type follows the program's own bounds - a fixed range there does not merely
+  read vaguely, it loads the wrong bytes.
 - Line-number management (renumbering, automatic numbering while typing) leaves
   these lines alone instead of forcing a number onto them.
 - An AI merge preserves them in place instead of dropping them - today a partial
@@ -47,6 +53,8 @@ None.
   place.
 - `ai-assistant`: the merge requirement gains a guarantee that a partial reply
   cannot remove or duplicate a line the program holds without a line number.
+- `memory-blocks`: the run gate judges blocks against the workspace the open
+  program asks for, so a block its own workspace would cover is refused.
 
 ## Non-goals
 
@@ -58,10 +66,9 @@ None.
 - Breakpoints, the program outline, profiling heat and the POKE/address scan are
   not extended to unnumbered lines; they are keyed by line number and continue
   to skip them.
-- `MemoryBlocksSupport.programArea` is not made source-aware, so the
-  block/program collision lint still assumes the stock workspace. A note on the
-  declared bounds covers the gap; widening that seam for all registered dialects
-  is separate work.
+- `Dialect.programRamBytes` stays the machine's static figure, so the RAM gauge
+  reads a program against the stock workspace until it runs, at which point the
+  machine's own arithmetic takes over.
 
 ## Impact
 
@@ -70,7 +77,11 @@ None.
   the workspace into the image), `keywords.ts` (the shared command table),
   `samples/hello.bas`, and the colocated tests.
 - `src/dialects/types.ts`: one new optional `Dialect` member so a dialect can
-  say a physical line is a legal unnumbered line; absent on every other machine.
+  say a physical line is a legal unnumbered line, absent on every other machine;
+  `MemoryBlocksSupport.programArea` takes the program text optionally; and
+  `audio.loadInstructions` may be a function of it.
+- `src/app/blockLint.ts`, `src/components/EmulatorPane.tsx` and
+  `src/components/TransferDialog.tsx`: pass the open program through.
 - `src/editor/lineNumbering.ts` and `src/components/CodeMirrorHost.tsx`: the
   renumber and auto-number paths consult it, alongside the existing `#BIN`
   directive guard.

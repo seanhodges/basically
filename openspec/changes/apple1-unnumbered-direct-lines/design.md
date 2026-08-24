@@ -39,7 +39,10 @@ and the editor pipeline fit together.
   refuses them there and so does the tokenizer, unchanged.
 - Extending line-number-keyed features (breakpoints, outline, profile heat, the
   POKE/address scan) to unnumbered lines.
-- Making `MemoryBlocksSupport.programArea` source-aware.
+- Honouring `RUN <line>` by starting the program there. `loadProgram` already
+  takes an `autoStart` it ignores on this machine; wiring it up would retire
+  dead API, and is worth its own change.
+- A `TokenizeError` severity the run gate ignores (see the note policy below).
 
 ## Decisions
 
@@ -81,6 +84,20 @@ predicate parameter keeps it so).
 is untouched - the Apple I machine already honours the bounds in the image it is
 handed, and every other machine's `loadProgram` sees exactly what it saw before.
 
+### Only `LOMEM=`/`HIMEM=` reach the image, so only they are reconstructed
+
+Seven of the nine leave no trace in the built image, and that is fine: the
+import round trip compares images, not text, so a listing's `SCR` and `RUN`
+being absent from the recovered source changes nothing about the bytes.
+
+The two that do reach it are a different matter. Their bounds live in the dump's
+zero-page block and the text form's only way of carrying them is the preamble
+the machine's own listings write - so `detokenize` restates them. Without that,
+importing a program that asked for a larger workspace would rebuild it into the
+stock one: a different image, and for a program that needed the room, a
+different program. The existing round-trip requirement is what makes this
+mandatory rather than a nicety.
+
 ### The declared workspace rides on the tokenizer's result
 
 `tokenizeProgram` returns the declared bounds alongside the program bytes and
@@ -95,15 +112,28 @@ not fit what it asked for. The dialect's static `programRamBytes` stays the
 stock figure - it describes the machine, not a particular program, and the
 registry test pins it.
 
-### The no-op commands get a non-blocking note
+### The no-op commands are accepted in silence
 
 Seven of the nine cannot affect a stored program: the image is built already
-scratched and with no variables, and the IDE issues `RUN` itself. Rather than
-accept them and do nothing silently, each carries a `fatal: false` error - the
-project's existing convention for "keeps its editor squiggle, never stops
-`tokenize` producing a runnable image". `SCR`/`CLR` are noted only when they sit
-*after* a numbered line, where on the real machine they would have erased what
-is above them and here they do not.
+scratched and with no variables, and the IDE issues `RUN` itself. The obvious
+move is a `fatal: false` error on each - the project's convention for "keeps its
+editor squiggle, never stops `tokenize` producing a runnable image".
+
+That convention does not mean what it looks like it means. `countProgramErrors`
+counts `dialect.lint(source).length` - every error, fatal or not - and the Play
+button refuses a program with any of them, with the lint gate on by default. A
+note on a trailing `RUN` would therefore make a pasted listing unrunnable until
+the user deleted the line that made it a listing, which is the exact failure
+this change exists to remove.
+
+So they are accepted in silence, and what each does on an unnumbered line is
+said in the language reference instead. `SCR` after a numbered line is the one
+case with a real divergence - on the machine it would have erased the lines
+above it - and it is documented rather than flagged, for the same reason.
+
+Distinguishing "tell the user without blocking the run" would need a new
+severity on `TokenizeError` that the run gate ignores. That is a bigger change
+than this one and would want its own proposal.
 
 ### AI merge preserves by anchoring, not by numbering
 
@@ -123,29 +153,35 @@ dialects, and the merge rule above makes a change to it unnecessary.
 
 ## Risks / Trade-offs
 
-- **The block/program collision lint still assumes the stock workspace.**
-  `MemoryBlocksSupport.programArea` is handed only a byte size, so it cannot see
-  a declared `LOMEM=768` that puts the BASIC workspace on top of the `$0300-$07FF`
-  machine-code block window. → The tokenizer emits a non-fatal note whenever the
-  declared lower bound is below the stock one, naming the window it now covers.
-  Making that seam source-aware would change it for every registered dialect to
-  serve one machine, and belongs in separate work.
+- **A block the program's own workspace covers.** `LOMEM=768` puts the BASIC
+  workspace on top of the `$0300-$07FF` machine-code block window, and
+  `MemoryBlocksSupport.programArea` was handed only a byte size, so the
+  collision lint could not see it. → `programArea` takes the program text
+  optionally and the Apple I reads its declared bounds from it. A one-parameter
+  implementation still satisfies the wider signature, so no other dialect
+  changes. It runs on every lint pass, which is why the bounds are read by
+  scanning the unnumbered lines rather than by tokenizing the program.
 
-- **The cassette instructions name fixed monitor ranges.** They are static
-  strings on the dialect and are typed verbatim by the user at a real machine's
-  monitor; a moved workspace makes them wrong. → Reword them to say the range
-  comes from the program's own bounds and give the stock pair as the example.
-  The dump itself stays self-describing, so import still round-trips. A
-  source-aware signature would change the seam for all dialects; not worth it
-  here.
+- **The cassette instructions name fixed monitor ranges.** The user types them
+  verbatim at a real machine's monitor, so a moved workspace does not make them
+  vague, it makes them load the wrong bytes. → `loadInstructions` may now be a
+  function of the program text; the Apple I renders the range its bounds
+  describe, and every other dialect keeps a plain string. `saveInstructions`
+  stays static and is reworded to say how to read the bounds off the machine
+  instead - the IDE has never seen that machine, so computing a range for it
+  would be a lie dressed as precision.
+
+- **A malformed image could move the workspace under the monitor's input
+  buffer.** `loadProgram`'s guard had a ceiling but no floor. → It now has both;
+  a workspace reaching below `$0280` is refused in favour of the cold start's.
 
 - **Threading a predicate through `lineNumbering.ts` touches functions every
   dialect uses.** → Every new parameter is optional and defaults to today's
   behaviour, and the existing tests in that module are the regression net; each
   one must still pass unchanged.
 
-- **A sample gaining a preamble could mislead.** Two Apple I samples
-  deliberately use the free RAM below LOMEM that a `LOMEM=768` would swallow. →
-  Only the sample that uses no low RAM gains a preamble; the other two are left
-  alone, and the collision they would suffer is exactly what the note above
-  names.
+- **No sample gains a preamble.** Two Apple I samples deliberately use the free
+  RAM below LOMEM that a `LOMEM=768` would swallow, and the starter sample must
+  stay the simplest listing on the machine. → The feature is covered by
+  tokenizer, image and real-ROM tests and by a worked example in the language
+  reference, which is where a reader meets it anyway.

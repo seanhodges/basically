@@ -210,17 +210,23 @@ function AiCodeBlock({
   onApply: (text: string, run: boolean) => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
-  const kind = classifyBlock(block, source);
+  // Lines the active machine takes without a line number must survive a merge:
+  // a fragment cannot address one, so it must not be able to drop one either.
+  const unnumbered = useIdeStore((s) => s.dialect.unnumberedLineKey);
+  const kind = classifyBlock(block, source, unnumbered);
   // A whole listing replaces outright, so a stray bare number in it must not
   // read as a deletion.
   const allowDeletes = kind !== 'full';
   const rows = useMemo(
     () =>
-      kind === 'full' ? null : mergePlan(source, block.code, { allowDeletes }),
-    [kind, source, block.code, allowDeletes],
+      kind === 'full'
+        ? null
+        : mergePlan(source, block.code, { allowDeletes, unnumbered }),
+    [kind, source, block.code, allowDeletes, unnumbered],
   );
 
-  const merged = () => mergeBasicLines(source, block.code, { allowDeletes });
+  const merged = () =>
+    mergeBasicLines(source, block.code, { allowDeletes, unnumbered });
   const whole = () =>
     block.code.endsWith('\n') ? block.code : block.code + '\n';
 

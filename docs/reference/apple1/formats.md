@@ -16,8 +16,8 @@ how a program moves between an Apple I and anything else.
 
 No Apple I export carries
 [memory blocks](../file-formats#machine-code-data-blocks): a block sits below
-`LOMEM`, and the ranges the cassette interface writes start at `0x0800`. Use the
-`.zip` project bundle to keep a program and its blocks together.
+`LOMEM`, and the ranges the cassette interface writes start at the workspace.
+Use the `.zip` project bundle to keep a program and its blocks together.
 
 For the shared editor `.txt`, the project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
@@ -42,7 +42,11 @@ second range is the workspace itself — variables up from LOMEM at `0x0800`, th
 program text down from HIMEM at `0x0FFF` — and the first is the zero-page
 housekeeping that says where in it each of those begins: LOMEM at `0x4A`, HIMEM
 at `0x4C`, the bottom of the program text at `0xCA` and the top of the variables
-at `0xCC`. Without the pointers the workspace is a block of bytes nobody can
+at `0xCC`. `800.FFF` is the stock workspace: a program that sets its own with a
+[`LOMEM=` / `HIMEM=` preamble](../apple1#the-preamble-a-listing-opens-with) is
+written and read over the range **its** bounds describe, and the Transfer dialog
+spells that range out for you. Without the pointers the workspace is a block of
+bytes nobody can
 find the program in.
 
 The `.bin` export is those two ranges laid end to end — 182 bytes of
@@ -82,7 +86,9 @@ reads.
 
 On a real Apple I, save with `C100R` and then `4A.FF W 800.FFF W`, and load with
 the same two ranges and `R` — pressing `Return` once playback has reached the
-steady leader tone. The monitor answers `\` when both ranges are in; `E2B3R`
+steady leader tone. Both ranges are the machine's own: `4A.4D` at the monitor
+reads LOMEM and HIMEM back, and `800.FFF` is right only for a program that never
+moved them. The monitor answers `\` when both ranges are in; `E2B3R`
 re-enters BASIC with the program there to `LIST` or `RUN`. The emulated machine
 here has no cassette card fitted, as most Apple I boards did not, so `C100R` on
 it runs into empty address space. Import and export in the IDE work on the file
