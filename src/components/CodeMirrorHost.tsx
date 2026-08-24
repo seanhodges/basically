@@ -95,6 +95,7 @@ import {
 } from '../editor/lineNumbering';
 import { findRowForLineNumber } from '../editor/programOutline';
 import { isMobileViewport } from '../app/useMediaQuery';
+import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import { isMac } from '../app/shortcuts';
 import styles from './CodeMirrorHost.module.css';
 
@@ -915,6 +916,10 @@ export function CodeMirrorHost({
     // The editor is rebuilt only when the dialect changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialect]);
+
+  // Raising a dialog, panel or drawer over the editor takes away the completion
+  // list and the picked-token menu; the on-screen input overlays don't.
+  useRetireEditorPopups(viewRef);
 
   // Keep the native-OSK suppression in sync: suppress it whenever the virtual
   // keyboard is (or will be) the editor's input surface - the explicit toggle or

@@ -107,6 +107,30 @@
      code loads. */
   --mm-read: #a970ff;
 
+  /* --- Overlay layers ------------------------------------------------------
+     Everything the app raises over the editor, in one scale, because the
+     numbers only mean anything relative to each other and to one value the app
+     does not own: CodeMirror's base theme puts `.cm-tooltip` at z-index 500,
+     and the editor is not inside a stacking context of its own, so the
+     completion list and the picked-token menu compete here at 500. Anything
+     meant to cover the editor has to clear that, or a popup paints through it.
+
+     Deliberately *below* 500, and so not on this scale: the virtual keyboard
+     (5), the floating run button (20) and the mobile memory-map pane (21), all
+     in Workspace.module.css. A completion offered at the foot of the editor has
+     to stay readable while the on-screen keyboard is up, which is the whole
+     reason the keyboard doesn't take the popup away. */
+  --z-toolbar: 600;
+  /* Menus anchored outside the toolbar's own stacking context (the toolbar's
+     own dropdown sits inside it and needs no band of its own). */
+  --z-menu: 700;
+  --z-drawer-handle: 890;
+  --z-drawer: 900;
+  --z-drawer-hint: 950;
+  --z-dialog: 1000;
+  /* A dialog opened from within another dialog (the machine list). */
+  --z-dialog-nested: 1010;
+
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 

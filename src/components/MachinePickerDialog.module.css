@@ -1,7 +1,7 @@
-/* Above the standard modal layer (Dialog.module.css uses 100): the picker can
-   open on top of the New-project dialog. */
+/* Above the standard modal layer (Dialog.module.css): the picker can open on
+   top of the New-project dialog. See the overlay scale in src/styles.css. */
 .backdrop {
-  z-index: 110;
+  z-index: var(--z-dialog-nested);
 }
 
 .panel {

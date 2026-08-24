@@ -41,6 +41,7 @@ import { basicHighlightStyle } from '../editor/basicLanguage';
 import { clickMenu } from '../editor/clickMenu';
 import { ASM_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
 import { asmReferenceTopic } from '../app/docsTopic';
+import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import styles from './AsmEditor.module.css';
 
 /** No operator has a row on an assembly page, so no operator run is cut back. */
@@ -232,6 +233,10 @@ export function AsmEditor({
     // The component remounts per block (key={block.id}); the engine is fixed
     // per dialect, so this runs once per opened block tab.
   }, [engine]);
+
+  // Raising a dialog, panel or drawer over the editor takes away the
+  // picked-token menu; the on-screen input overlays don't.
+  useRetireEditorPopups(viewRef);
 
   // Defensive: if the block's bytes change identity while this tab is open
   // and it wasn't our own write echoing back (today every external write
