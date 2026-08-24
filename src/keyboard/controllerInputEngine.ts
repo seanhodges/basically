@@ -128,11 +128,16 @@ export class ControllerInputEngine {
 
   /** Release everything everywhere (stop, blur, machine swap, unmount). */
   cancelAll(): void {
+    // Only the machine's own keys, and only when this engine was holding some:
+    // the overlay is rebuilt on every focus hand-off, and one that never
+    // pressed anything must not reset the input of a machine that is running
+    // (see the same guard in `inputEngine.ts`).
+    const held = this.tokenCounts.size > 0;
     this.active.clear();
     this.pointerRoles.clear();
     this.pendingReleases.length = 0;
     this.tokenCounts.clear();
-    this.target.getMachine()?.releaseAllKeys();
+    if (held) this.target.getMachine()?.releaseAllKeys();
     // Centre the joystick / drop fire so nothing is left held after a stop.
     if (this.mode !== 'keymapped') this.applyJoystick();
     this.notify();

@@ -170,6 +170,24 @@ describe('Apple1Machine', () => {
     expect(/STOPPED AT [123]0/.test(machine.display.text())).toBe(true);
   });
 
+  it('starts the program even if every key is released as it does', () => {
+    // The IDE releases every key whenever focus moves off the emulator, and one
+    // of those moments lands a field or two into a run: on the tab layout the
+    // on-screen keyboard is rebuilt for the emulator as Play switches to the
+    // preview, and tearing the old one down releases the machine's keys. The
+    // `RUN` this machine types goes in a character per field, so the release
+    // used to arrive mid-command and leave the interpreter sitting at `>R`
+    // waiting for the rest to be typed by hand.
+    for (const fields of [0, 1, 2, 3, 4]) {
+      const machine = new Apple1Machine({ rom: ROM });
+      machine.loadProgram(tokenize('10 PRINT "HELLO"\n'));
+      for (let i = 0; i < fields; i++) machine.runFrame();
+      machine.releaseAllKeys();
+      runUntil(machine, () => machine.isProgramRunning() === false, 600);
+      expect(machine.display.text()).toContain('HELLO');
+    }
+  });
+
   it('keeps the program in RAM across the RESET button', () => {
     const machine = ran('10 FOR I=1 TO 3\n20 PRINT I\n30 NEXT I\n40 END\n');
     const pp = machine.mem.peekWord(PP);

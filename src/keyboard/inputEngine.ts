@@ -131,13 +131,23 @@ export class KeyboardInputEngine {
 
   /** Release everything everywhere (window blur, stop, machine swap…). */
   cancelAll(): void {
+    // `tokenCounts` is exactly the set of matrix cells this engine is holding
+    // down, so it also answers whether the machine has anything of ours to
+    // release. Asked before the state is dropped, and acted on afterwards.
+    const held = this.tokenCounts.size > 0;
     this.presses.clear();
     this.pendingReleases.length = 0;
     this.tokenCounts.clear();
     for (const id of this.modifierStates.keys())
       this.modifierStates.set(id, 'off');
     this.usedWhileHeld.clear();
-    if (this.target.kind === 'machine')
+    // Only when we were holding something. `releaseAllKeys` resets every key
+    // state the machine has, and this engine is built and torn down whenever
+    // focus moves between the editor and the emulator - mid-program, and on
+    // the machines that type their own console commands mid-command. An
+    // overlay that never pressed a key has nothing to release and must leave
+    // the machine's input alone.
+    if (held && this.target.kind === 'machine')
       this.target.getMachine()?.releaseAllKeys();
     this.notify();
   }

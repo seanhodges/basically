@@ -27,6 +27,16 @@
  * command the loader types to start BASIC - and dropping those would be
  * modelling the typist rather than the machine.
  *
+ * There are two such queues, and the split matters. What the user types is
+ * typeahead, dropped whenever the host says no key is down any more (a blur, a
+ * stopped run, an on-screen keyboard going away). What the *loader* types -
+ * `E000R` at the monitor, the `RUN` that starts a program - is a console
+ * command already in flight, which none of those events has any business
+ * abandoning half-sent: it takes a field per character to go in, so on this
+ * machine "released every key" would otherwise mean "and threw away two thirds
+ * of RUN". The command queue drains first and only a reset or a new program
+ * clears it.
+ *
  * ### What the keys send
  *
  * SHIFT's second character is a fact about key caps rather than about the
@@ -150,22 +160,28 @@ export interface Apple1Buttons {
 export class Apple1Keyboard {
   private shift = false;
   private ctrl = false;
+  /** What the user typed ahead of the latch. */
   private readonly queue: number[] = [];
+  /** The loader's console command, still going in a character per field. */
+  private readonly command: number[] = [];
 
   constructor(private readonly buttons: Apple1Buttons) {}
 
   /** Characters typed but not yet taken by the machine. */
   get pending(): number {
-    return this.queue.length;
+    return this.command.length + this.queue.length;
   }
 
   /**
    * The next character for the latch, or null when nothing is waiting. The
    * machine calls this when the latch is free; the character is handed over
    * with bit 7 set, as the board's strapped PA7 presents it.
+   *
+   * The loader's command goes first: a key the user pressed while `RUN` was
+   * still being typed belongs after it, not in the middle of it.
    */
   take(): number | null {
-    const code = this.queue.shift();
+    const code = this.command.shift() ?? this.queue.shift();
     return code === undefined ? null : code | 0x80;
   }
 
@@ -173,12 +189,13 @@ export class Apple1Keyboard {
   type(text: string): void {
     for (const ch of text) {
       const code = ch === '\n' ? 0x0d : ch.charCodeAt(0);
-      this.queue.push(code & 0x7f);
+      this.command.push(code & 0x7f);
     }
   }
 
   /** Drop anything typed but not yet taken (a reset, a new program). */
   clearInput(): void {
+    this.command.length = 0;
     this.queue.length = 0;
   }
 
@@ -243,7 +260,13 @@ export class Apple1Keyboard {
     return true;
   }
 
-  /** Drop modifier state and anything typed ahead (stop, blur, unmount). */
+  /**
+   * Drop modifier state and the user's typeahead (stop, blur, unmount).
+   *
+   * The loader's command survives: nothing here is a key anybody is holding,
+   * so "release every key" is not a reason to abandon a `RUN` half sent. See
+   * the typeahead note above.
+   */
   releaseAll(): void {
     this.shift = false;
     this.ctrl = false;
