@@ -10,7 +10,9 @@ import type {
   LineCost,
   MachineEmulator,
   MachineMemoryStats,
+  MachineReport,
   MachineScreenText,
+  MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
 import {
@@ -27,6 +29,8 @@ import {
   RAM_TOP,
 } from '../../dialects/apple1/addresses';
 import { parseBasicImage } from '../../dialects/apple1/basicImage';
+import { readApple1Report } from '../../dialects/apple1/reports';
+import { readApple1Variables } from '../../dialects/apple1/vars';
 import { createMachineLoop } from '../machineLoop';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { ProgramEndLatch } from '../programEndLatch';
@@ -405,6 +409,32 @@ export class Apple1Machine implements MachineEmulator {
     if (himem <= lomem) return null;
     if (!(lomem <= pv && pv <= pp && pp <= himem)) return null;
     return { used: himem - lomem - (pp - pv), free: pp - pv };
+  }
+
+  /**
+   * The interpreter's variable table, walked from LOMEM.
+   *
+   * Gated on {@link readMemoryStats} rather than on a flag of its own: the
+   * table is described by the same four pointers, so a machine that cannot
+   * describe its workspace cannot be holding a table worth reading either -
+   * which is exactly the monitor prompt, and the fields part-way through an
+   * injection.
+   */
+  readVariables(): MachineVariable[] {
+    if (this.readMemoryStats() === null) return [];
+    return readApple1Variables(this.memory.mem);
+  }
+
+  /**
+   * The `*** ... ERR` the interpreter printed, read back off the terminal.
+   *
+   * The grid rather than the character stream, so a report stays readable after
+   * the program has printed past it - and every `loadProgram` clears the
+   * terminal, so what is on it belongs to the run just made.
+   */
+  readReport(): MachineReport | null {
+    if (this.disposed || !this.hasInterpreter) return null;
+    return readApple1Report(this.readScreenText()?.lines ?? []);
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

@@ -55,12 +55,6 @@ export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   // deliberately has no `readVariables` - the ZX80 and Atom precedent. Supply
   // an image, derive the layout from it, and the id comes out of this set.
   'altair8800',
-  // Integer BASIC's variable table is walked from LOMEM and its entries are a
-  // two-byte name and a value, which is a readable layout - this machine simply
-  // has no `readVariables` wired to it yet. Listed rather than left to the
-  // fallback so the assistant is told what is true today instead of being
-  // invited to state expectations that never get evaluated.
-  'apple1',
 ]);
 
 /** Whether this dialect's machine can be asked for its BASIC variables. */
@@ -84,10 +78,6 @@ export function canReportVariables(dialectId: string): boolean {
 export const DIALECTS_WITHOUT_RUNTIME_REPORT: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
-  // The reports are there to read - *** SYNTAX ERR and friends, on screen and
-  // carrying the line - but nothing reads them back yet, so a check by running
-  // could never reach a verdict.
-  'apple1',
 ]);
 
 /**

@@ -146,7 +146,7 @@ authoritative until a test reads it back off the running machine.
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ✅     |
-| 5     | Memory map & runtime introspection     | ⬜     |
+| 5     | Memory map & runtime introspection     | ✅     |
 | 6     | Docs & polish                          | 🔨     |
 
 ---
@@ -435,14 +435,14 @@ promises and what makes a tape written to the round published figures (a 2 kHz
 zero, a 1 kHz one, a 770 Hz leader — the Apple II's tidied-up version of this
 scheme) decode on the same code path.
 
-## Stage 5 — Memory map & runtime introspection 🔨
+## Stage 5 — Memory map & runtime introspection ✅
 
 Registering the dialect in Stage 3 turned on the registry-driven batteries, and
 several of them are answered from here: the memory map, the block window and
 `loadProgram`'s block injection, `readMemoryStats` and the memory-activity hooks
 all landed with the registration rather than waiting, because the alternative was
-excusing a machine that can answer. What is left is the variable table and the
-error reports.
+excusing a machine that can answer. This stage adds the variable table and the
+error reports, and the tests that pin all of it.
 
 - [x] `memoryMap.ts` — zero page (with the BASIC pointers called out), stack,
       monitor scratch, the `$0800`–`$0FFF` program area, the `$Cxxx` ACI window,
@@ -456,17 +456,21 @@ error reports.
       are narrow on this machine: below `LOMEM` (`$0300`–`$07FF` is the usual
       home) and nothing else, since `$1000`–`$DFFF` is not fitted. Wire block
       load/inject into `loadProgram`.
-- [ ] `vars.ts` / `reports.ts` → `readVariables()` / `readReport()` — Integer
-      BASIC's variable table is walked from `LOMEM`; its errors are terse
-      (`*** SYNTAX ERR`, `*** >32767 ERR`, `*** MEM FULL ERR`) and carry the line
-      number, so `MachineReport.line` is fillable
+- [x] `vars.ts` / `reports.ts` → `readVariables()` / `readReport()`. The table
+      is a linked list from `LOMEM` to `PV`: two name bytes (the letter shifted
+      left one bit, then the string flag or the trailing digit), the link, then
+      the value — two bytes for a scalar, 2n for an n-element array, `DIM`+1
+      characters for a string. The reports are read off the terminal, since the
+      interpreter keeps no report variable, and the sixteen error names come out
+      of the message table at `$EB00` rather than out of a manual. Both ids came
+      out of the sets in `src/ai/machineObservability.ts`.
 - [x] `readMemoryStats()` — **must span every pool a program spends.** On this
       machine program text and variables share one region and grow towards each
       other, so a figure that counts only the program text reads as a program
       that allocates nothing. Count the whole `LOMEM`–`HIMEM` region from both
       ends.
 - [x] memory-activity hooks (`setMemoryActivityRecording` / `drainMemoryActivity`)
-- [ ] tests: memory-map layout, block round-trip, variable watching
+- [x] tests: memory-map layout, block round-trip, variable watching
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; the variable watcher shows live vars.
