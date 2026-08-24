@@ -46,7 +46,7 @@
 
 ## 6. Browser check
 
-- [ ] 6.1 `npm run e2e:chromium -- e2e/code-editor` as a regression check on the shared numbering path. No new spec: the only browser-shaped fact here is that Enter does not number one of these lines, which is `insertNumberedLineBelow` returning null and is already unit-tested from both sides
+- [x] 6.1 `npm run e2e:chromium -- e2e/code-editor` as a regression check on the shared numbering path. No new spec: the only browser-shaped fact here is that Enter does not number one of these lines, which is `insertNumberedLineBelow` returning null and is already unit-tested from both sides
 
 ## 7. Quality gates
 
