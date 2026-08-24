@@ -145,7 +145,7 @@ authoritative until a test reads it back off the running machine.
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
-| 4     | Transfer & tape I/O                    | ⬜     |
+| 4     | Transfer & tape I/O                    | ✅     |
 | 5     | Memory map & runtime introspection     | ⬜     |
 | 6     | Docs & polish                          | 🔨     |
 
@@ -356,7 +356,7 @@ project. Expect:
 - Dropping a sample to be a real possibility (the ZX80 drops `breakout`). Drop
   one only after trying it, and keep the rest in the canonical order.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
 **The Apple I has no `LOAD` or `SAVE` in BASIC.** A program is saved by leaving
 BASIC for the monitor and dumping two memory ranges through the ACI:
@@ -368,36 +368,72 @@ C100R              start the cassette interface
 ```
 
 and read back with the same ranges and `R`. That is what the dialect's tape
-support has to model, and it shapes every item here.
+support models, and it shaped every item here.
 
-- [ ] `targets.ts` — `BuildTarget[]`: the `.bas` text listing, and a raw two-range
-      binary dump (`.bin`, there being no documented extension to claim). No
-      disc, no `.tap`.
-- [ ] `audio/aciEncoder.ts` + `audio/aciDecoder.ts` — **the ACI PROM as logic.**
-      The board's FSK encoding: a ~1 kHz cycle for a `0` bit and ~2 kHz for a `1`,
-      preceded by a leader of asymmetric cycles and a shorter start bit. The
-      timings in the _Apple Cassette Interface_ documentation are the source; pin
-      them as named constants with the citation, as the Altair's
-      `cassetteEncoder.ts` does for the 88-ACR.
-- [ ] `audio` on the dialect — `buildSamples` encodes the two ranges the monitor
+- [x] `targets.ts` — `BuildTarget[]`: the two-range binary dump (`.bin`, there
+      being no documented extension to claim), its cassette `.wav`, and the
+      `.bas` text listing. No disc, no `.tap`.
+- [x] `audio/aciEncoder.ts` + `audio/aciDecoder.ts` — **the ACI PROM as logic.**
+      Every timing is a named constant derived from the card's own write routine
+      rather than from prose; see _What the encoding turned out to be_ below.
+- [x] `audio` on the dialect — `buildSamples` encodes the two ranges the monitor
       would have written; `decodeSamples` decodes them back and reconstructs the
       listing through `detokenize`, reading `LOMEM`/`HIMEM` out of the
       housekeeping block to know where the program area is. `programName` is the
       empty string: an ACI tape carries a memory range, not a name.
-- [ ] `loadInstructions` / `saveInstructions` naming the monitor commands above
+- [x] `loadInstructions` / `saveInstructions` naming the monitor commands above
       verbatim — this is the thing users will otherwise get wrong, exactly as the
       Altair's single-character program name is
-- [ ] `binaryImports: [{ extension: '.bin', label: 'Import cassette dump…' }]`
-- [ ] **Optional:** a `$C100` trap in `src/emulator/apple1/` so the in-browser
-      machine honours `C100R` and the `R`/`W` commands against the IDE's tape,
-      parsing the command out of the monitor's `$0200` input buffer the way the
-      real PROM does. The `Dialect.audio` seam is a host-side codec and does not
-      need this — the ZX80's tape-loop trap is the precedent if it is wanted.
-- [ ] tests: encode → decode round-trip, and a decode of a dump captured from the
-      real ACI if one can be obtained
+- [x] `binaryImports: [{ extension: '.bin', label: 'Import cassette dump…' }]`
+- [ ] **Optional, deliberately not taken:** a `$C100` trap in
+      `src/emulator/apple1/` so the in-browser machine honours `C100R` and the
+      `R`/`W` commands against the IDE's tape. The `Dialect.audio` seam is a
+      host-side codec and does not need it, and without the card fitted `C100R`
+      runs into open bus — which is what a real Apple I without the card does
+      too, so the machine is not wrong, only bare. The ZX80's tape-loop trap is
+      the precedent if it is ever wanted.
+- [x] tests: encode → decode round-trip (both leader lengths), the modulation on
+      its own, playback at the wrong sample rate, and a tape built to the round
+      published figures rather than to the PROM's own. No recording captured
+      from real hardware ships: none was findable under a licence this project
+      can carry, and the foreign-timing case covers what it would have proved.
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
-**Verify:** audio round-trip test + import/export in the app.
+**Verify:** `npx vitest run src/dialects/apple1
+src/dialects/cassetteRoundTrip.test.ts`, plus import and export in the app.
+
+### What the encoding turned out to be
+
+The plan's sketch of the modulation was wrong in both halves, and the card's own
+program settles it. The write routine is a delay loop that counts Y down five
+cycles at a time, runs a second 47-iteration loop when the carry — the bit being
+written — is set, and then toggles the output flip-flop. So a phase lasts
+`(Y + (bit ? 47 : 0)) × 5` µs, and:
+
+- a `0` is two 220 µs phases (~2.3 kHz) and a `1` two 455 µs phases (~1.1 kHz) —
+  the **fast** tone is the zero, not the one, which is also how the read routine
+  reads it back: it times a whole cycle and calls the long one a `1`;
+- the leader is not asymmetric. It is 565 µs phases, `64 × 256` of them, ~9.3
+  seconds, and it ends with one short 385 µs phase and an ordinary 455 µs one —
+  that short phase being the start bit;
+- bytes go out most significant bit first (`ASL` into the carry on the way out,
+  `ROL` on the way back).
+
+Two consequences worth keeping in mind:
+
+1. **The leader is not padding.** The read routine spends its first ~3.2 seconds
+   letting the tape speed settle before it hunts for the start bit, so the ten
+   seconds is a floor, not a courtesy. Robust mode doubles it and changes nothing
+   else; the bit timings are the card's, not a parameter.
+2. **A tape is two headed ranges, and a full dump plays for over half a minute.**
+   Each `W` command writes its own leader, so `4A.FF W 800.FFF W` records leader,
+   housekeeping, leader, workspace — 2230 bytes at ~1.3 kbit/s behind two leaders.
+
+The decoder scales every threshold off the leader phase it has just measured
+rather than off absolute durations, which is both what the rest of the project
+promises and what makes a tape written to the round published figures (a 2 kHz
+zero, a 1 kHz one, a 770 Hz leader — the Apple II's tidied-up version of this
+scheme) decode on the same code path.
 
 ## Stage 5 — Memory map & runtime introspection 🔨
 
@@ -440,8 +476,9 @@ error reports.
 The reference pages landed with the registration for the same reason: the docs
 crosschecks are pinned to the registry, so a registered machine with no reference
 page fails the build. The sidebar entry was added with the project owner's
-explicit agreement. What is left is the file-formats entry (which waits on Stage
-4's codec), the optional glyph table, and the closing accuracy pass.
+explicit agreement. The file-formats entry landed with Stage 4's codec, which it
+was waiting on; what is left is the optional glyph table and the closing accuracy
+pass.
 
 - [x] reference docs via the **`dialect-reference-docs`** sub-skill:
       `docs/reference/apple1.md` + `apple1/{hardware,escapes,formats}.md`, table
@@ -456,7 +493,7 @@ explicit agreement. What is left is the file-formats entry (which waits on Stage
       The user's answer decides; leave it untouched until then.
 - [ ] roadmap: flip the Apple I row in `docs/contributing/dialect-roadmap.md` to ✅
       and delete this plan (see `dialect-plans/README.md`)
-- [ ] `docs/reference/file-formats.md` — the ACI two-range dump
+- [x] `docs/reference/file-formats.md` — the ACI two-range dump
 - [ ] no joystick (the machine had none) and no sound (no speaker, no
       `readAudio`) — both deliberately absent, not deferred
 - [ ] optional: a hand-authored 5×7 glyph table replacing the host font, and a

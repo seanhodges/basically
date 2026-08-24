@@ -21,6 +21,8 @@ import { apple1MemoryMap } from './memoryMap';
 import { apple1Samples } from './samples';
 import { apple1BuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
+import { decodeCassette } from './audio/aciDecoder';
+import { CASSETTE_SAMPLE_RATE, buildCassetteSamples } from './audio/aciEncoder';
 import { buildBasicImage, parseBasicImage } from './basicImage';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
@@ -140,6 +142,44 @@ export const apple1: Dialect = {
   keyboardLayout: apple1KeyboardLayout,
   samples: apple1Samples,
   buildTargets: apple1BuildTargets,
+
+  /**
+   * The cassette dump is the machine's only binary program file (`.bin` because
+   * the ACI never claimed an extension - see `targets.ts`).
+   */
+  binaryImports: [{ extension: '.bin', label: 'Import cassette dump…' }],
+
+  /**
+   * The Apple Cassette Interface. There is no `LOAD` or `SAVE` to name in the
+   * instructions, because Integer BASIC has neither: both sides leave BASIC for
+   * the monitor, start the card at `$C100` and give it the two ranges by
+   * address. Typing anything else - or the ranges in the other order - reads
+   * back a workspace whose pointers describe someone else's program, so the
+   * commands are spelled out verbatim.
+   */
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, _programName, robust) =>
+      buildCassetteSamples(source, robust),
+    loadInstructions:
+      'On the Apple I type C100R and press Return to start the cassette ' +
+      'interface, then type 4A.FF R 800.FFF R - but press Return only once ' +
+      'playback has reached the steady leader tone. The monitor answers with ' +
+      '\\ when both ranges have loaded; type E2B3R to re-enter BASIC, and the ' +
+      'program is there to LIST or RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { programName, data } = decodeCassette(samples, sampleRate);
+      const { source, warnings } = detokenizeProgramWithReport(
+        parseBasicImage(data).program,
+      );
+      return { programName, source, warnings };
+    },
+    saveInstructions:
+      'Start the recorder, then on the Apple I type C100R and press Return, ' +
+      'followed by 4A.FF W 800.FFF W - the card writes both ranges, ten ' +
+      'seconds of leader in front of each, and answers \\ when it is done. ' +
+      'Feed that into this device, then start listening.',
+  },
 
   aiProfile: apple1AiProfile,
 };
