@@ -73,7 +73,13 @@ describe('apple1 sample programs', () => {
   });
 
   it('drives the maze from INPUT, the only key read a program has', () => {
-    expect(sample('maze.bas').text).toContain('INPUT');
+    // W A S D like the machines that can poll, but a letter and a RETURN at a
+    // time, which is the whole of this machine's input model.
+    const text = sample('maze.bas').text;
+    expect(text).toContain('INPUT "W,A,S OR D",K$');
+    for (const key of ['W', 'A', 'S', 'D']) {
+      expect(text, `no test for ${key}`).toContain(`IF K$="${key}" THEN `);
+    }
   });
 });
 
@@ -215,18 +221,20 @@ describeOnRom('what each sample actually does', () => {
       .find((l) => /^\*\*\* .*ERR/.test(l));
   }
 
-  it('hello waves the greeting across the screen', async () => {
+  it('hello steps the greeting down the screen and signs off', async () => {
     const machine = await play('hello.bas', 3000);
     try {
       expect(report(machine)).toBeUndefined();
-      const lines = screenText(machine)
+      const screen = screenText(machine);
+      const lines = screen
         .split('\n')
-        .filter((l) => l.includes('HELLO, WORLD!'));
+        .filter((l) => l.includes('HELLO FROM THE APPLE 1'));
       expect(lines.length).toBeGreaterThan(8);
-      // The wave is the point: a static splash would print every copy at the
-      // same indent.
+      // The staircase is the point: a static splash would print every copy at
+      // the same indent.
       const indents = new Set(lines.map((l) => l.indexOf('H')));
       expect(indents.size).toBeGreaterThan(4);
+      expect(screen).toContain('* BASICALLY *');
     } finally {
       machine.dispose();
     }
@@ -261,34 +269,39 @@ describeOnRom('what each sample actually does', () => {
     }
   }, 120000);
 
+  /**
+   * The rows of the map that carry the marker, which is the only thing that
+   * moves. Matched on the map's own alphabet rather than on `O` alone: the
+   * prompt and the hint line both contain one.
+   */
+  function markedRows(machine: MachineEmulator): string[] {
+    return screenText(machine)
+      .split('\n')
+      .map((l) => l.trimEnd())
+      .filter((l) => /^[#OE ]+$/.test(l) && l.includes('O'));
+  }
+
   it('maze redraws the map with the marker moved, and refuses a wall', async () => {
-    // M is down, which is open from the start; K is right, which is a wall.
+    // S is down, which is open from the start; D is right, which is a wall.
     const machine = await play('maze.bas', 900, async (m) => {
       await runFrames(m, 400);
-      for (const key of ['KeyM', 'Enter']) await tap(m, key);
+      for (const key of ['KeyS', 'Enter']) await tap(m, key);
       await runFrames(m, 300);
     });
     try {
       expect(report(machine)).toBeUndefined();
-      const maps = screenText(machine)
-        .split('\n')
-        .map((l) => l.trimEnd())
-        .filter((l) => l.includes('*'));
       // Two drawings of the map, with the marker one row further down in the
       // second: the whole map is reprinted, there being nothing to redraw in
       // place.
+      const maps = markedRows(machine);
       expect(maps).toHaveLength(2);
-      expect(maps[0]).toBe('#*# #             #');
-      expect(maps[1]).toBe('#*# # ####### #####');
+      expect(maps[0]).toBe('#O# #             #');
+      expect(maps[1]).toBe('#O# # ####### #####');
 
-      for (const key of ['KeyK', 'Enter']) await tap(machine, key);
+      for (const key of ['KeyD', 'Enter']) await tap(machine, key);
       await runFrames(machine, 200);
       // A blocked move costs nothing: the prompt comes back with no third map.
-      expect(
-        screenText(machine)
-          .split('\n')
-          .filter((l) => l.includes('*')),
-      ).toHaveLength(2);
+      expect(markedRows(machine)).toHaveLength(2);
       expect(machine.isProgramRunning()).toBe(true);
     } finally {
       machine.dispose();
@@ -296,14 +309,14 @@ describeOnRom('what each sample actually does', () => {
   }, 120000);
 
   it('kaleido runs its 6502 routine and mirrors four ways', async () => {
+    // One pass, so the picture fits below the three prompts without scrolling.
     const machine = await play('kaleido.bas', 1500, async (m) => {
       await runFrames(m, 60);
       for (const key of [
         'Digit4',
+        'Enter',
         'Digit1',
-        'Comma',
-        'Digit9',
-        'Comma',
+        'Enter',
         'Digit1',
         'Enter',
       ]) {
@@ -312,10 +325,10 @@ describeOnRom('what each sample actually does', () => {
     });
     try {
       expect(report(machine)).toBeUndefined();
-      // The twelve rows the routine printed, taken from below the one prompt:
+      // The twelve rows the routine printed, taken from below the last prompt:
       // it prints every cell of every row, so each is the full 40 wide.
       const lines = screenText(machine).split('\n');
-      const prompt = lines.findIndex((l) => l.includes('SEED,TWIST,PASSES'));
+      const prompt = lines.findIndex((l) => l.includes('PASSES (1-4)'));
       expect(
         prompt,
         'the program never asked for its parameters',
@@ -335,6 +348,10 @@ describeOnRom('what each sample actually does', () => {
         );
       }
       expect(new Set(drawn.join('')).size).toBeGreaterThan(3);
+      // It asks again rather than ending: a real keypress would stop it, so the
+      // next prompt is the only wait the machine can offer.
+      expect(machine.isProgramRunning()).toBe(true);
+      expect(lines[prompt + 14]).toContain('SEED (0-255)');
     } finally {
       machine.dispose();
     }

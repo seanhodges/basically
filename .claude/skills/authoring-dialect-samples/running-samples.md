@@ -118,8 +118,20 @@ script before committing** — what ships is the colocated `samples.test.ts`.
 | `hello`    | It animates and fills the display; printed text does not punch holes in drawn art (a printed cell clears its own pixels on most machines); a full pass takes seconds, not minutes.                                                     |
 | `circles`  | Rings are **closed** (≥ 2π/E steps) **and round** — measure the ink bounding box and check width/height ≈ 1, in the pixels the canvas actually presents. Time the full picture: a ring per fifteen seconds is a sample nobody watches. |
 | `breakout` | The paddle moves the way the pad's `left`/`right` point; the ball bounces off walls and paddle; bricks clear and the score rises; something sounds on each event.                                                                      |
-| `maze`     | One press moves the marker one cell and repaints **only that cell** — count the changed bytes; walls block; the exit wins.                                                                                                             |
+| `maze`     | One press moves the marker one cell and repaints **only that cell** — count the changed bytes; walls block; the exit wins. A machine with no cursor addressing reprints the whole map instead: check the reprint is one map, not two.  |
 | `kaleido`  | The block assembles, the routine runs from `USR`/`CALL`/`SYS`, and the mirror is symmetric over the whole grid.                                                                                                                        |
+
+And on every sample, whatever else it does: **read the words off the screen**.
+The greeting, the `* BASICALLY *` banner, `REACH E`, `YOU ESCAPED!`, `SCORE`,
+`GAME OVER`, `SEED (0-255)` / `TWIST (0-255)` / `PASSES (1-9)` — the house text
+in the skill's shared-vocabulary table. A string that is in the listing but
+never reaches the display (printed off the bottom, overwritten by the next
+frame, cut off by the column count) passes every static check and fails the
+user, and that is why these are read back rather than grepped.
+
+Then open the same sample on two other machines and read the three side by
+side. Anything a user would notice as _different rather than adapted_ is drift,
+and the fix belongs here, before the test is written.
 
 Time everything. Frames ÷ the machine's `frameHz` is the wall-clock a user waits.
 
