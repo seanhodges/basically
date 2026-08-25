@@ -9,6 +9,7 @@ export const petAiProfile: AiProfile = composeAiProfile({
       heading: 'WRITING FOR THIS MACHINE',
       bullets: [
         'A Commodore PET 4032: MOS 6502 at ~1MHz, 32KB machine. Programs load at $0401 and auto-RUN in this IDE.',
+        'Write the listing in UPPER CASE. PETSCII has one code for each letter pair, so a lower-case letter is stored - and listed back - as its capital; switching character sets changes only how it is drawn.',
         `Monochrome green phosphor, and no sprites or SID. Do NOT POKE the C64's VIC-II (53280+), colour RAM (55296) or SID (54272+); none of them exist here.`,
         'Screen RAM is at 32768 ($8000), 1000 bytes (40x25). POKE screen codes there to draw; PEEK reads them back. Screen codes: space=32, A-Z=1-26, solid block (reversed space)=160, filled ball=81.',
         'The character screen shows screen codes, not PETSCII, and there is no bitmap/hi-res mode.',

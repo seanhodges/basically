@@ -836,6 +836,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             dialect,
             runSource,
             useIdeStore.getState().runGateLint,
+            useIdeStore.getState().strictCharacters,
           );
           if (errorCount > 0) {
             setError(`Fix ${errorCount} error(s) before running`);

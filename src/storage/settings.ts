@@ -96,6 +96,7 @@ const KEYS = {
   lineNumberIncrement: 'mbide.lineNumberIncrement',
   showLineNumberGutter: 'mbide.showLineNumberGutter',
   fullCodeCompletion: 'mbide.fullCodeCompletion',
+  strictCharacters: 'mbide.strictCharacters',
   crtEffect: 'mbide.crtEffect',
   splitRatio: 'mbide.splitRatio',
   emulatorSpeed: 'mbide.emulatorSpeed',
@@ -513,6 +514,20 @@ export function getGamepadMode(): GamepadMode {
 
 export function setGamepadMode(mode: GamepadMode): void {
   localStorage.setItem(KEYS.gamepadMode, mode);
+}
+
+/**
+ * Whether the editor holds a program to the characters the target machine can
+ * actually store, reporting each character the machine would change as an error
+ * instead of converting it silently. Defaults off, where the conversion is
+ * merely counted in the status bar.
+ */
+export function getStrictCharacters(): boolean {
+  return localStorage.getItem(KEYS.strictCharacters) === 'true'; // default off
+}
+
+export function setStrictCharacters(on: boolean): void {
+  localStorage.setItem(KEYS.strictCharacters, on ? 'true' : 'false');
 }
 
 /**

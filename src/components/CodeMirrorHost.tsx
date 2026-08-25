@@ -58,6 +58,7 @@ import {
 import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
+import { machineCaseFilter } from '../editor/machineCase';
 import { basicHighlightStyle } from '../editor/basicLanguage';
 import { binaryLineExtension } from '../editor/binaryLineWidget';
 import { controlChipExtension } from '../editor/controlChipWidget';
@@ -612,6 +613,21 @@ const debugLineField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
+/**
+ * Everything Strict characters turns on: the errors it raises, and the case it
+ * forces. Compartmented because it is a setting the reader can flip at any
+ * moment, and the editor is otherwise rebuilt only when the dialect changes.
+ */
+const strictCompartment = new Compartment();
+
+/**
+ * Strict characters, as extensions: the machine's converted characters raised
+ * as errors, plus the filter that stops the editor producing them.
+ */
+function strictExt(dialect: Dialect, strict: boolean): Extension {
+  return [dialectLinter(dialect, strict), machineCaseFilter(dialect, strict)];
+}
+
 /** Suppresses the native on-screen keyboard while the virtual keyboard is the
     editor's input surface (the editor stays focusable and physical keyboards are
     unaffected). */
@@ -787,7 +803,9 @@ export function CodeMirrorHost({
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       syntaxHighlighting(basicHighlightStyle),
       dialect.languageSupport(),
-      dialectLinter(dialect),
+      strictCompartment.of(
+        strictExt(dialect, useIdeStore.getState().strictCharacters),
+      ),
       // Click a token to be offered what the editor can say about it: a
       // variable's usages, matched as the machine would match them rather
       // than as text, or a keyword's entry in this machine's reference.
@@ -930,6 +948,18 @@ export function CodeMirrorHost({
       ),
     });
   }, [suppressNativeKeyboard]);
+
+  // Strict characters is a setting, not a dialect: flipping it reconfigures the
+  // compartment rather than rebuilding the view, so the buffer, its history and
+  // the cursor all survive.
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: strictCompartment.reconfigure(
+        strictExt(dialect, strictCharacters),
+      ),
+    });
+  }, [dialect, strictCharacters]);
 
   // On mobile, switching away from the app and back makes the browser restore
   // focus to the editor's contenteditable and re-summon the native on-screen

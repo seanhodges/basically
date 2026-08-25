@@ -10,6 +10,7 @@ export const c64AiProfile: AiProfile = composeAiProfile({
       bullets: [
         'A Commodore 64: 6510 at ~1MHz. Programs load at $0801 and auto-RUN in this IDE.',
         'The default character set is upper-case / graphics.',
+        'Write the listing in UPPER CASE. PETSCII has one code for each letter pair, so a lower-case letter is stored - and listed back - as its capital; switching character sets changes only how it is drawn.',
         'Screen RAM is at 1024 ($0400); colour RAM at 55296 ($D800). The border colour is POKE 53280,c and the background POKE 53281,c (c = 0..15).',
         'The SID at 54272 ($D400) is the only route to sound and it is verbose; this IDE does not play emulator audio, so avoid relying on sound at all.',
         'Use GET A$ for anything interactive: it returns "" when no key is down, whereas INPUT halts the program.',

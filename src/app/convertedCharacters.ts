@@ -17,14 +17,18 @@
  * list blocks. This is a derived figure instead, computed beside the program
  * statistics the status bar already shows - the same shape as the RAM readout.
  *
+ * A reader who wants the refusal turns on Strict characters, which escalates
+ * *these same findings* into errors ({@link ./strictCharacters}). One detection
+ * either way, so the count the status bar shows and the errors the editor
+ * raises can never disagree about one program.
+ *
  * Each finding carries its own position as well as the total. The status bar
  * needs only the count, but a position recovered later would mean walking the
  * source twice.
  */
-import { CharsetError, type Dialect } from '../dialects/types';
-import { probeFor, type CharsetProbe } from '../dialects/charsetProbes';
-import { keywordSpellingsFor, spellingAt } from '../dialects/keywordSpellings';
-import { foldsKeywordCase, letterCaseFor } from '../dialects/letterCase';
+import type { Dialect } from '../dialects/types';
+import { sourceUnitContext, unitAt } from '../dialects/sourceUnits';
+import { letterCaseFor } from '../dialects/letterCase';
 import { isBinaryDirective } from '../dialects/binaryDirective';
 
 /** One character the machine will store as a different one. */
@@ -80,13 +84,9 @@ function codeLines(source: string): { line: number; body: string }[] {
 /**
  * The characters `dialect` would store as different ones, in `source`.
  *
- * The walk goes a unit at a time through the machine's own charset parser,
- * which is what exempts notation structurally rather than by a list: **a unit
- * longer than one source character is notation** - every braced escape, every
- * raw byte, every backslash form - and the escapes are full of lower case that
- * is load-bearing. Short keyword spellings are consumed ahead of the parser for
- * the same reason: the Commodores' shifted-letter form *requires* a lower-case
- * prefix, and it is a spelling rather than text.
+ * The walk goes a unit at a time through {@link ../dialects/sourceUnits}, which
+ * is what exempts notation structurally rather than by a list, and which the
+ * strict editor's case forcing reads the same way.
  *
  * A machine that carries its lower case in a second character set is honoured
  * in source order: lower case is not counted once the program has switched to
@@ -101,10 +101,8 @@ export function convertedCharacters(
   source: string,
   dialect: Dialect,
 ): ConversionReport {
-  const probe = probeFor(dialect.id);
-  if (!probe) return EMPTY;
-  const spellings = keywordSpellingsFor(dialect.id);
-  const folds = foldsKeywordCase(dialect.id);
+  const ctx = sourceUnitContext(dialect);
+  if (!ctx) return EMPTY;
   const switchable = letterCaseFor(dialect.id)?.lowerCase === 'switched';
 
   const findings: ConvertedCharacter[] = [];
@@ -123,32 +121,22 @@ export function convertedCharacters(
           continue;
         }
       }
-      const short = spellingAt(body, i, spellings, folds);
-      if (short) {
-        i += short.length;
-        continue;
-      }
-      const unit = parseUnit(probe, body, i);
-      if (!unit) {
-        // A half-typed escape, or a character the machine cannot store at all.
-        // The latter already fails to build and is reported where it occurs;
-        // neither is this report's business, so step over it and carry on -
-        // the same catch-and-continue the program vocabulary walks with.
-        i += 1;
-        continue;
-      }
+      const unit = unitAt(body, i, ctx);
       const code = unit.codes[0];
       if (switchable && code !== undefined) {
         if (code === TO_LOWER_SET) lowerSet = true;
         else if (code === TO_UPPER_SET) lowerSet = false;
       }
-      // Notation, whatever letters it is spelled with.
-      if (unit.length > 1 || code === undefined || unit.codes.length !== 1) {
+      // Notation, whatever letters it is spelled with; or a half-typed escape
+      // or a character the machine cannot store at all, which already fails to
+      // build and is reported where it occurs. Neither is this report's
+      // business, so step over it and carry on.
+      if (unit.kind !== 'text' || code === undefined) {
         i += unit.length;
         continue;
       }
       const from = body[i]!;
-      const to = probe.decode(code);
+      const to = ctx.probe.decode(code);
       if (to !== from && !(lowerSet && /[A-Za-z]/.test(from))) {
         findings.push({ from, to, line, column: i });
       }
@@ -157,19 +145,4 @@ export function convertedCharacters(
   }
 
   return { count: findings.length, findings };
-}
-
-/** One unit at `i`, or null where the machine cannot read what is there. */
-function parseUnit(
-  probe: CharsetProbe,
-  text: string,
-  i: number,
-): { codes: number[]; length: number } | null {
-  try {
-    const unit = probe.parseUnit(text, i);
-    return unit.length > 0 ? unit : null;
-  } catch (e) {
-    if (e instanceof CharsetError) return null;
-    throw e;
-  }
 }

@@ -25,6 +25,7 @@ import {
 } from '../storage/settings';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { CONTROLLER_ROLE_NAMES } from '../keyboard/controllerConfig';
+import { withdrawsCaseKey } from '../keyboard/caseAffordance';
 import {
   VirtualKeyboard,
   type KeyboardTarget,
@@ -74,6 +75,7 @@ export function Workspace() {
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
   const controllerBindings = useIdeStore((s) => s.controllerBindings);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
   const controllerFireButtons = useIdeStore((s) => s.controllerFireButtons);
@@ -366,6 +368,9 @@ export function Workspace() {
             sound={keyboardSound}
             haptics={keyboardHaptics}
             keyDisplay={keyboardKeyDisplay}
+            // Strict characters on a machine with no lower case: there is no
+            // case to shift into, so the keyboard stops offering one.
+            hideCaseKey={withdrawsCaseKey(dialect.id, strictCharacters)}
           />
         </div>
       )}

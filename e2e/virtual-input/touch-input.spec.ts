@@ -101,6 +101,46 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   // the line reads HHJJ before the SYM taps append to it.)
   await expect(page.locator(EDITOR)).toContainText('J,3');
 
+  // Strict characters on a machine with no lower case: the shift keycap goes,
+  // and the row it stood in is not reflowed around the gap. That the key is
+  // really gone from a rendered, laid-out keyboard - and that its neighbour has
+  // not moved into the space - is the browser-only fact; which machine loses
+  // which key stays in Vitest (src/keyboard/caseAffordance.test.ts).
+  const shiftKey = page.locator('[data-keyid="Shift"]');
+  // KeyZ is the first letter after the shift flank on this row, so it is the
+  // key a reflow would move.
+  const boxOf = async (keyId: string) => {
+    const box = await page.locator(`[data-keyid="${keyId}"]`).boundingBox();
+    return { x: Math.round(box!.x), width: Math.round(box!.width) };
+  };
+  const zBefore = await boxOf('KeyZ');
+  await expect(shiftKey).toBeVisible();
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Editor' }).click();
+  await page
+    .getByLabel('Strict characters (refuse what the machine cannot store)')
+    .check();
+  await page.getByRole('button', { name: 'Close' }).click();
+  // The dialog took editor focus, and the keyboard follows that: without
+  // handing it back the board is typing at the stopped machine, where the
+  // shift is the machine's own key and stays. The mode is then named rather
+  // than assumed - the hand-back may or may not have remounted the board.
+  await page.locator(EDITOR).click({ position: { x: 6, y: 6 } });
+  const modes = page.getByRole('radiogroup', { name: 'Input mode' });
+  await modes.getByRole('radio', { name: 'ABC' }).click();
+  await expect(shiftKey).toBeHidden();
+  expect(await boxOf('KeyZ')).toEqual(zBefore);
+
+  // Inside SYM the shift flank is the page toggle, not the shift - hiding it
+  // there would take a whole page of symbols with it, on the machines that
+  // have a second page (src/keyboard/caseAffordance.test.ts pins which).
+  await modes.getByRole('radio', { name: 'SYM', exact: true }).click();
+  await expect(shiftKey).toBeVisible();
+  await modes.getByRole('radio', { name: 'ABC' }).click();
+  await expect(shiftKey).toBeHidden();
+
   // A machine with a case lock: the BBC, whose keycaps are the capitals it
   // powers up in. The keycap *redrawing* in the other case is the browser-only
   // fact here - that a case-lock press repaints twenty-six laid-out keycaps -

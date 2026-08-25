@@ -17,6 +17,7 @@ import {
 } from './editorActions';
 import { inLetterCase } from './legendKit';
 import { pickableKeys } from './controllerConfig';
+import { pinsModeOnlyLayer, rowsWithoutCaseKey } from './caseAffordance';
 import { GlyphSvg } from './GlyphSvg';
 import { ControlChipSvg } from './ControlChipSvg';
 import './VirtualKeyboard.css';
@@ -48,6 +49,14 @@ interface VirtualKeyboardProps {
   /** When set, the keyboard acts as a key picker: a tap on a matrix-driving
    *  key reports its id instead of typing into the target. */
   onPickKey?: (keyId: string) => void;
+  /**
+   * The machine offers no letter case to shift into and the reader has asked to
+   * be held to that (Strict characters), so the shift keycap is withdrawn while
+   * the keyboard types into the editor. See {@link ./caseAffordance} for what
+   * that must not take with it. Machine-specific knowledge stays at the call
+   * site: this is a fact handed down, not one the keyboard works out.
+   */
+  hideCaseKey?: boolean;
 }
 
 /** Pointer id used for activation via the physical keyboard (a11y path). */
@@ -103,6 +112,7 @@ export function VirtualKeyboard({
   haptics,
   keyDisplay,
   onPickKey,
+  hideCaseKey = false,
 }: VirtualKeyboardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(target);
@@ -325,7 +335,20 @@ export function VirtualKeyboard({
   );
   const paletteRef = useRef<HTMLDivElement>(null);
 
-  const displayRows = layout.rows;
+  // The shift keycap goes only while the keyboard is typing into the editor:
+  // at the machine it is the machine's own key, and the combinations it makes
+  // there (BREAK on the Sinclairs is SHIFT+SPACE) are not this setting's to
+  // take away. A pinned mode-only layer keeps it too - there it is the SYM
+  // page toggle, not the shift.
+  const hideShift =
+    hideCaseKey &&
+    target.kind === 'editor' &&
+    !onPickKey &&
+    !pinsModeOnlyLayer(layout, mode);
+  const displayRows = useMemo(
+    () => rowsWithoutCaseKey(layout.rows, hideShift),
+    [layout.rows, hideShift],
+  );
   const gridCols = layout.gridColumns;
 
   // modeOnly layers never decorate keycaps outside their mode, so they are

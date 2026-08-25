@@ -23,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 import { dialects } from './registry';
 import type { Dialect, SampleFile } from './types';
 import { LOWER_CASE_KEYWORD_HINT } from '../editor/keywordCase';
+import { strictCharacterErrors } from '../app/strictCharacters';
 
 /**
  * The double-quoted string literals of a program, which is everything the
@@ -174,6 +175,30 @@ describe('no bundled sample is written in a case its machine will not run', () =
             flagged.push(
               `${dialect.id}/${sample.name}:${error.line} ${error.message}`,
             );
+        }
+      }
+    }
+    expect(flagged).toEqual([]);
+  });
+});
+
+describe('no bundled sample is refused by Strict characters', () => {
+  // The setting ships off, so a refused sample would not break anything - it
+  // would simply mean the IDE disagreeing with a listing it bundles, the first
+  // one anybody opens. Cheaper to keep them clean.
+  //
+  // What this caught: the C64 breakout accepted its paddle keys as `"A" OR
+  // "a"`, reaching for the shifted key. PETSCII has one code for the pair, so
+  // both literals were the same byte and the second clause never did anything;
+  // it is gone rather than excused.
+  it('leaves no character the machine would store as another', () => {
+    const flagged: string[] = [];
+    for (const dialect of dialects) {
+      for (const sample of dialect.samples) {
+        for (const error of strictCharacterErrors(sample.text, dialect, true)) {
+          flagged.push(
+            `${dialect.id}/${sample.name}:${error.line} ${error.message}`,
+          );
         }
       }
     }
