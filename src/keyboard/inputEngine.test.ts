@@ -363,3 +363,88 @@ describe('KeyboardInputEngine (editor target)', () => {
     expect(presses.map((p) => p.keyId)).toEqual(['KeyP', 'KeyH']);
   });
 });
+
+describe('KeyboardInputEngine case lock', () => {
+  /** The test layout plus a case-lock key and a power-on case. */
+  const cased: KeyboardLayout = {
+    ...layout,
+    powerOnCase: 'upper',
+    rows: [
+      [
+        ...layout.rows[0]!,
+        {
+          id: 'CapsLock',
+          spanX: 1,
+          emits: ['CapsLock'],
+          caseLock: true,
+          labels: [{ text: 'CAPS', editor: null }, null, null],
+        },
+      ],
+    ],
+  };
+
+  function casedSetup() {
+    const cases: string[] = [];
+    const engine = new KeyboardInputEngine(cased, {
+      kind: 'editor',
+      onKeyPress: (_key, _layer, letterCase) => cases.push(letterCase),
+    });
+    return { cases, engine };
+  }
+
+  it('starts in the layout’s power-on case', () => {
+    const { engine } = casedSetup();
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+
+  it('flips on a press and stays flipped after the release', () => {
+    // A tap, not a hold: the lock lives in the machine, so releasing the key
+    // must not undo it - which is exactly what a modifier would have done.
+    const { engine } = casedSetup();
+    engine.pointerDown('CapsLock', 1);
+    engine.pointerUp(1);
+    expect(engine.getLetterCase()).toBe('lower');
+    engine.pointerDown('KeyP', 2);
+    engine.pointerUp(2);
+    expect(engine.getLetterCase()).toBe('lower');
+    engine.pointerDown('CapsLock', 3);
+    engine.pointerUp(3);
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+
+  it('hands the case in force to the editor callback', () => {
+    const { cases, engine } = casedSetup();
+    engine.pointerDown('KeyP', 1);
+    engine.pointerUp(1);
+    engine.pointerDown('CapsLock', 2);
+    engine.pointerUp(2);
+    engine.pointerDown('KeyP', 3);
+    engine.pointerUp(3);
+    // Three presses, and the lock's own is the middle one: it is an ordinary
+    // key to the callback (its legend simply types nothing), and it reports
+    // the case it has just switched to rather than the one it left.
+    expect(cases).toEqual(['upper', 'lower', 'lower']);
+  });
+
+  it('still presses the machine’s own key', () => {
+    const machine = new FakeMachine();
+    const engine = new KeyboardInputEngine(cased, {
+      kind: 'machine',
+      getMachine: () => machine as unknown as MachineEmulator,
+    });
+    engine.pointerDown('CapsLock', 1);
+    expect(machine.down.has('CapsLock')).toBe(true);
+    frames(engine, 5);
+    engine.pointerUp(1);
+    expect(engine.getLetterCase()).toBe('lower');
+  });
+
+  it('reports upper case on a layout that declares no power-on case', () => {
+    // A machine with no lower case has one case to be in, and this is it.
+    const engine = new KeyboardInputEngine(layout, {
+      kind: 'editor',
+      onKeyPress: () => {},
+    });
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+});

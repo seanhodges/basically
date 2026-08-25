@@ -165,6 +165,24 @@ const zxcvRow = flankedRow(
   backspaceKey,
 );
 
+/**
+ * CAPS LOCK, in the bottom-left machine region.
+ *
+ * The machine has no keycap for it - it is CAPS SHIFT + 2 on the real board -
+ * so this keycap presses that pair. The Spectrum types lower case unshifted
+ * and reaches upper by CAPS SHIFT or by this lock
+ * (`src/dialects/caseKeys.test.ts`), and the letter keycaps follow whichever
+ * is in force. A tap, not a held modifier: the lock lives in the ROM's
+ * FLAGS2 bit, not in a key that stays down.
+ */
+const capsLockKey: KeyDef = {
+  id: 'CapsLock',
+  spanX: 6,
+  emits: ['CapsShift', 'Digit2'],
+  caseLock: true,
+  labels: [{ text: 'CAPS', editor: null }, null, null, null, null],
+};
+
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -186,7 +204,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([], spaceKey, [quoteKey, enterKey]),
+  bottomRow([capsLockKey], spaceKey, [quoteKey, enterKey]),
 ];
 
 /**
@@ -237,6 +255,9 @@ export const spectrumKeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'ZX Spectrum',
     theme: 'vk-theme-zxspectrum',
     gridColumns: 40,
+    // Lower case unshifted once the editor is in L mode, which is why the
+    // letter keycaps are authored in lower case.
+    powerOnCase: 'lower',
     layers: [
       {
         id: 'main',

@@ -12,6 +12,7 @@ import {
   screenToPetscii,
   sourceFor,
 } from './glyphSources';
+import { letterCaseFor } from './letterCase';
 
 /**
  * Prove the declared glyph addresses actually point at the fonts.
@@ -242,6 +243,124 @@ const WITHOUT_GLYPHS = new Set(['altair8800']);
  */
 const LETTER_A: Record<string, number> = { apple1: 0xc1 };
 
+/**
+ * The same claim again for lower case, on the machines that have any.
+ *
+ * Every anchor above is the letter `A`, which is precisely the letter a machine
+ * with no lower case draws exactly as one that has it - so the table above
+ * cannot tell the two apart, and a source that claimed shapes its machine
+ * cannot draw would pass it. These pin the other half.
+ */
+const LOWER_ANCHORS: Record<
+  string,
+  { code: number; rows: string[]; width?: number; lsbFirst?: boolean }
+> = {
+  zxspectrum: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..###...',
+      '.....#..',
+      '..####..',
+      '.#...#..',
+      '..####..',
+      '........',
+    ],
+  },
+  zxspectrum128: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..###...',
+      '.....#..',
+      '..####..',
+      '.#...#..',
+      '..####..',
+      '........',
+    ],
+  },
+  bbcmicro: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+  bbcmaster: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+  cpc464: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.####...',
+      '....##..',
+      '.#####..',
+      '##..##..',
+      '.###.##.',
+      '........',
+    ],
+  },
+  cpc6128: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.####...',
+      '....##..',
+      '.#####..',
+      '##..##..',
+      '.###.##.',
+      '........',
+    ],
+  },
+  // Six wide and low bit leftmost, as its capital above.
+  pmd85: {
+    code: 0x61,
+    width: 6,
+    lsbFirst: true,
+    rows: [
+      '......',
+      '......',
+      '..##..',
+      '....#.',
+      '..###.',
+      '.#..#.',
+      '..###.',
+      '......',
+    ],
+  },
+};
+
+/**
+ * The machines that draw lower case from a bank this table does not declare.
+ *
+ * The Commodores carry their lower case in the character ROM's *second*
+ * 128-glyph set, which the machine switches to at run time; only the first is
+ * declared as a source here, so there is no lower-case shape to anchor. Named
+ * rather than derived, so a machine cannot join them by omission.
+ */
+const LOWER_CASE_UNDECLARED = new Set(['commodore64', 'pet', 'vic20']);
+
 /** Dialect ids that declare at least one ROM-backed source. */
 const romBacked = Object.entries(GLYPH_SOURCES)
   .filter(([, sources]) => sources.some((s) => s.kind === 'rom'))
@@ -283,6 +402,44 @@ describe('glyph sources', () => {
       if (loc?.kind !== 'rom') return;
       const rom = readFileSync(join(ROM_DIR, loc.file));
       expect(loc.fileOffset + loc.stride).toBeLessThanOrEqual(rom.length);
+    });
+  });
+
+  describe('lower case', () => {
+    it('anchors it on every ROM-backed machine declared to draw it', () => {
+      const expected = romBacked.filter(
+        (id) =>
+          letterCaseFor(id)!.lowerCase !== 'none' &&
+          !LOWER_CASE_UNDECLARED.has(id),
+      );
+      expect(Object.keys(LOWER_ANCHORS).sort()).toEqual(expected.sort());
+    });
+
+    describe.each(Object.keys(LOWER_ANCHORS))('%s', (id) => {
+      const anchor = LOWER_ANCHORS[id]!;
+      it('draws its lower-case anchor at the declared address', () => {
+        expect(
+          render(
+            id,
+            anchor.code,
+            anchor.rows.length,
+            anchor.width ?? 8,
+            anchor.lsbFirst ?? false,
+          ),
+        ).toEqual(anchor.rows);
+      });
+    });
+
+    it('accounts for no shape at all on a machine declared to have none', () => {
+      for (const { id } of dialects) {
+        const facts = letterCaseFor(id)!;
+        if (facts.lowerCase !== 'none') continue;
+        // Only askable where the encoding keeps the two cases apart: on a
+        // folding machine the lower-case letter *is* the capital's own code,
+        // and of course that has a shape.
+        if (facts.encoding === 'folded') continue;
+        expect(sourceFor(id, 0x61), id).toBeUndefined();
+      }
     });
   });
 

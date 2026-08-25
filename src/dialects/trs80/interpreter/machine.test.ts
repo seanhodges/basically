@@ -2,12 +2,36 @@ import { describe, expect, it } from 'vitest';
 import type { MemoryBlock } from '../../types';
 import { tokenizeProgram } from '../tokenizer';
 import { plainChar } from '../charset';
+import { CELL_H, CELL_W, COLS, ROWS } from '../emulator/display';
 import { trs80Samples } from '../samples';
 import { Trs80InterpreterMachine } from './machine';
 
 /** Row `r` of the machine's own screen reading, right-trimmed to assert on. */
 function screenRow(m: Trs80InterpreterMachine, r: number): string {
   return (m.readScreenText()?.lines[r] ?? '').replace(/\s+$/, '');
+}
+
+/**
+ * Row `r` of what the canvas renderer actually *draws*, recovered from the
+ * `fillText` calls it makes - the only way to ask the display what it shows
+ * without a real canvas. Block-graphics cells are drawn as rectangles rather
+ * than text, so they come back blank here; this exists to compare letters.
+ */
+function drawnRow(m: Trs80InterpreterMachine, r: number): string {
+  const cells = new Map<string, string>();
+  const ctx = {
+    fillStyle: '',
+    font: '',
+    textBaseline: '',
+    fillRect: () => {},
+    fillText: (text: string, x: number, y: number) => {
+      cells.set(`${Math.round(y / CELL_H)},${Math.round(x / CELL_W)}`, text);
+    },
+  } as unknown as CanvasRenderingContext2D;
+  m.renderTo(ctx);
+  return Array.from({ length: COLS }, (_, c) => cells.get(`${r},${c}`) ?? ' ')
+    .join('')
+    .replace(/\s+$/, '');
 }
 
 describe('Trs80InterpreterMachine readScreenText', () => {
@@ -59,6 +83,20 @@ describe('Trs80InterpreterMachine readScreenText', () => {
     );
     // And the row still measures one code point per column.
     expect([...screen.lines[0]!]).toHaveLength(64);
+    m.dispose();
+  });
+
+  it('shows and reports the same characters for a program printing lower case', () => {
+    const m = new Trs80InterpreterMachine();
+    const { program } = tokenizeProgram('10 PRINT "Hello"\n20 END\n');
+    m.loadProgram(program);
+    for (let i = 0; i < 5; i++) m.runFrame();
+    // The stock Model I addresses only 64 characters of its generator, so it
+    // has no lower-case cell and draws capitals. A screen read that answered
+    // "Hello" would be reporting a machine this dialect is not.
+    expect(screenRow(m, 0)).toBe('HELLO');
+    expect(drawnRow(m, 0)).toBe(screenRow(m, 0));
+    expect(ROWS).toBe(16);
     m.dispose();
   });
 

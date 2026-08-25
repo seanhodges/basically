@@ -24,6 +24,10 @@
 import type { EditorKeyword } from '../dialects/types';
 import { keywordSpellingsFor } from '../dialects/keywordSpellings';
 import {
+  distinguishesNameCase,
+  foldsKeywordCase,
+} from '../dialects/letterCase';
+import {
   buildIdentifierRegexes,
   type BasicLanguageOptions,
 } from './basicLanguage';
@@ -47,10 +51,12 @@ export interface VariableLexis extends BasicLanguageOptions {
    */
   significantChars?: number;
   /**
-   * Whether the ROM tells `A` from `a`. Acorn's BBC BASIC does - `10 a=1:A=2`
-   * prints 1 and 2 there - and it is alone in this: a Spectrum, a CPC and a C64
-   * all fold the two into one variable. (The Atom refuses a lowercase name
-   * outright, with ERROR 94, so nothing is riding on its setting.)
+   * Whether the ROM tells `A` from `a`. Filled in from
+   * {@link ../dialects/letterCase} rather than authored here: the same fact
+   * decides what the highlighter colours, what the porting comparison reports
+   * and what a screen read says, and two of those used to answer it
+   * differently. The field stays because it is the variable scanner's input
+   * shape; only its authoring moved.
    */
   caseSensitive?: boolean;
   /**
@@ -67,23 +73,22 @@ export interface VariableLexis extends BasicLanguageOptions {
 }
 
 /**
- * BASIC-G's lexis. Named rather than written inline in the record above because
- * `variableLint.ts` reaches for it directly, and it sits with its family here -
- * the Microsoft rules it shares with the Altair, plus this machine's own `'FF`
- * hex literal, whose digits must not be read as a variable name.
+ * BASIC-G's lexis: the Microsoft rules it shares with the Altair, plus this
+ * machine's own `'FF` hex literal, whose digits must not be read as a variable
+ * name. Named rather than written inline so its one deviation has somewhere to
+ * be explained.
  *
- * `caseSensitive` is where it leaves the family, and it is the BBC's company it
- * keeps rather than the Altair's: BASIC-G stores a name as typed and compares
- * the bytes, so `10 A=1:a=2` really is two variables and prints 1 and 2. Read
- * off a running machine, because nothing about a Microsoft derivative predicts
- * it - every other one here folds.
+ * Case is where it leaves the family, and it is the BBC's company it keeps
+ * rather than the Altair's: BASIC-G stores a name as typed and compares the
+ * bytes, so `10 A=1:a=2` really is two variables and prints 1 and 2. That fact
+ * is declared with the machine's other case facts, not here - see
+ * {@link lexisFor}.
  */
-export const PMD85_LEXIS: VariableLexis = {
+const PMD85_LEXIS: VariableLexis = {
   suffixChars: '$',
   hexPrefix: "'",
   crunched: true,
   significantChars: 2,
-  caseSensitive: true,
   dataIsVerbatim: true,
 };
 
@@ -94,7 +99,7 @@ export const PMD85_LEXIS: VariableLexis = {
  * and the ROM crunches: it skips spaces everywhere outside a string literal and
  * a REM body.
  */
-export const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
+const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
 
 /**
  * Dialect id → its name lexis. `{}` is a statement, not an omission: the
@@ -112,14 +117,12 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
     suffixChars: '$%',
     hexPrefix: '&',
     dataIsVerbatim: true,
-    caseSensitive: true,
   },
   bbcmaster: {
     nameChars: '_',
     suffixChars: '$%',
     hexPrefix: '&',
     dataIsVerbatim: true,
-    caseSensitive: true,
   },
   // No markers at all: `$` is a prefix operator (`$addr`), and `#` opens a hex
   // literal where the other Acorn machine uses `&`.
@@ -189,25 +192,38 @@ export function variableRules(
     crunch: options.crunched ? makeCrunchMatcher(set) : null,
     dataIsVerbatim: options.dataIsVerbatim ?? false,
     spellings: options.spellings ?? null,
+    foldsKeywordCase: options.foldsKeywordCase ?? true,
   };
 }
 
 /**
- * The scanner's rules for a registered machine.
+ * The full lexis for a registered machine: what {@link VARIABLE_LEXIS} authors,
+ * plus the two case facts filled in from {@link ../dialects/letterCase}.
  *
- * An unknown id falls back to the defaults rather than throwing: the caller is
- * the program analyser, reached from a docs drawer that may be a build behind,
- * and reading a name as a Sinclair would beats reading none at all.
+ * This is the derivation boundary. Case is declared once, beside the machine's
+ * other ROM facts, and every consumer of a lexis - the scanner, the lint, the
+ * usages view, the program vocabulary - takes it from here, so no two of them
+ * can answer the same question differently.
+ *
+ * An unknown id falls back to the defaults rather than throwing: the caller may
+ * be the program analyser behind a docs drawer that is a build behind, and
+ * reading a name as a Sinclair would beats reading none at all.
  */
+export function lexisFor(dialectId: string): VariableLexis {
+  return {
+    ...(VARIABLE_LEXIS[dialectId] ?? {}),
+    caseSensitive: distinguishesNameCase(dialectId),
+    foldsKeywordCase: foldsKeywordCase(dialectId),
+  };
+}
+
+/** The scanner's rules for a registered machine. */
 export function variableRulesFor(
   dialectId: string,
   keywords: EditorKeyword[],
 ): VarNameRules {
   return variableRules(
-    {
-      ...(VARIABLE_LEXIS[dialectId] ?? {}),
-      spellings: keywordSpellingsFor(dialectId),
-    },
+    { ...lexisFor(dialectId), spellings: keywordSpellingsFor(dialectId) },
     keywords,
   );
 }

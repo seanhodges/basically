@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { CharsetError, type TokenizeError } from '../types';
+import { lowerCaseKeywordMessage } from '../../editor/keywordCase';
 import { pmd85Charset, parseChar } from './charset';
 import { pmd85KeywordsByLength, type Pmd85Keyword } from './keywords';
 import { MAX_LINE_NUMBER, PROGRAM_BASE } from './addresses';
@@ -264,6 +265,21 @@ function tokenizeBody(
     const match = matchKeyword(body, pos);
     if (match) {
       const { keyword, length } = match;
+      const typed = body.slice(pos, pos + length);
+      // Read as the keyword above, and reported here: the ROM's crunch compares
+      // raw bytes against an upper-case table, so on the real machine this
+      // spelling is stored as characters and fails at RUN. Being lenient about
+      // what can be opened is not a claim the machine will run it. Non-fatal,
+      // and the bytes emitted are unchanged.
+      if (typed !== keyword.word && typed.toUpperCase() === keyword.word) {
+        errors.push({
+          line: editorLine,
+          column: bodyCol + pos,
+          endColumn: bodyCol + pos + length,
+          message: lowerCaseKeywordMessage(typed, 'PMD 85'),
+          fatal: false,
+        });
+      }
       if (stmtStart && keyword.kind !== 'command') {
         flagStatement(pos, pos + length, keyword.word);
       }

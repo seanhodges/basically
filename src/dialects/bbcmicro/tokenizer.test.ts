@@ -350,6 +350,35 @@ describe('BBC tokenizer statement validation', () => {
     }
   });
 
+  it('reports a lower-case keyword and names the spelling the ROM wants', () => {
+    const { errors } = tokenizeProgram('10 print "HI"');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/Lower-case keyword 'print'/);
+    expect(errors[0]!.message).toMatch(/PRINT/);
+    expect(errors[0]!.column).toBe(3);
+    expect(errors[0]!.endColumn).toBe(8);
+    expect(errors[0]!.fatal).toBe(false);
+  });
+
+  it('stores the lower-case spelling as characters all the same', () => {
+    // The retry that finds the keyword produces a diagnostic and never a
+    // token, so the byte stream stays exactly what the ROM would hold - five
+    // characters, not &F1. Nothing about export or round-tripping changes.
+    const { bytes } = tokenizeProgram('10 print "HI"');
+    expect(Array.from(bytes)).toContain('p'.charCodeAt(0));
+    expect(Array.from(bytes)).not.toContain(0xf1);
+    expect(bbcmicro.tokenize('10 print "HI"\n').image.length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('says nothing about a name that merely upper-cases to a keyword', () => {
+    // `count` is a perfectly good BBC variable, and `printer` is a name the
+    // ROM splits rather than a mistyped PRINT: neither is a case mistake.
+    expect(tokenizeProgram('10 count=1').errors).toEqual([]);
+    expect(tokenizeProgram('10 A=count').errors).toEqual([]);
+  });
+
   it('flags a function keyword used as a statement', () => {
     const { errors } = tokenizeProgram('10 SIN(3)');
     expect(errors).toHaveLength(1);

@@ -10,10 +10,14 @@ import { sextantGlyph } from '../sextants';
  *
  *  - 0x00–0x1F and 0x7F are control codes with no printable form; they are
  *    written as a `{0xNN}` raw-byte escape.
- *  - 0x20–0x7E is printable ASCII, straight through both ways. Lower case
- *    (0x60–0x7F) is **preserved**, not folded to upper: a Model III program keeps
- *    its case and a byte round-trips exactly. (The Model I video hardware shows
- *    0x60–0x7F upper-cased, but that is a display quirk, not a stored-byte one.)
+ *  - 0x20–0x7E is printable ASCII, straight through both ways. A lower-case
+ *    byte is **preserved** rather than folded, so every byte round-trips
+ *    exactly - which is what lets a tape written on a machine that had the
+ *    lower-case modification come back as it was written. The stock Model I
+ *    itself has no lower case to show: it addresses only six bits of each
+ *    video-RAM character, so the display draws a capital wherever a lower-case
+ *    byte is stored. That fold belongs to the screen, not to the byte, and
+ *    lives in {@link screenChar}.
  *  - 0x80 is the blank block-graphics cell; because its glyph would collide with
  *    SPACE it is written as `{0x80}` rather than a space.
  *  - 0x81–0xBF are the 2×3 block-graphics cells: the low 6 bits are a bitmap of
@@ -61,6 +65,22 @@ export function plainChar(code: number): string | undefined {
   if (c >= 0x20 && c <= 0x7e) return String.fromCharCode(c);
   if (c >= 0x81 && c <= 0xbf) return sextantGlyph(c & 0x3f);
   return undefined;
+}
+
+/**
+ * The character the *screen* shows for a stored byte, or undefined where it
+ * shows nothing printable.
+ *
+ * {@link plainChar} with the machine's own display fold applied: the stock
+ * Model I has no lower-case cell in its character generator, so a lower-case
+ * byte is drawn as the capital. One helper for both consumers - the canvas
+ * renderer and the screen read - because a screen read that disagreed with the
+ * screen would be reporting a machine that does not exist.
+ */
+export function screenChar(code: number): string | undefined {
+  const c = code & 0xff;
+  if (c >= 0x61 && c <= 0x7a) return String.fromCharCode(c - 0x20);
+  return plainChar(c);
 }
 
 /** Parse the content of a `{...}` escape to a byte; null if it isn't one. */

@@ -33,6 +33,7 @@ import type {
   VariableSignificance,
 } from './types';
 import { writesByIndirection } from './types';
+import { foldNameCase } from '../dialects/letterCase';
 import { ramBudget, ramSeverity, type RamSeverity } from './ramBudget';
 import { sortEntries } from './sort';
 
@@ -1086,9 +1087,16 @@ export interface VariableCollision {
 
 /**
  * What the target machine keeps of one name: its significant characters, plus
- * the type marker where the machine counts that as part of the name.
+ * the type marker where the machine counts that as part of the name, in the
+ * letter case it tells apart.
+ *
+ * Case belongs here rather than beside it, because it is the same question the
+ * significant characters ask - how much of what the reader wrote does this
+ * machine keep? A machine that folds keeps less, and two names a case-sensitive
+ * source held apart arrive as one.
  */
 function significanceKey(name: string, rule: VariableSignificance): string {
+  name = foldNameCase(name, rule.caseSensitive);
   const last = name[name.length - 1] ?? '';
   const marker = rule.markers.includes(last) ? last : '';
   const stem = marker === '' ? name : name.slice(0, -1);

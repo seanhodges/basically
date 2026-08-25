@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { Dialect } from '../dialects/types';
 import { useIdeStore, selectActiveSource } from './store';
+import { convertedCharacters } from './convertedCharacters';
 
 export interface ProgramStats {
   bytes: number;
   errors: number;
+  /**
+   * How many characters the target machine will store as different ones (see
+   * {@link ./convertedCharacters}). A derived figure like the RAM readout, not
+   * a diagnostic: it gates nothing.
+   */
+  converted: number;
 }
 
 /**
@@ -99,7 +106,11 @@ export function ramDisplay(
 export function useProgramStats(): ProgramStats {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore(selectActiveSource);
-  const [stats, setStats] = useState<ProgramStats>({ bytes: 0, errors: 0 });
+  const [stats, setStats] = useState<ProgramStats>({
+    bytes: 0,
+    errors: 0,
+    converted: 0,
+  });
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -107,10 +118,27 @@ export function useProgramStats(): ProgramStats {
       setStats({
         bytes: result.byteSize,
         errors: countProgramErrors(dialect, source),
+        converted: convertedCharacters(source, dialect).count,
       });
     }, 300);
     return () => clearTimeout(t);
   }, [dialect, source]);
 
   return stats;
+}
+
+/**
+ * The status-bar line for the characters the machine will change, or null where
+ * it will change none.
+ *
+ * Names the conversion rather than only counting it: a reader learns what the
+ * machine does to their program, which is the whole point of saying anything.
+ * Null rather than a report of none, so a clean program's status bar is not one
+ * item longer than it needs to be.
+ */
+export function convertedDisplay(converted: number): string | null {
+  if (converted <= 0) return null;
+  return converted === 1
+    ? '1 character changed to fit the machine'
+    : `${converted} characters changed to fit the machine`;
 }

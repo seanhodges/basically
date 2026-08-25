@@ -19,6 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Dialect } from '../dialects/types';
+import { distinguishesNameCase } from '../dialects/letterCase';
 import { dialects, getDialect } from '../dialects/registry';
 import { keywordSpellingsFor } from '../dialects/keywordSpellings';
 import { operatorSpellings } from '../dialects/operators';
@@ -387,6 +388,15 @@ describe('variable-name significance is the one each lint enforces', () => {
         `${id}: "${stem}" and "${stem}${marker}" are not two variables here`,
       ).toBe(!rule.markerDistinguishes);
     }
+
+    // Case is the porting side's own authoring of a fact declared with the
+    // machine's other letter-case facts, so the two are pinned together rather
+    // than left to agree by luck: a machine that gained case sensitivity in one
+    // and not the other would report collisions the other half denies.
+    expect(
+      rule.caseSensitive,
+      `${id}: the porting rule and the declared letter-case facts disagree`,
+    ).toBe(distinguishesNameCase(id));
   });
 });
 

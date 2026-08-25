@@ -31,19 +31,9 @@
  * enforced ROM-accurately inside its tokenizer.
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
-import type { BasicLanguageOptions } from './basicLanguage';
 import { eachOccurrence, type Occurrence } from './variables';
-import {
-  APPLE1_LEXIS,
-  PMD85_LEXIS,
-  VARIABLE_LEXIS,
-  variableRules,
-} from './variableLexis';
-
-/** The lexis a machine's names follow; see {@link VARIABLE_LEXIS}. */
-function lexisFor(dialectId: string): BasicLanguageOptions {
-  return VARIABLE_LEXIS[dialectId] ?? {};
-}
+import { lexisFor, variableRules, type VariableLexis } from './variableLexis';
+import { identityKey, nameKey } from './variableIdentity';
 
 /** The name without its trailing type-suffix character. */
 function stripSuffix(name: string, suffixChars: string): string {
@@ -60,7 +50,7 @@ interface SingleLetterOptions {
   /** Machine name used in messages, e.g. 'ZX81', 'ZX Spectrum'. */
   label: string;
   /** Name lexis for the machine; defaults to Sinclair (`$`, nothing else). */
-  options?: BasicLanguageOptions;
+  options?: VariableLexis;
   /** When true every variable must be a single letter (ZX80, Atom). */
   strict?: boolean;
 }
@@ -154,18 +144,11 @@ export function atomVariableErrors(
 // Microsoft family (Altair 8800 / C64 / TRS-80)
 // ---------------------------------------------------------------------------
 
-/** The two significant characters + type suffix that identify the variable. */
-function significanceKey(name: string, suffixChars: string): string {
-  const last = name[name.length - 1]!;
-  const suffix = suffixChars.includes(last) ? last : '';
-  return stripSuffix(name, suffixChars).slice(0, 2).toUpperCase() + suffix;
-}
-
 /** Editor diagnostics for the Microsoft-BASIC dialects (Altair, C64, TRS-80). */
 function microsoftVariableErrors(
   source: string,
   keywords: EditorKeyword[],
-  opts: { label: string; lexis: BasicLanguageOptions },
+  opts: { label: string; lexis: VariableLexis },
 ): TokenizeError[] {
   const { label, lexis } = opts;
   const suffixChars = lexis.suffixChars ?? '$';
@@ -193,24 +176,37 @@ function microsoftVariableErrors(
     }
   });
 
-  // (a) Two different long names that collapse to the same first two chars.
+  // (a) Two different names that the ROM collapses onto the same storage.
+  //
+  // Both keys come from the shared identity rule, so this and the usages view
+  // answer "are these one variable?" the same way: the significance key is what
+  // the ROM ends up holding, and the name key is what the program meant. Two
+  // occurrences clash when the first agrees and the second does not - which on
+  // a machine that tells `A` from `a` means a pair differing only in case is
+  // two variables and no clash, and on one that folds them is one variable and
+  // no clash either.
   const byKey = new Map<string, number[]>();
-  const spellings = new Map<string, Set<string>>();
+  const names = new Map<string, Map<string, string>>();
   occs.forEach((occ, idx) => {
-    const key = significanceKey(occ.name, suffixChars);
+    const key = identityKey(occ.name, lexis);
     (byKey.get(key) ?? byKey.set(key, []).get(key)!).push(idx);
-    (spellings.get(key) ?? spellings.set(key, new Set()).get(key)!).add(
-      occ.name.toUpperCase(),
-    );
+    // Spelled as the program first spells it: the reader is being shown their
+    // own name, not a folded rendering of it.
+    const distinct = names.get(key) ?? names.set(key, new Map()).get(key)!;
+    const mine = nameKey(occ.name, lexis);
+    if (!distinct.has(mine)) distinct.set(mine, occ.name);
   });
   for (const [key, idxs] of byKey) {
-    const names = spellings.get(key)!;
-    if (names.size < 2) continue;
+    const distinct = names.get(key)!;
+    if (distinct.size < 2) continue;
     for (const idx of idxs) {
       if (flagged.has(idx)) continue;
       const occ = occs[idx]!;
       if (stripSuffix(occ.name, suffixChars).length <= 2) continue; // unambiguous
-      const others = [...names].filter((n) => n !== occ.name.toUpperCase());
+      const mine = nameKey(occ.name, lexis);
+      const others = [...distinct]
+        .filter(([k]) => k !== mine)
+        .map(([, n]) => n);
       errors.push({
         line: occ.line,
         column: occ.column,
@@ -280,7 +276,7 @@ export function apple1VariableErrors(
   source: string,
   keywords: EditorKeyword[],
 ): TokenizeError[] {
-  const rules = variableRules(APPLE1_LEXIS, keywords);
+  const rules = variableRules(lexisFor('apple1'), keywords);
   const errors: TokenizeError[] = [];
   eachOccurrence(source, rules, (occ) => {
     const kw = occ.embedsKeyword;
@@ -297,9 +293,8 @@ export function apple1VariableErrors(
 
 /**
  * BASIC-G inherits both rules from the same place the Altair's come from -
- * two significant characters, and `$` as the only type suffix. Its lexis is
- * passed in rather than looked up by id, because {@link VARIABLE_LEXIS} names
- * only the registered machines.
+ * two significant characters, and `$` as the only type suffix - and departs
+ * from it on case, which its lexis carries from the machine's declared facts.
  */
 export function pmd85VariableErrors(
   source: string,
@@ -307,6 +302,6 @@ export function pmd85VariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'PMD 85',
-    lexis: PMD85_LEXIS,
+    lexis: lexisFor('pmd85'),
   });
 }

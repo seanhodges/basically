@@ -2,6 +2,7 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { keywordSpellingsFor } from '../keywordSpellings';
+import { foldsKeywordCase } from '../letterCase';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import type { EditorKeyword } from '../types';
@@ -33,6 +34,9 @@ function acornLanguageSupport(
   // '%'/'\' are not block-graphics escapes here.
   return buildBasicLanguage(keywords, completionSource, {
     spellings: keywordSpellingsFor(dialectId),
+    // The one family here that matches its keyword table byte for byte, so
+    // `print` is a variable name and `p.` is a name and a full stop.
+    foldsKeywordCase: foldsKeywordCase(dialectId),
     operators: bbcOperators,
     nameChars: '_',
     suffixChars: '$%',

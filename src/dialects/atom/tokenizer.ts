@@ -1,4 +1,5 @@
 import { CharsetError, type TokenizeError } from '../types';
+import { lowerCaseKeywordMessage } from '../../editor/keywordCase';
 import { atomCharset } from './charset';
 import { atomKeywords } from './keywords';
 
@@ -67,13 +68,15 @@ function validateStatements(
   };
 
   // A real Atom matches keywords byte-for-byte in upper case, so a lower-case
-  // keyword lists fine but fails at RUN. Non-fatal, and import stays lenient.
+  // keyword lists fine but fails at RUN. Non-fatal, and import stays lenient -
+  // the leniency is declared with the machine's case facts, and the report is
+  // what keeps it from being a claim that the machine will run it.
   const warnLowerCase = (at: number, end: number, typed: string): void => {
     errors.push({
       line: editorLine,
       column: colOffset + at,
       endColumn: colOffset + end,
-      message: `Lower-case keyword '${typed}' won't run on a real Atom — use ${typed.toUpperCase()}`,
+      message: lowerCaseKeywordMessage(typed, 'Atom'),
       fatal: false,
     });
   };

@@ -321,6 +321,16 @@ export interface VariableSignificance {
    * documentation lists them - `"$%"`, `"$%!#"`, or `""` where it has none.
    */
   markers: string;
+  /**
+   * Whether the machine tells `A` from `a` when it identifies a variable, so
+   * that a difference in letter case is a difference in name.
+   *
+   * Here as well as in the machine's declared letter-case facts because this is
+   * the porting side's own rule type, and the collision report needs the source
+   * and the target rule side by side; `facts-crosscheck.test.ts` pins the two
+   * authorings together.
+   */
+  caseSensitive: boolean;
 }
 
 /**

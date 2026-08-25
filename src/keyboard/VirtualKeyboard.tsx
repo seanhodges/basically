@@ -10,10 +10,12 @@ import type {
 } from './layoutSchema';
 import { KeyboardInputEngine } from './inputEngine';
 import {
+  inEditorLetterCase,
   isRepeatable,
   modePinnedLayerId,
   resolveEditorAction,
 } from './editorActions';
+import { inLetterCase } from './legendKit';
 import { pickableKeys } from './controllerConfig';
 import { GlyphSvg } from './GlyphSvg';
 import { ControlChipSvg } from './ControlChipSvg';
@@ -190,7 +192,7 @@ export function VirtualKeyboard({
     }
     return new KeyboardInputEngine(layout, {
       kind: 'editor',
-      onKeyPress: (key: KeyDef, activeLayer: LayerDef) => {
+      onKeyPress: (key: KeyDef, activeLayer: LayerDef, letterCase) => {
         const m = modeRef.current;
         // In the base (ABC) mode the engine's layer applies (shift works);
         // other modes pin the layer (with their optional second page).
@@ -202,7 +204,14 @@ export function VirtualKeyboard({
             activeLayer,
             symPage2Ref.current,
           ) ?? activeLayer.id;
-        const action = resolveEditorAction(layout, key, layerId);
+        // The case latch decides what an *unshifted* letter key types; a
+        // shifted or moded legend is the machine's own and says what it says.
+        // Composed here rather than inside the lookup, which stays pure.
+        const resolved = resolveEditorAction(layout, key, layerId);
+        const action =
+          layerId === baseLayerRef.current.id
+            ? inEditorLetterCase(resolved, letterCase)
+            : resolved;
         lastActionRef.current = action;
         const t = targetRef.current;
         if (action && t.kind === 'editor') t.apply(action);
@@ -640,6 +649,11 @@ export function VirtualKeyboard({
   // character. Keys with no legend for the active mode fall back to a dimmed
   // base (main) legend so the layout stays recognisable.
   const baseIdx = layout.layers.indexOf(baseLayer);
+  // The case a letter keycap shows, and types: the layout's power-on case,
+  // flipped by every case-lock press since the keyboard was built. A keycap
+  // that showed one case while typing the other would be the whole of what
+  // this is for.
+  const letterCase = engine.getLetterCase();
   const activeLabelIdx = layout.layers.findIndex(
     (l) => l.id === highlightLayerId,
   );
@@ -683,6 +697,8 @@ export function VirtualKeyboard({
       <span className={cls.join(' ')}>
         {label.glyph ? (
           <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+        ) : isFallback || activeLabelIdx === baseIdx ? (
+          inLetterCase(label.text ?? '', letterCase)
         ) : (
           label.text
         )}
@@ -695,17 +711,23 @@ export function VirtualKeyboard({
   // Q/q). Such a key shows one centred letter whose case follows the shift
   // key - pressed or locked - as a phone keyboard's do, never both cases at
   // once.
+  //
+  // The base half is read through the latch, so a machine whose case lock and
+  // shift both reach the other case (the BBC, the CPC) shows one letter rather
+  // than two identical ones while they agree.
   const modifierLayerIdx = modifierLayer
     ? layout.layers.indexOf(modifierLayer)
     : -1;
+  const baseLetter = (def: KeyDef): string | undefined => {
+    const text = def.labels[baseIdx]?.text;
+    return text === undefined ? undefined : inLetterCase(text, letterCase);
+  };
   const casePairOf = (def: KeyDef): { off: string; on: string } | null => {
     if (modifierLayerIdx < 0) return null;
-    const off = def.labels[baseIdx]?.text;
+    const off = baseLetter(def);
     const on = def.labels[modifierLayerIdx]?.text;
     if (!off || !on || off.length !== 1 || on.length !== 1) return null;
-    return off !== on && off.toUpperCase() === on.toUpperCase()
-      ? { off, on }
-      : null;
+    return off.toUpperCase() === on.toUpperCase() ? { off, on } : null;
   };
   const shiftEngaged = activeLayer.id === modifierLayer?.id;
 
@@ -812,10 +834,12 @@ export function VirtualKeyboard({
                         if (layer.id === highlightLayerId)
                           cls.push('vk-active');
                         const text =
-                          pair && layerIdx === baseIdx
-                            ? shiftEngaged
-                              ? pair.on
-                              : pair.off
+                          layerIdx === baseIdx
+                            ? pair
+                              ? shiftEngaged
+                                ? pair.on
+                                : pair.off
+                              : inLetterCase(label.text ?? '', letterCase)
                             : label.text;
                         return (
                           <span key={layer.id} className={cls.join(' ')}>

@@ -1,9 +1,19 @@
 import { useIdeStore } from '../app/store';
-import { useProgramStats, ramDisplay } from '../app/useProgramStats';
+import {
+  useProgramStats,
+  ramDisplay,
+  convertedDisplay,
+} from '../app/useProgramStats';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import styles from './StatusBar.module.css';
+
+/** Why the conversion figure matters, for the reader who hovers it. */
+const CONVERTED_TITLE =
+  'This machine has no character for these, and stores another in their ' +
+  'place — the program runs, but typing this listing into the real machine ' +
+  'would not reproduce it';
 
 export function StatusBar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -21,6 +31,9 @@ export function StatusBar() {
   const { gamepadToggleable } = useInputOverlays();
 
   const stats = useProgramStats();
+  // What the machine will silently do to the listing. Absent - not zero - when
+  // it will do nothing.
+  const converted = convertedDisplay(stats.converted);
 
   // Actual machine figures while running/paused (published by EmulatorPane);
   // null falls back to the tokenized-size estimate against the budget.
@@ -56,6 +69,15 @@ export function StatusBar() {
           ? 'no errors'
           : `${stats.errors} error${stats.errors > 1 ? 's' : ''}`}
       </span>
+      {/* Advisory, and appended rather than inserted: the e2e helpers read this
+          bar by text, and the items before it keep their order. Styled with the
+          RAM readout's warn ink, because that is what this is - a figure worth
+          noticing that blocks nothing. */}
+      {converted && (
+        <span className={styles.statusRamWarn} title={CONVERTED_TITLE}>
+          {converted}
+        </span>
+      )}
       <span
         className={`${styles.statusEmu} ${
           emulatorStatus === 'running' ? styles.running : ''

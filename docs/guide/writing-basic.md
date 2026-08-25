@@ -84,8 +84,8 @@ and the bar counts four - the mentions in the REM lines and inside the printed
 string are not uses of the variable.
 
 The rest follows the machine too. Whether upper and lower case are the same name
-depends on the ROM: on the BBC machines `score` and `SCORE` are two variables, on
-the others they are one. So does how much of a name the machine keeps - where
+depends on the ROM: on the BBC machines and the PMD 85 `score` and `SCORE` are
+two variables, on the others they are one. So does how much of a name the machine keeps - where
 only the first two characters are significant, `HPX` and `HPY` are the same
 variable, and both light up. An array and a plain variable of the same name are
 always separate, and on machines with named procedures a name local to a

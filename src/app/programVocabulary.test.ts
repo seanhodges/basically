@@ -484,12 +484,26 @@ describe('programVocabulary - machine code', () => {
 describe('programVocabulary - variable names', () => {
   it('reads names in the source machine’s own spelling', () => {
     // `_` is a BBC name character and `%`/`$` end a name there, so all three
-    // travel with the name rather than splitting it.
+    // travel with the name rather than splitting it. Case travels with it too:
+    // this ROM tells `A` from `a`, so folding here would hand the porting
+    // comparison one name where the program has two.
     const vocab = programVocabulary(
       '10 my_count%=1\n20 total$="x"\n30 PRINT my_count%',
       bbc,
     );
-    expect(vocab.variables).toEqual(['MY_COUNT%', 'TOTAL$']);
+    expect(vocab.variables).toEqual(['my_count%', 'total$']);
+  });
+
+  it('keeps two spellings of a name apart on a machine that does', () => {
+    expect(programVocabulary('10 a=1\n20 A=2', bbc).variables).toEqual([
+      'A',
+      'a',
+    ]);
+  });
+
+  it('folds two spellings of a name together on a machine that does', () => {
+    // Nothing to report on a C64: `a` and `A` were never two variables there.
+    expect(programVocabulary('10 a=1\n20 A=2', c64).variables).toEqual(['A']);
   });
 
   it('takes no name from a string, a REM or a #BIN payload', () => {
@@ -519,7 +533,7 @@ describe('programVocabulary - variable names', () => {
       '10 PROCdraw(size)\n20 PRINT FNarea(size)',
       bbc,
     );
-    expect(vocab.variables).toEqual(['SIZE']);
+    expect(vocab.variables).toEqual(['size']);
   });
 });
 

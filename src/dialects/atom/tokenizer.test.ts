@@ -231,6 +231,19 @@ describe('atom tokenizer statement validation', () => {
     expect(errors[0]!.message).toMatch(/lower-case keyword/i);
   });
 
+  it('changes nothing about the bytes it stores for one', () => {
+    // The report says what the machine will make of the program; it is not a
+    // licence to store something else. Atom BASIC keeps a statement's body
+    // verbatim, so the two lines differ in exactly the case of those five
+    // letters and in nothing else - and the reported one still builds.
+    const lower = tokenizeProgram('10 print "HI"\n').bytes;
+    const upper = tokenizeProgram('10 PRINT "HI"\n').bytes;
+    expect(
+      Array.from(lower, (b) => (b >= 0x61 && b <= 0x7a ? b - 0x20 : b)),
+    ).toEqual(Array.from(upper));
+    expect(atom.tokenize('10 print "hi"\n').image.length).toBeGreaterThan(0);
+  });
+
   it('still builds a runnable image when only statement lint fires', () => {
     // Dialect-level: hasFatalErrors gates the image, so a hardware-storable
     // line (e.g. a misspelled keyword) keeps its squiggle but stays runnable.
