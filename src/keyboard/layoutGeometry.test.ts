@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { dialects } from '../dialects/registry';
+import { letterCaseFor } from '../dialects/letterCase';
 import { resolveEditorAction, resolveEmits } from './editorActions';
 import type { KeyDef, KeyboardLayout } from './layoutSchema';
 import {
@@ -41,6 +42,88 @@ function letterBands(layout: KeyboardLayout): KeyDef[][] {
     printing(layout.rows[3]!).slice(1, -1),
   ];
 }
+
+/**
+ * Machines with lower case whose keyboard offers no way to reach it, and why.
+ *
+ * Named rather than derived, so a machine cannot join them by an omission.
+ */
+const NO_CASE_KEY: Record<string, string> = {
+  pet: 'no Commodore key: the set switch is a POKE, not a keypress',
+};
+
+/** Whether any keycap on this layout latches the machine's letter case. */
+const hasCaseLock = (layout: KeyboardLayout): boolean =>
+  [...layout.rows.flat(), ...(layout.functionKeys ?? [])].some(
+    (k) => k.caseLock,
+  );
+
+/** Whether any letter key carries the two cases across the shift layer. */
+function hasCasePair(layout: KeyboardLayout): boolean {
+  const base =
+    layout.layers.find((l) => l.activeWhen.length === 0) ?? layout.layers[0]!;
+  const shifted = layout.layers.find((l) => l.activeWhen.length > 0);
+  if (!shifted) return false;
+  const baseIdx = layout.layers.indexOf(base);
+  const shiftIdx = layout.layers.indexOf(shifted);
+  return letterBands(layout)
+    .flat()
+    .some((key) => {
+      const off = key.labels[baseIdx]?.text;
+      const on = key.labels[shiftIdx]?.text;
+      return (
+        !!off &&
+        !!on &&
+        off !== on &&
+        off.length === 1 &&
+        off.toUpperCase() === on.toUpperCase()
+      );
+    });
+}
+
+describe('both letter cases are reachable where the machine has them', () => {
+  for (const dialect of dialects) {
+    const facts = letterCaseFor(dialect.id)!;
+    const layout = dialect.keyboardLayout;
+
+    if (facts.lowerCase === 'none') {
+      it(`${dialect.id} offers neither, having no lower case`, () => {
+        // Not an omission but a claim: a keycap typing a character this
+        // machine's character generator cannot draw would be inventing one.
+        expect(hasCasePair(layout), `${dialect.id} case pair`).toBe(false);
+        expect(hasCaseLock(layout), `${dialect.id} case lock`).toBe(false);
+        expect(
+          layout.powerOnCase,
+          `${dialect.id} power-on case`,
+        ).toBeUndefined();
+      });
+      continue;
+    }
+
+    it(`${dialect.id} offers both, by the route the machine uses`, () => {
+      const excuse = NO_CASE_KEY[dialect.id];
+      const reachable = hasCasePair(layout) || hasCaseLock(layout);
+      if (excuse) {
+        expect(reachable, `${dialect.id} is excused: ${excuse}`).toBe(false);
+      } else {
+        expect(
+          reachable,
+          `${dialect.id} draws lower case but its keyboard cannot type it - ` +
+            'give it a shift case pair or its own case-lock key',
+        ).toBe(true);
+      }
+      // The case a keycap starts in is a statement, not a default: the BBC
+      // powers up caps-locked and the CPC in lower case.
+      expect(layout.powerOnCase, `${dialect.id} power-on case`).toBeDefined();
+    });
+  }
+
+  it('excuses only registered machines that really have lower case', () => {
+    for (const id of Object.keys(NO_CASE_KEY)) {
+      expect(letterCaseFor(id)?.lowerCase, id).not.toBe('none');
+    }
+  });
+});
 
 describe('every keyboard keeps the template grid', () => {
   for (const dialect of dialects) {

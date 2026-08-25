@@ -22,6 +22,7 @@
 import { describe, expect, it } from 'vitest';
 import { dialects } from './registry';
 import type { Dialect, SampleFile } from './types';
+import { LOWER_CASE_KEYWORD_HINT } from '../editor/keywordCase';
 
 /**
  * The double-quoted string literals of a program, which is everything the
@@ -156,5 +157,26 @@ describe('kaleido asks for the same three parameters on every machine', () => {
     for (const [dialect, sample] of parameterised) {
       expect(sample.text, dialect.id).toMatch(/GO ?TO/i);
     }
+  });
+});
+
+describe('no bundled sample is written in a case its machine will not run', () => {
+  // The lower-case-keyword report generalised to four machines at once, so
+  // this exists to catch a sample that gets it wrong rather than the reader.
+  // Every sample of every registered machine, because a sample is the first
+  // thing anyone opens.
+  it('raises no lower-case-keyword diagnostic anywhere', () => {
+    const flagged: string[] = [];
+    for (const dialect of dialects) {
+      for (const sample of dialect.samples) {
+        for (const error of dialect.lint(sample.text)) {
+          if (error.message.startsWith(LOWER_CASE_KEYWORD_HINT))
+            flagged.push(
+              `${dialect.id}/${sample.name}:${error.line} ${error.message}`,
+            );
+        }
+      }
+    }
+    expect(flagged).toEqual([]);
   });
 });

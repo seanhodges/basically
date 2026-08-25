@@ -20,9 +20,16 @@ full.
 
 Plain UTF-8 text, one BASIC line per text line: a line number followed by
 exactly one statement. Keywords are written as words (`PRINT`, `GOTO`,
-`INKEY$`, `**` for power). Lowercase input is folded to uppercase. The legal
-line-number range and statement rules are dialect-specific (see each dialect's
-language reference page).
+`INKEY$`, `**` for power).
+
+What a machine does with lower case is its own business, and the machines
+disagree. Several store a lower-case letter as the capital, so a listing
+written in lower case comes back in capitals; others keep both cases apart, and
+on the BBC machines and the PMD 85 the case is even part of a variable's name.
+Where the target machine will change a character, the status bar says so and
+how many — the program still runs, but the listing on screen is no longer the
+listing the machine holds. The legal line-number range and statement rules are
+dialect-specific (see each dialect's language reference page).
 
 To download the BASIC listing on its own, right-click (or long-press) the
 **BASIC** tab above the editor and choose **Download .bas**. A machine-code or

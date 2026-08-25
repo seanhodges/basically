@@ -147,6 +147,24 @@ const commodoreKey: KeyDef = {
   labels: plainLabels({ text: 'C=', editor: null }),
 };
 
+/**
+ * The character-set switch, beside the Commodore key it presses.
+ *
+ * Not a shift pair, because this machine's shifted letters are graphics rather
+ * than the other case: the case flip here is SHIFT + the Commodore key, which
+ * selects the second character set and redraws the whole screen in it
+ * (`src/dialects/caseKeys.test.ts`). One stored character draws either case,
+ * so on the editor target this is cosmetic - what changes is which case the
+ * keycaps show and type, not what is stored.
+ */
+const caseKey: KeyDef = {
+  id: 'CaseSwitch',
+  spanX: 6,
+  emits: ['LeftShift', 'Commodore'],
+  caseLock: true,
+  labels: plainLabels({ text: 'a/A', editor: null }),
+};
+
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -167,7 +185,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([commodoreKey], spaceKey, [quoteKey, returnKey]),
+  bottomRow([commodoreKey, caseKey], spaceKey, [quoteKey, returnKey]),
 ];
 
 // f1/f3/f5/f7 have their own matrix lines; f2/f4/f6/f8 are SHIFT of the odd keys.
@@ -231,6 +249,9 @@ export const c64KeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'Commodore 64',
     theme: 'vk-theme-commodore64',
     gridColumns: 40,
+    // The graphics set is in force at power-on, where every letter is a
+    // capital - see `caseKey` above for the switch to the other one.
+    powerOnCase: 'upper',
     layers: [
       {
         id: 'base',

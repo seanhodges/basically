@@ -202,6 +202,11 @@ export const petKeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'Commodore PET',
     theme: 'vk-theme-pet',
     gridColumns: 40,
+    // The graphics set is in force at power-on. Unlike its siblings the PET
+    // has no Commodore key, so there is no keypress that switches sets here -
+    // a program does it by poking the video chip - and the keyboard offers no
+    // case key at all.
+    powerOnCase: 'upper',
     layers: [
       {
         id: 'base',

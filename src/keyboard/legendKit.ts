@@ -78,6 +78,23 @@ export const cursorKey = (
   emits: typeof emits === 'string' ? [emits] : [...emits],
 });
 
+/** The case an unshifted letter key types; see `KeyboardLayout.powerOnCase`. */
+export type LetterCase = 'upper' | 'lower';
+
+/**
+ * `text` in `letterCase`, where `text` is a single letter - otherwise `text`
+ * unchanged.
+ *
+ * One letter only, deliberately: a keycap's other legends are words, symbols
+ * and machine keywords, and a case lock changes none of them. Shared by the
+ * keycap renderer and the editor's case transform so the case a key shows and
+ * the case it types are the same computation.
+ */
+export function inLetterCase(text: string, letterCase: LetterCase): string {
+  if (!/^[A-Za-z]$/.test(text)) return text;
+  return letterCase === 'upper' ? text.toUpperCase() : text.toLowerCase();
+}
+
 /** Expand one legend into the {@link KeyLabel} the layout schema carries. */
 export const lbl = (legend: Legend): KeyLabel | null =>
   legend === null

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  inEditorLetterCase,
   isRepeatable,
   modePinnedLayerId,
   resolveEditorAction,
@@ -227,5 +228,31 @@ describe('modePinnedLayerId', () => {
     expect(
       modePinnedLayerId(withSym, graphicMode, 'main', shifted, false),
     ).toBe('keyword');
+  });
+});
+
+describe('inEditorLetterCase', () => {
+  it('types a letter in the case the keyboard is in', () => {
+    expect(inEditorLetterCase({ insert: 'a' }, 'upper')).toEqual({
+      insert: 'A',
+    });
+    expect(inEditorLetterCase({ insert: 'A' }, 'lower')).toEqual({
+      insert: 'a',
+    });
+  });
+
+  it('leaves a keyword, a symbol and an editing action alone', () => {
+    // A case lock changes what a letter key types, not what the machine's
+    // other legends mean.
+    expect(inEditorLetterCase({ insert: 'PRINT ' }, 'lower')).toEqual({
+      insert: 'PRINT ',
+    });
+    expect(inEditorLetterCase({ insert: '"' }, 'lower')).toEqual({
+      insert: '"',
+    });
+    expect(inEditorLetterCase({ action: 'newline' }, 'lower')).toEqual({
+      action: 'newline',
+    });
+    expect(inEditorLetterCase(null, 'lower')).toBeNull();
   });
 });

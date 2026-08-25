@@ -5,6 +5,7 @@ import type {
   KeyboardLayout,
   LayerDef,
 } from './layoutSchema';
+import { inLetterCase, type LetterCase } from './legendKit';
 
 /**
  * Resolve what a key does when the keyboard targets the text editor, on the
@@ -52,6 +53,26 @@ function resolveOnLayer(
     return { insert: style === 'word' ? `${label.text} ` : label.text };
   }
   return undefined;
+}
+
+/**
+ * `action` as the keyboard's current letter case would type it.
+ *
+ * A transform *over* the resolved action rather than a branch inside
+ * {@link resolveEditorAction}, which stays the pure data lookup its tests pin:
+ * the case is engine state, not layout data, and the virtual keyboard composes
+ * the two at its own call site.
+ *
+ * Only a single-letter insert changes - a keyword legend, a symbol and every
+ * editing action are what they are whatever case the machine is in.
+ */
+export function inEditorLetterCase(
+  action: EditorKeyAction | null,
+  letterCase: LetterCase,
+): EditorKeyAction | null {
+  if (!action || !('insert' in action)) return action;
+  const insert = inLetterCase(action.insert, letterCase);
+  return insert === action.insert ? action : { insert };
 }
 
 /** Actions that auto-repeat while the key is held (editor target only). */

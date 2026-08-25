@@ -1,19 +1,19 @@
 ## 1. Declare the facts
 
-- [ ] 1.1 Add `src/dialects/letterCase.ts`: the fact types (lower-case glyphs —
+- [x] 1.1 Add `src/dialects/letterCase.ts`: the fact types (lower-case glyphs —
       none / always / switched; keyword scan — folded / upper-only; name case —
       sensitive / folded; source encoding — preserved / folded), the declared
       leniency flag, a per-machine note, and one entry for every machine in
       `src/dialects/registry.ts`. Derive each entry from the ROM and the
       existing per-dialect charset and tokenizer evidence, never from memory.
-- [ ] 1.2 Add the derived predicates beside the table — folds-keyword-case
+- [x] 1.2 Add the derived predicates beside the table — folds-keyword-case
       (ROM folds, or the encoding folds, or leniency is declared) and
       warns-on-lower-case-keyword (ROM matches by character and the encoding
       preserves) — plus the shared case-fold helper for names.
-- [ ] 1.3 Add `src/dialects/letterCase.test.ts`: registry-driven coverage (every
+- [x] 1.3 Add `src/dialects/letterCase.test.ts`: registry-driven coverage (every
       registered machine, no others) plus a hand-written table restating each
       machine's facts in prose, asserted against the declaration.
-- [ ] 1.4 Add the behavioural arms to that test — encode a lower-case letter
+- [x] 1.4 Add the behavioural arms to that test — encode a lower-case letter
       through the real charset and compare against the upper-case one; lint a
       lower-case keyword in the machine's own PRINT spelling; lint a two-case
       name pair; resolve a lower-case glyph source. Arms 2 and 3 are expected to
@@ -22,34 +22,34 @@
 
 ## 2. Editor reads the declaration
 
-- [ ] 2.1 Stop authoring `caseSensitive` in `src/editor/variableLexis.ts`; derive
+- [x] 2.1 Stop authoring `caseSensitive` in `src/editor/variableLexis.ts`; derive
       it from the new table at the rules boundary and add a lookup for the two
       lexis constants that are currently exported for direct use. Remove the
       self-contradicting prose about which machines distinguish case.
-- [ ] 2.2 Extract the name-identity rule out of `src/editor/variableUsages.ts`
+- [x] 2.2 Extract the name-identity rule out of `src/editor/variableUsages.ts`
       into `src/editor/variableIdentity.ts` unchanged — it is already correct —
       and have the usages view call it.
-- [ ] 2.3 Replace the significance key in `src/editor/variableLint.ts` with the
+- [x] 2.3 Replace the significance key in `src/editor/variableLint.ts` with the
       shared identity rule, and stop folding the reported spellings so the
       message quotes the name as the program writes it.
-- [ ] 2.4 Thread a keyword-folding flag through the language options into
+- [x] 2.4 Thread a keyword-folding flag through the language options into
       `src/editor/basicLanguage.ts` and through the variable-scanner rules into
       `src/editor/variables.ts`, so both fold for keyword lookup only where the
       machine would.
-- [ ] 2.5 Add the same flag to the keyword-spellings table so
+- [x] 2.5 Add the same flag to the keyword-spellings table so
       `src/dialects/keywordSpellings.ts` reads an abbreviation as a keyword only
       in the case the machine's scan accepts.
-- [ ] 2.6 Add one comment to `src/editor/crunch.ts` naming the fact that keeps
+- [x] 2.6 Add one comment to `src/editor/crunch.ts` naming the fact that keeps
       its unconditional fold correct, so it is not "fixed" later. No behaviour
       change there and none in `src/editor/completions.ts`.
-- [ ] 2.7 Add `src/editor/keywordCase.ts` with the shared diagnostic message, and
+- [x] 2.7 Add `src/editor/keywordCase.ts` with the shared diagnostic message, and
       emit it from the Atom, BBC Micro (and Master) and PMD 85 tokenizers. On the
       BBC this is an upper-case retry that yields a diagnostic and never a token,
       so the emitted bytes stay ROM-identical. All non-fatal.
-- [ ] 2.8 Add colocated tests for the tokenizer diagnostics (Atom, BBC, PMD 85):
+- [x] 2.8 Add colocated tests for the tokenizer diagnostics (Atom, BBC, PMD 85):
       the message is raised, the byte stream is unchanged, and the diagnostic
       does not block a build.
-- [ ] 2.9 Extend the editor tests: BBC `print` tags as a variable name and ZX81
+- [x] 2.9 Extend the editor tests: BBC `print` tags as a variable name and ZX81
       `print` still tags as a keyword; BBC `print` is found by the variable
       scanner and C64 `print` is not; the PMD 85 two-case pair no longer
       collides while a genuine two-character collision still does; the lint and
@@ -59,39 +59,39 @@
 
 ## 3. Porting and vocabulary read the declaration
 
-- [ ] 3.1 Fold names in `src/app/programVocabulary.ts` through the declared fact
+- [x] 3.1 Fold names in `src/app/programVocabulary.ts` through the declared fact
       instead of unconditionally, and correct the comment claiming the machines
       here are case-insensitive about names.
-- [ ] 3.2 Add a case field to the variable-significance rule type in
+- [x] 3.2 Add a case field to the variable-significance rule type in
       `src/reference/types.ts`, author it per machine in `src/reference/facts.ts`,
       and crosscheck it against the new table in the facts crosscheck test.
-- [ ] 3.3 Make the significance key in `src/reference/compare.ts` respect it, so
+- [x] 3.3 Make the significance key in `src/reference/compare.ts` respect it, so
       a case-sensitive source moving to a folding target reports the collision
       and the reverse direction reports nothing.
-- [ ] 3.4 Extend the vocabulary and comparison tests for both directions.
-- [ ] 3.5 Add the case sentence to the variable-naming prose for the
+- [x] 3.4 Extend the vocabulary and comparison tests for both directions.
+- [x] 3.5 Add the case sentence to the variable-naming prose for the
       case-sensitive machines in the reference facts.
 
 ## 4. Machines report the case they show
 
-- [ ] 4.1 Fix the Commodore screen reader (`src/emulator/cbmScreenText.ts`) to
+- [x] 4.1 Fix the Commodore screen reader (`src/emulator/cbmScreenText.ts`) to
       answer the text set's letters directly rather than through the graphics-set
       table, and record why that table cannot serve them.
-- [ ] 4.2 Add `src/emulator/cbmScreenText.test.ts` (none exists): both sets for
+- [x] 4.2 Add `src/emulator/cbmScreenText.test.ts` (none exists): both sets for
       the letter ranges, the graphic that a text-set code draws in the other set,
       row width and padding, and the regression by name — no text-set letter code
       reads back as a space.
-- [ ] 4.3 Give the TRS-80 one shared screen-character helper used by both its
+- [x] 4.3 Give the TRS-80 one shared screen-character helper used by both its
       display and its screen read, so the two cannot drift, and fold in both.
-- [ ] 4.4 Correct the TRS-80 charset comment: the stored byte is preserved for
+- [x] 4.4 Correct the TRS-80 charset comment: the stored byte is preserved for
       round-trip exactness, and the stock Model I displays it upper-cased. Drop
       the Model III justification.
-- [ ] 4.5 Split the TRS-80 glyph provenance so the character-generator chip no
+- [x] 4.5 Split the TRS-80 glyph provenance so the character-generator chip no
       longer claims codes the stock machine cannot address; check the datasheet
       before writing the note (see the design's open question).
-- [ ] 4.6 Add a TRS-80 test that the display and the screen read agree on a
+- [x] 4.6 Add a TRS-80 test that the display and the screen read agree on a
       program that prints lower case.
-- [ ] 4.7 Add lower-case anchors to `src/dialects/glyphSources.test.ts` beside the
+- [x] 4.7 Add lower-case anchors to `src/dialects/glyphSources.test.ts` beside the
       existing ones — every current anchor is the letter `A` — plus the negative
       case for machines declared to have no lower case. Excuse the Commodores by
       name with the reason if 6.2 is cut.

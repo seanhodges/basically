@@ -29,6 +29,10 @@ import {
  *  - base:     the unshifted character
  *  - shifted:  the shifted symbol (top-left), active while SHIFT is held
  *
+ * A letter key carries the capital on both, because SHIFT gives upper case on
+ * this machine whichever way CAPS LOCK is set; the keycap follows the lock
+ * instead, and shows the case it will type.
+ *
  * The machine's punctuation lives in the SYM mode at the template's
  * canonical positions, each cell pressing the BBC's own key or SHIFT pair -
  * the dedicated keys keep their matrix cells even though their keycaps left
@@ -67,28 +71,28 @@ const numberRow = [
 ];
 
 const qwertyRow = [
-  key('KeyQ', ['Q', null]),
-  key('KeyW', ['W', null], cursorKey('↑', 'up', 'ArrowUp')),
-  key('KeyE', ['E', null]),
-  key('KeyR', ['R', null]),
-  key('KeyT', ['T', null]),
-  key('KeyY', ['Y', null]),
-  key('KeyU', ['U', null]),
-  key('KeyI', ['I', null]),
-  key('KeyO', ['O', null]),
-  key('KeyP', ['P', null]),
+  key('KeyQ', ['Q', 'Q']),
+  key('KeyW', ['W', 'W'], cursorKey('↑', 'up', 'ArrowUp')),
+  key('KeyE', ['E', 'E']),
+  key('KeyR', ['R', 'R']),
+  key('KeyT', ['T', 'T']),
+  key('KeyY', ['Y', 'Y']),
+  key('KeyU', ['U', 'U']),
+  key('KeyI', ['I', 'I']),
+  key('KeyO', ['O', 'O']),
+  key('KeyP', ['P', 'P']),
 ];
 
 const homeRow = centerRow([
-  key('KeyA', ['A', null], cursorKey('←', 'left', 'ArrowLeft')),
-  key('KeyS', ['S', null], cursorKey('↓', 'down', 'ArrowDown')),
-  key('KeyD', ['D', null], cursorKey('→', 'right', 'ArrowRight')),
-  key('KeyF', ['F', null]),
-  key('KeyG', ['G', null]),
-  key('KeyH', ['H', null]),
-  key('KeyJ', ['J', null]),
-  key('KeyK', ['K', null]),
-  key('KeyL', ['L', null]),
+  key('KeyA', ['A', 'A'], cursorKey('←', 'left', 'ArrowLeft')),
+  key('KeyS', ['S', 'S'], cursorKey('↓', 'down', 'ArrowDown')),
+  key('KeyD', ['D', 'D'], cursorKey('→', 'right', 'ArrowRight')),
+  key('KeyF', ['F', 'F']),
+  key('KeyG', ['G', 'G']),
+  key('KeyH', ['H', 'H']),
+  key('KeyJ', ['J', 'J']),
+  key('KeyK', ['K', 'K']),
+  key('KeyL', ['L', 'L']),
 ]);
 
 const shiftKey: KeyDef = {
@@ -110,16 +114,33 @@ const deleteKey: KeyDef = {
 const zxcvRow = flankedRow(
   shiftKey,
   [
-    key('KeyZ', ['Z', null]),
-    key('KeyX', ['X', null]),
-    key('KeyC', ['C', null]),
-    key('KeyV', ['V', null]),
-    key('KeyB', ['B', null]),
-    key('KeyN', ['N', null]),
-    key('KeyM', ['M', null]),
+    key('KeyZ', ['Z', 'Z']),
+    key('KeyX', ['X', 'X']),
+    key('KeyC', ['C', 'C']),
+    key('KeyV', ['V', 'V']),
+    key('KeyB', ['B', 'B']),
+    key('KeyN', ['N', 'N']),
+    key('KeyM', ['M', 'M']),
   ],
   deleteKey,
 );
+
+/**
+ * CAPS LOCK, beside Escape in the bottom-left machine region.
+ *
+ * The BBC's only route to lower case, and the reason this keycap is here: the
+ * machine powers up caps-locked and its SHIFT gives upper case in either lock
+ * state (`src/dialects/caseKeys.test.ts`), so nothing on the board reaches
+ * lower case without it. A tap, not a held modifier - the lock lives in the
+ * ROM.
+ */
+const capsKey: KeyDef = {
+  id: 'CapsLock',
+  spanX: 6,
+  emits: ['CapsLock'],
+  caseLock: true,
+  labels: [{ text: 'CAPS', editor: null }, null, null],
+};
 
 /** Escape, in the bottom-left machine region; no editor insert. */
 const escKey: KeyDef = {
@@ -150,7 +171,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([escKey], spaceKey, [quoteKey, enterKey]),
+  bottomRow([escKey, capsKey], spaceKey, [quoteKey, enterKey]),
 ];
 
 const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
@@ -208,6 +229,9 @@ export const bbcKeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'BBC Micro',
     theme: 'vk-theme-bbc',
     gridColumns: 40,
+    // Caps-locked at power-on, so the base legends are the capitals - see
+    // `capsKey` above.
+    powerOnCase: 'upper',
     layers: [
       {
         id: 'base',

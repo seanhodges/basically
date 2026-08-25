@@ -75,6 +75,17 @@ export interface KeyboardLayout {
    * WASD/Space fallback (see controllerConfig).
    */
   controller?: ControllerConfig;
+  /**
+   * The letter case this machine's unshifted letter keys produce when it has
+   * just started - and therefore the case the layout's own base legends are
+   * authored in. A machine's case-lock key flips it from here.
+   *
+   * Absent on a machine with no lower case at all, where there is only one case
+   * to be in. Read off the booted ROMs rather than assumed
+   * (`src/dialects/caseKeys.test.ts`): the BBC powers up caps-locked and the
+   * CPC powers up in lower case, which no two machines here would predict.
+   */
+  powerOnCase?: 'upper' | 'lower';
 }
 
 /** Abstract game-controller controls a binding can fill. */
@@ -228,6 +239,22 @@ export interface KeyDef {
   labels: (KeyLabel | null)[];
   /** When set, this key IS the named modifier (see layout.modifiers). */
   modifier?: string;
+  /**
+   * When set, pressing this key flips the case an unshifted letter key types -
+   * the machine's own CAPS LOCK, or the Commodores' character-set switch.
+   *
+   * Deliberately not a modifier. A modifier here is a matrix cell *held down*
+   * with a momentary effect; a case lock on every machine that has one is the
+   * exact inverse - a momentary press whose effect is latched inside the ROM.
+   * Reusing {@link ModifierDef}'s `locked` state would mean holding the case
+   * key down forever, which is not what any of these machines do, and would
+   * put a layer under it that has no legends to show.
+   *
+   * The key still presses its own `emits`, so the machine sees the real key.
+   * On the editor target, where there is no machine to see anything, the
+   * engine's latch is what decides the case (see `KeyboardInputEngine`).
+   */
+  caseLock?: true;
   /** Extra CSS class suffix for per-key styling. */
   style?: string;
 }

@@ -243,6 +243,9 @@ export const pmd85KeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'PMD 85-2',
     theme: 'vk-theme-pmd85',
     gridColumns: GRID_COLUMNS,
+    // Upper case unshifted, lower under SHIFT - the one machine here whose
+    // shift key goes that way (`src/dialects/caseKeys.test.ts`).
+    powerOnCase: 'upper',
     layers: [
       {
         id: 'base',

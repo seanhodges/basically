@@ -1,5 +1,6 @@
 import type { MachineEmulator } from '../dialects/types';
 import { resolveEmits } from './editorActions';
+import type { LetterCase } from './legendKit';
 import type { KeyDef, KeyboardLayout, LayerDef } from './layoutSchema';
 
 export type ModifierState = 'off' | 'held' | 'sticky' | 'locked';
@@ -12,7 +13,20 @@ export type ModifierState = 'off' | 'held' | 'sticky' | 'locked';
  */
 export type EngineTarget =
   | { kind: 'machine'; getMachine(): MachineEmulator | null }
-  | { kind: 'editor'; onKeyPress(key: KeyDef, activeLayer: LayerDef): void };
+  | {
+      kind: 'editor';
+      /**
+       * `letterCase` is the engine's own latch at the moment of the press (see
+       * {@link KeyboardInputEngine.getLetterCase}), handed over rather than
+       * read back so the caller composes the case transform without holding
+       * the engine it is being constructed by.
+       */
+      onKeyPress(
+        key: KeyDef,
+        activeLayer: LayerDef,
+        letterCase: LetterCase,
+      ): void;
+    };
 
 const DEFAULT_MIN_HOLD_FRAMES = 3;
 
@@ -58,6 +72,21 @@ export class KeyboardInputEngine {
   private readonly modifierStates = new Map<string, ModifierState>();
   /** Modifiers in 'held' that had a non-modifier key pressed while held. */
   private readonly usedWhileHeld = new Set<string>();
+  /**
+   * Whether a case-lock press has flipped the machine away from its power-on
+   * case. Not a modifier state: the key is tapped, not held, and what it
+   * changes is latched inside the ROM (see {@link KeyDef.caseLock}).
+   *
+   * On the editor target this latch is authoritative - there is no machine to
+   * disagree with it. On a running machine it is a display mirror only: the
+   * matrix cell a letter keycap presses is the same cell in either case, which
+   * is why direct typing is already accurate. The mirror can desync (a program
+   * switches the set itself, or the user presses the host's own caps key), and
+   * it is not tracked back from the machine: it resets when the keyboard is
+   * rebuilt, which is what happens whenever focus moves or the machine is
+   * swapped.
+   */
+  private caseFlipped = false;
   /** Notifies the UI that pressed-key / modifier / layer state changed. */
   onChange: (() => void) | null = null;
   /** See {@link setPinnedLayer}. */
@@ -175,6 +204,18 @@ export class KeyboardInputEngine {
   }
 
   /**
+   * The case an unshifted letter key types now: the layout's power-on case,
+   * flipped by each case-lock press since the keyboard was built. 'upper' on a
+   * machine that declares no power-on case, which is a machine with no lower
+   * case to reach.
+   */
+  getLetterCase(): 'upper' | 'lower' {
+    const start = this.layout.powerOnCase ?? 'upper';
+    if (!this.caseFlipped) return start;
+    return start === 'upper' ? 'lower' : 'upper';
+  }
+
+  /**
    * Layer an input mode has pinned, or null when the modifiers alone decide.
    * Mode state lives in the keyboard, not here, so it is pushed in; a pinned
    * layer is what lets a CURSOR legend press cursor keys rather than the
@@ -207,9 +248,13 @@ export class KeyboardInputEngine {
   // ---- internals ----------------------------------------------------------
 
   private keyDown(key: KeyDef, pointerId: number): void {
+    // Flipped before the callback, so the press that locks the case does not
+    // also type in the case it just left. The key still presses its own
+    // matrix cell below - this is the machine's own case key, not a UI toggle.
+    if (key.caseLock) this.caseFlipped = !this.caseFlipped;
     // The editor callback sees the layer before sticky consumption below.
     if (this.target.kind === 'editor')
-      this.target.onKeyPress(key, this.getActiveLayer());
+      this.target.onKeyPress(key, this.getActiveLayer(), this.getLetterCase());
     const consumesModifiers: string[] = [];
     for (const [id, state] of this.modifierStates) {
       if (state === 'sticky') consumesModifiers.push(id);

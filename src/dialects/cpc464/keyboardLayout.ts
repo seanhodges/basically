@@ -28,6 +28,10 @@ import {
  *  - base:    the unshifted character
  *  - shifted: the shifted symbol (top-left), active while SHIFT is held
  *
+ * A letter key is a case pair: the machine starts in lower case, so the base
+ * legend is the small letter and SHIFT gives the capital. CAPS LOCK latches
+ * the other way round, and the keycaps follow it.
+ *
  * Key tokens are exactly the matrix tokens the emulator's `setKey` decodes
  * (`src/emulator/cpc/keyboard.ts` — single letters `A`-`Z`, `Digit0`-`Digit9`,
  * `Return`, `Del`, `Shift`, `CursorUp`…, `F0`-`F9`), so the virtual
@@ -71,28 +75,28 @@ const numberRow = [
 ];
 
 const qwertyRow = [
-  key('Q', ['Q', null]),
-  key('W', ['W', null], cursorKey('↑', 'up', 'CursorUp')),
-  key('E', ['E', null]),
-  key('R', ['R', null]),
-  key('T', ['T', null]),
-  key('Y', ['Y', null]),
-  key('U', ['U', null]),
-  key('I', ['I', null]),
-  key('O', ['O', null]),
-  key('P', ['P', null]),
+  key('Q', ['q', 'Q']),
+  key('W', ['w', 'W'], cursorKey('↑', 'up', 'CursorUp')),
+  key('E', ['e', 'E']),
+  key('R', ['r', 'R']),
+  key('T', ['t', 'T']),
+  key('Y', ['y', 'Y']),
+  key('U', ['u', 'U']),
+  key('I', ['i', 'I']),
+  key('O', ['o', 'O']),
+  key('P', ['p', 'P']),
 ];
 
 const homeRow = centerRow([
-  key('A', ['A', null], cursorKey('←', 'left', 'CursorLeft')),
-  key('S', ['S', null], cursorKey('↓', 'down', 'CursorDown')),
-  key('D', ['D', null], cursorKey('→', 'right', 'CursorRight')),
-  key('F', ['F', null]),
-  key('G', ['G', null]),
-  key('H', ['H', null]),
-  key('J', ['J', null]),
-  key('K', ['K', null]),
-  key('L', ['L', null]),
+  key('A', ['a', 'A'], cursorKey('←', 'left', 'CursorLeft')),
+  key('S', ['s', 'S'], cursorKey('↓', 'down', 'CursorDown')),
+  key('D', ['d', 'D'], cursorKey('→', 'right', 'CursorRight')),
+  key('F', ['f', 'F']),
+  key('G', ['g', 'G']),
+  key('H', ['h', 'H']),
+  key('J', ['j', 'J']),
+  key('K', ['k', 'K']),
+  key('L', ['l', 'L']),
 ]);
 
 const shiftKey: KeyDef = {
@@ -114,16 +118,32 @@ const delKey: KeyDef = {
 const zxcvRow = flankedRow(
   shiftKey,
   [
-    key('Z', ['Z', null]),
-    key('X', ['X', null]),
-    key('C', ['C', null]),
-    key('V', ['V', null]),
-    key('B', ['B', null]),
-    key('N', ['N', null]),
-    key('M', ['M', null]),
+    key('Z', ['z', 'Z']),
+    key('X', ['x', 'X']),
+    key('C', ['c', 'C']),
+    key('V', ['v', 'V']),
+    key('B', ['b', 'B']),
+    key('N', ['n', 'N']),
+    key('M', ['m', 'M']),
   ],
   delKey,
 );
+
+/**
+ * CAPS LOCK, in the bottom-left machine region.
+ *
+ * The CPC powers up in lower case and reaches upper by SHIFT or by this key
+ * (`src/dialects/caseKeys.test.ts`), so the base legends below are the
+ * lower-case letters and this is what latches the other case. A tap, not a
+ * held modifier - the lock lives in the firmware.
+ */
+const capsKey: KeyDef = {
+  id: 'CapsLock',
+  spanX: 6,
+  emits: ['CapsLock'],
+  caseLock: true,
+  labels: [{ text: 'CAPS', editor: null }, null, null],
+};
 
 const spaceKey = {
   id: 'Space',
@@ -149,7 +169,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([], spaceKey, [quoteKey, returnKey]),
+  bottomRow([capsKey], spaceKey, [quoteKey, returnKey]),
 ];
 
 // The numeric-keypad function keys f0–f9, in the top strip behind the toggle.
@@ -227,6 +247,8 @@ export const cpc464KeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'CPC 464',
     theme: 'vk-theme-cpc464',
     gridColumns: 40,
+    // Lower case at power-on, which is why the base legends are small letters.
+    powerOnCase: 'lower',
     layers: [
       {
         id: 'base',
