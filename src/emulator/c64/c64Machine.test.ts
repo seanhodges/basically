@@ -69,6 +69,35 @@ function contains(haystack: number[], needle: number[]): boolean {
 
 describe('C64Machine', () => {
   it(
+    'gives the VIC-II the bus for its display fetches',
+    async () => {
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      // Boot to a settled screen, so the display is on and the raster is where
+      // a running program would find it.
+      for (let i = 0; i < 200; i++) m.runFrame();
+
+      // The clock counts the cycle within the line itself, and is only right
+      // for as long as it stays in step with the chip's own counter - which
+      // holds because tickOnce ticks the VIC exactly once per cycle and nothing
+      // else in the app ticks it. A frame of 63 x 312 cycles must therefore
+      // land the chip's raster register back where it started. This is the
+      // assertion that fails first if a later change ticks the VIC elsewhere,
+      // because the stall would then drift off the fetch it pays for and
+      // nothing else would say so.
+      const rasterBefore = peek(m, 0xd012);
+      const stalledBefore = m.stalledCycles;
+      m.runFrame();
+      expect(peek(m, 0xd012)).toBe(rasterBefore);
+
+      // 25 bad lines of 40 cycles each: the ~5% of a frame the CPU never gets.
+      expect(m.stalledCycles - stalledBefore).toBe(1000);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
     'boots the real ROMs to the READY. prompt',
     async () => {
       const m = new C64Machine({ roms });

@@ -12,6 +12,7 @@ import type {
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
+import { BadLineClock } from './badLines';
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
 import { readCbmScreenText } from '../cbmScreenText';
@@ -329,6 +330,14 @@ export class C64Machine implements MachineEmulator {
    */
   private readonly sid = new SidRenderer();
 
+  /**
+   * The VIC-II's claim on the bus. viciious fetches the display but never takes
+   * the cycles it costs, so {@link tickOnce} asks this and withholds the CPU
+   * tick on the cycles the chip owns. See `./badLines` for the invariant that
+   * keeps it in step with the chip.
+   */
+  private readonly badLines = new BadLineClock();
+
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
@@ -363,6 +372,7 @@ export class C64Machine implements MachineEmulator {
         });
         this.c64.runloop.reset();
         this.sid.reset();
+        this.badLines.reset();
         if (this.drive) this.installTraps(this.c64);
         this.booted = true;
       })
@@ -380,6 +390,15 @@ export class C64Machine implements MachineEmulator {
   /** Direct machine access for tests and debugging. */
   get machine(): C64 | null {
     return this.c64;
+  }
+
+  /**
+   * Cycles the VIC-II has taken from the CPU for its display fetches since the
+   * machine last reset, counted monotonically. For tests: the difference across
+   * a frame is what that frame's bad lines cost.
+   */
+  get stalledCycles(): number {
+    return this.badLines.stalledCycles;
   }
 
   /**
@@ -482,6 +501,7 @@ export class C64Machine implements MachineEmulator {
       if (!this.disposed && this.c64) {
         this.c64.runloop.reset();
         this.sid.reset();
+        this.badLines.reset();
       }
     });
   }
@@ -512,11 +532,21 @@ export class C64Machine implements MachineEmulator {
    * clean instruction boundary, then tick the five hardware components. This is
    * the single tick path shared by {@link runFrame}, {@link debugStep} and
    * {@link tickUntilPc}, so traps fire identically while running and stepping.
+   *
+   * On the cycles the VIC-II takes the bus for its display fetch the CPU does
+   * not tick at all, so neither does the trap check: a 6510 held off the bus
+   * cannot reach the opcode fetch the trap table keys on. The other four
+   * components tick regardless - they run off the system clock, not the bus -
+   * and the cycle is still charged to the running BASIC line, because it is time
+   * that line really costs.
    */
   private tickOnce(): void {
-    if (this.drive) this.serviceTrap();
     const c64 = this.c64!;
-    c64.cpu.tick();
+    const stunned = this.badLines.tick(c64.vic.read_d000_d3ff);
+    if (!stunned) {
+      if (this.drive) this.serviceTrap();
+      c64.cpu.tick();
+    }
     c64.vic.tick();
     c64.cias.tick();
     c64.sid.tick();
@@ -607,6 +637,7 @@ export class C64Machine implements MachineEmulator {
           this.drive?.closeAll(false);
           c64.runloop.reset();
           this.sid.reset();
+          this.badLines.reset();
           if (!this.tickUntilPc(AWAIT_KEYBOARD_PC, BOOT_CYCLE_CAP)) {
             throw new Error('C64 did not boot to BASIC');
           }

@@ -153,6 +153,15 @@ host, ROM source modules, and monitor UI. The vendored core carries ~40 upstream
 shifter, tape bounds checking); none block current use but are worth tracking
 against upstream if emulation accuracy issues arise.
 
+The largest of them is handled outside the core rather than in it. viciious
+fetches the character matrix on a bad line but never pulls BA, so its CPU keeps
+all 63 cycles of every raster line - about a thousand cycles a frame the 6510
+should not have. `src/emulator/c64/badLines.ts` models the arbitration on the
+adapter side, and `c64Machine.ts` withholds the CPU tick on the cycles the chip
+owns; the vendored `.js` files stay byte-identical. Its own `index.d.ts` is
+repo-authored, not upstream, and may be extended. Sprite DMA still is not
+modelled, and the core remains PAL-only.
+
 ---
 
 ## Tier 4 - Reuse the Z80 core, but with complex custom video / sound

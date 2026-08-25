@@ -41,6 +41,25 @@ The SID chip plays three independent voices, but BASIC V2 has no sound
 keywords: music is made by POKEing the SID registers at 54272 ($D400), with the
 master volume at 54296.
 
+### Timing
+
+The C64 here is a PAL machine: 312 raster lines of 63 processor cycles each,
+just over 50 frames a second, on a 985 kHz 6510.
+
+Those cycles are not all the program's. Every eighth line down the screen, the
+VIC-II needs the next row of forty characters before it can draw them, and it
+takes the bus away from the processor to fetch them — forty cycles at a time,
+twenty-five times a frame. That is about a thousand cycles, five per cent of the
+frame, that a program never gets. It is why a counting loop finishes a little
+later than the clock speed alone suggests, and why a delay written as
+`FOR I=1 TO N` is worth timing rather than calculating.
+
+It also matters for raster effects — POKEing 53280 or 53281 in a timed loop to
+draw coloured bands. Where those bands land depends on exactly how many cycles a
+frame is worth, so a program written for a 60 Hz NTSC C64 (263 lines of 65
+cycles) will not draw the pattern its author intended on this PAL one. The bands
+appear, but they drift at a different rate.
+
 ### Memory
 
 The whole of the machine's address space, region by region. Zoom in to open a
