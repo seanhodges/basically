@@ -38,6 +38,16 @@ the BBC's on-screen keyboard.
 - **The TRS-80 commits to the Model I it is declared as.** Its screen read
   folds to upper case exactly as its display does, through one shared helper,
   so a screen read and the screen agree.
+- **The IDE says when a listing will not paste into the real machine.** Where the
+  machine silently changes characters the program contains — lower case folded to
+  upper, or one character stored as another — the status bar reports it, with a
+  count. Today that conversion is invisible, so a listing looks portable when it
+  is not.
+- **New "Strict characters" editor setting.** With it on, a character the machine
+  cannot store as written is an error rather than a silent conversion, and on a
+  machine with no lower case the editor forces upper case as you type and hides
+  the shift key rather than letting you write something that will not survive.
+  Off by default; the conversion behaviour is unchanged.
 - **BREAKING (keyboard layouts):** machines with lower-case hardware gain a way
   to type it — a shift-layer case pair on the BBC pair and the CPC pair, and a
   case-lock keycap where the machine has one. A keycap shows the case it will
@@ -59,7 +69,14 @@ the BBC's on-screen keyboard.
   every round trip, cassette export and native binary is unaffected. Where a
   dialect's tokenizer accepts a spelling its ROM would refuse, it keeps doing
   so and reports it.
-- **Auto-correcting the user's case.** Nothing uppercases typed text.
+- **Changing how upper case is encoded after a Commodore set switch.** On those
+  machines one stored character draws either case depending on the set in force,
+  so an upper-case letter after a switch to the lower-case set is not
+  expressible today. Strict characters accounts for the switch when deciding
+  what to report; it does not change what is stored. That remains the
+  unmodelled lower-case display bank.
+- **Auto-correcting the user's case outside Strict characters.** With the setting
+  off, nothing uppercases typed text.
 
 ## Capabilities
 
@@ -78,10 +95,14 @@ own, not a new capability of its own.
   lower-case word as a keyword only where the machine would; where it would not,
   it is a variable name throughout — coloured, completed, outlined and renamed
   as one. The variable-usages case rule is extended to bind the editor's
-  variable *checks*, so the lint and the usages view cannot disagree.
+  variable *checks*, so the lint and the usages view cannot disagree. Two new
+  requirements: the IDE reports characters the machine will change, and a
+  Strict characters mode makes them errors instead.
 - `virtual-input`: new requirement that both letter cases are reachable on every
   machine whose character generator can draw them, by the route the machine
-  itself uses, with the keycap showing the case it types.
+  itself uses, with the keycap showing the case it types — and that under Strict
+  characters a machine with no lower case offers no case affordance at all,
+  without making any character unreachable.
 - `porting-guidance`: a difference in letter case counts as a difference in name
   where the source machine distinguishes it, so two names a case-sensitive
   source keeps apart are reported as colliding on a folding target.
@@ -107,6 +128,13 @@ own, not a new capability of its own.
 - **Keyboard:** `layoutSchema.ts`, `inputEngine.ts`, `editorActions.ts`,
   `legendKit.ts`, `VirtualKeyboard.tsx`, and the BBC, Master, CPC 464, CPC 6128,
   Spectrum, C64, PET and VIC-20 layouts.
+- **Strict characters:** a new boolean in `src/storage/settings.ts` and the store,
+  a checkbox on the Settings > Editor tab (`SettingsForm.tsx`), a new advisory
+  derived alongside `useProgramStats`, a slot in `StatusBar.tsx`, a new
+  CodeMirror transaction filter in `CodeMirrorHost.tsx`, and the shift-key render
+  seam in `VirtualKeyboard.tsx`. No change to the `TokenizeError` shape: the
+  advisory is a derived figure like the RAM readout, not an entry in the error
+  list.
 - **Docs:** `docs/reference/file-formats.md` and `docs/guide/writing-basic.md`
   each carry a claim about case that is false for several machines;
   `docs/reference/bbc.md` says nothing about case on the one machine family

@@ -32,6 +32,92 @@ the program uses rather than a folded form of it.
   case
 - **THEN** it quotes the name as the program spells it
 
+### Requirement: Characters the machine will change are reported
+
+A machine stores only the characters its own character set has, and where a
+program uses one it does not, the IDE converts it silently — most often by
+folding a lower-case letter onto its upper-case character. The program still
+runs, but the listing on screen is no longer the listing the machine holds, and
+typing or pasting it into the real machine would not reproduce it.
+
+The IDE SHALL report, for the open program, that it contains characters the
+target machine would change, and how many. The report SHALL name the conversion
+rather than merely counting it, so the reader learns what the machine does to
+their program.
+
+The report SHALL NOT be an error: it SHALL NOT prevent the program being built,
+run, exported or shared, and it SHALL NOT mark any position in the source as
+faulty. Where the program contains no such character, nothing SHALL be reported
+rather than a report of none.
+
+Characters the machine cannot store at all are not this report's business —
+those already fail to build and are reported where they occur.
+
+#### Scenario: A listing that folds
+
+- **WHEN** a program on a machine with no lower case contains lower-case letters
+- **THEN** the IDE reports that the listing contains characters the machine will
+  change, and how many, and the program still runs
+
+#### Scenario: A listing that survives unchanged
+
+- **WHEN** every character a program uses is one the target machine stores as
+  written
+- **THEN** nothing is reported about changed characters
+
+#### Scenario: A character stored as a different one
+
+- **WHEN** a program uses a character the machine stores as another character of
+  its own set
+- **THEN** it is counted among the characters the machine will change
+
+### Requirement: Strict characters mode
+
+Some readers want the editor to hold them to what the machine can actually
+store, rather than converting on their behalf. The IDE SHALL offer a Strict
+characters setting, off by default, that changes silent conversion into
+refusal.
+
+While it is on, a character the target machine would store as a different
+character SHALL be reported as an error at the position it occupies, and SHALL
+be treated as the editor treats any other error. While it is off, the behaviour
+SHALL be exactly as it is today: the character is converted and the program
+builds.
+
+The setting SHALL apply only to characters the reader wrote as text. A
+character that forms part of the notation the machine's own listings use — an
+escape naming a control code, a raw byte, a graphics character, or a short
+keyword spelling — SHALL NOT be reported, whatever letters that notation is
+spelled with.
+
+Where a machine carries its lower case in a character set the program can switch
+to, lower case SHALL NOT be reported after the program switches to that set. The
+switch SHALL be recognised as the machine's own listings write it.
+
+#### Scenario: A converted character with the setting on
+
+- **WHEN** Strict characters is on and a program on a machine with no lower case
+  contains a lower-case letter written as text
+- **THEN** it is reported as an error at that position
+
+#### Scenario: The same program with the setting off
+
+- **WHEN** Strict characters is off and the same program is open
+- **THEN** nothing is reported at that position and the program builds
+
+#### Scenario: Notation is not text
+
+- **WHEN** Strict characters is on and a program uses an escape, a raw byte or a
+  short keyword spelling whose notation contains lower-case letters
+- **THEN** none of it is reported, because none of it is text the machine stores
+  as written
+
+#### Scenario: A machine whose program switched to its lower-case set
+
+- **WHEN** Strict characters is on and a program switches the machine to its
+  lower-case character set before writing lower-case letters
+- **THEN** those letters are not reported
+
 ## MODIFIED Requirements
 
 ### Requirement: Dialect-aware highlighting and completion

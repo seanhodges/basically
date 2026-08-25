@@ -132,27 +132,92 @@
       character-ROM bank as a glyph source so the switchable declaration is
       provable, and add its lower-case anchors.
 
-## 7. Docs
+## 7. The fold advisory
 
-- [ ] 7.1 Correct `docs/reference/file-formats.md`, which states that lower-case
+- [ ] 7.1 Add a derived per-program figure counting the characters the target
+      machine would store as something else, computed beside the existing
+      program statistics rather than added to any error list. Reuse the charset
+      probe's unit walk so notation is skipped, and the same catch-and-continue
+      posture the vocabulary walk uses.
+- [ ] 7.2 Add its colocated test: a folding machine with lower case counts them;
+      a machine that stores every character as written counts none; an escape,
+      a raw byte and a short keyword spelling count none; an alias substitution
+      (backtick on the BBC, caret on the CPC) counts.
+- [ ] 7.3 Show it in `src/components/StatusBar.tsx`, naming the conversion rather
+      than only counting it, styled with the existing warn severity idiom the
+      RAM readout uses. Do not disturb the existing items or their order — the
+      e2e helpers read the bar by text.
+- [ ] 7.4 Confirm it blocks nothing: Run, export, share and the share
+      compatibility filter are all unchanged. Add a test asserting a program
+      with a non-zero count still runs.
+
+## 8. Strict characters mode
+
+- [ ] 8.1 Add the `strictCharacters` boolean end to end following the
+      `runGateLint` precedent: key and accessors in `src/storage/settings.ts`
+      (default **off**), store field with a doc comment, initial value behind the
+      SSR guard, setter that persists then sets.
+- [ ] 8.2 Add the checkbox to the Editor tab of `src/components/SettingsForm.tsx`
+      under its own heading, with the explanation carried on the label's `title`
+      as the neighbouring toggles do.
+- [ ] 8.3 Thread strictness into the encode path as an explicit parameter — not
+      read from the store inside a pure function — so that with it on, a
+      character the machine would store as a different one raises the charset's
+      existing "no such character" error at its own position instead of folding.
+      Set `endColumn` so the squiggle covers the character rather than the rest
+      of the line.
+- [ ] 8.4 Exempt notation structurally by walking units through the charset
+      probe: a unit longer than one character is notation and is never reported.
+      Add tests for the raw-byte escape, a Commodore control escape, a Spectrum
+      user-defined-graphic escape and a Commodore shifted-letter abbreviation.
+- [ ] 8.5 Implement the Commodore set-switch allowance in source order: lower
+      case is not reported after the program switches to the lower-case set, and
+      is reported again after it switches back. Record at the implementation
+      that control flow is not traced and a direct poke to the video chip is not
+      recognised, and that the allowance fails safe by reporting less. Add tests
+      for both directions.
+- [ ] 8.6 Add the force-uppercase transaction filter in
+      `src/components/CodeMirrorHost.tsx`, held in a compartment so the setting
+      can change without rebuilding the editor. Gate it on user input, skip
+      notation spans and the graphics palette's inserts. Test all four write
+      paths — typed input, the on-screen keyboard, native paste and menu paste.
+- [ ] 8.7 Hide the shift keycap at the render seam where rows are handed to the
+      renderer, substituting a spacer of the same width so the row arithmetic and
+      every geometry test still hold. Key it on the modifier a key **is**, never
+      on how it is styled — at least one machine's control key is styled as a
+      shift and is the only way to break a running program. Keep the keycap
+      visible whenever a symbol mode is pinned, so the page toggle survives.
+- [ ] 8.8 Add the reachability test nothing covers today: for every machine with
+      a second symbol page, the page toggle sits on a key the renderer draws
+      under this setting. Add a test that the control key survives on the
+      machines that style it as a shift.
+- [ ] 8.9 Check the bundled samples and each dialect's assistant guidance under
+      the setting: report which samples strict mode would reject, and fix or
+      excuse each by name.
+
+## 9. Docs
+
+- [ ] 9.1 Correct `docs/reference/file-formats.md`, which states that lower-case
       input is folded to upper case — false for several machines.
-- [ ] 7.2 Correct `docs/guide/writing-basic.md`, which names only the BBC
+- [ ] 9.2 Correct `docs/guide/writing-basic.md`, which names only the BBC
       machines as distinguishing case.
-- [ ] 7.3 Add the case rule to `docs/reference/bbc.md`, which says nothing about
+- [ ] 9.3 Add the case rule to `docs/reference/bbc.md`, which says nothing about
       case on the machine family where it decides variable identity.
 
-## 8. Quality gates
+## 10. Quality gates
 
-- [ ] 8.1 `npm run typecheck`
-- [ ] 8.2 `npm test`
-- [ ] 8.3 `npm run lint`
-- [ ] 8.4 `npm run format:check` (or `npm run format`)
-- [ ] 8.5 `npm run docs:build` — docs change in group 7
-- [ ] 8.6 Add one staged assertion to the existing `e2e/virtual-input` touch
+- [ ] 10.1 `npm run typecheck`
+- [ ] 10.2 `npm test`
+- [ ] 10.3 `npm run lint`
+- [ ] 10.4 `npm run format:check` (or `npm run format`)
+- [ ] 10.5 `npm run docs:build` — docs change in group 9
+- [ ] 10.6 Add two staged assertions to the existing `e2e/virtual-input` touch
       journey on bbcmicro only: shift plus a letter inserts lower case, and the
-      keycap redraws in the other case when the lock is pressed. The redraw is
-      the browser-only fact; the per-machine matrix stays in Vitest.
-- [ ] 8.7 `npm run e2e:chromium -- e2e/virtual-input`
-- [ ] 8.8 `npm run e2e:chromium -- e2e/code-editor`
-- [ ] 8.9 `npm run e2e:chromium -- e2e/program-execution`
-- [ ] 8.10 `npx openspec validate --specs`
+      keycap redraws in the other case when the lock is pressed. Then, with
+      Strict characters on for an uppercase-only machine, the shift keycap is
+      absent and the row is not reflowed. The redraws are the browser-only
+      facts; the per-machine matrix stays in Vitest.
+- [ ] 10.7 `npm run e2e:chromium -- e2e/virtual-input`
+- [ ] 10.8 `npm run e2e:chromium -- e2e/code-editor`
+- [ ] 10.9 `npm run e2e:chromium -- e2e/program-execution`
+- [ ] 10.10 `npx openspec validate --specs`
