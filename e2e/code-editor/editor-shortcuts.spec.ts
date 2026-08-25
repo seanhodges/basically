@@ -41,7 +41,9 @@ test('auto line numbering on Enter', async ({ page }) => {
   await expect(page.locator(EDITOR)).toContainText('20 PRINT "B"');
 });
 
-test('undo/redo via Edit menu and shortcut', async ({ page }) => {
+test('undo/redo via Edit menu and shortcut, one history per buffer', async ({
+  page,
+}) => {
   await openApp(page);
   await setEditorSource(page, '10 PRINT "ONE"');
   await page.keyboard.press('Enter');
@@ -56,6 +58,35 @@ test('undo/redo via Edit menu and shortcut', async ({ page }) => {
   await page.locator(EDITOR).click();
   await page.keyboard.press('ControlOrMeta+z');
   await expect(page.locator(EDITOR)).not.toContainText('PRINT "TWO"');
+
+  // Each buffer undoes its own edits and nobody else's. Only a browser can
+  // show this: it is one live EditorView being handed a different state, and
+  // what is at stake is the text that comes back on screen.
+  await setEditorSource(page, '10 PRINT "PROGRAM"');
+  await expect(page.locator(EDITOR)).toContainText('PROGRAM');
+  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  await expect(page.locator(EDITOR)).not.toContainText('PROGRAM');
+  await page.locator(EDITOR).click();
+  await page.keyboard.insertText('70 PRINT "SNIPPET"');
+  await expect(page.locator(EDITOR)).toContainText('SNIPPET');
+
+  // One undo takes the snippet's own last edit - it never pulls the program
+  // across, which is what a shared history used to do here.
+  await editMenu(page, /^Undo/);
+  await expect(page.locator(EDITOR)).not.toContainText('SNIPPET');
+  await expect(page.locator(EDITOR)).not.toContainText('PROGRAM');
+
+  // The program comes back untouched, and with its own history still behind it.
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  await expect(page.locator(EDITOR)).toContainText('10 PRINT "PROGRAM"');
+  const beforeUndo = await page.locator(EDITOR).textContent();
+  await page.locator(EDITOR).click();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect
+    .poll(async () => (await page.locator(EDITOR).textContent()) !== beforeUndo)
+    .toBe(true);
+  await expect(page.locator(EDITOR)).not.toContainText('SNIPPET');
 });
 
 test('Edit menu opens, stays open, and dismisses on outside click / Escape', async ({

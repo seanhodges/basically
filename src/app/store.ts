@@ -105,6 +105,11 @@ import {
   UNTITLED_FILE_NAME,
 } from '../storage/settings';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
+import {
+  basicBufferKey,
+  blockBufferKey,
+  bufferHistories,
+} from '../editor/bufferHistory';
 
 export type EmulatorStatus = 'stopped' | 'running' | 'paused';
 /**
@@ -284,7 +289,19 @@ interface IdeState {
    * and every non-disc document.
    */
   bootDisc: Uint8Array | null;
-  /** Bump seq to push text INTO the editor (file load, AI apply). */
+  /**
+   * Bump seq to replace the *contents* of the buffer the editor is showing:
+   * a file load, a sample, an AI apply, a listing-backed block written back
+   * into the program. Those are edits to a buffer, so they arrive as ordinary
+   * editor transactions and stay undoable.
+   *
+   * Not the channel for changing which buffer is shown: showing a different
+   * buffer is not a change to any buffer's contents, and pushing one buffer's
+   * text into the editor to make the switch put both buffers into one history -
+   * an undo straight after a switch then pulled the outgoing buffer's text into
+   * the incoming one and wrote it back here. The editor swaps its whole state
+   * for the incoming buffer's instead (see `src/editor/bufferHistory.ts`).
+   */
   docOverride: { text: string; seq: number };
   /**
    * Bumped whenever a *different* program becomes active (New, Open, Sample,
@@ -1105,26 +1122,6 @@ function bufferTextOf(s: IdeState, tab: ActiveTab): string {
 }
 
 /**
- * The state delta that switches the editor pane to `tab`, pushing the incoming
- * buffer's text through the editor's `docOverride` channel when the switch
- * changes which BASIC buffer the single mounted editor holds.
- *
- * Every tab change goes through here rather than assigning `activeTab`
- * directly, including the ones a block creation performs: leaving a scratch tab
- * for a block tab has to restore the program to the (hidden) editor, or the
- * next return to BASIC would show the snippet as the program.
- */
-function withActiveTab(s: IdeState, tab: ActiveTab): Partial<IdeState> {
-  if (editorBufferOf(tab) === editorBufferOf(s.activeTab)) {
-    return { activeTab: tab };
-  }
-  return {
-    activeTab: tab,
-    docOverride: { text: bufferTextOf(s, tab), seq: s.docOverride.seq + 1 },
-  };
-}
-
-/**
  * The state delta that rewrites the breakpoint set of the buffer on screen.
  * A scratch buffer's set lives on the buffer, the program's on the store, and
  * the toggles must never reach across: the sets are keyed by BASIC line number,
@@ -1149,6 +1146,7 @@ function withBreakpoints(
  * removed block was showing, and its error dot is pruned.
  */
 function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
+  bufferHistories.drop(blockBufferKey(id));
   return {
     blocks: s.blocks.filter((b) => b.id !== id),
     dirty: true,
@@ -1174,6 +1172,10 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
   if (ordinal === null) return {};
   const source = removeListingBlock(s.source, ordinal);
   if (source === s.source) return {};
+  // The program's text is being rewritten and the block is going: neither
+  // buffer's parked history describes what it will hold.
+  bufferHistories.drop(basicBufferKey(null));
+  bufferHistories.drop(blockBufferKey(id));
   const meta: Record<number, ListingBlockMeta> = {};
   for (const [k, v] of Object.entries(s.listingBlockMeta)) {
     const key = Number(k);
@@ -1359,6 +1361,8 @@ function applyDialectSwitch(
   text: string,
 ): Partial<IdeState> {
   persistDialectId(next.id);
+  // A different program on a different machine: nothing to undo back into.
+  bufferHistories.clear();
   return {
     dialect: next,
     pendingDialectId: null,
@@ -1685,6 +1689,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   playerBoot: ({ dialectId, source, fileName, blocks }) =>
     set((s) => {
       const next = getDialect(dialectId);
+      // A shared program arriving: as for a load, nothing to undo back into.
+      bufferHistories.clear();
       // Not applyDialectSwitch: that persists the dialect choice and flips
       // mobileTab to 'editor' on mobile - both wrong for the player.
       return {
@@ -1857,6 +1863,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       };
     }),
   replaceDocument: (text, fileName, opts) => {
+    // A named load (Open) is a different document, so undo must not reach back
+    // across it. An in-place apply (AI Replace/Merge) passes no name: it is an
+    // edit to the program the user already has, and stays undoable.
+    if (fileName !== undefined) bufferHistories.clear();
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
@@ -1918,6 +1928,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistAutosave();
   },
   loadUnsavedDocument: (text, opts) => {
+    // Sample / New / Import: always a different program (see replaceDocument).
+    bufferHistories.clear();
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
@@ -1967,6 +1979,9 @@ export const useIdeStore = create<IdeState>((set) => ({
     assertValidBlocks(blocks);
     set((s) => {
       const ids = new Set(blocks.map((b) => b.id));
+      for (const b of s.blocks) {
+        if (!ids.has(b.id)) bufferHistories.drop(blockBufferKey(b.id));
+      }
       return {
         blocks,
         dirty: true,
@@ -2017,6 +2032,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       if (sourceChanged) {
         patch.source = source;
         patch.docOverride = { text: source, seq: s.docOverride.seq + 1 };
+        // The program's text is being replaced; a parked snapshot of it would
+        // describe the listing before this block's bytes were written back.
+        bufferHistories.drop(basicBufferKey(null));
       }
       if (metaChanged) {
         patch.listingBlockMeta = {
@@ -2039,7 +2057,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       else next[ordinal] = merged;
       return { listingBlockMeta: next, dirty: true };
     }),
-  setActiveTab: (tab) => set((s) => withActiveTab(s, tab)),
+  setActiveTab: (tab) => set({ activeTab: tab }),
   addScratchBuffer: () =>
     set((s) => {
       // First free ordinal, mirroring addBlock's first-free-`block<n>` rule, so
@@ -2053,18 +2071,9 @@ export const useIdeStore = create<IdeState>((set) => ({
         text: '',
         breakpoints: new Set<number>(),
       };
-      const scratchBuffers = [...s.scratchBuffers, buffer];
       return {
-        scratchBuffers,
-        // Resolved against the state that already holds the new buffer, so the
-        // push carries its (empty) text rather than falling back to the program.
-        ...withActiveTab(
-          { ...s, scratchBuffers },
-          {
-            kind: 'scratch',
-            id: buffer.id,
-          },
-        ),
+        scratchBuffers: [...s.scratchBuffers, buffer],
+        activeTab: { kind: 'scratch', id: buffer.id },
       };
     }),
   renameScratchBuffer: (id, name) =>
@@ -2088,10 +2097,11 @@ export const useIdeStore = create<IdeState>((set) => ({
     set((s) => {
       if (!s.scratchBuffers.some((b) => b.id === id)) return {};
       const scratchBuffers = s.scratchBuffers.filter((b) => b.id !== id);
-      // The buffer's breakpoints live on the buffer, so they go with it - there
-      // is no separate cleanup path to forget.
+      // The buffer's breakpoints live on the buffer, so they go with it; its
+      // edit history is the one thing held elsewhere, so drop that here.
+      bufferHistories.drop(basicBufferKey(id));
       if (editorBufferOf(s.activeTab) !== id) return { scratchBuffers };
-      return { scratchBuffers, ...withActiveTab(s, BASIC_TAB) };
+      return { scratchBuffers, activeTab: BASIC_TAB };
     }),
   addBlock: () =>
     set((s) => {
@@ -2103,6 +2113,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       const layout = listingLayoutOf(s.dialect);
       if (layout) {
         const { source, ordinal } = insertListingBlock(s.source, layout);
+        bufferHistories.drop(basicBufferKey(null));
         return {
           source,
           // Always pushed, whatever the outgoing tab was: the record was
@@ -2140,7 +2151,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // editable one, so drop the verbatim image (as a source edit does).
       return {
         blocks,
-        ...withActiveTab(s, { kind: 'block', id: block.id }),
+        activeTab: { kind: 'block', id: block.id },
         dirty: true,
         ...(s.bootDisc !== null ? { bootDisc: null } : {}),
       };

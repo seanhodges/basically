@@ -35,6 +35,8 @@ const {
   selectVisibleTiming,
   BASIC_TAB,
 } = await import('./store');
+const { bufferHistories, basicBufferKey, blockBufferKey, freshBufferState } =
+  await import('../editor/bufferHistory');
 const { getDialect } = await import('../dialects/registry');
 const { asmEngineFor } = await import('../asm/registry');
 const { materializeSampleBlocks } = await import('./sampleBlocks');
@@ -1571,12 +1573,15 @@ describe('scratch buffers', () => {
   });
 
   it('editing one leaves the program, the dirty flag and the boot disc alone', () => {
+    const seqBefore = useIdeStore.getState().docOverride.seq;
     useIdeStore.getState().addScratchBuffer();
     let s = useIdeStore.getState();
     expect(s.scratchBuffers.map((b) => b.name)).toEqual(['Scratch 1']);
     expect(s.activeTab).toEqual({ kind: 'scratch', id: 'scratch-1' });
-    // The new (empty) buffer is pushed into the editor straight away.
-    expect(s.docOverride.text).toBe('');
+    // Showing the new (empty) buffer is not a change to any document: the
+    // editor takes the incoming buffer's text and history for itself.
+    expect(selectActiveSource(s)).toBe('');
+    expect(s.docOverride.seq).toBe(seqBefore);
 
     useIdeStore.getState().setScratchText('scratch-1', '10 PRINT "HI"');
     s = useIdeStore.getState();
@@ -1587,7 +1592,7 @@ describe('scratch buffers', () => {
     expect(s.bootDisc).toBe(DISC);
   });
 
-  it('holds several at once and pushes the chosen one into the editor', () => {
+  it('holds several at once, and choosing one is not a document change', () => {
     const store = useIdeStore.getState();
     store.addScratchBuffer();
     store.setScratchText('scratch-1', '10 REM one');
@@ -1601,29 +1606,33 @@ describe('scratch buffers', () => {
     const seqBefore = useIdeStore.getState().docOverride.seq;
     store.setActiveTab({ kind: 'scratch', id: 'scratch-1' });
     let s = useIdeStore.getState();
-    expect(s.docOverride.text).toBe('10 REM one');
-    expect(s.docOverride.seq).toBe(seqBefore + 1);
+    expect(selectActiveSource(s)).toBe('10 REM one');
 
     store.setActiveTab(BASIC_TAB);
     s = useIdeStore.getState();
-    expect(s.docOverride.text).toBe('10 REM prog');
     expect(selectActiveSource(s)).toBe('10 REM prog');
+    // Not one bump between them: a switch that travelled over this channel was
+    // an editable change, and one undo after it moved text between buffers.
+    expect(s.docOverride.seq).toBe(seqBefore);
   });
 
-  it('leaving a scratch tab for a block tab restores the program to the editor', () => {
-    // The editor is hidden behind the block tab but still holds a document;
-    // without this, returning to BASIC would show the snippet as the program.
+  it('leaving a scratch tab for a block tab leaves the program to come back to', () => {
+    // The editor is hidden behind the block tab but still holds the program;
+    // creating the block must not carry the snippet across to it.
     const store = useIdeStore.getState();
     store.addScratchBuffer();
     store.setScratchText('scratch-1', '10 REM snippet');
+    const seqBefore = useIdeStore.getState().docOverride.seq;
     store.addBlock();
     let s = useIdeStore.getState();
     expect(s.activeTab.kind).toBe('block');
-    expect(s.docOverride.text).toBe('10 REM prog');
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+    expect(s.docOverride.seq).toBe(seqBefore);
 
     useIdeStore.getState().setActiveTab(BASIC_TAB);
     s = useIdeStore.getState();
     expect(selectActiveSource(s)).toBe('10 REM prog');
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
   });
 
   it('names buffers by the first free ordinal and ignores a blank rename', () => {
@@ -1658,7 +1667,7 @@ describe('scratch buffers', () => {
     s = useIdeStore.getState();
     expect(s.scratchBuffers).toEqual([]);
     expect(s.activeTab).toEqual(BASIC_TAB);
-    expect(s.docOverride.text).toBe('10 REM prog');
+    expect(selectActiveSource(s)).toBe('10 REM prog');
   });
 
   it('goes with the document it belonged to, and with the machine', () => {
@@ -1986,5 +1995,109 @@ describe('boot hydration of scratch buffers', () => {
       ['scratch-1', 'Sprites test', '10 REM snippet', 0],
       ['scratch-2', 'Sprites test', '20 REM same name', 0],
     ]);
+  });
+});
+
+describe('parked edit histories', () => {
+  /** Park a history for the program and for a scratch buffer. */
+  const park = () => {
+    bufferHistories.save(
+      basicBufferKey(null),
+      freshBufferState('10 REM p', []),
+    );
+    bufferHistories.save(
+      basicBufferKey('scratch-1'),
+      freshBufferState('10 REM s', []),
+    );
+  };
+  const parked = () => [
+    bufferHistories.has(basicBufferKey(null)),
+    bufferHistories.has(basicBufferKey('scratch-1')),
+  ];
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      blocks: [],
+      listingBlockMeta: {},
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+    });
+    bufferHistories.clear();
+  });
+
+  it('an Open leaves nothing to undo back into, and still pushes the text', () => {
+    park();
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    useIdeStore.getState().replaceDocument('10 REM opened', 'opened.bas');
+    expect(parked()).toEqual([false, false]);
+    const s = useIdeStore.getState();
+    expect(s.docOverride.text).toBe('10 REM opened');
+    expect(s.docOverride.seq).toBe(seqBefore + 1);
+  });
+
+  it('a sample, a machine switch and a player boot clear them too', () => {
+    park();
+    useIdeStore.getState().loadUnsavedDocument('10 REM sample');
+    expect(parked()).toEqual([false, false]);
+
+    park();
+    useIdeStore.getState().setDialect(zx81.id);
+    expect(parked()).toEqual([false, false]);
+
+    park();
+    useIdeStore.getState().playerBoot({
+      dialectId: 'zxspectrum',
+      source: '10 REM shared',
+      fileName: 'shared.bas',
+    });
+    expect(parked()).toEqual([false, false]);
+  });
+
+  it('an in-place AI apply stays undoable, so the histories stand', () => {
+    park();
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    expect(parked()).toEqual([true, true]);
+    expect(useIdeStore.getState().docOverride.seq).toBe(seqBefore + 1);
+  });
+
+  it('a closed buffer and a removed block take their histories with them', () => {
+    useIdeStore.getState().addScratchBuffer();
+    park();
+    useIdeStore.getState().closeScratchBuffer('scratch-1');
+    expect(parked()).toEqual([true, false]);
+
+    useIdeStore.getState().addBlock();
+    const id = useIdeStore.getState().blocks[0]!.id;
+    bufferHistories.save(blockBufferKey(id), freshBufferState('RET', []));
+    useIdeStore.getState().removeBlock(id);
+    expect(bufferHistories.has(blockBufferKey(id))).toBe(false);
+  });
+
+  it('writing a listing-backed block back replaces the program, history and all', () => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 PRINT "HI"\n',
+      activeTab: BASIC_TAB,
+    });
+    useIdeStore.getState().addBlock();
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    park();
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes(
+        'listing-0',
+        Uint8Array.from([0xcd, 0x21, 0xc9]),
+      );
+    const s = useIdeStore.getState();
+    // The program's text really changed, so it is pushed into the (hidden)
+    // editor and its parked history is dropped rather than left describing the
+    // listing as it was.
+    expect(s.docOverride.text).toBe(s.source);
+    expect(s.docOverride.seq).toBe(seqBefore + 1);
+    expect(parked()).toEqual([false, true]);
   });
 });

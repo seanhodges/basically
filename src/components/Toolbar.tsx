@@ -18,6 +18,7 @@ import {
   formatAllShortcuts,
   type ShortcutId,
 } from '../app/shortcuts';
+import { editActionAvailable } from './editActions';
 import { MobileTabBar } from './MobileTabBar';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import { MachineTrigger } from './MachineTrigger';
@@ -64,6 +65,9 @@ export function Toolbar() {
   const setMemoryMapOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
+  // The Edit menu acts on the buffer on screen, so the entries that only mean
+  // something for BASIC are withheld while a memory block is showing.
+  const activeTab = useIdeStore((s) => s.activeTab);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
@@ -168,6 +172,10 @@ export function Toolbar() {
 
   const editAction = (name: Parameters<typeof requestEditorCommand>[0]) =>
     guard(() => requestEditorCommand(name));
+
+  /** Whether an Edit-menu entry has a buffer to act on, for its `disabled`. */
+  const unavailable = (action: Parameters<typeof editActionAvailable>[0]) =>
+    !editActionAvailable(action, activeTab);
 
   const newFile = guard(newDocument);
   const openFile = guard(openDocument);
@@ -306,6 +314,7 @@ export function Toolbar() {
               </button>
               <button
                 onClick={guard(() => setProcedureListOpen(true))}
+                disabled={unavailable('outline')}
                 title="List procedures, subroutines and jump targets in this program"
               >
                 Outline{hint('edit.outline')}
@@ -319,6 +328,7 @@ export function Toolbar() {
               <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
+                disabled={unavailable('renumber')}
                 title={withKeys(
                   'Renumber the current line and update GOTO/GOSUB references',
                   'edit.renumber',
@@ -328,6 +338,7 @@ export function Toolbar() {
               </button>
               <button
                 onClick={editAction('renumberFile')}
+                disabled={unavailable('renumberFile')}
                 title={withKeys(
                   'Renumber the whole program by the line-number increment and update all references',
                   'edit.renumberFile',
@@ -508,6 +519,7 @@ export function Toolbar() {
                   <button onClick={editAction('find')}>Find/Replace</button>
                   <button
                     onClick={guard(() => setProcedureListOpen(true))}
+                    disabled={unavailable('outline')}
                     title="List procedures, subroutines and jump targets in this program"
                   >
                     Outline
@@ -521,12 +533,14 @@ export function Toolbar() {
                   <div className={styles.menuSeparator} />
                   <button
                     onClick={editAction('renumber')}
+                    disabled={unavailable('renumber')}
                     title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
                   >
                     Renumber line
                   </button>
                   <button
                     onClick={editAction('renumberFile')}
+                    disabled={unavailable('renumberFile')}
                     title="Renumber the whole program by the line-number increment and update all references"
                   >
                     Renumber file

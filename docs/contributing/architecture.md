@@ -501,9 +501,13 @@ sequenceDiagram
 Step by step:
 
 1. **Edit** - CodeMirror is the source of truth for the text; the store keeps
-   a mirror (`source`) and a dirty flag. Pushing text _into_ the editor (file
-   open, AI apply, target switch) goes through a `docOverride` sequence value
-   rather than a direct handle.
+   a mirror (`source`) and a dirty flag. Replacing the _contents_ of the buffer
+   on screen (file open, AI apply, target switch) goes through a `docOverride`
+   sequence value rather than a direct handle, as an ordinary transaction, so it
+   stays undoable. Showing a _different_ buffer is not that: each buffer keeps
+   its own document, selection and history, parked as a serialized `EditorState`
+   (`src/editor/bufferHistory.ts`) and swapped in with `view.setState`, which no
+   history and no change listener can see.
 2. **Request** - `requestRun()` bumps the `runRequest` counter.
 3. **Gate** - the run is refused on editor lint errors (when the Run-gate
    setting is on) and on any error-severity block problem from `lintBlocks()` -
