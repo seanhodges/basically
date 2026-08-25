@@ -98,43 +98,45 @@
 
 ## 5. Input parity
 
-- [ ] 5.1 Add the case-lock key flag and the layout-level power-on case to
+- [x] 5.1 Add the case-lock key flag and the layout-level power-on case to
       `src/keyboard/layoutSchema.ts`, with the reasoning for why a case lock is
       not a modifier written where the flag is declared.
-- [ ] 5.2 Add the case latch to `src/keyboard/inputEngine.ts`: flipped by a
+- [x] 5.2 Add the case latch to `src/keyboard/inputEngine.ts`: flipped by a
       case-lock press, which still taps the machine's own key; reset when the
       keyboard is rebuilt; exposed for the renderer.
-- [ ] 5.3 Add the case transform for the editor target in
+- [x] 5.3 Add the case transform for the editor target in
       `src/keyboard/editorActions.ts` and the shared letter-flip helper in
       `src/keyboard/legendKit.ts`, composed at the virtual keyboard's call site,
       leaving the action lookup a pure data function.
-- [ ] 5.4 Make the keycap renderer show the case the latch will type.
-- [ ] 5.5 Add `src/dialects/caseKeys.test.ts` on the existing booted symbol-key
+- [x] 5.4 Make the keycap renderer show the case the latch will type.
+- [x] 5.5 Add `src/dialects/caseKeys.test.ts` on the existing booted symbol-key
       pattern, for the machines with something to prove (ZX Spectrum, BBC Micro,
       CPC 464, C64, PMD 85): press the letter key and its case partner or the
       latch, and read the echoed character back. Depends on 4.1.
-- [ ] 5.6 Author the layout edits **from what 5.5 reports**: the BBC pair's
+- [x] 5.6 Author the layout edits **from what 5.5 reports**: the BBC pair's
       shift-layer lower case and caps keycap; the CPC pair's lower-case base
       legends, upper-case shift layer and caps keycap; the Spectrum's caps
       keycap; the Commodore machines' case keycap (their shifted letters are
       graphics, so no shift pair).
-- [ ] 5.7 Extend `src/keyboard/layoutGeometry.test.ts`: a machine with lower-case
+- [x] 5.7 Extend `src/keyboard/layoutGeometry.test.ts`: a machine with lower-case
       glyphs must offer both cases by a shift pair or a case-lock key, and a
       machine without must offer neither.
 
 ## 6. Sample and coverage sweep
 
-- [ ] 6.1 Run the cross-dialect sample conventions test and every dialect's own
+- [x] 6.1 Run the cross-dialect sample conventions test and every dialect's own
       sample tests; fix any bundled sample the new diagnostic newly flags, and
       add "no bundled sample raises a lower-case-keyword diagnostic" to the
       cross-dialect sample test.
-- [ ] 6.2 Optional (first on the cut line): declare the Commodore second
-      character-ROM bank as a glyph source so the switchable declaration is
-      provable, and add its lower-case anchors.
+- [~] 6.2 CUT, as the design's cut order allows. The Commodore second
+      character-ROM bank is not declared as a glyph source, so the switchable
+      declaration stays asserted rather than proved; `glyphSources.test.ts`
+      excuses the three machines by name with that reason, and
+      `letterCase.test.ts` skips the lower-case glyph arm for them.
 
 ## 7. Report the characters the machine will change
 
-- [ ] 7.1 Add the detection: walk the source a unit at a time through the charset
+- [x] 7.1 Add the detection: walk the source a unit at a time through the charset
       probe's unit parser, so a unit longer than one character is notation and is
       never counted, and record each character the target machine would store as
       a different one. Use the same catch-and-continue posture the vocabulary
@@ -143,45 +145,45 @@
       status bar needs only the count, but the `strict-characters-mode`
       follow-up turns each finding into an error at its own position, and
       retrofitting positions later would mean re-walking the source twice.
-- [ ] 7.2 Add the Commodore set-switch allowance in source order: lower case is
+- [x] 7.2 Add the Commodore set-switch allowance in source order: lower case is
       not counted after the program switches to the lower-case set, and is
       counted again after it switches back. Record at the implementation that
       control flow is not traced, that a direct poke to the video chip is not
       recognised, and that the rule fails safe by counting less.
-- [ ] 7.3 Add the colocated test: a folding machine counts its lower case; a
+- [x] 7.3 Add the colocated test: a folding machine counts its lower case; a
       machine that stores every character as written counts none; an escape, a
       raw byte, a graphics character and a short keyword spelling count none;
       an alias substitution (backtick on the BBC, caret on the CPC) counts; the
       Commodore switch is honoured in both directions.
-- [ ] 7.4 Derive the figure beside the existing program statistics and show it in
+- [x] 7.4 Derive the figure beside the existing program statistics and show it in
       `src/components/StatusBar.tsx`, naming the conversion rather than only
       counting it, styled with the warn severity idiom the RAM readout uses. Do
       not disturb the existing items or their order — the e2e helpers read the
       bar by text.
-- [ ] 7.5 Confirm it blocks nothing: add a test that a program with a non-zero
+- [x] 7.5 Confirm it blocks nothing: add a test that a program with a non-zero
       count still runs, exports and shares.
 
 ## 8. Docs
 
-- [ ] 8.1 Correct `docs/reference/file-formats.md`, which states that lower-case
+- [x] 8.1 Correct `docs/reference/file-formats.md`, which states that lower-case
       input is folded to upper case — false for several machines.
-- [ ] 8.2 Correct `docs/guide/writing-basic.md`, which names only the BBC
+- [x] 8.2 Correct `docs/guide/writing-basic.md`, which names only the BBC
       machines as distinguishing case.
-- [ ] 8.3 Add the case rule to `docs/reference/bbc.md`, which says nothing about
+- [x] 8.3 Add the case rule to `docs/reference/bbc.md`, which says nothing about
       case on the machine family where it decides variable identity.
 
 ## 9. Quality gates
 
-- [ ] 9.1 `npm run typecheck`
-- [ ] 9.2 `npm test`
-- [ ] 9.3 `npm run lint`
-- [ ] 9.4 `npm run format:check` (or `npm run format`)
-- [ ] 9.5 `npm run docs:build` — docs change in group 8
-- [ ] 9.6 Add one staged assertion to the existing `e2e/virtual-input` touch
+- [x] 9.1 `npm run typecheck`
+- [x] 9.2 `npm test`
+- [x] 9.3 `npm run lint`
+- [x] 9.4 `npm run format:check` (or `npm run format`)
+- [x] 9.5 `npm run docs:build` — docs change in group 8
+- [x] 9.6 Add one staged assertion to the existing `e2e/virtual-input` touch
       journey on bbcmicro only: shift plus a letter inserts lower case, and the
       keycap redraws in the other case when the lock is pressed. The redraw is
       the browser-only fact; the per-machine matrix stays in Vitest.
-- [ ] 9.7 `npm run e2e:chromium -- e2e/virtual-input`
-- [ ] 9.8 `npm run e2e:chromium -- e2e/code-editor`
-- [ ] 9.9 `npm run e2e:chromium -- e2e/program-execution`
-- [ ] 9.10 `npx openspec validate --specs`
+- [x] 9.7 `npm run e2e:chromium -- e2e/virtual-input`
+- [x] 9.8 `npm run e2e:chromium -- e2e/code-editor`
+- [x] 9.9 `npm run e2e:chromium -- e2e/program-execution`
+- [x] 9.10 `npx openspec validate --specs`
