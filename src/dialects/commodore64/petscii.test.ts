@@ -110,6 +110,28 @@ describe('C64 PETSCII table', () => {
     }
   });
 
+  it('accepts every spelling of the reverse-video pair', () => {
+    // petcat writes {rvon}/{rvof} and reads {rvs on}/{rvs off}; CBM prg Studio
+    // and most forum listings use the spaceless {rvson}/{rvsoff}. All parse.
+    const on = ['{rvon}', '{rvson}', '{rvs on}', '{RVS ON}', '{RvsOn}'];
+    const off = ['{rvoff}', '{rvof}', '{rvsoff}', '{rvs off}', '{RVS OFF}'];
+    for (const text of on) {
+      expect(parseC64Char(text, 0), text).toEqual({
+        code: 0x12,
+        length: text.length,
+      });
+    }
+    for (const text of off) {
+      expect(parseC64Char(text, 0), text).toEqual({
+        code: 0x92,
+        length: text.length,
+      });
+    }
+    // Decode stays on the canonical names, so the round-trip is unaffected.
+    expect(petsciiToText(0x12)).toBe('{rvon}');
+    expect(petsciiToText(0x92)).toBe('{rvoff}');
+  });
+
   it('accepts {CBM-x} / {SHIFT-x} key-graphic names', () => {
     // The C= and SHIFT graphic on the A key: $B0 and $C1 respectively.
     expect(parseC64Char('{CBM-A}', 0).code).toBe(0xb0);

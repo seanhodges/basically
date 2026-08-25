@@ -86,6 +86,11 @@ for (let i = 0; i < 26; i++) {
  * forum posts) use these shorter spellings; accepting them lets such source be
  * pasted straight in. Decode still emits the canonical name above, so the
  * round-trip stays stable — these are extra inputs, never outputs.
+ *
+ * The reverse-video pair carries the most spellings in the wild: petcat itself
+ * writes `{rvon}`/`{rvof}` but reads its long-form alternates `{rvs on}` and
+ * `{rvs off}`, and the spaceless `{rvson}`/`{rvsoff}` are what CBM prg Studio
+ * and most forum listings use. All of them mean CHR$(18)/CHR$(146).
  */
 // prettier-ignore
 export const PETCAT_ALIASES: Record<string, number> = {
@@ -93,6 +98,7 @@ export const PETCAT_ALIASES: Record<string, number> = {
   pur: 0x9c, lred: 0x96, orng: 0x81, brn: 0x95, gry1: 0x97, gry2: 0x98,
   gry3: 0x9b, lgrn: 0x99, lblu: 0x9a, rght: 0x1d, rvof: 0x92, sret: 0x8d,
   swlc: 0x0e, swuc: 0x8e, space: 0x20,
+  rvson: 0x12, 'rvs on': 0x12, rvsoff: 0x92, 'rvs off': 0x92,
 };
 for (const [name, code] of Object.entries(PETCAT_ALIASES)) {
   nameToCode.set(name, code);
