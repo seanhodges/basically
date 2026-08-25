@@ -5,13 +5,14 @@ import { test, expect, type Page } from '../fixtures';
  * End-to-end checks for the step-through debugger:
  *
  *  1. Core flow - debugging is always on, so just set a breakpoint in the
- *     gutter; Play pauses on it, Step advances to the next BASIC line, Continue
+ *     gutter; Play pauses on it, Step advances to the next BASIC line, Resume
  *     re-pauses on the breakpoint, Stop clears the session.
  *  2. The debug session survives an orientation change (a viewport flip that
  *     crosses the mobile/desktop breakpoint) - nothing is lost and Step still
- *     works afterwards. The touch viewport it flips through is also where the
- *     run control over the editor lives, so the three states it shows are
- *     checked there, on the machine this test already has booted.
+ *     works afterwards. The flip visits both layouts on one booted machine, so
+ *     it is also where each layout's pause-and-continue control is checked: the
+ *     run control over the editor and the machine tab's Run actions on the
+ *     touch side, the toolbar's own control on the desktop side.
  *
  * Which machines offer the controls at all is not here. That is
  * `Dialect.debuggable`, and `src/dialects/debugCapability.test.ts` crosschecks
@@ -97,8 +98,8 @@ test('core flow: breakpoint, run-to-pause, step, continue, stop', async ({
     timeout: 20_000,
   });
 
-  // Continue runs to the next breakpoint - the loop comes back round to 20.
-  await page.getByRole('button', { name: 'Continue' }).click();
+  // Resume runs to the next breakpoint - the loop comes back round to 20.
+  await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByText('paused at line 20')).toBeVisible({
     timeout: 20_000,
   });
@@ -129,9 +130,9 @@ test('debug session survives an orientation change', async ({ page }) => {
   // The run control over the editor is where a touch user sees the state of the
   // run, so it is only provable in a browser at a touch viewport. Addressed by
   // test id, never by role name: accessible-name matching is a substring match
-  // and the overflow menu carries its own Play and Continue.
+  // and the overflow menu carries its own Play and Resume.
   //
-  // The debugger's own pause reads as Continue, without the user having reached
+  // The debugger's own pause reads as Resume, without the user having reached
   // it themselves.
   const fab = page.getByTestId('fab-run');
   await expect(fab).toHaveAttribute('data-state', 'continue');
@@ -154,11 +155,32 @@ test('debug session survives an orientation change', async ({ page }) => {
   await expect(fab).toHaveAttribute('data-state', 'continue');
   await expect(page.getByText(/paused at line/)).toBeHidden();
 
-  // And the one Continue carries that pause on too, not just a breakpoint's.
+  // And the one Resume carries that pause on too, not just a breakpoint's.
   await fab.click();
   await expect(page.getByText('emulator: running').first()).toBeVisible({
     timeout: 20_000,
   });
+
+  // The machine's own tab has no run control over the editor, so its pause is
+  // the one in the overflow menu's Run actions - the surface a phone user
+  // watching the program is actually on. Same booted machine, one tab away.
+  await page.getByRole('tab', { name: 'Run' }).click();
+  const runActions = page.getByRole('button', { name: 'Run actions' });
+  await runActions.click();
+  const menuToggle = page.getByTestId('menu-pause-toggle');
+  await expect(menuToggle).toHaveAttribute('data-state', 'pause');
+  await menuToggle.click();
+  await expect(menuToggle).toBeHidden(); // the action closes the menu
+  await expect(page.getByText('emulator: paused').first()).toBeVisible();
+
+  // And the same item carries the run on again.
+  await runActions.click();
+  await expect(menuToggle).toHaveAttribute('data-state', 'continue');
+  await menuToggle.click();
+  await expect(page.getByText('emulator: running').first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole('tab', { name: 'Editor' }).click();
 
   // Put the breakpoint back and let the loop come round to it, so the session
   // is paused on line 20 again for the assertions after the flip back.
@@ -182,4 +204,26 @@ test('debug session survives an orientation change', async ({ page }) => {
   await expect(page.getByText('paused at line 30')).toBeVisible({
     timeout: 20_000,
   });
+
+  // The same two-position control on the layout that shows the editor and the
+  // machine together, where there is no run control over the editor at all.
+  // By test id, not by name: name matching is a substring match and the bar
+  // also carries a Play.
+  const toolbarToggle = page.getByTestId('toolbar-pause-toggle');
+  await expect(toolbarToggle).toHaveAttribute('data-state', 'continue');
+
+  // Take the breakpoint out first, so continuing leaves the machine running
+  // rather than landing straight back on line 20.
+  await toggleBreakpointOnLine(page, 20);
+  await toolbarToggle.click();
+  await expect(page.getByText('emulator: running').first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(toolbarToggle).toHaveAttribute('data-state', 'pause');
+
+  // The pause this layout never had: taken from the bar, on no breakpoint.
+  await toolbarToggle.click();
+  await expect(page.getByText('emulator: paused').first()).toBeVisible();
+  await expect(toolbarToggle).toHaveAttribute('data-state', 'continue');
+  await expect(page.getByText(/paused at line/)).toBeHidden();
 });

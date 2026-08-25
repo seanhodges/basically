@@ -393,6 +393,11 @@ those machines, so that a run can always be released by the same Continue the
 machine already offers; a machine that cannot be stepped SHALL NOT offer a
 pause.
 
+Wherever the IDE offers to carry a paused run on, it SHALL also offer to pause
+a running one. Taking a pause SHALL therefore be reachable on every layout and
+from the keyboard, rather than from one layout only, so no user is left able to
+release a pause but not to take one.
+
 A pause SHALL hold the machine still rather than end it. The program's memory,
 the files it has written, what its screen was showing and the measurements
 taken of it so far SHALL all be as the pause found them when the run carries
@@ -439,12 +444,18 @@ the machine now selected offers, so no pause is left with no way out.
 - **THEN** the program pauses and can be continued, and no line is reported as
   the paused line
 
+#### Scenario: A pause can be taken wherever one can be released
+
+- **WHEN** a program is running on a machine that offers line-level debugging
+- **THEN** every place the IDE would offer to continue that program once paused
+  offers to pause it while it runs
+
 #### Scenario: A machine with no debugger offers no pause
 
 - **WHEN** a program is running on a machine that offers no line-level
   debugging
-- **THEN** no pause is offered for it, and the run control goes on offering to
-  run the program
+- **THEN** nothing offers to pause or to continue it, and the controls that
+  start a program go on offering to run it
 
 #### Scenario: A pause does not distort the figures
 
@@ -464,10 +475,13 @@ the machine now selected offers, so no pause is left with no way out.
 
 ### Requirement: The primary run control shows the state of the run
 
-The primary run control over the editor SHALL show which of the three states
-the run is in — stopped, running, or paused — and SHALL act on the state it
-shows: starting the program when stopped, pausing it when running, and
-continuing it when paused.
+The primary run control - the control each layout gives the user over the run,
+whether that is the single control over the editor on the touch layout, the run
+controls on the layout that shows the editor and the machine together, the run
+actions offered on the machine's own tab, or the keyboard - SHALL show which of
+the three states the run is in - stopped, running, or paused - and SHALL act on
+the state it shows: starting the program when stopped, pausing it when running,
+and continuing it when paused.
 
 Where the machine offers no pause, the control SHALL go on offering to run the
 program, as it does when the run is stopped.
@@ -475,13 +489,25 @@ program, as it does when the run is stopped.
 The control SHALL show the paused state however the pause was reached, so a run
 stopped at a breakpoint is offered the same continue as one the user paused.
 
-Carrying a paused run on SHALL be called the same thing wherever it is offered.
+Carrying a paused run on SHALL be called the same thing wherever it is offered,
+and holding a running one still SHALL likewise be called the same thing
+wherever it is offered.
+
+Carrying a paused run on SHALL be shown distinctly from starting the program
+again from the beginning, and SHALL be told apart from it by its mark rather
+than by colour alone. The two are the actions it matters most not to confuse:
+one resumes the run the user is watching, the other discards it.
 
 Once the program has ended - it finished, or it stopped on an error - the
 control SHALL offer to run it again, even though the machine goes on running at
 its prompt. Pausing and continuing are offered against a program, and there is
 no longer one to hold still or to carry on. This SHALL hold on every machine,
 since every machine reports whether a program is running.
+
+Where a surface offers a separate action that always starts the program, its
+pause-and-continue control SHALL be refused rather than fall back to starting
+the program, so no surface offers to start the same program twice and no
+mis-aimed press restarts a run at the moment it ends.
 
 #### Scenario: The control follows a run it started
 
@@ -512,6 +538,41 @@ since every machine reports whether a program is running.
 - **WHEN** a program ends on any registered machine
 - **THEN** the run control over the editor offers to run the program again,
   without the user having to stop the run first
+
+#### Scenario: The editor-and-machine layout follows the run
+
+- **WHEN** a program runs and is then paused on the layout that shows the
+  editor and the machine side by side
+- **THEN** the run control there offers to pause the program while it runs and
+  to continue it once paused, presented as the same control the touch layout
+  shows
+
+#### Scenario: The machine's own tab follows the run
+
+- **WHEN** the user opens the run actions from the machine's tab while a
+  program is running
+- **THEN** they are offered a pause there, and a continue once the program is
+  paused
+
+#### Scenario: The keyboard takes and releases a pause
+
+- **WHEN** the user presses the key that continues a paused program while a
+  program is instead running
+- **THEN** the program pauses, and pressing it again carries the run on
+
+#### Scenario: Continuing is not mistaken for starting over
+
+- **WHEN** a surface offers both to start the program and to carry a paused run
+  on
+- **THEN** the two are marked differently, so a user who cannot rely on colour
+  can still tell which one resumes the run they are watching
+
+#### Scenario: A surface with its own start action refuses rather than restarts
+
+- **WHEN** no program is running or paused on a surface that offers a separate
+  action to start one
+- **THEN** that surface's pause-and-continue control is shown refused, rather
+  than offering to start the program a second way
 
 ### Requirement: A machine has only the memory it shipped with
 

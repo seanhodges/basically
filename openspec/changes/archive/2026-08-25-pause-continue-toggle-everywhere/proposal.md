@@ -11,8 +11,10 @@ that takes a pause either.
 ## What Changes
 
 - The toolbar's Continue button becomes a two-position control: it offers
-  Pause while a program is running and Continue while it is paused, in the
+  Pause while a program is running and Resume while it is paused, in the
   same blue and with the same glyphs the run control over the editor uses.
+  Carrying a paused run on is called Resume from here on, everywhere it is
+  offered - the button, the menu item, the chord and the tooltips.
 - The Continue item in the mobile overflow menu (the Run actions on the
   emulator tab) becomes the same two-position control, so the tab that has no
   run control over the editor gains a pause as well.
@@ -62,6 +64,7 @@ None.
   `src/styles.css` carry the button's blue.
 - `src/app/useGlobalShortcuts.ts` and the chord's label in
   `src/app/shortcuts.ts`.
-- `docs/guide/keyboard-shortcuts.md`, where the chord is listed by name.
+- `docs/guide/keyboard-shortcuts.md`, where the chord is listed by name, and
+  `docs/guide/testing-programs.md`, which names the control by glyph and word.
 - Colocated tests in `src/app/`, and the program-execution e2e journey that
   already boots a machine and crosses the layout breakpoint.

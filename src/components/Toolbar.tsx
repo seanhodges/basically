@@ -11,6 +11,14 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { openingTopicFor } from '../app/docsTopic';
+import {
+  runControlStateOf,
+  pauseToggleOf,
+  runControlGlyph,
+  runControlWord,
+  runControlLabel,
+} from '../app/runControl';
+import { timingSettled } from '../app/runTiming';
 import { newDocument, openDocument, saveDocument } from '../app/fileCommands';
 import {
   SHORTCUTS,
@@ -44,6 +52,7 @@ export function Toolbar() {
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestStep = useIdeStore((s) => s.requestStep);
   const requestContinue = useIdeStore((s) => s.requestContinue);
+  const requestPause = useIdeStore((s) => s.requestPause);
   // The buffer on screen owns the breakpoints the toggles act on, so the
   // offer to clear them on Stop has to read that same set.
   const breakpoints = useIdeStore(selectActiveBreakpoints);
@@ -51,6 +60,11 @@ export function Toolbar() {
   const runTargetName = useIdeStore(selectRunTargetName);
   const clearBreakpoints = useIdeStore((s) => s.clearBreakpoints);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  // Whether the run's program has ended, off the timing the run publishes - the
+  // same reading the run control over the editor takes. A run in progress
+  // carries a live reading; the run loop settles it the moment the machine sees
+  // the program finish or fail.
+  const programEnded = useIdeStore((s) => timingSettled(s.runTiming));
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
@@ -152,7 +166,23 @@ export function Toolbar() {
     ? `Build and play ${runTargetName} in the emulator`
     : 'Build and play in the emulator';
   const stepProgram = runAction(requestStep);
-  const continueProgram = runAction(requestContinue);
+  // The pause and the continue are one control on the surfaces that carry their
+  // own Play - the toolbar's run buttons and the overflow menu's Run actions.
+  // Both read the run's state from the one derivation behind every such
+  // control, so no surface can word or gate the same action differently. Where
+  // the control over the editor would fall back to Play, these refuse: they
+  // have a Play already, and a mis-aimed press must not restart a run at the
+  // moment it ends.
+  const pauseToggle = pauseToggleOf(
+    runControlStateOf(emulatorStatus, {
+      pausable: !!dialect.debuggable,
+      programEnded,
+    }),
+  );
+  const pauseToggleProgram = runAction(
+    pauseToggle.face === 'pause' ? requestPause : requestContinue,
+  );
+  const pauseToggleTitle = runControlLabel(pauseToggle.face);
   // The single Stop halts the program and shuts the emulator down; if any
   // breakpoints are set it first offers to clear them.
   const stopProgram = runAction(() => {
@@ -367,7 +397,8 @@ export function Toolbar() {
           onClick={playProgram}
           title={withKeys(playTitle, 'run.play')}
         >
-          ▶ Play{runTargetName ? ` ${runTargetName}` : ''}
+          <span className={`${styles.mark} ${styles.markPlay}`}>▶</span> Play
+          {runTargetName ? ` ${runTargetName}` : ''}
         </button>
         {dialect.debuggable && (
           <>
@@ -377,18 +408,23 @@ export function Toolbar() {
               disabled={emulatorStatus !== 'paused'}
               title={withKeys('Run to the next BASIC line', 'run.step')}
             >
-              ⤵ Step
+              <span className={`${styles.mark} ${styles.markStep}`}>⤵</span>{' '}
+              Step
             </button>
             <button
-              className="desktop-only"
-              onClick={continueProgram}
-              disabled={emulatorStatus !== 'paused'}
-              title={withKeys(
-                'Continue to the next breakpoint',
-                'run.continue',
-              )}
+              className={`desktop-only ${styles.pauseToggle} ${
+                pauseToggle.offered ? 'run-live' : ''
+              }`}
+              data-testid="toolbar-pause-toggle"
+              data-state={pauseToggle.face}
+              onClick={pauseToggleProgram}
+              disabled={!pauseToggle.offered}
+              title={withKeys(pauseToggleTitle, 'run.continue')}
             >
-              ▶ Continue
+              <span className={styles.pauseToggleGlyph}>
+                {runControlGlyph(pauseToggle.face)}
+              </span>{' '}
+              {runControlWord(pauseToggle.face)}
             </button>
           </>
         )}
@@ -401,7 +437,7 @@ export function Toolbar() {
             'run.stop',
           )}
         >
-          ■ Stop
+          <span className={`${styles.mark} ${styles.markStop}`}>■</span> Stop
         </button>
         <button
           className={`icon-btn ${emulatorMuted ? 'active' : ''}`}
@@ -554,7 +590,12 @@ export function Toolbar() {
                       In portrait there is no rail, so Play leads the menu. */}
                   {!landscape && (
                     <>
-                      <button onClick={playProgram}>▶ Play</button>
+                      <button onClick={playProgram}>
+                        <span className={`${styles.mark} ${styles.markPlay}`}>
+                          ▶
+                        </span>{' '}
+                        Play
+                      </button>
                       <div className={styles.menuSeparator} />
                     </>
                   )}
@@ -564,13 +605,24 @@ export function Toolbar() {
                         onClick={stepProgram}
                         disabled={emulatorStatus !== 'paused'}
                       >
-                        ⤵ Step
+                        <span className={`${styles.mark} ${styles.markStep}`}>
+                          ⤵
+                        </span>{' '}
+                        Step
                       </button>
+                      {/* Menu items carry no fill, so the two faces differ by
+                          glyph and word alone. */}
                       <button
-                        onClick={continueProgram}
-                        disabled={emulatorStatus !== 'paused'}
+                        data-testid="menu-pause-toggle"
+                        data-state={pauseToggle.face}
+                        onClick={pauseToggleProgram}
+                        disabled={!pauseToggle.offered}
+                        title={pauseToggleTitle}
                       >
-                        ▶ Continue
+                        <span className={`${styles.mark} ${styles.markRun}`}>
+                          {runControlGlyph(pauseToggle.face)}
+                        </span>{' '}
+                        {runControlWord(pauseToggle.face)}
                       </button>
                     </>
                   )}
@@ -578,7 +630,10 @@ export function Toolbar() {
                     onClick={stopProgram}
                     disabled={emulatorStatus === 'stopped'}
                   >
-                    ■ Stop
+                    <span className={`${styles.mark} ${styles.markStop}`}>
+                      ■
+                    </span>{' '}
+                    Stop
                   </button>
                   <div className={styles.menuSeparator} />
                   {/* The toolbar's camera is an .icon-btn, which the mobile

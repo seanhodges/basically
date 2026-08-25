@@ -211,7 +211,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: 'run.continue',
-    label: 'Continue',
+    label: 'Pause / Resume',
     category: 'Run',
     keys: [c('F8')],
     debugOnly: true,

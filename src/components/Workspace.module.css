@@ -248,7 +248,7 @@
     z-index: 20;
   }
 
-  /* Green means the machine is not running: once it is, Pause and Continue
+  /* Green means the machine is not running: once it is, Pause and Resume
      share the accent so the button reads as "this run is under way" at a
      glance. Dark ink on both, as the green state has - white on the accent only
      just clears the large-text contrast threshold. */

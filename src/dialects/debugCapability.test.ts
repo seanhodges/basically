@@ -1,6 +1,6 @@
 /**
  * `Dialect.debuggable` is the flag the toolbar reads to decide whether to offer
- * Step and Continue at all (`src/components/Toolbar.tsx`), and it is declared
+ * Step and Resume at all (`src/components/Toolbar.tsx`), and it is declared
  * by hand on each dialect - while the thing it claims, single-stepping at BASIC
  * line granularity, is implemented on the *machine* as the optional
  * `currentLine` / `debugStep` pair (`src/dialects/types.ts`).

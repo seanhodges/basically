@@ -1029,8 +1029,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Deliberately unlike the breakpoint pause above: execution stopped between
   // frames rather than before a BASIC line, so no line is marked, no pause
   // interval is published (the profiler's reading only means anything beside a
-  // line), and the mobile tab is left alone - the control that sends this lives
-  // on the editor tab, so the user is already there.
+  // line), and the mobile tab is left alone - every control that sends this
+  // request puts the user in front of the machine itself, so switching tabs
+  // here would only fight them (the toolbar's Run actions jump to the machine's
+  // tab in the same batch that sends the request).
   useEffect(() => {
     if (pauseRequest === 0) return;
     const machine = machineRef.current;
@@ -1428,7 +1430,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       {/* The on-screen keyboard is toggled from the sidebar/rail (the Toolbar in
           the IDE, the top-bar actions in the standalone player) rather than a
           button floating over the emulator. */}
-      {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this
+      {/* The Step/Resume/Stop controls live in the top-bar Run menu now; this
           slim bar just reports where the debugger is paused. */}
       {emulatorStatus === 'paused' && debugLine !== null && (
         <div className={styles.debugBar}>

@@ -60,11 +60,11 @@ debugging](#debugging-with-breakpoints), that button follows the run rather than
 only starting it. Once the program is going it turns blue and becomes **❚❚
 Pause**, which holds the machine exactly where it is - the screen, the memory and
 everything the program has done stay put, and no time is charged to the program
-while it waits. Tap it again, now **▶ Continue**, and the program carries on from
+while it waits. Tap it again, now **❚▶ Resume**, and the program carries on from
 where it stopped.
 
 It is the same button when a breakpoint pauses the program for you: it reads
-**▶ Continue** then too, and continuing runs on to the next breakpoint. Pausing
+**❚▶ Resume** then too, and resuming runs on to the next breakpoint. Pausing
 is unavailable for the brief moment before the machine draws its first frame,
 and while the assistant is running your program to check an answer.
 
@@ -137,7 +137,7 @@ and falls back to Key mapped for that machine.
 
 Debugging lets you halt a running program on a chosen line and inspect what it's
 doing. It's available on the machines that support step debugging - for those,
-the Step and Continue controls described below appear.
+the Step and Resume controls described below appear.
 
 To set a **breakpoint**, click the gutter to the left of a line: a blue dot
 appears. Breakpoints are tied to the BASIC line number, not the editor row, so
@@ -151,10 +151,11 @@ emulator shows **paused at line N**. From a paused state you have two controls i
 the toolbar:
 
 - **⤵ Step** - run to the next BASIC line.
-- **▶ Continue** - carry on until the next breakpoint (or the program ends).
+- **❚▶ Resume** - carry on until the next breakpoint (or the program ends).
 
-**■ Stop** ends the debug session entirely. Both Step and Continue are only
-active while the program is paused.
+**■ Stop** ends the debug session entirely. Step is only active while the
+program is paused; the button beside it reads **❚❚ Pause** while the program
+runs, so you can halt it yourself without setting a breakpoint first.
 
 On mobile these controls live in the three-dots overflow menu on the **Run** tab.
 When a breakpoint trips on a phone, the app switches to the **Editor** tab so you

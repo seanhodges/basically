@@ -190,6 +190,22 @@ button.run:hover:not(:disabled) {
   border-color: #7fe89a;
 }
 
+/* The pause-and-continue control while there is a run under way. Green means
+   the machine is not running; the accent says "this run is on", matching the
+   run control over the editor. Not `button.primary`: that pairs the accent with
+   white, which at the 13px these buttons set does not clear the contrast
+   threshold - white on this blue only just clears it at large sizes. */
+button.run-live {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06152e;
+  font-weight: 600;
+}
+
+button.run-live:hover:not(:disabled) {
+  border-color: #8fbcff;
+}
+
 button.icon-btn,
 a.icon-btn {
   padding: 5px 8px;
