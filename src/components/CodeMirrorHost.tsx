@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Compartment,
-  EditorState,
   Prec,
   Range,
   RangeSet,
   StateEffect,
   StateField,
+  type Extension,
 } from '@codemirror/state';
 import {
   Decoration,
@@ -31,8 +31,6 @@ import {
   history,
   historyKeymap,
   insertNewlineAndIndent,
-  redo,
-  undo,
 } from '@codemirror/commands';
 import {
   autocompletion,
@@ -48,7 +46,6 @@ import {
 } from '@codemirror/autocomplete';
 import { lintKeymap, setDiagnosticsEffect } from '@codemirror/lint';
 import {
-  openSearchPanel,
   closeSearchPanel,
   searchPanelOpen,
   searchKeymap,
@@ -76,8 +73,15 @@ import { referenceTopic } from '../app/docsTopic';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
 import {
+  basicBufferKey,
+  bufferHistories,
+  freshBufferState,
+} from '../editor/bufferHistory';
+import { runViewEditorCommand } from '../editor/editorCommands';
+import {
   useIdeStore,
   selectActiveBreakpoints,
+  selectActiveSource,
   selectVisibleDebugLine,
   selectVisibleProfile,
 } from '../app/store';
@@ -98,7 +102,6 @@ import { isBinaryDirective } from '../dialects/binaryDirective';
 import { findRowForLineNumber } from '../editor/programOutline';
 import { isMobileViewport } from '../app/useMediaQuery';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
-import { isMac } from '../app/shortcuts';
 import styles from './CodeMirrorHost.module.css';
 
 /** Replace the whole document and drop the cursor at the end of `cursorLine`. */
@@ -386,111 +389,15 @@ function openOutline(): boolean {
 }
 
 /**
- * Range to act on for copy/cut: the main selection, or - when it's empty - the
- * whole current line (incl. trailing newline), mirroring CodeMirror's default
- * clipboard behaviour for an empty selection.
+ * Run an Edit-menu command against the BASIC editor: the commands every buffer
+ * offers, plus the two renumbering ones that only a BASIC buffer has.
  */
-function clipboardRange(view: EditorView): { from: number; to: number } {
-  const sel = view.state.selection.main;
-  if (!sel.empty) return { from: sel.from, to: sel.to };
-  const line = view.state.doc.lineAt(sel.head);
-  return { from: line.from, to: Math.min(line.to + 1, view.state.doc.length) };
-}
-
-/**
- * Write to the clipboard, tolerating browsers/contexts without the async
- * Clipboard API (insecure http origins; older browsers). Falls back to the
- * legacy execCommand path via a temporary off-screen textarea. Returns whether
- * the text actually reached the clipboard.
- */
-async function copyTextToClipboard(text: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // fall through to the legacy path (e.g. permission denied)
-    }
-  }
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.setAttribute('readonly', '');
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  let ok = false;
-  try {
-    ok = document.execCommand('copy');
-  } catch {
-    ok = false;
-  }
-  ta.remove();
-  return ok;
-}
-
-/**
- * Read the clipboard, or null when this browser doesn't allow it (Firefox
- * < 125 has no readText; insecure contexts have no navigator.clipboard; the
- * user may deny the paste permission prompt). There is no legacy read
- * fallback - execCommand('paste') is blocked in web content.
- */
-async function readTextFromClipboard(): Promise<string | null> {
-  if (!navigator.clipboard?.readText) return null;
-  try {
-    return await navigator.clipboard.readText();
-  } catch {
-    return null;
-  }
-}
-
-/** Run an Edit-menu command against the editor. */
 async function runEditorCommand(
   view: EditorView,
   name: EditorCommandName,
 ): Promise<void> {
+  if (await runViewEditorCommand(view, name)) return;
   switch (name) {
-    case 'undo':
-      undo(view);
-      break;
-    case 'redo':
-      redo(view);
-      break;
-    case 'copy':
-    case 'cut': {
-      const { from, to } = clipboardRange(view);
-      const copied = await copyTextToClipboard(view.state.sliceDoc(from, to));
-      // Never cut what didn't reach the clipboard - that would destroy text.
-      if (name === 'cut' && copied) {
-        view.dispatch({ changes: { from, to }, userEvent: 'delete.cut' });
-      }
-      break;
-    }
-    case 'paste': {
-      const text = await readTextFromClipboard();
-      if (text === null) {
-        window.alert(
-          `This browser doesn't allow pasting from the menu - press ${
-            isMac() ? '⌘V' : 'Ctrl+V'
-          } in the editor instead.`,
-        );
-        break;
-      }
-      if (text)
-        view.dispatch(view.state.replaceSelection(text), {
-          userEvent: 'input.paste',
-        });
-      break;
-    }
-    case 'find':
-      // The panel contains both find and replace rows; one entry covers both.
-      openSearchPanel(view);
-      break;
-    case 'closeFind':
-      // Dismiss the panel without stealing focus back into the editor (so a tap
-      // on the emulator that triggered this keeps its own focus).
-      closeSearchPanel(view);
-      break;
     case 'renumber':
       renumberCurrentLine(view);
       break;
@@ -498,8 +405,7 @@ async function runEditorCommand(
       renumberFile(view);
       break;
   }
-  // The find/replace panel manages its own focus; everything else returns to the editor.
-  if (name !== 'find' && name !== 'closeFind') view.focus();
+  view.focus();
 }
 
 const gutterCompartment = new Compartment();
@@ -773,8 +679,20 @@ function applyEditorAction(view: EditorView, action: EditorKeyAction): void {
 
 interface Props {
   dialect: Dialect;
-  /** Pushed into the editor whenever seq changes. */
+  /** Replacement text for the buffer on screen, pushed whenever seq changes. */
   override: { text: string; seq: number };
+  /**
+   * The BASIC buffer this view is holding: a scratch buffer's id, or `null` for
+   * the program. A change swaps the view's whole state, so each buffer keeps its
+   * own document, selection and history.
+   */
+  bufferId: string | null;
+  /**
+   * Whether this view is the surface the user is looking at. False while a
+   * memory block's editor is showing, where it holds the program out of sight
+   * and must not answer the Edit menu.
+   */
+  active: boolean;
   onChange(text: string): void;
   /** Receives a function the virtual keyboard calls to type into the editor. */
   inputRef?: React.MutableRefObject<((action: EditorKeyAction) => void) | null>;
@@ -783,6 +701,8 @@ interface Props {
 export function CodeMirrorHost({
   dialect,
   override,
+  bufferId,
+  active,
   onChange,
   inputRef,
 }: Props) {
@@ -796,159 +716,188 @@ export function CodeMirrorHost({
   const lastCommand = useRef(editorCommand.seq);
   const jumpTarget = useIdeStore((s) => s.jumpTarget);
   const lastJump = useRef(jumpTarget.seq);
+  // The buffer whose state the view is holding, and the last cache generation
+  // seen - the two things a state swap has to compare against.
+  const lastBuffer = useRef(bufferId);
+  const lastHistoryGeneration = useRef(bufferHistories.generation);
+  // Mirrors the search panel's open state so the store is only told when it
+  // actually changes. A ref, not a local: the extensions are rebuilt on every
+  // buffer swap and each rebuild must go on watching the same flag.
+  const searchOpen = useRef(false);
+
+  /**
+   * Forget an open find panel. The panel is view state no state swap carries
+   * over, so when the view is given a different state the store's flag has to be
+   * cleared by hand.
+   */
+  const closeFindPanel = useCallback(() => {
+    if (!searchOpen.current) return;
+    searchOpen.current = false;
+    useIdeStore.getState().setFindReplaceOpen(false);
+  }, []);
+
+  /**
+   * The view's extensions, built from the dialect and whatever the store says
+   * right now. Called for the first mount and again for every state the view is
+   * given afterwards - a restored buffer, a replaced document - so no
+   * compartment can come back configured for a moment that has passed.
+   */
+  const buildExtensions = useCallback(
+    (): Extension => [
+      Prec.highest(
+        keymap.of([
+          { key: 'Enter', run: handleEnter },
+          { key: 'Shift-Enter', run: handleShiftEnter },
+          { key: 'Mod-Alt-r', run: renumberCurrentLine },
+          { key: 'Mod-Shift-r', run: renumberFile },
+          { key: 'F9', run: toggleBreakpointAtCursor },
+          { key: 'Mod-Shift-o', run: openOutline },
+        ]),
+      ),
+      gutterCompartment.of(
+        gutterExt(useIdeStore.getState().showLineNumberGutter),
+      ),
+      numberingCompartment.of([
+        numberingConfig.of({
+          auto: useIdeStore.getState().autoLineNumbering,
+          increment: useIdeStore.getState().lineNumberIncrement,
+          unnumbered: unnumberedFor(dialect),
+        }),
+        fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
+      ]),
+      gutterMarkersCompartment.of(
+        combinedGutterExt(
+          selectActiveBreakpoints(useIdeStore.getState()),
+          visibleHeat(),
+        ),
+      ),
+      lintGutterMarkerField,
+      debugLineField,
+      highlightActiveLine(),
+      drawSelection(),
+      history(),
+      autocompletion({ activateOnTyping: true }),
+      EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
+      // Native-mobile seam: soft keyboards commit `.` through beforeinput
+      // rather than a `.`-keyed keydown, so intercept the typed text directly.
+      EditorView.inputHandler.of((view, _from, _to, text) =>
+        text === '.' ? acceptCompletionForPeriod(view) : false,
+      ),
+      highlightSelectionMatches(),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      syntaxHighlighting(basicHighlightStyle),
+      dialect.languageSupport(),
+      dialectLinter(dialect),
+      // Click a token to be offered what the editor can say about it: a
+      // variable's usages, matched as the machine would match them rather
+      // than as text, or a keyword's entry in this machine's reference.
+      clickMenu([
+        variableUsagesRow(dialect.id, dialect.keywords),
+        referenceRow({
+          kinds: BASIC_REFERENCE_KINDS,
+          operators: operatorSpellings(dialect),
+          spellings: keywordSpellingsFor(dialect.id),
+          topic: (word) => referenceTopic(dialect, word),
+          open: (topic) => useIdeStore.getState().openDocs(topic),
+        }),
+      ]),
+      variableUsagesFeature,
+      // Collapse opaque #BIN machine-code lines into chips, but only for
+      // dialects whose tokenizer accepts them - elsewhere the raw text must
+      // stay visible so its tokenizer error is.
+      ...(dialect.supportsBinaryLines ? [binaryLineExtension()] : []),
+      // Draw the machine's display control codes rather than spelling them:
+      // a MODE 7 line is mostly attributes, and `{GRAPHICS WHITE}` costs
+      // sixteen of its forty columns to say what a chip shows.
+      ...(dialect.displayControls
+        ? [
+            controlChipExtension(dialect.displayControls, (text) =>
+              dialect.charset.toMachine(text),
+            ),
+          ]
+        : []),
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...completionKeymap,
+        ...searchKeymap,
+        ...lintKeymap,
+      ]),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged && !isApplyingOverride.current)
+          onChangeRef.current(update.state.doc.toString());
+        if (update.focusChanged)
+          useIdeStore.getState().setEditorFocused(update.view.hasFocus);
+        const open = searchPanelOpen(update.state);
+        if (open !== searchOpen.current) {
+          searchOpen.current = open;
+          useIdeStore.getState().setFindReplaceOpen(open);
+        }
+      }),
+      // Tapping/clicking the editor body dismisses the find/replace panel.
+      // Returns false so the click still positions the cursor; the panel's own
+      // inputs live outside contentDOM, so typing there never triggers this.
+      EditorView.domEventHandlers({
+        mousedown: (_event, view) => {
+          if (searchPanelOpen(view.state)) closeSearchPanel(view);
+          return false;
+        },
+        touchstart: (_event, view) => {
+          if (searchPanelOpen(view.state)) closeSearchPanel(view);
+          return false;
+        },
+        // Dropping a file onto the editor opens it (like File → Open for
+        // .bas/.txt, or Import for a dialect binary format). Only intercept
+        // file drops - a text drag within the editor still uses CodeMirror's
+        // own drop handling. `preventDefault` + returning true stops both the
+        // browser navigating to the file and CM inserting it as text.
+        dragover: (event) => {
+          if (!event.dataTransfer?.types.includes('Files')) return false;
+          event.preventDefault();
+          return true;
+        },
+        drop: (event) => {
+          const file = event.dataTransfer?.files?.[0];
+          if (!file) return false;
+          event.preventDefault();
+          void openDroppedFile(file);
+          return true;
+        },
+      }),
+      inputModeCompartment.of(
+        inputModeExt(
+          shouldSuppressNativeKeyboard(
+            useIdeStore.getState().keyboardEnabled,
+            useIdeStore.getState().keyboardAutoShow,
+          ),
+        ),
+      ),
+      EditorView.theme({
+        '&': { height: '100%', fontSize: '14px' },
+        '.cm-scroller': {
+          fontFamily: 'var(--mono)',
+          // Fixed rather than derived from the font: the mono stack starts
+          // with the bundled graphics faces (src/styles.css), and letting the
+          // row height come from whichever face drew the line would resize a
+          // row the moment a block graphic appeared in it.
+          lineHeight: '1.3',
+        },
+      }),
+    ],
+    // Everything else this reads comes from the store at call time.
+    [dialect],
+  );
 
   useEffect(() => {
     if (!hostRef.current) return;
-    // Mirror the search panel's open state into the store, and hide the virtual
-    // keyboard the moment it opens (covers both the menu and the Mod-f shortcut).
-    let searchOpen = false;
-    const state = EditorState.create({
-      doc: override.text,
-      extensions: [
-        Prec.highest(
-          keymap.of([
-            { key: 'Enter', run: handleEnter },
-            { key: 'Shift-Enter', run: handleShiftEnter },
-            { key: 'Mod-Alt-r', run: renumberCurrentLine },
-            { key: 'Mod-Shift-r', run: renumberFile },
-            { key: 'F9', run: toggleBreakpointAtCursor },
-            { key: 'Mod-Shift-o', run: openOutline },
-          ]),
-        ),
-        gutterCompartment.of(
-          gutterExt(useIdeStore.getState().showLineNumberGutter),
-        ),
-        numberingCompartment.of([
-          numberingConfig.of({
-            auto: useIdeStore.getState().autoLineNumbering,
-            increment: useIdeStore.getState().lineNumberIncrement,
-            unnumbered: unnumberedFor(dialect),
-          }),
-          fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
-        ]),
-        gutterMarkersCompartment.of(
-          combinedGutterExt(
-            selectActiveBreakpoints(useIdeStore.getState()),
-            visibleHeat(),
-          ),
-        ),
-        lintGutterMarkerField,
-        debugLineField,
-        highlightActiveLine(),
-        drawSelection(),
-        history(),
-        autocompletion({ activateOnTyping: true }),
-        EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
-        // Native-mobile seam: soft keyboards commit `.` through beforeinput
-        // rather than a `.`-keyed keydown, so intercept the typed text directly.
-        EditorView.inputHandler.of((view, _from, _to, text) =>
-          text === '.' ? acceptCompletionForPeriod(view) : false,
-        ),
-        highlightSelectionMatches(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        syntaxHighlighting(basicHighlightStyle),
-        dialect.languageSupport(),
-        dialectLinter(dialect),
-        // Click a token to be offered what the editor can say about it: a
-        // variable's usages, matched as the machine would match them rather
-        // than as text, or a keyword's entry in this machine's reference.
-        clickMenu([
-          variableUsagesRow(dialect.id, dialect.keywords),
-          referenceRow({
-            kinds: BASIC_REFERENCE_KINDS,
-            operators: operatorSpellings(dialect),
-            spellings: keywordSpellingsFor(dialect.id),
-            topic: (word) => referenceTopic(dialect, word),
-            open: (topic) => useIdeStore.getState().openDocs(topic),
-          }),
-        ]),
-        variableUsagesFeature,
-        // Collapse opaque #BIN machine-code lines into chips, but only for
-        // dialects whose tokenizer accepts them - elsewhere the raw text must
-        // stay visible so its tokenizer error is.
-        ...(dialect.supportsBinaryLines ? [binaryLineExtension()] : []),
-        // Draw the machine's display control codes rather than spelling them:
-        // a MODE 7 line is mostly attributes, and `{GRAPHICS WHITE}` costs
-        // sixteen of its forty columns to say what a chip shows.
-        ...(dialect.displayControls
-          ? [
-              controlChipExtension(dialect.displayControls, (text) =>
-                dialect.charset.toMachine(text),
-              ),
-            ]
-          : []),
-        keymap.of([
-          ...defaultKeymap,
-          ...historyKeymap,
-          ...completionKeymap,
-          ...searchKeymap,
-          ...lintKeymap,
-        ]),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged && !isApplyingOverride.current)
-            onChangeRef.current(update.state.doc.toString());
-          if (update.focusChanged)
-            useIdeStore.getState().setEditorFocused(update.view.hasFocus);
-          const open = searchPanelOpen(update.state);
-          if (open !== searchOpen) {
-            searchOpen = open;
-            useIdeStore.getState().setFindReplaceOpen(open);
-          }
-        }),
-        // Tapping/clicking the editor body dismisses the find/replace panel.
-        // Returns false so the click still positions the cursor; the panel's own
-        // inputs live outside contentDOM, so typing there never triggers this.
-        EditorView.domEventHandlers({
-          mousedown: (_event, view) => {
-            if (searchPanelOpen(view.state)) closeSearchPanel(view);
-            return false;
-          },
-          touchstart: (_event, view) => {
-            if (searchPanelOpen(view.state)) closeSearchPanel(view);
-            return false;
-          },
-          // Dropping a file onto the editor opens it (like File → Open for
-          // .bas/.txt, or Import for a dialect binary format). Only intercept
-          // file drops - a text drag within the editor still uses CodeMirror's
-          // own drop handling. `preventDefault` + returning true stops both the
-          // browser navigating to the file and CM inserting it as text.
-          dragover: (event) => {
-            if (!event.dataTransfer?.types.includes('Files')) return false;
-            event.preventDefault();
-            return true;
-          },
-          drop: (event) => {
-            const file = event.dataTransfer?.files?.[0];
-            if (!file) return false;
-            event.preventDefault();
-            void openDroppedFile(file);
-            return true;
-          },
-        }),
-        inputModeCompartment.of(
-          inputModeExt(
-            shouldSuppressNativeKeyboard(
-              useIdeStore.getState().keyboardEnabled,
-              useIdeStore.getState().keyboardAutoShow,
-            ),
-          ),
-        ),
-        EditorView.theme({
-          '&': { height: '100%', fontSize: '14px' },
-          '.cm-scroller': {
-            fontFamily: 'var(--mono)',
-            // Fixed rather than derived from the font: the mono stack starts
-            // with the bundled graphics faces (src/styles.css), and letting the
-            // row height come from whichever face drew the line would resize a
-            // row the moment a block graphic appeared in it.
-            lineHeight: '1.3',
-          },
-        }),
-      ],
+    const view = new EditorView({
+      state: freshBufferState(override.text, buildExtensions()),
+      parent: hostRef.current,
     });
-    const view = new EditorView({ state, parent: hostRef.current });
     viewRef.current = view;
     lastSeq.current = override.seq;
+    lastBuffer.current = bufferId;
+    lastHistoryGeneration.current = bufferHistories.generation;
     if (inputRef)
       inputRef.current = (action) => applyEditorAction(view, action);
     return () => {
@@ -1052,6 +1001,66 @@ export function CodeMirrorHost({
     });
   }, [breakpoints, heat]);
 
+  // Swapping the buffer on screen: put the outgoing one's state away and give
+  // the view the incoming one's. `setState` rather than a transaction, because
+  // this is not an edit - it must not enter either buffer's history, and the
+  // change listener must not see it and write one buffer's text into the other.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || bufferId === lastBuffer.current) return;
+    const outgoing = lastBuffer.current;
+    lastBuffer.current = bufferId;
+    // A buffer the user has just closed has nothing to come back to, and its
+    // id is free for the next buffer to take.
+    const stillOpen =
+      outgoing === null ||
+      useIdeStore.getState().scratchBuffers.some((b) => b.id === outgoing);
+    if (stillOpen)
+      bufferHistories.save(
+        basicBufferKey(outgoing),
+        view.state,
+        lastHistoryGeneration.current,
+      );
+    view.setState(
+      bufferHistories.restore(
+        basicBufferKey(bufferId),
+        selectActiveSource(useIdeStore.getState()),
+        buildExtensions(),
+      ),
+    );
+    lastHistoryGeneration.current = bufferHistories.generation;
+    // The find panel belonged to the buffer that was showing; it is not part of
+    // the state that comes back, so the store has to be told it has gone.
+    closeFindPanel();
+  }, [bufferId, buildExtensions, closeFindPanel]);
+
+  // Text pushed in from outside: an AI apply, a file opened, a sample loaded,
+  // a listing-backed block written back into the program.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || override.seq === lastSeq.current) return;
+    lastSeq.current = override.seq;
+    // A push while a scratch buffer is showing belongs to the program, which is
+    // not in this view: the caller drops the program's snapshot, so the new text
+    // is picked up from the store on the way back to it.
+    if (lastBuffer.current !== null) return;
+    // A whole different document, rather than a change to this one: start with
+    // a clean history, since undo must not reach back past an Open.
+    if (bufferHistories.generation !== lastHistoryGeneration.current) {
+      lastHistoryGeneration.current = bufferHistories.generation;
+      view.setState(freshBufferState(override.text, buildExtensions()));
+      closeFindPanel();
+      return;
+    }
+    if (view.state.doc.toString() !== override.text) {
+      isApplyingOverride.current = true;
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: override.text },
+      });
+      isApplyingOverride.current = false;
+    }
+  }, [override, buildExtensions, closeFindPanel]);
+
   // Highlight (and scroll to) the line the debugger is paused on. Breakpoints
   // and the paused line are tracked by BASIC line number, so map to an editor
   // row here; clear the highlight when there's no paused line, or when the
@@ -1075,34 +1084,25 @@ export function CodeMirrorHost({
     view.dispatch({ effects });
   }, [debugLine]);
 
-  // Switching the mobile view tab dismisses the find/replace panel.
+  // Switching the mobile view tab dismisses the find/replace panel, and so does
+  // switching to a tab this view isn't the surface for: the panel would search a
+  // buffer the user has stopped looking at.
   const mobileTab = useIdeStore((s) => s.mobileTab);
   useEffect(() => {
     const view = viewRef.current;
     if (view && searchPanelOpen(view.state)) closeSearchPanel(view);
-  }, [mobileTab]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view || override.seq === lastSeq.current) return;
-    lastSeq.current = override.seq;
-    if (view.state.doc.toString() !== override.text) {
-      isApplyingOverride.current = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: override.text },
-      });
-      isApplyingOverride.current = false;
-    }
-  }, [override]);
+  }, [mobileTab, active]);
 
   // The toolbar's Edit menu bumps editorCommand.seq; run the requested command
-  // here where we hold the EditorView.
+  // here where we hold the EditorView - but only while this view is the surface
+  // on screen. On a block tab the assembly editor answers instead, and this one
+  // is holding the program out of sight.
   useEffect(() => {
     if (editorCommand.seq === lastCommand.current) return;
     lastCommand.current = editorCommand.seq;
     const view = viewRef.current;
-    if (view) void runEditorCommand(view, editorCommand.name);
-  }, [editorCommand]);
+    if (view && active) void runEditorCommand(view, editorCommand.name);
+  }, [editorCommand, active]);
 
   // The outline dialog bumps jumpTarget.seq to move the cursor to a BASIC line
   // number and scroll it into view. Line numbers aren't 1:1 with editor rows, so

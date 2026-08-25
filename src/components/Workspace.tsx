@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   useIdeStore,
   useBlocks,
+  editorBufferOf,
   selectRunTargetName,
   type MobileTab,
 } from '../app/store';
@@ -276,8 +277,8 @@ export function Workspace() {
           {/* One mounted editor for every BASIC buffer: it stays mounted while
               a block tab is open - hiding (not unmounting) preserves the
               EditorView and the docOverride seq channel - and a switch between
-              the program and a scratch buffer swaps its document through that
-              same channel. */}
+              the program and a scratch buffer swaps the whole editor state, so
+              each buffer keeps its own history. */}
           <div
             className={`${styles.basicEditorHost} ${
               activeBlock !== null ? styles.slotHidden : ''
@@ -286,17 +287,18 @@ export function Workspace() {
             <CodeMirrorHost
               dialect={dialect}
               override={docOverride}
+              bufferId={editorBufferOf(activeTab)}
+              active={activeBlock === null}
               onChange={onEditorChange}
               inputRef={editorInputRef}
             />
           </div>
+          {/* One assembly editor for every block: not keyed by block id, so
+              switching blocks swaps its state rather than destroying the view
+              and the block's edit history with it. */}
           {activeBlock !== null &&
             (asmEngine !== null ? (
-              <AsmEditor
-                key={activeBlock.id}
-                block={activeBlock}
-                engine={asmEngine}
-              />
+              <AsmEditor block={activeBlock} engine={asmEngine} />
             ) : (
               <UnsupportedBlockNotice block={activeBlock} />
             ))}

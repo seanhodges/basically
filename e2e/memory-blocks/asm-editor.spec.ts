@@ -1,5 +1,6 @@
 // Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
 import { test, expect, type Page } from '../fixtures';
+import { editMenu } from '../helpers';
 
 /**
  * The per-block assembly editor:
@@ -12,6 +13,8 @@ import { test, expect, type Page } from '../fixtures';
  *     autosave), and the text survives tab switches and reloads.
  *  3. A syntax error shows an error dot on the tab and leaves bytes alone.
  *  4. A `kind: 'data'` block shows the not-yet-supported placeholder.
+ *  5. The Edit menu acts on the block on screen, and the block keeps its own
+ *     edit history across tab switches.
  *
  * Specs seed blocks through autosave (the same wire shape the project zip
  * uses), which the app restores on boot - faster and more precise than clicking
@@ -181,6 +184,50 @@ test('a syntax error marks the tab and leaves the bytes untouched', async ({
     (b) => b.name === 'border',
   )!;
   expect(border.bytes).toBe(BORDER_BYTES);
+});
+
+test('the Edit menu acts on the block, whose history outlives a tab switch', async ({
+  page,
+}) => {
+  // Browser-only: the menu has to reach the editor that is actually on screen,
+  // and the block's state has to survive a real tab switch as a live view is
+  // handed a different state. Neither is observable outside a browser.
+  await seedProject(page);
+  await page.getByRole('tab', { name: 'border' }).click();
+  await expect(asmContent(page)).toContainText('LD A,$02');
+
+  // A menu-driven Undo takes the block's own last edit...
+  await asmContent(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.insertText(' ; TWEAK');
+  await expect(asmContent(page)).toContainText('TWEAK');
+  await editMenu(page, /^Undo/);
+  await expect(asmContent(page)).not.toContainText('TWEAK');
+
+  // ...and the entries that only mean something for BASIC are withheld here
+  // rather than acting on the program behind the block.
+  await page.getByRole('button', { name: 'Edit ▾' }).click();
+  await expect(
+    page.getByRole('button', { name: /^Renumber line/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: /^Renumber file/ }),
+  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Outline/ })).toBeDisabled();
+  await page.keyboard.press('Escape');
+
+  // The BASIC program never saw any of it.
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  await expect(page.locator('.cm-content').first()).toContainText(
+    '10 PRINT "HI"',
+  );
+
+  // Back to the block: its history came back with it, so Redo still has the
+  // edit that Undo took.
+  await page.getByRole('tab', { name: 'border' }).click();
+  await expect(asmContent(page)).toContainText('LD A,$02');
+  await editMenu(page, /^Redo/);
+  await expect(asmContent(page)).toContainText('TWEAK');
 });
 
 test('a data block shows the not-yet-supported placeholder', async ({
