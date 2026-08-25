@@ -369,7 +369,9 @@ export const commodoreEscapes: EscapeTableData = {
       escape: '{rvon}',
       bytes: '0x12',
       category: 'mode',
-      description: 'Reverse video on (CHR$ 18).',
+      description:
+        'Reverse video on: characters print with their foreground and background swapped from here to the end of the line, or until reverse video is turned off (CHR$ 18).',
+      aliases: ['{rvson}', '{rvs on}'],
       example: {
         source: '{rvon}',
         bytes: [18],
@@ -380,8 +382,9 @@ export const commodoreEscapes: EscapeTableData = {
       escape: '{rvoff}',
       bytes: '0x92',
       category: 'mode',
-      description: 'Reverse video off (CHR$ 146).',
-      aliases: ['{rvof}'],
+      description:
+        'Reverse video off: characters print normally again (CHR$ 146).',
+      aliases: ['{rvof}', '{rvsoff}', '{rvs off}'],
       example: {
         source: '{rvoff}',
         bytes: [146],
