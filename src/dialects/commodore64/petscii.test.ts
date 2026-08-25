@@ -139,6 +139,34 @@ describe('C64 PETSCII table', () => {
     expect(parseC64Char('{shift-z}', 0).code).toBe(0xda);
   });
 
+  it('accepts the front faces of the symbol keys, not just the letters', () => {
+    // The six symbol keys carry front-face graphics too, so `x` is any keycap:
+    // SHIFT * draws the horizontal line $C0, C= * the filled corner $DF.
+    expect(parseC64Char('{shift-*}', 0)).toEqual({ code: 0xc0, length: 9 });
+    expect(parseC64Char('{SHIFT-*}', 0).code).toBe(0xc0);
+    expect(parseC64Char('{cbm-*}', 0).code).toBe(0xdf);
+    expect(parseC64Char('{shift-+}', 0).code).toBe(0xdb);
+    expect(parseC64Char('{cbm-+}', 0).code).toBe(0xa6);
+    // The minus key's two faces spell with a doubled hyphen.
+    expect(parseC64Char('{shift--}', 0).code).toBe(0xdd);
+    expect(parseC64Char('{cbm--}', 0).code).toBe(0xdc);
+    expect(parseC64Char('{shift-@}', 0).code).toBe(0xba);
+    expect(parseC64Char('{cbm-@}', 0).code).toBe(0xa4);
+    expect(parseC64Char('{shift-£}', 0).code).toBe(0xa9);
+    expect(parseC64Char('{cbm-£}', 0).code).toBe(0xa8);
+    // The up-arrow key prints pi on its SHIFT face and no C= graphic at all.
+    expect(parseC64Char('{shift-↑}', 0).code).toBe(0xff);
+    expect(() => parseC64Char('{cbm-↑}', 0)).toThrow();
+  });
+
+  it('parses a {shift-*} escape inside a run of text', () => {
+    // The escape stands in for a glyph, so it consumes one PETSCII byte and
+    // leaves the surrounding characters alone.
+    expect([...c64Charset.toMachine('A{shift-*}B')]).toEqual([
+      0x41, 0xc0, 0x42,
+    ]);
+  });
+
   it('accepts decimal {nnn} codes and rejects out-of-range ones', () => {
     expect(parseC64Char('{5}', 0)).toEqual({ code: 5, length: 3 });
     expect(parseC64Char('{160}', 0)).toEqual({ code: 160, length: 5 });

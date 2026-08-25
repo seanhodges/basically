@@ -578,7 +578,7 @@ export interface EscapeSection {
  * these be ranked the way {@link capabilitySections} ranks the capabilities, and
  * they are: worst-placed first, so the classes the target cannot express at all
  * lead, then the ones it half expresses, then the ones it has under its own
- * spellings. 52 key-graphics codes to redraw by hand and 5 cursor codes that
+ * spellings. 63 key-graphics codes to redraw by hand and 5 cursor codes that
  * become a print-at are not equal work, and the badge alone left the reader to
  * find that out by scanning.
  *
