@@ -221,6 +221,12 @@ export function keywordSpellingsFor(dialectId: string): KeywordSpellings {
 
 /** A run of letters followed by the dot that abbreviates them. */
 const DOTTED = /^([A-Za-z]+)\./;
+/**
+ * The same, on a machine whose scan compares characters: there a dotted prefix
+ * only abbreviates in the case the ROM's table is written in, so a BBC `p.` is
+ * a name and a full stop rather than PRINT.
+ */
+const DOTTED_UPPER = /^([A-Z]+)\./;
 /** A lower-case run closed by one upper-case letter: the shifted-letter form. */
 const SHIFTED = /^([a-z]+)([A-Z])/;
 
@@ -233,11 +239,18 @@ const SHIFTED = /^([a-z]+)([A-Z])/;
  * dot), and so is a shifted-letter prefix (`gO` is GO, not GOTO) - in both
  * cases the tokenizer takes the full spelling, and this has to agree with it or
  * the guide would report an expansion the program does not need.
+ *
+ * `foldsCase` is the machine's keyword-scan case fact (see
+ * {@link ./letterCase}). Where it is false the ROM compares characters, so only
+ * an upper-case prefix abbreviates and `p.` is a name followed by a full stop.
+ * The shifted-letter form is unaffected either way: it *requires* a lower-case
+ * prefix, and only machines that fold have it.
  */
 export function spellingAt(
   text: string,
   i: number,
   spellings: KeywordSpellings,
+  foldsCase = true,
 ): (SpellingUse & { length: number }) | null {
   for (const { spelling, keyword } of spellings.symbols) {
     if (text.startsWith(spelling, i)) {
@@ -248,7 +261,7 @@ export function spellingAt(
   const rest = text.slice(i);
   const match =
     spellings.style === 'dot'
-      ? DOTTED.exec(rest)
+      ? (foldsCase ? DOTTED : DOTTED_UPPER).exec(rest)
       : spellings.style === 'shifted'
         ? SHIFTED.exec(rest)
         : null;

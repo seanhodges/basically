@@ -6,6 +6,11 @@
  * The editor layer (highlighter, variable scanner, completion sources) uses a
  * {@link CrunchMatcher} to split identifier runs exactly the way the ROM will,
  * instead of the default whole-run keyword rule.
+ *
+ * The match below folds case unconditionally, and stays right because every
+ * machine that crunches also folds a keyword's case (see
+ * {@link ../dialects/letterCase}) - the Acorns, which do not, do not crunch.
+ * Making the fold conditional here would be a change with no machine behind it.
  */
 import { Facet } from '@codemirror/state';
 

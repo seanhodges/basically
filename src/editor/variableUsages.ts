@@ -6,14 +6,12 @@
  *
  * Given a position in the program, this finds the variable written there and
  * every other occurrence of *that same variable* - which is not the same as
- * every occurrence of the same spelling. Three machine facts separate the two:
+ * every occurrence of the same spelling.
  *
- * - **Case.** Most of these ROMs fold case, so `score` and `SCORE` are one
- *   variable - but not Acorn's BBC BASIC, where they are two.
- * - **Significance.** Microsoft BASIC keeps two characters of a name, so on a
- *   C64, PET, VIC-20, TRS-80 or Altair `SCORE` and `SCOTT` are the same two
- *   bytes of RAM. Reporting them together is the truth of the machine, and the
- *   variable lint already warns about the collision.
+ * Case and significance are {@link ./variableIdentity}'s, shared with the
+ * variable lint so the two cannot disagree about the same program. What is this
+ * view's own is scope:
+ *
  * - **Kind and scope.** A scalar and an array of one name live in separate
  *   tables, so `A` and `A(0)` are different variables; and a BBC procedure's
  *   parameters and `LOCAL`s are private to it, so a global of the same
@@ -34,11 +32,8 @@ import {
   type ProcRegion,
   type VarNameRules,
 } from './variables';
-import {
-  VARIABLE_LEXIS,
-  variableRules,
-  type VariableLexis,
-} from './variableLexis';
+import { lexisFor, variableRules, type VariableLexis } from './variableLexis';
+import { identityKey } from './variableIdentity';
 
 /** A half-open document offset range. */
 export interface UsageRange {
@@ -62,21 +57,6 @@ type VarKind = 'scalar' | 'array';
 interface Identity {
   key: string;
   kind: VarKind;
-}
-
-/**
- * The name as the ROM holds it: case folded unless the machine distinguishes it,
- * cut to the characters it keeps, with the type marker (`$`, `%`, `!`, `#`)
- * still attached - a marker names a separate table, so `A` and `A$` never merge.
- */
-function identityKey(name: string, lexis: VariableLexis): string {
-  const cased = lexis.caseSensitive ? name : name.toUpperCase();
-  const suffixChars = lexis.suffixChars ?? '$';
-  const last = cased[cased.length - 1];
-  const suffix = last && suffixChars.includes(last) ? last : '';
-  const bare = suffix ? cased.slice(0, -1) : cased;
-  const significant = lexis.significantChars;
-  return (significant ? bare.slice(0, significant) : bare) + suffix;
 }
 
 /**
@@ -160,7 +140,7 @@ export function variableTokenAt(
   keywords: EditorKeyword[],
   pos: number,
 ): (UsageRange & { name: string }) | null {
-  const lexis = VARIABLE_LEXIS[dialectId] ?? {};
+  const lexis = lexisFor(dialectId);
   const starts = lineStarts(docText);
   const occ = occurrenceAt(
     docText,
@@ -191,7 +171,7 @@ export function findVariableUsages(
   keywords: EditorKeyword[],
   pos: number,
 ): VariableUsages | null {
-  const lexis = VARIABLE_LEXIS[dialectId] ?? {};
+  const lexis = lexisFor(dialectId);
   const rules = variableRules(lexis, keywords);
   const starts = lineStarts(docText);
 

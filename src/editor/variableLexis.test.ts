@@ -10,7 +10,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
-import { VARIABLE_LEXIS, variableRulesFor } from './variableLexis';
+import { VARIABLE_LEXIS, lexisFor, variableRulesFor } from './variableLexis';
+import { foldsKeywordCase } from '../dialects/letterCase';
 
 describe('variable lexis', () => {
   it('names every registered machine, and no others', () => {
@@ -45,10 +46,12 @@ describe('variable lexis', () => {
  * CPC).
  *
  * `case` is whether the ROM tells `A` from `a`. Acorn's BBC BASIC does -
- * `10 a=1:A=2:PRINT a;A` prints 1 and 2 - and it is alone: the same program
+ * `10 a=1:A=2:PRINT a;A` prints 1 and 2 - and so does BASIC-G; the same program
  * prints 2 and 2 on a CPC, and a Spectrum and a C64 are each left holding a
  * single variable A. The Atom rejects a lowercase name outright (ERROR 94), so
- * it folds case with the majority and nothing rides on it.
+ * it folds case with the majority and nothing rides on it. Restated here
+ * against the machine's declared letter-case facts, which is where the lexis
+ * now takes it from.
  *
  * `dataItems` is what READ does with a DATA item: a BBC and a CPC hand back the
  * string "a" for `10 a=7:DATA a`, while a Spectrum hands back 7 (and 14 for
@@ -105,7 +108,10 @@ describe('name facts are stated per machine', () => {
     '%s keeps the lexis and the ROM facts in step',
     (id, dialect) => {
       const facts = ROM_NAME_FACTS[id]!;
-      const lexis = VARIABLE_LEXIS[id]!;
+      // The resolved lexis, not the authored record: case is declared with the
+      // machine's other letter-case facts and filled in here, so reading the
+      // record directly would find it absent on every machine.
+      const lexis = lexisFor(id);
 
       expect(lexis.significantChars).toBe(
         facts.significant === 'all' ? undefined : facts.significant,
@@ -113,9 +119,11 @@ describe('name facts are stated per machine', () => {
       expect(lexis.dataIsVerbatim).toBe(
         facts.dataItems === 'verbatim' ? true : undefined,
       );
-      expect(lexis.caseSensitive).toBe(
-        facts.case === 'sensitive' ? true : undefined,
-      );
+      expect(lexis.caseSensitive).toBe(facts.case === 'sensitive');
+      // The scanner's keyword fold is a different question with a different
+      // answer: the PMD 85 tells `A` from `a` in a name and still reads a
+      // lower-case keyword, because its dialect is declared lenient.
+      expect(lexis.foldsKeywordCase).toBe(foldsKeywordCase(id));
 
       // Ties the table to the dialect's own keyword data: claiming a machine
       // has no DATA when its table lists one (or the reverse) fails here.

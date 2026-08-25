@@ -8,7 +8,7 @@ import type {
   MachineVariable,
   MemoryBlock,
 } from '../../types';
-import { plainChar } from '../charset';
+import { screenChar } from '../charset';
 import {
   renderDisplay,
   COLS,
@@ -152,6 +152,10 @@ export class Trs80InterpreterMachine implements MachineEmulator {
    * own charset so the block-graphics cells come back as the same sextant
    * glyphs a listing shows. Codes with no printable form (controls, the blank
    * graphic 0x80, the space-compression codes) read as spaces.
+   *
+   * Read through the same helper the canvas draws with, so this reports the
+   * case the screen is showing: the stock Model I has no lower-case cell and
+   * draws a capital wherever a lower-case byte is stored.
    */
   readScreenText(): MachineScreenText | null {
     const video = this.interp.screen.video;
@@ -160,7 +164,7 @@ export class Trs80InterpreterMachine implements MachineEmulator {
     for (let row = 0; row < ROWS; row++) {
       let line = '';
       for (let col = 0; col < COLS; col++) {
-        line += plainChar(video[row * COLS + col]!) ?? ' ';
+        line += screenChar(video[row * COLS + col]!) ?? ' ';
       }
       lines.push(line);
     }

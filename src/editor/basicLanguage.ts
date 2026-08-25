@@ -43,6 +43,22 @@ export interface BasicLanguageOptions {
    */
   crunched?: boolean;
   /**
+   * Whether a keyword spelled in lower case is that keyword on this machine.
+   * Default true, which is every machine here but the Acorn BBCs: their ROM
+   * matches a keyword byte for byte against an upper-case table and their
+   * encoding preserves lower case, so `print` there is a name and must be
+   * coloured, completed, outlined and renamed as one. Derived from
+   * {@link ../dialects/letterCase}, never authored per dialect.
+   *
+   * A keyword-*recognition* flag, not a name-identity one: it decides only
+   * whether a run is folded before being tested against the keyword set, and
+   * the run is emitted as written either way. Name identity is
+   * {@link ./variableIdentity}'s, and the two answers differ - the Commodores
+   * fold both, the BBCs fold neither, and nothing here folds one and not the
+   * other by accident.
+   */
+  foldsKeywordCase?: boolean;
+  /**
    * Operator spellings to style beyond the ones in the keyword table: the
    * machine's own `Dialect.operators` (the Sinclair `↑`, the BBC's symbolic
    * set), plus any alias spelling the tokenizer accepts but the machine never
@@ -194,6 +210,7 @@ export function buildBasicLanguage(
   const { headRe, varRe } = buildIdentifierRegexes(options);
   const crunch = options.crunched ? makeCrunchMatcher(kinds.keys()) : null;
   const spellings = options.spellings;
+  const foldsKeywordCase = options.foldsKeywordCase ?? true;
   // The symbolic half of the keyword table is what `kinds` above throws away,
   // and it is exactly what the operator matchers want: `**` on a ZX81, `^` on a
   // CPC, the Atom's `?` and `&`. The dialect's own `operators` cover what its
@@ -258,7 +275,12 @@ export function buildBasicLanguage(
       // that command. Which spellings a machine takes, and what each resolves
       // to, is its own ROM's scan order - see ../dialects/keywordSpellings.
       if (spellings) {
-        const short = spellingAt(stream.string, stream.pos, spellings);
+        const short = spellingAt(
+          stream.string,
+          stream.pos,
+          spellings,
+          foldsKeywordCase,
+        );
         if (short) {
           for (let i = 0; i < short.length; i++) stream.next();
           return tagFor(short.keyword, state);
@@ -284,7 +306,12 @@ export function buildBasicLanguage(
         return 'variableName';
       }
       if (word) {
-        const text = (word as RegExpMatchArray)[0].toUpperCase();
+        // Folded only where the machine's own scan would fold: on a BBC the
+        // keyword table is matched byte for byte, so `print` is a name here and
+        // falls through to the variable tag below - which is what the variable
+        // scanner, the outline and the rename see too.
+        const run = (word as RegExpMatchArray)[0];
+        const text = foldsKeywordCase ? run.toUpperCase() : run;
         // Longest keyword prefix of this identifier-run
         for (let len = Math.min(text.length, maxWordLen); len >= 2; len--) {
           const candidate = text.slice(0, len);
@@ -335,6 +362,7 @@ export function buildBasicLanguage(
     hexRe,
     callPrefixes: ['PROC', 'FN'].filter((w) => keywordSet.has(w)),
     crunch,
+    foldsKeywordCase,
   };
   const variableSource = makeVariableSource(
     rules,

@@ -480,13 +480,23 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     {
       kind: 'chip',
       chip: 'MCM6670',
-      codes: range(0x20, 0x7f),
+      // 0x20-0x5F only, and the stop is the machine rather than the chip: the
+      // MCM6670 is a 128-character generator and its second half is lower case,
+      // but the stock Model I stores only six bits of each character in video
+      // RAM, so the seventh address line into the chip is never driven and no
+      // code above 0x5F can be reached. (The well-known lower-case modification
+      // is exactly the missing RAM bit plus the wire; a machine with it belongs
+      // in a sibling dialect, not here.) Claiming 0x60-0x7F would be claiming
+      // shapes this machine cannot draw.
+      codes: range(0x20, 0x5f),
       cell: { w: 8, h: 12 },
-      indexOf: linear(0x20, 0x7f),
+      indexOf: linear(0x20, 0x5f),
       note:
         'No character ROM is shipped: src/dialects/trs80/emulator/display.ts ' +
         'draws ASCII with the host font deliberately, to avoid bundling a second ' +
-        'copyrighted asset. The real shapes are in the MCM6670.',
+        'copyrighted asset. The real shapes are in the MCM6670, of which the ' +
+        'stock Model I addresses the first 64 - the display folds a stored ' +
+        'lower-case byte onto its capital rather than reaching the rest.',
     },
     {
       kind: 'logic',

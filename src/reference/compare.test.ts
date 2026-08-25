@@ -699,6 +699,7 @@ describe('composeGuidance', () => {
         marked: null,
         markerDistinguishes: true,
         markers: '$',
+        caseSensitive: false,
       },
       abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
       unsupportedCharacters: [],
@@ -1649,6 +1650,7 @@ describe('variableCollisionsForProgram', () => {
     plain: number | null,
     marked: number | null = plain,
     markers = '$%',
+    caseSensitive = false,
   ): PortingFacts =>
     ({
       id: 'm',
@@ -1657,6 +1659,7 @@ describe('variableCollisionsForProgram', () => {
         marked,
         markerDistinguishes: markers !== '',
         markers,
+        caseSensitive,
       },
     }) as PortingFacts;
 
@@ -1730,6 +1733,42 @@ describe('variableCollisionsForProgram', () => {
   it('reports nothing for a program with no names', () => {
     expect(
       variableCollisionsForProgram(machine(null), machine(2), using()),
+    ).toEqual([]);
+  });
+
+  it('collides two cases of a name on a target that folds them', () => {
+    // The same silent failure as a truncated name, one question over: the
+    // source told `Total` from `total`, the target does not, and the program
+    // quietly computes with one variable where it had two.
+    expect(
+      variableCollisionsForProgram(
+        machine(null, null, '$%', true),
+        machine(null),
+        using('Total', 'total'),
+      ),
+    ).toEqual([{ key: 'TOTAL', names: ['Total', 'total'] }]);
+  });
+
+  it('reports nothing about two cases the source already folded', () => {
+    // On a folding source those two spellings were never two variables, so the
+    // port introduces nothing - whichever target is compared.
+    for (const target of [
+      machine(null),
+      machine(2),
+      machine(null, null, '$%', true),
+    ])
+      expect(
+        variableCollisionsForProgram(machine(null), target, using('TOTAL')),
+      ).toEqual([]);
+  });
+
+  it('keeps two cases apart on a target that tells them apart', () => {
+    expect(
+      variableCollisionsForProgram(
+        machine(null, null, '$%', true),
+        machine(null, null, '$%', true),
+        using('Total', 'total'),
+      ),
     ).toEqual([]);
   });
 });

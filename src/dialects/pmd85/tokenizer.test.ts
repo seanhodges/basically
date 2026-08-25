@@ -68,6 +68,26 @@ describe('pmd85 tokenizer', () => {
     expect(body('10 print "Hi"')).toEqual([0x96, 0x20, 0x22, 0x48, 0x69, 0x22]);
   });
 
+  it('reports the folded keyword the ROM would have refused', () => {
+    // The dialect is deliberately lenient - a lower-case listing is what a
+    // reader pastes in - but the ROM's crunch compares raw bytes against an
+    // upper-case table, so the real machine would store five characters and
+    // fail at RUN. Being lenient about what can be opened is not a claim the
+    // machine will run it.
+    const { errors, program } = tokenizeProgram('10 print "HI"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/Lower-case keyword 'print'/);
+    expect(errors[0]!.message).toMatch(/PRINT/);
+    expect(errors[0]!.fatal).toBe(false);
+    // ...and it changes nothing about the bytes, nor blocks the build.
+    expect(body('10 print "HI"')).toEqual(body('10 PRINT "HI"'));
+    expect(program.length).toBeGreaterThan(2);
+  });
+
+  it('says nothing about a keyword spelled the way the ROM wants', () => {
+    expect(tokenizeProgram('10 PRINT "HI"\n').errors).toEqual([]);
+  });
+
   it('leaves a hexadecimal literal uncrunched after the apostrophe', () => {
     // Without the `'` rule the ABS in `'ABS` would tokenize; with it, the A
     // and B are hex digits and only the S falls back to the main scan.

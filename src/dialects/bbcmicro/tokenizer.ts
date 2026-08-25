@@ -1,4 +1,5 @@
 import { CharsetError, type TokenizeError } from '../types';
+import { lowerCaseKeywordMessage } from '../../editor/keywordCase';
 import { bbcCharset, parseChar } from './charset';
 import { BASIC_II, type BbcKeyword, type BbcVariant } from './keywords';
 import { encodeLineNumber } from './lineNumber';
@@ -210,6 +211,41 @@ function tokenizeBody(
     });
   };
 
+  /**
+   * A command the ROM would only have recognised in capitals.
+   *
+   * BASIC compares its keyword table byte for byte, so a lower-case spelling is
+   * a name here and the statement will not do what it says. Which keyword was
+   * meant is found by retrying the match in upper case - and that retry
+   * produces **a diagnostic only, never a token**, so the byte stream stays
+   * exactly what the ROM would store.
+   *
+   * Only at a statement opener, and only for a command whose match ends the
+   * identifier run: mid-expression a lower-case word is an ordinary name, and
+   * `printer=1` is a name the ROM splits rather than a mistyped PRINT.
+   */
+  const reportLowerCaseKeyword = (at: number): boolean => {
+    if (asm.active) return false;
+    const upper = body.slice(0, at) + body.slice(at).toUpperCase();
+    const retry =
+      matchAbbreviation(upper, at, statementStart, variant) ??
+      matchKeyword(upper, at, statementStart, variant);
+    if (!retry || retry.kw.kind !== 'command') return false;
+    const end = at + retry.len;
+    const next = body[end];
+    if (next !== undefined && ALNUM.test(next)) return false;
+    const typed = body.slice(at, end);
+    if (typed === typed.toUpperCase()) return false;
+    errors.push({
+      line: editorLine,
+      column: colOffset + at,
+      endColumn: colOffset + end,
+      message: lowerCaseKeywordMessage(typed, variant.label),
+      fatal: false,
+    });
+    return true;
+  };
+
   const emit = (ch: string, at: number): boolean => {
     try {
       for (const b of bbcCharset.toMachine(ch)) out.push(b);
@@ -358,8 +394,12 @@ function tokenizeBody(
         let k = j;
         while (body[k] === ' ' || body[k] === '\t') k++;
         const next = body[k];
+        // A name where a command belongs. Where upper-casing it would have
+        // found a command, that is what the author meant and the case is the
+        // whole of the problem, so say so rather than repeating the general
+        // complaint about the statement's shape.
         if (next !== '=' && next !== '(' && next !== '?' && next !== '!') {
-          flagStatement(i, j, body.slice(i, j));
+          if (!reportLowerCaseKeyword(i)) flagStatement(i, j, body.slice(i, j));
         }
       }
       for (; i < j; i++) if (!emit(body[i]!, i)) return null;

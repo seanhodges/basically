@@ -255,6 +255,29 @@ describe('pmd85VariableErrors (Microsoft model, $ the only suffix)', () => {
     // scanner would report an `FF` variable that the program does not have.
     expect(pmd85("10 A='FF")).toEqual([]);
   });
+
+  it('reports no collision between two names the machine keeps apart', () => {
+    // This ROM compares a name byte for byte, so `PLayer` is stored under `PL`
+    // and `Planet` under `Pl`, and the two never meet. The lint used to fold
+    // first and report a collision the machine does not have - while the
+    // usages view beside it, which consulted the case fact, said on the same
+    // program that they were two variables.
+    expect(pmd85('10 PLayer=1\n20 Planet=2')).toEqual([]);
+  });
+
+  it('still reports a genuine two-character collision', () => {
+    const errors = pmd85('10 PLayer=1\n20 PLanet=2');
+    expect(errors).toHaveLength(2);
+    for (const e of errors)
+      expect(e.message).toMatch(/only the first two characters \('PL'\)/);
+  });
+
+  it('quotes a name the way the program spells it', () => {
+    // Folding the reported spellings would have shown the reader a name that
+    // is nowhere in their program.
+    const [first] = pmd85('10 PLayer=1\n20 PLanet=2');
+    expect(first!.message).toMatch(/'PLayer' clashes with 'PLanet'/);
+  });
 });
 
 /**

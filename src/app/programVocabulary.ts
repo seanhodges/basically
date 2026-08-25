@@ -28,6 +28,7 @@ import {
   type MemoryBlock,
 } from '../dialects/types';
 import { probeFor } from '../dialects/charsetProbes';
+import { distinguishesNameCase, foldNameCase } from '../dialects/letterCase';
 import { findDialect } from '../dialects/registry';
 import { isBinaryDirective } from '../dialects/binaryDirective';
 import { scannable } from '../editor/programOutline';
@@ -77,8 +78,10 @@ export interface ProgramVocabulary {
    */
   spellings: SpellingUse[];
   /**
-   * Distinct variable names the program's code contains, upper-cased and
-   * sorted, in the source machine's own spelling (type marker included).
+   * Distinct variable names the program's code contains, sorted, in the source
+   * machine's own spelling (type marker included) and folded to upper case only
+   * where that machine folds - the Acorns and the PMD 85 tell `A` from `a`, so
+   * on those the two spellings are two names here.
    *
    * Read with the editor's own dialect-aware variable walk, so a keyword, a
    * number, a hex literal and a `PROC`/`FN` call are none of them names - and
@@ -569,7 +572,8 @@ function shortSpellingsIn(source: string, dialect: Dialect): SpellingUse[] {
 }
 
 /**
- * The distinct variable names the program's code contains, upper-cased.
+ * The distinct variable names the program's code contains, as the machine that
+ * wrote them would tell them apart.
  *
  * The editor's own walk rather than a second one: `forEachVariable` is what the
  * highlighter, the completion and the variable lint already read a name with, so
@@ -577,16 +581,19 @@ function shortSpellingsIn(source: string, dialect: Dialect): SpellingUse[] {
  * rules come from the shared lexis table, which is what knows that a BBC name may
  * carry `_` and a TRS-80 name may end `!` or `#`.
  *
- * A `PROC`/`FN` call and a glued keyword are already excluded by the walk. Upper
- * case because the machines that matter here are case-insensitive about names,
- * and the target's significance rule is applied to what comes out.
+ * A `PROC`/`FN` call and a glued keyword are already excluded by the walk. Case
+ * is folded only where the source machine folds it: two of these machines tell
+ * `A` from `a`, so folding unconditionally would hand the porting comparison one
+ * name where the program has two, and the collision it exists to report would
+ * never be found.
  */
 function variablesIn(source: string, dialect: Dialect): Set<string> {
   const rules = variableRulesFor(dialect.id, dialect.keywords);
+  const caseSensitive = distinguishesNameCase(dialect.id);
   const found = new Set<string>();
   for (const { body } of codeLines(source)) {
     forEachVariable(scannable(body), rules, (t) =>
-      found.add(t.text.toUpperCase()),
+      found.add(foldNameCase(t.text, caseSensitive)),
     );
   }
   return found;

@@ -71,6 +71,25 @@ export interface VarNameRules {
    * agree about the same text. See {@link ../dialects/keywordSpellings}.
    */
   spellings?: KeywordSpellings | null;
+  /**
+   * Whether a run is folded before being tested against {@link keywords}.
+   * Default true; false on the Acorn BBCs, whose ROM matches a keyword byte for
+   * byte, so `print` there is a name the scanner must find rather than a
+   * keyword it must skip. See {@link ../dialects/letterCase}.
+   *
+   * Only the keyword *test* folds - the run is reported as written either way,
+   * because whether two spellings are one variable is a different question with
+   * a different answer (see {@link ./variableIdentity}).
+   */
+  foldsKeywordCase?: boolean;
+}
+
+/**
+ * The spelling of `run` to look up in the keyword set: folded where the
+ * machine's own scan folds, as written where it compares characters.
+ */
+function keywordLookup(run: string, rules: VarNameRules): string {
+  return rules.foldsKeywordCase === false ? run : run.toUpperCase();
 }
 
 /**
@@ -177,7 +196,9 @@ export function forEachVariable(
     // A keyword spelled short is that keyword, so its letters are not a name.
     // Asked before the identifier run for the same reason the highlighter asks
     // there: the dot or shifted letter marking the spelling is part of it.
-    const short = rules.spellings ? spellingAt(code, i, rules.spellings) : null;
+    const short = rules.spellings
+      ? spellingAt(code, i, rules.spellings, rules.foldsKeywordCase ?? true)
+      : null;
     if (short) {
       if (short.keyword === 'REM') return; // rest of the line is a comment
       prevKeyword = short.keyword;
@@ -192,7 +213,7 @@ export function forEachVariable(
       continue;
     }
     const run = head[0];
-    const upper = run.toUpperCase();
+    const upper = keywordLookup(run, rules);
     // A PROC/FN call (prefix + name) is not a variable - skip the whole run.
     if (
       rules.callPrefixes.some(
@@ -298,7 +319,9 @@ function forEachVariableCrunched(
     // A keyword spelled short, ahead of the crunch split: `pO53280,1` is POKE
     // and a number, not one very long name. The all-capitals runs crunch exists
     // for cannot match a shifted spelling, so the two never compete.
-    const short = rules.spellings ? spellingAt(code, i, rules.spellings) : null;
+    const short = rules.spellings
+      ? spellingAt(code, i, rules.spellings, rules.foldsKeywordCase ?? true)
+      : null;
     if (short) {
       const kw = short.keyword;
       if (kw === 'REM') return;

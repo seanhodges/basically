@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { dialects, getDialect } from '../dialects/registry';
 import { findVariableUsages } from './variableUsages';
+import { pmd85VariableErrors } from './variableLint';
 
 /**
  * Pick the variable at the `|` marker and report what would be highlighted.
@@ -192,6 +193,32 @@ describe('findVariableUsages - procedure scope (BBC)', () => {
       src.replace('60 LOCAL idx', '60 LOCAL |idx'),
     );
     expect(found?.count).toBe(3); // the LOCAL, the FOR and the NEXT
+  });
+});
+
+describe('findVariableUsages agrees with the variable lint', () => {
+  it('counts two variables on a PMD 85 program the lint reports nothing about', () => {
+    // The two used to disagree on exactly this program: the usages view
+    // consulted the case fact and said two variables, while the lint folded
+    // first and reported a collision the machine does not have. Both now read
+    // the same identity rule, so they cannot.
+    const src = '10 PLayer=1\n20 Planet=2';
+    expect(pick('pmd85', src.replace('10 PLayer', '10 PL|ayer'))?.count).toBe(
+      1,
+    );
+    expect(pmd85VariableErrors(src, getDialect('pmd85').keywords)).toEqual([]);
+  });
+
+  it('counts one variable where the machine really does merge them', () => {
+    const src = '10 PLayer=1\n20 PLanet=2';
+    // Two spellings, one storage: the usages view reports both occurrences...
+    expect(pick('pmd85', src.replace('10 PLayer', '10 PL|ayer'))?.count).toBe(
+      2,
+    );
+    // ...and the lint reports the collision that makes them one.
+    expect(pmd85VariableErrors(src, getDialect('pmd85').keywords)).toHaveLength(
+      2,
+    );
   });
 });
 
