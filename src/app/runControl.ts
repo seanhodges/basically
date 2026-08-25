@@ -1,8 +1,10 @@
 /**
- * What the primary run control (the round button over the editor on the touch
- * layout) offers, derived from the run's state.
+ * What the primary run control offers, derived from the run's state - one
+ * derivation behind every surface that offers to pause or continue a run: the
+ * round control over the editor on the touch layout, the toolbar's run buttons,
+ * the run actions on the machine's tab, and the keyboard.
  *
- * Kept apart from the component so it can be tested without a renderer, and
+ * Kept apart from the components so it can be tested without a renderer, and
  * type-only against the store so importing it does not pull in the store's
  * module-load reads of localStorage.
  */
@@ -62,15 +64,67 @@ export function runControlStateOf(
 }
 
 /**
- * Text glyphs, matching the toolbar's set (▶ ■ ⤵). Continue shares the play
- * triangle with Play, as the toolbar's own Continue does. Pause is U+275A
- * rather than U+23F8, which browsers give emoji presentation and colour.
+ * What a surface that carries its own separate Play shows for the pause and
+ * the continue: two faces and a refusal, rather than the control-over-the-
+ * editor's three positions.
+ */
+export interface PauseToggle {
+  /** Which face to wear. Never Play - that surface has a Play of its own. */
+  face: Exclude<RunControlState, 'play'>;
+  /** Whether pressing it would do anything. */
+  offered: boolean;
+}
+
+/**
+ * The two-face reading of {@link runControlStateOf}, for the toolbar's run
+ * buttons and the overflow menu's Run actions.
+ *
+ * Where the control over the editor falls back to Play - the run is stopped, the
+ * machine offers no pause, or the program has ended and left the machine at its
+ * prompt - a surface with its own Play refuses instead. Falling back would give
+ * such a surface two buttons that both start the program, and would let a
+ * mis-aimed press restart a run at the moment it ended. The refused face is
+ * Continue, which is what those surfaces show at rest today.
+ */
+export function pauseToggleOf(state: RunControlState): PauseToggle {
+  if (state === 'pause') return { face: 'pause', offered: true };
+  if (state === 'continue') return { face: 'continue', offered: true };
+  return { face: 'continue', offered: false };
+}
+
+/**
+ * Text glyphs, matching the toolbar's set (▶ ■ ⤵). Continue is the left half of
+ * the Pause bars followed by the play triangle, so it is told apart from Play
+ * by its mark rather than by fill colour alone - the two actions it matters
+ * most not to confuse, since one carries the run on and the other throws it
+ * away and starts over. Both codepoints are already in the set: no glyph here
+ * is one the app was not already rendering.
+ *
+ * Pause is U+275A rather than U+23F8, and Continue is that bar with U+25B6
+ * rather than U+23EF: browsers give the U+23Ex range emoji presentation and
+ * colour, and U+23EF means a play/pause toggle rather than a resume.
  */
 const GLYPH: Record<RunControlState, string> = {
   play: '▶',
   pause: '❚❚',
-  continue: '▶',
+  continue: '❚▶',
 };
+
+/**
+ * The one-word name of each position, for the surfaces that set a word beside
+ * the glyph (the toolbar's buttons, the overflow menu's items). One word per
+ * action wherever it is offered; the sentence form is {@link runControlLabel}.
+ */
+const WORD: Record<RunControlState, string> = {
+  play: 'Play',
+  pause: 'Pause',
+  continue: 'Continue',
+};
+
+/** The word the run control sets beside its glyph in `state`. */
+export function runControlWord(state: RunControlState): string {
+  return WORD[state];
+}
 
 /** The glyph the run control shows in `state`. */
 export function runControlGlyph(state: RunControlState): string {

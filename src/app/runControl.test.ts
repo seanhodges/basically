@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { EmulatorStatus } from './store';
 import {
   runControlStateOf,
+  pauseToggleOf,
   runControlGlyph,
+  runControlWord,
   runControlLabel,
   canPauseRun,
 } from './runControl';
@@ -77,10 +79,79 @@ describe('runControlStateOf', () => {
   });
 });
 
+describe('pauseToggleOf', () => {
+  it('offers Pause while running and Continue while paused', () => {
+    expect(pauseToggleOf('pause')).toEqual({ face: 'pause', offered: true });
+    expect(pauseToggleOf('continue')).toEqual({
+      face: 'continue',
+      offered: true,
+    });
+  });
+
+  it('refuses rather than offering to start the program a second way', () => {
+    // The surfaces this drives carry their own Play. Falling back to Play here
+    // would give them two buttons that both start the program, and would let a
+    // mis-aimed press restart a run at the moment it ended.
+    expect(pauseToggleOf('play')).toEqual({ face: 'continue', offered: false });
+  });
+
+  it('never wears the Play face', () => {
+    for (const status of ALL_STATUSES) {
+      for (const pausable of [true, false]) {
+        for (const programEnded of [true, false]) {
+          const state = runControlStateOf(status, { pausable, programEnded });
+          expect(pauseToggleOf(state).face).toMatch(/^(pause|continue)$/);
+        }
+      }
+    }
+  });
+
+  it('offers nothing on a machine with no debugger', () => {
+    // Pausing is offered only where continuing is; without a debugger neither
+    // is, so the control is shown refused whatever the machine is doing.
+    for (const status of ALL_STATUSES) {
+      const state = runControlStateOf(status, {
+        pausable: false,
+        programEnded: false,
+      });
+      // A run already paused when the machine was switched keeps its way out.
+      const expected = status === 'paused';
+      expect(pauseToggleOf(state).offered).toBe(expected);
+    }
+  });
+
+  it('refuses once the program has ended', () => {
+    // The machine runs on at its prompt, but there is no longer a program to
+    // hold still or to carry on - and the toolbar's own Play is what starts
+    // another one.
+    for (const status of ALL_STATUSES) {
+      const state = runControlStateOf(status, {
+        pausable: true,
+        programEnded: true,
+      });
+      expect(pauseToggleOf(state)).toEqual({
+        face: 'continue',
+        offered: false,
+      });
+    }
+  });
+});
+
 describe('runControlGlyph', () => {
-  it('shares the play triangle between Play and Continue', () => {
+  it('marks Continue apart from Play', () => {
+    // Continue used to wear Play's bare triangle, leaving fill colour the only
+    // thing between carrying a run on and throwing it away to start over.
     expect(runControlGlyph('play')).toBe('▶');
-    expect(runControlGlyph('continue')).toBe('▶');
+    expect(runControlGlyph('continue')).toBe('❚▶');
+    expect(runControlGlyph('continue')).not.toBe(runControlGlyph('play'));
+  });
+
+  it('composes Continue from the marks already in the set', () => {
+    // No codepoint enters the app that it was not already rendering: the left
+    // half of Pause, then Play.
+    expect(runControlGlyph('continue')).toBe(
+      runControlGlyph('pause').slice(0, 1) + runControlGlyph('play'),
+    );
   });
 
   it('shows bars for Pause, in text presentation', () => {
@@ -88,6 +159,26 @@ describe('runControlGlyph', () => {
     expect(glyph).toBe('❚❚');
     // U+23F8 renders as a colour emoji in most browsers; U+275A does not.
     expect(glyph).not.toContain('⏸');
+  });
+
+  it('keeps every mark out of the emoji-presentation range', () => {
+    // U+23E9-U+23FA (⏯ ⏸ ▶️…) are given emoji presentation and colour by
+    // browsers, which would put a coloured pill in a row of text glyphs.
+    for (const state of ['play', 'pause', 'continue'] as const) {
+      for (const ch of runControlGlyph(state)) {
+        const cp = ch.codePointAt(0) ?? 0;
+        expect(cp >= 0x23e9 && cp <= 0x23fa).toBe(false);
+      }
+      expect(runControlGlyph(state)).not.toContain('\uFE0F');
+    }
+  });
+});
+
+describe('runControlWord', () => {
+  it('gives each position one word, distinct from the others', () => {
+    expect(runControlWord('play')).toBe('Play');
+    expect(runControlWord('pause')).toBe('Pause');
+    expect(runControlWord('continue')).toBe('Continue');
   });
 });
 

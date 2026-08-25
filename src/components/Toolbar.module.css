@@ -216,6 +216,14 @@
   }
 }
 
+/* The pause-and-continue control wears whichever of its two faces the run calls
+   for, and "❚❚ Pause" and "❚▶ Continue" do not set to the same width. Without a
+   floor the Stop button beside it would shuffle sideways every time the run
+   changed state, so the button is pinned to the wider of the two faces. */
+.pauseToggle {
+  min-width: 8.5em;
+}
+
 .toolbarError {
   color: var(--error);
   font-size: 12px;
