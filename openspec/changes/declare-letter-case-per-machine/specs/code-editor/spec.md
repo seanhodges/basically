@@ -53,6 +53,16 @@ rather than a report of none.
 Characters the machine cannot store at all are not this report's business —
 those already fail to build and are reported where they occur.
 
+The report SHALL count only what the reader wrote as text. A character forming
+part of the notation the machine's own listings use — an escape naming a control
+code, a raw byte, a graphics character, or a short keyword spelling — SHALL NOT
+be counted, whatever letters that notation is spelled with.
+
+Where a machine carries its lower case in a character set the program can switch
+to, lower case SHALL NOT be counted after the program switches to that set, and
+SHALL be counted again after it switches back. The switch SHALL be recognised as
+the machine's own listings write it.
+
 #### Scenario: A listing that folds
 
 - **WHEN** a program on a machine with no lower case contains lower-case letters
@@ -71,52 +81,19 @@ those already fail to build and are reported where they occur.
   its own set
 - **THEN** it is counted among the characters the machine will change
 
-### Requirement: Strict characters mode
-
-Some readers want the editor to hold them to what the machine can actually
-store, rather than converting on their behalf. The IDE SHALL offer a Strict
-characters setting, off by default, that changes silent conversion into
-refusal.
-
-While it is on, a character the target machine would store as a different
-character SHALL be reported as an error at the position it occupies, and SHALL
-be treated as the editor treats any other error. While it is off, the behaviour
-SHALL be exactly as it is today: the character is converted and the program
-builds.
-
-The setting SHALL apply only to characters the reader wrote as text. A
-character that forms part of the notation the machine's own listings use — an
-escape naming a control code, a raw byte, a graphics character, or a short
-keyword spelling — SHALL NOT be reported, whatever letters that notation is
-spelled with.
-
-Where a machine carries its lower case in a character set the program can switch
-to, lower case SHALL NOT be reported after the program switches to that set. The
-switch SHALL be recognised as the machine's own listings write it.
-
-#### Scenario: A converted character with the setting on
-
-- **WHEN** Strict characters is on and a program on a machine with no lower case
-  contains a lower-case letter written as text
-- **THEN** it is reported as an error at that position
-
-#### Scenario: The same program with the setting off
-
-- **WHEN** Strict characters is off and the same program is open
-- **THEN** nothing is reported at that position and the program builds
-
 #### Scenario: Notation is not text
 
-- **WHEN** Strict characters is on and a program uses an escape, a raw byte or a
-  short keyword spelling whose notation contains lower-case letters
-- **THEN** none of it is reported, because none of it is text the machine stores
+- **WHEN** a program uses an escape, a raw byte or a short keyword spelling whose
+  notation contains lower-case letters
+- **THEN** none of it is counted, because none of it is text the machine stores
   as written
 
-#### Scenario: A machine whose program switched to its lower-case set
+#### Scenario: A program that switches to the machine's lower-case set
 
-- **WHEN** Strict characters is on and a program switches the machine to its
-  lower-case character set before writing lower-case letters
-- **THEN** those letters are not reported
+- **WHEN** a program switches the machine to its lower-case character set and
+  then writes lower-case letters
+- **THEN** those letters are not counted, and letters written after a switch back
+  are counted again
 
 ## MODIFIED Requirements
 

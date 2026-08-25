@@ -46,51 +46,6 @@ machine produces when it has just started.
   lower case from an unshifted letter key when it has just started
 - **THEN** the letter keycaps show lower case, and tapping one types lower case
 
-### Requirement: Strict characters removes the case affordance, not the keyboard
-
-While the Strict characters setting is on and the target machine has no lower
-case, the on-screen keyboard SHALL offer no way to shift letter case: the shift
-key SHALL NOT be offered, and what the keyboard types into the editor SHALL be
-upper case.
-
-This SHALL cost the user no character and no function. Where a machine's shift
-key carries something other than letter case — a symbol page, a cursor set, a
-control modifier, or a combination the machine's own keys produce — that route
-SHALL remain available. A key that is not the machine's shift SHALL NOT be
-hidden by this setting, however it is styled.
-
-The keyboard's shape SHALL NOT change: hiding the shift key SHALL leave the rows
-laid out as they were, rather than reflowing the keys around the gap.
-
-While the setting is off, or on a machine that has lower case, the keyboard
-SHALL be unaffected.
-
-#### Scenario: A machine with no lower case, strictly
-
-- **WHEN** Strict characters is on and the user opens the on-screen keyboard for
-  a machine with no lower case
-- **THEN** no shift key is offered, the letters type in upper case, and the rows
-  are laid out as they were
-
-#### Scenario: The symbol page survives
-
-- **WHEN** Strict characters is on for a machine whose shift key is also the way
-  to reach a second page of symbols
-- **THEN** that page is still reachable, and every symbol the keyboard offered
-  before is still reachable
-
-#### Scenario: A control modifier is not a shift
-
-- **WHEN** Strict characters is on for a machine carrying a control key that is
-  styled like its shift
-- **THEN** the control key is still offered, and the combinations it produces
-  still work
-
-#### Scenario: A machine that has lower case
-
-- **WHEN** Strict characters is on and the target machine can draw lower case
-- **THEN** the keyboard is unchanged, and both cases remain reachable
-
 ## MODIFIED Requirements
 
 ### Requirement: Keyboard works for editor and emulator alike
