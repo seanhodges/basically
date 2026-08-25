@@ -22,7 +22,7 @@
 210 PRINT "# # # ##### ##### ### ### # #"'
 220 PRINT "# #         #             #E#"'
 230 PRINT "#############################"'
-240 PRINT "Z LEFT X RIGHT K UP M DOWN"'
+240 PRINT "REACH E - Z X K M TO MOVE"'
 250 X=1
 260 Y=1
 270 REM PARK THE CURSOR BELOW THE MAZE FOR INPUT
