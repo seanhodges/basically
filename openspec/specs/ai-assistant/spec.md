@@ -6,9 +6,7 @@ An optional AI pair-programmer that knows the active machine's BASIC rules:
 the user brings their own API key, chats about the current program, and lands
 generated code back into the editor safely — with lint and runtime errors
 feeding the loop.
-
 ## Requirements
-
 ### Requirement: Bring-your-own-key, multiple providers
 
 The assistant SHALL work with the user's own API key against any of the
@@ -211,6 +209,12 @@ changed since.
 Applying code SHALL preserve opaque binary line records untouched: they SHALL
 never be deleted by a fragment and SHALL never be presented as changes.
 
+Applying code SHALL likewise preserve the lines the active dialect accepts
+without a line number: merging a fragment SHALL neither remove one, duplicate
+one, nor move it relative to the numbered lines it sits among, and they SHALL
+never be presented as changes. Because a fragment has no way to address a line
+that has no number, the lines the program already holds SHALL be the ones kept.
+
 #### Scenario: Merge into existing program
 
 - **WHEN** the user merges a generated fragment whose line numbers overlap
@@ -260,6 +264,13 @@ never be deleted by a fragment and SHALL never be presented as changes.
   was written against
 - **THEN** they are warned that it may no longer apply cleanly, and can still
   choose to merge
+
+#### Scenario: Merging around a line the dialect takes unnumbered
+
+- **WHEN** the user merges a fragment into a program that holds lines the active
+  dialect accepts without a line number
+- **THEN** those lines are still there afterwards, in the same places, and the
+  preview did not show them as changes
 
 ### Requirement: An incomplete or declined reply is not offered as finished code
 
@@ -1495,3 +1506,4 @@ every other tool it is given.
 - **WHEN** a machine starts or stops during a conversation
 - **THEN** whether the assistant is offered timing stays as it was for the rest
   of that conversation
+

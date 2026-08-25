@@ -7,9 +7,7 @@ target machine: source in the editor tokenizes to authentic program bytes,
 imported program bytes detokenize back to editable source, and problems are
 reported inline rather than aborting. This uniform contract is what makes new
 machines pluggable without changes to the rest of the IDE.
-
 ## Requirements
-
 ### Requirement: Registered dialects are the available targets
 
 The IDE SHALL offer exactly the set of registered dialects as target machines,
@@ -338,3 +336,226 @@ would reject or read as something else.
 - **WHEN** a reference page covers several machines and a row exists on only one
   of them
 - **THEN** the spelling shown is the one that machine reads
+
+### Requirement: Lines a machine takes without a line number
+
+Where a machine's own BASIC takes a command typed without a line number, and
+its listings are written that way, the dialect's toolchain SHALL accept such a
+line in the program text rather than reporting it as a line missing its number.
+Which words may stand on an unnumbered line SHALL be exactly the ones that
+machine takes that way; every other unnumbered line SHALL still be reported as
+missing its line number, at that line.
+
+An unnumbered line SHALL be accepted wherever it appears in the program, since
+listings put them both before the program and after it. Unnumbered lines SHALL
+contribute no program bytes and SHALL take no part in the ascending order the
+numbered lines are held to.
+
+A word accepted on an unnumbered line SHALL still be refused inside a numbered
+line wherever the machine refuses it there, so that what the toolchain accepts
+in each position is what the machine accepts.
+
+Where an unnumbered line is malformed - an argument missing, out of range, or
+contradicting an earlier one - the toolchain SHALL report it at its line and
+column like any other error, rather than dropping the line or ignoring it.
+
+Dialects whose machines require a line number on every line SHALL be unaffected,
+and SHALL continue to report a missing line number for any unnumbered line.
+
+#### Scenario: A listing that opens with unnumbered commands
+
+- **WHEN** the user opens a program whose first lines hold that machine's
+  unnumbered commands, followed by numbered program lines
+- **THEN** the program tokenizes without error and runs
+
+#### Scenario: An unnumbered command after the program
+
+- **WHEN** a program ends with one of those commands on an unnumbered line
+- **THEN** it is accepted, and the numbered lines above it are unaffected
+
+#### Scenario: An unnumbered line that is not one of them
+
+- **WHEN** an unnumbered line holds a statement the machine would only take
+  inside a numbered line
+- **THEN** an error identifies that line as missing its line number
+
+#### Scenario: The same word inside a numbered line
+
+- **WHEN** one of those commands is written inside a numbered line on a machine
+  that refuses it there
+- **THEN** an error identifies its line and column, as it did before
+
+#### Scenario: A malformed unnumbered line
+
+- **WHEN** an unnumbered command is given an argument the machine would reject
+- **THEN** an error identifies that line and column, and the rest of the program
+  is still processed
+
+#### Scenario: A machine that requires line numbers
+
+- **WHEN** the same unnumbered text is written with a machine selected whose
+  BASIC requires a line number on every line
+- **THEN** an error identifies that line as missing its line number
+
+### Requirement: A declared workspace survives export and import
+
+Where a program declares the bounds of its workspace, exporting it SHALL record
+those bounds with it, and importing that image SHALL recover source that
+declares them again - so that re-tokenizing what was imported rebuilds the same
+workspace rather than the machine's default.
+
+Where the user must address the machine's own memory by hand to load or save an
+exported program, the instructions shown SHALL name the range that program
+actually occupies, rather than the range a program that took the default would.
+
+#### Scenario: A declared workspace round-trips
+
+- **WHEN** the user exports a program that declares its own workspace and
+  imports the result
+- **THEN** the recovered source declares the same workspace, and re-tokenizing
+  it reproduces the same image
+
+#### Scenario: Transfer instructions follow the program
+
+- **WHEN** the user is shown how to load a program that declared its own
+  workspace onto real hardware
+- **THEN** the memory range named is the one that program occupies
+
+### Requirement: A workspace the program declares is honoured
+
+Where a machine's BASIC lets a program declare the bounds of the memory its
+program and variables share, and the dialect accepts that declaration in the
+program text, the declared bounds SHALL be carried into the loadable image, so
+that running the program gives it the workspace it asked for rather than the
+machine's default.
+
+The program's size SHALL be budgeted against the declared workspace, so that a
+program is reported as too large only when it does not fit the workspace it
+asked for. Bounds the machine could not hold - inverted, or outside its fitted
+memory - SHALL be reported as errors at their line and column, and SHALL not be
+carried into an image. Where the same bound is declared more than once, the last
+declaration SHALL be the one that takes effect.
+
+An unnumbered command that cannot change what is built SHALL be accepted and
+preserved without comment. Reporting each one would be worse than silence: the
+run gate refuses a program with any error against it, fatal or not, so a listing
+would stop being runnable because it ends the way listings end. What each command
+does on an unnumbered line SHALL instead be stated in the machine's language
+reference.
+
+#### Scenario: A program asks for a larger workspace
+
+- **WHEN** the user runs a program that declares bounds giving it more room than
+  the machine's default
+- **THEN** the program runs with that larger workspace, and its size is measured
+  against it
+
+#### Scenario: A program too large for the workspace it asked for
+
+- **WHEN** a program declares a workspace smaller than the program itself needs
+- **THEN** the user is told the program does not fit the workspace it asked for
+
+#### Scenario: Bounds the machine cannot hold
+
+- **WHEN** a program declares bounds outside the machine's fitted memory, or a
+  lower bound above its upper bound
+- **THEN** an error identifies that line and column
+
+#### Scenario: A command with nothing to change
+
+- **WHEN** a program holds an unnumbered command that cannot affect a stored
+  program
+- **THEN** the line is kept as it stands and the program still builds and runs,
+  with nothing reported against it
+
+### Requirement: Letter case is declared per machine
+
+Letter case is not one fact about a machine but several, and the registered
+machines disagree on each of them independently. Every registered machine SHALL
+therefore declare, as facts about its ROM rather than as a shared rule:
+
+- whether its character generator can draw lower case at all, and whether the
+  lower case it has belongs to a second character set the machine switches to at
+  run time rather than being always available;
+- whether its ROM's own keyword scan accepts a lower-case spelling of a keyword;
+- whether its ROM tells `A` from `a` in a variable name;
+- what the machine's own text encoding does with a lower-case letter — folds it
+  onto the upper-case character, or preserves it as its own.
+
+The last of these SHALL be stated for each machine rather than inferred from the
+first, because the two do not agree everywhere: a machine may have lower-case
+shapes and still fold, where one stored character draws either case depending on
+the set in force.
+
+Whether a lower-case keyword is read as a keyword by the IDE SHALL follow both
+the ROM's keyword scan and the machine's text encoding, since a machine whose
+encoding folds never presents lower case to its ROM at all. Where a dialect
+chooses to accept a spelling its ROM would refuse, so that a listing written in
+lower case can be read, that leniency SHALL be declared rather than assumed.
+
+#### Scenario: A machine whose encoding folds lower case
+
+- **WHEN** a program on a machine whose text encoding has no lower-case
+  characters stores a lower-case letter
+- **THEN** it is stored as the upper-case character, and a lower-case keyword in
+  that program is read as the keyword
+
+#### Scenario: A machine whose encoding preserves lower case
+
+- **WHEN** a program on a machine whose text encoding has lower-case characters
+  stores a lower-case letter
+- **THEN** it is stored as the lower-case character, and listing the program
+  back returns the lower case it was written in
+
+#### Scenario: A machine with a switchable character set
+
+- **WHEN** the declared facts are read for a machine that carries its lower case
+  in a second character set selected at run time
+- **THEN** the machine is declared as having lower case, and as switching
+  between the sets, rather than as having none
+
+#### Scenario: A machine with lower-case shapes whose encoding still folds
+
+- **WHEN** the declared facts are read for a machine that can draw lower case
+  but whose stored characters do not distinguish the two cases
+- **THEN** it is declared as having lower case and as folding it, and the two
+  facts do not contradict one another
+
+### Requirement: A lower-case keyword is reported where it will not run
+
+Where a machine's text encoding preserves lower case and its ROM's keyword scan
+compares characters rather than folding them, a keyword spelled in lower case is
+not a keyword on that machine — it is a name, and the program will not do what
+its author meant. The IDE SHALL report such a spelling, naming the upper-case
+spelling the machine wants.
+
+The report SHALL NOT prevent the program being built, run or exported: it says
+what the machine will make of the program, and the author decides.
+
+Where a dialect's own reading accepts such a spelling anyway, so that a listing
+written in lower case can be opened and read, it SHALL still report it. Being
+lenient about what can be opened is not a claim that the machine will run it.
+
+Machines whose encoding folds lower case, or whose ROM accepts either case, SHALL
+NOT report anything: on those machines a lower-case keyword is the keyword.
+
+#### Scenario: A lower-case keyword on a machine that refuses it
+
+- **WHEN** a program on a machine whose ROM matches keywords by character spells
+  a command in lower case
+- **THEN** the editor reports it and names the upper-case spelling, and the
+  program can still be built, run and exported
+
+#### Scenario: A lower-case keyword on a machine that folds
+
+- **WHEN** a program on a machine whose text encoding folds lower case spells a
+  command in lower case
+- **THEN** nothing is reported, and the command is read as the keyword
+
+#### Scenario: A dialect that reads a spelling its machine would refuse
+
+- **WHEN** a listing spelled in lower case is opened on a machine whose ROM
+  would refuse it, and the dialect reads it as the keyword anyway
+- **THEN** the spelling is still reported, so the reader learns the machine will
+  not run it as written
+

@@ -6,9 +6,7 @@ Run the current program on an authentic in-browser emulation of the selected
 machine: one action takes the editor's source to a running program on the
 machine's screen, with sound, adjustable speed, and a line-level debugger
 where the machine supports one.
-
 ## Requirements
-
 ### Requirement: One action runs the current source
 
 A single Run action SHALL tokenize the current source, load it into the
@@ -86,6 +84,12 @@ produces any. How often the browser is able to repaint SHALL NOT change how much
 emulated time passes per second, so a program takes the same wall-clock time to
 run regardless of the display's refresh rate.
 
+Within a frame, a machine SHALL give its CPU only the cycles the rest of the
+machine leaves it. Where a machine's video hardware takes the bus to fetch what
+it is about to display, the CPU SHALL lose those cycles, so a program that counts
+cycles keeps the same relationship to the picture that it has on the real
+machine, and a program that counts loops runs no faster than it does there.
+
 Where the host cannot emulate a machine as fast as real time, emulation SHALL
 fall behind rather than skip ahead, and SHALL bound how much lost time it tries
 to reclaim, so a stall never repays itself as a burst of fast-forward.
@@ -122,6 +126,19 @@ as it is at real time.
 - **THEN** the sound stays at the machine's own pitch and does not drift
   progressively further behind the picture
 
+#### Scenario: The video chip takes cycles from the CPU
+
+- **WHEN** a program runs on a machine whose video hardware periodically takes
+  the bus to fetch the display
+- **THEN** the program advances by fewer cycles in that frame than the frame is
+  long, by however many the video hardware took
+
+#### Scenario: A frame is still a whole frame
+
+- **WHEN** the video hardware takes cycles from the CPU during a frame
+- **THEN** the machine's frame rate and the emulated time a frame represents are
+  unchanged
+
 ### Requirement: The machine accepts live input
 
 A running program SHALL receive keyboard input from the user's physical
@@ -145,6 +162,12 @@ Screen text SHALL be the characters the program put on the screen, in reading
 order, for every machine that can determine them — including machines whose
 display holds no characters, where they SHALL be recovered from what is
 displayed.
+
+Screen text SHALL report the letter case the screen is showing. On a machine
+that draws its lower case from a character set selected at run time, the set in
+force SHALL decide the case reported. On a machine that displays every letter in
+upper case whatever it stores, upper case SHALL be reported. A letter on screen
+SHALL NOT be reported as a blank.
 
 #### Scenario: Live memory readout
 
@@ -170,6 +193,19 @@ displayed.
 - **WHEN** the IDE asks a machine that cannot determine its screen text
 - **THEN** no screen text is reported, and every other runtime figure is
   unaffected
+
+#### Scenario: A screen showing lower case
+
+- **WHEN** a program has switched a machine to its lower-case character set and
+  printed lower-case letters
+- **THEN** the screen text reports those letters in lower case, not as upper case
+  and not as blanks
+
+#### Scenario: A machine that displays every letter in upper case
+
+- **WHEN** a program has printed lower-case letters on a machine whose display
+  draws only capitals
+- **THEN** the screen text reports the capitals the screen is showing
 
 ### Requirement: The machine's screen can be saved as an image
 
@@ -506,3 +542,4 @@ machine's memory map draws and its RAM budget is measured against.
 - **WHEN** the user runs a program, then runs it again
 - **THEN** the machine holds memory in exactly the same places on the second run
   as on the first
+
