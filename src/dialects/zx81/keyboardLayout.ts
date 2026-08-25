@@ -31,9 +31,10 @@ import { ZX81_GRAPHICS } from './graphics';
  *  - keyword:  the white K-mode keyword
  *  - function: the red FUNCTION-mode name
  *
- * The keyword and function legends stay printed on the keys, but are not
- * offered as input modes - keyword entry is the editor autocomplete's job,
- * and the SYM mode is the only way to type a symbol (bar the quote key).
+ * The keyword and function layers are markings, not input modes - keyword
+ * entry is the editor autocomplete's job, and the SYM mode is the only way to
+ * type a symbol (bar the quote key). A key prints one marking at a time, so
+ * they show only where no mode or modifier selects another.
  *
  * The block graphics are not key legends: there are twenty-one of them and they
  * would be illegible at keycap size, so the GRAPHICS mode shows them as a

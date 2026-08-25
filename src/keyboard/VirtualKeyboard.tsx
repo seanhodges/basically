@@ -39,9 +39,9 @@ interface VirtualKeyboardProps {
   enabled: boolean;
   sound: boolean;
   haptics: boolean;
-  /** Keycap legends: the layered view (the letter with its symbol hint and
-   *  the machine's own markings) or only the active mode's character,
-   *  centered and larger ('compact'). */
+  /** Keycap legends: the layered view (the letter, the one marking the
+   *  current mode selects, and the symbol hint) or only the active mode's
+   *  character, centered and larger ('compact'). */
   keyDisplay: 'layered' | 'compact';
   /** When set, the keyboard acts as a key picker: a tap on a matrix-driving
    *  key reports its id instead of typing into the target. */
@@ -50,13 +50,6 @@ interface VirtualKeyboardProps {
 
 /** Pointer id used for activation via the physical keyboard (a11y path). */
 const KEYBOARD_POINTER_ID = -1;
-
-/** Below this container width there isn't room for every legend at once. */
-const COMPACT_MAX_WIDTH = 520;
-
-/** Below this viewport height keys shrink too far for every legend (must
-    match the landscape media query in VirtualKeyboard.css). */
-const COMPACT_MAX_VIEWPORT_HEIGHT = 560;
 
 /** Hold-to-repeat timing for editor actions (backspace, cursor moves). */
 const REPEAT_DELAY_MS = 450;
@@ -294,14 +287,6 @@ export function VirtualKeyboard({
     stopAllRepeatsRef.current();
   }, [modeId, engine]);
 
-  // Compact mode: too narrow to render every legend without overlap, so
-  // show the base layer plus one selectable secondary layer per key.
-  const [compact, setCompact] = useState(
-    () =>
-      typeof window !== 'undefined' &&
-      (window.innerWidth < 600 ||
-        window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT),
-  );
   // Landscape: the keyboard centres and the top strip relocates into the left
   // gutter as a vertical bar. Driven by viewport orientation, not the keyboard's
   // own box (the overlay is always wider than tall, so the element can't tell).
@@ -310,22 +295,9 @@ export function VirtualKeyboard({
       typeof window !== 'undefined' && window.innerWidth > window.innerHeight,
   );
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => {
-      setCompact(
-        el.clientWidth < COMPACT_MAX_WIDTH ||
-          window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT,
-      );
-      setLandscape(window.innerWidth > window.innerHeight);
-    };
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
+    const update = () => setLandscape(window.innerWidth > window.innerHeight);
     window.addEventListener('resize', update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', update);
-    };
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   // The graphics palette: a grid of the machine's block-graphics characters,
@@ -348,7 +320,7 @@ export function VirtualKeyboard({
   const gridCols = layout.gridColumns;
 
   // modeOnly layers never decorate keycaps outside their mode, so they are
-  // not offerable as a compact-mode secondary legend either.
+  // not offerable as the layered view's secondary legend either.
   const secondaryLayers = useMemo(
     () => layout.layers.filter((l) => l !== baseLayer && !l.modeOnly),
     [layout, baseLayer],
@@ -654,7 +626,7 @@ export function VirtualKeyboard({
     symPage2,
   );
   const highlightLayerId = modeLayerId ?? activeLayer.id;
-  // In compact mode the displayed secondary legends follow the same choice.
+  // The one secondary legend a layered keycap prints follows the same choice.
   // For the editor target in the base mode, show the modifier-driven layer
   // (its legends are the only secondaries reachable without a mode change).
   const modifierLayer = layout.layers.find((l) => l.activeWhen.length > 0);
@@ -825,8 +797,9 @@ export function VirtualKeyboard({
                         // A case pair renders as one letter on the base slot,
                         // in the case the shift key currently gives.
                         if (pair && layerIdx === modifierLayerIdx) return null;
+                        // One secondary legend at a time: the rest of the
+                        // machine's markings are reached by changing mode.
                         if (
-                          compact &&
                           layer !== baseLayer &&
                           layer.id !== visibleSecondaryId
                         )
@@ -874,7 +847,7 @@ export function VirtualKeyboard({
   return (
     <div
       ref={containerRef}
-      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}${onPickKey ? ' vk-pickmode' : ''}`}
+      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}${onPickKey ? ' vk-pickmode' : ''}`}
       style={
         {
           '--vk-max-len': maxSingleLen,

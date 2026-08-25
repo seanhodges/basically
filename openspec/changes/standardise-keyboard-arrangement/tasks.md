@@ -105,3 +105,22 @@
       typing in CURSOR mode, and the layout header comments claiming it
 - [x] 7.4 Spec delta + `adding-a-dialect.md`: cursor mode shows only its
       arrows; only the bottom row stays live
+
+## 8. One marking at a time on every screen (follow-up)
+
+- [x] 8.1 Renderer: the secondary-legend filter applies at every size; the
+      responsive compact mode, its breakpoints and its class are removed
+- [x] 8.2 `VirtualKeyboard.css`: every layer position but `center` collapses
+      into one slot under the base legend; legend sizes come from the
+      keycap's own width, with the landscape-phone tier keeping a flat size
+- [x] 8.3 Themes colour the layer rather than the corner - which is what
+      colours a cursor overlay's arrows for the first time - and rules
+      naming a corner no layer of that machine has are removed
+- [x] 8.4 Colocated assertions in `keyboardTheme.test.ts`: no position-keyed
+      theme ink, no themed layer id its machines do not declare, and no rule
+      keyed to the retired responsive class
+- [x] 8.5 Spec delta, `docs/contributing/adding-a-dialect.md`,
+      `docs/guide/testing-programs.md` (also stale on the display's name),
+      and the Sinclair layout headers
+- [x] 8.6 `npm run typecheck && npm test && npm run lint && npm run format:check`;
+      `npm run docs:build`; `npm run e2e:chromium -- e2e/virtual-input`

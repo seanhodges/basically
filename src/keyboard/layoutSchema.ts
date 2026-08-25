@@ -58,9 +58,11 @@ export interface KeyboardLayout {
     /** Minimum emulated frames a matrix press is held so the ROM scan sees it. */
     minHoldFrames?: number;
     /**
-     * Layer shown alongside the base layer when the keyboard is too narrow
-     * to render every legend (compact mode). Defaults to the first non-base
-     * layer.
+     * Layer offered as the key's secondary legend when neither a mode nor an
+     * engaged modifier names one. Defaults to the first non-base layer.
+     *
+     * A machine with a modifier layer reaches that first, so this only decides
+     * the legend on a machine that has none.
      */
     compactDefaultLayer?: string;
   };
@@ -99,9 +101,14 @@ export interface ControllerConfig {
 
 export interface LayerDef {
   id: string;
-  /** Display name in the compact-mode legend selector (defaults to id). */
+  /** Display name for this layer's legends (defaults to id). */
   name?: string;
-  /** Where this layer's label sits on/around the keycap. */
+  /**
+   * Where the machine printed this layer's marking on its keycap. A key shows
+   * one marking at a time, so every position but `center` draws in the same
+   * slot under the base legend; the value records the machine's own keycap,
+   * which is what a theme's ink and a reader of this layout go by.
+   */
   position: 'center' | 'tl' | 'tr' | 'bl' | 'br' | 'below';
   /** Modifier ids that make this the active layer; [] = base layer. */
   activeWhen: string[];

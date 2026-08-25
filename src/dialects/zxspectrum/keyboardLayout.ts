@@ -33,9 +33,10 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
  *  - keyword:  the white K-mode BASIC keyword
  *  - function: the green extended-mode function
  *
- * The keyword and function legends stay printed on the keys but are not
- * input modes - keyword entry is the editor autocomplete's job - and the
- * SYM mode is the only way to type a symbol (bar the quote key). There is
+ * The keyword and function layers are markings, not input modes - keyword
+ * entry is the editor autocomplete's job - and the SYM mode is the only way to
+ * type a symbol (bar the quote key). A key prints one marking at a time, so
+ * they show only where no mode or modifier selects another. There is
  * no SYMBOL SHIFT keycap; the SYM cells press its combinations themselves.
  *
  * The machine's graphics mode (CAPS SHIFT + 9 on the real keyboard) is a

@@ -30,6 +30,24 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   const keyJ = page.locator('[data-keyid="KeyJ"]');
   await expect(keyH).toBeVisible();
 
+  // The layered keycap prints the base legend and at most one of the machine's
+  // other markings, and sizes both from the key rather than the viewport - so
+  // a desktop key is the phone's key drawn larger, not the phone's key with
+  // every remaining marking crammed into its corners. Both are facts about
+  // laid-out boxes and a resolved container query, so only a browser has them.
+  const keycaps = await page
+    .locator('.vk-keycap')
+    .evaluateAll((caps) =>
+      caps.map(
+        (cap) => cap.querySelectorAll('.vk-label:not(.vk-sym-hint)').length,
+      ),
+    );
+  expect(Math.max(...keycaps)).toBeLessThanOrEqual(2);
+  const letterSize = await keyH
+    .locator('.vk-pos-center')
+    .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(letterSize).toBeGreaterThan(15);
+
   // Outwait the editor-focus debounce (EDITOR_KB_HIDE_DELAY_MS): the ⌨ toggle
   // must not have stolen editor focus, or the keyboard silently reroutes to
   // the stopped machine here and every press below goes dead (regression

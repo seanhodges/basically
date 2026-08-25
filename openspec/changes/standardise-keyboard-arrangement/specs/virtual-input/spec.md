@@ -30,7 +30,8 @@ none SHALL leave it empty rather than filling it with invented keys.
 
 The mode strip SHALL NOT offer keyword or function-name entry modes:
 keyword entry is the editor's completion feature. A machine whose keycaps
-carry keyword or function legends SHALL keep them printed on the keys.
+carry keyword or function legends SHALL keep them as markings of their own,
+shown as the layered display shows any other marking.
 
 #### Scenario: The same arrangement on every machine
 
@@ -62,27 +63,49 @@ carry keyword or function legends SHALL keep them printed on the keys.
 
 - **WHEN** the user opens the on-screen keyboard for a machine whose keys
   carry keyword or function legends
-- **THEN** the mode strip offers no keyword or function mode, and the
-  legends remain printed on the keycaps
+- **THEN** the mode strip offers no keyword or function mode, and the keys
+  carry those legends as markings the layered display can show
 
 ### Requirement: The layered key display
 
-The keyboard's full key display SHALL be named "Layered". On it, each
-letter-band key SHALL show its symbol-mode character as a small hint in the
-theme's own ink - the way a phone keyboard prints its long-press hints -
+The keyboard's full key display SHALL be named "Layered". On it, a key SHALL
+show its base legend, at most one of the machine's other markings, and its
+symbol-mode hint - never several markings at once, whatever the size of the
+screen. The marking shown is the one the selected mode pins or an engaged
+modifier gives, drawn below the base legend in the ink the machine printed
+that layer in, so it changes colour with the layer it carries; a key whose
+selected layer is blank shows its base legend alone. A marking no mode or
+modifier reaches - a keyword legend on a machine whose keys also carry a
+shift marking - is not printed. Legends SHALL be sized from the keycap, so
+the same key reads the same way on a phone and on a desktop, only larger.
+
+Each letter-band key SHALL show its symbol-mode character as a small hint in
+the theme's own ink - the way a phone keyboard prints its long-press hints -
 never in an authentic legend colour, and a key whose symbol-mode cell is
-blank shows no hint. A machine's printed keyword and function-name legends
-remain. Cursor overlays SHALL appear only while cursor mode is selected: in
-that mode a key carrying an arrow shows the arrow alone, and every other key
-above the bottom row SHALL be blank and inert - no legend, nothing typed,
-nothing pressed - like a symbol-mode key the machine leaves unmapped. Only
-the bottom row keeps its normal function in cursor mode, and outside it no
-key shows an arrow.
+blank shows no hint. Cursor overlays SHALL appear only while cursor mode is
+selected: in that mode a key carrying an arrow shows the arrow alone, and
+every other key above the bottom row SHALL be blank and inert - no legend,
+nothing typed, nothing pressed - like a symbol-mode key the machine leaves
+unmapped. Only the bottom row keeps its normal function in cursor mode, and
+outside it no key shows an arrow.
 
 Where a machine's letters exist in both cases, a letter key SHALL show one
 letter, in the case the shift key currently gives - switching when SHIFT is
 pressed or locked and back when it is released, as the native mobile
 keyboards do - rather than both cases at once.
+
+#### Scenario: The same keycap on a phone and on a desktop
+
+- **WHEN** the user opens the on-screen keyboard on a phone and then on a
+  desktop
+- **THEN** each key carries the same legends in the same places on both,
+  drawn larger on the desktop
+
+#### Scenario: The mode chooses the marking and its colour
+
+- **WHEN** the user selects a different mode from the strip
+- **THEN** each key's one secondary marking becomes that mode's, in the ink
+  the machine printed that marking in
 
 #### Scenario: A key hints at its symbol
 
@@ -174,9 +197,10 @@ machine with nothing mapped on the second page SHALL offer no toggle.
 
 The on-screen keyboard SHALL carry the active machine's own markings where
 the standard arrangement shows one - its keyword and function-name legends,
-its delete key's legend, its letter cases - and pressing a key SHALL drive
-the emulated machine's own key matrix. Key positions follow the standard
-arrangement rather than the machine's physical board, so authenticity lives
+its delete key's legend, its letter cases, each in the machine's own ink -
+and pressing a key SHALL drive the emulated machine's own key matrix. Key
+positions follow the standard arrangement rather than the machine's physical
+board, so authenticity lives
 in the legends kept, the theme, and the matrix wiring — never in an
 invented key: the keyboard SHALL NOT offer a key or symbol the machine does
 not have.
