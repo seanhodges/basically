@@ -108,6 +108,11 @@ Carrying a paused run on SHALL be called the same thing wherever it is offered,
 and holding a running one still SHALL likewise be called the same thing
 wherever it is offered.
 
+Carrying a paused run on SHALL be shown distinctly from starting the program
+again from the beginning, and SHALL be told apart from it by its mark rather
+than by colour alone. The two are the actions it matters most not to confuse:
+one resumes the run the user is watching, the other discards it.
+
 Once the program has ended - it finished, or it stopped on an error - the
 control SHALL offer to run it again, even though the machine goes on running at
 its prompt. Pausing and continuing are offered against a program, and there is
@@ -169,6 +174,13 @@ mis-aimed press restarts a run at the moment it ends.
 - **WHEN** the user presses the key that continues a paused program while a
   program is instead running
 - **THEN** the program pauses, and pressing it again carries the run on
+
+#### Scenario: Continuing is not mistaken for starting over
+
+- **WHEN** a surface offers both to start the program and to carry a paused run
+  on
+- **THEN** the two are marked differently, so a user who cannot rely on colour
+  can still tell which one resumes the run they are watching
 
 #### Scenario: A surface with its own start action refuses rather than restarts
 

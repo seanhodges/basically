@@ -78,7 +78,7 @@ rest today - so a toolbar with nothing running looks exactly as it does now.
 ### Blue is the accent with dark ink, and not `button.primary`
 
 The run control over the editor pairs `--accent` with `#06152e` ink, because
-white on that blue only just clears the *large*-text contrast threshold. The
+white on that blue only just clears the _large_-text contrast threshold. The
 toolbar's buttons are 13px, where it would not clear it at all, so this cannot
 reuse `button.primary` (accent + white). It gets its own class alongside
 `button.run`, same shape, different hue.
@@ -86,6 +86,33 @@ reuse `button.primary` (accent + white). It gets its own class alongside
 Menu items have no fill and take their emphasis from hover, so in the overflow
 menu the change is the glyph and the word only. The glyph set is already
 shared (`▶ Play`, `⤵ Step`, `■ Stop`), so `❚❚ Pause` needs nothing new.
+
+### Continuing gets its own mark
+
+Continuing has always worn the play triangle, so on the touch layout the
+control's `play` and `continue` positions differ by fill colour alone - green
+against blue - and on the toolbar Play and Continue read identically. Those are
+the two actions it matters most to tell apart: one carries the run on, the other
+throws it away and starts over.
+
+Continue takes a bar-then-triangle mark, composed from glyphs the app already
+ships:
+
+```
+  Play      ▶     U+25B6
+  Pause     ❚❚    U+275A ×2
+  Continue  ❚▶    U+275A + U+25B6
+  Step      ⤵     U+2935          (unchanged)
+  Stop      ■     U+25A0          (unchanged)
+```
+
+So Continue is the left half of Pause followed by Play, and no codepoint enters
+the app that is not already rendering somewhere in it - which matters, because
+the set is text glyphs in the UI font rather than artwork, and the obvious
+single-codepoint alternative (U+23EF) is both given emoji presentation and
+colour by browsers and means a play/pause toggle rather than a resume.
+
+Colour then reinforces the distinction rather than carrying it.
 
 ### The chord keeps its id and changes its name
 
@@ -118,6 +145,12 @@ state. The button takes a `min-width` sized to the longer face.
   the button by name see it change with the run. → The e2e suite already
   addresses the run control over the editor by test id for exactly this
   reason; the toolbar assertions follow the same rule.
+- **A two-character mark sets wider than a one-character one.** Continue grows
+  by a glyph on surfaces where it sits in a row of buttons and inside a menu.
+  → The toolbar control is width-pinned for its two faces anyway (above); the
+  mark still wants looking at on the real surfaces - 13px in the bar, 22px on
+  the control over the editor - and a little letter-spacing only if the two
+  glyphs read as two marks rather than one.
 - **A stale comment becomes wrong.** The pause effect in the emulator pane
   explains that it leaves the mobile tab alone because its only sender lives
   on the editor tab. With a sender on the emulator tab that reasoning no

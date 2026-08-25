@@ -8,10 +8,23 @@
 - [ ] 1.2 Give the Pause face the same glyph and label the control over the
       editor already uses (`runControlGlyph`, `runControlLabel`), so the two
       surfaces cannot word the same action differently.
-- [ ] 1.3 Extend `src/app/runControl.test.ts`: the new mapping over every
+- [ ] 1.3 Give Continue its own mark - `❚▶`, the left half of the Pause glyph
+      followed by the Play triangle - so it no longer wears Play's triangle and
+      is no longer told apart from Play by fill colour alone. Both codepoints
+      are already in use; no new one enters the app. Rewrite the comment above
+      the glyph table, which states as fact that Continue shares the play
+      triangle.
+- [ ] 1.4 Check the mark on the surfaces that render it - 13px in the toolbar
+      row, 22px on the control over the editor - and add letter-spacing only if
+      the bar and triangle read as two marks rather than one.
+- [ ] 1.5 Extend `src/app/runControl.test.ts`: the new mapping over every
       `EmulatorStatus` × `pausable` × `programEnded` combination, and the two
       rules that are easy to lose - a machine with no debugger offers no pause,
-      and a program that has ended is refused rather than restarted.
+      and a program that has ended is refused rather than restarted. The
+      existing glyph test asserts the opposite of the new mark (it is named for
+      Play and Continue sharing a triangle), so it inverts: Continue differs
+      from Play, and every mark stays in text presentation rather than picking
+      up emoji colour.
 
 ## 2. The run controls on the editor-and-machine layout
 
