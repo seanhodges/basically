@@ -70,4 +70,54 @@ describe('per-machine keyboard themes', () => {
     );
     expect([...styled].filter((theme) => !named.has(theme))).toEqual([]);
   });
+
+  /**
+   * A keycap prints one of the machine's markings at a time, at every screen
+   * size, so a theme's ink belongs to the layer the marking comes from rather
+   * than to the corner the machine printed it in - the one slot carries
+   * whichever layer the mode selects, and the colour has to travel with it.
+   * Position-keyed ink would simply never be seen.
+   */
+  it('colours a layer, not a corner', () => {
+    const posInTheme = [
+      ...css.matchAll(/\.vk-theme-[a-z0-9]+[^{;]*\.vk-pos-[a-z]+/g),
+    ].map((m) => m[0]);
+    expect(posInTheme).toEqual([]);
+  });
+
+  /**
+   * The layer ids a theme colours are ids the machines wearing that theme
+   * actually declare. Layouts have dropped layers before (the C64's key-front
+   * graphics, the Spectrum's symbol-shift legends) and left the stylesheet
+   * colouring nothing.
+   */
+  it('names only layers its machines declare', () => {
+    const declared = new Map<string, Set<string>>();
+    for (const d of dialects) {
+      const layout = d.keyboardLayout;
+      const ids = declared.get(layout.theme) ?? new Set<string>();
+      for (const layer of layout.layers) ids.add(layer.id);
+      declared.set(layout.theme, ids);
+    }
+    // The mode-only symbol layers every machine gets from the shared template.
+    for (const ids of declared.values()) {
+      ids.add('symbols');
+      ids.add('symbols2');
+    }
+    const orphans = [
+      ...css.matchAll(/\.(vk-theme-[a-z0-9]+)[^{;]*\.vk-layer-([a-z0-9]+)/g),
+    ]
+      .filter(([, theme, layer]) => !declared.get(theme!)?.has(layer!))
+      .map(([match]) => match);
+    expect(orphans).toEqual([]);
+  });
+
+  /**
+   * Nothing switches the layered keycap on screen width any more: it prints one
+   * marking at every size, so a rule keyed on the old responsive class would
+   * silently never apply.
+   */
+  it('keys no rule on a responsive compact mode', () => {
+    expect(css).not.toContain('vk-compact');
+  });
 });

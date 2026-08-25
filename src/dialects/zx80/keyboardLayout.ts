@@ -30,8 +30,9 @@ import { ZX80_GRAPHICS } from './graphics';
  *  - shift:    the symbol/operator typed with SHIFT held
  *  - keyword:  the white K-mode command
  *
- * The keyword legends stay printed on the keys but are not an input mode -
- * keyword entry is the editor autocomplete's job. As on the ZX81, the block
+ * The keyword layer is a marking, not an input mode - keyword entry is the
+ * editor autocomplete's job - and a key prints one marking at a time, so it
+ * shows only where no mode or modifier selects another. As on the ZX81, the block
  * graphics are shown as a palette rather than as key legends (see ./graphics).
  * The ZX80 has no FUNCTION cursor mode, so there is no function layer. The
  * cursor keys are SHIFT + 5/6/7/8, so the arrows sit on those number keys,

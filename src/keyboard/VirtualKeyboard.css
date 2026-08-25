@@ -260,6 +260,12 @@
   min-height: var(--vk-key-min);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  /* Each key is its own inline-size container, so a legend is sized from the
+     keycap it sits on rather than from the viewport: the same key grows from a
+     phone's ~36px to a desktop's ~116px, and the type grows with it.
+     inline-size containment doesn't create a containing block, so the
+     absolutely-positioned keycap and touch target are unaffected. */
+  container-type: inline-size;
 }
 
 /* The whole .vk-key box plus half the surrounding gap is the touch target;
@@ -334,74 +340,77 @@
   font-weight: 700;
 }
 
+/* The letter, centred in the keycap above the band the secondary slot takes -
+   which is reserved whether or not the key has a marking to put there, so a
+   row's letters sit on one line. */
 .vk-pos-center {
-  top: 9px;
-  left: 6px;
-  font-size: 15px;
+  inset: 0 0 clamp(9px, 26cqw, 18px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(12px, 36cqw, 24px);
   font-weight: 700;
 }
 
 /* The layered view's SYM hint: the key's page-1 symbol, small in the
    top-right corner in the theme's own ink - never a machine's authentic
-   legend colour. Kept out of the vk-pos-* classes so theme corner colours
-   and the compact-mode slot collapse leave it alone. */
+   legend colour. Kept out of the vk-pos-* classes so theme layer colours and
+   the secondary slot leave it alone. */
 .vk-label.vk-sym-hint {
   top: 3px;
   right: 4px;
-  font-size: 8px;
+  font-size: clamp(8px, 20cqw, 12px);
   opacity: 0.45;
 }
 
-.vk-pos-tr {
-  top: 4px;
-  right: 4px;
-  max-width: calc(100% - 6px);
-  overflow: hidden;
-  font-size: 8px;
-}
-
-.vk-pos-bl {
-  left: 0;
-  right: 0;
-  bottom: 15px;
-  overflow: hidden;
-  text-align: center;
-  font-size: 7px;
-  color: #c4c4c4;
-}
-
-.vk-pos-br {
-  right: 3px;
-  bottom: 15px;
-  color: #bdbdbd;
-}
-
-.vk-pos-br svg {
-  width: 9px;
-  height: 9px;
-  display: block;
-}
-
+/* A key prints one secondary legend at a time, so every layer position - the
+   corner the machine happened to print that marking in - collapses into one
+   slot under the letter. Which marking lands there is the mode's choice; the
+   ink is the layer's, set by `.vk-layer-*` below and by the theme blocks. */
+.vk-pos-tl,
+.vk-pos-tr,
+.vk-pos-bl,
+.vk-pos-br,
 .vk-pos-below {
-  left: 0;
-  right: 0;
-  bottom: 1px;
+  inset: auto 1px 2px;
   overflow: hidden;
   text-align: center;
-  font-size: 7px;
-  color: #c75555;
+  font-size: clamp(8px, 22cqw, 14px);
 }
 
-.vk-layer-shift {
+.vk-label svg {
+  width: 1.5em;
+  height: 1.5em;
+  display: inline-block;
+}
+
+/* Default ink per layer, for a machine whose theme names no colour of its own
+   (the Sinclair rubber keyboards). A theme block overrides what it cares to. */
+.vk-layer-shift,
+.vk-layer-shifted {
   color: #e25555;
 }
 
-.vk-layer-shift.vk-active {
+.vk-layer-shift.vk-active,
+.vk-layer-shifted.vk-active {
   color: #ff8585;
-  font-weight: 700;
 }
 
-/* Wide-legend keys (SHIFT, NEW LINE) centre a smaller main label. */
+.vk-layer-keyword {
+  color: #c4c4c4;
+}
+
+.vk-layer-function {
+  color: #c75555;
+}
+
+.vk-layer-cursor {
+  color: #bdbdbd;
+}
+
+/* Wide-legend keys (SHIFT, NEW LINE) centre a smaller main label. These span
+   one and a half to two keycaps and wrap their word, so they take a fixed size
+   rather than the letter keys' container-relative one, which would overshoot. */
 .vk-style-shift .vk-pos-center,
 .vk-style-small-main .vk-pos-center {
   inset: 0 0 12px;
@@ -414,9 +423,9 @@
   line-height: 1.2;
 }
 
-/* Mode-tab and legend buttons in the top strip. In compact mode each key shows
-   the main legend plus the one secondary layer the active mode pins (or an
-   engaged modifier forces); with the clutter gone the survivors get bigger. */
+/* Mode-tab buttons in the top strip. The mode a tab pins is also what a key's
+   one secondary legend shows, so the strip is how the rest of a machine's
+   markings are reached. */
 .vk-legend-btn {
   flex: 1;
   padding: 7px 2px;
@@ -443,52 +452,9 @@
   opacity: 0.5;
 }
 
-/* Only one secondary legend is visible at a time in compact mode, so all
-   on-key positions collapse into a single clean bottom-centre slot, with the
-   main legend centred above it. */
-.vk-compact
-  .vk-key:not(.vk-style-shift):not(.vk-style-small-main):not(.vk-style-extra)
-  .vk-pos-center {
-  top: 6px;
-  left: 0;
-  right: 0;
-  text-align: center;
-}
-
-/* Slot coordinates are relative to the keycap (the labels' positioned
-   ancestor), not the full key box. */
-.vk-compact .vk-pos-tr,
-.vk-compact .vk-pos-bl,
-.vk-compact .vk-pos-br {
-  inset: auto 1px 2px;
-  max-width: none;
-  overflow: hidden;
-  text-align: center;
-  font-size: 8px;
-}
-
-.vk-compact .vk-pos-below {
-  font-size: 8px;
-}
-
-.vk-compact .vk-pos-br svg {
-  width: 12px;
-  height: 12px;
-  display: inline-block;
-}
-
 /* Single-character ("Compact") key display: one larger legend filling the
    keycap, centred, replacing the multi-legend layout. Chosen in settings to
    keep keys legible on small screens. */
-/* Each key is its own inline-size container so the single legend can shrink to
-   fit the key's width (long keyword/function words can't wrap, so we scale the
-   font down by character count instead). inline-size containment doesn't create
-   a containing block, so the absolutely-positioned keycap/touch target are
-   unaffected. */
-.vk-single .vk-key {
-  container-type: inline-size;
-}
-
 .vk-single .vk-single-label {
   position: absolute;
   inset: 0 0 12px; /* sit above the function-strip gap, like other centres */
@@ -528,20 +494,8 @@
 }
 
 @media (max-width: 768px) {
-  .vk-pos-center {
-    top: 7px;
-    left: 5px;
-    font-size: 13px;
-  }
-
   .vk-single .vk-single-label {
     --vk-single-cap: clamp(15px, 4.5vw, 20px);
-  }
-}
-
-@media (max-width: 768px) and (orientation: portrait) {
-  .vk-pos-center {
-    font-size: clamp(12px, 3.4vw, 15px);
   }
 }
 
@@ -550,8 +504,7 @@
    strips so shallow keys stay legible. */
 @media (orientation: landscape) and (max-height: 560px) {
   /* Shallow keys: tighten gaps/padding and shrink the function strip below
-     the keycap so the whole keyboard stays under ~46vh (compact mode is
-     forced at this height). */
+     the keycap so the whole keyboard stays under ~46vh. */
   .virtual-keyboard {
     gap: 2px;
     padding: 4px 6px 2px;
@@ -570,38 +523,25 @@
     inset: 0 0 6px;
   }
 
+  /* Wide but shallow keys: the keycap's width says nothing about the room
+     above the letter here, so the letter and its slot band take flat sizes. */
   .vk-pos-center {
-    top: 3px;
-    left: 4px;
+    inset: 0 0 8px;
     font-size: 11px;
   }
 
-  .vk-compact
-    .vk-key:not(.vk-style-shift):not(.vk-style-small-main):not(.vk-style-extra)
-    .vk-pos-center {
-    top: 2px;
-  }
-
-  .vk-compact .vk-pos-tr,
-  .vk-compact .vk-pos-bl,
-  .vk-compact .vk-pos-br {
+  .vk-pos-tl,
+  .vk-pos-tr,
+  .vk-pos-bl,
+  .vk-pos-br,
+  .vk-pos-below {
     inset: auto 1px 1px;
     font-size: 7px;
-  }
-
-  .vk-compact .vk-pos-br svg {
-    width: 9px;
-    height: 9px;
   }
 
   .vk-single .vk-single-label {
     inset: 0 0 6px;
     --vk-single-cap: clamp(12px, 5vh, 16px);
-  }
-
-  .vk-pos-below {
-    bottom: 0;
-    font-size: 6px;
   }
 
   .vk-style-shift .vk-pos-center,
@@ -926,6 +866,13 @@
     );
     max-width: none;
   }
+
+  /* The wide keys' word takes a step up with the rest of the board, since its
+     fixed size can't follow the keycap the way the letter keys' does. */
+  .vk-style-shift .vk-pos-center,
+  .vk-style-small-main .vk-pos-center {
+    font-size: 13px;
+  }
 }
 
 /* Landscape: drop the empty 1fr side gutters so the panel hugs strip + keys and
@@ -962,26 +909,25 @@
   background: linear-gradient(#3a3a40, #2a2a2e);
 }
 
-/* CAPS SHIFT legend (top-left): the edit/cursor functions in cyan. */
-.vk-theme-zxspectrum .vk-pos-tl {
-  top: 4px;
-  left: 4px;
-  font-size: 8px;
+/* CAPS SHIFT legends - the edit/cursor functions, and the arrows CURSOR mode
+   pins, which the machine reaches through CAPS SHIFT too - in cyan. */
+.vk-theme-zxspectrum .vk-layer-caps,
+.vk-theme-zxspectrum .vk-layer-cursor {
   color: #5fc4d6;
 }
 
-/* SYMBOL SHIFT symbols (top-right) in Spectrum red. */
-.vk-theme-zxspectrum .vk-pos-tr {
-  color: #ec6a6a;
+.vk-theme-zxspectrum .vk-layer-caps.vk-active,
+.vk-theme-zxspectrum .vk-layer-cursor.vk-active {
+  color: #a9e6f2;
 }
 
-/* K-mode keyword (bottom-left) in clean white. */
-.vk-theme-zxspectrum .vk-pos-bl {
+/* K-mode keyword in clean white. */
+.vk-theme-zxspectrum .vk-layer-keyword {
   color: #e8e8e8;
 }
 
-/* Extended-mode functions (below the key) in Spectrum green. */
-.vk-theme-zxspectrum .vk-pos-below {
+/* Extended-mode functions in Spectrum green. */
+.vk-theme-zxspectrum .vk-layer-function {
   color: #62c46f;
 }
 
@@ -996,15 +942,12 @@
   color: #fff;
 }
 
-/* The CURSOR overlay (↑←↓→ on WASD) top-right on the keycap, in the BBC's red. */
-.vk-theme-bbc:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 9px;
+/* The CURSOR overlay (↑←↓→ on WASD) in the BBC's red. */
+.vk-theme-bbc .vk-layer-cursor {
   color: #d98682;
 }
 
-.vk-theme-bbc .vk-pos-tr.vk-active {
+.vk-theme-bbc .vk-layer-cursor.vk-active {
   color: #ffd7d3;
 }
 
@@ -1019,9 +962,9 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Commodore 64 keyboard theme: dark-grey function keys (f1–f8) and the two
-   block-graphic legends (C= bottom-left, SHIFT bottom-right) the GRAPHICS mode
-   pins. Activated by the layout's `theme: 'vk-theme-commodore64'`. */
+   Commodore 64 keyboard theme: dark-grey function keys (f1–f8) and the cursor
+   overlay in the machine's pale blue. Activated by the layout's
+   `theme: 'vk-theme-commodore64'`. */
 .vk-theme-commodore64 .vk-style-fn .vk-keycap {
   background: linear-gradient(#3a3a3e, #2a2a2e);
 }
@@ -1030,107 +973,55 @@
   color: #d7d7db;
 }
 
-/* Two graphics low on the keycap, side by side, like the real key fronts. The
-   compact view collapses secondaries into one centred slot, so skip it there. */
-.vk-theme-commodore64:not(.vk-compact) .vk-pos-bl {
-  left: 4px;
-  right: auto;
-  bottom: 15px;
-  text-align: left;
-  font-size: 9px;
+.vk-theme-commodore64 .vk-layer-cursor {
   color: #8fa6cf;
 }
 
-.vk-theme-commodore64:not(.vk-compact) .vk-pos-br {
-  right: 4px;
-  bottom: 15px;
-  font-size: 9px;
-  color: #8fa6cf;
-}
-
-.vk-theme-commodore64 .vk-pos-bl.vk-active,
-.vk-theme-commodore64 .vk-pos-br.vk-active {
+.vk-theme-commodore64 .vk-layer-cursor.vk-active {
   color: #cfe0ff;
 }
 
 /* ---------------------------------------------------------------------------
-   Acorn Atom keyboard theme: the SYM punctuation page, low-right on the keycap,
-   in the Atom's blue. Activated by the layout's `theme: 'vk-theme-atom'`. */
-.vk-theme-atom:not(.vk-compact) .vk-pos-br {
-  right: 4px;
-  bottom: 15px;
-  font-size: 9px;
+   Acorn Atom keyboard theme: the CURSOR overlay (↑←↓→ on WASD) in the Atom's
+   blue. Activated by the layout's `theme: 'vk-theme-atom'`. */
+.vk-theme-atom .vk-layer-cursor {
   color: #6f9bd1;
 }
 
-/* The CURSOR overlay (↑←↓→ on WASD) top-right on the keycap, in the same blue. */
-.vk-theme-atom:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 9px;
-  color: #6f9bd1;
-}
-
-.vk-theme-atom .vk-pos-br.vk-active,
-.vk-theme-atom .vk-pos-tr.vk-active {
+.vk-theme-atom .vk-layer-cursor.vk-active {
   color: #cfe0ff;
 }
 
 /* ---------------------------------------------------------------------------
-   TRS-80 keyboard theme: the SHIFT legend (operators/symbols) sits
-   top-right on the keycap in the machine's silver-grey. Activated by the
-   layout's `theme: 'vk-theme-trs80'`. */
-.vk-theme-trs80:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 9px;
+   TRS-80 keyboard theme: the SHIFT legend and the CURSOR overlay (↑←↓→ on
+   WASD) both in the machine's silver-grey. Activated by the layout's
+   `theme: 'vk-theme-trs80'`. */
+.vk-theme-trs80 .vk-layer-shift,
+.vk-theme-trs80 .vk-layer-cursor {
   color: #9aa0a6;
 }
 
-/* The CURSOR overlay (↑←↓→ on WASD) bottom-right, since SHIFT holds top-right. */
-.vk-theme-trs80:not(.vk-compact) .vk-pos-br {
-  right: 4px;
-  bottom: 15px;
-  font-size: 9px;
-  color: #9aa0a6;
-}
-
-.vk-theme-trs80 .vk-pos-tr.vk-active,
-.vk-theme-trs80 .vk-pos-br.vk-active {
+.vk-theme-trs80 .vk-layer-shift.vk-active,
+.vk-theme-trs80 .vk-layer-cursor.vk-active {
   color: #e8e8e8;
 }
 
 /* ---------------------------------------------------------------------------
    Commodore PET keyboard theme: green-phosphor accents matching the monochrome
-   display. The SHIFT operators sit top-right and the block-graphics legend
-   bottom-left (the GRAPHICS mode), both in a dim phosphor green that brightens
-   when the layer is active. Activated by the layout's `theme: 'vk-theme-pet'`. */
-.vk-theme-pet:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 9px;
+   display. The CURSOR overlay takes a dim phosphor green that brightens while
+   the layer is active. Activated by the layout's `theme: 'vk-theme-pet'`. */
+.vk-theme-pet .vk-layer-cursor {
   color: #4f9a5a;
 }
 
-.vk-theme-pet:not(.vk-compact) .vk-pos-bl {
-  left: 4px;
-  right: auto;
-  bottom: 15px;
-  text-align: left;
-  font-size: 9px;
-  color: #4f9a5a;
-}
-
-.vk-theme-pet .vk-pos-tr.vk-active,
-.vk-theme-pet .vk-pos-bl.vk-active {
+.vk-theme-pet .vk-layer-cursor.vk-active {
   color: #8dff9a;
 }
 
 /* ---------------------------------------------------------------------------
    Commodore VIC-20 keyboard theme: the same key faces as the C64 (dark
-   function keys, the two C=/SHIFT block-graphic legends bottom-left and
-   bottom-right pinned by GRAPHICS mode), tinted in the VIC-20's warmer amber so
-   the machine still reads as its own. Activated by the layout's
+   function keys, the same cursor overlay), tinted in the VIC-20's warmer amber
+   so the machine still reads as its own. Activated by the layout's
    `theme: 'vk-theme-vic20'`. */
 .vk-theme-vic20 .vk-style-fn .vk-keycap {
   background: linear-gradient(#3a3630, #2a2620);
@@ -1140,32 +1031,18 @@
   color: #dbd3c7;
 }
 
-.vk-theme-vic20:not(.vk-compact) .vk-pos-bl {
-  left: 4px;
-  right: auto;
-  bottom: 15px;
-  text-align: left;
-  font-size: 9px;
+.vk-theme-vic20 .vk-layer-cursor {
   color: #cfa96f;
 }
 
-.vk-theme-vic20:not(.vk-compact) .vk-pos-br {
-  right: 4px;
-  bottom: 15px;
-  font-size: 9px;
-  color: #cfa96f;
-}
-
-.vk-theme-vic20 .vk-pos-bl.vk-active,
-.vk-theme-vic20 .vk-pos-br.vk-active {
+.vk-theme-vic20 .vk-layer-cursor.vk-active {
   color: #ffe0b0;
 }
 
 /* ---------------------------------------------------------------------------
    Amstrad CPC 464 keyboard theme: the machine's signature blue keycaps on the
-   numeric-keypad function keys (f0-f9), with the SYM punctuation page low-right
-   and the CURSOR overlay (↑←↓→ on WASD) top-right on the keycap in the same
-   blue. Activated by the layout's `theme: 'vk-theme-cpc464'`. */
+   numeric-keypad function keys (f0-f9), with the CURSOR overlay (↑←↓→ on WASD)
+   in the same blue. Activated by the layout's `theme: 'vk-theme-cpc464'`. */
 .vk-theme-cpc464 .vk-style-fn .vk-keycap {
   background: linear-gradient(#2f6fb0, #23517f);
 }
@@ -1174,24 +1051,11 @@
   color: #eaf2fb;
 }
 
-.vk-theme-cpc464:not(.vk-compact) .vk-pos-br,
-.vk-theme-cpc464:not(.vk-compact) .vk-pos-tr {
-  font-size: 9px;
+.vk-theme-cpc464 .vk-layer-cursor {
   color: #6f9bd1;
 }
 
-.vk-theme-cpc464:not(.vk-compact) .vk-pos-br {
-  right: 4px;
-  bottom: 15px;
-}
-
-.vk-theme-cpc464:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-}
-
-.vk-theme-cpc464 .vk-pos-br.vk-active,
-.vk-theme-cpc464 .vk-pos-tr.vk-active {
+.vk-theme-cpc464 .vk-layer-cursor.vk-active {
   color: #cfe0ff;
 }
 
@@ -1207,42 +1071,25 @@
   color: #f2f4f6;
 }
 
-.vk-theme-cpc6128:not(.vk-compact) .vk-pos-br,
-.vk-theme-cpc6128:not(.vk-compact) .vk-pos-tr {
-  font-size: 9px;
+.vk-theme-cpc6128 .vk-layer-cursor {
   color: #9aa1a9;
 }
 
-.vk-theme-cpc6128:not(.vk-compact) .vk-pos-br {
-  right: 4px;
-  bottom: 15px;
-}
-
-.vk-theme-cpc6128:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-}
-
-.vk-theme-cpc6128 .vk-pos-br.vk-active,
-.vk-theme-cpc6128 .vk-pos-tr.vk-active {
+.vk-theme-cpc6128 .vk-layer-cursor.vk-active {
   color: #e6eaee;
 }
 
 /* ---------------------------------------------------------------------------
    MITS Altair 8800 keyboard theme - which is really a Teletype ASR-33 theme,
-   the Altair itself having no keyboard at all. The SHIFT legends sit top-right
-   in the dull amber of a teletype's printed key faces, brightening when SHIFT
-   is engaged; the two modifiers take the front panel's own blue-grey so CTRL
+   the Altair itself having no keyboard at all. The SHIFT legends take the dull
+   amber of a teletype's printed key faces, brightening when SHIFT is engaged; the two modifiers take the front panel's own blue-grey so CTRL
    reads as the machine key it is. Activated by the layout's
    `theme: 'vk-theme-altair8800'`. */
-.vk-theme-altair8800:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 9px;
+.vk-theme-altair8800 .vk-layer-shift {
   color: #b08a52;
 }
 
-.vk-theme-altair8800 .vk-pos-tr.vk-active {
+.vk-theme-altair8800 .vk-layer-shift.vk-active {
   color: #f0d29a;
 }
 
@@ -1268,13 +1115,10 @@
 .vk-theme-pmd85 .vk-style-fn .vk-label {
   color: #0d2029;
 }
-.vk-theme-pmd85:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 10px;
+.vk-theme-pmd85 .vk-layer-shift {
   color: #9aa3ad;
 }
-.vk-theme-pmd85 .vk-pos-tr.vk-active {
+.vk-theme-pmd85 .vk-layer-shift.vk-active {
   color: #e8eef5;
 }
 .vk-theme-pmd85 .vk-style-shift .vk-keycap {
@@ -1286,18 +1130,14 @@
 
 /* Apple I: a bare kit machine, so there is no product styling to borrow - what
    there is instead is the Datanetics keyboard most owners bolted to it, whose
-   caps were plain beige with dark legends. The SHIFT legends sit top-right in a
-   faded ink; the two board buttons take the warning red a panel button gets, and
+   caps were plain beige with dark legends. The SHIFT legends take a faded ink; the two board buttons take the warning red a panel button gets, and
    CTRL and SHIFT the same beige as the caps they sit beside. Activated by the
    layout's `theme: 'vk-theme-apple1'`. */
-.vk-theme-apple1:not(.vk-compact) .vk-pos-tr {
-  right: 4px;
-  top: 4px;
-  font-size: 9px;
+.vk-theme-apple1 .vk-layer-shift {
   color: #8d8272;
 }
 
-.vk-theme-apple1 .vk-pos-tr.vk-active {
+.vk-theme-apple1 .vk-layer-shift.vk-active {
   color: #e8dfcd;
 }
 

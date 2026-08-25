@@ -26,15 +26,20 @@ and gives future dialects a fixed set of rules to follow.
   rarer symbols, and is offered only by machines that map something on it.
 - **BREAKING (UI)**: the Sinclair KEYWORD and FUNCTION mode tabs are removed
   — inline editor autocomplete already covers keyword entry. The keyword and
-  function keycap legends stay printed on the keys.
+  function layers stay as keycap markings, shown wherever no mode or modifier
+  selects another.
 - The PMD 85 and Altair 8800 lose their deviant arrangement and follow the
   same rules; their extra symbol keys move into the SYM map.
 - The full key display is renamed from "Authentic" to "Layered" and
-  normalised: each letter key shows its symbol-mode character as a small
-  theme-coloured hint, letters follow the shift key's case on machines with
-  both cases, cursor arrows appear only in CURSOR mode, and the shift
-  layers type no symbols - the symbol mode and the quote key are the only
-  symbol paths in the editor.
+  normalised: a key prints its letter, one of the machine's other markings -
+  whichever the selected mode or an engaged modifier gives - and a small
+  theme-coloured hint of its symbol-mode character. Legends are sized from
+  the keycap, so a tablet or desktop key reads as a larger version of the
+  phone's rather than scattering every marking into its corners, and a
+  theme's ink follows the layer into the slot it shares. Letters follow the
+  shift key's case on machines with both cases, cursor arrows appear only in
+  CURSOR mode, and the shift layers type no symbols - the symbol mode and
+  the quote key are the only symbol paths in the editor.
 - The arrangement rules become part of the virtual-input capability spec, so
   every future dialect's keyboard is authored to them.
 

@@ -105,8 +105,10 @@ A few options under **Settings ▸ Keyboard** tune it:
 
 - **Show automatically on focus** pops the keyboard up when you tap the editor or
   the emulator screen.
-- **Authentic** vs **Compact** legends switch between faithful and simplified key
-  labels.
+- **Layered** vs **Compact** key layout. Layered prints the key's letter with
+  the one marking the selected mode gives it, in the machine's own colours,
+  plus a small hint of the symbol the key holds in SYM mode. Compact prints
+  only the character the current mode types, larger.
 - Optional key-click **sound** and **haptics** (vibration) for feedback.
 
 On a phone in landscape the status bar is hidden; there the keyboard has its own

@@ -210,6 +210,12 @@ the `^` slot). The rules:
   it), only letter case pairs and the Sinclair arrows. The layered key
   display draws each key's page-1 cell as a small theme-ink hint, and a
   machine with both letter cases shows one case-following letter per key.
+- A key prints one of the machine's other markings at a time, whatever the
+  screen size: the one the selected mode pins or an engaged modifier gives,
+  in a slot under the base legend. A layer's `position` records the corner
+  the machine printed that marking in, and the theme colours the _layer_
+  rather than the corner, so the ink travels with whichever marking the slot
+  is carrying (`keyboardTheme.test.ts` enforces both).
 - The page-2 toggle appears on the shift flank only when the table maps a
   page-2 symbol; `withSymbolMode` handles that, and the layers it adds are
   `modeOnly`, so the canonical symbols never decorate the keycaps in ABC
@@ -302,8 +308,9 @@ The top-strip mode tabs pin a layer's legends and editor inserts. Every
 machine has at least ABC and the SYM tab `withSymbolMode` slots in second;
 most add CURSOR, and a machine with block graphics adds its GRAPHICS palette
 mode. Do not add keyword- or function-name entry modes: keyword entry is the
-editor autocomplete's job, and a machine whose keycaps print keyword legends
-(the Sinclairs) keeps them as display layers only.
+editor autocomplete's job. A machine whose keycaps print keyword or
+function-name legends (the Sinclairs) keeps them as display layers, which the
+keys show only where no mode or modifier selects another marking.
 
 ```ts
 editorModes: [

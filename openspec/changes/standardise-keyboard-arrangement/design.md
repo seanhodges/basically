@@ -83,6 +83,20 @@ the keyboard subsystem's structure; this design only names what changes.
   one case-following letter per key. The editor types symbols only through
   SYM cells and the quote key; an engaged SHIFT still reaches whatever the
   hardware matrix makes of it on the machine target.
+- **One marking at a time, at every screen size.** The narrow-screen
+  fallback that showed the base layer plus one selected secondary becomes
+  the display itself: printing five corner legends at once only ever looked
+  right on a keycap nobody was reading closely, and it left a tablet's roomy
+  keys covered in 7px type. A layer's `position` stays as the record of
+  which corner the machine printed that marking in, but every position but
+  `center` draws in one slot under the base legend, and a theme colours the
+  *layer* rather than the corner so its ink travels with whichever marking
+  the slot carries - which is also what finally colours the cursor arrows,
+  since a pinned mode-only layer always drew centred and never matched a
+  corner rule. Legend sizes come from the keycap's own width (a container
+  query), so one set of rules serves a phone's ~36px keys and a desktop's
+  ~116px ones; a landscape phone, whose keys are wide but shallow, keeps a
+  flat size of its own.
 - **An overlay mode owns everything above the bottom row.** CURSOR pins a
   `modeOnly` layer the way SYM does, so `withSymbolMode` finishes it the
   same way: above the bottom row, a key the overlay leaves unlabelled is
@@ -91,9 +105,14 @@ the keyboard subsystem's structure; this design only names what changes.
   (the Sinclairs' are on the number row); only the bottom row keeps its
   normal function. SYM is different by design: its number row stays live.
 - **KEYWORD/FUNCTION modes are removed on zx80/zx81/zxspectrum(+128)** —
-  tabs only; the layers and their printed legends stay, and
-  `compactDefaultLayer: 'keyword'` remains valid. Keyword entry is the
-  editor autocomplete's job.
+  tabs only; the layers stay as markings. With one marking shown at a time
+  and the modifier layer reached first, a Sinclair key shows its CAPS/SHIFT
+  marking at rest, so those keyword and function legends go unseen and
+  `compactDefaultLayer: 'keyword'` selects nothing. Accepted rather than
+  worked around: keyword entry is the editor autocomplete's job, and the
+  alternative is either a keyword mode this change deliberately removed or a
+  precedence rule that would put a legend on the phone that it has never
+  shown.
 - **The flanked row is asserted, not conventioned.** `templateRows.ts`
   gains a `flankedRow(shift, letters, del)` helper (validates 7 letters,
   fixes spans 6/4/6), and `layoutGeometry.test.ts` is re-pinned: home row =
@@ -122,11 +141,15 @@ the keyboard subsystem's structure; this design only names what changes.
   switch] → accepted by the user (strict symbol-mode punctuation); the SYM
   page keeps the number row functional, so numeric lists type without
   flipping back.
-- [`modeOnly` rendering interacts with compact mode's layer selector and
-  `--vk-max-len` font sizing] → exclude `modeOnly` layers from the
-  selector and from the max-length scan unless their mode is active; covered
-  by a `keyboardTheme`/`VirtualKeyboard` unit assertion and the extended
-  touch-input e2e journey.
+- [`modeOnly` rendering interacts with the secondary-legend choice and
+  `--vk-max-len` font sizing] → exclude `modeOnly` layers from both unless
+  their mode is active; covered by a `keyboardTheme`/`VirtualKeyboard` unit
+  assertion and the extended touch-input e2e journey.
+- [Theme ink keyed to a layer can name a layer the machine dropped, and go
+  unnoticed because it simply never paints] → `keyboardTheme.test.ts` reads
+  the stylesheet and fails on a themed layer id no machine wearing that
+  theme declares, on position-keyed theme ink, and on a rule keyed to the
+  retired responsive class.
 - [Twelve layout files change at once] → migrate one machine per commit on
   top of the shared helpers, mirroring the legend-kit migration; each
   commit passes the full quality gate.
