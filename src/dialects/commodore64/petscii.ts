@@ -34,8 +34,10 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  * The function keys ($85–$8C) decode as `{f1}`–`{f8}` and shifted space ($A0)
  * as `{shift-space}`. On **parse** the table additionally accepts the canonical
  * petcat/VICE control names (`{wht}`, `{rvof}`, `{swlc}`…), the `{CBM-x}` /
- * `{SHIFT-x}` key-graphic names, and decimal `{nnn}` codes, so real archive
- * listings can be pasted in; decode always emits the canonical form above.
+ * `{SHIFT-x}` key-graphic names (`x` being any keycap with a graphic on its
+ * front face - a letter or one of the symbol keys, e.g. `{shift-*}`), and
+ * decimal `{nnn}` codes, so real archive listings can be pasted in; decode
+ * always emits the canonical form above.
  */
 
 // Code ($00-$FF) -> canonical editor text. Generated from the C64 font glyphs
@@ -103,15 +105,18 @@ export const PETCAT_ALIASES: Record<string, number> = {
 for (const [name, code] of Object.entries(PETCAT_ALIASES)) {
   nameToCode.set(name, code);
 }
-// {CBM-x} / {SHIFT-x}: the graphic on a letter key's C= or SHIFT front face,
-// keyed off the same table the virtual keyboard uses so the two never drift.
-// Every Commodore graphic is printed on a key, so `key` is always set here;
-// the optional case is for machines with no graphics keys at all.
+// {CBM-x} / {SHIFT-x}: the graphic on a key's C= or SHIFT front face, keyed off
+// the same table the virtual keyboard uses so the two never drift. `x` is the
+// character on the keycap, so it spans the six symbol keys that carry front-face
+// graphics as well as the letters: `{shift-*}` is $C0 and `{cbm-*}` is $DF, and
+// the same goes for `+ - @ £ ↑`. Every Commodore graphic is printed on a key,
+// so `key` is always set here; the optional case is for machines with no
+// graphics keys at all.
 for (const { key, code } of C64_COMMODORE_GRAPHICS) {
-  if (key && /^[A-Z]$/.test(key)) nameToCode.set(`cbm-${key.toLowerCase()}`, code); // prettier-ignore
+  if (key) nameToCode.set(`cbm-${key.toLowerCase()}`, code);
 }
 for (const { key, code } of C64_SHIFT_GRAPHICS) {
-  if (key && /^[A-Z]$/.test(key)) nameToCode.set(`shift-${key.toLowerCase()}`, code); // prettier-ignore
+  if (key) nameToCode.set(`shift-${key.toLowerCase()}`, code);
 }
 
 /** Canonical editor text for a PETSCII code (glyph or `{...}` escape). */

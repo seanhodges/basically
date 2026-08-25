@@ -908,7 +908,7 @@ function listOf(parts: string[]): string {
 // under the block-graphics keycaps.
 // Ranked the same way too: each group carries the verdict for its class of code
 // from the target's own guidance, and the groups lead with the classes the
-// target places worst. 52 key-graphics codes to redraw by hand and 5 cursor
+// target places worst. 63 key-graphics codes to redraw by hand and 5 cursor
 // codes that become a print-at are not equal work, so the heavier work is met
 // first rather than found by scanning the badges. Groups the guidance cannot
 // separate keep the source table's own category order.
@@ -2282,7 +2282,7 @@ watch(to, requestVocabulary);
             {{ s.label }}
             <span class="cmp-group-count">{{ s.entries.length }}</span>
             <!--
-              The verdict, once per group: 52 keycap graphics to redraw and 5
+              The verdict, once per group: 63 keycap graphics to redraw and 5
               cursor codes that become one PRINT AT are both "codes to replace"
               without it. The covered case is stated too, not just tinted - it
               is what tells a reader the group is a search and replace.

@@ -850,6 +850,61 @@ export const commodoreEscapes: EscapeTableData = {
       parseOnly: true,
     },
     {
+      escape: '{CBM-+}',
+      bytes: '0xA6',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the + key (▒).',
+      example: {
+        source: '{CBM-+}',
+        bytes: [166],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM--}',
+      bytes: '0xDC',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the - key (🮌).',
+      example: {
+        source: '{CBM--}',
+        bytes: [220],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM-@}',
+      bytes: '0xA4',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the @ key (▁).',
+      example: {
+        source: '{CBM-@}',
+        bytes: [164],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM-£}',
+      bytes: '0xA8',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the £ key (🮏).',
+      example: {
+        source: '{CBM-£}',
+        bytes: [168],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM-*}',
+      bytes: '0xDF',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the * key (◥).',
+      example: {
+        source: '{CBM-*}',
+        bytes: [223],
+      },
+      parseOnly: true,
+    },
+    {
       escape: '{SHIFT-a}',
       bytes: '0xC1',
       category: 'key-graphics',
@@ -1133,6 +1188,73 @@ export const commodoreEscapes: EscapeTableData = {
       example: {
         source: '{SHIFT-z}',
         bytes: [218],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-+}',
+      bytes: '0xDB',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the + key (┼).',
+      example: {
+        source: '{SHIFT-+}',
+        bytes: [219],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT--}',
+      bytes: '0xDD',
+      category: 'key-graphics',
+      description:
+        'Graphic on the SHIFT face of the - key (│). This code is a hardware duplicate glyph, so it decodes back as a raw {$dd} escape.',
+      example: {
+        source: '{SHIFT--}',
+        bytes: [221],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-@}',
+      bytes: '0xBA',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the @ key (⌟).',
+      example: {
+        source: '{SHIFT-@}',
+        bytes: [186],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-£}',
+      bytes: '0xA9',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the £ key (◤).',
+      example: {
+        source: '{SHIFT-£}',
+        bytes: [169],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-*}',
+      bytes: '0xC0',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the * key (─).',
+      example: {
+        source: '{SHIFT-*}',
+        bytes: [192],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-↑}',
+      bytes: '0xFF',
+      category: 'key-graphics',
+      description: 'Pi (CHR$ 255), on the SHIFT face of the ↑ key (π).',
+      example: {
+        source: '{SHIFT-↑}',
+        bytes: [255],
       },
       parseOnly: true,
     },

@@ -211,19 +211,21 @@ describe('escape cross-check: table-driven extras', () => {
     }
   });
 
-  it('every C64 letter-key graphic has a {CBM-x}/{SHIFT-x} row', () => {
+  it('every C64 key graphic has a {CBM-x}/{SHIFT-x} row', () => {
     const spellings = new Set(
       escapePages.commodore!.entries.map((e) => e.escape),
     );
+    // Both faces of the symbol keys count too, not just the letters: the
+    // charset accepts {SHIFT-*} and {CBM-+} exactly as it accepts {SHIFT-a}.
     // A graphic printed on no key (`key` is optional - the CPC and TRS-80
     // printed none) has no {CBM-x} spelling to look for.
     for (const { key } of C64_COMMODORE_GRAPHICS) {
-      if (key && /^[A-Z]$/.test(key)) {
+      if (key) {
         expect(spellings.has(`{CBM-${key.toLowerCase()}}`), key).toBe(true);
       }
     }
     for (const { key } of C64_SHIFT_GRAPHICS) {
-      if (key && /^[A-Z]$/.test(key)) {
+      if (key) {
         expect(spellings.has(`{SHIFT-${key.toLowerCase()}}`), key).toBe(true);
       }
     }

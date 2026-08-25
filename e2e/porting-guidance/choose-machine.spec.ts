@@ -110,7 +110,7 @@ test('the two fields are told apart, and so is a machine from its relative', asy
 
   // Rides this journey rather than opening a second cold page: the pickers are
   // already warm, and re-pointing them at C64 → ZX81 is two more clicks. That
-  // pair is the one the control-code verdicts exist for - 97 PETSCII codes to
+  // pair is the one the control-code verdicts exist for - 108 PETSCII codes to
   // replace, which the ZX81 answers three different ways.
   await pick(page, 'from', 'commodore64');
   await pick(page, 'to', 'zx81');
@@ -130,14 +130,14 @@ test('the two fields are told apart, and so is a machine from its relative', asy
     'ZX81 has these under its own spellings',
   );
 
-  // And the group the pair's bulk is in: 52 keycap shapes the ZX81 draws on a
+  // And the group the pair's bulk is in: 63 keycap shapes the ZX81 draws on a
   // different grid, so it is neither of the two above.
   const keyGraphics = group(page, 'Key graphics');
   await expect(keyGraphics).toContainText('only partly covered in ZX81');
-  // Once for the whole group, not against each of the 52 codes.
+  // Once for the whole group, not against each of the 63 codes.
   await expect(keyGraphics.locator('.cmp-group-instead-text')).toHaveCount(1);
 
-  // All 52 of them, however long the run: the grouped sections are capped by
+  // All 63 of them, however long the run: the grouped sections are capped by
   // group, not by entry, so a category the reader is shown is shown whole. A
   // partial run would be indistinguishable from a small category.
   await expect(keyGraphics.locator('.cmp-group-names .cmp-name')).toHaveCount(
