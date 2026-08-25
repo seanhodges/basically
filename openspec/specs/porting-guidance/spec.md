@@ -9,9 +9,7 @@ differently, and how the two machines differ in language rules and hardware —
 with guidance for the target machine always present and the general primer a
 link away. Inside the IDE, where the user's own program is at hand,
 additionally offer to carry the port out with the AI assistant.
-
 ## Requirements
-
 ### Requirement: Comparing two machines
 
 The user SHALL be able to choose a machine to port **from** and a machine to
@@ -1425,6 +1423,13 @@ Whether a name's type marker distinguishes it SHALL be decided as the target
 machine decides it, so two names the target keeps apart are not reported as
 colliding.
 
+Machines also differ in whether they tell `A` from `a`. A difference in letter
+case SHALL count as a difference in name where the source machine distinguishes
+it, so two names the source keeps apart are reported as colliding on a target
+that folds them — the same silent failure as a truncated name, and reported the
+same way. Where the source machine folds case, two spellings of one name were
+never two variables, and nothing SHALL be reported about them.
+
 Where the target keeps at least as much of a name as the source, nothing SHALL be
 reported. Where there is no program, nothing SHALL be reported: which names
 collide is a fact about a program, not about a pair of machines.
@@ -1459,6 +1464,18 @@ collide is a fact about a program, not about a pair of machines.
 - **WHEN** a user reads the comparison on its own, or with nothing open
 - **THEN** the target's variable-naming rule is still reported among the language
   and hardware differences, and no collisions are reported
+
+#### Scenario: Two cases of a name moving to a machine that folds them
+
+- **WHEN** a program written for a machine that tells `A` from `a` uses two names
+  differing only in letter case, and is compared against a target that folds case
+- **THEN** the comparison reports the two names as colliding on the target
+
+#### Scenario: Two cases of a name moving off a machine that folds them
+
+- **WHEN** a program written for a machine that folds letter case uses two
+  spellings of one name differing only in case
+- **THEN** nothing is reported about them, whichever target is compared
 
 ### Requirement: Type markers the target does not have are reported
 
@@ -2322,3 +2339,4 @@ machines.
 
 - **WHEN** a user reads the comparison on its own, or with nothing open
 - **THEN** nothing is reported about abbreviated spellings
+
