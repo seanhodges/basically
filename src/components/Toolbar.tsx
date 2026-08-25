@@ -386,7 +386,8 @@ export function Toolbar() {
           onClick={playProgram}
           title={withKeys(playTitle, 'run.play')}
         >
-          ▶ Play{runTargetName ? ` ${runTargetName}` : ''}
+          <span className={`${styles.mark} ${styles.markPlay}`}>▶</span> Play
+          {runTargetName ? ` ${runTargetName}` : ''}
         </button>
         {dialect.debuggable && (
           <>
@@ -396,7 +397,8 @@ export function Toolbar() {
               disabled={emulatorStatus !== 'paused'}
               title={withKeys('Run to the next BASIC line', 'run.step')}
             >
-              ⤵ Step
+              <span className={`${styles.mark} ${styles.markStep}`}>⤵</span>{' '}
+              Step
             </button>
             <button
               className={`desktop-only ${styles.pauseToggle} ${
@@ -424,7 +426,7 @@ export function Toolbar() {
             'run.stop',
           )}
         >
-          ■ Stop
+          <span className={`${styles.mark} ${styles.markStop}`}>■</span> Stop
         </button>
         <button
           className={`icon-btn ${emulatorMuted ? 'active' : ''}`}
@@ -574,7 +576,12 @@ export function Toolbar() {
                       In portrait there is no rail, so Play leads the menu. */}
                   {!landscape && (
                     <>
-                      <button onClick={playProgram}>▶ Play</button>
+                      <button onClick={playProgram}>
+                        <span className={`${styles.mark} ${styles.markPlay}`}>
+                          ▶
+                        </span>{' '}
+                        Play
+                      </button>
                       <div className={styles.menuSeparator} />
                     </>
                   )}
@@ -584,7 +591,10 @@ export function Toolbar() {
                         onClick={stepProgram}
                         disabled={emulatorStatus !== 'paused'}
                       >
-                        ⤵ Step
+                        <span className={`${styles.mark} ${styles.markStep}`}>
+                          ⤵
+                        </span>{' '}
+                        Step
                       </button>
                       {/* Menu items carry no fill, so the two faces differ by
                           glyph and word alone. */}
@@ -595,7 +605,9 @@ export function Toolbar() {
                         disabled={!pauseToggle.offered}
                         title={pauseToggleTitle}
                       >
-                        {runControlGlyph(pauseToggle.face)}{' '}
+                        <span className={`${styles.mark} ${styles.markRun}`}>
+                          {runControlGlyph(pauseToggle.face)}
+                        </span>{' '}
                         {runControlWord(pauseToggle.face)}
                       </button>
                     </>
@@ -604,7 +616,10 @@ export function Toolbar() {
                     onClick={stopProgram}
                     disabled={emulatorStatus === 'stopped'}
                   >
-                    ■ Stop
+                    <span className={`${styles.mark} ${styles.markStop}`}>
+                      ■
+                    </span>{' '}
+                    Stop
                   </button>
                   <div className={styles.menuSeparator} />
                   {/* The toolbar's camera is an .icon-btn, which the mobile
