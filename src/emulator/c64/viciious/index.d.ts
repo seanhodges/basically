@@ -122,7 +122,17 @@ export interface C64 {
   rom: { basic: unknown; kernal: unknown; character: unknown };
   wires: Wires;
   cpu: Cpu;
-  vic: Device & { showStatic?(): void };
+  vic: Device & {
+    showStatic?(): void;
+    /**
+     * Read a VIC-II register directly, bypassing the CPU's memory banking.
+     * Takes a full address in $D000-$D3FF (the 64 registers repeat through the
+     * range). Some registers clear on read - $D019's interrupt latch, the two
+     * collision registers $D01E/$D01F - so a host reading for its own purposes
+     * must stay off those.
+     */
+    read_d000_d3ff(address: number): number;
+  };
   sid: Device;
   cias: Device;
   tape: Device;

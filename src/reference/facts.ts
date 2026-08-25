@@ -490,7 +490,7 @@ const entries: PortingFactsEntry[] = [
       text: "the jiffy clock at 160-162, which the system interrupt advances every frame: PEEK it and loop until it moves (BASIC's own TI reads the same three bytes)",
       keywords: ['PEEK'],
     },
-    loopSpeed: 771,
+    loopSpeed: 726,
     screenBase: '$0400',
     // The region starts at $0800; BASIC text begins one byte in, past the zero
     // byte the interpreter expects there.
@@ -1207,6 +1207,9 @@ const entries: PortingFactsEntry[] = [
     // The smallest BASIC budget of any machine here by an order of magnitude:
     // a program that fits a C64 very often will not fit unexpanded.
     freeRamBytes: 3583,
+    // Stated rather than inherited: the VIC runs the same BASIC on its own
+    // hardware, so its speed is its own and moves independently of the C64's.
+    loopSpeed: 886,
     screenBase: '$1E00',
     programStart: '$1000',
     screen: '22×23 text; no bitmap mode, and characters are 8×8 as on the C64.',
