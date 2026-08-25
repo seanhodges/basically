@@ -408,7 +408,9 @@ export function Toolbar() {
               disabled={!pauseToggle.offered}
               title={withKeys(pauseToggleTitle, 'run.continue')}
             >
-              {runControlGlyph(pauseToggle.face)}{' '}
+              <span className={styles.pauseToggleGlyph}>
+                {runControlGlyph(pauseToggle.face)}
+              </span>{' '}
               {runControlWord(pauseToggle.face)}
             </button>
           </>

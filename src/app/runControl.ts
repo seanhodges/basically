@@ -26,7 +26,7 @@ const CONTROL_STATE: Record<EmulatorStatus, RunControlState> = {
 
 /** What the control's position depends on besides the run's state. */
 export interface RunControlConditions {
-  /** The machine offers a pause, because it offers a Continue to release it. */
+  /** The machine offers a pause, because it offers a Resume to release it. */
   pausable: boolean;
   /**
    * The program has ended - it finished, or it stopped on an error - while the
@@ -41,14 +41,14 @@ export interface RunControlConditions {
  * A machine that cannot be paused keeps the plain Play the control has always
  * been, because pausing is only offered where continuing is: the machines with
  * a line-level debugger. Without that pairing a run could be held still on a
- * machine whose toolbar has no Continue to release it.
+ * machine whose toolbar has no Resume to release it.
  *
- * `paused` still maps to Continue even when pausing is off, so a run paused
+ * `paused` still maps to Resume even when pausing is off, so a run paused
  * before the machine was switched is never left with no way out.
  *
  * A program that has ended puts the control back to Play, ahead of everything
  * else: the machine is still running - it sits at its prompt, and the user may
- * be typing at it - but Pause and Continue are offered against a program, and
+ * be typing at it - but Pause and Resume are offered against a program, and
  * there is no longer one to hold still or to carry on. What the control offers
  * is then what it offers to a machine that has never run: build the program and
  * run it again. This holds on every machine, since every machine reports
@@ -84,7 +84,7 @@ export interface PauseToggle {
  * prompt - a surface with its own Play refuses instead. Falling back would give
  * such a surface two buttons that both start the program, and would let a
  * mis-aimed press restart a run at the moment it ended. The refused face is
- * Continue, which is what those surfaces show at rest today.
+ * Resume, which is what those surfaces show at rest today.
  */
 export function pauseToggleOf(state: RunControlState): PauseToggle {
   if (state === 'pause') return { face: 'pause', offered: true };
@@ -93,14 +93,14 @@ export function pauseToggleOf(state: RunControlState): PauseToggle {
 }
 
 /**
- * Text glyphs, matching the toolbar's set (▶ ■ ⤵). Continue is the left half of
+ * Text glyphs, matching the toolbar's set (▶ ■ ⤵). Resume is the left half of
  * the Pause bars followed by the play triangle, so it is told apart from Play
  * by its mark rather than by fill colour alone - the two actions it matters
  * most not to confuse, since one carries the run on and the other throws it
  * away and starts over. Both codepoints are already in the set: no glyph here
  * is one the app was not already rendering.
  *
- * Pause is U+275A rather than U+23F8, and Continue is that bar with U+25B6
+ * Pause is U+275A rather than U+23F8, and Resume is that bar with U+25B6
  * rather than U+23EF: browsers give the U+23Ex range emoji presentation and
  * colour, and U+23EF means a play/pause toggle rather than a resume.
  */
@@ -118,7 +118,7 @@ const GLYPH: Record<RunControlState, string> = {
 const WORD: Record<RunControlState, string> = {
   play: 'Play',
   pause: 'Pause',
-  continue: 'Continue',
+  continue: 'Resume',
 };
 
 /** The word the run control sets beside its glyph in `state`. */
@@ -140,7 +140,7 @@ export function runControlLabel(
   runTargetName?: string | null,
 ): string {
   if (state === 'pause') return 'Pause the running program';
-  if (state === 'continue') return 'Continue the paused program';
+  if (state === 'continue') return 'Resume the paused program';
   return runTargetName
     ? `Build and run ${runTargetName} in the emulator`
     : 'Build and run in the emulator';
@@ -148,7 +148,7 @@ export function runControlLabel(
 
 /** The state of the run loop that decides whether a pause is safe to take. */
 export interface PauseConditions {
-  /** The machine offers line-level debugging, and so a Continue to match. */
+  /** The machine offers line-level debugging, and so a Resume to match. */
   debuggable: boolean;
   /** A run the IDE started to check an answer the assistant gave. */
   checking: boolean;
@@ -161,7 +161,7 @@ export interface PauseConditions {
 /**
  * Whether a running machine can be paused. Each refusal is a case where a
  * paused frame loop strands something that has no other way out: a machine
- * with no debugger has no Continue to release the pause, an assistant check
+ * with no debugger has no Resume to release the pause, an assistant check
  * reaches its verdict from inside the loop, a machine the assistant is driving
  * would keep moving while claiming to be paused, and the loading overlay is
  * dismissed by the first rendered frame.

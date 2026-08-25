@@ -16,7 +16,7 @@ const ALL_STATUSES: EmulatorStatus[] = ['stopped', 'running', 'paused'];
 const RUNNING = { pausable: true, programEnded: false };
 
 describe('runControlStateOf', () => {
-  it('offers Play stopped, Pause running, and Continue paused', () => {
+  it('offers Play stopped, Pause running, and Resume paused', () => {
     expect(runControlStateOf('stopped', RUNNING)).toBe('play');
     expect(runControlStateOf('running', RUNNING)).toBe('pause');
     expect(runControlStateOf('paused', RUNNING)).toBe('continue');
@@ -52,7 +52,7 @@ describe('runControlStateOf', () => {
     );
   });
 
-  it('still offers Continue to a run that is somehow paused', () => {
+  it('still offers a way out of a run that is somehow paused', () => {
     // Unreachable while the machine stays put, but a pause must never be left
     // with no way out - switching machines mid-pause must not strand one.
     expect(runControlStateOf('paused', { ...RUNNING, pausable: false })).toBe(
@@ -69,10 +69,10 @@ describe('runControlStateOf', () => {
     ).toBe('play');
   });
 
-  it('offers no Continue for a program that ended before the pause', () => {
+  it('offers no resume for a program that ended before the pause', () => {
     // A pause taken on the frame a program ended has nothing to carry on; the
-    // control offers the run again rather than a Continue that resumes a
-    // prompt.
+    // control offers the run again rather than a Resume that carries a prompt
+    // on.
     expect(
       runControlStateOf('paused', { ...RUNNING, programEnded: true }),
     ).toBe('play');
@@ -80,7 +80,7 @@ describe('runControlStateOf', () => {
 });
 
 describe('pauseToggleOf', () => {
-  it('offers Pause while running and Continue while paused', () => {
+  it('offers Pause while running and Resume while paused', () => {
     expect(pauseToggleOf('pause')).toEqual({ face: 'pause', offered: true });
     expect(pauseToggleOf('continue')).toEqual({
       face: 'continue',
@@ -138,15 +138,15 @@ describe('pauseToggleOf', () => {
 });
 
 describe('runControlGlyph', () => {
-  it('marks Continue apart from Play', () => {
-    // Continue used to wear Play's bare triangle, leaving fill colour the only
+  it('marks Resume apart from Play', () => {
+    // Resume used to wear Play's bare triangle, leaving fill colour the only
     // thing between carrying a run on and throwing it away to start over.
     expect(runControlGlyph('play')).toBe('▶');
     expect(runControlGlyph('continue')).toBe('❚▶');
     expect(runControlGlyph('continue')).not.toBe(runControlGlyph('play'));
   });
 
-  it('composes Continue from the marks already in the set', () => {
+  it('composes Resume from the marks already in the set', () => {
     // No codepoint enters the app that it was not already rendering: the left
     // half of Pause, then Play.
     expect(runControlGlyph('continue')).toBe(
@@ -178,7 +178,7 @@ describe('runControlWord', () => {
   it('gives each position one word, distinct from the others', () => {
     expect(runControlWord('play')).toBe('Play');
     expect(runControlWord('pause')).toBe('Pause');
-    expect(runControlWord('continue')).toBe('Continue');
+    expect(runControlWord('continue')).toBe('Resume');
   });
 });
 
@@ -193,14 +193,16 @@ describe('runControlLabel', () => {
 
   it('says what pressing the control does in the other two states', () => {
     expect(runControlLabel('pause')).toBe('Pause the running program');
-    expect(runControlLabel('continue')).toBe('Continue the paused program');
+    expect(runControlLabel('continue')).toBe('Resume the paused program');
   });
 
-  it('calls carrying a paused run on "Continue", not "Resume"', () => {
-    // One word for one action: the toolbar and the shortcuts already say
-    // Continue, whether the pause came from a breakpoint or from the user.
-    expect(runControlLabel('continue')).toContain('Continue');
-    expect(runControlLabel('continue')).not.toMatch(/resume/i);
+  it('calls carrying a paused run on "Resume" wherever it is offered', () => {
+    // One word for one action, whether the pause came from a breakpoint or
+    // from the user - the button, the menu item, the chord and the tooltip all
+    // take it from here.
+    expect(runControlWord('continue')).toBe('Resume');
+    expect(runControlLabel('continue')).toContain('Resume');
+    expect(runControlLabel('continue')).not.toMatch(/continue/i);
   });
 
   it('gives each state a distinct label', () => {

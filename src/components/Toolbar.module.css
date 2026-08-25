@@ -216,12 +216,25 @@
   }
 }
 
-/* The pause-and-continue control wears whichever of its two faces the run calls
-   for, and "❚❚ Pause" and "❚▶ Continue" do not set to the same width. Without a
-   floor the Stop button beside it would shuffle sideways every time the run
-   changed state, so the button is pinned to the wider of the two faces. */
+/* The pause-and-resume control wears whichever of its two faces the run calls
+   for, and "❚❚ Pause" and "❚▶ Resume" do not set to the same width. The bar's
+   buttons are packed against its right edge, so without a floor everything to
+   the left of this one - Play and Step - would shuffle sideways every time the
+   run changed state. The floor is the wider of the two live faces (Resume,
+   which the accent state sets in semibold). Slightly tighter side padding than
+   the base button keeps it nearer the width of the one-word buttons it sits
+   among. */
 .pauseToggle {
-  min-width: 8.5em;
+  min-width: 7.3em;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* The composed mark sets larger than the letters beside it - two glyphs where
+   Play and Stop have one - so it is stepped down to sit level with the word
+   rather than crowd it. */
+.pauseToggleGlyph {
+  font-size: 0.85em;
 }
 
 .toolbarError {

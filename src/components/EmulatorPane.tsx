@@ -1430,7 +1430,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       {/* The on-screen keyboard is toggled from the sidebar/rail (the Toolbar in
           the IDE, the top-bar actions in the standalone player) rather than a
           button floating over the emulator. */}
-      {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this
+      {/* The Step/Resume/Stop controls live in the top-bar Run menu now; this
           slim bar just reports where the debugger is paused. */}
       {emulatorStatus === 'paused' && debugLine !== null && (
         <div className={styles.debugBar}>

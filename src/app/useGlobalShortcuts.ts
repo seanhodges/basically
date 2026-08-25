@@ -85,7 +85,7 @@ export function dispatchShortcut(id: ShortcutId): boolean {
       // One chord for both halves, as on every other surface that offers to
       // carry a paused run on: it holds a running program still and carries a
       // paused one on. Refused where there is neither - a machine with no
-      // debugger has no Continue to release a pause with, and a stopped run has
+      // debugger has no Resume to release a pause with, and a stopped run has
       // nothing to hold still (Play, on its own chord, is what starts one).
       if (!s.dialect.debuggable) return false;
       if (s.emulatorStatus === 'running') {

@@ -5,7 +5,7 @@ import { test, expect, type Page } from '../fixtures';
  * End-to-end checks for the step-through debugger:
  *
  *  1. Core flow - debugging is always on, so just set a breakpoint in the
- *     gutter; Play pauses on it, Step advances to the next BASIC line, Continue
+ *     gutter; Play pauses on it, Step advances to the next BASIC line, Resume
  *     re-pauses on the breakpoint, Stop clears the session.
  *  2. The debug session survives an orientation change (a viewport flip that
  *     crosses the mobile/desktop breakpoint) - nothing is lost and Step still
@@ -98,8 +98,8 @@ test('core flow: breakpoint, run-to-pause, step, continue, stop', async ({
     timeout: 20_000,
   });
 
-  // Continue runs to the next breakpoint - the loop comes back round to 20.
-  await page.getByRole('button', { name: 'Continue' }).click();
+  // Resume runs to the next breakpoint - the loop comes back round to 20.
+  await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByText('paused at line 20')).toBeVisible({
     timeout: 20_000,
   });
@@ -130,9 +130,9 @@ test('debug session survives an orientation change', async ({ page }) => {
   // The run control over the editor is where a touch user sees the state of the
   // run, so it is only provable in a browser at a touch viewport. Addressed by
   // test id, never by role name: accessible-name matching is a substring match
-  // and the overflow menu carries its own Play and Continue.
+  // and the overflow menu carries its own Play and Resume.
   //
-  // The debugger's own pause reads as Continue, without the user having reached
+  // The debugger's own pause reads as Resume, without the user having reached
   // it themselves.
   const fab = page.getByTestId('fab-run');
   await expect(fab).toHaveAttribute('data-state', 'continue');
@@ -155,7 +155,7 @@ test('debug session survives an orientation change', async ({ page }) => {
   await expect(fab).toHaveAttribute('data-state', 'continue');
   await expect(page.getByText(/paused at line/)).toBeHidden();
 
-  // And the one Continue carries that pause on too, not just a breakpoint's.
+  // And the one Resume carries that pause on too, not just a breakpoint's.
   await fab.click();
   await expect(page.getByText('emulator: running').first()).toBeVisible({
     timeout: 20_000,

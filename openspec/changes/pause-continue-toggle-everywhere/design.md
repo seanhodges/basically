@@ -55,7 +55,7 @@ runControlStateOf(status, {pausable, programEnded})
         'play'          'pause'            'continue'
           │                │                    │
    over the editor:    ▶ (green)          ❚❚ (blue)            ▶ (blue)
-   toolbar / menu:     Continue, refused  Pause, offered       Continue, offered
+   toolbar / menu:     Resume, refused    Pause, offered       Resume, offered
 ```
 
 Alternative considered: re-deriving from `emulatorStatus` inside the toolbar.
@@ -72,7 +72,7 @@ always-live Play, so their toggle has only two faces and a refused state.
 Falling back to Play would give those surfaces two buttons that both start the
 program, and would let a mis-aimed click restart a run at the moment it ended.
 
-The refused state wears the Continue face, which is what the toolbar shows at
+The refused state wears the Resume face, which is what the toolbar shows at
 rest today - so a toolbar with nothing running looks exactly as it does now.
 
 ### Blue is the accent with dark ink, and not `button.primary`
@@ -91,28 +91,41 @@ shared (`▶ Play`, `⤵ Step`, `■ Stop`), so `❚❚ Pause` needs nothing new
 
 Continuing has always worn the play triangle, so on the touch layout the
 control's `play` and `continue` positions differ by fill colour alone - green
-against blue - and on the toolbar Play and Continue read identically. Those are
+against blue - and on the toolbar Play and Resume read identically. Those are
 the two actions it matters most to tell apart: one carries the run on, the other
 throws it away and starts over.
 
-Continue takes a bar-then-triangle mark, composed from glyphs the app already
+Resuming takes a bar-then-triangle mark, composed from glyphs the app already
 ships:
 
 ```
   Play      ▶     U+25B6
   Pause     ❚❚    U+275A ×2
-  Continue  ❚▶    U+275A + U+25B6
+  Resume    ❚▶    U+275A + U+25B6
   Step      ⤵     U+2935          (unchanged)
   Stop      ■     U+25A0          (unchanged)
 ```
 
-So Continue is the left half of Pause followed by Play, and no codepoint enters
+So Resume is the left half of Pause followed by Play, and no codepoint enters
 the app that is not already rendering somewhere in it - which matters, because
 the set is text glyphs in the UI font rather than artwork, and the obvious
 single-codepoint alternative (U+23EF) is both given emoji presentation and
 colour by browsers and means a play/pause toggle rather than a resume.
 
 Colour then reinforces the distinction rather than carrying it.
+
+### Carrying a paused run on is called Resume
+
+One word for one action, and the word changes on every surface at once: the
+button, the menu item, the chord's label, the tooltips and the user guide.
+Continue was the older name and read as a near-synonym of Play beside it -
+"continue" says nothing about there being a run to carry on - where Resume says
+it plainly and, being the shorter word, leaves the toolbar's only two-glyph
+button closer in width to the one-word buttons it stands among.
+
+`runControlWord` is the one place the word is written, so no surface can drift
+from it. The identifiers (`run.continue`, `requestContinue`, `continueRequest`)
+keep their names, being internal and never shown.
 
 ### The chord keeps its id and changes its name
 
@@ -123,9 +136,13 @@ label is what the shortcut table and the menu hints render.
 
 ### The width of the toolbar toggle is pinned
 
-"❚❚ Pause" and "▶ Continue" do not set to the same width, so without a floor
-the Stop button beside them would shuffle sideways every time the run changes
-state. The button takes a `min-width` sized to the longer face.
+"❚❚ Pause" and "❚▶ Resume" do not set to the same width, so without a floor a
+neighbour would shuffle sideways every time the run changes state - the bar's
+buttons are packed against its right edge, so it is Play and Step that move,
+not Stop. The button takes a `min-width` sized to the longer live face (Resume,
+which the accent state sets in semibold), slightly tighter side padding than
+the base button, and a mark stepped down from the text size, so it stands
+nearer the width of the one-word buttons around it.
 
 ## Risks / Trade-offs
 
@@ -136,7 +153,7 @@ state. The button takes a `min-width` sized to the longer face.
   them. → Ships as parity with the control over the editor, which has always
   behaved this way; lifting the flags into the store is a separate change with
   its own re-render cost.
-- **The toolbar's Continue moves under the user's cursor.** Someone who
+- **The toolbar's Resume moves under the user's cursor.** Someone who
   learned "third button releases the breakpoint" now finds a Pause there
   mid-run. → It acts on the state it shows, and the state it shows is the one
   the run is in; the alternative (a fourth button) spends bar width that the
@@ -145,7 +162,7 @@ state. The button takes a `min-width` sized to the longer face.
   the button by name see it change with the run. → The e2e suite already
   addresses the run control over the editor by test id for exactly this
   reason; the toolbar assertions follow the same rule.
-- **A two-character mark sets wider than a one-character one.** Continue grows
+- **A two-character mark sets wider than a one-character one.** Resume grows
   by a glyph on surfaces where it sits in a row of buttons and inside a menu.
   → The toolbar control is width-pinned for its two faces anyway (above); the
   mark still wants looking at on the real surfaces - 13px in the bar, 22px on
