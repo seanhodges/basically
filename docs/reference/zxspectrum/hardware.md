@@ -44,6 +44,27 @@ tests whether a pixel is set.
 `BEEP <duration>, <pitch>` plays a tone through the internal beeper — the duration
 in seconds and the pitch in semitones above or below middle C.
 
+### Timing
+
+The Spectrum's processor runs at 3.5 MHz over 312 screen lines a frame, just
+over fifty frames a second.
+
+Not all of that time is the program's. The display chip reads the picture out of
+the same 16K of memory the processor uses — everything from 16384 to 32767, which
+is where the screen, the BASIC program and its variables all live — and while it
+is fetching a line it holds the processor off the memory for up to six clock
+cycles at a time. Over a frame that is a real slice of the machine: an identical
+routine runs several per cent faster from 32768 upwards, where the display chip
+never looks, than it does from below. It is why a delay written as `FOR n=1 TO
+1000` is worth timing rather than calculating, and why moving a machine-code
+routine above 32768 speeds it up for nothing.
+
+The same sharing is what makes the Spectrum's multicolour effects possible.
+Because the processor is held off in a pattern that repeats with the picture, a
+routine that rewrites colour attributes as the screen is drawn is pulled into
+step with the beam on every pass, and its coloured bands hold still instead of
+sliding. A routine timed on a real Spectrum keeps that relationship here.
+
 ### Memory
 
 The whole of the machine's address space, region by region. Zoom in to open a
@@ -105,6 +126,16 @@ Alongside the 48K beeper and `BEEP`, the 128K models add an AY-3-8912
 three-channel sound chip, driven from BASIC with `PLAY` — one music string per
 channel. Keywords tagged **128K only** in the
 [reference table](../zxspectrum), such as `PLAY`, need 128 BASIC mode.
+
+### Timing
+
+The 128K shares the picture out the same way the 48K does, on a slightly
+different clock: 3.5469 MHz over 311 lines a frame. The memory from 16384 to
+32767 is held off while the display is drawn, exactly as
+[above](#timing) — and so is whichever of the extra memory banks a program has
+switched into the top 16K, if it is an odd-numbered one. The same routine can
+therefore run at two different speeds at 49152 depending only on which bank is
+switched in there.
 
 ### Memory
 

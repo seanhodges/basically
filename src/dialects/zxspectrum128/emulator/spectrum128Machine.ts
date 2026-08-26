@@ -55,15 +55,23 @@ import {
 } from '../../zxspectrum/emulator/blockInject';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 import { createMachineLoop } from '../../../emulator/machineLoop';
+import {
+  ContentionClock,
+  ULA_128K,
+} from '../../zxspectrum/emulator/ulaContention';
 
 const CPU_HZ = 3_546_900;
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
-const TSTATES_PER_LINE = 228; // one 128K raster line (311 lines x 228 = 70908)
+const TSTATES_PER_LINE = ULA_128K.tstatesPerLine; // 311 lines x 228 = 70908
 // T-states from the frame interrupt to the ULA fetching the first display line.
 // Display line `sy` (0..191) is fetched at DISPLAY_START_T + sy * TSTATES_PER_LINE;
 // sampling the screen then renders mid-frame attribute rewrites (the multicolour
 // / "rainbow" effect) at per-scanline resolution.
-const DISPLAY_START_T = 14361;
+//
+// Derived from the contention window rather than written out, so the T-state
+// the picture is sampled at and the T-state the ULA takes the bus can never
+// disagree: the fetch is one cycle after the CPU is held off.
+const DISPLAY_START_T = ULA_128K.firstContendedT + 1; // 14362
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 400; // the 128 menu takes longer than the 48K prompt
 // The 128 menu (drawn by ROM 0) renders text with the 48 BASIC font, which sits
@@ -111,6 +119,9 @@ const MENU_ITEMS = [
  *  - AY-3-8912 on ports 0xFFFD/0xBFFD, synthesized to audio (3 tones + noise +
  *    envelope) and summed with the ULA beeper in readAudio() - the 48K beeper
  *    drives the 128's loudspeaker too (port 0xFE bit 4).
+ *  - A contention window of its own: 228 T-state lines against the 48K's 224,
+ *    and the odd-numbered RAM banks contended wherever a program pages them in
+ *    (see ulaContention.ts and Spectrum128Memory.contended).
  *
  * ramKb from createEmulator is ignored: the 128K always allocates its own banks.
  */
@@ -134,6 +145,15 @@ export class Spectrum128Machine implements MachineEmulator {
   /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
   private readonly beeper = new Beeper();
   private readonly cpu: Z80Core;
+  /**
+   * The T-states the ULA takes off the CPU. Only the CPU's own bus accesses
+   * reach it - the wrapped callbacks below are the sole path - so the host's
+   * introspection and the tape traps stay free. Which addresses are contended
+   * follows the live paging, so it asks the memory rather than deciding itself.
+   */
+  private readonly contention = new ContentionClock(ULA_128K, (address) =>
+    this.memory.contended(address),
+  );
   /** Cycle offset within the current frame, for timestamping beeper writes. */
   private frameCycle = 0;
   private border = 7;
@@ -166,13 +186,17 @@ export class Spectrum128Machine implements MachineEmulator {
   private readonly loop = createMachineLoop({
     cyclesPerFrame: TSTATES_PER_FRAME,
     idleEndsSlice: true,
-    onSliceStart: () => {
+    onSliceStart: (elapsed) => {
+      // The acknowledgement pushes the return address, and that push is
+      // contended like any other write, so the clock is placed before it.
+      this.contention.at(elapsed);
       if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
       this.flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
       this.nextLine = 0;
     },
     step: (elapsed) => {
       this.frameCycle = elapsed; // timestamp any beeper write in this instruction
+      this.contention.at(elapsed);
       const { t, halted } = this.stepInstruction();
       return { cycles: t, idle: halted };
     },
@@ -210,11 +234,29 @@ export class Spectrum128Machine implements MachineEmulator {
   constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
     this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new Spectrum128Memory(opts.rom);
+    // Every hook charges the ULA before it touches the bus. The opcode fetch is
+    // taken separately from a data read because an M1 cycle is 4 T-states and a
+    // data cycle 3, which is what puts the two halves of a block instruction in
+    // different slots of the ULA's eight-T pattern.
     this.cpu = Z80({
-      mem_read: this.memory.read,
-      mem_write: this.memory.write,
-      io_read: this.ioRead,
+      opcode_read: (address: number) => {
+        this.contention.opcode(address);
+        return this.memory.read(address);
+      },
+      mem_read: (address: number) => {
+        this.contention.memory(address);
+        return this.memory.read(address);
+      },
+      mem_write: (address: number, value: number) => {
+        this.contention.memory(address);
+        this.memory.write(address, value);
+      },
+      io_read: (port: number) => {
+        this.contention.io(port);
+        return this.ioRead(port);
+      },
       io_write: (port: number, value: number) => {
+        this.contention.io(port);
         if ((port & 0x0001) === 0) {
           this.border = value & 0x07; // ULA border
           // Bit 4 is the loudspeaker; record the flip at the current cycle so
@@ -242,8 +284,19 @@ export class Spectrum128Machine implements MachineEmulator {
     this.kempston = 0;
     this.frameCount = 0;
     this.frameCycle = 0;
+    this.contention.reset();
+    this.loop.reset(); // the carried overrun belongs to the run that ended
     this.runLatch.clear();
     this.cpu.reset();
+  }
+
+  /**
+   * T-states the ULA has taken off the CPU since the last reset. Diagnostic:
+   * the tests read it to check the cycles a frame loses actually went where
+   * this claims they did.
+   */
+  get contendedTStates(): number {
+    return this.contention.contendedTStates;
   }
 
   /**
@@ -254,15 +307,19 @@ export class Spectrum128Machine implements MachineEmulator {
    */
   private stepInstruction(): { t: number; halted: boolean } {
     const step = this.stepUnmeasured();
+    // Time spent held off the bus is time the instruction took, so it is folded
+    // in here: the frame budget is charged it, the beam chase sees it, and the
+    // profiler charges it to the line that waited.
+    const t = step.t + this.contention.take();
     // Charge the T-states to the BASIC line executing them. Here rather than in
     // debugStep because a run the IDE performs to check an assistant answer
     // deliberately opens no debug session, and would otherwise go unmeasured.
     const p = this.profile;
     if (p.enabled) {
-      p.pending += step.t;
+      p.pending += t;
       if (p.pending >= p.slice) p.sample(this.currentLine());
     }
-    return step;
+    return { t, halted: step.halted };
   }
 
   /** The step itself: the traps, then one instruction (or an idle HALT). */

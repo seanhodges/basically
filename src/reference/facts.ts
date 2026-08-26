@@ -310,7 +310,10 @@ const entries: PortingFactsEntry[] = [
       text: 'PAUSE n, which waits n fiftieths of a second',
       keywords: ['PAUSE'],
     },
-    loopSpeed: 269,
+    // The ULA takes the bus off the processor while it draws, and BASIC's
+    // program text and workspace both sit in the RAM it shares, so a loop runs
+    // slower than the 3.5MHz clock alone would suggest.
+    loopSpeed: 259,
     screenBase: '$4000',
     programStart: '$5CCB',
     freeRamBytes: 41472,
@@ -1168,7 +1171,7 @@ const entries: PortingFactsEntry[] = [
     basicDialect: '128 Sinclair BASIC',
     // Slower than a 48K running the same listing: the 128K interpreter pays for
     // its extra ROM paging on every statement.
-    loopSpeed: 188,
+    loopSpeed: 177,
     // Same 41472-byte BASIC area and memory map as the 48K: the extra 64K is
     // bank-switched RAM the interpreter uses for its own workspace, not program
     // space. The audible difference is the whole difference.

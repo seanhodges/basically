@@ -43,15 +43,20 @@ import {
 import { injectBlocks, minBlockAddress } from './blockInject';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 import { createMachineLoop } from '../../../emulator/machineLoop';
+import { ContentionClock, ULA_48K, contended48K } from './ulaContention';
 
 const CPU_HZ = 3_500_000;
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
-const TSTATES_PER_LINE = 224; // one 48K raster line (312 lines x 224 = 69888)
+const TSTATES_PER_LINE = ULA_48K.tstatesPerLine; // 312 lines x 224 = 69888
 // T-states from the frame interrupt to the ULA fetching the first display line.
 // Display line `sy` (0..191) is fetched at DISPLAY_START_T + sy * TSTATES_PER_LINE;
 // sampling the screen then is what makes mid-frame attribute rewrites (the
 // multicolour / "rainbow" effect) render at per-scanline resolution.
-const DISPLAY_START_T = 14336;
+//
+// Derived from the contention window rather than written out, so the T-state
+// the picture is sampled at and the T-state the ULA takes the bus can never
+// disagree: the fetch is one cycle after the CPU is held off.
+const DISPLAY_START_T = ULA_48K.firstContendedT + 1; // 14336
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 200;
 
@@ -72,8 +77,11 @@ const MAX_BOOT_FRAMES = 200;
  * the T-state the ULA would fetch it, so a program that rewrites screen or
  * attribute memory mid-frame - the multicolour / "rainbow" raster technique -
  * shows a different colour on each scanline rather than one frozen per-cell
- * colour. Contended-memory timing is still not modelled (it does not affect the
- * visible result here).
+ * colour. The T-states the ULA takes off the CPU while it fetches that picture
+ * are charged too (see ulaContention.ts), which is what holds such a routine in
+ * step with the beam instead of letting it free-run. The floating bus is not
+ * modelled: a read of an unclaimed port returns 0xFF rather than the byte the
+ * ULA has in flight, so the floating-bus raster-sync trick will not work.
  */
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
@@ -94,6 +102,12 @@ export class SpectrumMachine implements MachineEmulator {
   private readonly cpu: Z80Core;
   /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
   private readonly beeper = new Beeper();
+  /**
+   * The T-states the ULA takes off the CPU. Only the CPU's own bus accesses
+   * reach it - the wrapped callbacks below are the sole path - so the host's
+   * introspection and the tape traps stay free.
+   */
+  private readonly contention = new ContentionClock(ULA_48K, contended48K);
   /** Cycle offset within the current frame, exposed to the IO write trap. */
   private frameCycle = 0;
   private border = 7;
@@ -126,14 +140,18 @@ export class SpectrumMachine implements MachineEmulator {
   private readonly loop = createMachineLoop({
     cyclesPerFrame: TSTATES_PER_FRAME,
     idleEndsSlice: true,
-    onSliceStart: () => {
-      // One maskable interrupt per frame (IM1) when interrupts are enabled.
+    onSliceStart: (elapsed) => {
+      // One maskable interrupt per frame (IM1) when interrupts are enabled. The
+      // acknowledgement pushes the return address, and that push is contended
+      // like any other write, so the clock is placed before it is raised.
+      this.contention.at(elapsed);
       if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
       this.flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
       this.nextLine = 0;
     },
     step: (elapsed) => {
       this.frameCycle = elapsed; // timestamp any beeper write in this instruction
+      this.contention.at(elapsed);
       const { t, halted } = this.stepInstruction();
       return { cycles: t, idle: halted };
     },
@@ -171,11 +189,29 @@ export class SpectrumMachine implements MachineEmulator {
   constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
     this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new SpectrumMemory(opts.rom);
+    // Every hook charges the ULA before it touches the bus. The opcode fetch is
+    // taken separately from a data read because an M1 cycle is 4 T-states and a
+    // data cycle 3, which is what puts the two halves of a block instruction in
+    // different slots of the ULA's eight-T pattern.
     this.cpu = Z80({
-      mem_read: this.memory.read,
-      mem_write: this.memory.write,
-      io_read: this.ioRead,
+      opcode_read: (address: number) => {
+        this.contention.opcode(address);
+        return this.memory.read(address);
+      },
+      mem_read: (address: number) => {
+        this.contention.memory(address);
+        return this.memory.read(address);
+      },
+      mem_write: (address: number, value: number) => {
+        this.contention.memory(address);
+        this.memory.write(address, value);
+      },
+      io_read: (port: number) => {
+        this.contention.io(port);
+        return this.ioRead(port);
+      },
       io_write: (port: number, value: number) => {
+        this.contention.io(port);
         if ((port & 0x01) === 0) {
           this.border = value & 0x07;
           // Bit 4 is the loudspeaker; record the flip at the current cycle so
@@ -197,8 +233,19 @@ export class SpectrumMachine implements MachineEmulator {
     this.frameCount = 0;
     this.frameCycle = 0;
     this.beeper.reset();
+    this.contention.reset();
+    this.loop.reset(); // the carried overrun belongs to the run that ended
     this.runLatch.clear();
     this.cpu.reset();
+  }
+
+  /**
+   * T-states the ULA has taken off the CPU since the last reset. Diagnostic:
+   * the tests read it to check the cycles a frame loses actually went where
+   * this claims they did.
+   */
+  get contendedTStates(): number {
+    return this.contention.contendedTStates;
   }
 
   /** Z80 IO read decode (ULA keyboard/EAR + Kempston joystick). */
@@ -232,15 +279,19 @@ export class SpectrumMachine implements MachineEmulator {
    */
   private stepInstruction(): { t: number; halted: boolean } {
     const step = this.stepUnmeasured();
+    // Time spent held off the bus is time the instruction took, so it is folded
+    // in here: the frame budget is charged it, the beam chase sees it, and the
+    // profiler charges it to the line that waited.
+    const t = step.t + this.contention.take();
     // Charge the T-states to the BASIC line executing them. Here rather than in
     // debugStep because a run the IDE performs to check an assistant answer
     // deliberately opens no debug session, and would otherwise go unmeasured.
     const p = this.profile;
     if (p.enabled) {
-      p.pending += step.t;
+      p.pending += t;
       if (p.pending >= p.slice) p.sample(this.currentLine());
     }
-    return step;
+    return { t, halted: step.halted };
   }
 
   /** The step itself: the traps, then one instruction (or an idle HALT). */

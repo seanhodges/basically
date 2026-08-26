@@ -11,7 +11,12 @@ import {
  *   0x5800-0x5AFF  attribute map (768 bytes)
  *   0x5B00-0xFFFF  general RAM (system variables, program, stacks…)
  *
- * Contended-memory timing is not modelled - it does not affect BASIC results.
+ * Reads and writes here cost nothing. The T-states the ULA takes off the CPU
+ * for an address below 0x8000 are charged one level up, in the machine's own
+ * bus hooks (see ulaContention.ts), because only the CPU's accesses owe them:
+ * the host reads through here too - the executing BASIC line, the profiler, the
+ * memory-map overlay, the tape traps - and none of that is time the emulated
+ * machine spends.
  */
 /** Size of the ZX Spectrum's 16K ROM image; the memory map's ROM region matches it. */
 export const ROM_BYTES = 16384;

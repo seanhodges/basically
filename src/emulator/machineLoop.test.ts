@@ -56,6 +56,16 @@ describe('createMachineLoop', () => {
     expect(m.steps()).toBe(43);
   });
 
+  it('opens a slice at the position the carried overrun leaves it', () => {
+    // The Spectrums time their interrupt acknowledgement against the frame, so
+    // the slice has to say where it is starting from and not assume zero.
+    const opened: number[] = [];
+    const m = fake({ onSliceStart: (elapsed) => opened.push(elapsed) });
+    m.loop.runFrame(); // 15 steps of 7 reach 105, so 5 are owed
+    m.loop.runFrame();
+    expect(opened).toEqual([0, 5]);
+  });
+
   it('completes the step that exhausts the budget rather than truncating it', () => {
     // One step is worth more than a whole frame: it still runs to completion,
     // and the frames it overpaid for run no steps at all.
