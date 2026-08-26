@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { asmEngineFor } from '../asm/registry';
 import type { AsmEngine } from '../asm/types';
 import { formatWord } from '../asm/format';
+import type { ByteField } from './byteProjection';
 import { getDialect, dialects } from '../dialects/registry';
 import type {
   TapeFile,
@@ -110,6 +111,7 @@ import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 import {
   basicBufferKey,
   blockBufferKey,
+  blockBytesBufferKey,
   bufferHistories,
 } from '../editor/bufferHistory';
 
@@ -575,6 +577,11 @@ interface IdeState {
   findReplaceOpen: boolean;
   /** Active tab in the mobile (portrait) layout. */
   mobileTab: MobileTab;
+  /**
+   * Which of the byte editor's two views is showing where there is only room
+   * for one. Ignored on a layout wide enough to show both.
+   */
+  byteViewTab: ByteField;
   /** Editor/monitor split position on desktop (fraction of workspace width). */
   splitRatio: number;
   aiPanelOpen: boolean;
@@ -991,6 +998,7 @@ interface IdeState {
   setEmulatorFocused(on: boolean): void;
   setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
+  setByteViewTab(field: ByteField): void;
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
@@ -1157,6 +1165,7 @@ function withBreakpoints(
  */
 function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
   bufferHistories.drop(blockBufferKey(id));
+  bufferHistories.drop(blockBytesBufferKey(id));
   return {
     blocks: s.blocks.filter((b) => b.id !== id),
     dirty: true,
@@ -1186,6 +1195,7 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
   // buffer's parked history describes what it will hold.
   bufferHistories.drop(basicBufferKey(null));
   bufferHistories.drop(blockBufferKey(id));
+  bufferHistories.drop(blockBytesBufferKey(id));
   const meta: Record<number, ListingBlockMeta> = {};
   for (const [k, v] of Object.entries(s.listingBlockMeta)) {
     const key = Number(k);
@@ -1606,6 +1616,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   emulatorFocused: false,
   findReplaceOpen: false,
   mobileTab: 'editor',
+  byteViewTab: 'hex',
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
   transferOpen: false,
@@ -1992,7 +2003,10 @@ export const useIdeStore = create<IdeState>((set) => ({
     set((s) => {
       const ids = new Set(blocks.map((b) => b.id));
       for (const b of s.blocks) {
-        if (!ids.has(b.id)) bufferHistories.drop(blockBufferKey(b.id));
+        if (!ids.has(b.id)) {
+          bufferHistories.drop(blockBufferKey(b.id));
+          bufferHistories.drop(blockBytesBufferKey(b.id));
+        }
       }
       return {
         blocks,
@@ -2350,6 +2364,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setEmulatorFocused: (on) => set({ emulatorFocused: on }),
   setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),
   setMobileTab: (tab) => set({ mobileTab: tab }),
+  setByteViewTab: (field) => set({ byteViewTab: field }),
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),

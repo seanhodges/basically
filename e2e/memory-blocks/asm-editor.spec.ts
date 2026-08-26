@@ -3,7 +3,8 @@ import { test, expect, type Page } from '../fixtures';
 import { editMenu } from '../helpers';
 
 /**
- * The per-block assembly editor:
+ * The two per-block editing surfaces - assembly for a code block, bytes for a
+ * data block:
  *
  *  1. A document with memory blocks shows a tab strip (BASIC + one tab per
  *     block); one without blocks still shows the strip (BASIC + the
@@ -12,9 +13,13 @@ import { editMenu } from '../helpers';
  *     re-assemble on a debounce and replace the block's bytes (visible in
  *     autosave), and the text survives tab switches and reloads.
  *  3. A syntax error shows an error dot on the tab and leaves bytes alone.
- *  4. A `kind: 'data'` block shows the not-yet-supported placeholder.
- *  5. The Edit menu acts on the block on screen, and the block keeps its own
- *     edit history across tab switches.
+ *  4. A `kind: 'data'` block opens the byte editor instead: its bytes are
+ *     editable in place, the two views move together, the block grows at its
+ *     end, and both survive a tab switch and a reload.
+ *  5. The Edit menu acts on the block on screen, and each block keeps its own
+ *     edit history across tab switches - assembly or bytes.
+ *  6. Byte edits are undoable, the byte count is an editable field, and Fill
+ *     changes a named address range without changing the length.
  *
  * Specs seed blocks through autosave (the same wire shape the project zip
  * uses), which the app restores on boot - faster and more precise than clicking
@@ -230,14 +235,119 @@ test('the Edit menu acts on the block, whose history outlives a tab switch', asy
   await expect(asmContent(page)).toContainText('TWEAK');
 });
 
-test('a data block shows the not-yet-supported placeholder', async ({
+/**
+ * Put the caret on the first byte of the first row, in the hex view. A plain
+ * click lands wherever the pointer is - often in the character column - so the
+ * position is pinned to the left edge of the row.
+ */
+async function clickFirstByte(page: Page) {
+  await page
+    .getByTestId('byte-editor')
+    .locator('.cm-line')
+    .first()
+    .click({ position: { x: 3, y: 6 } });
+}
+
+test('a data block opens the byte editor, and its edits round-trip', async ({
   page,
 }) => {
   await seedProject(page);
   await page.getByRole('tab', { name: 'sprites' }).click();
-  await expect(page.getByRole('note')).toContainText(
-    'This file format is not yet supported.',
+
+  // The surface a data block used to be refused: its own bytes, its own
+  // address, and no placeholder in sight.
+  const editor = page.getByTestId('byte-editor');
+  const content = editor.locator('.cm-content');
+  await expect(editor).toBeVisible();
+  await expect(page.getByRole('note')).toHaveCount(0);
+  await expect(page.getByText('ORG $9000')).toBeVisible();
+  await expect(content).toContainText('01 02 03 04');
+
+  // Overwrite the first byte with $41. Two nibbles typed over the byte that was
+  // there; the ones after it keep their addresses.
+  await clickFirstByte(page);
+  await page.keyboard.type('41');
+  await expect(content).toContainText('41 02 03 04');
+  // The character view is the same document, so it moved with the hex: $41 is
+  // the machine's own code for A.
+  await expect(editor.locator('.cm-line').first()).toContainText('A');
+
+  // And the other way: a character typed into the character view is encoded
+  // through the machine's charset and shows in the hex.
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('B');
+  await expect(content).toContainText('42 02 03 04');
+
+  // Grow the block by a byte at its end: the caret rests one past the last
+  // byte, and a value entered there appends.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.type('7e');
+  await expect(page.getByTestId('byte-length')).toHaveValue('5');
+
+  // The edit and the new length reached the document...
+  await expect
+    .poll(
+      async () =>
+        (await autosavedBlocks(page)).find((b) => b.name === 'sprites')?.bytes,
+      { timeout: 8000 },
+    )
+    .toBe('QgIDBH4=');
+
+  // ...survive showing another tab and coming back...
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  await expect(page.locator('.cm-content').first()).toContainText(
+    '10 PRINT "HI"',
   );
-  await expect(page.getByRole('note')).toContainText('sprites');
-  await expect(page.getByRole('note')).toContainText('$9000');
+  await page.getByRole('tab', { name: 'sprites' }).click();
+  await expect(content).toContainText('42 02 03 04 7E');
+
+  // ...and a reload, which restores the block from autosave.
+  await page.reload();
+  await expect(page.locator('.cm-content').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'sprites' }).click();
+  await expect(content).toContainText('42 02 03 04 7E');
+  await expect(page.getByTestId('byte-length')).toHaveValue('5');
+});
+
+test("a block's byte edits are undoable, and outlive showing another tab", async ({
+  page,
+}) => {
+  await seedProject(page);
+  await page.getByRole('tab', { name: 'sprites' }).click();
+  const content = page.getByTestId('byte-editor').locator('.cm-content');
+  await clickFirstByte(page);
+  await page.keyboard.type('ab');
+  await expect(content).toContainText('AB 02 03 04');
+
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  await page.getByRole('tab', { name: 'sprites' }).click();
+  // Each nibble is its own step: the second one goes back first, then the one
+  // that set the high half, leaving the byte the block started with.
+  await editMenu(page, /^Undo/);
+  await expect(content).toContainText('A1 02 03 04');
+  await editMenu(page, /^Undo/);
+  await expect(content).toContainText('01 02 03 04');
+
+  // Fill names an address range rather than sweeping one, and changes values
+  // without changing the length.
+  await page.getByRole('button', { name: 'Fill…' }).click();
+  await page.getByLabel('Fill from address').fill('$9001');
+  await page.getByLabel('Fill to address').fill('$9002');
+  await page.getByLabel('Fill byte value').fill('$AA');
+  await page.getByRole('button', { name: 'Fill', exact: true }).click();
+  await expect(content).toContainText('01 AA AA 04');
+  await expect(page.getByTestId('byte-length')).toHaveValue('4');
+
+  // A length change too large to type goes through the byte count in the status
+  // strip - and undo reaches it like any other edit, bringing back the bytes it
+  // discarded with the values they had.
+  await page.getByTestId('byte-length').fill('2');
+  await page.getByTestId('byte-length').press('Enter');
+  await expect(content).toContainText('01 AA');
+  await expect(content).not.toContainText('01 AA AA');
+  await editMenu(page, /^Undo/);
+  await expect(content).toContainText('01 AA AA 04');
 });

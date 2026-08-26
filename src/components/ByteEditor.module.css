@@ -1,0 +1,142 @@
+.byteEditor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.statusStrip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.85;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.lengthField {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lengthField input {
+  width: 5em;
+  padding: 0 4px;
+  font: inherit;
+  font-family: var(--mono);
+  text-align: right;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.action {
+  padding: 1px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.comment {
+  font-style: italic;
+}
+
+.refusal {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.fillRow {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.fillRow label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fillRow input {
+  width: 6em;
+  padding: 0 4px;
+  font-family: var(--mono);
+  font-size: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.fillRow button {
+  padding: 1px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.hint {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.viewTabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 4px 10px 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.viewTabs button {
+  padding: 2px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+}
+
+.viewTabs button:global(.active) {
+  background: var(--bg-raised);
+  font-weight: 600;
+}
+
+/* Same paper background as the other two editors. */
+.editorHost {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #fdfdf8;
+}
+
+.editorHost :global(.cm-editor) {
+  height: 100%;
+}

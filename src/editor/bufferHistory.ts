@@ -118,3 +118,13 @@ export function basicBufferKey(bufferId: string | null): string {
 export function blockBufferKey(blockId: string): string {
   return `block:${blockId}`;
 }
+
+/**
+ * Key for the byte buffer of one memory block. Distinct from
+ * {@link blockBufferKey} because a block can move between the two editing
+ * surfaces - switching its kind in the Settings dialog does exactly that - and
+ * a document of assembly text handed to the byte editor would be read as bytes.
+ */
+export function blockBytesBufferKey(blockId: string): string {
+  return `bytes:${blockId}`;
+}

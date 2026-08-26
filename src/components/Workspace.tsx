@@ -37,6 +37,7 @@ import {
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { asmEngineFor } from '../asm/registry';
 import { AsmEditor } from './AsmEditor';
+import { ByteEditor } from './ByteEditor';
 import { CodeMirrorHost } from './CodeMirrorHost';
 import { EditorTabBar } from './EditorTabBar';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
@@ -169,7 +170,7 @@ export function Workspace() {
   // The block tab open in the editor pane; a stale/unknown id (defensive -
   // the store fixes ids up on every block mutation) falls back to BASIC. The
   // assembly editor needs the dialect to declare a CPU with an engine; a code
-  // block without one gets the same placeholder as a data block.
+  // block without one is edited as bytes, as a data block is.
   const activeBlock =
     activeTab.kind === 'block'
       ? (blocks.find((b) => b.id === activeTab.id) ?? null)
@@ -180,6 +181,14 @@ export function Workspace() {
     dialect.memoryBlocks !== undefined
       ? asmEngineFor(dialect.memoryBlocks.cpu)
       : null;
+  // Everything the assembly editor does not take is edited as bytes. The one
+  // block that reaches neither surface is machine code on a dialect that has no
+  // memory-block support at all: there is nothing to assemble it with, and
+  // nowhere for its bytes to be loaded from.
+  const byteEditable =
+    activeBlock !== null &&
+    asmEngine === null &&
+    !(activeBlock.kind === 'code' && dialect.memoryBlocks === undefined);
 
   // The run control over the editor drives the run rather than only starting
   // it: Play stopped, Pause running, Resume paused - whether the pause came
@@ -295,12 +304,14 @@ export function Workspace() {
               inputRef={editorInputRef}
             />
           </div>
-          {/* One assembly editor for every block: not keyed by block id, so
-              switching blocks swaps its state rather than destroying the view
-              and the block's edit history with it. */}
+          {/* One assembly editor and one byte editor for every block: not keyed
+              by block id, so switching blocks swaps the state rather than
+              destroying the view and the block's edit history with it. */}
           {activeBlock !== null &&
             (asmEngine !== null ? (
               <AsmEditor block={activeBlock} engine={asmEngine} />
+            ) : byteEditable ? (
+              <ByteEditor block={activeBlock} inputRef={editorInputRef} />
             ) : (
               <UnsupportedBlockNotice block={activeBlock} />
             ))}

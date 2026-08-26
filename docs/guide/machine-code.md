@@ -31,10 +31,15 @@ menu:
   **code** and **data**, and set an optional entry address or comment. Moving a
   block re-assembles it at the new address, so labels keep pointing to the right
   place.
+- **Download .bin** — the block's bytes, exactly as they are.
+- **Load bytes…** — replace the block's contents from a file. The block keeps
+  its own name, address and kind; only what it holds changes.
 - **Delete** — removes the block after a confirmation.
 
-The assembly editor is for **code** blocks; a **data** block is a plain run of
-bytes with no assembly view. The BASIC tab is the program itself — it has no
+The assembly editor is for **code** blocks. A **data** block — a sprite table, a
+character set, a level map — is not assembly and never will be, so its tab opens
+the **byte editor** instead (see below). So does a code block on a machine
+Basically has no assembler for. The BASIC tab is the program itself — it has no
 menu and can't be deleted.
 
 ::: tip ZX81 & ZX80
@@ -47,6 +52,39 @@ Click an instruction or an assembler directive and choose **Reference** from the
 menu that opens under it: the documentation opens at that instruction's entry on
 the reference page for the processor this block runs on. Registers and your own
 labels have nothing to look up, so they offer nothing.
+
+## Editing a block's bytes
+
+The byte editor shows a block as rows of bytes: the address each row starts at,
+the bytes themselves in hexadecimal, and the characters the machine's own
+character set gives them — not ASCII, so what you see is what that machine would
+show. Where there is room the two views sit side by side, and where there is not
+(a phone, a narrow window) they become **Hex** and **Characters** tabs.
+
+They are two views of one thing, so a change through either shows in the other
+straight away, and one undo takes it back in both.
+
+To change a byte, put the cursor on it and type: hexadecimal digits in the hex
+view — anything else is ignored there — or a character in the character view,
+which is encoded through the machine's character set. A character that machine
+has no code for is refused and the block is left alone, rather than being stored
+as something else.
+
+Editing inside a block **overwrites**: a byte you change stays at its address
+and nothing around it moves, so BASIC that calls into the block keeps working.
+The block's **length** is yours to change, though:
+
+- type a value one position past the last byte and the block grows by it;
+- press **Backspace** there, or **Delete** on the last byte, and it shrinks;
+- for a bigger change than you would want to type, edit the **byte count** in
+  the strip above the block — growing pads with zeros, shrinking truncates.
+
+Nothing here asks you to confirm, because undo reaches a length change the same
+as any other edit. **Fill** sets a run of bytes to one value: name the address
+range and the value, and it fills what falls inside the block.
+
+The on-screen keyboard types into the byte editor just as it does into your
+BASIC program, so a block can be edited on a touch screen.
 
 ## Bringing in existing machine code
 
