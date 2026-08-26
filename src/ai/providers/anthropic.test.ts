@@ -35,6 +35,23 @@ describe('toAnthropicMessages', () => {
     ]);
   });
 
+  it('sends a photographed listing as a JPEG, not re-encoded', () => {
+    const [mapped] = toAnthropicMessages([
+      {
+        role: 'user',
+        content: 'type this in',
+        image: { mediaType: 'image/jpeg', base64: 'CCCC' },
+      },
+    ]);
+    expect(mapped!.content).toEqual([
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/jpeg', data: 'CCCC' },
+      },
+      { type: 'text', text: 'type this in' },
+    ]);
+  });
+
   it('keeps an image on its own turn, leaving the rest of the thread alone', () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'write breakout' },

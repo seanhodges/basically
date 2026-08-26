@@ -43,6 +43,7 @@ vi.mock('../storage/files', async (importOriginal) => {
 
 const { useIdeStore } = await import('./store');
 const { openDroppedFile, saveDocument } = await import('./fileCommands');
+const { useAiStore } = await import('../ai/aiStore');
 const { getDialect } = await import('../dialects/registry');
 const { serializeProjectZip } = await import('../storage/projectFile');
 
@@ -128,12 +129,27 @@ describe('openDroppedFile', () => {
   });
 
   it('leaves the document untouched for an unsupported type', async () => {
-    await dropFile('photo.png', 'not basic');
+    await dropFile('notes.rtf', 'not basic');
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM OLD');
     expect(s.statusNotice).toBe(
-      "Can't open photo.png - unsupported file type.",
+      "Can't open notes.rtf - unsupported file type.",
     );
+  });
+
+  it('gives a dropped picture to the assistant, and leaves the program alone', async () => {
+    const attach = vi
+      .spyOn(useAiStore.getState(), 'attachPhoto')
+      .mockResolvedValue();
+    await dropFile('listing.png', 'pretend pixels');
+    expect(attach).toHaveBeenCalledOnce();
+    const s = useIdeStore.getState();
+    // Attaching replaces nothing, so this is the one dropped file that raises
+    // no discard guard and no status notice: the assistant reports its own
+    // outcome in the panel.
+    expect(s.source).toBe('10 REM OLD');
+    expect(s.statusNotice).toBeNull();
+    attach.mockRestore();
   });
 
   it('does not treat another dialect’s binary format as importable', async () => {

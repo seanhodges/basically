@@ -5,14 +5,19 @@
  */
 
 /**
- * An image sent alongside a user turn - in practice the machine's display,
- * captured from the emulator (see `../../app/screenCapture`).
+ * An image sent alongside a user turn - either the machine's display, captured
+ * from the emulator (see `../../app/screenCapture`), or a photograph of a
+ * printed listing the user attached (see `../../app/listingPhoto`).
  *
- * PNG only: what is ever sent is a retro screen, where lossy compression
- * destroys the single-pixel detail that is the point of showing it.
+ * Two media types because the two pictures want opposite encodings, and each
+ * one states its reasoning where it is produced: a retro screen is PNG because
+ * lossy compression destroys the single-pixel detail that is the point of
+ * showing it, and a photograph of paper is JPEG because photographic noise
+ * defeats PNG's filters entirely for no readability gain. Every backend passes
+ * this field through rather than asserting on it.
  */
 export interface ChatImage {
-  mediaType: 'image/png';
+  mediaType: 'image/png' | 'image/jpeg';
   /** The image data, base64, without the `data:` URI prefix. */
   base64: string;
 }

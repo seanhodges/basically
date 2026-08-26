@@ -1147,6 +1147,81 @@ describe('aiStore', () => {
         await p;
         expect(sentUserContent()).toContain('already used up');
       });
+
+      describe('a photograph of a printed listing', () => {
+        const PHOTO = {
+          mediaType: 'image/jpeg' as const,
+          base64: 'JPEGDATA',
+        };
+
+        it('takes the picture slot ahead of a caller-supplied screen', async () => {
+          const p = useAiStore.getState().send({
+            ...params,
+            image: { mediaType: 'image/png', base64: 'USERSHOT' },
+            photo: PHOTO,
+          });
+          h.current!.resolve('10 PRINT');
+          await p;
+          expect(sentImage()?.base64).toBe('JPEGDATA');
+        });
+
+        it('defers the asked-for screen and the words that describe it', async () => {
+          await reportRun({ kind: 'ended-ok' }, undefined, [], SCREEN, ASKED);
+
+          const first = useAiStore.getState().send({ ...params, photo: PHOTO });
+          h.current!.resolve('10 PRINT');
+          await first;
+          expect(sentImage()?.base64).toBe('JPEGDATA');
+          // The note's own words claim the screen is attached, so sending it
+          // here would print that beside a photograph of a magazine.
+          expect(sentUserContent()).not.toContain('screen you asked to see');
+
+          const second = useAiStore.getState().send(params);
+          h.current!.resolve('20 PRINT');
+          await second;
+          // Both, on the very next request: they wait together or travel
+          // together, and the screen is not lost for having been displaced.
+          expect(sentImage()?.base64).toBe('PNGDATA');
+          expect(sentUserContent()).toContain('screen you asked to see');
+        });
+
+        it('still carries a note that has no picture of its own', async () => {
+          await reportRun({ kind: 'ended-ok' });
+
+          const p = useAiStore.getState().send({ ...params, photo: PHOTO });
+          h.current!.resolve('10 PRINT');
+          await p;
+          expect(sentImage()?.base64).toBe('JPEGDATA');
+          expect(sentUserContent()).toContain('finished without reporting');
+        });
+
+        it('marks the turn as a photograph, and stores a marker with no pixels', async () => {
+          const p = useAiStore.getState().send({ ...params, photo: PHOTO });
+          h.current!.resolve('10 PRINT');
+          await p;
+
+          const turn = useAiStore.getState().messages[0]!;
+          expect(turn.photoShown).toBe(true);
+          expect(turn.screenShown).toBeUndefined();
+          const stored = loadAiConversation();
+          expect(stored[0]!.photoShown).toBe(true);
+          expect(stored[0]!.screenShown).toBeUndefined();
+          expect(JSON.stringify(stored)).not.toContain('JPEGDATA');
+        });
+
+        it('is cleared along with the conversation', () => {
+          useAiStore.setState({
+            attachment: {
+              ...PHOTO,
+              name: 'page.jpg',
+              width: 100,
+              height: 100,
+            },
+          });
+          useAiStore.getState().reset();
+          expect(useAiStore.getState().attachment).toBeNull();
+        });
+      });
     });
   });
 

@@ -53,12 +53,22 @@ export type PersistedMessage = Omit<ChatMessage, 'image'> & {
    */
   baseFingerprint?: string;
   /**
-   * A screen was shown to the assistant with this turn. The image itself is
-   * deliberately absent - `Omit`ted from the type so it cannot be written by
-   * accident: conversation storage is a few megabytes shared with the autosaved
-   * program, and images belong in neither.
+   * The machine's screen was shown to the assistant with this turn. The image
+   * itself is deliberately absent - `Omit`ted from the type so it cannot be
+   * written by accident: conversation storage is a few megabytes shared with the
+   * autosaved program, and images belong in neither.
+   *
+   * Keeps its original meaning exactly, so a thread stored before photographs
+   * existed restores as the screens it recorded.
    */
   screenShown?: boolean;
+  /**
+   * A photograph of a printed listing was shown with this turn, rather than the
+   * machine's screen. The two are separate markers so a restored thread never
+   * describes a photograph as the machine's screen; the picture itself is absent
+   * for the same reason, and by the same `Omit`.
+   */
+  photoShown?: boolean;
   /**
    * What this turn said to the provider, where that differs from `content` -
    * the program and its errors, which the panel does not show. Kept, unlike the
