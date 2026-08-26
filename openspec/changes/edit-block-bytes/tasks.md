@@ -3,12 +3,14 @@
 - [ ] 1.1 New pure projection module: bytes + view mode (hex, characters, both) +
       bytes-per-row → the document text a row-per-line surface renders, plus the
       mapping in both directions between a document offset and a byte index.
-      Everything else depends on this being right, so it is written and tested
-      first. No React, no DOM.
+      The mapping must also name the append position one past the last byte,
+      since that is where a block grows. Everything else depends on this being
+      right, so it is written and tested first. No React, no DOM.
 - [ ] 1.2 New pure module for byte editing — apply a hex nibble (high then low,
       auto-advancing to the next byte), apply a typed character through the
-      dialect's `CharsetMapping.toMachine`, resize (grow pads with a fill byte,
-      shrink truncates), and fill a range. Follow the shape of
+      dialect's `CharsetMapping.toMachine`, append at the end, truncate the last
+      byte, set a length (grow pads with `$00`, shrink truncates, clamped to
+      `0x10000 - address`), and fill a range. Follow the shape of
       `src/app/blockEdit.ts`, which is the same idea for block metadata.
       `toMachine` throws `CharsetError` on an unrepresentable character: catch
       that specifically, rethrow anything else, and return a refusal result, so
@@ -17,9 +19,11 @@
 - [ ] 1.3 Colocated tests for both. Projection: offset↔byte round-trips in every
       mode, the boundaries either side of a row, a mode change preserving the
       caret's byte, the bytes-per-row breakpoints. Editing: nibble sequencing and
-      auto-advance, clamping at block bounds, charset round-trip including a
-      character the machine cannot represent, resize and fill edge cases
-      (zero-length, grow past the end, shrink to nothing).
+      auto-advance, entering a value at the append position, charset round-trip
+      including a character the machine cannot represent, and the length edge
+      cases (starting from zero-length, truncating to nothing, a set-length
+      clamped at the 64 KB ceiling, and a length change surviving a round trip
+      through undo).
 
 ## 2. The byte surface
 
@@ -33,11 +37,15 @@
       dispatch is the only writer, and constrain the caret to byte boundaries
       with `EditorView.atomicRanges` — `binaryLineWidget.ts` and
       `controlChipWidget.ts` are the worked examples. The caret must not rest in
-      the gaps between hex pairs or between the two views. This is the fiddliest
+      the gaps between hex pairs or between the two views, and must be able to
+      rest on the append position one past the last byte. This is the fiddliest
       part of the change; do it before the editing keys.
 - [ ] 2.3 Editing in both views: hex digits in the hex view with any other key
       ignored, characters in the character view through the charset, with a
-      visible refusal when the charset has no code for what was typed. A byte
+      visible refusal when the charset has no code for what was typed. A value
+      entered at the append position grows the block; Backspace or Delete on the
+      last byte truncates it, while Backspace elsewhere only moves the caret back
+      a byte — both ordinary transactions, so undo reaches them. A byte
       edit is one transaction touching both views, so the views cannot drift and
       undo reverses both together.
 - [ ] 2.4 Undo through `src/editor/bufferHistory.ts` under `blockBufferKey`, as
@@ -71,10 +79,13 @@
       chooses between them. Keep `AsmEditor`'s ref of the last-written array so
       the commit echoing back through the store does not re-seed the view under
       the user.
-- [ ] 3.3 Resize and fill as explicit actions in the block's surface, with the
-      shrink confirmation, and fill taking an address range rather than a
-      dragged selection. Reuse the store-driven confirm pattern that
-      `DeleteBlockDialog` already uses rather than inventing a second one.
+- [ ] 3.3 The byte count in the surface's status strip is an editable field
+      (`AsmEditor` renders the same count as static text), committed on Enter or
+      blur, for a length change too large to type. No dialog and no confirmation
+      — the length change goes through the document, so undo covers it. Fill
+      stays an explicit action taking an address range rather than a dragged
+      selection, clamped to the block's current extent now that it is not a
+      growth path.
 - [ ] 3.4 `src/components/EditorTabBar.tsx` — a "Load bytes…" entry in the block
       tab context menu, beside the existing `.bin` / `.asm` downloads, using
       `openBinaryFile` from `src/storage/files.ts` (which already handles the
@@ -92,8 +103,9 @@
       Replaced, not deleted.
 - [ ] 4.3 One e2e scenario in `e2e/memory-blocks/`, extending an existing journey
       rather than a new cold `page.goto('/')`: create a block, switch it to data,
-      edit a byte, check the character view moved with it, switch tabs and back,
-      reload — the byte persists. This pays rent because it proves the store
+      edit a byte, check the character view moved with it, grow the block by a
+      byte at its end, switch tabs and back, reload — the edit and the new
+      length persist. This pays rent because it proves the store
       round trip, the two views sharing one edit, and focus handling through a
       real browser.
 - [ ] 4.4 Extend `e2e/memory-blocks/zx81-listing-blocks.spec.ts` for a listing
@@ -108,7 +120,8 @@
 - [ ] 5.1 `docs/guide/machine-code.md` — the sentence "a **data** block is a
       plain run of bytes with no assembly view" becomes the byte editor's
       description. Cover editing bytes, the two views and how they relate,
-      resize, fill and loading from a file. Guide conventions: no `src/` paths,
+      growing and shrinking a block as you edit it, fill and loading from a
+      file. Guide conventions: no `src/` paths,
       no internal symbols.
 
 ## 6. Quality gates

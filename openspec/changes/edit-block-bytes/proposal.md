@@ -40,15 +40,21 @@ now stands — see `design.md`.
   the other immediately, because it is one edit and not two.
 - The user can **change bytes in place**: type hex digits in the hex view, or
   type characters into the character view and have the machine's charset encode
-  them. A key that is not a hex digit is ignored in the hex view. Editing is
-  **overwrite only** — no insert or delete — so a block's addresses never shift
+  them. A key that is not a hex digit is ignored in the hex view. Editing a
+  block's interior is **overwrite only** — nothing is inserted into or removed
+  from the middle — so the addresses of the bytes already there never shift
   under the BASIC that references them.
 - The character view renders through the **machine's own character set**, not
   ASCII, so the bytes look the way that machine would show them.
 - The byte editor takes input from **the same on-screen keyboard the BASIC and
   assembly editors use**, rather than a keypad of its own.
-- The user can **resize a block** as an explicit gesture: growing pads with a
-  fill byte, shrinking asks first.
+- A block **grows and shrinks as it is edited**, the way one does in the
+  assembly editor: entering a value past the last byte appends to the block,
+  and deleting the last byte shortens it. Nothing is confirmed, because undo
+  reaches a length change the same as any other edit.
+- For a length change too big to type — a sixteen-byte block that wants to be a
+  kilobyte — the **byte count in the block's status strip is editable**.
+  Growing pads with zero; shrinking truncates.
 - The user can **fill a range of bytes** with a byte value, given as an address
   range.
 - The user can **load bytes into a block from a file**, the inbound counterpart
@@ -68,9 +74,10 @@ None.
 ### Modified Capabilities
 
 - `memory-blocks`: one requirement added — *Blocks are editable as bytes* —
-  covering the byte surface, its two linked views, overwrite-only editing, the
-  character view through the machine's charset, resize, fill, loading bytes from
-  a file, and per-block undo. The existing *Code blocks are editable as assembly*
+  covering the byte surface, its two linked views, overwrite-only editing of a
+  block's interior, a length that changes as the block is edited, the character
+  view through the machine's charset, fill, loading bytes from a file, and
+  per-block undo. The existing *Code blocks are editable as assembly*
   requirement is unchanged: this is the second editing surface, not a
   replacement.
 
@@ -88,10 +95,14 @@ not how they travel.
 
 ## Non-goals
 
-- **Insert and delete.** Overwrite only. A block is bytes at a fixed address, and
-  BASIC that calls into the middle of one must keep working; shifting bytes under
-  a running reference is a footgun with no upside. Resize is the deliberate,
-  explicit way to change a block's length.
+- **Insert and delete in the middle of a block.** Overwrite only, there. The
+  assembly editor does shift bytes when a line is inserted, but an assembler
+  recomputes every label and reference so the routine stays correct. A byte
+  editor has no symbolic layer to fix anything up, so shifting a block's
+  interior silently breaks absolute references inside it and any BASIC that
+  calls into the middle of it. Appending at the end and truncating from the end
+  move no byte that is already there, which is why length is not covered by
+  this.
 - **Drag-selecting a range of bytes.** The caret addresses one byte. Filling a
   range is done by naming the range, not by sweeping it. Byte-granular selection
   over two linked views is the fiddliest part of this surface and the least
@@ -126,8 +137,11 @@ Affected code:
   between a document offset and a byte index — with the view mode (hex, chars, or
   both) and the bytes-per-row as its inputs.
 - New pure editing model module — apply a nibble, apply a character through
-  `CharsetMapping.toMachine`, resize, fill — unit-testable with no DOM, in the
-  shape of the existing `src/app/blockEdit.ts`.
+  `CharsetMapping.toMachine`, append and truncate at the end, set a length, fill
+  — unit-testable with no DOM, in the shape of the existing
+  `src/app/blockEdit.ts`.
+- The byte editor's status strip carries an editable byte count, where
+  `AsmEditor`'s renders `block.bytes.length` as text.
 - `src/components/EditorTabBar.tsx` — a "Load bytes…" entry in the block tab's
   context menu, beside the existing `.bin` and `.asm` downloads.
 - Byte edits commit through the store's existing `upsertBlock` for an ordinary
