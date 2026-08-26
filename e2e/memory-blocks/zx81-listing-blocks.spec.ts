@@ -12,6 +12,9 @@ import { addMemoryBlock } from '../helpers';
  *  2. "New machine code block" appends a `#BIN` REM record: a `bin1` tab opens on the return
  *     stub, and the BASIC tab now shows a binary-line chip for it.
  *  3. Editing the block's assembly rewrites that chip (its byte count grows).
+ *  4. A block switched to `data` opens the byte editor, and editing a byte
+ *     there rewrites the same listing record - the commit path a fixed-address
+ *     block does not take.
  */
 
 async function openZx81(page: Page) {
@@ -66,4 +69,42 @@ test('editing the block assembly rewrites its #BIN chip', async ({ page }) => {
   await expect(chip).toHaveCount(1);
   // LD A,42 (2 bytes) + RET (1) = 3 code bytes; the record grows from 7 to 9.
   await expect(chip).toContainText('9 bytes');
+});
+
+test('a listing block switched to data is editable as bytes', async ({
+  page,
+}) => {
+  await openZx81(page);
+  await addMemoryBlock(page);
+
+  // Switch the block's kind: a listing block is machine code by default, and
+  // data is the kind with no assembly view.
+  await page.getByRole('tab', { name: 'bin1' }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Settings…' }).click();
+  await page.getByLabel('Kind').selectOption('data');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // It opens in the byte editor, on the return stub's single byte.
+  const editor = page.getByTestId('byte-editor');
+  await expect(editor).toBeVisible();
+  await expect(editor.locator('.cm-content')).toContainText('C9');
+
+  // Editing a byte here rewrites the BASIC listing itself, since that is where
+  // this machine keeps a block's bytes. The commit path differs from a
+  // fixed-address block's, so the round trip is checked through the chip the
+  // BASIC tab draws for the same record.
+  await editor
+    .locator('.cm-line')
+    .first()
+    .click({ position: { x: 3, y: 6 } });
+  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.type('00');
+  await expect(page.getByTestId('byte-length')).toHaveValue('2');
+
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  const chip = page.locator('.cm-binaryLineChip');
+  await expect(chip).toHaveCount(1);
+  // The stub's 1 byte plus the one just appended: the record grows 7 -> 8.
+  await expect(chip).toContainText('8 bytes');
 });

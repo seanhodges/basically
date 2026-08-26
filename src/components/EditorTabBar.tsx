@@ -6,7 +6,8 @@ import { useIdeStore, useBlocks } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
 import { useLongPress } from './useLongPress';
 import { asmEngineFor } from '../asm/registry';
-import { downloadBlob, withExtension } from '../storage/files';
+import { downloadBlob, openBinaryFile, withExtension } from '../storage/files';
+import { loadBytes } from '../app/byteEdit';
 import type { MemoryBlock } from '../dialects/types';
 import styles from './EditorTabBar.module.css';
 
@@ -39,12 +40,12 @@ const MENU_WIDTH_PX = 160;
  *
  * Right-clicking or long-pressing a tab opens a context menu. The BASIC tab
  * offers "Download .bas" (the single-file export that used to be File → Save's
- * plain-text listing). A block tab offers "Download .bin" (its bytes) and, for
- * a code block, "Download .asm" (its assembly source), plus "Settings" (the
- * block-metadata dialog) and "Delete" (the confirm-delete dialog) - the main
- * program can never be deleted. A scratch tab offers "Rename", "Download .bas"
- * and "Close"; closing is unconfirmed, since a scratch buffer is disposable by
- * definition.
+ * plain-text listing). A block tab offers "Download .bin" (its bytes),
+ * "Load bytes…" (the inbound half of that download) and, for a code block,
+ * "Download .asm" (its assembly source), plus "Settings" (the block-metadata
+ * dialog) and "Delete" (the confirm-delete dialog) - the main program can never
+ * be deleted. A scratch tab offers "Rename", "Download .bas" and "Close";
+ * closing is unconfirmed, since a scratch buffer is disposable by definition.
  */
 export function EditorTabBar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -116,6 +117,30 @@ export function EditorTabBar() {
       new Blob([block.bytes as BlobPart], { type: 'application/octet-stream' }),
       `${block.name}.bin`,
     );
+  };
+
+  /**
+   * Replace a block's bytes from a file - the inbound counterpart to the `.bin`
+   * download beside it. The block keeps its own address, name and kind; only
+   * what it holds changes.
+   */
+  const loadBin = async (block: MemoryBlock) => {
+    const file = await openBinaryFile('.bin');
+    if (!file) return;
+    const outcome = loadBytes(
+      { bytes: block.bytes, address: block.address },
+      file.bytes,
+    );
+    const store = useIdeStore.getState();
+    if (!outcome.ok) {
+      store.setStatusNotice(outcome.message);
+      return;
+    }
+    if (store.dialect.memoryBlocks?.inListing) {
+      store.commitListingBlockBytes(block.id, outcome.edit.bytes);
+    } else {
+      store.upsertBlock({ ...block, bytes: outcome.edit.bytes });
+    }
   };
 
   /** Download a code block's assembly source as `<name>.asm`. */
@@ -379,6 +404,15 @@ export function EditorTabBar() {
                 }}
               >
                 Download .bin
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  void loadBin(menuBlock);
+                }}
+              >
+                Load bytes…
               </button>
               <div className={styles.menuSeparator} />
               <button

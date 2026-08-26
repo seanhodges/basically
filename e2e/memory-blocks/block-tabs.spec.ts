@@ -72,11 +72,12 @@ test('the context menu offers the block actions, and Settings edits its metadata
 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await expect(tabMenu(page)).toBeVisible();
-  // A code block downloads either its assembly or its bytes, plus Settings /
-  // Delete.
+  // A code block downloads either its assembly or its bytes, takes bytes back
+  // in from a file, plus Settings / Delete.
   await expect(tabMenu(page).getByRole('menuitem')).toHaveText([
     'Download .asm',
     'Download .bin',
+    'Load bytes…',
     'Settings…',
     'Delete…',
   ]);

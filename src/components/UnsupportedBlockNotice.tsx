@@ -6,14 +6,18 @@ import { formatWord } from '../asm/format';
 import styles from './UnsupportedBlockNotice.module.css';
 
 /**
- * Placeholder shown in place of an editor for blocks that can't be edited
- * yet: `data` blocks (no hex editor so far), or a `code` block whose dialect
- * declares no CPU / whose CPU has no engine.
+ * Placeholder shown in place of an editor for the one block that reaches
+ * neither editing surface: machine code on a dialect with no memory-block
+ * support, so there is no CPU to assemble it for. A data block, and a code
+ * block whose CPU simply has no assembler engine, are edited as bytes.
  */
 export function UnsupportedBlockNotice({ block }: { block: MemoryBlock }) {
   return (
     <div className={styles.notice} role="note">
-      <p className={styles.headline}>This file format is not yet supported.</p>
+      <p className={styles.headline}>
+        This machine has no machine-code support, so there is nothing to
+        assemble this block with.
+      </p>
       <p className={styles.detail}>
         <strong>{block.name}</strong> · {block.kind} ·{' '}
         {formatWord(block.address)} · {block.bytes.length}{' '}
