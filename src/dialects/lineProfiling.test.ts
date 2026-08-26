@@ -340,11 +340,18 @@ describe('every registered machine measures what it can', () => {
           // apart from a taking, which the per-line arithmetic covers in
           // `lineCostRecorder.test.ts` against scripted figures.
           //
-          // What does hold on every one of them: the jump back moves no memory
-          // in either direction. A reclaim charged there would mean the figure
-          // was being read somewhere other than at a change of line.
-          expect(reclaimedOf(taken, 60)).toBe(0);
-          expect(reclaimedOf(taken, 20)).toBe(0);
+          // What does hold on every one of them: the two lines that only move
+          // the program counter - the FOR and the jump back to it - carry
+          // essentially none of the run's reclaim. Not exactly none, because
+          // the figure is read on a cycle cadence rather than at the instant a
+          // line changes, so a sample can land inside the ROM's own bookkeeping
+          // at a loop boundary and catch a handful of bytes of it; the Sinclairs
+          // do, to a few parts in a thousand. A reading being smeared across
+          // the lines rather than charged where the memory moved would put a
+          // real share of it here.
+          const reclaim = taken.reduce((n, c) => n + (c.reclaimed ?? 0), 0);
+          const atBoundaries = reclaimedOf(taken, 20) + reclaimedOf(taken, 60);
+          expect(atBoundaries).toBeLessThanOrEqual(reclaim * 0.01);
         } finally {
           machine.dispose();
         }

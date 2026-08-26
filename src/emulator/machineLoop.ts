@@ -56,8 +56,11 @@ export interface MachineLoopContract {
   /**
    * Once at the top of every frame and every slice, before any stepping: the
    * Spectrums' one maskable interrupt per frame, the PMD 85's frame counter.
+   * `elapsed` is the cycle position the slice starts from - the debt carried
+   * from the last one - for a machine whose interrupt acknowledgement is itself
+   * timed against the frame.
    */
-  onSliceStart?(): void;
+  onSliceStart?(elapsed: number): void;
   /**
    * Advance the machine by its smallest honest step unit and return the cycles
    * it consumed - one instruction on a machine that owns its CPU, one cycle on
@@ -147,7 +150,7 @@ export function createMachineLoop(contract: MachineLoopContract): MachineLoop {
   function slice(opts: DebugStepOptions | null): DebugStepResult {
     if (contract.ready && !contract.ready())
       return { paused: false, line: null };
-    contract.onSliceStart?.();
+    contract.onSliceStart?.(debt);
 
     const total = budget();
     // In run mode, ignore breakpoints until execution has left the line we

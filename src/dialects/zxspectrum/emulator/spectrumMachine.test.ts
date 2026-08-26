@@ -75,6 +75,37 @@ describe('SpectrumMachine', () => {
     expect(colours.size).toBeGreaterThan(1);
   });
 
+  it('holds the frame interrupt open past the frame boundary', () => {
+    // `DI`, then forever `EI` / `DI` / `JR` - a 20 T-state loop in which
+    // interrupts are enabled at exactly one instruction boundary, the one after
+    // the DI (the Z80 applies an EI at the end of the *following* instruction).
+    // The frame boundary lands inside that window about two frames in five, so
+    // a /INT offered for one instant is taken about that often. The ULA holds
+    // it low for 32 T-states, which always covers a whole pass of the loop, so
+    // every frame's interrupt is taken - and the ROM's FRAMES counter, which
+    // its handler bumps, says which of the two is happening.
+    const FRAMES = 0x5c78; // ROM frame counter, three bytes little-endian
+    const machine = new SpectrumMachine({ rom });
+    const { bytes, errors } = tokenizeProgram('10 RANDOMIZE USR 32768\n');
+    expect(errors).toEqual([]);
+    const flicker: MemoryBlock = {
+      id: 'flicker',
+      name: 'Flicker',
+      address: 0x8000,
+      bytes: new Uint8Array([0xf3, 0xfb, 0xf3, 0x18, 0xfc]),
+      kind: 'code',
+    };
+    machine.loadProgram(buildTap(bytes), { blocks: [flicker] });
+    const counter = () =>
+      machine.mem.peek(FRAMES) |
+      (machine.mem.peek(FRAMES + 1) << 8) |
+      (machine.mem.peek(FRAMES + 2) << 16);
+    for (let i = 0; i < 60; i++) machine.runFrame(); // reach the loop
+    const before = counter();
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    expect(counter() - before).toBe(200);
+  });
+
   it('reports plausible actual RAM figures while a program runs', () => {
     const machine = new SpectrumMachine({ rom });
     const { bytes, errors } = tokenizeProgram(

@@ -122,6 +122,12 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     machine.loadProgram(buildTap(bytes));
     for (let i = 0; i < 50; i++) machine.runFrame();
     expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
+    // The ULA is taking its share of the bus off this machine too: 128 BASIC's
+    // editor and workspace live in contended bank 5, so a booted machine that
+    // has printed anything cannot have paid nothing. Staged here rather than
+    // given a boot of its own - the per-address rule is pinned in
+    // memory128.test.ts and the per-frame arithmetic on the 48K.
+    expect(machine.contendedTStates).toBeGreaterThan(0);
   });
 
   it('runs from the .TAP auto-start line, not the first line', () => {

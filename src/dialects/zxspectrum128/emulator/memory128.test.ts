@@ -51,6 +51,22 @@ describe('Spectrum128Memory', () => {
     }
   });
 
+  it('contends bank 5, spares bank 2, and follows the paging at 0xC000', () => {
+    const mem = new Spectrum128Memory(makeRom());
+    expect(mem.contended(0x0000)).toBe(false); // ROM
+    expect(mem.contended(0x4000)).toBe(true); // bank 5, the screen
+    expect(mem.contended(0x7fff)).toBe(true);
+    expect(mem.contended(0x8000)).toBe(false); // bank 2, never contended
+    expect(mem.contended(0xbfff)).toBe(false);
+    // The odd banks are wired to the contended half of the bus, so the same
+    // address at 0xC000 is contended or not depending on what is paged there.
+    for (let bank = 0; bank < 8; bank++) {
+      mem.writePort7ffd(bank);
+      expect(mem.contended(0xc000)).toBe(bank % 2 === 1);
+      expect(mem.contended(0xffff)).toBe(bank % 2 === 1);
+    }
+  });
+
   it('aliases bank 5 (0x4000) and bank 5 paged at 0xC000', () => {
     const mem = new Spectrum128Memory(makeRom());
     mem.write(0x4000, 0x77);

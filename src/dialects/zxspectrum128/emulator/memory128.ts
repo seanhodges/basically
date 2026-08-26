@@ -95,6 +95,24 @@ export class Spectrum128Memory {
     this.banks[this.pagedBank]![addr - 0xc000] = v;
   };
 
+  /**
+   * Whether the ULA holds the CPU off this address (see ulaContention.ts).
+   *
+   * The 128K wires the odd-numbered banks to the contended half of the bus, so
+   * bank 5 at 0x4000 always is, and the window at 0xC000 is or is not depending
+   * on what a program has paged in there - which is why a routine moved into
+   * bank 1 runs at a different speed from the same routine in bank 2. An arrow
+   * so it can be handed to the contention clock as a callback and go on reading
+   * the live paging.
+   */
+  contended = (address: number): boolean => {
+    const addr = address & 0xffff;
+    if (addr < 0x4000) return false; // ROM
+    if (addr < 0x8000) return true; // bank 5
+    if (addr < 0xc000) return false; // bank 2
+    return (this.pagedBank & 1) === 1;
+  };
+
   readWord(addr: number): number {
     return this.read(addr) | (this.read(addr + 1) << 8);
   }
