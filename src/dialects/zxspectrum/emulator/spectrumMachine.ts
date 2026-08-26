@@ -44,6 +44,7 @@ import { injectBlocks, minBlockAddress } from './blockInject';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 import { createMachineLoop } from '../../../emulator/machineLoop';
 import { ContentionClock, ULA_48K, contended48K } from './ulaContention';
+import { FrameInterrupt } from './frameInterrupt';
 
 const CPU_HZ = 3_500_000;
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
@@ -65,7 +66,8 @@ const MAX_BOOT_FRAMES = 200;
  * ROM needs to boot and run BASIC:
  *
  *  - One maskable interrupt (IM1 / RST 38h) per 50Hz frame, driving the
- *    keyboard scan and the FRAMES counter.
+ *    keyboard scan and the FRAMES counter, held low for the window the ULA
+ *    holds it (see frameInterrupt.ts) rather than offered for one instant.
  *  - Keyboard matrix and border on port 0xFE.
  *  - A flash-load trap at the ROM's LD-BYTES routine: while a program is queued
  *    the trap satisfies the header and data block reads directly, so LOAD ""
@@ -80,7 +82,7 @@ const MAX_BOOT_FRAMES = 200;
  * colour. The T-states the ULA takes off the CPU while it fetches that picture
  * are charged too (see ulaContention.ts), which is what holds such a routine in
  * step with the beam instead of letting it free-run. The floating bus is not
- * modelled: a read of an unclaimed port returns 0xFF rather than the byte the
+ * modelled: a read of an unclaimed port returns 0xFF rather than whatever the
  * ULA has in flight, so the floating-bus raster-sync trick will not work.
  */
 export class SpectrumMachine implements MachineEmulator {
@@ -108,6 +110,8 @@ export class SpectrumMachine implements MachineEmulator {
    * introspection and the tape traps stay free.
    */
   private readonly contention = new ContentionClock(ULA_48K, contended48K);
+  /** The ULA's once-a-frame /INT, and the window it holds it low for. */
+  private readonly frameInterrupt = new FrameInterrupt();
   /** Cycle offset within the current frame, exposed to the IO write trap. */
   private frameCycle = 0;
   private border = 7;
@@ -141,17 +145,22 @@ export class SpectrumMachine implements MachineEmulator {
     cyclesPerFrame: TSTATES_PER_FRAME,
     idleEndsSlice: true,
     onSliceStart: (elapsed) => {
-      // One maskable interrupt per frame (IM1) when interrupts are enabled. The
-      // acknowledgement pushes the return address, and that push is contended
-      // like any other write, so the clock is placed before it is raised.
-      this.contention.at(elapsed);
-      if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
+      // The ULA pulls /INT low once a frame. Whether the CPU takes it, and at
+      // which instruction boundary, is settled in the step below - the Z80 only
+      // looks at the end of an instruction, and the ULA holds the line long
+      // enough for a short DI region to run past the frame boundary and still
+      // catch it (see frameInterrupt.ts).
+      this.frameInterrupt.raise(elapsed);
       this.flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
       this.nextLine = 0;
     },
     step: (elapsed) => {
       this.frameCycle = elapsed; // timestamp any beeper write in this instruction
+      // Before the interrupt, not after: the acknowledgement pushes the return
+      // address, and that push is contended like any other write.
       this.contention.at(elapsed);
+      if (this.frameInterrupt.due(elapsed, this.cpu.getIFF1() !== 0))
+        this.cpu.interrupt(false, 0xff);
       const { t, halted } = this.stepInstruction();
       return { cycles: t, idle: halted };
     },
@@ -234,6 +243,7 @@ export class SpectrumMachine implements MachineEmulator {
     this.frameCycle = 0;
     this.beeper.reset();
     this.contention.reset();
+    this.frameInterrupt.reset();
     this.loop.reset(); // the carried overrun belongs to the run that ended
     this.runLatch.clear();
     this.cpu.reset();

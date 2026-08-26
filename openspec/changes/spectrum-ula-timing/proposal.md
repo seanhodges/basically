@@ -43,6 +43,11 @@ the picture faithfully reports a CPU that is running too fast.
   rates, do not change. The CPU simply does less inside one.
 - Time the CPU spends held off the bus is **charged to the BASIC line that
   waited**, as any other cycle is.
+- The frame interrupt is **held open for the window the ULA holds it**, rather
+  than offered for a single instant. A routine with interrupts briefly off as
+  the frame turns over keeps its interrupt, as it does on the machine, instead of
+  losing the whole frame's handler — and a frame whose handler never ran is a
+  frame a screen effect skipped.
 - Both machines' published loop speeds are **re-measured** to match.
 - Both `reset()` methods now clear the frame loop's carried overrun, which they
   had been leaving behind for the next run to inherit.
@@ -74,23 +79,51 @@ reaches a BASIC line, waiting included.
 
 ## Non-goals
 
-- **The +2A/+3 ULA.** Its delay pattern is a rotation of the 48K's and its
-  contention starts elsewhere. No registered machine is a +2A or +3, and adding
-  one is a machine's worth of work, not a timing fix.
+- **The +2A/+3.** Their ULA contends on a different pattern from the 128K's, and
+  they page through a fourth port and a four-ROM set. Neither is a machine this
+  project emulates — the 128K dialect's hardware is a 128K / grey +2, and 128
+  BASIC is the same language on all of them. The right response is not to model a
+  second pattern but to stop implying the machine is a +3, which the roadmap did.
+  A +2A/+3 is a machine's worth of work, and belongs with the target-system
+  workflow rather than here.
+
 - **The floating bus.** Reading an unclaimed port still returns 0xFF rather than
-  the byte the ULA has in flight, so the floating-bus raster-sync trick remains
-  unavailable. It needs its own sourcing — the fetch order within a character
-  column, a different offset on the 128K, and the fact that a +2A has none.
-- **Holding INT for its real window.** The frame interrupt is still raised once,
-  at the frame boundary, and dropped if interrupts happen to be disabled at that
-  instant; real hardware asserts INT for about 32 T-states and the Z80 takes it
-  at the first boundary where interrupts are on. That is interrupt acceptance,
-  not bus arbitration, and folding it in here would confound the loop-speed
-  re-measurement this change has to take.
+  whatever the ULA has in flight, so the floating-bus raster-sync trick remains
+  unavailable. This was investigated properly rather than deferred on principle,
+  and three things stop it being implementable to a standard worth shipping:
+
+  1. **The phase is not settled across sources.** Contention's origin is
+     unambiguous and agreed — the 6,5,4,3,2,1,0,0 pattern starts 14335 T-states
+     after the interrupt on a 48K and 14361 on a 128K, and repeats every 224 and
+     228. The floating-bus tables are quoted against a different origin: 14347
+     and 14368 for the first fetch of the first row. Those are 12 and 7 T-states
+     past their machines' contention origins respectively — an inconsistency the
+     sources do not resolve, and 12 T-states is three character columns.
+  2. **The idle slots are not simply 0xFF.** The four fetch T-states of each
+     eight carry bitmap, attribute, bitmap+1, attribute+1; the other four are
+     documented as holding the last value read from or written to contended
+     memory, not a clean 0xFF. Modelling one without the other gives a program a
+     bus that changes in the wrong places.
+  3. **Machines themselves disagree.** Published tables note that every figure
+     moves by one T-state on "late timing" machines.
+
+  A floating bus built on an unresolved phase is worse than none: a program would
+  appear to sync and then paint several columns off, which is a subtler failure
+  than not syncing at all. What would unblock it is a single source stating the
+  fetch offsets and the contention origin in one convention, plus a decision on
+  which timing variant this machine is. The contention module already supplies
+  the line-and-column decomposition such an implementation would need.
+
 - **Cycle-exact contention.** The vendored Z80 core reports only an instruction's
-  total T-states, so where an access falls *within* an instruction is estimated,
-  not known. This models the cycles a frame loses and the phase lock that follows
-  from them; it does not make the Spectrum cycle-exact.
+  total T-states, so where an access falls *within* an instruction is estimated
+  (see design.md). Prefix bytes are charged as data reads rather than second
+  opcode fetches, internal cycles are invisible, and memory-refresh contention is
+  not modelled. Closing this needs per-M-cycle timing out of the CPU, which means
+  forking or replacing `src/emulator/z80/`, and that core is shared with six
+  other machines. This models the cycles a frame loses and the phase lock that
+  follows from them; it does not make the Spectrum cycle-exact, and a hand-timed
+  stable raster still will not be.
+
 - **Any change to the vendored core.** `src/emulator/z80/z80core.js` stays
   byte-identical.
 
@@ -104,6 +137,8 @@ reaches a BASIC line, waiting included.
 - `src/emulator/machineLoop.ts` — `onSliceStart` is told the cycle position the
   slice opens at, which a machine timing its interrupt acknowledgement against
   the frame needs and which every other machine ignores.
+- `docs/contributing/dialect-roadmap.md` — that the 128K dialect's hardware is a
+  128K / grey +2, and that the +2A and +3 are not emulated.
 - `src/reference/facts.ts` — both Spectrums' measured loop speeds, re-taken.
 - `docs/reference/zxspectrum/hardware.md` — that the display hardware takes time
   from the processor, what it costs a program below 32768, and why multicolour

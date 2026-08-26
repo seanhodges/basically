@@ -65,6 +65,13 @@ routine that rewrites colour attributes as the screen is drawn is pulled into
 step with the beam on every pass, and its coloured bands hold still instead of
 sliding. A routine timed on a real Spectrum keeps that relationship here.
 
+Fifty times a second the display hardware interrupts the processor, and it holds
+the request there for a moment rather than raising it for a single instant — so
+a routine that has interrupts switched off just as a frame turns over still
+receives that frame's interrupt once it switches them back on, provided it does
+so promptly. Leave them off for longer and the frame's interrupt is missed, as it
+is on the machine.
+
 ### Memory
 
 The whole of the machine's address space, region by region. Zoom in to open a

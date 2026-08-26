@@ -20,6 +20,11 @@ its ports with the CPU, what a program loses SHALL depend on which of them it
 uses, so the same routine runs at the speed the real machine would run it at from
 where it has been placed.
 
+Where a machine's hardware asserts an interrupt for a period rather than an
+instant, the CPU SHALL be able to take it anywhere in that period, so a program
+that has interrupts disabled as the period opens and enables them within it still
+receives the interrupt rather than losing what its handler would have done.
+
 Where the host cannot emulate a machine as fast as real time, emulation SHALL
 fall behind rather than skip ahead, and SHALL bound how much lost time it tries
 to reclaim, so a stall never repays itself as a burst of fast-forward.
@@ -68,6 +73,13 @@ as it is at real time.
 - **WHEN** the video hardware takes cycles from the CPU during a frame
 - **THEN** the machine's frame rate and the emulated time a frame represents are
   unchanged
+
+#### Scenario: An interrupt is not lost to a moment's bad luck
+
+- **WHEN** a program has interrupts disabled at the instant its machine asserts
+  one, and re-enables them while the machine is still asserting it
+- **THEN** the interrupt is taken, and the work its handler does for that period
+  happens
 
 #### Scenario: Where the program sits decides what it loses
 

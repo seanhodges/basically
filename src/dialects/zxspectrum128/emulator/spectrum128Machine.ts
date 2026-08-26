@@ -59,6 +59,7 @@ import {
   ContentionClock,
   ULA_128K,
 } from '../../zxspectrum/emulator/ulaContention';
+import { FrameInterrupt } from '../../zxspectrum/emulator/frameInterrupt';
 
 const CPU_HZ = 3_546_900;
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
@@ -154,6 +155,8 @@ export class Spectrum128Machine implements MachineEmulator {
   private readonly contention = new ContentionClock(ULA_128K, (address) =>
     this.memory.contended(address),
   );
+  /** The ULA's once-a-frame /INT, and the window it holds it low for. */
+  private readonly frameInterrupt = new FrameInterrupt();
   /** Cycle offset within the current frame, for timestamping beeper writes. */
   private frameCycle = 0;
   private border = 7;
@@ -187,16 +190,19 @@ export class Spectrum128Machine implements MachineEmulator {
     cyclesPerFrame: TSTATES_PER_FRAME,
     idleEndsSlice: true,
     onSliceStart: (elapsed) => {
-      // The acknowledgement pushes the return address, and that push is
-      // contended like any other write, so the clock is placed before it.
-      this.contention.at(elapsed);
-      if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
+      // The ULA pulls /INT low once a frame; which instruction boundary takes
+      // it is settled in the step below (see frameInterrupt.ts).
+      this.frameInterrupt.raise(elapsed);
       this.flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
       this.nextLine = 0;
     },
     step: (elapsed) => {
       this.frameCycle = elapsed; // timestamp any beeper write in this instruction
+      // Before the interrupt, not after: the acknowledgement pushes the return
+      // address, and that push is contended like any other write.
       this.contention.at(elapsed);
+      if (this.frameInterrupt.due(elapsed, this.cpu.getIFF1() !== 0))
+        this.cpu.interrupt(false, 0xff);
       const { t, halted } = this.stepInstruction();
       return { cycles: t, idle: halted };
     },
@@ -285,6 +291,7 @@ export class Spectrum128Machine implements MachineEmulator {
     this.frameCount = 0;
     this.frameCycle = 0;
     this.contention.reset();
+    this.frameInterrupt.reset();
     this.loop.reset(); // the carried overrun belongs to the run that ended
     this.runLatch.clear();
     this.cpu.reset();

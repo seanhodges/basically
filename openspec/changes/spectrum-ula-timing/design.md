@@ -84,6 +84,37 @@ the line they happen under rather than on its neighbour. `lineProfiling.test.ts`
 had asserted exactly zero there; it now bounds it, which is the invariant it was
 really guarding.
 
+### The interrupt is offered for a window, not an instant
+
+The ULA pulls /INT low once a frame and holds it for 32 T-states — long enough,
+the hardware documentation notes, for any instruction to finish and respond,
+since the Z80 samples the line only at the end of one. The machine used to offer
+the interrupt at a single instant and check `IFF1` there; a routine that happened
+to have interrupts off at that moment lost the frame's handler outright.
+
+So the interrupt is now latched at the top of the slice and retired in the step:
+taken at the first instruction boundary inside the window at which interrupts are
+enabled, and dropped when the ULA lets go with them still off — which is what the
+machine does to a long `DI` region. Deciding it in the step rather than at the
+slice start is also what puts the acknowledgement's stack push after the
+contention clock has been positioned, so that push is contended like any other.
+
+The 128K's ULA is not separately documented on this point and is assumed to match
+the 48K. The assumption is cheap: what the figure decides is only how far past
+the frame boundary a `DI` region may run and still catch the interrupt, and 32
+T-states is already several instructions.
+
+### The floating bus is left alone, and why that is the accurate choice
+
+Reading an unclaimed port still returns 0xFF. The sources place the ULA's fetch
+slots 12 T-states (48K) and 7 T-states (128K) past their own machines' contention
+origins, which cannot both be right against one clock; they also document the
+"idle" four T-states of each block as holding the last contended-memory value
+rather than 0xFF, and note that every figure shifts by one on late-timing
+machines. A bus modelled on an unresolved phase would let a program sync and then
+paint three columns off — a worse failure than not syncing, because it looks like
+working code. The proposal records what would unblock it.
+
 ### `onSliceStart` learns where the slice opens
 
 The frame interrupt's acknowledgement pushes a return address, and that push is
@@ -103,6 +134,11 @@ evidence the figure is right — it has to be measured again.
 address is contended, millions of times a second. The address test is one mask
 and compare, and the frame-position test short-circuits for the first 14335
 T-states of every frame, which is where most of a frame's accesses fall.
+
+**Programs that lost interrupts now get them.** A routine that disabled
+interrupts across the frame boundary used to skip that frame's handler; it no
+longer does. That is the fix, but it means a program's frame counter, keyboard
+scan and any interrupt-driven effect can all advance where they used to stall.
 
 **The picture is now sensitive to where code sits.** A routine that used to run
 at one speed anywhere in RAM now runs at two, which is authentic and will

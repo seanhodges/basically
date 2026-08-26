@@ -38,45 +38,80 @@
 - [x] 2.5 Check with `git status` that `src/emulator/z80/z80core.js` is
       unmodified. — clean; the M1 hook was already there.
 
-## 3. The figures this moves
+## 3. The frame interrupt's window
 
-- [x] 3.1 Re-measure both Spectrums' loop speed and update the published facts.
+- [x] 3.1 New module beside the contention one: the once-a-frame /INT, latched
+      when the ULA asserts it and retired at the first instruction boundary
+      inside its window at which interrupts are enabled — or when the window
+      closes with them still off. Pure, with the sourced hold length and the
+      reason it matters in the module comment. Colocated `*.test.ts`.
+- [x] 3.2 Both machines latch at the slice start and settle it in the step, so
+      the acknowledgement's stack push lands after the contention clock has been
+      positioned and is contended like any other write. Reset with the machine.
+- [x] 3.3 Colocated test on the 48K: a machine-code loop enabling interrupts at
+      exactly one instruction boundary in twenty T-states, counted against the
+      ROM's own FRAMES counter. Every frame's interrupt is taken.
+
+## 4. What is deliberately not modelled, and why
+
+- [x] 4.1 The floating bus: investigate against primary sources and either
+      implement it or record precisely what blocks it. **Not implemented** — the
+      sources place the fetch slots 12 (48K) and 7 (128K) T-states past their own
+      contention origins, which cannot both hold against one clock; the "idle"
+      slots are documented as the last contended-memory value rather than 0xFF;
+      and every figure shifts by one on late-timing machines. See the proposal.
+- [x] 4.2 The +2A/+3 pattern: the machine emulated is a 128K / grey +2, so the
+      accurate fix is to stop implying otherwise. Roadmap row corrected.
+- [x] 4.3 Cycle-exact contention: bounded by the vendored core reporting only
+      instruction totals. Record what closing it would take rather than
+      restating that it is out of scope.
+
+## 5. The figures this moves
+
+- [x] 5.1 Re-measure both Spectrums' loop speed and update the published facts.
       The loop-speed test's tolerance absorbs the shift in either direction, so
       passing is not evidence the figure is right — take it again.
-- [x] 3.2 Check the boot-frame caps still have headroom now that boot needs more
+- [x] 5.2 Check the boot-frame caps still have headroom now that boot needs more
       frames, and that run and debug-step stay identical
       (`src/dialects/debugEquivalence.test.ts`).
-- [x] 3.3 Check the profiling batteries for pinned Spectrum figures and update
+- [x] 5.3 Check the profiling batteries for pinned Spectrum figures and update
       any that hold one.
 
-## 4. Docs
+## 6. Docs
 
-- [x] 4.1 `docs/reference/zxspectrum/hardware.md`: a Timing section on each of
+- [x] 6.1 `docs/reference/zxspectrum/hardware.md`: a Timing section on each of
       the 48K and 128K — the display hardware shares the lower 16K and holds the
       processor off while it draws, so code and data below 32768 run slower than
       the clock suggests; and that this sharing is what holds a multicolour
       routine in step with the beam. End-user page — describe the machine, not
       the source.
-- [x] 4.2 `docs/contributing/dialect-roadmap.md`: a vendoring note for the Z80
+- [x] 6.2 `docs/contributing/dialect-roadmap.md`: a vendoring note for the Z80
       row recording that the core exposes no per-access T-state offset, so
       contention is charged adapter-side and the vendored `.js` stays
       byte-identical; and the two Spectrum status cells.
 
-## 5. Quality gates
+## 7. Quality gates
 
-- [x] 5.1 `npm run typecheck`
-- [x] 5.2 `npm test`
-- [x] 5.3 `npm run lint`
-- [x] 5.4 `npm run format:check`
-- [x] 5.5 `npm run docs:build` (docs/ changes)
-- [x] 5.7 `npm run e2e:chromium -- e2e/profiling` — 2 passed.
-- [ ] 5.6 `npm run e2e:chromium -- e2e/program-execution` — 8 passed, 2 failed:
-      `debug.spec.ts` "core flow: breakpoint, run-to-pause, step, continue,
-      stop" and "debug session survives an orientation change", both failing at
-      `page.goto('/')` before any machine runs. Both reproduce identically with
-      this change stashed, so they are pre-existing in this environment and not
-      caused by it — but the run did not pass, so this stays unchecked. The same
-      two failed for the same reason on the C64 bad-line change.
+- [x] 7.1 `npm run typecheck`
+- [x] 7.2 `npm test`
+- [x] 7.3 `npm run lint`
+- [x] 7.4 `npm run format:check`
+- [x] 7.5 `npm run docs:build` (docs/ changes)
+- [ ] 7.6 `npm run e2e:chromium -- e2e/program-execution` — best run 9 passed,
+      1 failed; an earlier run 8 passed, 2 failed. `debug.spec.ts` "debug session
+      survives an orientation change" and "core flow: breakpoint, run-to-pause,
+      step, continue, stop", failing at a `toBeVisible` on page load before any
+      machine runs, and not the same one twice.
+- [ ] 7.7 `npm run e2e:chromium -- e2e/profiling` — 2 passed on the first run,
+      then 1 passed / 1 failed on two later runs of identical code, failing the
+      same way and again not the same test twice.
+
+      Both folders are flaky in this environment rather than broken by this
+      change: checked out at the base commit, with nothing from this change
+      present, `e2e/profiling` fails one of its two tests in the same way. The
+      same `debug.spec.ts` pair failed for the same reason on the C64 bad-line
+      change. Left unchecked because the runs did not pass, not because anything
+      here is suspected.
 
 ## Notes
 
@@ -95,9 +130,13 @@ Measured while implementing, for whoever reads this next:
   second case and none in the first — the ROM's own frame interrupt does touch
   contended system variables, but finishes long before the ULA starts fetching.
 - Loop speed fell from 269 to 259 iterations/second on the 48K (3.7%) and from
-  188 to 177 on the 128K (5.9%).
+  188 to 176 on the 128K (6.4%).
 - Boot needs 86 frames against the 48K's cap of 200 and 58 against the 128K's
   400, so both keep ample headroom and neither cap moves.
+- **The held interrupt.** A `DI` / `EI` / `DI` / `JR` loop, in which interrupts
+  are enabled at exactly one instruction boundary of every twenty T-states,
+  takes 80 of 200 frames' interrupts when /INT is offered for an instant and all
+  200 when it is held for its 32 T-states.
 - `lineProfiling.test.ts` needed its reclaim assertion widened from "exactly
   zero at a loop boundary" to "a negligible share of the run's reclaim". The
   reading got finer, not wronger — see design.md.

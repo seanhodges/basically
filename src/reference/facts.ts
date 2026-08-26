@@ -1171,7 +1171,7 @@ const entries: PortingFactsEntry[] = [
     basicDialect: '128 Sinclair BASIC',
     // Slower than a 48K running the same listing: the 128K interpreter pays for
     // its extra ROM paging on every statement.
-    loopSpeed: 177,
+    loopSpeed: 176,
     // Same 41472-byte BASIC area and memory map as the 48K: the extra 64K is
     // bank-switched RAM the interpreter uses for its own workspace, not program
     // space. The audible difference is the whole difference.
