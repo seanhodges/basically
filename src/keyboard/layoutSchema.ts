@@ -18,11 +18,7 @@ export interface KeyboardLayout {
   gridColumns: number;
   layers: LayerDef[];
   modifiers: ModifierDef[];
-  /**
-   * The single-page key layout. When `tabs` is also present this is the wide
-   * variant, shown on screens wide enough for every key at once; otherwise it
-   * is simply the whole keyboard.
-   */
+  /** The whole keyboard, one entry per row of keys. */
   rows: KeyDef[][];
   glyphs: GlyphRegistry;
   /**
