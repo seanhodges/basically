@@ -127,12 +127,57 @@ export async function loadSystemPromptFor(
   );
 }
 
+/**
+ * Which picture rides with a request, if any.
+ *
+ * One statement rather than a flag per kind, so "a screen and a listing at once"
+ * is not something a request can write down: one picture rides one request, and
+ * the two are read completely differently.
+ */
+export type AttachedPicture = 'none' | 'screen' | 'listing';
+
+/**
+ * Said, not left to be noticed: a model told what it is looking at reads the
+ * picture as evidence rather than as decoration.
+ */
+const SCREEN_ATTACHED_STATEMENT = `The attached picture is my machine's screen, as the last program you gave me left it.`;
+
+/**
+ * What reading a printed listing needs and the machine's own reference tables
+ * cannot supply.
+ *
+ * Deliberately per-turn text rather than part of the system prompt. That prompt
+ * is composed identically per (dialect, provider capability) so the provider's
+ * cache matches from the front, and `./promptStability.test.ts` pins a measured
+ * character budget per machine: guidance relevant to one turn in fifty would
+ * move every machine's budget, invalidate every cached prefix once, and be paid
+ * for on every request that carries no picture at all.
+ *
+ * The tables already say what this BASIC accepts. What they do not say is that a
+ * printed listing is a hostile document - which is all this adds.
+ *
+ * The last bullet deliberately overrides RETURNING CODE, and is what makes
+ * page-by-page transcription work: that rule chooses a fragment or a whole
+ * listing by how much of the *existing program* a change affects, which reads
+ * exactly backwards here. Page two of a listing is a small part of a large
+ * program and would be judged a whole one, replacing page one instead of merging
+ * onto it.
+ */
+export const LISTING_TRANSCRIPTION_GUIDANCE = `The attached picture is a photograph or scan of a printed BASIC listing. Type it in for me as a program for this machine. Reading print is not like reading a file, so:
+- Many listing fonts print O and 0, 1 and I and l, 5 and S, 8 and B, 2 and Z, and a comma and a full stop almost identically. Settle each one by which reading is valid BASIC for this machine - a line number in sequence, a variable used elsewhere, a keyword this machine actually has - and never by which shape it looks closest to.
+- A character that is not on a typewriter is this machine's own: a block or line graphic, an arrow, a currency sign, an inverse character. Write it the way this machine spells it, exactly as the reference above gives it. Never substitute a lookalike ASCII character for it.
+- A listing set in narrow columns wraps. A run of text with no line number of its own continues the line above it, however the page lays it out.
+- A checksum, byte count or line-length figure printed down the margin is not part of the program. Leave it out.
+- Transcribe what is printed. Do not modernise it, tidy it, rename anything, or correct a fault that is on the page: transcribe the fault as printed and say what you think is wrong underneath the code.
+- Where the picture genuinely cannot settle a character, transcribe your best reading and then list it by line number underneath the code, so I can check it against the paper. A stated gap is a question I can answer in a sentence; a silent guess is a bug in a program I did not write.
+- The picture decides which kind of block you return, whatever the RETURNING CODE rules would otherwise choose: if it shows only part of a listing, return what you read as a \`\`\`basic-partial block even though that is most of a program, so the next page merges onto this one by line number. Only a picture showing a listing from its first line to its last is a whole program.`;
+
 export function buildUserMessage(
   request: string,
   currentSource: string,
   errors: TokenizeError[],
-  /** The machine's display, from the thread, rides with this request. */
-  screenAttached = false,
+  /** Which picture rides with this request - see {@link AttachedPicture}. */
+  picture: AttachedPicture = 'none',
 ): string {
   let msg = '';
   const source = currentSource.trim();
@@ -146,10 +191,11 @@ export function buildUserMessage(
     }
     msg += '\n';
   }
-  if (screenAttached) {
-    // Said, not left to be noticed: a model told what it is looking at reads
-    // the picture as evidence rather than as decoration.
-    msg += `The attached picture is my machine's screen, as the last program you gave me left it.\n\n`;
+  if (picture === 'screen') {
+    msg += `${SCREEN_ATTACHED_STATEMENT}\n\n`;
+  }
+  if (picture === 'listing') {
+    msg += `${LISTING_TRANSCRIPTION_GUIDANCE}\n\n`;
   }
   msg += request;
   return msg;

@@ -38,4 +38,18 @@ describe('toGeminiContents', () => {
       },
     ]);
   });
+
+  it('sends a photographed listing as a JPEG, not re-encoded', () => {
+    const [mapped] = toGeminiContents([
+      {
+        role: 'user',
+        content: 'type this in',
+        image: { mediaType: 'image/jpeg', base64: 'CCCC' },
+      },
+    ]);
+    expect(mapped!.parts).toEqual([
+      { inlineData: { mimeType: 'image/jpeg', data: 'CCCC' } },
+      { text: 'type this in' },
+    ]);
+  });
 });

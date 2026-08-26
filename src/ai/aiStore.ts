@@ -45,6 +45,7 @@ import {
   type DriveReport,
 } from './driveTools';
 import type { Dialect } from '../dialects/types';
+import { prepareListingPhoto, type ListingPhoto } from '../app/listingPhoto';
 import {
   applyJudgement,
   leaveUnjudged,
@@ -100,10 +101,12 @@ export type CutOffReason = 'stopped' | 'failed' | 'outOfRoom';
 /**
  * A message as shown in the thread. `streaming`/`retrying` are UI-only.
  *
- * An `image` (inherited from `ChatMessage`) is a screen shown with that turn.
- * It survives in memory for as long as the thread does - so the panel can show
- * what was sent, and so the wire history keeps a stable, cacheable prefix - but
- * never reaches storage; see {@link persist} and `screenShown`.
+ * An `image` (inherited from `ChatMessage`) is the picture shown with that turn
+ * - the machine's screen, or a photograph of a printed listing where
+ * {@link DisplayMessage.photoShown} says so. It survives in memory for as long
+ * as the thread does - so the panel can show what was sent, and so the wire
+ * history keeps a stable, cacheable prefix - but never reaches storage; see
+ * {@link persist}, `screenShown` and `photoShown`.
  */
 export interface DisplayMessage extends ChatMessage {
   /**
@@ -125,6 +128,13 @@ export interface DisplayMessage extends ChatMessage {
    * restored from storage, where the marker was kept and the bytes were not.
    */
   screenShown?: boolean;
+  /**
+   * The picture this turn carried was a photograph of a printed listing rather
+   * than the machine's screen. Set on the turn as it is sent and kept as the
+   * stored marker, so the thread says which kind it was and a restored one never
+   * calls a photograph a screen.
+   */
+  photoShown?: boolean;
   /**
    * What the assistant did to the machine to reach the screen shown with this
    * turn - set only where driving actually sent input.
@@ -271,6 +281,16 @@ export interface SendParams {
    */
   image?: ChatImage;
   /**
+   * A photograph of a printed listing the user attached, which takes the picture
+   * slot ahead of any screen: it is what they are asking about.
+   *
+   * Its own field rather than {@link image} plus a kind. Two fields would admit
+   * a picture with no kind and a kind with no picture; one field per thing makes
+   * the precedence a single line and makes "a screen and a listing at once"
+   * unwritable.
+   */
+  photo?: ChatImage;
+  /**
    * The program as it stood when this request was sent. Fingerprinted onto the
    * answer so a fragment applied later can be flagged as possibly stale.
    */
@@ -330,10 +350,35 @@ interface AiState {
    * shown as a one-tap prompt in the panel. Null when there is nothing to fix.
    */
   pendingFix: PendingFix | null;
+  /**
+   * A photograph of a printed listing the user has attached and not yet sent.
+   *
+   * Here beside the pending fix rather than in the panel's own state, so that
+   * clearing the conversation takes it too: a picture waiting to be sent is part
+   * of the conversation being cleared, and the panel can be unmounted and
+   * remounted without losing it.
+   */
+  attachment: ListingPhoto | null;
   send(params: SendParams): Promise<void>;
   stop(): void;
   setPendingFix(fix: PendingFix): void;
   clearPendingFix(): void;
+  /**
+   * Attach a picture the user chose, from whichever route they used - the
+   * composer's own control, a paste into it, or a drop on the editor.
+   *
+   * The one function all three reach, so the same file cannot be answered
+   * differently depending on the gesture: it prepares the picture, reveals the
+   * assistant, and reports the outcome here rather than in the status bar.
+   *
+   * Deliberately does not ask for an API key. The send path already demands one
+   * at the moment the user sends, and that stays the single place it is demanded:
+   * diverting an exploratory drop into the settings dialog would lose the
+   * photograph, which the dialog knows nothing about, and punish the gesture that
+   * was going to teach the user the feature exists.
+   */
+  attachPhoto(file: File): Promise<void>;
+  clearAttachment(): void;
   /**
    * Pick up the last answer where its output limit stopped it.
    *
@@ -430,12 +475,20 @@ function persist(messages: DisplayMessage[]): void {
         // so a stopped or completed answer can never pick this up.
         ...(m.streaming || m.interrupted ? { interrupted: true } : {}),
         ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
-        // The same rule for both kinds of screen: the one shown to the
-        // assistant and the one shown to the user are equally not worth
-        // evicting the autosaved program for.
-        ...(m.image || m.finalScreen || m.screenShown
-          ? { screenShown: true }
-          : {}),
+        // The same rule for every picture: the screen shown to the assistant,
+        // the screen shown to the user, and a photograph the user attached are
+        // equally not worth evicting the autosaved program for. Which kind was
+        // shown is kept, because a restored thread that called a photograph a
+        // screen would be describing something that never happened.
+        //
+        // That the pixels cannot reach storage needs no guard here:
+        // `PersistedMessage` is the wire type with the image removed, so writing
+        // one is a type error rather than a rule to remember.
+        ...(m.photoShown
+          ? { photoShown: true }
+          : m.image || m.finalScreen || m.screenShown
+            ? { screenShown: true }
+            : {}),
       })),
   );
 }
@@ -450,6 +503,7 @@ export const useAiStore = create<AiState>((set, get) => ({
   busy: false,
   error: '',
   pendingFix: null,
+  attachment: null,
 
   send: async ({
     providerId,
@@ -462,6 +516,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     userContent,
     displayRequest,
     image,
+    photo,
     baseSource,
     automatic,
     checkAgainst,
@@ -474,13 +529,24 @@ export const useAiStore = create<AiState>((set, get) => ({
     // a long conversation must not exhaust its budget early and then silently
     // stop correcting itself.
     if (!automatic) autoFixAttempts = 0;
+    // One picture rides one request. A photograph the user attached takes the
+    // slot ahead of either screen, because it is what they are asking about.
+    const shown = photo ?? image ?? pendingRunImage ?? undefined;
     // Spend any noted run outcome on this request, whoever asked for it - and
-    // with it the screen that outcome was asked to carry, unless this request
-    // is already carrying one of its own.
-    const note = pendingRunNote;
-    pendingRunNote = '';
-    const shown = image ?? pendingRunImage ?? undefined;
-    pendingRunImage = null;
+    // with it the screen that outcome was asked to carry.
+    //
+    // The note and that screen are one unit. The note's own words say the screen
+    // is attached, so sending it without one would print "the screen you asked
+    // to see is attached" beside a photograph of a magazine. Where the picture it
+    // describes is not the one being carried, both wait for the next request; a
+    // note with no picture of its own is self-contained and travels as it always
+    // did.
+    const noteDisplaced = pendingRunImage !== null && shown !== pendingRunImage;
+    const note = noteDisplaced ? '' : pendingRunNote;
+    if (!noteDisplaced) {
+      pendingRunNote = '';
+      pendingRunImage = null;
+    }
     const baseFingerprint =
       baseFingerprintOverride ?? sourceFingerprint(baseSource);
     const prior = get().messages;
@@ -516,6 +582,7 @@ export const useAiStore = create<AiState>((set, get) => ({
           content: displayRequest,
           ...(sentContent === displayRequest ? {} : { sentContent }),
           ...(shown ? { image: shown } : {}),
+          ...(shown && shown === photo ? { photoShown: true } : {}),
         },
         {
           role: 'assistant',
@@ -730,6 +797,32 @@ export const useAiStore = create<AiState>((set, get) => ({
   setPendingFix: (fix) => set({ pendingFix: fix }),
   clearPendingFix: () => set({ pendingFix: null }),
 
+  attachPhoto: async (file) => {
+    // Revealed first, so the picture the user just chose is never prepared out
+    // of sight - and so a failure is read where they are already looking.
+    useIdeStore.getState().showAiPanel();
+    // The refusal is the guarantee that a picture is never attached where it
+    // cannot be sent; the panel hiding the control on such a backend is a
+    // courtesy on top of it, because the panel does not re-render the instant
+    // the chosen provider changes.
+    const provider = getProvider(getAiProvider());
+    if (!provider.acceptsImages) {
+      set({
+        attachment: null,
+        error: `${provider.label} can't be shown pictures, so a photo of a listing can't be sent to it. Choose another assistant in AI settings.`,
+      });
+      return;
+    }
+    const result = await prepareListingPhoto(file);
+    if (!result.ok) {
+      set({ attachment: null, error: result.reason });
+      return;
+    }
+    set({ attachment: result.photo, error: '' });
+  },
+
+  clearAttachment: () => set({ attachment: null }),
+
   continueLastAnswer: () => {
     const state = get();
     if (state.busy) return;
@@ -768,7 +861,13 @@ export const useAiStore = create<AiState>((set, get) => ({
     latestFinalScreen = null;
     stoppedCheckSeq = -1;
     clearAiConversation();
-    set({ messages: [], busy: false, error: '', pendingFix: null });
+    set({
+      messages: [],
+      busy: false,
+      error: '',
+      pendingFix: null,
+      attachment: null,
+    });
   },
 }));
 

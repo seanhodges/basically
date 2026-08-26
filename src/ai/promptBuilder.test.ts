@@ -320,7 +320,7 @@ describe('showing the assistant the screen', () => {
 
   it('tells the assistant what it is looking at when one is', () => {
     expect(
-      buildUserMessage('why is it blank?', '10 PRINT', [], true),
+      buildUserMessage('why is it blank?', '10 PRINT', [], 'screen'),
     ).toContain("my machine's screen, as the last program you gave me left it");
     const runFix = buildRunFix(
       '10 PRINT',
@@ -446,5 +446,47 @@ describe('asking to be shown the screen', () => {
     );
     expect(fix.userContent).toContain('attached');
     expect(fix.userContent).not.toContain('```basic-view');
+  });
+});
+
+describe('showing the assistant a photographed listing', () => {
+  const listing = (request = 'type this in'): string =>
+    buildUserMessage(request, '10 PRINT', [], 'listing');
+
+  it('says what the picture is, and how printed listings mislead', () => {
+    const msg = listing();
+    expect(msg).toContain('photograph or scan of a printed BASIC listing');
+    // The glyph pairs, the machine's own characters, the wrap, the margin, the
+    // fidelity rule and the named gap - the six things the machine's own
+    // reference tables cannot supply.
+    expect(msg).toContain('O and 0');
+    expect(msg).toContain('Never substitute a lookalike ASCII character');
+    expect(msg).toContain('continues the line above it');
+    expect(msg).toContain('is not part of the program');
+    expect(msg).toContain('Do not modernise it');
+    expect(msg).toContain('list it by line number underneath the code');
+    // The request itself is still the ask, and comes last.
+    expect(msg.endsWith('type this in')).toBe(true);
+  });
+
+  it('overrides the usual choice of block, so page two merges onto page one', () => {
+    const msg = listing();
+    expect(msg).toContain('whatever the RETURNING CODE rules would otherwise');
+    expect(msg).toContain('```basic-partial');
+  });
+
+  it('never says a screen and a listing at once', () => {
+    const msg = listing();
+    expect(msg).not.toContain("my machine's screen");
+    expect(
+      buildUserMessage('why is it blank?', '10 PRINT', [], 'screen'),
+    ).not.toContain('printed BASIC listing');
+  });
+
+  it('says neither when no picture rides', () => {
+    const msg = buildUserMessage('make it faster', '10 PRINT', []);
+    expect(msg).not.toContain('printed BASIC listing');
+    expect(msg).not.toContain("my machine's screen");
+    expect(msg).toContain('make it faster');
   });
 });

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   loadSystemPrompt,
   loadSystemPromptFor,
+  LISTING_TRANSCRIPTION_GUIDANCE,
   RETURNING_CODE_RULES,
 } from './promptBuilder';
 import { buildDriveRules, buildExpectationRules } from './machineObservability';
@@ -169,6 +170,24 @@ describe('the composed system prompt', () => {
           PART_CEILINGS[name]!,
         );
       }
+    }
+  });
+
+  /**
+   * Guidance for one turn in fifty must not be in the prefix every turn pays
+   * for. Reading a photographed listing belongs to the request that carries the
+   * photograph: put here it would move every machine's recorded budget above,
+   * invalidate every cached prefix once, and be paid for on every request that
+   * carries no picture at all.
+   */
+  it('carries none of the printed-listing guidance', async () => {
+    // The first bullet, rather than the whole block: enough to catch it being
+    // migrated in, short enough not to break on an edit to the rest of it.
+    const opening = LISTING_TRANSCRIPTION_GUIDANCE.split('\n')[0]!;
+    for (const dialect of dialects) {
+      const prompt = await loadSystemPrompt(dialect, true, true);
+      expect(prompt, `${dialect.id}`).not.toContain(opening);
+      expect(prompt, `${dialect.id}`).not.toContain('printed BASIC listing');
     }
   });
 

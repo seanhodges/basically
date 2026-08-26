@@ -54,6 +54,32 @@ You can also start a whole project this way: choose
 **Describe it** and say what you want ("a snake game"). The project is created
 and the assistant starts writing it for that machine.
 
+### Type in a printed listing from a photo
+
+Got a listing on paper - a magazine type-in, a manual, an old printout? Take a
+photo of it and the assistant will type it in for you. Attach it with the
+**camera** button beside **Send**, paste a picture into the message box, or drop
+an image file onto the editor; on a phone, the attach button offers the camera
+as well as your photo library. You do not have to type anything with it - just
+send the picture.
+
+What comes back is an ordinary answer, applied the same way as any other:
+**merge** it by line number, or **replace** the program. So a listing that runs
+over several pages can be photographed a page at a time - each page merges onto
+the last.
+
+A few things worth knowing:
+
+- **Half a page reads better than a whole one.** The picture is scaled down
+  before it is sent, so a tighter shot means more detail per printed character.
+  Photographing a column at a time beats photographing a whole spread.
+- **A long listing may arrive in two parts.** If the answer runs out of room the
+  panel offers **Continue this answer**, and the rest follows.
+- **Check what comes back against the paper.** Print is genuinely ambiguous - a
+  letter O against a zero, a one against a capital I - and the assistant will
+  say which characters it could not settle. Those are the lines to look at
+  first.
+
 ## Save and load
 
 - **Save project** writes your whole document as a `.zip` bundle (a zip of

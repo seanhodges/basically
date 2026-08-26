@@ -11,6 +11,12 @@ import type { ChatImage } from '../ai/providers/types';
  * mean when they ask the assistant to look at it.
  */
 export interface ScreenCapture extends ChatImage {
+  /**
+   * PNG, narrower than {@link ChatImage} allows. A screen must never become a
+   * JPEG: the screenshot path names its file `.png` on the strength of this,
+   * and JPEG chroma subsampling is destructive on one-pixel lines.
+   */
+  mediaType: 'image/png';
   /** Pixel size of the captured image: the machine's own display size. */
   width: number;
   height: number;

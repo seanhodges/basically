@@ -16,6 +16,8 @@ import {
   PROJECT_EXTENSIONS,
 } from '../storage/files';
 import { importProgram, importStatusMessage } from './importProgram';
+import { isPictureFile } from './listingPhoto';
+import { useAiStore } from '../ai/aiStore';
 import {
   serializeProjectZip,
   parseProjectZip,
@@ -191,10 +193,12 @@ function unknownDialectNotice(
  * whose extension matches one of the current dialect's binary import formats
  * (e.g. `.prg`, `.tap`) is detokenized back into the editor exactly like Import
  * - including the block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`,
- * `.dsk`), which bring the program back with its memory blocks. All
- * document-replacing paths are guarded by {@link confirmDiscard}, so the user is
- * warned before losing unsaved changes (adding a block isn't destructive, so it
- * isn't). Unsupported types and read/detokenize/parse failures surface a
+ * `.dsk`), which bring the program back with its memory blocks; a picture is a
+ * photograph or scan of a printed listing and goes to the AI assistant, which
+ * reports its own outcome in the panel. All document-replacing paths are guarded
+ * by {@link confirmDiscard}, so the user is warned before losing unsaved changes
+ * (adding a block isn't destructive, so it isn't, and neither is attaching a
+ * picture). Unsupported types and read/detokenize/parse failures surface a
  * status-bar notice. A project bundle switches to the dialect it was saved under
  * (see {@link installParsedProject}).
  */
@@ -229,6 +233,15 @@ export async function openDroppedFile(file: File): Promise<void> {
         bootDisc,
       });
       setStatusNotice(importStatusMessage(file.name, warnings));
+    } else if (isPictureFile(file.name, file.type)) {
+      // The one branch here that must NOT run the discard guard: attaching a
+      // picture to the assistant replaces nothing. What the assistant makes of
+      // it lands through the apply actions, which guard themselves.
+      //
+      // A HEIC counts as a picture on purpose (see `isPictureFile`), so it
+      // reaches the preparer and earns a sentence saying what to do about it
+      // rather than falling through to "unsupported file type" below.
+      await useAiStore.getState().attachPhoto(file);
     } else {
       setStatusNotice(`Can't open ${file.name} - unsupported file type.`);
     }
