@@ -26,7 +26,7 @@ reach the machine at load time exactly as they do today.
 
 - Every block the IDE lets a user create has somewhere to edit it.
 - Byte editing that behaves like the hex editors this audience already knows:
-  fixed geometry, overwrite, addresses that do not move.
+  fixed geometry, overwrite, and a byte that stays at the address it had.
 - The editing rules and the byte/document mapping live in pure modules, testable
   without a DOM, so the component is a rendering concern.
 - Usable on a phone, where the IDE already expects to work.
@@ -107,15 +107,57 @@ The projection and its inverse — document offset to byte index and back — ar
 pure module, tested there and not through the component. It is the piece
 everything else depends on being right.
 
-### Overwrite only; resize is the explicit gesture
+Its addressable range is the block's bytes *plus one*: a block grows by the caret
+resting one position past the last byte and a value being entered there, so the
+mapping has to name that position and the caret has to be allowed to sit on it.
+That is the only place the projection reaches outside the array it is projecting.
 
-Insert and delete would shift every byte after the caret, silently invalidating
-any BASIC that calls into the block and any absolute reference inside it. Classic
-hex editors are overwrite for the same reason.
+### Overwrite in the middle; the end of the block is editable
 
-**Decision: typing never changes a block's length.** Growing and shrinking is a
-separate, named action: grow pads with a fill byte, shrink asks first because it
-discards data.
+Insert and delete *in a block's interior* would shift every byte after the caret,
+silently invalidating any BASIC that calls into the block and any absolute
+reference inside it. Classic hex editors are overwrite for the same reason. The
+assembly editor shifts bytes freely when a line is inserted, but only because the
+assembler recomputes every label and reference behind it; a byte editor has no
+symbolic layer to fix anything up. That argument is about the middle of a block,
+and it holds.
+
+It says nothing about a block's *length*, and an earlier draft of this design
+wrongly extended it there — deciding that typing never changes the length, and
+that growing and shrinking is a separate named action whose shrink half asks
+first. Two facts about the tree say otherwise:
+
+- A block has no length. `MemoryBlock` carries `bytes`, and the extent is derived
+  wherever it is needed — `blockRange` in `src/app/blockLint.ts` computes
+  `address + bytes.length - 1`, and treats a zero-length block as occupying
+  nothing.
+- The assembly editor already resizes blocks continuously and silently.
+  `AsmEditor.runAssemble` replaces the whole `Uint8Array` with whatever the
+  assembler emitted on each clean debounce, so adding an instruction grows the
+  block and deleting one shrinks it, with no gesture and no confirmation. The
+  byte editor would have been the stricter of two surfaces over the same data
+  model, for no reason its sibling honours.
+
+**Decision: a length change is an edit like any other, made in the document.**
+Entering a value past the last byte appends; deleting the last byte truncates.
+Neither moves a byte that is already there, so the interior rule above is intact.
+For a change too large to type, the byte count in the status strip is editable —
+grow pads with `$00`, shrink truncates — which is a field, not a modal ritual.
+Length is clamped to `0x10000 - address`; zero is legal.
+
+Routing length through the document, rather than around it, is what removes the
+confirmation. Everything that changes bytes *outside* the caret has to reproject,
+and a reprojection is deliberately guarded out of the undo history (below) — so a
+resize done as an out-of-band action could not have been undone, and the shrink
+confirmation was compensating for that. An append or a truncation dispatched as
+an ordinary transaction is undone by the same `history()` that undoes a nibble.
+The assembly editor's equivalent — deleting a line of source — is not confirmed
+either, and for the same reason.
+
+The one thing this gives up is that a block can now be grown into a neighbour or
+into the program area from the byte editor. That is not new: the assembly editor
+has always been able to do it, and `lintBlocks` refuses the run and names the
+overlap. Length is checked when it matters, which is at Run.
 
 ### The character view goes through the machine's charset
 
@@ -165,11 +207,12 @@ call site, not in the keyboard.
 
 ### Editing rules are a pure model
 
-**Decision: apply-nibble, apply-character, resize and fill live in a module with
-no React and no DOM**, in the shape of the existing `src/app/blockEdit.ts`. The
-fiddly parts — high-then-low nibble sequencing, auto-advance at the end of a
-byte, clamping at block bounds, charset round-tripping — are exactly what a unit
-test can pin and a browser test cannot pin cheaply.
+**Decision: apply-nibble, apply-character, append, truncate, set-length and fill
+live in a module with no React and no DOM**, in the shape of the existing
+`src/app/blockEdit.ts`. The fiddly parts — high-then-low nibble sequencing,
+auto-advance at the end of a byte, the append position past the last byte,
+truncation to nothing, the `0x10000 - address` ceiling, charset round-tripping —
+are exactly what a unit test can pin and a browser test cannot pin cheaply.
 
 ### Undo is the per-buffer history the editors already share
 
@@ -198,10 +241,17 @@ state returns with the configuration it was put away with.
   reason drag-selection is out of scope for now. `atomicRanges` is the tool; the
   existing widget code is the worked example.
 - **The projection must hold in both directions, forever.** Every operation that
-  changes bytes from outside the caret — fill, resize, load-from-file, a commit
-  echoing back through the store — must reproject and restore the caret. The
+  changes bytes from outside the caret — fill, a length set in the status strip,
+  load-from-file, a commit echoing back through the store — must reproject and
+  restore the caret. The
   mitigation is that the mapping is pure and tested, and that `AsmEditor` already
   runs the same discipline.
+- **A block can now outgrow its address space from this surface.** Appending
+  past a neighbouring block, or into the program area, is accepted here and
+  refused at Run by `lintBlocks`, which names the overlap. That is exactly what
+  the assembly editor already does, so it is a known shape rather than a new
+  one — but a user who grows a block a long way will not hear about it until
+  they press Run.
 - **Switching text input off costs the device keyboard.** A surface that does not
   accept ordinary input does not raise the OS keyboard on a phone. That is
   consistent with taking input from the app's own on-screen keyboard, but it does

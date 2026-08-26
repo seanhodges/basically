@@ -13,9 +13,13 @@ together where there is room for them and offered as alternatives where there is
 not. A change made through either view SHALL be reflected in the other as soon
 as it is made, and undoing it SHALL undo it in both.
 
-Byte editing SHALL be overwrite-only: entering a new value for a byte SHALL NOT
-move any other byte. Changing a block's length SHALL be a separate, deliberate
-action, and shrinking a block SHALL be confirmed before data is lost.
+Byte editing SHALL be overwrite-only within a block: entering a new value for a
+byte SHALL NOT move any other byte, and bytes SHALL NOT be inserted into or
+removed from the middle of a block. A block's length SHALL be changeable in the
+editor itself — bytes entered past its last byte extend it, and bytes removed
+from its end shorten it — and growing a block SHALL pad it with zero. A length
+change SHALL be undoable like any other edit, as a code block's assembly edits
+are, rather than confirmed before it is made.
 
 Where the machine cannot hold a byte the user has entered, the block SHALL be
 left unchanged and the refusal SHALL be visible. A character SHALL be encoded
@@ -53,10 +57,16 @@ using the same on-screen keyboard the program's own editor uses.
 - **WHEN** the user enters a new value over a byte in the middle of a block
 - **THEN** that byte changes and every other byte keeps its address
 
-#### Scenario: Shrinking a block is confirmed
+#### Scenario: A block grows when bytes are entered past its end
 
-- **WHEN** the user reduces a block's length
-- **THEN** they are asked before the bytes past the new end are discarded
+- **WHEN** the user enters a byte value past the block's last byte
+- **THEN** the block is longer by that byte and every byte it already held
+  keeps its address
+
+#### Scenario: Shortening a block can be undone
+
+- **WHEN** the user shortens a block and then undoes
+- **THEN** the bytes that were discarded come back with the values they had
 
 #### Scenario: A character the machine cannot represent is refused
 
