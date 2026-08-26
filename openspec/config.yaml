@@ -6,9 +6,8 @@ schema: spec-driven
 context: |
   Basically is a fully client-side browser IDE for retro microcomputer BASIC
   dialects: write, run (in-browser emulators), and ship programs to real
-  hardware. 13 registered dialects today (Sinclair, Acorn, Commodore, Tandy,
-  Amstrad machines) - src/dialects/registry.ts is the source of truth; never
-  assume the list or count.
+  hardware. src/dialects/registry.ts is the source of truth for which dialects
+  are registered; never assume the list or count.
 
   Stack: TypeScript (strict), React 18, Vite 6, Vitest 3, Zustand 5,
   CodeMirror 6. License: GPL-3.0-or-later; every new dependency needs a
