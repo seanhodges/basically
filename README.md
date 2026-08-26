@@ -91,9 +91,7 @@ Support welcome! Please see the [contributing](docs/contributing/contributing.md
 ## ROM licensing
 
 The bundled ROM images under `public/roms/` are third-party copyrighted works,
-included unmodified solely for use with the built-in emulators - the Sinclair
-ROMs under Amstrad's long-standing permission for emulator use, the Acorn ROMs
-on the same de-facto basis as other BBC Micro emulators. Per-ROM copyright and
+included unmodified solely for non-commercial educational use. Per-ROM copyright and
 provenance is documented in
 [ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
 
