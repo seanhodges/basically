@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Dialect } from '../dialects/types';
 import { useIdeStore, selectActiveSource } from './store';
 import { convertedCharacters } from './convertedCharacters';
+import { strictCharacterErrors } from './strictCharacters';
 
 export interface ProgramStats {
   bytes: number;
@@ -21,15 +22,21 @@ export interface ProgramStats {
  * `includeEditorLint` off (the "Block Run on lint errors" setting) only the
  * tokenizer's own errors count - the program is still buildable garbage-free,
  * but lint-only findings no longer stop a run.
+ *
+ * Strict characters adds its own findings on top of either set: they are
+ * ordinary errors and they block, which is the whole point of that setting, so
+ * they are not something the lint gate can turn off.
  */
 export function countProgramErrors(
   dialect: Dialect,
   source: string,
   includeEditorLint = true,
+  strictCharacters = false,
 ): number {
-  return includeEditorLint
+  const base = includeEditorLint
     ? dialect.lint(source).length
     : dialect.tokenize(source).errors.length;
+  return base + strictCharacterErrors(source, dialect, strictCharacters).length;
 }
 
 /**
@@ -106,6 +113,7 @@ export function ramDisplay(
 export function useProgramStats(): ProgramStats {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore(selectActiveSource);
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
   const [stats, setStats] = useState<ProgramStats>({
     bytes: 0,
     errors: 0,
@@ -117,12 +125,12 @@ export function useProgramStats(): ProgramStats {
       const result = dialect.tokenize(source);
       setStats({
         bytes: result.byteSize,
-        errors: countProgramErrors(dialect, source),
+        errors: countProgramErrors(dialect, source, true, strictCharacters),
         converted: convertedCharacters(source, dialect).count,
       });
     }, 300);
     return () => clearTimeout(t);
-  }, [dialect, source]);
+  }, [dialect, source, strictCharacters]);
 
   return stats;
 }

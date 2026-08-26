@@ -63,6 +63,7 @@ import {
   getLineNumberIncrement,
   getShowLineNumberGutter,
   getFullCodeCompletion,
+  getStrictCharacters,
   getCrtEffect,
   getRunGateLint,
   getSplitRatio,
@@ -92,6 +93,7 @@ import {
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
   setFullCodeCompletion as persistFullCodeCompletion,
+  setStrictCharacters as persistStrictCharacters,
   setCrtEffect as persistCrtEffect,
   setRunGateLint as persistRunGateLint,
   setEmulatorSpeed as persistEmulatorSpeed,
@@ -665,6 +667,13 @@ interface IdeState {
    */
   fullCodeCompletion: boolean;
   /**
+   * Strict characters: report every character the target machine would store as
+   * a different one as an error, and type upper case on a machine that has no
+   * lower case, rather than converting silently. Off by default, where nothing
+   * in the editor, the keyboard or the build behaves differently.
+   */
+  strictCharacters: boolean;
+  /**
    * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to run an
    * Edit-menu command. Shaped like docOverride: name + monotonic seq.
    */
@@ -1031,6 +1040,7 @@ interface IdeState {
   setLineNumberIncrement(n: number): void;
   setShowLineNumberGutter(on: boolean): void;
   setFullCodeCompletion(on: boolean): void;
+  setStrictCharacters(on: boolean): void;
   requestEditorCommand(name: EditorCommandName): void;
 }
 
@@ -1626,6 +1636,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getShowLineNumberGutter() : false,
   fullCodeCompletion:
     typeof localStorage !== 'undefined' ? getFullCodeCompletion() : true,
+  strictCharacters:
+    typeof localStorage !== 'undefined' ? getStrictCharacters() : false,
   editorCommand: { name: 'renumber', seq: 0 },
 
   setDialect: (id) => {
@@ -2411,6 +2423,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   setFullCodeCompletion: (on) => {
     persistFullCodeCompletion(on);
     set({ fullCodeCompletion: on });
+  },
+  setStrictCharacters: (on) => {
+    persistStrictCharacters(on);
+    set({ strictCharacters: on });
   },
   requestEditorCommand: (name) =>
     set((s) => ({ editorCommand: { name, seq: s.editorCommand.seq + 1 } })),

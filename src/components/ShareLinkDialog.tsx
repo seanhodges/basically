@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { strictCharacterErrors } from '../app/strictCharacters';
 import { computeCompatibleDialects } from '../share/compatibility';
 import { createShare, ShareApiError } from '../share/shareClient';
 import { serializeBlocks } from '../storage/projectFile';
@@ -86,7 +87,8 @@ export function ShareLinkDialog() {
     setCopied(false);
     setError(null);
     setResult(null);
-    const { dialect, source, fileName, blocks } = useIdeStore.getState();
+    const { dialect, source, fileName, blocks, strictCharacters } =
+      useIdeStore.getState();
 
     // The dedupe cache keys on (source, dialect) only, so it can't tell two
     // documents apart by their blocks. Reuse it only for a block-free
@@ -111,7 +113,11 @@ export function ShareLinkDialog() {
       setPhase('blocked');
       return;
     }
-    const errorCount = dialect.tokenize(source).errors.length;
+    // Strict characters counts here as the editor counts it: a link points at a
+    // program that runs, and under that setting this one does not.
+    const errorCount =
+      dialect.tokenize(source).errors.length +
+      strictCharacterErrors(source, dialect, strictCharacters).length;
     if (errorCount > 0) {
       setBlockedReason(
         `This program has ${errorCount} error${errorCount > 1 ? 's' : ''} - ` +

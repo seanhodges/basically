@@ -89,7 +89,11 @@ export async function setEditorSource(
 
 /** Clear the editor to a single empty line. */
 export async function clearEditor(page: Page): Promise<void> {
-  await page.locator(EDITOR).click();
+  // Near the top-left rather than the centre: the docked on-screen keyboard
+  // covers the bottom band of the workspace, and on the taller boards it reaches
+  // the middle of the editor - where a centre click lands on the overlay
+  // instead. Select-all follows immediately, so where the caret lands is moot.
+  await page.locator(EDITOR).click({ position: { x: 6, y: 6 } });
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Delete');
 }

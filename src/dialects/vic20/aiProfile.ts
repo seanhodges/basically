@@ -10,6 +10,7 @@ export const vic20AiProfile: AiProfile = composeAiProfile({
       bullets: [
         'An unexpanded VIC-20: 6502 at ~1.1MHz, with only 3583 BASIC bytes free - KEEP PROGRAMS SMALL. Programs load at $1001 and auto-RUN in this IDE.',
         'The default character set is upper-case / graphics.',
+        'Write the listing in UPPER CASE. PETSCII has one code for each letter pair, so a lower-case letter is stored - and listed back - as its capital; switching character sets changes only how it is drawn.',
         'Screen RAM is at 7680 ($1E00); colour RAM at 38400 ($9600) - one nibble per cell, colours 0-7 (0=black,1=white,2=red,3=cyan,4=purple,5=green,6=blue,7=yellow).',
         'The border AND background colour share one register: POKE 36879,V. V = 16*background + 8 + border (add the 8 to keep text non-reversed). POKE 36879,8 is a black screen; the power-on default is 27 (cyan border, white background).',
         'NO sprites, NO SID. Sound is the VIC-I: three square-wave voices at 36874 (bass), 36875 (alto), 36876 (soprano) plus noise at 36877, and the IDE plays it. POKE a voice with 128+X (X = 0-126, higher = higher pitch) to sound it, 0 to silence it; set the volume FIRST with POKE 36878,V (V = 0-15, low nibble).',

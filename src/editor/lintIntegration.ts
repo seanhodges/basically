@@ -1,13 +1,21 @@
 import { linter, type Diagnostic } from '@codemirror/lint';
 import type { Extension } from '@codemirror/state';
 import type { Dialect } from '../dialects/types';
+import { strictCharacterErrors } from '../app/strictCharacters';
 
-/** Surface the dialect tokenizer's errors as editor diagnostics. */
-export function dialectLinter(dialect: Dialect): Extension {
+/**
+ * Surface the dialect tokenizer's errors as editor diagnostics, plus - while
+ * `strict` is on - the characters the machine would store as different ones.
+ */
+export function dialectLinter(dialect: Dialect, strict = false): Extension {
   return linter(
     (view) => {
       const doc = view.state.doc;
-      const errors = dialect.lint(doc.toString());
+      const source = doc.toString();
+      const errors = [
+        ...dialect.lint(source),
+        ...strictCharacterErrors(source, dialect, strict),
+      ];
       const diagnostics: Diagnostic[] = [];
       for (const err of errors) {
         if (err.line < 1 || err.line > doc.lines) continue;

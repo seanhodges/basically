@@ -161,6 +161,34 @@ loading another program clears them along with the program they were written
 for, and you are warned first, so download anything you want to keep -
 right-click the buffer's tab and choose **Download .bas** - before you move on.
 
+### Strict characters
+
+Every machine holds only the characters its own set has, and where your program
+uses one it has not, the IDE converts it — most often folding a lower-case
+letter onto its capital. The program still runs; what changes is that the
+listing on screen is no longer the listing the machine holds, so typing it into
+the real thing would not reproduce it. The status bar counts those characters
+for you.
+
+**Strict characters** turns that count into a refusal. Switch it on and every
+character the machine would store as a different one is marked as an error where
+it stands, exactly like any other error in the editor — which means the program
+will not run, and cannot be shared, until you change it. Exporting to tape or to
+a native file is unaffected.
+
+On a machine with no lower case at all — the Sinclairs, the Apple I, the Atom,
+the TRS-80, the Altair — the editor also stops producing what it would only
+refuse: letters arrive in upper case however you enter them, typed, pasted or
+tapped on the on-screen keyboard, and that keyboard drops its shift key, since
+there is no other case to reach. Nothing else goes with it: every symbol,
+graphics character and key combination the keyboard offered is still there.
+Escapes, raw bytes and short keyword spellings are left exactly as written —
+their case is part of the notation, not text the machine stores.
+
+The setting is **off by default**, and with it off nothing behaves differently:
+the character is converted, the program builds, and the status bar reports the
+count as before. Turn it off again at any time to get that back.
+
 ## Keeping an eye on memory as you write
 
 Retro machines have very little RAM, and two of the IDE's tools help you stay
