@@ -23,17 +23,21 @@ argument: `new AtariMachine('400')`.
   following the PET / VIC-20 / Apple I precedent. **Not** jsbeeb and **not**
   viciious: neither can drive Atari hardware. `atari400` is a delegation target
   over `atari800`.
-- **Display size:** the ANTIC playfield window the renderer emits — derive it in
-  Stage 2 and set `displaySize` to match; it is not the 256×192 default.
+- **Display size:** 384×240 — the widest playfield ANTIC can show (192 colour
+  clocks at two pixels each) and the scanlines either side of it that a
+  television showed, with the 40×24 text screen centred in it.
 - **Image / tape format:** `.bas` (tokenized `SAVE`), `.lst` (ATASCII `LIST`),
   `.cas` (cassette).
 - **ROM:** `public/roms/atari.rom` — 18432 bytes, built by
   `scripts/build-atari-rom.mts` from two clean-room images, OS first then BASIC:
 
-  | Image                   | Size               | Loads at      |
-  | ----------------------- | ------------------ | ------------- |
-  | AltirraOS 400/800 v3.11 | 10240 B (`0x2800`) | `$D800–$FFFF` |
-  | Altirra BASIC 1.58      | 8192 B (`0x2000`)  | `$A000–$BFFF` |
+  | Image                 | Size               | Loads at      |
+  | --------------------- | ------------------ | ------------- |
+  | AltirraOS 3.49        | 10240 B (`0x2800`) | `$D800–$FFFF` |
+  | Altirra 8K BASIC 1.59 | 8192 B (`0x2000`)  | `$A000–$BFFF` |
+
+  (The notices inside the two source files say 3.11 and 1.58; those numbers are
+  stale upstream and the images themselves sign on as above.)
 
   Both are by Avery Lee, compiled from the `emuos` sources in the Altirra
   distribution (https://www.virtualdub.org/altirra.html) and carried as byte
@@ -80,7 +84,7 @@ machine has more undocumented corners than most:
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
-| 2     | Emulator core                      | ⬜     |
+| 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
@@ -154,40 +158,54 @@ machine fails the build rather than waiting quietly:
 > cross-check is what makes the table trustworthy, so do not treat Stage 1's
 > green tests as the last word on it.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
 The largest stage, and the one the roadmap called a blocker. `src/emulator/atari/`
 is shared by both dialects and takes `model: '400' | '800'`.
 
-- [ ] `scripts/build-atari-rom.mts` + `npm run gen:atarirom` — concatenate the
+- [x] `scripts/build-atari-rom.mts` + `npm run gen:atarirom` — concatenate the
       two images, verifying both sizes and the OS reset vector before writing,
       the way `scripts/build-apple1-rom.mts` does
-- [ ] `public/roms/atari.rom` **+ an attribution block in
+- [x] `public/roms/atari.rom` **+ an attribution block in
       `public/roms/ATTRIBUTION.md`** quoting the all-permissive notice verbatim
-- [ ] `memory.ts` — the bus: RAM `$0000–$BFFF` (48K on the 800, 16K on the 400),
+- [x] `memory.ts` — the bus: RAM `$0000–$BFFF` (48K on the 800, 16K on the 400),
       cartridge `$A000–$BFFF`, hardware `$D000–$D7FF`, OS ROM `$D800–$FFFF`
-- [ ] `antic.ts` — display-list DMA, playfield modes, DLI/VBI NMI, `VCOUNT`,
+- [x] `antic.ts` — display-list DMA, playfield modes, DLI/VBI NMI, `VCOUNT`,
       `WSYNC`, `DMACTL`, `CHBASE`, scrolling
-- [ ] `gtia.ts` — colour registers, `PRIOR`, players/missiles, `CONSOL`, `TRIG`
-- [ ] `pokey.ts` — `KBCODE` + keyboard IRQ, `SKSTAT`, `IRQEN`/`IRQST`, timers,
+- [x] `gtia.ts` — colour registers, `PRIOR`, players/missiles, `CONSOL`, `TRIG`
+- [x] `pokey.ts` — `KBCODE` + keyboard IRQ, `SKSTAT`, `IRQEN`/`IRQST`, timers,
       `RANDOM`, and 4-voice audio behind `readAudio` / `audioSampleRate`
-- [ ] `pia.ts` — 6520 `PORTA`/`PORTB` joysticks, `PACTL`/`PBCTL`
-- [ ] `palette.ts` — the GTIA 256-colour palette
-- [ ] `atariMachine.ts` — `MachineEmulator`: `reset` / `loadProgram` / `runFrame`
+- [x] `pia.ts` — 6520 `PORTA`/`PORTB` joysticks, `PACTL`/`PBCTL`
+- [x] `palette.ts` — the GTIA 256-colour palette
+- [x] `atariMachine.ts` — `MachineEmulator`: `reset` / `loadProgram` / `runFrame`
       / `renderTo` / `keyEvent` / `setKey` / `releaseAllKeys` / `dispose` +
       `displayWidth`/`displayHeight`/`frameHz`
-- [ ] `currentLine` / `debugStep` + `debuggable`, and the profile charge — built
+- [x] `currentLine` / `debugStep` + `debuggable`, and the profile charge — built
       from `createMachineLoop` so `runFrame` and `debugStep` share **one** step
       function, per the skill's run-measurement rules
-- [ ] `loadProgram` injects by writing the tokenized image at LOMEM and setting
+- [x] `loadProgram` injects by writing the tokenized image at LOMEM and setting
       the zero-page pointers `$80–$8D` — precisely what Atari BASIC's own `LOAD`
       does — then injecting `RUN`
-- [ ] `displaySize` on both dialects, from the window the renderer emits
-- [ ] tests: boot the real ROM headless and assert `readScreenText()` shows the
+- [x] `displaySize` on both dialects, from the window the renderer emits
+- [x] tests: boot the real ROM headless and assert `readScreenText()` shows the
       `READY` prompt; then the tokenizer-vs-ROM cross-check described in Stage 1
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes.
+
+The cross-check found two things Stage 1's tables had wrong, both now fixed and
+pinned: `REM`/`DATA` store their text without the blank that separated it from
+the keyword and end it with an ATASCII `$9B` rather than a statement
+terminator, and a sign written **touching** a numeric constant folds into that
+constant's value rather than emitting the unary operator (`A=-7` is one
+negative constant; `A=- 7` keeps its operator).
+
+Two facts worth carrying into later stages: the machine is PAL (312 scanlines
+of 114 cycles, 49.86 Hz, and GTIA's `$D014` answers `$01`), and BASIC keeps no
+cell saying whether a program is running - `STMCUR` is left pointing at the
+line an `END` or `STOP` finished on - so `isProgramRunning` latches the
+cartridge address BASIC returns to its prompt at, in the shape
+`emulator/programEndLatch` already carries for the Sinclair machines.
 
 ## Stage 3 — Wire-up: keyboard + samples ⬜
 

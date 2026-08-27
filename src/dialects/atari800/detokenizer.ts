@@ -3,6 +3,7 @@
 
 import type { DetokenizeResult } from '../types';
 import { atariCharset } from './charset';
+import { ATASCII_EOL } from './atascii';
 import { ATARI_FLOAT_BYTES, fromAtariFloat } from './bcd';
 import { ATARI_TOKENS, atariExpressions, atariStatements } from './keywords';
 import {
@@ -94,7 +95,15 @@ function listStatement(
     }
     out = word;
     if (VERBATIM.has(statement)) {
-      return out + atariCharset.toUnicode(bytes.slice(at));
+      // The stored text runs to the ATASCII end-of-line and holds no space
+      // after the keyword, because the interpreter ate the one that separated
+      // them. `LIST` puts it back, which is what makes the listing read the way
+      // it was typed.
+      const end = bytes.indexOf(ATASCII_EOL, at);
+      const text = atariCharset.toUnicode(
+        bytes.slice(at, end < 0 ? bytes.length : end),
+      );
+      return text === '' ? out : `${out} ${text}`;
     }
     if (bytes.length > 1) out += ' ';
   }

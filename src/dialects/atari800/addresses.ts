@@ -43,6 +43,13 @@ export const OS_ROM_BASE = 0xd800;
 /** Bytes of the OS ROM. */
 export const OS_ROM_BYTES = 0x2800;
 
+/**
+ * Bytes of the bundled ROM image: the OS followed by the BASIC cartridge, in
+ * that order (see `scripts/build-atari-rom.mts`). Two chips in one file because
+ * the emulator seam carries one image per machine.
+ */
+export const ATARI_ROM_BYTES = OS_ROM_BYTES + BASIC_CARTRIDGE_BYTES;
+
 /** The hardware registers, `$D000`-`$D7FF`: GTIA, POKEY, PIA and ANTIC. */
 export const HARDWARE_BASE = 0xd000;
 

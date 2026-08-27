@@ -28,14 +28,23 @@ import { atariBuildTargets } from '../atari800/targets';
 import { atariKeyboardLayout } from '../atari800/keyboardLayout';
 import { atariSamples } from '../atari800/samples';
 import { atari400AiProfile } from './aiProfile';
-import { ATARI_400_RAM_TOP, programRamBytes } from '../atari800/addresses';
+import {
+  ATARI_400_RAM_TOP,
+  ATARI_ROM_BYTES,
+  programRamBytes,
+} from '../atari800/addresses';
+import {
+  ATARI_DISPLAY_HEIGHT,
+  ATARI_DISPLAY_WIDTH,
+  AtariMachine,
+} from '../../emulator/atari/atariMachine';
 
 /**
  * Atari 400 - the 16K machine of the pair: a membrane keyboard, one cartridge
- * slot, and otherwise the 800's hardware.
+ * slot, and otherwise the 800's hardware. The 16K it was sold with is the whole
+ * of what the emulator does differently, and it is one argument.
  *
- * The emulator is not wired yet, so `createEmulator` throws and the dialect is
- * not registered.
+ * Not registered yet, for the reason the sibling gives.
  */
 export const atari400: Dialect = {
   id: 'atari400',
@@ -85,8 +94,18 @@ export const atari400: Dialect = {
   addressNotation: 'dec',
   memoryReads: { forms: ['peek'], calls: ['USR'] },
 
-  createEmulator() {
-    throw new Error('atari400: the emulator is not implemented yet');
+  romUrl: `${import.meta.env.BASE_URL}roms/atari.rom`,
+  romBytes: ATARI_ROM_BYTES,
+
+  // The widest playfield ANTIC can show, at two pixels a colour clock, and the
+  // scanlines either side of it that a television showed: the 40x24 text screen
+  // sits in the middle of it with a border, exactly as it does on a set.
+  displaySize: { width: ATARI_DISPLAY_WIDTH, height: ATARI_DISPLAY_HEIGHT },
+
+  debuggable: true,
+
+  createEmulator(opts) {
+    return new AtariMachine({ model: '400', rom: opts.rom });
   },
 
   keyboardLayout: atariKeyboardLayout,
