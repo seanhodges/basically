@@ -85,6 +85,7 @@ import type { MemoryBlock } from '../dialects/types';
 import { blockBytesBufferKey, bufferHistories } from '../editor/bufferHistory';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
+import { HexIcon, TextIcon } from './icons';
 import styles from './ByteEditor.module.css';
 
 /** How long a refusal stays on the status strip. */
@@ -901,6 +902,7 @@ export function ByteEditor({
             className={byteViewTab === 'hex' ? 'active' : ''}
             onClick={() => setByteViewTab('hex')}
           >
+            <HexIcon />
             Hex
           </button>
           <button
@@ -909,7 +911,8 @@ export function ByteEditor({
             className={byteViewTab === 'chars' ? 'active' : ''}
             onClick={() => setByteViewTab('chars')}
           >
-            Characters
+            <TextIcon />
+            Text
           </button>
         </div>
       )}
