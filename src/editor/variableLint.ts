@@ -225,6 +225,53 @@ function microsoftVariableErrors(
   );
 }
 
+/**
+ * Atari BASIC's own name lexis. Not `lexisFor('atari800')`: the letter-case
+ * facts that feed it are a ROM question this dialect answers when its emulator
+ * lands, and the scanner needs a lexis before then.
+ *
+ * `crunched` because the ROM ignores spaces outside strings and matches its
+ * reserved words greedily, exactly as the Microsoft family does - `FORI=1TO10`
+ * is a loop there. `graphicsEscapes` off because the Atari spells an escape
+ * `{clear}`, so `%` and `\` are ordinary characters.
+ */
+const ATARI_LEXIS: VariableLexis = {
+  suffixChars: '$',
+  crunched: true,
+  graphicsEscapes: false,
+  caseSensitive: false,
+  foldsKeywordCase: false,
+};
+
+/**
+ * Atari BASIC keeps a name in full - there is no two-character truncation - so
+ * the only name rule left is the one greedy matching creates: a name opening
+ * with a reserved word is not that name. `LOGO` is `LOG` and `O`, and the ROM
+ * stops on it.
+ *
+ * The cap on how *many* names a program may have is the tokenizer's, not this
+ * function's: the variable table is what runs out, and it runs out while the
+ * program is being built rather than while a name is being read.
+ */
+export function atariVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules(ATARI_LEXIS, keywords);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const embedded = occ.embedsKeyword;
+    if (!embedded) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: `Atari variable name '${occ.name}' embeds the reserved word '${embedded}', which the ROM matches first.`,
+    });
+  });
+  return errors;
+}
+
 export function c64VariableErrors(
   source: string,
   keywords: EditorKeyword[],

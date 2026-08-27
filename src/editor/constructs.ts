@@ -146,6 +146,11 @@ const FN_DETAIL: Record<string, string> = {
   LOWER$: 'lower-case copy of a string',
   UPPER$: 'upper-case copy of a string',
   JOY: 'read a joystick',
+  ADR: 'address of a string',
+  PADDLE: 'paddle position',
+  STICK: 'joystick direction',
+  PTRIG: 'paddle trigger',
+  STRIG: 'joystick trigger',
   TEST: 'ink at a graphics point',
 };
 
@@ -539,6 +544,43 @@ const CPC: ConstructTemplate[] = [
 ];
 
 /** Construct templates per dialect id (see {@link Dialect.id}). */
+/**
+ * Atari BASIC. `NEXT` needs its control variable, and there is no `ELSE`, so
+ * the shared `IF … THEN` and `FOR … NEXT` shapes carry over unchanged.
+ *
+ * Exported rather than reached through {@link constructsByDialect}, because
+ * that map is pinned to the registry and the Atari dialects are not registered
+ * yet: `atari800/language.ts` reads this directly until they are.
+ */
+export const ATARI_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "D:filename"'),
+  stringCmd('SAVE', 'save "D:filename"'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ADR', 's'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['INT', 'n'],
+    ['LEN', 's'],
+    ['PADDLE', 'n'],
+    ['PEEK', 'n'],
+    ['PTRIG', 'n'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STICK', 'n'],
+    ['STR$', 'n'],
+    ['STRIG', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   zx81: ZX81,
   zx80: ZX80,
