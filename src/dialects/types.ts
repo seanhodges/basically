@@ -1379,13 +1379,34 @@ export interface Dialect {
    * the key bound to each fire button regardless of this field.
    */
   joystickFireButtons?: 1 | 2;
+  /**
+   * True when this dialect's machine routes the `files` store
+   * {@link createEmulator} hands it into its emulation, so a running program's
+   * own data files are captured and served back to it.
+   *
+   * "Captures", not "traps", because the mechanism differs and none of it is
+   * visible here: the Spectrums trap `SA-BYTES`, the Acorns and the Atom their
+   * filing-system vectors, the C64 the KERNAL jump table, and the TRS-80's
+   * interpreter services the file statements itself with no CPU involved.
+   *
+   * Declared by hand and crosschecked against the machine in
+   * `src/dialects/fileIo.test.ts`, because the store is a *constructor
+   * argument*: nothing on the returned {@link MachineEmulator} records whether
+   * it was kept, so there is no member to probe the way {@link debuggable} is
+   * probed, and a machine that accepts the store and drops it compiles
+   * perfectly. Absent means the machine captures nothing, and that test holds
+   * an exact list of which machines those are and why.
+   */
+  capturesDataFiles?: boolean;
   createEmulator(opts: {
     rom: Uint8Array;
     ramKb: 16 | 32 | 64;
     /**
      * Sink for program-driven data file I/O (the IDE's virtual filesystem).
      * Machines that intercept data SAVE/LOAD/OPEN… route it here; machines
-     * without such traps simply ignore it.
+     * without such traps simply ignore it. Which of the two a dialect is, it
+     * declares in {@link capturesDataFiles} - the option is offered to every
+     * machine, so taking it is not evidence of using it.
      */
     files?: MachineFileStore;
   }): MachineEmulator;

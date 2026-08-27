@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
-import type { Dialect, MachineEmulator } from './types';
+import type { Dialect, MachineEmulator, MachineFileStore } from './types';
 
 /**
  * Booting a registered machine under node, for the tests that check a dialect
@@ -86,11 +86,21 @@ export function hasRom(dialect: Dialect): boolean {
  */
 export async function bootMachine(
   dialect: Dialect,
-  opts: { rom?: Uint8Array; ramKb?: 16 | 32 | 64 } = {},
+  opts: {
+    rom?: Uint8Array;
+    ramKb?: 16 | 32 | 64;
+    /**
+     * Virtual filesystem for the machine's data file I/O. Omitted by every
+     * caller but the file-I/O battery, so the rest of these tests keep
+     * exercising the no-store branch a machine sees in a bare boot.
+     */
+    files?: MachineFileStore;
+  } = {},
 ): Promise<MachineEmulator> {
   const machine = dialect.createEmulator({
     rom: opts.rom ?? romFor(dialect.romUrl),
     ramKb: opts.ramKb ?? 16,
+    files: opts.files,
   });
   const ready = (machine as { whenReady?: () => Promise<void> }).whenReady;
   if (typeof ready === 'function') await ready.call(machine);
@@ -116,14 +126,21 @@ export async function runFrames(
  * Yields the macrotask periodically: the ROM loads the jsbeeb and Commodore
  * machines start in their constructors settle on timers, and a tight synchronous
  * frame loop never lets them land.
+ *
+ * `onFrame` runs after each frame, before `done` is asked. It is for a machine
+ * that will not reach the state being waited on unaided: the Spectrums' SAVE
+ * stops at "Start tape, then press any key" and sits there until a key arrives,
+ * so a check that runs one has to press it from inside the loop.
  */
 export async function runUntil(
   machine: MachineEmulator,
   done: () => boolean,
   maxFrames = 1200,
+  onFrame?: (frame: number) => void,
 ): Promise<boolean> {
   for (let frame = 0; frame < maxFrames; frame++) {
     machine.runFrame();
+    onFrame?.(frame);
     if (done()) return true;
     if (frame % 20 === 0) await new Promise((r) => setTimeout(r, 0));
   }

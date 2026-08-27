@@ -104,6 +104,11 @@ export const bbcmicro: Dialect = {
   // The analogue port has two independent fire lines (PB4/PB5).
   joystickFireButtons: 2,
 
+  // OSFIND/OSBGET/OSBPUT on the filing-system vectors, so OPENOUT/BPUT#/
+  // OPENIN/BGET# reach the store. OSFILE/OSGBPB are not trapped: whole-file
+  // *SAVE/*LOAD is not part of this.
+  capturesDataFiles: true,
+
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is forwarded to service program-driven data file I/O.
   createEmulator(opts) {

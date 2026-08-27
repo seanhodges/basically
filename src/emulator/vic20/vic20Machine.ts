@@ -1,5 +1,6 @@
 // Vendored ESM 6502 core; typed by the sibling ../6502/cpu6502.d.ts.
-import { StateMachineCpu } from '../6502/cpu6502.js';
+import { StateMachineCpu, ExecutionState } from '../6502/cpu6502.js';
+import type { BusInterface, State as CpuState } from '../6502/cpu6502.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
@@ -18,6 +19,12 @@ import { readC64Variables } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
 import { readCbmScreenText } from '../cbmScreenText';
 import { Via6522 } from '../commodore/via6522';
+import {
+  CbmDiskDrive,
+  KERNAL_TRAPS,
+  type Bus,
+  type TrapResult,
+} from '../commodore/diskDrive';
 import { VicAudioRenderer, VIC_SAMPLES_PER_FRAME } from './vicAudio';
 import {
   KeyMatrix,
@@ -40,6 +47,9 @@ import {
   NDX,
 } from '../commodore/basicPointers';
 import { PROGRAM_BASE } from '../../dialects/vic20/addresses';
+
+/** 6502 status-register carry bit, set on the forged RTS out of a KERNAL trap. */
+const CARRY_FLAG = 0x01;
 import { createMachineLoop } from '../machineLoop';
 
 export { VIC20_DISPLAY_WIDTH, VIC20_DISPLAY_HEIGHT } from './vicI';
@@ -160,6 +170,15 @@ export class Vic20Machine implements MachineEmulator {
   private readonly vic = new VicI();
   private readonly vicAudio = new VicAudioRenderer();
   private cpu: StateMachineCpu | null = null;
+  /**
+   * The virtual disk unit behind the program's own OPEN/PRINT#/INPUT# on device
+   * 8, or null when the IDE handed this machine no file store.
+   */
+  private readonly drive: CbmDiskDrive | null;
+  /** The CPU's own bus, kept so the trap handlers read the memory the CPU sees. */
+  private cpuBus: BusInterface | null = null;
+  /** KERNAL trap dispatch (entry address -> handler); empty when no drive. */
+  private trapTable = new Map<number, (st: CpuState) => TrapResult>();
 
   private readonly via1: Via6522;
   private readonly via2: Via6522;
@@ -187,6 +206,7 @@ export class Vic20Machine implements MachineEmulator {
   private backImageData: ImageData | null = null;
 
   constructor(opts?: { roms?: Vic20Roms; files?: MachineFileStore }) {
+    this.drive = opts?.files ? new CbmDiskDrive(opts.files) : null;
     this.keys = new KeyMatrix(8, (t) => vic20TokenToPositions(t));
     // VIA #1: joystick up/down/left/fire read on PA2–PA5 (active-low); other PA
     // lines (serial, cassette sense) idle high so the KERNAL sees no activity.
@@ -202,7 +222,9 @@ export class Vic20Machine implements MachineEmulator {
       .then((roms) => {
         if (this.disposed) return;
         this.memory.installRoms(roms);
-        this.cpu = new StateMachineCpu(this.busInterface());
+        this.cpuBus = this.busInterface();
+        this.cpu = new StateMachineCpu(this.cpuBus);
+        if (this.drive) this.installTraps();
         this.hardReset();
         this.booted = true;
       })
@@ -303,6 +325,10 @@ export class Vic20Machine implements MachineEmulator {
    */
   private tick(): void {
     const cpu = this.cpu!;
+    // Before the cycle, not after: `fetch` means the *next* `cycle()` reads the
+    // opcode at `state.p`, so this is the instruction boundary at which the CPU
+    // is about to enter a trapped routine.
+    if (this.trapTable.size > 0) this.serviceTrap();
     cpu.cycle();
     this.via1.tick();
     this.via2.tick();
@@ -316,6 +342,80 @@ export class Vic20Machine implements MachineEmulator {
       p.pending += 1;
       if (p.pending >= p.slice) p.sample(this.currentLine());
     }
+  }
+
+  /**
+   * Wire the KERNAL disk traps: build a memory {@link Bus} over the CPU's own
+   * bus and map each trapped jump-table entry to its {@link CbmDiskDrive}
+   * handler. Called once at bringup, only when a file store was supplied.
+   *
+   * The same table the C64 installs, because it is the same KERNAL layout; what
+   * differs is the core underneath, and that is all {@link serviceTrap} and
+   * {@link forgeRts} below.
+   */
+  private installTraps(): void {
+    const drive = this.drive!;
+    const raw = this.cpuBus!;
+    // Through the CPU's bus rather than around it: the ROM routine being stood
+    // in for would have made these accesses, so the memory-activity overlay
+    // should see them.
+    const bus: Bus = {
+      read: (a) => raw.read(a & 0xffff),
+      write: (a, v) => raw.write(a & 0xffff, v & 0xff),
+    };
+    this.trapTable = new Map<number, (st: CpuState) => TrapResult>([
+      [KERNAL_TRAPS.open, () => drive.open(bus)],
+      [KERNAL_TRAPS.close, (st) => drive.close(st.a, bus)],
+      [KERNAL_TRAPS.chkin, (st) => drive.chkin(st.x, bus)],
+      [KERNAL_TRAPS.chkout, (st) => drive.chkout(st.x, bus)],
+      [KERNAL_TRAPS.clrchn, () => drive.clrchn(bus)],
+      [KERNAL_TRAPS.chrin, () => drive.chrin(bus)],
+      [KERNAL_TRAPS.chrout, (st) => drive.chrout(st.a, bus)],
+      [KERNAL_TRAPS.getin, () => drive.getin(bus)],
+    ]);
+  }
+
+  /**
+   * If the CPU is about to fetch the opcode at a trapped KERNAL entry, run the
+   * disk handler. When it services the call, forge an RTS so the real ROM
+   * routine is skipped; otherwise leave the CPU untouched so the ROM runs.
+   *
+   * A pending interrupt is left alone: the core's fetch takes the IRQ/NMI
+   * sequence in place of the instruction at `p`, so trapping here would swallow
+   * it. The ROM returns to the same address afterwards and the trap fires then.
+   */
+  private serviceTrap(): void {
+    const cpu = this.cpu!;
+    if (cpu.executionState !== ExecutionState.fetch) return;
+    const st = cpu.state;
+    if (st.irq || st.nmi) return;
+    const handler = this.trapTable.get(st.p);
+    if (!handler) return;
+    const result = handler(st);
+    if (!result.handled) return;
+    this.forgeRts(st, result);
+  }
+
+  /**
+   * Return from a trapped KERNAL routine without running it: pull the JSR return
+   * address off the stack (RTS pulls PC then increments), then apply the
+   * handler's result - the returned byte / error code in A and success/error in
+   * the carry flag. Mutates the CPU's live state directly.
+   *
+   * Note this core's naming: `state.p` is the *program counter* and `state.flags`
+   * is the status register, the opposite way round from the classic 6502
+   * convention, so the carry is set in `flags` and not in `p`.
+   */
+  private forgeRts(st: CpuState, result: { a?: number; carry: 0 | 1 }): void {
+    const read = this.cpuBus!.read;
+    const lo = read(0x100 + ((st.s + 1) & 0xff));
+    const hi = read(0x100 + ((st.s + 2) & 0xff));
+    st.s = (st.s + 2) & 0xff;
+    st.p = (((hi << 8) | lo) + 1) & 0xffff;
+    if (result.a !== undefined) st.a = result.a & 0xff;
+    st.flags = result.carry
+      ? st.flags | CARRY_FLAG
+      : st.flags & ~CARRY_FLAG & 0xff;
   }
 
   private runCycles(count: number): void {

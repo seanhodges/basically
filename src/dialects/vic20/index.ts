@@ -115,6 +115,10 @@ export const vic20: Dialect = {
 
   // opts.rom/ramKb are ignored: the machine manages its own ROM set and the
   // fixed unexpanded 64K map.
+  // The KERNAL channel-I/O jump table, for devices 8-11: the C64's traps on the
+  // C64's KERNAL layout, which the VIC-20 shares.
+  capturesDataFiles: true,
+
   createEmulator(opts) {
     return new Vic20Machine({ files: opts.files });
   },

@@ -113,6 +113,9 @@ export const bbcmaster: Dialect = {
   // The analogue port has two independent fire lines (PB4/PB5).
   joystickFireButtons: 2,
 
+  // The same filing-system vector traps as the B; see bbcmicro/index.ts.
+  capturesDataFiles: true,
+
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is forwarded to service program-driven data file I/O.
   createEmulator(opts) {
