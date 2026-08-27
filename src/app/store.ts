@@ -107,6 +107,7 @@ import {
   setEmulatorMuted as persistEmulatorMuted,
   UNTITLED_FILE_NAME,
 } from '../storage/settings';
+import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 import {
   basicBufferKey,
@@ -136,12 +137,16 @@ export interface ScratchBuffer {
    */
   breakpoints: ReadonlySet<number>;
 }
-/** Which tab the editor pane is showing: the program, a memory block, or a
- *  scratch buffer. */
+/** Which tab the editor pane is showing: the program, a block, a scratch
+ *  buffer, or a file a running program saved. */
 export type ActiveTab =
   | { kind: 'basic' }
   | { kind: 'block'; id: string }
-  | { kind: 'scratch'; id: string };
+  | { kind: 'scratch'; id: string }
+  // Keyed by the file's own name, which is what the file store is keyed by;
+  // data files have no id of the document's making because they are not part
+  // of it.
+  | { kind: 'data'; name: string };
 /** The BASIC source tab - the tab every reset falls back to. */
 export const BASIC_TAB: ActiveTab = { kind: 'basic' };
 /** The active block's id, or `null` when a non-block tab is showing. */
@@ -1383,6 +1388,10 @@ function applyDialectSwitch(
   persistDialectId(next.id);
   // A different program on a different machine: nothing to undo back into.
   bufferHistories.clear();
+  // The files a program saved belong to that program. They used to go with the
+  // machine, which happened to cover this because a switch stops one; they
+  // outlive the run now, so the document taking them with it has to be said.
+  emulatorVfs.clear(next.id);
   return {
     dialect: next,
     pendingDialectId: null,
@@ -1712,8 +1721,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   playerBoot: ({ dialectId, source, fileName, blocks }) =>
     set((s) => {
       const next = getDialect(dialectId);
-      // A shared program arriving: as for a load, nothing to undo back into.
+      // A shared program arriving: as for a load, nothing to undo back into,
+      // and no saved files from whatever the shell held before.
       bufferHistories.clear();
+      emulatorVfs.clear(next.id);
       // Not applyDialectSwitch: that persists the dialect choice and flips
       // mobileTab to 'editor' on mobile - both wrong for the player.
       return {
@@ -1889,7 +1900,11 @@ export const useIdeStore = create<IdeState>((set) => ({
     // A named load (Open) is a different document, so undo must not reach back
     // across it. An in-place apply (AI Replace/Merge) passes no name: it is an
     // edit to the program the user already has, and stays undoable.
-    if (fileName !== undefined) bufferHistories.clear();
+    if (fileName !== undefined) {
+      bufferHistories.clear();
+      // A different program, so the files its predecessor saved go with it.
+      emulatorVfs.clear();
+    }
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
@@ -1953,6 +1968,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   loadUnsavedDocument: (text, opts) => {
     // Sample / New / Import: always a different program (see replaceDocument).
     bufferHistories.clear();
+    emulatorVfs.clear();
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },

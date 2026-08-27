@@ -46,74 +46,79 @@
 
 ## 4. Lifetime
 
-- [ ] 4.1 Remove the `emulatorVfs.clear()` on the stop path in
+- [x] 4.1 Remove the `emulatorVfs.clear()` on the stop path in
       `src/components/EmulatorPane.tsx` so saved files outlive the run; leave
       the start, reset, unmount and dialect-switch clears exactly as they are.
-- [ ] 4.2 Verify each document-replacing path (`createProject`, `openProject`,
+- [x] 4.2 Verify each document-replacing path (`createProject`, `openProject`,
       `replaceDocument`, import, `playerBoot`, `openSharedInIde`) actually
       reaches a clear now that files outlive the machine, and add the clear
       where it only happened via a running machine before.
-- [ ] 4.3 Tests in `src/storage/vfs/vfsStore.test.ts` and alongside the store:
+- [x] 4.3 Tests in `src/storage/vfs/vfsStore.test.ts` and alongside the store:
       one assertion per lifetime rule — a stop keeps the files; a run start, a
       reset, a machine change and each document-replacing action purge them; a
-      breakpoint pause keeps them.
+      breakpoint pause keeps them. The machine's own rules (stop keeps, start
+      and reset purge, a pause keeps) live in `EmulatorPane` and are proved in
+      the browser by the spec task 8.6 adds; the store tests cover the
+      document-replacing actions and the machine change.
 
 ## 5. The projection
 
-- [ ] 5.1 New `src/app/dataBlocks.ts`: a pure `projectDataBlocks(entries, unwrap)`
+- [x] 5.1 New `src/app/dataBlocks.ts`: a pure `projectDataBlocks(entries, unwrap)`
       mapping file-store entries and their bytes to `DataBlock[]`, memoized on
       the store snapshot the way `selectBlocks` memoizes listing blocks.
-- [ ] 5.2 Wire it to React with `useSyncExternalStore` over the existing
+- [x] 5.2 Wire it to React with `useSyncExternalStore` over the existing
       `emulatorVfs.subscribe`, throttling the snapshot so a program writing
       per-frame does not re-render per frame. Nothing in this path may await,
       and nothing may set `dirty`.
-- [ ] 5.3 Colocated `src/app/dataBlocks.test.ts`: the projection, its
+- [x] 5.3 Colocated `src/app/dataBlocks.test.ts`: the projection, its
       memoization (a snapshot with no change returns the same array), and the
       unwrap being applied per entry.
 
 ## 6. Tabs and the byte view
 
-- [ ] 6.1 Add `{ kind: 'data'; name: string }` to `ActiveTab` in
+- [x] 6.1 Add `{ kind: 'data'; name: string }` to `ActiveTab` in
       `src/app/store.ts`, keyed by name; a tab whose file is gone falls back to
       the BASIC tab, as a stale block id already does.
-- [ ] 6.2 Render data tabs in `EditorTabBar.tsx` after the blocks, with their own
+- [x] 6.2 Render data tabs in `EditorTabBar.tsx` after the blocks, with their own
       glyph, bounded to a fixed count with the rest reachable through the
       Emulator files dialog.
-- [ ] 6.3 Give `ByteEditor.tsx` a `readOnly` mode and an offset gutter (no
+- [x] 6.3 Give `ByteEditor.tsx` a `readOnly` mode and an offset gutter (no
       address), and accept a data block as well as a block; route data tabs to it
       from `Workspace.tsx`. No new buffer-history key — a read-only view has no
       history.
-- [ ] 6.4 Add **Download .bin**, **Download .txt** and **Delete** to the data
+- [x] 6.4 Add **Download .bin**, **Download .txt** and **Delete** to the data
       tab's context menu, beside the entries a block tab already offers; Delete
       is a store delete by name.
-- [ ] 6.5 Decode `.txt` through the machine's own charset (the mapping the byte
+- [x] 6.5 Decode `.txt` through the machine's own charset (the mapping the byte
       view's character column already uses), not ASCII.
-- [ ] 6.6 Colocated test for the `.txt` decode over a TRS-80 `PRINT#` file's
+- [x] 6.6 Colocated test for the `.txt` decode over a TRS-80 `PRINT#` file's
       bytes, and for the download filenames.
-- [ ] 6.7 Repoint `VfsInspectorDialog.tsx` at the projected data blocks so it is
+- [x] 6.7 Repoint `VfsInspectorDialog.tsx` at the projected data blocks so it is
       the tab strip's overflow surface rather than a second list of the same
       files.
 
 ## 7. Documentation
 
-- [ ] 7.1 Update `docs/guide/testing-programs.md` where it describes the
+- [x] 7.1 Update `docs/guide/testing-programs.md` where it describes the
       Emulator files dialog, so it reflects files appearing as tabs and
       surviving the machine stopping.
-- [ ] 7.2 Update `docs/contributing/architecture.md` for the container seam and
+- [x] 7.2 Update `docs/contributing/architecture.md` for the container seam and
       the projection. Do not touch the docs sidebar.
 
 ## 8. Quality gates
 
-- [ ] 8.1 `npm run typecheck`
-- [ ] 8.2 `npm test`
-- [ ] 8.3 `npm run lint`
-- [ ] 8.4 `npm run format:check` (or `npm run format`)
-- [ ] 8.5 `npm run docs:build` (docs/ changed in group 7)
-- [ ] 8.6 E2E for the affected capabilities, Chromium only:
+- [x] 8.1 `npm run typecheck`
+- [x] 8.2 `npm test`
+- [x] 8.3 `npm run lint`
+- [x] 8.4 `npm run format:check` (or `npm run format`)
+- [x] 8.5 `npm run docs:build` (docs/ changed in group 7)
+- [x] 8.6 E2E for the affected capabilities, Chromium only:
       `npm run e2e:chromium -- e2e/persistence e2e/code-editor e2e/memory-blocks`.
       Add one browser spec in `e2e/persistence/`: boot the Spectrum, run a
       `SAVE … DATA`, assert the tab appears live showing the payload rather than
       the tape header, stop the machine and assert the tab survives and still
       shows it, then Run again and assert it is gone. Check this task off only
       when the run passes; if it fails, leave it unchecked with a note on what
-      failed.
+      failed. Done: `e2e/persistence/saved-data-tabs.spec.ts`; the three
+      capability folders pass Chromium-only (45 tests), which also took
+      `zx81-listing-blocks.spec.ts`'s Kind selection from `data` to `memory`.

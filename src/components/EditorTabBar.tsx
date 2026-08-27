@@ -3,22 +3,26 @@
 
 import { useState } from 'react';
 import { useIdeStore, useBlocks } from '../app/store';
+import { useDataBlocks } from '../app/dataBlocks';
+import { decodeDataText, dataBlockFileName } from '../app/dataBlockFile';
+import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { useDismiss } from '../app/useDismiss';
 import { useLongPress } from './useLongPress';
 import { asmEngineFor } from '../asm/registry';
 import { downloadBlob, openBinaryFile, withExtension } from '../storage/files';
 import { loadBytes } from '../app/byteEdit';
-import type { Block } from '../dialects/types';
+import type { Block, DataBlock } from '../dialects/types';
 import styles from './EditorTabBar.module.css';
 
 /**
  * Which tab a context menu belongs to: the BASIC source tab, a memory block by
- * id, or a scratch buffer by id.
+ * id, a scratch buffer by id, or a saved data file by name.
  */
 type TabTarget =
   | { kind: 'basic' }
   | { kind: 'block'; blockId: string }
-  | { kind: 'scratch'; scratchId: string };
+  | { kind: 'scratch'; scratchId: string }
+  | { kind: 'data'; name: string };
 
 /** An open tab context menu: which tab, anchored where (viewport px). */
 interface TabMenu {
@@ -31,12 +35,27 @@ interface TabMenu {
 const MENU_WIDTH_PX = 160;
 
 /**
+ * How many saved files the strip shows. A program in a loop can write
+ * arbitrarily many, and each one appearing as a peer of the BASIC tab would
+ * push the program's own tabs off the strip; the rest are reached through the
+ * Emulator files dialog, which the overflow tab opens.
+ */
+const MAX_DATA_TABS = 4;
+
+/**
  * The editor pane's tab strip: the BASIC source, one tab per memory block, then
  * one per scratch buffer, then a plus button whose menu creates either. Always
  * rendered - scratch buffers are dialect-independent, so the strip is not gated
  * on the `memoryBlocks` capability (only the block tabs and the new-block menu
  * item are). Lives inside `.editorPane`, above the editor, so it composes with
  * the mobile pane switcher unchanged.
+ *
+ * After the blocks come the files the running program has saved - the tab
+ * strip's only tabs that are not part of the document at all, arriving as the
+ * program writes them and gone with the next run. A bounded number of them
+ * show; where a program has written more, the rest stay reachable through the
+ * Emulator files dialog, so no program can take the strip over by saving in a
+ * loop.
  *
  * Right-clicking or long-pressing a tab opens a context menu. The BASIC tab
  * offers "Download .bas" (the single-file export that used to be File → Save's
@@ -46,10 +65,15 @@ const MENU_WIDTH_PX = 160;
  * dialog) and "Delete" (the confirm-delete dialog) - the main program can never
  * be deleted. A scratch tab offers "Rename", "Download .bas" and "Close";
  * closing is unconfirmed, since a scratch buffer is disposable by definition.
+ * A data tab offers "Download .bin" (the bytes as saved), "Download .txt" (the
+ * same bytes read through the machine's own character set, which is what a
+ * `PRINT#` file is) and "Delete" - unconfirmed, like a scratch buffer's Close,
+ * since the file is program output and re-running produces it again.
  */
 export function EditorTabBar() {
   const dialect = useIdeStore((s) => s.dialect);
   const blocks = useBlocks();
+  const dataBlocks = useDataBlocks();
   const activeTab = useIdeStore((s) => s.activeTab);
   const scratchBuffers = useIdeStore((s) => s.scratchBuffers);
   const setActiveTab = useIdeStore((s) => s.setActiveTab);
@@ -60,6 +84,7 @@ export function EditorTabBar() {
   const requestRemoveBlock = useIdeStore((s) => s.requestRemoveBlock);
   const openBlockSettings = useIdeStore((s) => s.openBlockSettings);
   const asmErrorBlocks = useIdeStore((s) => s.asmErrorBlocks);
+  const setVfsInspectorOpen = useIdeStore((s) => s.setVfsInspectorOpen);
 
   const [menu, setMenu] = useState<TabMenu | null>(null);
   // The plus button's menu (new scratch buffer / new block), anchored under the
@@ -143,6 +168,35 @@ export function EditorTabBar() {
     }
   };
 
+  /** Download a saved file's bytes as `<name>.bin`. */
+  const downloadDataBin = (file: DataBlock) => {
+    downloadBlob(
+      new Blob([file.bytes as BlobPart], { type: 'application/octet-stream' }),
+      dataBlockFileName(file.name, '.bin'),
+    );
+  };
+
+  /** Download a saved file as text, through the machine's own character set. */
+  const downloadDataText = (file: DataBlock) => {
+    downloadBlob(
+      new Blob([decodeDataText(file.bytes, dialect.charset)], {
+        type: 'text/plain',
+      }),
+      dataBlockFileName(file.name, '.txt'),
+    );
+  };
+
+  /**
+   * Discard a saved file. A delete against the store the file lives in - there
+   * is no copy of it anywhere else - and the projection follows.
+   */
+  const deleteDataFile = (name: string) => {
+    emulatorVfs.delete(name);
+    if (activeTab.kind === 'data' && activeTab.name === name) {
+      setActiveTab({ kind: 'basic' });
+    }
+  };
+
   /** Download a code block's assembly source as `<name>.asm`. */
   const downloadAsm = (block: Block) => {
     const asm =
@@ -162,6 +216,13 @@ export function EditorTabBar() {
   }
   const menuScratchId =
     menu?.target.kind === 'scratch' ? menu.target.scratchId : null;
+  let menuDataFile: DataBlock | null = null;
+  if (menu && menu.target.kind === 'data') {
+    const { name } = menu.target;
+    menuDataFile = dataBlocks.find((f) => f.name === name) ?? null;
+  }
+  const shownDataBlocks = dataBlocks.slice(0, MAX_DATA_TABS);
+  const hiddenDataCount = dataBlocks.length - shownDataBlocks.length;
 
   return (
     <div className={styles.tabBar} role="tablist" aria-label="Editor content">
@@ -284,6 +345,53 @@ export function EditorTabBar() {
           </button>
         ),
       )}
+      {shownDataBlocks.map((file) => (
+        <button
+          key={file.name}
+          role="tab"
+          aria-selected={
+            activeTab.kind === 'data' && activeTab.name === file.name
+          }
+          aria-label={file.name}
+          title={`${file.name} - saved by the program, read-only (right-click or long-press for options)`}
+          className={
+            activeTab.kind === 'data' && activeTab.name === file.name
+              ? 'active'
+              : ''
+          }
+          onClick={() => {
+            if (!longPress.consumeFired())
+              setActiveTab({ kind: 'data', name: file.name });
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            openMenu(
+              { kind: 'data', name: file.name },
+              { x: e.clientX, y: e.clientY },
+            );
+          }}
+          {...longPress.bind({ kind: 'data', name: file.name })}
+        >
+          {/* Its own glyph: not the document's (⚙ code, ▤ memory), and not the
+              scratch buffer's ✎ - this is what the machine wrote. */}
+          <span className={styles.kindGlyph} aria-hidden="true">
+            🖫
+          </span>
+          <span className={styles.tabName}>{file.name}</span>
+        </button>
+      ))}
+      {hiddenDataCount > 0 && (
+        <button
+          className={styles.addTab}
+          aria-label={`${hiddenDataCount} more saved files`}
+          title={`${hiddenDataCount} more saved ${
+            hiddenDataCount === 1 ? 'file' : 'files'
+          } - open Emulator files`}
+          onClick={() => setVfsInspectorOpen(true)}
+        >
+          +{hiddenDataCount}
+        </button>
+      )}
       <button
         className={styles.addTab}
         aria-label="New tab"
@@ -381,6 +489,37 @@ export function EditorTabBar() {
                 }}
               >
                 Close
+              </button>
+            </>
+          ) : menuDataFile ? (
+            <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  downloadDataBin(menuDataFile);
+                }}
+              >
+                Download .bin
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  downloadDataText(menuDataFile);
+                }}
+              >
+                Download .txt
+              </button>
+              <div className={styles.menuSeparator} />
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  deleteDataFile(menuDataFile.name);
+                }}
+              >
+                Delete
               </button>
             </>
           ) : menuBlock ? (

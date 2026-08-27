@@ -736,6 +736,27 @@ export interface MemoryBlock extends BlockBase {
 export type Block = CodeBlock | MemoryBlock;
 
 /**
+ * A file a running program saved to tape or disk, shown beside the document's
+ * blocks. No address: it is a file, not a location - which is why it is not
+ * one of {@link Block}'s arms and cannot be passed where an address is needed.
+ *
+ * Session-scoped and derived: the bytes live in the machine's file store
+ * (see {@link MachineFileStore}), and this is a view over what is there.
+ * Never autosaved, never written into a project, never shared or exported.
+ */
+export interface DataBlock {
+  /** The name the program saved the file under; unique within the store. */
+  name: string;
+  /** The bytes the program saved, with any container the machine wrapped
+   *  around them already stripped (see {@link Dialect.unwrapStoredFile}). */
+  bytes: Uint8Array;
+  /** The machine's own tag for the file, e.g. 'data-num' on a Spectrum. */
+  kind?: string;
+  /** Epoch ms of the last save, so the tabs sit in the order they arrived. */
+  updatedAt: number;
+}
+
+/**
  * An inclusive address range: `start` and `end` are both addresses that
  * belong to the range (so `end` is the last valid byte, not one past it) -
  * the same convention {@link MemoryRegion} uses, and the one the memory maps

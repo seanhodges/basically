@@ -42,6 +42,13 @@ const { asmEngineFor } = await import('../asm/registry');
 const { materializeSampleBlocks } = await import('./sampleBlocks');
 const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
+const { emulatorVfs } = await import('../storage/vfs/vfsStore');
+const { setVfsStorageForTests, getVfsCollection } =
+  await import('../storage/vfs/db');
+const { getRxStorageMemory } = await import('rxdb/plugins/storage-memory');
+// The VFS mirror is fire-and-forget and node has no IndexedDB, so without a
+// storage the clears the store now makes each log a failed mirror write.
+setVfsStorageForTests(getRxStorageMemory());
 
 const zx81 = getDialect('zx81');
 const bbc = getDialect('bbcmicro');
@@ -1995,6 +2002,107 @@ describe('boot hydration of scratch buffers', () => {
       ['scratch-1', 'Sprites test', '10 REM snippet', 0],
       ['scratch-2', 'Sprites test', '20 REM same name', 0],
     ]);
+  });
+});
+
+/**
+ * Files a program saved outlive the run that wrote them, so nothing about the
+ * machine takes them away any more. What ends them is a different program
+ * becoming active - and every path that installs one has to say so, rather
+ * than inheriting a clear from a machine that happened to be running.
+ *
+ * The rules that belong to the machine - a stop keeps the files, a run start
+ * and a reset purge them, a breakpoint pause keeps them - live in the emulator
+ * pane and are proved in the browser (`e2e/persistence/`).
+ */
+describe('saved files and the document that owns them', () => {
+  const seed = () => emulatorVfs.save('SCORES', Uint8Array.from([1, 2, 3]));
+  const names = () => emulatorVfs.list().map((f) => f.name);
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      blocks: [],
+      listingBlockMeta: {},
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+    });
+    emulatorVfs.clear(spectrum.id);
+  });
+
+  const replacements: [string, () => void][] = [
+    [
+      'a new project',
+      () =>
+        useIdeStore
+          .getState()
+          .createProject({ dialectId: 'zxspectrum', source: '10 REM new' }),
+    ],
+    [
+      'opening a project bundle',
+      () =>
+        useIdeStore.getState().openProject({
+          dialectId: 'zxspectrum',
+          source: '10 REM zip',
+          fileName: 'zip.bas',
+        }),
+    ],
+    [
+      'opening a shared program',
+      () =>
+        useIdeStore
+          .getState()
+          .openSharedInIde({ dialectId: 'zxspectrum', source: '10 REM share' }),
+    ],
+    [
+      'a player boot',
+      () =>
+        useIdeStore.getState().playerBoot({
+          dialectId: 'zxspectrum',
+          source: '10 REM shared',
+          fileName: 'shared.bas',
+        }),
+    ],
+    [
+      'an Open',
+      () => useIdeStore.getState().replaceDocument('10 REM open', 'open.bas'),
+    ],
+    [
+      'a sample or an import',
+      () => useIdeStore.getState().loadUnsavedDocument('10 REM sample'),
+    ],
+    ['a machine change', () => useIdeStore.getState().setDialect(zx81.id)],
+  ];
+
+  for (const [label, act] of replacements) {
+    it(`${label} discards them`, () => {
+      seed();
+      expect(names()).toEqual(['SCORES']);
+      act();
+      expect(names()).toEqual([]);
+    });
+  }
+
+  // An in-place apply is an edit to the program the user already has, not a
+  // different one - the same reason it leaves the edit histories standing.
+  it('an in-place AI apply keeps them', () => {
+    seed();
+    useIdeStore.getState().replaceDocument('10 REM applied');
+    expect(names()).toEqual(['SCORES']);
+  });
+
+  // A machine change retags the mirror, so what the next machine saves is not
+  // filed under the one that just went away.
+  it('a machine change retags the store for the new machine', async () => {
+    seed();
+    useIdeStore.getState().setDialect(zx81.id);
+    emulatorVfs.save('LOG', Uint8Array.from([4]));
+    await emulatorVfs.idle();
+    expect(names()).toEqual(['LOG']);
+    const col = await getVfsCollection();
+    expect((await col.findOne('LOG').exec())!.dialectId).toBe('zx81');
   });
 });
 

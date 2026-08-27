@@ -23,6 +23,11 @@
  * One editor serves every block, as `AsmEditor` does: switching blocks swaps the
  * view's whole state for the incoming block's, so each keeps its own document,
  * selection and undo history for as long as it exists.
+ *
+ * It also shows a file a running program saved, read-only. Such a file has no
+ * address - so the gutter counts offsets from its first byte - is neither kept
+ * with the document nor returned to the machine, and therefore has nothing an
+ * edit could change and no history to park.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -81,8 +86,12 @@ import {
   LANDSCAPE_MOBILE_QUERY,
   useMediaQuery,
 } from '../app/useMediaQuery';
-import type { Block } from '../dialects/types';
-import { blockBytesBufferKey, bufferHistories } from '../editor/bufferHistory';
+import type { Block, DataBlock } from '../dialects/types';
+import {
+  blockBytesBufferKey,
+  bufferHistories,
+  freshBufferState,
+} from '../editor/bufferHistory';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { HexIcon, TextIcon } from './icons';
@@ -107,6 +116,56 @@ const caretAnnotation = Annotation.define<ByteCaret>();
  */
 const refreshViews = StateEffect.define<void>();
 
+/**
+ * What this surface needs of whatever it is showing. A block sits at an address
+ * in the machine's memory and is edited; a file a program saved has no address,
+ * counts from its own first byte, and is only read.
+ */
+interface ByteSubject {
+  /** Which thing is in the view, so a switch can be told from an echo. */
+  id: string;
+  /** Where a parked edit history lives, or null where there is none. */
+  historyKey: string | null;
+  name: string;
+  bytes: Uint8Array;
+  /** What the gutter counts from: an address, or zero for a file's offsets. */
+  base: number;
+  /** True where the gutter reads as offsets into a file, not as addresses. */
+  offsets: boolean;
+  readOnly: boolean;
+  comment?: string;
+}
+
+function byteSubject(block: Block | DataBlock): ByteSubject {
+  if ('address' in block) {
+    return {
+      id: block.id,
+      historyKey: blockBytesBufferKey(block.id),
+      name: block.name,
+      bytes: block.bytes,
+      base: block.address,
+      offsets: false,
+      readOnly: false,
+      ...(block.comment !== undefined ? { comment: block.comment } : {}),
+    };
+  }
+  return {
+    // Files are keyed by name, as the store that holds them is.
+    id: `data:${block.name}`,
+    historyKey: null,
+    name: block.name,
+    bytes: block.bytes,
+    base: 0,
+    offsets: true,
+    readOnly: true,
+  };
+}
+
+/** A file's offset gutter: distance from its first byte, not an address. */
+function formatOffset(offset: number): string {
+  return `+${offset.toString(16).toUpperCase().padStart(4, '0')}`;
+}
+
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -117,7 +176,8 @@ export function ByteEditor({
   block,
   inputRef,
 }: {
-  block: Block;
+  /** A document block, edited; or a file a program saved, shown read-only. */
+  block: Block | DataBlock;
   /**
    * The on-screen keyboard's handle into whichever editor is on screen. This
    * surface claims it while it is mounted: the BASIC editor stays mounted but
@@ -133,15 +193,22 @@ export function ByteEditor({
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
 
-  // The block as of this render, for the handlers, which are not rebuilt when
-  // the prop advances on an upsert echo or a block switch.
-  const blockRef = useRef(block);
-  blockRef.current = block;
+  // The thing on screen as of this render, for the handlers, which are not
+  // rebuilt when the prop advances on an upsert echo or a tab switch.
+  const subject = byteSubject(block);
+  const subjectRef = useRef(subject);
+  subjectRef.current = subject;
+  // The document block being edited, or null while a file is on screen: a file
+  // is not part of the document and has nowhere for a write to go.
+  const blockRef = useRef<Block | null>(null);
+  blockRef.current = 'address' in block ? block : null;
+  // The subject the view is currently holding, so a switch parks the outgoing
+  // one's history rather than the incoming one's.
+  const heldRef = useRef(subject);
   // The bytes we last committed: when they come back as the prop, that is our
   // own write echoing, not a change from elsewhere.
   const lastWrittenBytes = useRef<Uint8Array | null>(null);
-  const prevBytes = useRef(block.bytes);
-  const lastBlockId = useRef(block.id);
+  const prevBytes = useRef(subject.bytes);
   const lastHistoryGeneration = useRef(bufferHistories.generation);
   const reseeding = useRef(false);
   const caretRef = useRef<ByteCaret>({ index: 0, nibble: 'high' });
@@ -243,9 +310,18 @@ export function ByteEditor({
   const listingLayoutRef = useRef(listingLayout);
   listingLayoutRef.current = listingLayout;
 
-  /** Apply one outcome from the pure edit model to the view. */
+  /**
+   * Apply one outcome from the pure edit model to the view. Every write goes
+   * through here, which is where a file a program saved is refused: it is
+   * neither kept with the document nor returned to the machine, so an edit to
+   * one would change nothing that outlives the tab.
+   */
   const applyOutcome = useCallback(
     (view: EditorView, outcome: ByteEditOutcome, field?: ByteField) => {
+      if (subjectRef.current.readOnly) {
+        flashRefusal('Saved by the program - read-only.');
+        return;
+      }
       if (!outcome.ok) {
         flashRefusal(outcome.message);
         return;
@@ -272,7 +348,7 @@ export function ByteEditor({
   const targetOf = useCallback(
     (view: EditorView): ByteTarget => ({
       bytes: docBytes(view),
-      address: blockRef.current.address,
+      address: subjectRef.current.base,
     }),
     [docBytes],
   );
@@ -469,6 +545,7 @@ export function ByteEditor({
    */
   const commitBytes = useCallback((bytes: Uint8Array) => {
     const current = blockRef.current;
+    if (current === null) return; // a file has nowhere to write back to
     if (bytesEqual(bytes, current.bytes)) return;
     const store = useIdeStore.getState();
     lastWrittenBytes.current = bytes;
@@ -526,9 +603,12 @@ export function ByteEditor({
   const gutterCompartment = useRef(new Compartment()).current;
 
   const gutterExtension = useCallback(
-    (address: number, perRow: number): Extension =>
+    (base: number, perRow: number, offsets: boolean): Extension =>
       lineNumbers({
-        formatNumber: (line) => formatWord(address + (line - 1) * perRow),
+        formatNumber: (line) => {
+          const at = base + (line - 1) * perRow;
+          return offsets ? formatOffset(at) : formatWord(at);
+        },
       }),
     [],
   );
@@ -536,7 +616,11 @@ export function ByteEditor({
   const buildExtensions = useCallback(
     (): Extension => [
       gutterCompartment.of(
-        gutterExtension(blockRef.current.address, bytesPerRowRef.current),
+        gutterExtension(
+          subjectRef.current.base,
+          bytesPerRowRef.current,
+          subjectRef.current.offsets,
+        ),
       ),
       decorationField,
       highlightActiveLine(),
@@ -624,16 +708,30 @@ export function ByteEditor({
     ],
   );
 
-  /** Park this block's state so coming back to it finds its history. */
-  const parkState = useCallback((view: EditorView, blockId: string) => {
+  /**
+   * Park this block's state so coming back to it finds its history. A file a
+   * program saved has none to park: it is read-only, so there is nothing to
+   * undo, and it is gone with the next run anyway.
+   */
+  const parkState = useCallback((view: EditorView, of: ByteSubject) => {
+    if (of.historyKey === null) return;
     const blocks = selectBlocks(useIdeStore.getState());
-    if (!blocks.some((b) => b.id === blockId)) return;
+    if (!blocks.some((b) => b.id === of.id)) return;
     bufferHistories.save(
-      blockBytesBufferKey(blockId),
+      of.historyKey,
       view.state,
       lastHistoryGeneration.current,
     );
   }, []);
+
+  /** The state to give the view for `of`: its parked history, or a fresh one. */
+  const restoreState = useCallback(
+    (of: ByteSubject, text: string, extensions: Extension): EditorState =>
+      of.historyKey === null
+        ? freshBufferState(text, extensions)
+        : bufferHistories.restore(of.historyKey, text, extensions),
+    [],
+  );
 
   /**
    * Take up whatever document the view was just given. A restored buffer brings
@@ -653,7 +751,7 @@ export function ByteEditor({
         reseeding.current = true;
         project(
           view,
-          blockRef.current.bytes,
+          subjectRef.current.bytes,
           { index: 0, nibble: 'high' },
           'hex',
           {
@@ -676,91 +774,95 @@ export function ByteEditor({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const projection = projectBytes(blockRef.current.bytes, {
+    const projection = projectBytes(subjectRef.current.bytes, {
       bytesPerRow: bytesPerRowRef.current,
       glyph,
     });
     projectionRef.current = projection;
     const view = new EditorView({
-      state: bufferHistories.restore(
-        blockBytesBufferKey(blockRef.current.id),
+      state: restoreState(
+        subjectRef.current,
         projection.text,
         buildExtensions(),
       ),
       parent: host,
     });
     viewRef.current = view;
-    lastBlockId.current = blockRef.current.id;
+    heldRef.current = subjectRef.current;
     lastHistoryGeneration.current = bufferHistories.generation;
     adoptDocument(view);
     return () => {
-      parkState(view, blockRef.current.id);
+      parkState(view, subjectRef.current);
       view.destroy();
       viewRef.current = null;
       useIdeStore.getState().setEditorFocused(false);
     };
-  }, [adoptDocument, buildExtensions, glyph, parkState]);
+  }, [adoptDocument, buildExtensions, glyph, parkState, restoreState]);
 
   // A different block in the same editor: park the outgoing one's state and
   // give the view the incoming one's, resetting the per-block bookkeeping.
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || block.id === lastBlockId.current) return;
-    const outgoing = lastBlockId.current;
-    lastBlockId.current = block.id;
+    if (!view || subject.id === heldRef.current.id) return;
+    const outgoing = heldRef.current;
+    heldRef.current = subject;
     parkState(view, outgoing);
     lastWrittenBytes.current = null;
     reseeding.current = false;
-    prevBytes.current = block.bytes;
-    const projection = projectBytes(block.bytes, {
+    prevBytes.current = subject.bytes;
+    const projection = projectBytes(subject.bytes, {
       bytesPerRow: bytesPerRowRef.current,
       glyph,
     });
     projectionRef.current = projection;
-    view.setState(
-      bufferHistories.restore(
-        blockBytesBufferKey(block.id),
-        projection.text,
-        buildExtensions(),
-      ),
-    );
+    view.setState(restoreState(subject, projection.text, buildExtensions()));
     lastHistoryGeneration.current = bufferHistories.generation;
     adoptDocument(view);
-  }, [adoptDocument, block, buildExtensions, glyph, parkState]);
+  }, [adoptDocument, subject, buildExtensions, glyph, parkState, restoreState]);
 
-  // The block's bytes changed from somewhere else (a file load, a sample, an
-  // undo in another surface): drop the projection and rebuild it. Not the
-  // user's edit, so not theirs to undo.
+  // The bytes changed from somewhere else (a file load, a sample, an undo in
+  // another surface - or, for a file, the program writing it again): drop the
+  // projection and rebuild it. Not the user's edit, so not theirs to undo.
   useEffect(() => {
-    if (prevBytes.current === block.bytes) return;
-    prevBytes.current = block.bytes;
+    if (prevBytes.current === subject.bytes) return;
+    prevBytes.current = subject.bytes;
     if (
       lastWrittenBytes.current !== null &&
-      (lastWrittenBytes.current === block.bytes ||
-        bytesEqual(lastWrittenBytes.current, block.bytes))
+      (lastWrittenBytes.current === subject.bytes ||
+        bytesEqual(lastWrittenBytes.current, subject.bytes))
     ) {
       return;
     }
     const view = viewRef.current;
     if (!view) return;
     reseeding.current = true;
-    project(view, block.bytes, { index: 0, nibble: 'high' }, fieldRef.current, {
-      toHistory: false,
-    });
+    project(
+      view,
+      subject.bytes,
+      { index: 0, nibble: 'high' },
+      fieldRef.current,
+      { toHistory: false },
+    );
     reseeding.current = false;
-  }, [block, project]);
+  }, [subject.bytes, project]);
 
-  // The row width and the address the gutter counts from are configuration, and
-  // a parked state comes back with whatever it was put away with.
+  // The row width and what the gutter counts from are configuration, and a
+  // parked state comes back with whatever it was put away with.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
       effects: gutterCompartment.reconfigure(
-        gutterExtension(block.address, bytesPerRow),
+        gutterExtension(subject.base, bytesPerRow, subject.offsets),
       ),
     });
-  }, [block.address, bytesPerRow, gutterCompartment, gutterExtension]);
+  }, [
+    subject.base,
+    subject.offsets,
+    bytesPerRow,
+    gutterCompartment,
+    gutterExtension,
+  ]);
 
   // A row width or view change re-projects: same bytes, different layout, and
   // the caret stays on the byte it was on.
@@ -842,35 +944,46 @@ export function ByteEditor({
   }, [applyOutcome, flashRefusal, lengthDraft, targetOf]);
 
   const tabbed = mode !== 'both';
-  const length = block.bytes.length;
+  const length = subject.bytes.length;
+  const editableBlock = 'address' in block ? block : null;
 
   return (
     <div className={styles.byteEditor}>
       <div className={styles.statusStrip}>
-        <strong>{block.name}</strong> · ORG {formatWord(block.address)} ·{' '}
-        <label className={styles.lengthField}>
-          <input
-            aria-label="Block length in bytes"
-            data-testid="byte-length"
-            value={lengthDraft ?? String(length)}
-            onChange={(e) => setLengthDraft(e.currentTarget.value)}
-            onBlur={commitLength}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-              else if (e.key === 'Escape') setLengthDraft(null);
-            }}
-          />
-          {length === 1 ? 'byte' : 'bytes'}
-        </label>
-        <button
-          className={styles.action}
-          onClick={() => setFillOpen((open) => !open)}
-          aria-expanded={fillOpen}
-        >
-          Fill…
-        </button>
-        {block.comment !== undefined && (
-          <span className={styles.comment}> · {block.comment}</span>
+        <strong>{subject.name}</strong>{' '}
+        {editableBlock === null ? (
+          <>
+            · {length} {length === 1 ? 'byte' : 'bytes'} · saved by the program,
+            read-only
+          </>
+        ) : (
+          <>
+            · ORG {formatWord(subject.base)} ·{' '}
+            <label className={styles.lengthField}>
+              <input
+                aria-label="Block length in bytes"
+                data-testid="byte-length"
+                value={lengthDraft ?? String(length)}
+                onChange={(e) => setLengthDraft(e.currentTarget.value)}
+                onBlur={commitLength}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                  else if (e.key === 'Escape') setLengthDraft(null);
+                }}
+              />
+              {length === 1 ? 'byte' : 'bytes'}
+            </label>
+            <button
+              className={styles.action}
+              onClick={() => setFillOpen((open) => !open)}
+              aria-expanded={fillOpen}
+            >
+              Fill…
+            </button>
+          </>
+        )}
+        {subject.comment !== undefined && (
+          <span className={styles.comment}> · {subject.comment}</span>
         )}
         {refusal !== null && (
           <span
@@ -882,9 +995,9 @@ export function ByteEditor({
           </span>
         )}
       </div>
-      {fillOpen && (
+      {fillOpen && editableBlock !== null && (
         <FillRow
-          block={block}
+          block={editableBlock}
           onCancel={() => setFillOpen(false)}
           onFill={(from, to, value) => {
             const view = viewRef.current;

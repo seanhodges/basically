@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { useDataBlocks } from '../app/dataBlocks';
+import { dataBlockFileName, decodeDataText } from '../app/dataBlockFile';
 import { downloadBlob } from '../storage/files';
-import { base64ToBytes } from '../storage/vfs/base64';
 import { formatHexDump } from '../storage/vfs/hexdump';
-import { getVfsCollection, type VfsFileDoc } from '../storage/vfs/db';
+import { emulatorVfs } from '../storage/vfs/vfsStore';
+import type { DataBlock } from '../dialects/types';
 import styles from './VfsInspectorDialog.module.css';
 import dialog from './Dialog.module.css';
 
@@ -13,49 +15,44 @@ function formatSize(bytes: number): string {
 }
 
 /**
- * "Emulator files" - inspects the virtual filesystem where a running
- * program's data file I/O lands (Spectrum tape CODE/DATA blocks, TRS-80
- * sequential files…). Reads the RxDB mirror reactively, so entries appear
- * live while the program runs and survive a breakpoint pause; the list
- * empties whenever the emulator starts or stops.
+ * "Emulator files" - every file a running program has saved, which is the tab
+ * strip's overflow surface rather than a second list of the same thing: the
+ * strip shows a bounded number of them and this shows them all.
+ *
+ * The same projection the tabs are drawn from, so a file reads here exactly as
+ * it does in its tab - the bytes the program saved, with any container the
+ * machine wrapped around them already off.
  */
 export function VfsInspectorDialog() {
   const open = useIdeStore((s) => s.vfsInspectorOpen);
   const setOpen = useIdeStore((s) => s.setVfsInspectorOpen);
-  const [files, setFiles] = useState<VfsFileDoc[]>([]);
+  const setActiveTab = useIdeStore((s) => s.setActiveTab);
+  const dialect = useIdeStore((s) => s.dialect);
+  const files = useDataBlocks();
   const [selectedName, setSelectedName] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    let sub: { unsubscribe(): void } | null = null;
-    getVfsCollection().then((col) => {
-      if (cancelled) return;
-      sub = col.find().$.subscribe((docs) => {
-        // Sort here rather than in the query: RxDB sorts need an index and
-        // the handful of files never justifies one.
-        const list = docs
-          .map((d) => d.toJSON() as VfsFileDoc)
-          .sort((a, b) => a.updatedAt - b.updatedAt);
-        setFiles(list);
-      });
-    });
-    return () => {
-      cancelled = true;
-      sub?.unsubscribe();
-    };
-  }, [open]);
 
   if (!open) return null;
 
   const selected = files.find((f) => f.name === selectedName) ?? null;
 
-  const download = (file: VfsFileDoc) => {
-    const bytes = base64ToBytes(file.dataB64);
+  const downloadBin = (file: DataBlock) =>
     downloadBlob(
-      new Blob([bytes], { type: 'application/octet-stream' }),
-      file.name,
+      new Blob([file.bytes as BlobPart], { type: 'application/octet-stream' }),
+      dataBlockFileName(file.name, '.bin'),
     );
+
+  const downloadText = (file: DataBlock) =>
+    downloadBlob(
+      new Blob([decodeDataText(file.bytes, dialect.charset)], {
+        type: 'text/plain',
+      }),
+      dataBlockFileName(file.name, '.txt'),
+    );
+
+  /** Show the file in its own tab, which is where it is read. */
+  const openInTab = (file: DataBlock) => {
+    setActiveTab({ kind: 'data', name: file.name });
+    setOpen(false);
   };
 
   return (
@@ -63,8 +60,9 @@ export function VfsInspectorDialog() {
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Emulator files</h2>
         <p>
-          Files the running program has saved to tape/disk/network. The files
-          are cleared each time the emulator stops.
+          Files the program has saved to tape/disk/network. They stay after the
+          machine stops, and are discarded when the program is run again, the
+          machine is reset, or a different program is opened.
         </p>
 
         {files.length === 0 ? (
@@ -95,16 +93,41 @@ export function VfsInspectorDialog() {
                   <td>
                     {f.kind && <span className={styles.kind}>{f.kind}</span>}
                   </td>
-                  <td className={styles.num}>{formatSize(f.size)}</td>
+                  <td className={styles.num}>{formatSize(f.bytes.length)}</td>
                   <td>{new Date(f.updatedAt).toLocaleTimeString()}</td>
                   <td className={styles.num}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        download(f);
+                        openInTab(f);
                       }}
                     >
-                      Download
+                      Open
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadBin(f);
+                      }}
+                    >
+                      .bin
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadText(f);
+                      }}
+                    >
+                      .txt
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        emulatorVfs.delete(f.name);
+                        if (selectedName === f.name) setSelectedName(null);
+                      }}
+                    >
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -114,9 +137,7 @@ export function VfsInspectorDialog() {
         )}
 
         {selected && (
-          <pre className={styles.hexView}>
-            {formatHexDump(base64ToBytes(selected.dataB64))}
-          </pre>
+          <pre className={styles.hexView}>{formatHexDump(selected.bytes)}</pre>
         )}
 
         <div className={dialog.modalActions}>

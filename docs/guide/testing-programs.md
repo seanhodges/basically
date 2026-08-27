@@ -317,22 +317,47 @@ Time spent paused is never counted. Emulated time only advances while frames are
 running, so a breakpoint you leave sitting for a minute while you read your
 program costs it nothing.
 
-## Inspecting data files
+## Reading the data your program saved
 
-On the machines that can write non-program data files, the IDE captures these and
-writes to a virtual filesystem so you can see what your program stored.
+On the machines that can write non-program data files, the IDE captures what
+your program saves so you can see what it stored.
 
-Open it from **File ▸ Emulator files** (shortcut **Ctrl/Cmd + Alt + F**). The
-dialog lists every file the running program has saved to tape, disk, or the
-network, with its **Name**, **Kind** (a dialect-specific tag such as `code`,
-`data`, or `data-str`), **Size**, and the time it was saved. Click a row to
-expand a **hex dump** of its contents - the quickest way to check that a record
-was written the way you expected. Each row also has a **Download** button that
-saves the raw bytes to your computer for inspection in another tool.
+Each file appears as its own **tab** in the editor, beside your program, under
+the name the program gave it - and it appears as the program writes it, without
+you opening anything. Select the tab to read the bytes: their offsets from the
+start of the file, their values in hexadecimal, and the characters your
+machine's own character set gives them - the same view a memory block's bytes
+are shown in, counting from the file's first byte rather than from an address.
 
-The virtual filesystem is cleared every time the emulator restarts, so
-each run starts with an empty filesystem. The files live only in the browser for the
-current session; if you want to keep one, use the **Download** button before restarting.
+The bytes are shown read-only. A saved file is what your program produced, not
+part of your document: it is never saved with your project, never carried by a
+share link, and running a program does not mark your document as having unsaved
+changes.
+
+Where a machine wraps a file in a container of its own - a Spectrum keeps a
+whole tape image, a header ahead of the data - you are shown the file your
+program saved, not the framing around it.
+
+Right-click or long-press a file's tab for:
+
+- **Download .bin** - the bytes exactly as your program wrote them.
+- **Download .txt** - the same bytes read as text through your machine's own
+  character set, which is what a `PRINT#` file usually is.
+- **Delete** - discard the file.
+
+**A saved file outlives the run that wrote it**, so you can stop the machine and
+read what your program produced. It is discarded when you run the program again,
+when you reset the machine, when you switch to a different target, and when you
+open a different program - so every run starts with an empty filesystem. The
+files live only in the browser for the current session and do not survive a
+reload, so download anything you want to keep.
+
+Where a program has saved more files than the tab strip shows at once, the rest
+stay reachable from **File ▸ Emulator files** (shortcut
+**Ctrl/Cmd + Alt + F**), which lists every file with its **Name**, **Kind** (a
+dialect-specific tag such as `code`, `data-num`, or `data-str`), **Size** and
+the time it was saved. Click a row for a **hex dump**, or use its buttons to
+open the file in its tab, download it, or delete it.
 
 When your program runs the way you want, see **[Running on real
 hardware](/guide/hardware)** to get it onto - or off - an actual machine.

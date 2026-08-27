@@ -6,9 +6,13 @@
  * every mutation is mirrored fire-and-forget into RxDB/IndexedDB so the
  * inspector dialog can watch the files reactively.
  *
- * Lifetime: the IDE clears the store on every emulator start and stop (and
- * on reset/dialect switch, which end the session just as surely). A pause -
- * breakpoint suspend - does not clear it.
+ * Lifetime: a file outlives the run that wrote it, so stopping the machine to
+ * read what a program produced does not destroy it. The IDE clears the store
+ * on every emulator start, on reset, on a dialect switch and on pane unmount,
+ * and whenever a different program becomes active - so a run is never served,
+ * and the user is never shown, the leftovers of a program that is no longer
+ * open. A pause - breakpoint suspend - does not clear it, and neither does a
+ * stop.
  */
 import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 import { bytesToBase64 } from './base64';
@@ -77,7 +81,8 @@ export class EmulatorVfs implements MachineFileStore {
 
   /**
    * Empty the VFS (memory and the RxDB mirror). Called on emulator start,
-   * stop, reset, dialect switch and pane unmount - never on pause.
+   * reset, dialect switch and pane unmount, and by every path that replaces
+   * the open document - never on pause, and never on a stop.
    */
   clear(nextDialectId?: string): void {
     this.files.clear();
