@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { getDialect } from '../dialects/registry';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import type { ProgramVocabulary as AppVocabulary } from '../app/programVocabulary';
 import type { ProgramVocabulary as SharedVocabulary } from '../reference/compare';
 import { buildUserMessage } from './promptBuilder';
@@ -43,7 +43,7 @@ function convert(input: {
   to?: ReturnType<typeof getDialect>;
   toLabel?: string;
   source?: string;
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
 }) {
   return buildConversionMessage({
     from: input.from === undefined ? c64 : input.from,

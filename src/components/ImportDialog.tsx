@@ -5,7 +5,7 @@ import {
   importProgram,
   importStatusMessage,
 } from '../app/importProgram';
-import type { MemoryBlock, TapeFile } from '../dialects/types';
+import type { Block, TapeFile } from '../dialects/types';
 import { openBinaryFile } from '../storage/files';
 import {
   listAudioInputs,
@@ -66,7 +66,7 @@ export function ImportDialog() {
     programName: string,
     source: string,
     extras: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       tapeFiles?: readonly TapeFile[];
       autoStart?: number | null;
       warnings?: string[];

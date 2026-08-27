@@ -12,7 +12,7 @@ import type {
   MachineScreenText,
   LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { locoSysVars, type LocoSysVars } from '../../dialects/cpc464/sysvars';
 import {
@@ -347,7 +347,7 @@ export class CpcMachine implements MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
     },
   ): void {

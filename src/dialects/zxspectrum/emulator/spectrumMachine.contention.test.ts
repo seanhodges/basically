@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { SpectrumMachine } from './spectrumMachine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap } from '../tapfile';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
@@ -36,7 +36,7 @@ const UNCONTENDED_CODE = 0xc000;
  * moving the routine into the ULA's 16K is what the two runs differ by; the
  * two writes to the counter are uncontended either way.
  */
-function counterLoop(address: number): MemoryBlock {
+function counterLoop(address: number): Block {
   return {
     id: 'counter',
     name: 'Counter',

@@ -170,7 +170,7 @@ export function Workspace() {
   // The block tab open in the editor pane; a stale/unknown id (defensive -
   // the store fixes ids up on every block mutation) falls back to BASIC. The
   // assembly editor needs the dialect to declare a CPU with an engine; a code
-  // block without one is edited as bytes, as a data block is.
+  // block without one is edited as bytes, as a memory block is.
   const activeBlock =
     activeTab.kind === 'block'
       ? (blocks.find((b) => b.id === activeTab.id) ?? null)

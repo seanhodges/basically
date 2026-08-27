@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 import { loaderSource, loaderTapBlocks } from './loader';
 import {
   exportTapBlockList,
@@ -11,11 +11,7 @@ import {
 } from './targets';
 import { headerName, parseTapAllFiles, tapBlockScan } from './tapfile';
 
-const block = (
-  name: string,
-  address: number,
-  ...bytes: number[]
-): MemoryBlock => ({
+const block = (name: string, address: number, ...bytes: number[]): Block => ({
   id: `blk-${name}`,
   name,
   address,

@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 
 // The store persists the chosen dialect and autosave (per-tab sessionStorage
 // plus a localStorage backup) on every real switch. The test environment is
@@ -70,15 +70,15 @@ function withViewport(narrow: boolean, body: () => void): void {
   }
 }
 
-const BLOCK_A: MemoryBlock = {
+const BLOCK_A: Block = {
   id: 'blk-a',
   name: 'SPRITES',
   address: 0x8000,
   bytes: Uint8Array.from([1, 2, 3]),
-  kind: 'data',
+  kind: 'memory',
 };
 
-const BLOCK_B: MemoryBlock = {
+const BLOCK_B: Block = {
   id: 'blk-b',
   name: 'ROUTINE',
   address: 0x9000,
@@ -106,7 +106,7 @@ describe('initialDocument (boot document choice)', () => {
       name: 'DATA1',
       address: 0x8000,
       bytes: Uint8Array.from([1, 2, 3]),
-      kind: 'data' as const,
+      kind: 'memory' as const,
     };
     const saved = { name: 'mygame.bas', text: '10 REM SAVED', blocks: [block] };
     expect(initialDocument(saved)).toEqual({
@@ -893,7 +893,7 @@ describe('memory block actions', () => {
 
   it('upsertBlock updates an existing block in place by id', () => {
     useIdeStore.setState({ blocks: [BLOCK_A, BLOCK_B], dirty: false });
-    const updated: MemoryBlock = { ...BLOCK_A, address: 0x8100 };
+    const updated: Block = { ...BLOCK_A, address: 0x8100 };
     useIdeStore.getState().upsertBlock(updated);
     const s = useIdeStore.getState();
     expect(s.blocks).toEqual([updated, BLOCK_B]);
@@ -916,7 +916,7 @@ describe('memory block actions', () => {
   });
 
   it('setBlocks throws and leaves state untouched for an invalid name', () => {
-    const invalid: MemoryBlock = { ...BLOCK_A, name: '1foo' };
+    const invalid: Block = { ...BLOCK_A, name: '1foo' };
     expect(() => useIdeStore.getState().setBlocks([invalid])).toThrow();
     const s = useIdeStore.getState();
     expect(s.blocks).toEqual([]); // unchanged - the throw happened before commit
@@ -924,20 +924,20 @@ describe('memory block actions', () => {
   });
 
   it('setBlocks throws for two blocks sharing a name', () => {
-    const dupe: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    const dupe: Block = { ...BLOCK_B, name: BLOCK_A.name };
     expect(() => useIdeStore.getState().setBlocks([BLOCK_A, dupe])).toThrow();
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
   it('upsertBlock throws and leaves state untouched for an invalid name', () => {
-    const invalid: MemoryBlock = { ...BLOCK_A, name: 'has spaces' };
+    const invalid: Block = { ...BLOCK_A, name: 'has spaces' };
     expect(() => useIdeStore.getState().upsertBlock(invalid)).toThrow();
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
   it('upsertBlock throws when the new block collides with an existing name', () => {
     useIdeStore.setState({ blocks: [BLOCK_A], dirty: false });
-    const collidingId: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    const collidingId: Block = { ...BLOCK_B, name: BLOCK_A.name };
     expect(() => useIdeStore.getState().upsertBlock(collidingId)).toThrow();
     // Unchanged: still just the original block.
     expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
@@ -1196,9 +1196,9 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
   });
 
   it('setListingBlockMeta records overrides and prunes defaults', () => {
-    useIdeStore.getState().setListingBlockMeta(0, { kind: 'data' });
+    useIdeStore.getState().setListingBlockMeta(0, { kind: 'memory' });
     expect(useIdeStore.getState().listingBlockMeta[0]).toEqual({
-      kind: 'data',
+      kind: 'memory',
     });
     // Clearing back to the default kind removes the ordinal from the map.
     useIdeStore.getState().setListingBlockMeta(0, { kind: undefined });

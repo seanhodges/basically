@@ -40,6 +40,9 @@ import { spectrum128MemoryMap } from './memoryMap';
 // window mirrors the 48K layout exactly (see ./memoryMap.ts), and the default
 // block address 0x8000 falls in RAM bank 2, present on both machines.
 import { spectrumMemoryBlocks } from '../zxspectrum/memoryBlocks';
+// The tape deck the 128K captures a program's saves with is the 48K's, so a
+// stored file unwraps the same way.
+import { unwrapSpectrumStoredFile } from '../zxspectrum/storedFile';
 
 /**
  * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
@@ -57,6 +60,7 @@ export const zxspectrum128: Dialect = {
   programRamBytes: 41472,
   memoryMap: spectrum128MemoryMap,
   memoryBlocks: spectrumMemoryBlocks,
+  unwrapStoredFile: unwrapSpectrumStoredFile,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',

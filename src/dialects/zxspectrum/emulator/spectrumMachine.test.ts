@@ -5,7 +5,7 @@ import { SpectrumMachine } from './spectrumMachine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap, codeTap } from '../tapfile';
 import { RAMTOP } from '../sysvars';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
@@ -53,7 +53,7 @@ describe('SpectrumMachine', () => {
     const machine = new SpectrumMachine({ rom });
     const { bytes, errors } = tokenizeProgram('10 RANDOMIZE USR 32768\n');
     expect(errors).toEqual([]);
-    const raster: MemoryBlock = {
+    const raster: Block = {
       id: 'raster',
       name: 'Raster',
       address: 0x8000,
@@ -88,7 +88,7 @@ describe('SpectrumMachine', () => {
     const machine = new SpectrumMachine({ rom });
     const { bytes, errors } = tokenizeProgram('10 RANDOMIZE USR 32768\n');
     expect(errors).toEqual([]);
-    const flicker: MemoryBlock = {
+    const flicker: Block = {
       id: 'flicker',
       name: 'Flicker',
       address: 0x8000,
@@ -520,7 +520,7 @@ describe('SpectrumMachine', () => {
   // bytes directly into RAM before RUN, and protects blocks below RAMTOP with
   // a CLEAR so the BASIC stack can't grow down over them.
   describe('memory blocks', () => {
-    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+    function block(overrides: Partial<Block> = {}): Block {
       return {
         id: 'b1',
         name: 'Code',
@@ -578,12 +578,12 @@ describe('SpectrumMachine', () => {
         '90 NEXT e\n100 NEXT d\n110 NEXT c\n120 NEXT b\n130 NEXT a\n140 PRINT "DONE"\n';
       const { bytes, errors } = tokenizeProgram(src);
       expect(errors).toEqual([]);
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'b1',
         name: 'Data',
         address: blockAddr,
         bytes: payload,
-        kind: 'data',
+        kind: 'memory',
       };
       machine.loadProgram(buildTap(bytes), { blocks: [b] });
       for (let i = 0; i < 100; i++) machine.runFrame();
@@ -647,10 +647,7 @@ describe('SpectrumMachine', () => {
    * what it says about itself.
    */
   describe('isProgramRunning', () => {
-    function load(
-      src: string,
-      opts?: { blocks?: MemoryBlock[] },
-    ): SpectrumMachine {
+    function load(src: string, opts?: { blocks?: Block[] }): SpectrumMachine {
       const machine = new SpectrumMachine({ rom });
       const { bytes, errors } = tokenizeProgram(src);
       expect(errors).toEqual([]);

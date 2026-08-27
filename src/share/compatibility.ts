@@ -7,7 +7,7 @@
 // on hardware it lacks - but cheap, client-side, and always includes the
 // authoring dialect for a program that lints clean there.
 
-import type { Dialect, MemoryBlock } from '../dialects/types';
+import type { Dialect, Block } from '../dialects/types';
 import { dialects } from '../dialects/registry';
 
 /**
@@ -20,7 +20,7 @@ import { dialects } from '../dialects/registry';
  */
 export function computeCompatibleDialects(
   source: string,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   candidates: readonly Dialect[] = dialects,
 ): string[] {
   const requireBlocks = blocks.length > 0;

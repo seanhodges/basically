@@ -120,6 +120,36 @@ describe('fetchSharedProgram', () => {
     ]);
   });
 
+  // A share link minted before files a program saves were blocks too spells a
+  // block of memory `'data'`; nothing writes it now, so it can only ever have
+  // meant memory.
+  it("decodes a block shared as 'data' as a memory block", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        ...record,
+        blocks: [
+          {
+            id: 'b1',
+            name: 'sprites',
+            address: 0x8000,
+            bytes: 'AQID',
+            kind: 'data',
+          },
+        ],
+      }),
+    );
+    const got = await fetchSharedProgram('abc234');
+    expect(got.blocks).toEqual([
+      {
+        id: 'b1',
+        name: 'sprites',
+        address: 0x8000,
+        bytes: new Uint8Array([1, 2, 3]),
+        kind: 'memory',
+      },
+    ]);
+  });
+
   it('rejects malformed block data as a server error', async () => {
     // A block missing its required "name" fails parseBlocks.
     fetchMock.mockResolvedValue(

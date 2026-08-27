@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadMicrosoftBasicProgram } from './microsoftBasicLoad';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 
 /** A 64K address space that records the order it was written in. */
 function fakeMemory() {
@@ -21,7 +21,7 @@ function fakeMemory() {
   };
 }
 
-const block = (address: number, bytes: number[]): MemoryBlock => ({
+const block = (address: number, bytes: number[]): Block => ({
   id: 'b',
   name: 'blk',
   address,

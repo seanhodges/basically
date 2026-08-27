@@ -9,7 +9,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
-  MemoryBlock,
+  Block,
 } from '../../types';
 import {
   BASIC_FREE_TOP,
@@ -190,10 +190,7 @@ export class Altair8800Machine implements MachineEmulator {
    * same shape as the TRS-80's loader. `image` is the bare program bytes (the
    * tokenizer's output, byte for byte as the interpreter stores them).
    */
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     this.reset();
     if (!this.hasInterpreter) return;
     this.bootToReady();

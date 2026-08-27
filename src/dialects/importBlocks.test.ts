@@ -48,7 +48,7 @@ describe('codeFilesToBlocks', () => {
     expect('entry' in blocks[1]!).toBe(false);
   });
 
-  it('builds a MemoryBlock per CodeFile with kind "code"', () => {
+  it('builds a Block per CodeFile with kind "code"', () => {
     const blocks = codeFilesToBlocks([codeFile('screen$', 0x8000)]);
     expect(blocks).toHaveLength(1);
     expect(blocks[0]!.kind).toBe('code');

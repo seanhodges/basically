@@ -8,7 +8,7 @@ import { useLongPress } from './useLongPress';
 import { asmEngineFor } from '../asm/registry';
 import { downloadBlob, openBinaryFile, withExtension } from '../storage/files';
 import { loadBytes } from '../app/byteEdit';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import styles from './EditorTabBar.module.css';
 
 /**
@@ -112,7 +112,7 @@ export function EditorTabBar() {
   };
 
   /** Download a block's raw bytes as `<name>.bin`. */
-  const downloadBin = (block: MemoryBlock) => {
+  const downloadBin = (block: Block) => {
     downloadBlob(
       new Blob([block.bytes as BlobPart], { type: 'application/octet-stream' }),
       `${block.name}.bin`,
@@ -124,7 +124,7 @@ export function EditorTabBar() {
    * download beside it. The block keeps its own address, name and kind; only
    * what it holds changes.
    */
-  const loadBin = async (block: MemoryBlock) => {
+  const loadBin = async (block: Block) => {
     const file = await openBinaryFile('.bin');
     if (!file) return;
     const outcome = loadBytes(
@@ -144,7 +144,7 @@ export function EditorTabBar() {
   };
 
   /** Download a code block's assembly source as `<name>.asm`. */
-  const downloadAsm = (block: MemoryBlock) => {
+  const downloadAsm = (block: Block) => {
     const asm =
       block.asmSource ??
       asmEngine
@@ -155,7 +155,7 @@ export function EditorTabBar() {
     downloadBlob(new Blob([asm], { type: 'text/plain' }), `${block.name}.asm`);
   };
 
-  let menuBlock: MemoryBlock | null = null;
+  let menuBlock: Block | null = null;
   if (menu && menu.target.kind === 'block') {
     const { blockId } = menu.target;
     menuBlock = blocks.find((b) => b.id === blockId) ?? null;
@@ -193,7 +193,7 @@ export function EditorTabBar() {
           title={
             (block.kind === 'code'
               ? `${block.name} - machine code block`
-              : `${block.name} - data block`) +
+              : `${block.name} - memory block`) +
             ' (right-click or long-press for options)'
           }
           className={

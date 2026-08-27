@@ -24,7 +24,7 @@ import {
   setLastShare,
   type PersistedMessage,
 } from './settings';
-import type { MemoryBlock, TapeFile } from '../dialects/types';
+import type { Block, TapeFile } from '../dialects/types';
 
 const KEY = 'mbide.autosave.ai';
 
@@ -135,12 +135,12 @@ describe('autosave block persistence', () => {
     installStorages();
   });
 
-  const BLOCK: MemoryBlock = {
+  const BLOCK: Block = {
     id: 'blk-1',
     name: 'SPRITES',
     address: 0x8000,
     bytes: Uint8Array.from([1, 2, 3, 255, 0]),
-    kind: 'data',
+    kind: 'memory',
     comment: 'Player sprites',
   };
 
@@ -156,6 +156,34 @@ describe('autosave block persistence', () => {
       bootDisc: null,
       scratch: [],
     });
+  });
+
+  // An autosave written before files a program saves were blocks too spells a
+  // block of memory `'data'`; nothing writes it now, so it can only ever have
+  // meant memory.
+  it("reads a stored 'data' block back as a memory block", () => {
+    sessionStorage.setItem('mbide.autosave.name', 'game.bas');
+    sessionStorage.setItem('mbide.autosave.doc', '10 PRINT "HI"');
+    sessionStorage.setItem(
+      'mbide.autosave.blocks',
+      JSON.stringify([
+        {
+          id: 'blk-1',
+          name: 'SPRITES',
+          address: 0x8000,
+          bytes: 'AQID/wA=',
+          kind: 'data',
+          comment: 'Player sprites',
+        },
+      ]),
+    );
+    sessionStorage.setItem(
+      'mbide.autosave.listingmeta',
+      JSON.stringify({ 0: { kind: 'data' } }),
+    );
+    const loaded = loadAutosave();
+    expect(loaded?.blocks).toEqual([BLOCK]);
+    expect(loaded?.listingBlockMeta).toEqual({ 0: { kind: 'memory' } });
   });
 
   it('defaults to no blocks when the third argument is omitted', () => {

@@ -14,7 +14,7 @@
 import type {
   Dialect,
   DetokenizeResult,
-  MemoryBlock,
+  Block,
   TapeFile,
 } from '../dialects/types';
 
@@ -28,7 +28,7 @@ export interface ImportedProgram {
    * Dialect.detokenizeWithReport}'s optional `blocks`. Absent when the
    * dialect found none, or reports none.
    */
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
   /**
    * Extra tape files the dialect's importer preserved off a multi-part image
    * (see {@link TapeFile}), when it supports {@link

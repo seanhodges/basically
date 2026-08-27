@@ -1,4 +1,4 @@
-import type { BuildTarget, MemoryBlock } from '../types';
+import type { BuildTarget, Block } from '../types';
 import {
   buildImageOrThrow,
   cassetteWavTarget,
@@ -35,7 +35,7 @@ export const CASSETTE_SAMPLE_RATE = 44100;
 export function exportTapBlockList(
   source: string,
   programName: string,
-  memoryBlocks: readonly MemoryBlock[] = [],
+  memoryBlocks: readonly Block[] = [],
   loader = false,
 ): TapBlock[] {
   const programBytes = buildImageOrThrow(tokenizeProgram(source));
@@ -68,7 +68,7 @@ export function exportTapBlockList(
 export function buildTapImage(
   source: string,
   programName = 'program',
-  memoryBlocks: readonly MemoryBlock[] = [],
+  memoryBlocks: readonly Block[] = [],
   loader = false,
 ): Uint8Array {
   return tapImageFromBlocks(
@@ -81,7 +81,7 @@ export function buildCassetteSamples(
   source: string,
   programName: string,
   robust = false,
-  memoryBlocks: readonly MemoryBlock[] = [],
+  memoryBlocks: readonly Block[] = [],
   loader = false,
 ): Float32Array {
   const blocks = exportTapBlockList(source, programName, memoryBlocks, loader);

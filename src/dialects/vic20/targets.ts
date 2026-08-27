@@ -1,4 +1,4 @@
-import type { BuildTarget, MemoryBlock } from '../types';
+import type { BuildTarget, Block } from '../types';
 import {
   buildImageOrThrow,
   cassetteWavTarget,
@@ -39,7 +39,7 @@ export function buildPrg(source: string): Uint8Array {
 export function exportD64Entries(
   source: string,
   programName: string,
-  memoryBlocks: readonly MemoryBlock[] = [],
+  memoryBlocks: readonly Block[] = [],
   loader = false,
 ): D64ExportEntry[] {
   const program = buildPrg(source).subarray(2); // drop the $1001 load word

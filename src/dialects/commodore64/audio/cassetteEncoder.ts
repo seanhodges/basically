@@ -21,7 +21,7 @@
  * what a real C64 (or an emulator's datasette fed this as audio) reads with
  * LOAD, and the round-trip through {@link cassetteDecoder} reproduces it.
  */
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 import { buildPrg } from '../targets';
 import { loaderProgramBytes } from '../loader';
 import { parseC64Char } from '../petscii';
@@ -143,7 +143,7 @@ export function buildCbmTapeBodies(opts: {
   program: Uint8Array;
   programName: string;
   loadAddress: number;
-  blocks?: readonly MemoryBlock[];
+  blocks?: readonly Block[];
   loaderBytes?: Uint8Array | null;
 }): Uint8Array[] {
   const { program, programName, loadAddress } = opts;
@@ -164,7 +164,7 @@ export function buildCbmTapeBodies(opts: {
     files.push(programFile);
   } else {
     const sorted = [...blocks].sort((a, b) => a.address - b.address);
-    const codeFile = (b: MemoryBlock): TapeFileBlocks => ({
+    const codeFile = (b: Block): TapeFileBlocks => ({
       header: buildHeaderBlock(
         b.name,
         b.address,
@@ -205,7 +205,7 @@ export function buildCassetteSamples(
   source: string,
   programName: string,
   robust = false,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   loader = false,
 ): Float32Array {
   const program = buildPrg(source).subarray(2); // drop the $0801 load address

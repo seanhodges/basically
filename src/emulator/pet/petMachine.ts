@@ -11,7 +11,7 @@ import type {
   MachineScreenText,
   LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { readC64Variables, type CbmVarsLayout } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
@@ -437,10 +437,7 @@ export class PetMachine implements MachineEmulator {
     this.loop.runFrame();
   }
 
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     // Capture the blocks now: the injection runs inside the async IIFE below,
@@ -461,7 +458,7 @@ export class PetMachine implements MachineEmulator {
           }
           this.injectProgram(image);
           // Memory blocks (machine code / data at fixed addresses, alongside the
-          // BASIC program - see MemoryBlock) go straight into RAM now, after the
+          // BASIC program - see Block) go straight into RAM now, after the
           // program has loaded and before RUN starts it, using the same raw-array
           // write injectProgram uses.
           if (blocks) {

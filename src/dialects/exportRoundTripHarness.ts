@@ -14,7 +14,7 @@
  * case to `blockExportRoundTrip.test.ts` as their block-aware export ships.
  */
 
-import type { Dialect, MemoryBlock, TapeFile, TokenizeError } from './types';
+import type { Dialect, Block, TapeFile, TokenizeError } from './types';
 
 export interface ExportRoundTripOutcome {
   /** Editor text the exported artifact decoded back to. */
@@ -22,7 +22,7 @@ export interface ExportRoundTripOutcome {
   /** Warnings from the importer. */
   warnings: string[];
   /** Memory blocks the importer recovered. */
-  blocks: MemoryBlock[];
+  blocks: Block[];
   /** Extra tape files the importer preserved (an exported auto-loader). */
   tapeFiles: TapeFile[];
   /** Auto-start line the importer recovered, or null. */
@@ -47,7 +47,7 @@ export async function exportImportRoundTrip(
   dialect: Dialect,
   source: string,
   programName: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   opts: { targetId: string; loader?: boolean },
 ): Promise<ExportRoundTripOutcome> {
   const target = dialect.buildTargets.find((t) => t.id === opts.targetId);

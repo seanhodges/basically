@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import { formatWord } from '../asm/format';
 import styles from './UnsupportedBlockNotice.module.css';
 
 /**
  * Placeholder shown in place of an editor for the one block that reaches
  * neither editing surface: machine code on a dialect with no memory-block
- * support, so there is no CPU to assemble it for. A data block, and a code
+ * support, so there is no CPU to assemble it for. A memory block, and a code
  * block whose CPU simply has no assembler engine, are edited as bytes.
  */
-export function UnsupportedBlockNotice({ block }: { block: MemoryBlock }) {
+export function UnsupportedBlockNotice({ block }: { block: Block }) {
   return (
     <div className={styles.notice} role="note">
       <p className={styles.headline}>

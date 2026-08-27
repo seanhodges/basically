@@ -1,4 +1,4 @@
-import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
+import type { DetokenizeResult, Block, TapeFile } from '../types';
 import { decodeSpan } from './charset';
 import { trs80WordByToken } from './keywords';
 import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
@@ -101,7 +101,7 @@ export function detokenizeProgramWithReport(
     );
   }
   const trailing = image.length - decoded.end;
-  let blocks: MemoryBlock[] | undefined;
+  let blocks: Block[] | undefined;
   if (!decoded.truncated && trailing > 0) {
     const address = PROG_START + decoded.end;
     blocks = codeFilesToBlocks([

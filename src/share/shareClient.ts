@@ -9,7 +9,7 @@
 // callers can degrade gracefully instead of firing doomed requests.
 
 import { SHARE_ID_RE } from '../player/routes';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import { parseBlocks, type SerializedBlock } from '../storage/projectFile';
 
 export interface SharedProgram {
@@ -22,10 +22,10 @@ export interface SharedProgram {
   /**
    * Memory blocks (machine code / data at fixed addresses) that ship with the
    * program, decoded from the wire's base64 form back into runtime
-   * {@link MemoryBlock}s - contract v2. Absent for a pure-BASIC share (the
+   * {@link Block}s - contract v2. Absent for a pure-BASIC share (the
    * common case) and for v1 payloads that predate blocks.
    */
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
 }
 
 export interface CreateShareRequest {
@@ -115,7 +115,7 @@ export async function fetchSharedProgram(id: string): Promise<SharedProgram> {
   // Blocks are optional (v1 payloads have none). When present they must be a
   // well-formed, uniquely-named set - parseBlocks throws otherwise, which we
   // surface as a server error rather than booting a half-decoded document.
-  let blocks: MemoryBlock[] | undefined;
+  let blocks: Block[] | undefined;
   if (body.blocks !== undefined) {
     if (!Array.isArray(body.blocks)) {
       throw new ShareApiError('server', 'Malformed share API response');

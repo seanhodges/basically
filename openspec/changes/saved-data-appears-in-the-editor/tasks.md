@@ -9,38 +9,38 @@
 
 ## 2. The kind rename (behaviour-free, its own commit)
 
-- [ ] 2.1 In `src/dialects/types.ts`, split `MemoryBlock` into a discriminated
+- [x] 2.1 In `src/dialects/types.ts`, split `MemoryBlock` into a discriminated
       union: `CodeBlock` (`kind: 'code'`, address) and `MemoryBlock`
       (`kind: 'memory'`, address), with `export type Block = CodeBlock | MemoryBlock`.
-- [ ] 2.2 Rename references across `src/app/store.ts`, `blockLint.ts`,
+- [x] 2.2 Rename references across `src/app/store.ts`, `blockLint.ts`,
       `blockEdit.ts`, `listingBlocks.ts`, `listingBlockEdit.ts`,
       `sampleBlocks.ts`, `src/dialects/importBlocks.ts` and the per-dialect
       detokenizers so `MemoryBlock` becomes `Block` where the whole union is
       meant, and `kind: 'data'` becomes `kind: 'memory'`.
-- [ ] 2.3 Update `BlockSettingsDialog.tsx` so the kind choice reads code/memory,
+- [x] 2.3 Update `BlockSettingsDialog.tsx` so the kind choice reads code/memory,
       and `EditorTabBar.tsx` so the `▤` tab tooltip says "memory block".
-- [ ] 2.4 Map a stored `'data'` kind to `'memory'` on read in
+- [x] 2.4 Map a stored `'data'` kind to `'memory'` on read in
       `src/storage/projectFile.ts` (`parseBlocks`), the autosave reader in
       `src/storage/settings.ts`, and `src/share/shareClient.ts`; make sure
       nothing writes `'data'` for a block again.
-- [ ] 2.5 Tests: a project `.zip`, an autosave payload and a share payload each
+- [x] 2.5 Tests: a project `.zip`, an autosave payload and a share payload each
       holding `kind: 'data'` reopen as `'memory'` at their original address with
       bytes unchanged (colocated with each reader).
-- [ ] 2.6 `npm run typecheck && npm test` green with no behaviour change beyond
+- [x] 2.6 `npm run typecheck && npm test` green with no behaviour change beyond
       the dialog's labels.
 
 ## 3. The container seam
 
-- [ ] 3.1 Add the optional `Dialect` member declaring how a stored file splits
+- [x] 3.1 Add the optional `Dialect` member declaring how a stored file splits
       into payload and container (`unwrap` only — no `wrap` in this change),
       with absent meaning the stored bytes are the payload.
-- [ ] 3.2 Implement it for `zxspectrum` and `zxspectrum128`, splitting the
+- [x] 3.2 Implement it for `zxspectrum` and `zxspectrum128`, splitting the
       stored two-block tape image into its 17-byte header and its data, reusing
       `tapBlockScan` / `headerName` from `src/dialects/zxspectrum/tapfile.ts`.
-- [ ] 3.3 Colocated tests: a stored tape image yields the payload and the header
+- [x] 3.3 Colocated tests: a stored tape image yields the payload and the header
       for each of the number-array, character-array and code header types; and a
       dialect that declares nothing returns its stored bytes unchanged.
-- [ ] 3.4 Registry-driven test over every dialect declaring the member, in the
+- [x] 3.4 Registry-driven test over every dialect declaring the member, in the
       shape of `src/dialects/memoryActivity.test.ts`, naming its exemptions with
       a reason — the conformance test the file-store parameter never had.
 

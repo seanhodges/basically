@@ -1,4 +1,4 @@
-import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
+import type { DetokenizeResult, Block, TapeFile } from '../types';
 import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
 import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
@@ -125,7 +125,7 @@ export function detokenizeProgramWithReport(
       'The program looks truncated — the data ends before the end-of-program marker.',
     );
   }
-  const blocks: MemoryBlock[] = [];
+  const blocks: Block[] = [];
   const trailing = program.length - decoded.end;
   if (!decoded.truncated && trailing > 0) {
     warnings.push(

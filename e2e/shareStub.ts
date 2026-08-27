@@ -40,7 +40,7 @@ export interface StubRecord {
     name: string;
     address: number;
     bytes: string;
-    kind: 'code' | 'data';
+    kind: 'code' | 'memory';
   }>;
 }
 

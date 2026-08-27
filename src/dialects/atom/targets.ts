@@ -1,4 +1,4 @@
-import type { BuildTarget, MemoryBlock } from '../types';
+import type { BuildTarget, Block } from '../types';
 import {
   buildAtomImage,
   buildCassetteSamples,
@@ -34,7 +34,7 @@ function programImage(source: string): Uint8Array {
 export function exportAtomDskEntries(
   source: string,
   programName: string,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   _loader = false,
 ): AtomDskExportEntry[] {
   return composeAtomDskFiles(programImage(source), blocks, programName);

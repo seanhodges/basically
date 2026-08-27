@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 import { tokenizeProgram } from '../tokenizer';
 import { plainChar } from '../charset';
 import { CELL_H, CELL_W, COLS, ROWS } from '../emulator/display';
@@ -179,7 +179,7 @@ describe('Trs80InterpreterMachine', () => {
   });
 
   describe('memory blocks', () => {
-    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+    function block(overrides: Partial<Block> = {}): Block {
       return {
         id: 'b1',
         name: 'code1',

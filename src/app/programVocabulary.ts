@@ -25,7 +25,7 @@ import {
   CharsetError,
   hasFatalErrors,
   type Dialect,
-  type MemoryBlock,
+  type Block,
 } from '../dialects/types';
 import { probeFor } from '../dialects/charsetProbes';
 import { distinguishesNameCase, foldNameCase } from '../dialects/letterCase';
@@ -217,7 +217,7 @@ export interface ProgramVocabulary {
    */
   callSites: ProgramReadSite[];
   /**
-   * The machine-code and data blocks the document carries alongside the program,
+   * The code and memory blocks the document carries alongside the program,
    * ascending by address.
    *
    * Name, address and size only. A block's bytes are the one thing the porting
@@ -357,7 +357,7 @@ export interface ProgramCodeBlock {
   name: string;
   address: number;
   size: number;
-  kind: 'code' | 'data';
+  kind: 'code' | 'memory';
 }
 
 /**
@@ -1246,7 +1246,7 @@ function accessSitesIn(sites: PokeSite[]): ProgramReadSite[] {
  * would have to be understood rather than reported, and understanding Z80 or
  * 6502 is the assistant's work on request, not the comparison's.
  */
-function codeBlocksIn(blocks: readonly MemoryBlock[]): ProgramCodeBlock[] {
+function codeBlocksIn(blocks: readonly Block[]): ProgramCodeBlock[] {
   return [...blocks]
     .sort((a, b) => a.address - b.address)
     .map((b) => ({
@@ -1273,7 +1273,7 @@ function codeBlocksIn(blocks: readonly MemoryBlock[]): ProgramCodeBlock[] {
 export function programVocabulary(
   source: string,
   dialect: Dialect,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
 ): ProgramVocabulary {
   const layout = statementLayoutIn(source, dialect);
   const arithmetic = fractionalArithmeticIn(source);
@@ -1404,7 +1404,7 @@ export function vocabularyReply(
   selected: Dialect,
   fromId: string | null,
   toId: string | null = null,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
 ): ProgramVocabularyReply {
   const from = (fromId !== null ? findDialect(fromId) : undefined) ?? selected;
   // No fallback to the selected dialect, unlike `from`: a size for a machine the

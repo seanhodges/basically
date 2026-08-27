@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * The byte editor for one memory block: a data block, or a code block for a CPU
+ * The byte editor for one block: a memory block, or a code block for a CPU
  * the IDE has no assembler for. A third slim CodeMirror instance, next to
  * `AsmEditor` and the BASIC `CodeMirrorHost`, used as a rendering, caret and
  * scrolling engine over a document that is a *projection of the block's bytes*
@@ -81,7 +81,7 @@ import {
   LANDSCAPE_MOBILE_QUERY,
   useMediaQuery,
 } from '../app/useMediaQuery';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import { blockBytesBufferKey, bufferHistories } from '../editor/bufferHistory';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
@@ -117,7 +117,7 @@ export function ByteEditor({
   block,
   inputRef,
 }: {
-  block: MemoryBlock;
+  block: Block;
   /**
    * The on-screen keyboard's handle into whichever editor is on screen. This
    * surface claims it while it is mounted: the BASIC editor stays mounted but
@@ -932,7 +932,7 @@ function FillRow({
   onFill,
   onCancel,
 }: {
-  block: MemoryBlock;
+  block: Block;
   onFill: (from: number, to: number, value: number) => void;
   onCancel: () => void;
 }) {

@@ -3,7 +3,7 @@ import { isD64, parseD64, buildD64 } from './d64';
 import { detokenizeD64WithReport } from './detokenizer';
 import { exportD64Entries } from './targets';
 import { tokenizeProgram } from './tokenizer';
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 
 const LOADER_SOURCE = '10 PRINT "LOADING"\n';
 const GAME_SOURCE = '10 POKE 53280,0\n20 PRINT "THE ACTUAL GAME"\n30 GOTO 20\n';
@@ -121,7 +121,7 @@ describe('detokenizeD64WithReport', () => {
 });
 
 describe('buildD64 export', () => {
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'b1',
     name: 'SPRITES',
     address: 0xc000,

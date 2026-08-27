@@ -181,7 +181,7 @@ describe('openDroppedFile', () => {
     name: 'SPRITES',
     address: 0x8000,
     bytes: Uint8Array.from([1, 2, 3]),
-    kind: 'data' as const,
+    kind: 'memory' as const,
   };
   // Open synthesises a block id from the (unique) name, so the id differs from
   // the input BLOCK's - see `parseProjectZip`.

@@ -19,7 +19,7 @@ import type {
   MachineScreenText,
   LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { discFor } from 'jsbeeb/src/fdc.js';
 import { BbcHostKeyboard, matrixForToken } from './keyboard';
@@ -583,7 +583,7 @@ export class BbcMachine implements MachineEmulator {
    */
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[]; bootDisc?: Uint8Array },
+    opts?: { blocks?: readonly Block[]; bootDisc?: Uint8Array },
   ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
@@ -691,10 +691,7 @@ export class BbcMachine implements MachineEmulator {
     this.runCycles(DISC_SETTLE_CYCLES);
   }
 
-  private bootFromDisc(
-    image: Uint8Array,
-    blocks: readonly MemoryBlock[],
-  ): void {
+  private bootFromDisc(image: Uint8Array, blocks: readonly Block[]): void {
     const { files, bootOption, bootCommands } = composeDiscFiles(
       image,
       blocks,
