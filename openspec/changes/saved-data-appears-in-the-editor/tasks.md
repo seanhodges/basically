@@ -1,10 +1,11 @@
 ## 1. Sequencing
 
-- [ ] 1.1 Archive `edit-block-bytes` (implemented, 23/23) so its *Blocks are
+- [x] 1.1 Archive `edit-block-bytes` (implemented, 23/23) so its *Blocks are
       editable as bytes* requirement is in the baseline before this change's
-      specs are synced, and update its phrase "a data block" to "a memory block"
-      as part of that archive — otherwise the old vocabulary lands in the
-      baseline after this change renames it.
+      specs are synced. Done: archived as `2026-08-27-edit-block-bytes`, and
+      this change's `memory-blocks` delta now carries that requirement reworded
+      from "a data block" to "a memory block", so the rename travels with the
+      change that makes it rather than being smuggled into an archive.
 
 ## 2. The kind rename (behaviour-free, its own commit)
 

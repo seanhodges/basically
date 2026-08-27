@@ -87,8 +87,10 @@ None.
 - `memory-blocks`: modified narrowly. The kind vocabulary becomes
   `code`/`memory`/`data`, and the requirements that speak of blocks at
   addresses — *Blocks are part of the document*, *Runs are gated on block
-  validity*, *Blocks load with the program* — are stated to cover `code` and
-  `memory` only. No behaviour of an addressed block changes.
+  validity*, *Blocks load with the program*, *Blocks are editable as bytes* —
+  are stated to cover `code` and `memory` only. No behaviour of an addressed
+  block changes; the last of those is reworded for the rename alone, since the
+  block it calls a data block is now a memory block.
 
 `hardware-transfer` is **not** affected, and it matters that it is not. Its
 requirement that a user be warned when an export format cannot carry the
