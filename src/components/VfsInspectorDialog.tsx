@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useDataBlocks } from '../app/dataBlocks';
 import { dataBlockFileName, decodeDataText } from '../app/dataBlockFile';
+import { vfsEmptyMessage } from '../app/vfsEmptyState';
 import { downloadBlob } from '../storage/files';
 import { formatHexDump } from '../storage/vfs/hexdump';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
@@ -66,9 +67,7 @@ export function VfsInspectorDialog() {
         </p>
 
         {files.length === 0 ? (
-          <p className={styles.empty}>
-            No files. Files appear here when the running program saves data.
-          </p>
+          <p className={styles.empty}>{vfsEmptyMessage(dialect)}</p>
         ) : (
           <table className={styles.fileTable}>
             <thead>

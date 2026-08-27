@@ -109,6 +109,9 @@ export const commodore64: Dialect = {
 
   joystickModes: ['native'],
 
+  // The KERNAL channel-I/O jump table, for devices 8-11: a virtual 1541.
+  capturesDataFiles: true,
+
   // opts.rom/ramKb are ignored: viciious manages its own ROMs and 64K memory.
   // opts.files is the VFS store the C64's KERNAL disk traps (devices 8–11) use
   // for OPEN/PRINT#/INPUT#/GET#/CLOSE data-file I/O.

@@ -95,6 +95,10 @@ export const zxspectrum: Dialect = {
 
   joystickModes: ['native', 'kempston'],
 
+  // Array DATA and CODE saves are captured at the ROM's SA-BYTES/LD-BYTES tape
+  // traps; a type-0 program SAVE passes through to real tape untouched.
+  capturesDataFiles: true,
+
   createEmulator(opts) {
     return new SpectrumMachine({ rom: opts.rom, files: opts.files });
   },

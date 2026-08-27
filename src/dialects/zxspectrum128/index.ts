@@ -115,6 +115,9 @@ export const zxspectrum128: Dialect = {
 
   joystickModes: ['native', 'kempston'],
 
+  // The 48K ROM's tape traps, armed only while ROM 1 is paged in.
+  capturesDataFiles: true,
+
   // opts.ramKb is ignored: the 128K always provides its eight 16K banks itself.
   createEmulator(opts) {
     return new Spectrum128Machine({ rom: opts.rom, files: opts.files });

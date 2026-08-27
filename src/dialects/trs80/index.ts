@@ -89,6 +89,10 @@ export const trs80: Dialect = {
   // variable watcher are available.
   debuggable: true,
 
+  // No trap involved: the interpreter services OPEN/PRINT#/INPUT#/CLOSE/KILL
+  // itself, so the store is reached from statement level rather than from a CPU.
+  capturesDataFiles: true,
+
   createEmulator(opts) {
     return new Trs80InterpreterMachine(opts.files);
   },

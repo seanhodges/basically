@@ -93,6 +93,9 @@ export const atom: Dialect = {
   // one way into machine code.
   memoryReads: { forms: ['indirection'], calls: ['LINK'] },
 
+  // FIN/FOUT/BGET/BPUT/SHUT, trapped at the redirected OS file vectors.
+  capturesDataFiles: true,
+
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is the VFS sink for Atom BASIC's FIN/FOUT/BGET/BPUT/SHUT.
   createEmulator(opts) {
