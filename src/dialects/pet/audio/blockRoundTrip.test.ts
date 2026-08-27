@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 import { pet } from '../index';
 
 /**
@@ -14,14 +14,14 @@ import { pet } from '../index';
  */
 const audio = pet.audio!;
 
-const SPRITES: MemoryBlock = {
+const SPRITES: Block = {
   id: 'b1',
   name: 'SPRITES',
   address: 0x6000,
   bytes: Uint8Array.of(0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60),
   kind: 'code',
 };
-const MUSIC: MemoryBlock = {
+const MUSIC: Block = {
   id: 'b2',
   name: 'MUSIC',
   address: 0x7000,

@@ -3,20 +3,20 @@
 
 /**
  * Turn code files recovered from a native binary import into
- * {@link MemoryBlock}s. Shared across dialects (Spectrum `.TAP` CODE files,
+ * {@link Block}s. Shared across dialects (Spectrum `.TAP` CODE files,
  * TRS-80 SYSTEM `.cas` records, Commodore `.d64` entries…) - the conversion
  * has nothing dialect-specific in it.
  *
  * The one thing this module exists to get right: a native tape/disc header
  * name is arbitrary machine text - routinely blank, digit-led, containing
- * spaces, or punctuation - but {@link MemoryBlock.name} must match
+ * spaces, or punctuation - but {@link Block.name} must match
  * `/^[A-Za-z][A-Za-z0-9_]*$/` and be unique per document (see
  * `src/storage/projectFile.ts`'s `isValidBlockName`/`findDuplicateBlockName`,
  * which the Run-path lint gate enforces). Passing a raw header name
  * through would silently produce a block the user can never Run.
  */
 
-import type { MemoryBlock } from './types';
+import type { Block } from './types';
 
 /**
  * A code payload recovered from an imported binary, in the minimal structural
@@ -28,7 +28,7 @@ export interface ImportedCodeFile {
   name: string;
   address: number;
   bytes: Uint8Array;
-  /** Execution entry address, when the format records one (see {@link MemoryBlock.entry}). */
+  /** Execution entry address, when the format records one (see {@link Block.entry}). */
   entry?: number;
 }
 
@@ -71,7 +71,7 @@ function sanitizeBlockNames(rawNames: readonly string[]): string[] {
 }
 
 /**
- * Convert imported code files into {@link MemoryBlock}s: `address`/`bytes`
+ * Convert imported code files into {@link Block}s: `address`/`bytes`
  * (and `entry`, when present) carry straight over, `kind` is always
  * `'code'`, `name` is sanitized and de-duplicated (see
  * {@link sanitizeBlockName}), and `id` is a deterministic `imported-code-<n>`
@@ -80,7 +80,7 @@ function sanitizeBlockNames(rawNames: readonly string[]): string[] {
  */
 export function codeFilesToBlocks(
   codeFiles: readonly ImportedCodeFile[],
-): MemoryBlock[] {
+): Block[] {
   const names = sanitizeBlockNames(codeFiles.map((c) => c.name));
   return codeFiles.map((c, i) => ({
     id: `imported-code-${i + 1}`,

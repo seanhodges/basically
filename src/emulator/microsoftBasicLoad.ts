@@ -1,4 +1,4 @@
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 
 /** The little-endian byte and word writes a load needs of a machine's memory. */
 export interface WritableMemory {
@@ -23,7 +23,7 @@ export interface MicrosoftBasicLoad {
    */
   pointers: readonly BasicPointer[];
   /** The document's memory blocks, poked in after the program. */
-  blocks?: readonly MemoryBlock[];
+  blocks?: readonly Block[];
   /**
    * Start the program the way a person at the machine would - typing `RUN` at
    * the console, not jumping into it. Microsoft BASIC's `RUN` sets up its own

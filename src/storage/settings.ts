@@ -10,7 +10,7 @@ import type {
   ControllerOverrides,
   GamepadMode,
 } from '../keyboard/controllerConfig';
-import type { MemoryBlock, TapeFile } from '../dialects/types';
+import type { Block, TapeFile } from '../dialects/types';
 import {
   serializeBlocks,
   parseBlocks,
@@ -25,7 +25,7 @@ type ListingBlockMetaMap = Record<
   number,
   {
     name?: string;
-    kind?: 'code' | 'data';
+    kind?: Block['kind'];
     comment?: string;
     asmSource?: string;
   }
@@ -609,7 +609,7 @@ export function setEmulatorSpeed(n: number): void {
  * value is corrupt/unparseable (defensive: a broken autosave entry must not
  * crash boot, it just loses its blocks).
  */
-function loadAutosaveBlocks(): MemoryBlock[] {
+function loadAutosaveBlocks(): Block[] {
   const raw = readSessionFirst(KEYS.autosaveBlocks);
   if (raw === null) return [];
   try {
@@ -712,7 +712,7 @@ function loadAutosaveScratch(): AutosavedScratchBuffer[] {
 export function loadAutosave(): {
   name: string;
   text: string;
-  blocks: MemoryBlock[];
+  blocks: Block[];
   listingBlockMeta: ListingBlockMetaMap;
   autoStart: number | null;
   tapeFiles: TapeFile[];
@@ -762,7 +762,7 @@ export function saveAutosaveScratch(
 export function saveAutosave(
   name: string,
   text: string,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   listingBlockMeta: ListingBlockMetaMap = {},
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],

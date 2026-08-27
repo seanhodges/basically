@@ -12,7 +12,7 @@ import type {
   MachineScreenText,
   LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
   TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
@@ -516,7 +516,7 @@ export class SpectrumMachine implements MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
     },
@@ -540,7 +540,7 @@ export class SpectrumMachine implements MachineEmulator {
       throw new Error('ZX Spectrum ROM never reached the LOAD trap');
     }
     // Memory blocks (machine code / data at a fixed address, alongside the
-    // BASIC program - see MemoryBlock) are written directly into RAM now,
+    // BASIC program - see Block) are written directly into RAM now,
     // after the BASIC program itself has loaded and before RUN starts it -
     // mirroring how a real loader pokes code in once the tape has finished.
     //

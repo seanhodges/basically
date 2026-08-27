@@ -39,7 +39,7 @@ export function detokenizeProgram(file: Uint8Array): string {
  *
  * A `.atm` that loads somewhere other than `#2900` is a machine-code or data
  * file, not BASIC text: rather than surface an empty document, its payload is
- * imported as a single {@link import('../types').MemoryBlock} at its load
+ * imported as a single {@link import('../types').Block} at its load
  * address (empty `source`, a note explaining why). A real `#2900` BASIC program
  * decodes to text exactly as before, with no blocks; a truncated image (no
  * `0D FF` end marker) still warns.

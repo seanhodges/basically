@@ -38,7 +38,7 @@
  * ```
  */
 
-import type { MemoryBlock } from '../../dialects/types';
+import type { Block } from '../../dialects/types';
 import { PAGE_DFS } from '../../dialects/bbcmicro/addresses';
 
 const SECTOR_SIZE = 256;
@@ -217,7 +217,7 @@ function bootFile(commands: readonly string[]): BbcFile {
 
 /**
  * Compose a document - a tokenized BASIC `programImage` (empty for a
- * machine-code-only document) plus its fixed-address {@link MemoryBlock}s - into
+ * machine-code-only document) plus its fixed-address {@link Block}s - into
  * the ordered `.ssd` files, and, when `withBoot`, a generated `!BOOT` that
  * reproduces the IDE's Run: `*LOAD` every block at its address, then `CHAIN` the
  * BASIC program (or `*RUN` the entry block when there is no BASIC). The boot
@@ -229,7 +229,7 @@ function bootFile(commands: readonly string[]): BbcFile {
  */
 export function composeDiscFiles(
   programImage: Uint8Array,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   programName: string,
   withBoot: boolean,
 ): { files: BbcFile[]; bootOption: BootOption; bootCommands: string[] } {

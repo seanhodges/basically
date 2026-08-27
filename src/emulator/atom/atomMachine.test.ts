@@ -6,7 +6,7 @@ import { tokenizeProgram } from '../../dialects/atom/tokenizer';
 import type {
   MachineFileEntry,
   MachineFileStore,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { WRITE_BIT } from '../memoryActivityBuffer';
 
@@ -269,7 +269,7 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
   it('writes a memory block into RAM before running the program', async () => {
     const machine = new AtomMachine();
     const { bytes } = tokenizeProgram('10 PRINT "HI"\n');
-    const block: MemoryBlock = {
+    const block: Block = {
       id: 'b1',
       name: 'code1',
       address: 0x3800,
@@ -291,7 +291,7 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     const machine = new AtomMachine();
     // 6502 at #3800: write VDG codes for "OK" into screen RAM, then RTS back
     // to BASIC. 'O' = 0x0F, 'K' = 0x0B (ASCII minus 0x40 in the low range).
-    const block: MemoryBlock = {
+    const block: Block = {
       id: 'b1',
       name: 'boot',
       address: 0x3800,

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { computeCompatibleDialects } from './compatibility';
 import { dialects } from '../dialects/registry';
-import type { Dialect, MemoryBlock } from '../dialects/types';
+import type { Dialect, Block } from '../dialects/types';
 
 /** A block, for exercising the block-aware compatibility gate. */
-const aBlock: MemoryBlock = {
+const aBlock: Block = {
   id: 'b1',
   name: 'code',
   address: 0x8000,

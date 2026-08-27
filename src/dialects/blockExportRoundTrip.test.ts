@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { getDialect } from './registry';
 import { exportImportRoundTrip } from './exportRoundTripHarness';
 import { materializeSampleBlocks } from '../app/sampleBlocks';
-import type { MemoryBlock } from './types';
+import type { Block } from './types';
 import { exportTapBlockList as spectrumTape } from './zxspectrum/targets';
 import { exportTapBlockList as spectrum128Tape } from './zxspectrum128/targets';
 import { headerName, type TapBlock } from './zxspectrum/tapfile';
@@ -168,7 +168,7 @@ describe('atom .dsk export round trip', () => {
   // A short routine at #5000 (the Atom's default block address), well clear of
   // the BASIC program area at #2900.
   const source = '10 PRINT "THE ACTUAL GAME"\n20 GOTO 10\n';
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'sprite-1',
     name: 'sprites',
     address: 0x5000,
@@ -207,7 +207,7 @@ describe('trs80 .dsk export round trip', () => {
     '30 PRINT "COUNTING ";I\n' +
     '40 NEXT I\n' +
     '50 GOTO 20\n';
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'sprite-1',
     name: 'sprites',
     address: 0x7000,
@@ -240,7 +240,7 @@ describe('commodore64 .d64 export round trip', () => {
   // The C64 ships no sample bundling blocks, so build one inline: a short
   // routine at $C000 (the default block address), well clear of the program.
   const source = '10 POKE 53280,0\n20 PRINT "THE ACTUAL GAME"\n30 GOTO 20\n';
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'sprite-1',
     name: 'sprites',
     address: 0xc000,
@@ -308,7 +308,7 @@ describe('pet .d64 export round trip', () => {
     '30 PRINT "COUNTING ";I\n' +
     '40 NEXT I\n' +
     '50 GOTO 20\n';
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'sprite-1',
     name: 'sprites',
     address: 0x7000,
@@ -373,7 +373,7 @@ describe('vic20 .d64 export round trip', () => {
     '30 PRINT "COUNTING ";I\n' +
     '40 NEXT I\n' +
     '50 GOTO 20\n';
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'sprite-1',
     name: 'sprites',
     address: 0x1c00,

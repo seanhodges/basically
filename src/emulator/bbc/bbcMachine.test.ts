@@ -6,7 +6,7 @@ import { tokenizeProgram } from '../../dialects/bbcmicro/tokenizer';
 import type {
   MachineFileEntry,
   MachineFileStore,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { WRITE_BIT } from '../memoryActivityBuffer';
 
@@ -255,12 +255,12 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     it('loads a block from the disc and CHAINs the BASIC program', async () => {
       const machine = new BbcMachine();
       const { bytes } = tokenizeProgram('10 PRINT ?&2E00\n20 END\n');
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'b1',
         name: 'DATA',
         address: 0x2e00,
         bytes: Uint8Array.from([0x42, 0x99]),
-        kind: 'data',
+        kind: 'memory',
       };
       machine.loadProgram(bytes, { blocks: [block] });
       // MOS *LOADs the block at &2E00, then CHAIN runs the program, which
@@ -279,7 +279,7 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     it('*RUNs a machine-code-only document at its entry address', async () => {
       const machine = new BbcMachine();
       // LDA #&42 : STA &2100 : RTS - a routine that leaves a marker in RAM.
-      const code: MemoryBlock = {
+      const code: Block = {
         id: 'c1',
         name: 'CODE',
         address: 0x2000,

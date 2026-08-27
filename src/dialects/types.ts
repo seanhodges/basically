@@ -95,7 +95,7 @@ export function fatalErrors(errors: readonly TokenizeError[]): TokenizeError[] {
  * `LOAD "name"` requests are served as they would be off original hardware.
  * Machines without a deck still preserve them with the document so nothing is
  * silently discarded. CODE files are NOT represented here - they come back as
- * {@link MemoryBlock}s instead (RAM injection plus the memory-block UI).
+ * {@link Block}s instead (RAM injection plus the memory-block UI).
  */
 export interface TapeFile {
   /** Original tape header name, trailing spaces trimmed (for display). */
@@ -128,10 +128,10 @@ export interface DetokenizeResult {
    * Absent, or omitted, when the dialect's importer finds none; the caller
    * (`src/app/importProgram.ts`) installs them alongside `source` via
    * `loadUnsavedDocument`'s `blocks` option. Names are already sanitized to
-   * satisfy {@link MemoryBlock.name}'s pattern and are unique within this
+   * satisfy {@link Block.name}'s pattern and are unique within this
    * result.
    */
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
   /**
    * Extra tape files preserved off a multi-part image (see {@link TapeFile}),
    * beyond the one program in `source` and the CODE files in `blocks`. The
@@ -205,7 +205,7 @@ export interface BuildTarget {
     source: string,
     opts: {
       programName: string;
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       loader?: boolean;
     },
   ): Promise<ExportFile[]>;
@@ -335,6 +335,20 @@ export interface MachineFileStore {
   delete(name: string): boolean;
 }
 
+/**
+ * A file the machine's file store holds, split into what the program saved and
+ * the framing the machine put around it - see {@link Dialect.unwrapStoredFile}.
+ */
+export interface UnwrappedFile {
+  /** The bytes the program saved. */
+  payload: Uint8Array;
+  /**
+   * The machine's own framing around the payload - the Spectrums' 17-byte tape
+   * header - or null where the stored bytes are the file.
+   */
+  container: Uint8Array | null;
+}
+
 /** Actual BASIC RAM figures read from a running machine's own pointers. */
 export interface MachineMemoryStats {
   /** Bytes of BASIC RAM in use (program + variables + workspace/stacks). */
@@ -411,7 +425,7 @@ export interface MachineEmulator {
    * Inject a built image (post-boot) and arrange for it to run.
    * `opts.blocks`, when given, are written directly into RAM before the
    * program starts (machine code / data at fixed addresses alongside the
-   * BASIC program) - see {@link MemoryBlock}. Optional and machine-specific:
+   * BASIC program) - see {@link Block}. Optional and machine-specific:
    * a machine that doesn't support blocks (or a dialect without
    * {@link Dialect.memoryBlocks}) simply ignores it.
    *
@@ -422,7 +436,7 @@ export interface MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
       /**
        * Extra tape files preserved off a multi-part image (see
@@ -664,21 +678,17 @@ export interface AiProfile {
 }
 
 /**
- * A named span of raw machine bytes attached to a document, alongside its
- * BASIC source - e.g. a hand-assembled routine or a data table destined for a
- * fixed address. Purely a document-model concern here: nothing in the UI
- * surfaces blocks yet, and dialect-specific validity (does `address` make
- * sense on this machine, does `bytes` overlap the program area) is a later
- * concern layered on top of this shape.
+ * Fields every document block carries, whatever kind it is. Not exported: the
+ * app talks to {@link Block}, so a block always arrives with its `kind`
+ * narrowed.
  */
-export interface MemoryBlock {
+interface BlockBase {
   /** Stable UI id, not semantic (e.g. not derived from `name` or `address`). */
   id: string;
   /** Unique per document. Matches /^[A-Za-z][A-Za-z0-9_]*$/. */
   name: string;
   address: number;
   bytes: Uint8Array;
-  kind: 'code' | 'data';
   comment?: string;
   /**
    * Execution entry address recovered alongside an imported code payload (an
@@ -697,13 +707,62 @@ export interface MemoryBlock {
   asmSource?: string;
 }
 
+/** Machine code at a fixed address, edited as assembly where an engine exists. */
+export interface CodeBlock extends BlockBase {
+  kind: 'code';
+}
+
+/**
+ * A span of memory at a fixed address that is not code - a sprite table, a
+ * character set, a level map. Edited as bytes.
+ *
+ * Named `data` in documents written before files a program saves were also
+ * shown as blocks; the readers map that spelling onto this kind, and nothing
+ * writes it again.
+ */
+export interface MemoryBlock extends BlockBase {
+  kind: 'memory';
+}
+
+/**
+ * A named span of raw machine bytes attached to a document, alongside its
+ * BASIC source - e.g. a hand-assembled routine or a data table destined for a
+ * fixed address. Both kinds sit at an address, travel with the document, and
+ * are checked against the machine's memory map before a run.
+ *
+ * A file a running program saved is not one of these: it has no address and is
+ * not part of the document (see {@link DataBlock}).
+ */
+export type Block = CodeBlock | MemoryBlock;
+
+/**
+ * A file a running program saved to tape or disk, shown beside the document's
+ * blocks. No address: it is a file, not a location - which is why it is not
+ * one of {@link Block}'s arms and cannot be passed where an address is needed.
+ *
+ * Session-scoped and derived: the bytes live in the machine's file store
+ * (see {@link MachineFileStore}), and this is a view over what is there.
+ * Never autosaved, never written into a project, never shared or exported.
+ */
+export interface DataBlock {
+  /** The name the program saved the file under; unique within the store. */
+  name: string;
+  /** The bytes the program saved, with any container the machine wrapped
+   *  around them already stripped (see {@link Dialect.unwrapStoredFile}). */
+  bytes: Uint8Array;
+  /** The machine's own tag for the file, e.g. 'data-num' on a Spectrum. */
+  kind?: string;
+  /** Epoch ms of the last save, so the tabs sit in the order they arrived. */
+  updatedAt: number;
+}
+
 /**
  * An inclusive address range: `start` and `end` are both addresses that
  * belong to the range (so `end` is the last valid byte, not one past it) -
  * the same convention {@link MemoryRegion} uses, and the one the memory maps
  * are written in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
  * is the last display byte). `end >= start`; a one-byte range has
- * `end === start`. A {@link MemoryBlock} occupies the inclusive range
+ * `end === start`. A {@link Block} occupies the inclusive range
  * `[address, address + bytes.length - 1]` - except when `bytes.length === 0`,
  * which occupies no bytes at all (see {@link lintBlocks} in `src/app/blockLint.ts`).
  */
@@ -779,7 +838,7 @@ export interface ConditionalFreeRange {
 }
 
 /**
- * Where a dialect's {@link MemoryBlock}s may legally live - metadata only;
+ * Where a dialect's {@link Block}s may legally live - metadata only;
  * nothing renders it yet. Optional on {@link Dialect}: dialects that omit it
  * get no block-aware UI and no Run-path collision gate, so pure-BASIC
  * documents and dialects without a block editor are completely unaffected.
@@ -844,7 +903,7 @@ export interface MemoryBlocksSupport {
 }
 
 /**
- * The program-area line-record layout for a dialect whose {@link MemoryBlock}s
+ * The program-area line-record layout for a dialect whose {@link Block}s
  * live inside the BASIC listing as `#BIN` REM records (see
  * {@link MemoryBlocksSupport.inListing}). A record is
  * `[u16 BE lineNo][u16 LE len?][body…][terminator]`, where the body starts with
@@ -873,14 +932,14 @@ export interface ListingLayout {
  * sample loads (see `src/app/sampleBlocks.ts`) - no binary fixtures.
  */
 export interface SampleBlockDef {
-  /** Block name; must satisfy {@link MemoryBlock.name}'s pattern. */
+  /** Block name; must satisfy {@link Block.name}'s pattern. */
   name: string;
   /** Load address; must equal the source's `ORG`. */
   address: number;
-  kind: 'code' | 'data';
+  kind: Block['kind'];
   /** Assembly source for the dialect's `memoryBlocks.cpu`. */
   asmSource: string;
-  /** Execution entry address (see {@link MemoryBlock.entry}). */
+  /** Execution entry address (see {@link Block.entry}). */
   entry?: number;
 }
 
@@ -1076,7 +1135,7 @@ export interface AudioDecodeResult {
   /** Import-fidelity notes (see {@link DetokenizeResult.warnings}). */
   warnings?: string[];
   /** Memory blocks recovered from CODE files on a multi-file tape. */
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
   /** Extra tape files preserved off a multi-part tape (see {@link TapeFile}). */
   tapeFiles?: TapeFile[];
   /** Auto-start line recovered from the tape header, when present. */
@@ -1273,12 +1332,29 @@ export interface Dialect {
    */
   memoryReads?: MemoryReadSyntax;
   /**
-   * Where this dialect's {@link MemoryBlock}s may legally live, and the figures
+   * Where this dialect's {@link Block}s may legally live, and the figures
    * `src/app/blockLint.ts`'s `lintBlocks` needs to gate the Run path on them.
    * Absent for dialects without a block editor - the capability is metadata
    * only, so leaving it off costs nothing beyond skipping block-aware UI.
    */
   memoryBlocks?: MemoryBlocksSupport;
+  /**
+   * Split a file this machine stored (see {@link MachineFileStore}) into the
+   * bytes a program saved and the container the machine wrapped around them.
+   * Absent means the stored bytes *are* the payload, which is true of every
+   * machine that writes raw bytes to its store; the Spectrums are the
+   * exception, keeping a whole two-block tape image - a 17-byte header ahead
+   * of the data - so a high-score table shown as stored would open on tape
+   * framing.
+   *
+   * Unwrapping only: rebuilding a machine's container around edited bytes is
+   * the return trip's problem, and nothing here puts bytes back.
+   *
+   * Never throws. Bytes it cannot make sense of - a truncated image, a file
+   * some other machine wrote - come back whole as the payload with no
+   * container, so the user still sees what is there.
+   */
+  unwrapStoredFile?(bytes: Uint8Array): UnwrappedFile;
   /**
    * True when this dialect's emulator implements the step-through debugger
    * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug
@@ -1369,7 +1445,7 @@ export interface Dialect {
       source: string,
       programName: string,
       robust: boolean,
-      opts?: { blocks?: readonly MemoryBlock[]; loader?: boolean },
+      opts?: { blocks?: readonly Block[]; loader?: boolean },
     ): Float32Array;
     /**
      * Loading instructions shown to the user, e.g. how to type LOAD "".

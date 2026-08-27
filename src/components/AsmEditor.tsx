@@ -8,7 +8,7 @@
  * source; edits re-assemble on a debounce and, when clean, replace the
  * block's bytes through `upsertBlock`. Errors surface as inline diagnostics
  * and leave the bytes untouched - the text still persists via
- * `MemoryBlock.asmSource` so broken work-in-progress survives tab switches
+ * `Block.asmSource` so broken work-in-progress survives tab switches
  * and reloads.
  *
  * One editor serves every block: switching blocks swaps the view's whole state
@@ -45,7 +45,7 @@ import { selectBlocks, useIdeStore } from '../app/store';
 import { asmLanguage } from '../asm/language';
 import { formatWord } from '../asm/format';
 import type { AsmEngine, AsmError } from '../asm/types';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import { basicHighlightStyle } from '../editor/basicLanguage';
 import { blockBufferKey, bufferHistories } from '../editor/bufferHistory';
 import { runViewEditorCommand } from '../editor/editorCommands';
@@ -71,7 +71,7 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
  * The source a block's editor starts from: the source saved alongside its bytes
  * (so labels, comments and data sections survive), else a fresh disassembly.
  */
-function blockSource(block: MemoryBlock, engine: AsmEngine): string {
+function blockSource(block: Block, engine: AsmEngine): string {
   return (
     block.asmSource ??
     engine
@@ -107,7 +107,7 @@ export function AsmEditor({
   block,
   engine,
 }: {
-  block: MemoryBlock;
+  block: Block;
   engine: AsmEngine;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);

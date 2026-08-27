@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useIdeStore,
   useBlocks,
@@ -11,6 +11,7 @@ import {
   MOBILE_QUERY,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
+import { useDataBlocks } from '../app/dataBlocks';
 import { useInputOverlays } from '../app/useInputOverlays';
 import {
   runControlStateOf,
@@ -61,7 +62,9 @@ export function Workspace() {
   const requestPause = useIdeStore((s) => s.requestPause);
   const requestContinue = useIdeStore((s) => s.requestContinue);
   const blocks = useBlocks();
+  const dataBlocks = useDataBlocks();
   const activeTab = useIdeStore((s) => s.activeTab);
+  const setActiveTab = useIdeStore((s) => s.setActiveTab);
   const setScratchText = useIdeStore((s) => s.setScratchText);
   // The scratch buffer the FAB would run, or null when Run means the program.
   const runTargetName = useIdeStore(selectRunTargetName);
@@ -170,11 +173,23 @@ export function Workspace() {
   // The block tab open in the editor pane; a stale/unknown id (defensive -
   // the store fixes ids up on every block mutation) falls back to BASIC. The
   // assembly editor needs the dialect to declare a CPU with an engine; a code
-  // block without one is edited as bytes, as a data block is.
+  // block without one is edited as bytes, as a memory block is.
   const activeBlock =
     activeTab.kind === 'block'
       ? (blocks.find((b) => b.id === activeTab.id) ?? null)
       : null;
+  // The saved file open in the editor pane. As for a stale block id, a tab
+  // whose file has gone - the program overwrote it under another name, the
+  // user deleted it, a run started - falls back to BASIC.
+  const activeDataBlock =
+    activeTab.kind === 'data'
+      ? (dataBlocks.find((f) => f.name === activeTab.name) ?? null)
+      : null;
+  useEffect(() => {
+    if (activeTab.kind === 'data' && activeDataBlock === null) {
+      setActiveTab({ kind: 'basic' });
+    }
+  }, [activeTab, activeDataBlock, setActiveTab]);
   const asmEngine =
     activeBlock !== null &&
     activeBlock.kind === 'code' &&
@@ -292,14 +307,16 @@ export function Workspace() {
               each buffer keeps its own history. */}
           <div
             className={`${styles.basicEditorHost} ${
-              activeBlock !== null ? styles.slotHidden : ''
+              activeBlock !== null || activeDataBlock !== null
+                ? styles.slotHidden
+                : ''
             }`}
           >
             <CodeMirrorHost
               dialect={dialect}
               override={docOverride}
               bufferId={editorBufferOf(activeTab)}
-              active={activeBlock === null}
+              active={activeBlock === null && activeDataBlock === null}
               onChange={onEditorChange}
               inputRef={editorInputRef}
             />
@@ -315,6 +332,11 @@ export function Workspace() {
             ) : (
               <UnsupportedBlockNotice block={activeBlock} />
             ))}
+          {/* A saved file reaches the same byte view, read-only and counting
+              from its own first byte - it has no address to show. */}
+          {activeBlock === null && activeDataBlock !== null && (
+            <ByteEditor block={activeDataBlock} inputRef={editorInputRef} />
+          )}
           {tabbed && mobileTab === 'editor' && (
             <button
               className={styles.fabRun}

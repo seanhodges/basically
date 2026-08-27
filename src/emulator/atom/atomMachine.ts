@@ -8,7 +8,7 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineScreenText,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import {
   AtomHostKeyboard,
@@ -621,10 +621,7 @@ export class AtomMachine implements MachineEmulator {
    * BASIC program at all and a block carries an entry address (a machine-code
    * `.atm`'s exec address), the code is started with LINK instead of RUN.
    */
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     // Captured before the async IIFE so a later loadProgram() (which bumps the
@@ -664,7 +661,7 @@ export class AtomMachine implements MachineEmulator {
           this.cpu.writemem(TOP_OF_TEXT, end & 0xff);
           this.cpu.writemem(TOP_OF_TEXT + 1, (end >>> 8) & 0xff);
           // Memory blocks (machine code / data at fixed addresses alongside
-          // the BASIC program - see MemoryBlock) go in now, after the program
+          // the BASIC program - see Block) go in now, after the program
           // image and its top-of-text fix-up and before RUN starts. No-op when
           // none were supplied.
           if (blocks) {

@@ -247,6 +247,15 @@ tape, an auto-start line, or a boot disc that supersedes all of them and boots
 verbatim. `createEmulator` also receives a `MachineFileStore` - the emulator
 virtual filesystem a running program's file I/O lands in.
 
+An optional `unwrapStoredFile` on the dialect says how a file that machine
+stored splits into the bytes a program saved and the container the machine
+wrapped around them. Absent means the stored bytes are the payload, which is
+true of every machine that writes raw bytes into its store; the Spectrums keep
+a whole two-block tape image, a 17-byte header ahead of the data, so they
+declare it. This is the only place that knowledge lives: the projection below
+asks the dialect rather than special-casing a machine, and the `wrap` direction
+does not exist because nothing puts bytes back yet.
+
 Where the machine code lives depends on its size and provenance:
 
 | Machine                       | Core                                                                                                                                                 |
@@ -375,8 +384,25 @@ a **synchronous in-memory map** - ROM traps fire between CPU instructions and
 cannot await - and every mutation is mirrored fire-and-forget into IndexedDB via
 RxDB so the inspector dialog can watch the files reactively. RxDB is imported
 dynamically, so it loads as an async chunk on first VFS use rather than in the
-main bundle. The IDE clears the store on every emulator start and stop; a
-breakpoint pause does not.
+main bundle.
+
+A file outlives the run that wrote it, so stopping the machine to read what a
+program produced does not destroy it. The store is cleared on emulator start,
+reset, machine change and pane unmount, and by every store action that replaces
+the open document (`createProject`, `openProject`, `openSharedInIde`,
+`playerBoot`, a named `replaceDocument`, `loadUnsavedDocument` and any dialect
+switch) - a stop and a breakpoint pause are not among them.
+
+`src/app/dataBlocks.ts` projects the store to the `DataBlock`s the editor shows
+as tabs: a pure `projectDataBlocks` over the store's own listing, memoized on a
+snapshot key the way `selectBlocks` memoizes the listing dialects' blocks, and
+subscribed to through `useSyncExternalStore` over the store's notification with
+the wake throttled so a program saving every frame does not re-render every
+frame. A projection rather than a mirror: there is one copy of the bytes, so
+there is nothing to keep in step. A `DataBlock` has no address and is not part
+of the document - never autosaved, never written into a project bundle, never
+carried by a share link or an export - which is why `Block` (`CodeBlock |
+MemoryBlock`, both at an address) is a separate type it cannot be passed as.
 
 ### Layer diagram
 
@@ -551,16 +577,27 @@ falling back to the estimate whenever the machine can't report them.
 
 ### Memory blocks and assembly
 
-A document is BASIC source _plus_ zero or more **memory blocks**: raw bytes
-destined for a fixed address, carrying assembly source when they hold code.
-They get their own editor tabs beside the BASIC source, and travel with the
-document through autosave, the `.zip` bundle, cassette export, and share links.
+A document is BASIC source _plus_ zero or more **blocks**: raw bytes destined
+for a fixed address, carrying assembly source when they hold code. A block
+declares which of two kinds it is - `code` (machine code, edited as assembly)
+or `memory` (a span of memory that is not code, edited as bytes) - and `Block`
+is the union of the two. They get their own editor tabs beside the BASIC
+source, and travel with the document through autosave, the `.zip` bundle,
+cassette export, and share links.
+
+The third thing a tab can hold is a `DataBlock` - a file a running program
+saved. It has no address and is not part of the document, which is why it is
+not one of `Block`'s arms: passing a file where an address is required is a
+compile error rather than a runtime surprise. Documents written before this
+distinction spell a memory block `'data'`; the three read paths (project parse,
+autosave load, share decode) map that onto `'memory'`, and nothing writes it
+again.
 
 ```mermaid
 flowchart LR
   tab["Block tab (AsmEditor)"] -->|"asmEngineFor(dialect.memoryBlocks.cpu)"| eng["AsmEngine"]
   eng -->|"assemble(source, origin)"| ok{"ok?"}
-  ok -->|"bytes"| blk["MemoryBlock in the store"]
+  ok -->|"bytes"| blk["Block in the store"]
   ok -->|"AsmError[]"| dot["error dot on the tab<br/>+ inline diagnostics"]
   imp["Imported image / .zip / share"] -->|"disassembleReachable()"| tab
   blk --> lintb["lintBlocks() - range, overlap,<br/>collision with the program"]

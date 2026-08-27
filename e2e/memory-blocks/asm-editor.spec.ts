@@ -13,7 +13,7 @@ import { editMenu } from '../helpers';
  *     re-assemble on a debounce and replace the block's bytes (visible in
  *     autosave), and the text survives tab switches and reloads.
  *  3. A syntax error shows an error dot on the tab and leaves bytes alone.
- *  4. A `kind: 'data'` block opens the byte editor instead: its bytes are
+ *  4. A `kind: 'memory'` block opens the byte editor instead: its bytes are
  *     editable in place, the two views move together, the block grows at its
  *     end, and both survive a tab switch and a reload.
  *  5. The Edit menu acts on the block on screen, and each block keeps its own
@@ -44,7 +44,7 @@ const BLOCKS = JSON.stringify([
     name: 'sprites',
     address: 0x9000,
     bytes: 'AQIDBA==',
-    kind: 'data',
+    kind: 'memory',
   },
 ]);
 

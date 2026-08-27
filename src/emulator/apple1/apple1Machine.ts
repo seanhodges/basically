@@ -13,7 +13,7 @@ import type {
   MachineReport,
   MachineScreenText,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import {
   BASIC_BYTES,
@@ -275,7 +275,7 @@ export class Apple1Machine implements MachineEmulator {
    */
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: { blocks?: readonly Block[]; autoStart?: number | null },
   ): void {
     this.reset();
     if (!this.hasMonitor || !this.hasInterpreter) return;

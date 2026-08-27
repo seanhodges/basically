@@ -1,6 +1,6 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 import { Trs80Memory } from './memory';
 import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
@@ -149,10 +149,7 @@ export class Trs80Machine {
    * pointers, then type RUN to start it - the authentic path a user would take.
    * `image` is the bare program bytes (the same {@link tokenizeProgram} output).
    */
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     this.reset();
     this.bootToReady();
 

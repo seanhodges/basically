@@ -1,7 +1,7 @@
 import { decodeSpan, plainChar } from './charset';
 import { BASIC_II, type BbcVariant } from './keywords';
 import { LINE_NUMBER_TOKEN, decodeLineNumber } from './lineNumber';
-import type { DetokenizeResult, MemoryBlock } from '../types';
+import type { DetokenizeResult, Block } from '../types';
 import { readBbcDisc } from '../../emulator/bbc/bbcDisc';
 import { PAGE_DFS } from './addresses';
 import { RAM_TOP } from '../../emulator/bbc/addresses';
@@ -83,7 +83,7 @@ export function detokenizeWithReport(
   return { source: lines.join('\n') + (lines.length ? '\n' : ''), warnings };
 }
 
-/** Sanitize a DFS filename into a valid {@link MemoryBlock.name}, uniquely. */
+/** Sanitize a DFS filename into a valid {@link Block.name}, uniquely. */
 function blockName(raw: string, taken: Set<string>): string {
   let cleaned = raw.replace(/[^A-Za-z0-9_]/g, '_');
   if (!/^[A-Za-z]/.test(cleaned)) cleaned = `b_${cleaned}`;
@@ -148,7 +148,7 @@ function blocksAreRepresentable(
 /**
  * Import a DFS `.ssd` disc image: recover the BASIC program (the file at PAGE,
  * or the largest tokenized-BASIC-shaped file) as editable text, and every other
- * file - except the generated `!BOOT` - as a fixed-address {@link MemoryBlock}
+ * file - except the generated `!BOOT` - as a fixed-address {@link Block}
  * at its catalogue load address (its exec address kept as the block's entry when
  * it differs, marking machine code). The inverse of `buildBbcDiscImage`.
  */
@@ -183,7 +183,7 @@ export function detokenizeBbcDiscWithReport(
   }
 
   const taken = new Set<string>();
-  const blocks: MemoryBlock[] = [];
+  const blocks: Block[] = [];
   usable.forEach((file, i) => {
     if (file === basic) return;
     const entry = file.exec !== file.load ? file.exec : undefined;

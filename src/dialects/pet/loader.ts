@@ -12,7 +12,7 @@
  * (`LOAD` from a running program restarts it without clearing variables).
  */
 
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 import { fatalErrors } from '../types';
 import { loaderSource, type LoaderDevice } from '../commodore64/loader';
 import { tokenizeProgram } from './tokenizer';
@@ -27,7 +27,7 @@ export { loaderSource, type LoaderDevice };
  */
 export function loaderProgramBytes(
   programName: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   device: LoaderDevice = 1,
 ): Uint8Array {
   const { program, errors } = tokenizeProgram(

@@ -27,7 +27,7 @@
  *   and one keystroke from being fixed - and there is no adequate port to be had
  *   from it. So it stops and says why.
  */
-import type { Dialect, MemoryBlock } from '../dialects/types';
+import type { Dialect, Block } from '../dialects/types';
 import type { ProgramSize, ProgramVocabulary } from '../app/programVocabulary';
 import type { PortSide } from '../reference/portDescription';
 import { vocabularyReply } from '../app/programVocabulary';
@@ -181,7 +181,7 @@ export async function buildConversionMessage(input: {
    * machine dependence, so a report composed without them is missing the work
    * the port cannot avoid.
    */
-  blocks?: readonly MemoryBlock[];
+  blocks?: readonly Block[];
 }): Promise<ConversionMessage> {
   const instruction = instructionFor(input.toLabel);
   const plain = () => buildUserMessage(instruction, input.source, []);

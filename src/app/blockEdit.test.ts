@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { asmEngineFor } from '../asm/registry';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import {
   applyBlockSettings,
   draftFromBlock,
@@ -14,7 +14,7 @@ import {
 
 const z80 = asmEngineFor('z80')!;
 
-const BLOCK: MemoryBlock = {
+const BLOCK: Block = {
   id: 'blk-a',
   name: 'engine',
   address: 0x8000,
@@ -64,7 +64,7 @@ describe('draftFromBlock', () => {
 });
 
 describe('validateBlockSettings', () => {
-  const OTHER: MemoryBlock = { ...BLOCK, id: 'blk-b', name: 'sprites' };
+  const OTHER: Block = { ...BLOCK, id: 'blk-b', name: 'sprites' };
 
   it('accepts a clean draft', () => {
     expect(validateBlockSettings(draft(), BLOCK.id, [BLOCK, OTHER])).toEqual(
@@ -107,18 +107,18 @@ describe('validateBlockSettings', () => {
 
 describe('applyBlockSettings', () => {
   it('updates metadata and clears blanked optionals', () => {
-    const withExtras: MemoryBlock = {
+    const withExtras: Block = {
       ...BLOCK,
       entry: 0x8000,
       comment: 'old',
     };
     const updated = applyBlockSettings(
       withExtras,
-      draft({ name: 'draw', kind: 'data', entry: '', comment: '' }),
+      draft({ name: 'draw', kind: 'memory', entry: '', comment: '' }),
       z80,
     );
     expect(updated.name).toBe('draw');
-    expect(updated.kind).toBe('data');
+    expect(updated.kind).toBe('memory');
     expect(updated.entry).toBeUndefined();
     expect(updated.comment).toBeUndefined();
     expect(updated.id).toBe(BLOCK.id);
@@ -140,7 +140,7 @@ describe('applyBlockSettings', () => {
     const assembled = z80.assemble(source, 0x8000);
     expect(assembled.ok).toBe(true);
     if (!assembled.ok) return;
-    const block: MemoryBlock = {
+    const block: Block = {
       ...BLOCK,
       bytes: assembled.bytes,
       asmSource: source,
@@ -159,7 +159,7 @@ describe('applyBlockSettings', () => {
   });
 
   it('moving a block whose source no longer assembles keeps the old bytes', () => {
-    const block: MemoryBlock = {
+    const block: Block = {
       ...BLOCK,
       asmSource: 'FLY away\n',
     };

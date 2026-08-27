@@ -3,7 +3,7 @@
 
 /**
  * The BlockSettingsDialog's pure edit model: parse and validate the form's
- * draft fields, then build the updated {@link MemoryBlock}. Kept free of React
+ * draft fields, then build the updated {@link Block}. Kept free of React
  * and store concerns so the tricky parts - address spellings, name
  * collisions, and the move-a-block reassembly - unit-test directly.
  *
@@ -16,7 +16,7 @@
 
 import type { AsmEngine } from '../asm/types';
 import { formatWord } from '../asm/format';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import { isValidBlockName } from '../storage/projectFile';
 
 /** The dialog's editable fields, as the user typed them. */
@@ -24,7 +24,7 @@ export interface BlockSettingsDraft {
   name: string;
   /** Address as text: `$9000`, `0x9000`, `&9000` or `36864`. */
   address: string;
-  kind: 'code' | 'data';
+  kind: Block['kind'];
   /** Optional entry address, same spellings; blank = none. */
   entry: string;
   /** Optional free-text comment; blank = none. */
@@ -52,7 +52,7 @@ export function parseAddressInput(text: string): number | null {
 }
 
 /** The draft a block opens with in the dialog. */
-export function draftFromBlock(block: MemoryBlock): BlockSettingsDraft {
+export function draftFromBlock(block: Block): BlockSettingsDraft {
   return {
     name: block.name,
     address: formatWord(block.address),
@@ -69,7 +69,7 @@ export function draftFromBlock(block: MemoryBlock): BlockSettingsDraft {
 export function validateBlockSettings(
   draft: BlockSettingsDraft,
   blockId: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
 ): BlockSettingsErrors {
   const errors: BlockSettingsErrors = {};
   const name = draft.name.trim();
@@ -105,10 +105,10 @@ function rewriteOrg(asmSource: string, address: number): string {
  * the existing bytes array so an open editor doesn't re-seed its text.
  */
 export function applyBlockSettings(
-  block: MemoryBlock,
+  block: Block,
   draft: BlockSettingsDraft,
   engine: AsmEngine | null,
-): MemoryBlock {
+): Block {
   const name = draft.name.trim();
   const address = parseAddressInput(draft.address)!;
   const entryText = draft.entry.trim();
@@ -123,7 +123,7 @@ export function applyBlockSettings(
     if (result.ok && !bytesEqual(result.bytes, bytes)) bytes = result.bytes;
   }
 
-  const updated: MemoryBlock = {
+  const updated: Block = {
     ...block,
     name,
     address,

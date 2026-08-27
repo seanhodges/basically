@@ -23,7 +23,7 @@
  * track count.
  */
 
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 import {
   buildBbcDisc,
   readBbcDisc,
@@ -82,7 +82,7 @@ function uniqueName(base: string, taken: Set<string>): string {
 
 /**
  * Compose a document - a tokenized `#2900` `programImage` (empty for a
- * machine-code-only document) plus its fixed-address {@link MemoryBlock}s - into
+ * machine-code-only document) plus its fixed-address {@link Block}s - into
  * the ordered `.dsk` files: the BASIC program (load = exec = `#2900`), then each
  * block in address order (load = its address, exec = its entry, defaulting to
  * the load address). Names are sanitised and de-duplicated so the catalogue and
@@ -90,7 +90,7 @@ function uniqueName(base: string, taken: Set<string>): string {
  */
 export function composeAtomDskFiles(
   programImage: Uint8Array,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   programName: string,
 ): AtomDskExportEntry[] {
   const taken = new Set<string>();

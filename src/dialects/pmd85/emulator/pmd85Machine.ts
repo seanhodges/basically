@@ -21,7 +21,7 @@ import type {
   MachineReport,
   MachineScreenText,
   MachineVariable,
-  MemoryBlock,
+  Block,
   TapeFile,
 } from '../../types';
 import { basicImagePointers } from '../basicImage';
@@ -319,7 +319,7 @@ export class Pmd85Machine implements MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
       bootDisc?: Uint8Array;

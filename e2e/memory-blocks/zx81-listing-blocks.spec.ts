@@ -71,17 +71,17 @@ test('editing the block assembly rewrites its #BIN chip', async ({ page }) => {
   await expect(chip).toContainText('9 bytes');
 });
 
-test('a listing block switched to data is editable as bytes', async ({
+test('a listing block switched to memory is editable as bytes', async ({
   page,
 }) => {
   await openZx81(page);
   await addMemoryBlock(page);
 
   // Switch the block's kind: a listing block is machine code by default, and
-  // data is the kind with no assembly view.
+  // memory is the kind with no assembly view.
   await page.getByRole('tab', { name: 'bin1' }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Settings…' }).click();
-  await page.getByLabel('Kind').selectOption('data');
+  await page.getByLabel('Kind').selectOption('memory');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // It opens in the byte editor, on the return stub's single byte.

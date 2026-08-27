@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { C64Machine, type C64Roms } from './c64Machine';
-import type { MemoryBlock } from '../../dialects/types';
+import type { Block } from '../../dialects/types';
 import { commodore64 } from '../../dialects/commodore64';
 
 const ROOT = join(__dirname, '../../../public/roms/c64');
@@ -26,7 +26,7 @@ describe('C64Machine memory blocks', () => {
     async () => {
       // LDA #$02 / STA $D020 / RTS - turns the border red ($D020 low nibble 2).
       const codeBytes = [0xa9, 0x02, 0x8d, 0x20, 0xd0, 0x60];
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'blk1',
         name: 'border',
         address: 0xc000,

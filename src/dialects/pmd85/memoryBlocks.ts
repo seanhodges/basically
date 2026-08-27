@@ -11,7 +11,7 @@ import {
 } from './addresses';
 
 /**
- * Where a {@link import('../types').MemoryBlock} may live on the PMD 85, for
+ * Where a {@link import('../types').Block} may live on the PMD 85, for
  * the block linter in `src/app/blockLint.ts`.
  *
  * `cpu: 'z80'` on an 8080 machine, for the reason `altair8800/memoryBlocks.ts`

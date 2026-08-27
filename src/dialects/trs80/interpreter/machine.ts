@@ -6,7 +6,7 @@ import type {
   MachineReport,
   MachineScreenText,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../types';
 import { screenChar } from '../charset';
 import {
@@ -62,13 +62,10 @@ export class Trs80InterpreterMachine implements MachineEmulator {
     this.interp.setFileStore(files ?? null);
   }
 
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     // load() calls reset(), which zeroes main memory - so inject any memory
     // blocks (machine code / data at fixed addresses, alongside the BASIC
-    // program - see MemoryBlock) afterwards, mirroring how a real loader pokes
+    // program - see Block) afterwards, mirroring how a real loader pokes
     // code in once the program itself has loaded and before RUN starts it.
     this.interp.load(image);
     const blocks = opts?.blocks;

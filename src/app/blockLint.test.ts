@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MemoryBlock, MemoryBlocksSupport } from '../dialects/types';
+import type { Block, MemoryBlocksSupport } from '../dialects/types';
 import { lintBlocks } from './blockLint';
 import { programVocabulary } from './programVocabulary';
 import { getDialect } from '../dialects/registry';
@@ -32,13 +32,13 @@ const SUPPORT: MemoryBlocksSupport = {
   defaultAddress: 0x2000,
 };
 
-function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+function block(overrides: Partial<Block> = {}): Block {
   return {
     id: 'blk-1',
     name: 'FOO',
     address: 0x2000,
     bytes: Uint8Array.from([1, 2, 3, 4]),
-    kind: 'data',
+    kind: 'memory',
     ...overrides,
   };
 }
@@ -298,7 +298,7 @@ describe('lintBlocks', () => {
   // stand-in.
   describe('real ZX Spectrum figures (spectrumMemoryBlocks)', () => {
     it('reports no error issues for a valid code block at the suggested default address', () => {
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'blk-1',
         name: 'Code',
         address: spectrumMemoryBlocks.defaultAddress,
@@ -310,12 +310,12 @@ describe('lintBlocks', () => {
     });
 
     it('warns (not errors) on a block overlapping the reserved display area at 0x4000', () => {
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'blk-2',
         name: 'Screen',
         address: 0x4000,
         bytes: Uint8Array.from([1, 2, 3]),
-        kind: 'data',
+        kind: 'memory',
       };
       const issues = lintBlocks([b], spectrumMemoryBlocks, 100);
       expect(issues).toContainEqual(
@@ -333,12 +333,12 @@ describe('lintBlocks', () => {
     // The Spectrum declares no conditionally free region, and a vocabulary is
     // no reason to lint it differently: the whole feature is opt-in per machine.
     it('lints the same with a vocabulary as without one', () => {
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'blk-3',
         name: 'Screen',
         address: 0x4000,
         bytes: Uint8Array.from([1, 2, 3]),
-        kind: 'data',
+        kind: 'memory',
       };
       const vocabulary = programVocabulary('10 PRINT "HI"', spectrum);
       expect(lintBlocks([b], spectrumMemoryBlocks, 100, vocabulary)).toEqual(
@@ -354,12 +354,12 @@ describe('lintBlocks', () => {
    * its own group below.
    */
   describe('conditionally free memory (real Atom figures)', () => {
-    const videoBlock = (): MemoryBlock => ({
+    const videoBlock = (): Block => ({
       id: 'blk-v',
       name: 'Data',
       address: 0x8400,
       bytes: Uint8Array.from([1, 2, 3, 4]),
-      kind: 'data',
+      kind: 'memory',
     });
 
     function lintAtom(source: string) {
@@ -433,7 +433,7 @@ describe('lintBlocks', () => {
     });
 
     it('leaves a block in the ordinary RAM window alone either way', () => {
-      const b: MemoryBlock = { ...videoBlock(), address: 0x3800 };
+      const b: Block = { ...videoBlock(), address: 0x3800 };
       expect(
         lintBlocks(
           [b],
@@ -446,12 +446,12 @@ describe('lintBlocks', () => {
   });
 
   describe('conditionally free memory (real BBC Micro figures)', () => {
-    const bandBlock = (): MemoryBlock => ({
+    const bandBlock = (): Block => ({
       id: 'blk-b',
       name: 'Data',
       address: 0x3000,
       bytes: Uint8Array.from([1, 2, 3, 4]),
-      kind: 'data',
+      kind: 'memory',
     });
 
     function lintBbc(source: string) {
@@ -488,7 +488,7 @@ describe('lintBlocks', () => {
     // blanket warning is the right answer there and the condition does not
     // reach it.
     it('still warns about a block in the MODE 7 screen itself', () => {
-      const b: MemoryBlock = { ...bandBlock(), address: 0x7c00 };
+      const b: Block = { ...bandBlock(), address: 0x7c00 };
       expect(
         lintBlocks(
           [b],

@@ -943,7 +943,7 @@ export interface ProgramCodeBlock {
   name: string;
   address: number;
   size: number;
-  kind: 'code' | 'data';
+  kind: 'code' | 'memory';
 }
 
 /**

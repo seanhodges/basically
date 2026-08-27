@@ -26,6 +26,7 @@ import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumSamples } from './samples';
 import { spectrumMemoryMap } from './memoryMap';
 import { spectrumMemoryBlocks } from './memoryBlocks';
+import { unwrapSpectrumStoredFile } from './storedFile';
 
 export const zxspectrum: Dialect = {
   id: 'zxspectrum',
@@ -36,6 +37,7 @@ export const zxspectrum: Dialect = {
   programRamBytes: 41472,
   memoryMap: spectrumMemoryMap,
   memoryBlocks: spectrumMemoryBlocks,
+  unwrapStoredFile: unwrapSpectrumStoredFile,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',

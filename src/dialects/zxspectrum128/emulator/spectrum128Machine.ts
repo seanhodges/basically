@@ -12,7 +12,7 @@ import type {
   MachineScreenText,
   LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
   TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from '../../zxspectrum/emulator/tapeDeck';
@@ -645,7 +645,7 @@ export class Spectrum128Machine implements MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
     },

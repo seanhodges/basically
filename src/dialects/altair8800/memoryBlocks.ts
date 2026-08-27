@@ -5,7 +5,7 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
 import { PROGRAM_BASE, RAM_TOP } from './addresses';
 
 /**
- * Where the Altair's {@link import('../types').MemoryBlock}s may legally live,
+ * Where the Altair's {@link import('../types').Block}s may legally live,
  * for the block linter in `src/app/blockLint.ts`.
  *
  * Two things here are deliberate rather than obvious:

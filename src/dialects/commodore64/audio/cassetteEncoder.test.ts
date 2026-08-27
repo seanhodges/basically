@@ -11,7 +11,7 @@ import {
 } from './cassetteEncoder';
 import { decodeCassette } from './cassetteDecoder';
 import { detokenizeProgram } from '../detokenizer';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 const SAMPLE_RATE = 44100;
 
@@ -165,7 +165,7 @@ describe('encodeC64Tape', () => {
 
 describe('buildCassetteSamples with memory blocks', () => {
   const source = '10 PRINT "HELLO"\n';
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'b1',
     name: 'SPRITES',
     address: 0xc000,

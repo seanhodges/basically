@@ -5,7 +5,7 @@ import { Spectrum128Machine } from './spectrum128Machine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap } from '../tapfile';
 import { RAMTOP } from '../../zxspectrum/sysvars';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 const ROM_PATH = join(__dirname, '../../../../public/roms/zxspectrum128.rom');
 const hasRom = existsSync(ROM_PATH);
@@ -307,7 +307,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       const machine = new Spectrum128Machine({ rom });
       const { bytes, errors } = tokenizeProgram('10 PAUSE 0\n');
       expect(errors).toEqual([]);
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'b1',
         name: 'Code',
         address: 0x8000,
@@ -325,12 +325,12 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       const machine = new Spectrum128Machine({ rom });
       const { bytes, errors } = tokenizeProgram('10 PRINT PEEK 32768\n');
       expect(errors).toEqual([]);
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'b1',
         name: 'Code',
         address: 0x8000,
         bytes: new Uint8Array([123]),
-        kind: 'data',
+        kind: 'memory',
       };
       machine.loadProgram(buildTap(bytes), { blocks: [block] });
       for (let i = 0; i < 60; i++) machine.runFrame();
@@ -351,12 +351,12 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
         '90 NEXT e\n100 NEXT d\n110 NEXT c\n120 NEXT b\n130 NEXT a\n140 PRINT "DONE"\n';
       const { bytes, errors } = tokenizeProgram(src);
       expect(errors).toEqual([]);
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'b1',
         name: 'Data',
         address: blockAddr,
         bytes: payload,
-        kind: 'data',
+        kind: 'memory',
       };
       machine.loadProgram(buildTap(bytes), { blocks: [block] });
       for (let i = 0; i < 150; i++) machine.runFrame();

@@ -53,6 +53,24 @@ describe('EmulatorVfs (synchronous store)', () => {
     expect(list[1]!.updatedAt).toBeGreaterThan(0);
   });
 
+  // The store never drops a file on its own: what a program saved outlives the
+  // run that wrote it, and only an explicit clear ends it. The clear points
+  // themselves are the emulator pane's (start, reset, machine change, unmount)
+  // and the store's document-replacing actions (`src/app/store.test.ts`); a
+  // stop and a breakpoint pause are not among them.
+  it('holds a file until something clears it', () => {
+    const vfs = new EmulatorVfs();
+    vfs.save('SCORES', bytes(1, 2, 3));
+    // Everything else a session does to the store leaves it standing: a later
+    // save under another name, a delete of that one, a read, a subscription.
+    vfs.save('LOG', bytes(9));
+    vfs.delete('LOG');
+    vfs.subscribe(() => {});
+    expect(vfs.load('SCORES')).toEqual(bytes(1, 2, 3));
+    vfs.clear();
+    expect(vfs.load('SCORES')).toBeNull();
+  });
+
   it('clear empties the store', () => {
     const vfs = new EmulatorVfs();
     vfs.save('A', bytes(1));

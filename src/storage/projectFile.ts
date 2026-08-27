@@ -4,7 +4,7 @@
  *
  * ```
  * program.bas            the BASIC source (text)
- * blocks/<name>.bin      each {@link MemoryBlock}'s raw bytes
+ * blocks/<name>.bin      each {@link Block}'s raw bytes
  * blocks/<name>.asm      each code block's assembly source (when it has one)
  * scratch/<ordinal>.bas  each scratch buffer's text, named by position
  * project.json           the metadata file (see {@link ProjectMetaV2})
@@ -26,7 +26,7 @@
  */
 
 import { zipSync, unzipSync } from 'fflate';
-import type { MemoryBlock, TapeFile } from '../dialects/types';
+import type { Block, TapeFile } from '../dialects/types';
 import { bytesToBase64, base64ToBytes } from './vfs/base64';
 
 const textEncoder = new TextEncoder();
@@ -48,13 +48,13 @@ const blockAsmPath = (name: string): string => `blocks/${name}.asm`;
 const scratchPath = (ordinal: number): string => `scratch/${ordinal}.bas`;
 
 /**
- * The only valid shape for {@link MemoryBlock.name}: starts with a letter,
+ * The only valid shape for {@link Block.name}: starts with a letter,
  * then any number of letters, digits, or underscores. Matches the pattern
  * documented on the type itself.
  */
 const BLOCK_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
 
-/** Whether `name` is a valid {@link MemoryBlock.name} (see {@link BLOCK_NAME_PATTERN}). */
+/** Whether `name` is a valid {@link Block.name} (see {@link BLOCK_NAME_PATTERN}). */
 export function isValidBlockName(name: string): boolean {
   return BLOCK_NAME_PATTERN.test(name);
 }
@@ -74,24 +74,36 @@ export function findDuplicateBlockName(
   return null;
 }
 
-/** One {@link MemoryBlock}, wire-encoded for JSON (bytes as base64). */
+/**
+ * Read a stored block `kind`, or null if it is not one. A block recorded as
+ * `'data'` predates the files a program saves being blocks too, back when that
+ * word meant a block of memory; nothing writes it now, so it can only ever
+ * have meant memory.
+ */
+export function parseBlockKind(raw: unknown): Block['kind'] | null {
+  if (raw === 'code') return 'code';
+  if (raw === 'memory' || raw === 'data') return 'memory';
+  return null;
+}
+
+/** One {@link Block}, wire-encoded for JSON (bytes as base64). */
 export interface SerializedBlock {
   id: string;
   name: string;
   address: number;
-  /** Base64-encoded {@link MemoryBlock.bytes}. */
+  /** Base64-encoded {@link Block.bytes}. */
   bytes: string;
-  kind: 'code' | 'data';
+  kind: Block['kind'];
   comment?: string;
   /**
    * Execution entry address recovered with an imported code payload (see
-   * {@link MemoryBlock.entry}). Optional and additive like `comment` - older
+   * {@link Block.entry}). Optional and additive like `comment` - older
    * project files without it load with no entry - so no version bump.
    */
   entry?: number;
   /**
    * The assembly source last edited for this code block (see
-   * {@link MemoryBlock.asmSource} - `bytes` remain the source of truth).
+   * {@link Block.asmSource} - `bytes` remain the source of truth).
    * Optional and additive like `entry`, so no version bump: the field was
    * reserved here before the assembler existed, and older project files
    * without it simply load with a fresh disassembly.
@@ -120,16 +132,16 @@ export interface SerializedScratchBuffer {
 }
 
 /**
- * One {@link MemoryBlock}'s metadata in {@link ProjectMetaV2}. The bytes and
+ * One {@link Block}'s metadata in {@link ProjectMetaV2}. The bytes and
  * assembly source live as their own zip entries ({@link bin} / {@link asm}),
  * not inline - so this carries only the fields that describe them.
  */
 export interface SerializedBlockMeta {
   name: string;
   address: number;
-  kind: 'code' | 'data';
+  kind: Block['kind'];
   comment?: string;
-  /** Execution entry address (see {@link MemoryBlock.entry}). Additive. */
+  /** Execution entry address (see {@link Block.entry}). Additive. */
   entry?: number;
   /** Zip entry path of this block's raw bytes (see {@link blockBinPath}). */
   bin: string;
@@ -193,7 +205,7 @@ export interface ProjectMetaV2 {
   scratch?: SerializedScratchBuffer[];
 }
 
-function serializeBlock(block: MemoryBlock): SerializedBlock {
+function serializeBlock(block: Block): SerializedBlock {
   return {
     id: block.id,
     name: block.name,
@@ -207,21 +219,19 @@ function serializeBlock(block: MemoryBlock): SerializedBlock {
 }
 
 /**
- * {@link MemoryBlock}s in their wire shape (bytes as base64). Shared by
+ * {@link Block}s in their wire shape (bytes as base64). Shared by
  * autosave's block persistence (the project zip bundle stores block bytes as
  * their own zip entries instead - see {@link serializeProjectZip}).
  */
-export function serializeBlocks(
-  blocks: readonly MemoryBlock[],
-): SerializedBlock[] {
+export function serializeBlocks(blocks: readonly Block[]): SerializedBlock[] {
   return blocks.map(serializeBlock);
 }
 
 /**
- * Decode one wire-shape block back into a {@link MemoryBlock}. Throws
+ * Decode one wire-shape block back into a {@link Block}. Throws
  * `Error` on any structural problem, naming the offending block by index.
  */
-function parseBlock(raw: unknown, index: number): MemoryBlock {
+function parseBlock(raw: unknown, index: number): Block {
   if (raw === null || typeof raw !== 'object') {
     throw new Error(`Project file block ${index} is not an object.`);
   }
@@ -244,7 +254,8 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
   if (typeof b.bytes !== 'string') {
     throw new Error(`Project file block ${index} is missing "bytes".`);
   }
-  if (b.kind !== 'code' && b.kind !== 'data') {
+  const kind = parseBlockKind(b.kind);
+  if (kind === null) {
     throw new Error(`Project file block ${index} has an invalid "kind".`);
   }
   let bytes: Uint8Array;
@@ -258,7 +269,7 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
     name: b.name,
     address: b.address,
     bytes,
-    kind: b.kind,
+    kind,
     ...(typeof b.comment === 'string' ? { comment: b.comment } : {}),
     ...(typeof b.entry === 'number' && Number.isInteger(b.entry)
       ? { entry: b.entry }
@@ -269,13 +280,13 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
 
 /**
  * Decode wire-shape blocks (autosave's stored array) back into
- * {@link MemoryBlock}s. Throws on the
+ * {@link Block}s. Throws on the
  * first structurally invalid entry, an invalid `name`, or a `name` shared by
  * more than one block (names must be unique per document) - callers that
  * want a defensive, never-throws load (autosave) catch around this
  * themselves.
  */
-export function parseBlocks(raw: unknown[]): MemoryBlock[] {
+export function parseBlocks(raw: unknown[]): Block[] {
   const blocks = raw.map((b, i) => parseBlock(b, i));
   const dup = findDuplicateBlockName(blocks);
   if (dup !== null) {
@@ -295,7 +306,7 @@ export type SerializedListingBlockMeta = Record<
   string,
   {
     name?: string;
-    kind?: 'code' | 'data';
+    kind?: Block['kind'];
     comment?: string;
     asmSource?: string;
   }
@@ -312,7 +323,7 @@ export function parseListingBlockMeta(raw: unknown): Record<
   number,
   {
     name?: string;
-    kind?: 'code' | 'data';
+    kind?: Block['kind'];
     comment?: string;
     asmSource?: string;
   }
@@ -321,7 +332,7 @@ export function parseListingBlockMeta(raw: unknown): Record<
     number,
     {
       name?: string;
-      kind?: 'code' | 'data';
+      kind?: Block['kind'];
       comment?: string;
       asmSource?: string;
     }
@@ -334,13 +345,14 @@ export function parseListingBlockMeta(raw: unknown): Record<
     const m = v as Record<string, unknown>;
     const meta: {
       name?: string;
-      kind?: 'code' | 'data';
+      kind?: Block['kind'];
       comment?: string;
       asmSource?: string;
     } = {};
     if (typeof m.name === 'string' && isValidBlockName(m.name))
       meta.name = m.name;
-    if (m.kind === 'code' || m.kind === 'data') meta.kind = m.kind;
+    const kind = parseBlockKind(m.kind);
+    if (kind !== null) meta.kind = kind;
     if (typeof m.comment === 'string') meta.comment = m.comment;
     if (typeof m.asmSource === 'string') meta.asmSource = m.asmSource;
     if (Object.keys(meta).length > 0) out[ordinal] = meta;
@@ -365,7 +377,7 @@ export function serializeTapeFiles(
 /**
  * Decode one wire-shape tape file back into a {@link TapeFile}. Throws `Error`
  * on any structural problem, naming the offending entry by index. Unlike a
- * {@link MemoryBlock}, a tape file's `name` is a free-form tape label (not an
+ * {@link Block}, a tape file's `name` is a free-form tape label (not an
  * identifier), so only presence/type is checked.
  */
 function parseTapeFile(raw: unknown, index: number): TapeFile {
@@ -409,7 +421,7 @@ export function parseTapeFiles(raw: unknown[]): TapeFile[] {
 export function serializeProjectZip(
   dialectId: string,
   source: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],
   listingBlockMeta: SerializedListingBlockMeta = {},
@@ -461,7 +473,7 @@ export function serializeProjectZip(
 
 /**
  * Decode one block's {@link SerializedBlockMeta} plus its `.bin`/`.asm` zip
- * entries back into a {@link MemoryBlock}. Throws `Error` on any structural
+ * entries back into a {@link Block}. Throws `Error` on any structural
  * problem or a missing referenced entry, naming the offending block by index.
  * The `id` is synthesised to match the store's own scheme (`block-<name>`);
  * names are unique per document, so ids are too.
@@ -470,7 +482,7 @@ function parseBlockMeta(
   raw: unknown,
   index: number,
   files: Record<string, Uint8Array>,
-): MemoryBlock {
+): Block {
   if (raw === null || typeof raw !== 'object') {
     throw new Error(`Project file block ${index} is not an object.`);
   }
@@ -487,7 +499,8 @@ function parseBlockMeta(
   if (typeof b.address !== 'number' || !Number.isFinite(b.address)) {
     throw new Error(`Project file block ${index} has an invalid "address".`);
   }
-  if (b.kind !== 'code' && b.kind !== 'data') {
+  const kind = parseBlockKind(b.kind);
+  if (kind === null) {
     throw new Error(`Project file block ${index} has an invalid "kind".`);
   }
   if (typeof b.bin !== 'string') {
@@ -514,7 +527,7 @@ function parseBlockMeta(
     name: b.name,
     address: b.address,
     bytes,
-    kind: b.kind,
+    kind,
     ...(typeof b.comment === 'string' ? { comment: b.comment } : {}),
     ...(typeof b.entry === 'number' && Number.isInteger(b.entry)
       ? { entry: b.entry }
@@ -525,13 +538,13 @@ function parseBlockMeta(
 
 /**
  * Decode a metadata `blocks` array plus the zip's entries back into
- * {@link MemoryBlock}s. Throws on the first invalid entry or a name shared by
+ * {@link Block}s. Throws on the first invalid entry or a name shared by
  * more than one block (names must be unique per document).
  */
 function parseBlockMetas(
   raw: unknown[],
   files: Record<string, Uint8Array>,
-): MemoryBlock[] {
+): Block[] {
   const blocks = raw.map((b, i) => parseBlockMeta(b, i, files));
   const dup = findDuplicateBlockName(blocks);
   if (dup !== null) {
@@ -580,7 +593,7 @@ function parseScratchBuffer(
 export interface ParsedProject {
   dialect: string;
   source: string;
-  blocks: MemoryBlock[];
+  blocks: Block[];
   /** The saved auto-start line, or `null` when the file carried none. */
   autoStart: number | null;
   /** Preserved tape files (see {@link TapeFile}), or `[]` when the file had none. */
@@ -590,7 +603,7 @@ export interface ParsedProject {
     number,
     {
       name?: string;
-      kind?: 'code' | 'data';
+      kind?: Block['kind'];
       comment?: string;
       asmSource?: string;
     }

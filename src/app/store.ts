@@ -12,7 +12,7 @@ import type {
   MachineReport,
   MachineScreenText,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../dialects/types';
 import {
   serializeBlocks,
@@ -107,6 +107,7 @@ import {
   setEmulatorMuted as persistEmulatorMuted,
   UNTITLED_FILE_NAME,
 } from '../storage/settings';
+import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 import {
   basicBufferKey,
@@ -136,12 +137,16 @@ export interface ScratchBuffer {
    */
   breakpoints: ReadonlySet<number>;
 }
-/** Which tab the editor pane is showing: the program, a memory block, or a
- *  scratch buffer. */
+/** Which tab the editor pane is showing: the program, a block, a scratch
+ *  buffer, or a file a running program saved. */
 export type ActiveTab =
   | { kind: 'basic' }
   | { kind: 'block'; id: string }
-  | { kind: 'scratch'; id: string };
+  | { kind: 'scratch'; id: string }
+  // Keyed by the file's own name, which is what the file store is keyed by;
+  // data files have no id of the document's making because they are not part
+  // of it.
+  | { kind: 'data'; name: string };
 /** The BASIC source tab - the tab every reset falls back to. */
 export const BASIC_TAB: ActiveTab = { kind: 'basic' };
 /** The active block's id, or `null` when a non-block tab is showing. */
@@ -212,7 +217,7 @@ interface IdeState {
    * whenever a different program becomes active (New/Open/Sample/Import/dialect
    * switch/player boot), same as breakpoints.
    */
-  blocks: readonly MemoryBlock[];
+  blocks: readonly Block[];
   /**
    * User-assigned overrides (name / code-vs-data kind / comment) for the
    * derived listing blocks of an `inListing` dialect (ZX80/ZX81), keyed by
@@ -705,7 +710,7 @@ interface IdeState {
      * Already validated/unique at the share seam (`fetchSharedProgram` →
      * `parseBlocks`), so installed as-is; omitted for a pure-BASIC share.
      */
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
   }): void;
   /**
    * Open a shared program in the IDE (the player's "See the Code" handover).
@@ -718,7 +723,7 @@ interface IdeState {
   openSharedInIde(args: {
     dialectId: string;
     source: string;
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
   }): void;
   /**
    * Create a brand-new project from the New-project dialog: switch to the
@@ -740,7 +745,7 @@ interface IdeState {
     dialectId: string;
     source: string;
     fileName: string;
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
   }): void;
   /**
    * Open a saved `.zip` project bundle. Unlike {@link replaceDocument} (which
@@ -759,7 +764,7 @@ interface IdeState {
     dialectId: string;
     source: string;
     fileName: string;
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
     listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
     autoStart?: number | null;
     tapeFiles?: readonly TapeFile[];
@@ -788,7 +793,7 @@ interface IdeState {
     text: string,
     fileName?: string,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
@@ -816,7 +821,7 @@ interface IdeState {
     text: string,
     opts?: {
       dirty?: boolean;
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
@@ -825,9 +830,9 @@ interface IdeState {
   ): void;
   markSaved(fileName: string): void;
   /** Replace every memory block on the current document (sets `dirty`). */
-  setBlocks(blocks: readonly MemoryBlock[]): void;
+  setBlocks(blocks: readonly Block[]): void;
   /** Insert, or update by `id`, one memory block (sets `dirty`). */
-  upsertBlock(block: MemoryBlock): void;
+  upsertBlock(block: Block): void;
   /** Remove one memory block by `id` (sets `dirty`). */
   removeBlock(id: string): void;
   /**
@@ -1108,7 +1113,7 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
 }
 
 /**
- * Enforce the per-document {@link MemoryBlock} invariants (see the type's doc
+ * Enforce the per-document {@link Block} invariants (see the type's doc
  * comment) on a full block set: every `name` must match the required
  * pattern, and no two blocks may share one. Throws a descriptive `Error`
  * otherwise. Called from `setBlocks`/`upsertBlock` - the only paths that can
@@ -1116,7 +1121,7 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
  * rather than silently persisting and then being dropped wholesale by
  * autosave's defensive parse on the next reload.
  */
-function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
+function assertValidBlocks(blocks: readonly Block[]): void {
   for (const b of blocks) {
     if (!isValidBlockName(b.name)) {
       throw new Error(
@@ -1383,6 +1388,10 @@ function applyDialectSwitch(
   persistDialectId(next.id);
   // A different program on a different machine: nothing to undo back into.
   bufferHistories.clear();
+  // The files a program saved belong to that program. They used to go with the
+  // machine, which happened to cover this because a switch stops one; they
+  // outlive the run now, so the document taking them with it has to be said.
+  emulatorVfs.clear(next.id);
   return {
     dialect: next,
     pendingDialectId: null,
@@ -1447,7 +1456,7 @@ export function initialDocument(
   saved: {
     name: string;
     text: string;
-    blocks: MemoryBlock[];
+    blocks: Block[];
     listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
     autoStart?: number | null;
     tapeFiles?: TapeFile[];
@@ -1456,7 +1465,7 @@ export function initialDocument(
 ): {
   fileName: string;
   text: string;
-  blocks: MemoryBlock[];
+  blocks: Block[];
   listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   autoStart: number | null;
   tapeFiles: TapeFile[];
@@ -1712,8 +1721,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   playerBoot: ({ dialectId, source, fileName, blocks }) =>
     set((s) => {
       const next = getDialect(dialectId);
-      // A shared program arriving: as for a load, nothing to undo back into.
+      // A shared program arriving: as for a load, nothing to undo back into,
+      // and no saved files from whatever the shell held before.
       bufferHistories.clear();
+      emulatorVfs.clear(next.id);
       // Not applyDialectSwitch: that persists the dialect choice and flips
       // mobileTab to 'editor' on mobile - both wrong for the player.
       return {
@@ -1889,7 +1900,11 @@ export const useIdeStore = create<IdeState>((set) => ({
     // A named load (Open) is a different document, so undo must not reach back
     // across it. An in-place apply (AI Replace/Merge) passes no name: it is an
     // edit to the program the user already has, and stays undoable.
-    if (fileName !== undefined) bufferHistories.clear();
+    if (fileName !== undefined) {
+      bufferHistories.clear();
+      // A different program, so the files its predecessor saved go with it.
+      emulatorVfs.clear();
+    }
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
@@ -1953,6 +1968,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   loadUnsavedDocument: (text, opts) => {
     // Sample / New / Import: always a different program (see replaceDocument).
     bufferHistories.clear();
+    emulatorVfs.clear();
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
@@ -2163,7 +2179,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       const bytes = assembled?.ok
         ? assembled.bytes
         : new Uint8Array([support.cpu === 'z80' ? 0xc9 : 0x60]);
-      const block: MemoryBlock = {
+      const block: Block = {
         id: `block-${name}`,
         name,
         address,
@@ -2457,7 +2473,7 @@ export const useIdeStore = create<IdeState>((set) => ({
  */
 let blocksCache: {
   key: string;
-  blocks: readonly MemoryBlock[];
+  blocks: readonly Block[];
 } | null = null;
 
 function blockBytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -2477,17 +2493,17 @@ function blockBytesEqual(a: Uint8Array, b: Uint8Array): boolean {
  * by an inserted block - it is dropped and the editor falls back to disassembly.
  */
 function overlayListingAsmSource(
-  block: MemoryBlock,
+  block: Block,
   asmSource: string | undefined,
   engine: AsmEngine | null,
-): MemoryBlock {
+): Block {
   if (asmSource === undefined || !engine) return block;
   const result = engine.assemble(asmSource, block.address);
   if (!result.ok || !blockBytesEqual(result.bytes, block.bytes)) return block;
   return { ...block, asmSource };
 }
 
-export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
+export function selectBlocks(s: IdeState): readonly Block[] {
   const layout = listingLayoutOf(s.dialect);
   if (!layout) return s.blocks;
   const key = `${s.dialect.id} ${s.source} ${JSON.stringify(s.listingBlockMeta)}`;
@@ -2508,8 +2524,7 @@ export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
 }
 
 /** Subscribe to the document's blocks (derived for `inListing` dialects). */
-export const useBlocks = (): readonly MemoryBlock[] =>
-  useIdeStore(selectBlocks);
+export const useBlocks = (): readonly Block[] => useIdeStore(selectBlocks);
 
 /** The BASIC text of the buffer on screen: a scratch buffer's, else the program. */
 export function selectActiveSource(s: IdeState): string {

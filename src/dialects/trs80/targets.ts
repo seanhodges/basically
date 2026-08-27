@@ -1,4 +1,4 @@
-import type { BuildTarget, MemoryBlock } from '../types';
+import type { BuildTarget, Block } from '../types';
 import {
   assertNoFatalErrors,
   buildImageOrThrow,
@@ -40,7 +40,7 @@ function programImage(source: string): Uint8Array {
 export function buildTrs80DiskImage(
   source: string,
   programName: string,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   _loader = false,
 ): Uint8Array {
   const program = programImage(source);

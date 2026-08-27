@@ -1,5 +1,5 @@
 /**
- * The Run-path collision/validation linter for {@link MemoryBlock}s: given a
+ * The Run-path collision/validation linter for {@link Block}s: given a
  * document's blocks, a dialect's {@link MemoryBlocksSupport}, and the tokenized
  * program's byte size, reports every problem found rather than throwing -
  * matching the tokenizer's `TokenizeError[]` house style. The Run path gates on
@@ -8,7 +8,7 @@
 
 import type {
   ConditionalFreeRange,
-  MemoryBlock,
+  Block,
   MemoryBlocksSupport,
   MemoryRange,
 } from '../dialects/types';
@@ -32,9 +32,9 @@ export type BlockIssueKind =
  * only whether any `'error'` exists).
  */
 export interface BlockIssue {
-  /** {@link MemoryBlock.id} of the offending block. */
+  /** {@link Block.id} of the offending block. */
   blockId: string;
-  /** {@link MemoryBlock.name} at lint time, for messages that don't re-look it up. */
+  /** {@link Block.name} at lint time, for messages that don't re-look it up. */
   blockName: string;
   kind: BlockIssueKind;
   /** `'error'` blocks the Run path; `'warning'` is informational only. */
@@ -56,7 +56,7 @@ function rangeLabel(range: MemoryRange): string {
  * neither lie outside a valid range nor overlap anything else - the linter
  * skips all range/overlap checks for it (name validation still applies).
  */
-function blockRange(block: MemoryBlock): MemoryRange | null {
+function blockRange(block: Block): MemoryRange | null {
   if (block.bytes.length === 0) return null;
   return { start: block.address, end: block.address + block.bytes.length - 1 };
 }
@@ -132,7 +132,7 @@ function conditionMet(
  * `A, A, B, B`
  * has two duplicate groups; this finds both.
  */
-function duplicatedNames(blocks: readonly MemoryBlock[]): Set<string> {
+function duplicatedNames(blocks: readonly Block[]): Set<string> {
   const counts = new Map<string, number>();
   for (const block of blocks) {
     counts.set(block.name, (counts.get(block.name) ?? 0) + 1);
@@ -161,7 +161,7 @@ function duplicatedNames(blocks: readonly MemoryBlock[]): Set<string> {
  * free with, so every such placement is refused exactly as it was before.
  */
 export function lintBlocks(
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   support: MemoryBlocksSupport,
   programByteSize: number,
   vocabulary?: ProgramVocabulary,

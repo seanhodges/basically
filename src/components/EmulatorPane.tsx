@@ -1002,7 +1002,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
-    emulatorVfs.clear(); // stop ends the session that owned the files
     disposeAudio();
     clearCanvas(); // drop the last frame so the screen looks powered off
     flushProfile();
