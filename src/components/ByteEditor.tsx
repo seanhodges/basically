@@ -694,7 +694,12 @@ export function ByteEditor({
           // the height of the row it lands in.
           lineHeight: '1.3',
         },
-        '.cm-content': { caretColor: 'var(--accent, #06c)' },
+        // Hex and character bytes carry no syntax highlighting to give them a
+        // colour, so without this they inherit the app's --text (light, for
+        // the dark theme) onto this surface's paper-white background - see the
+        // same fix for .cm-tooltip in styles.css.
+        '.cm-content': { caretColor: 'var(--accent, #06c)', color: '#000' },
+        '.cm-gutters': { color: '#000' },
       }),
     ],
     [
