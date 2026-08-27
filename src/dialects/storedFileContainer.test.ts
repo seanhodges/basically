@@ -18,6 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { dialects } from './registry';
 import { tapFromPayloads } from './zxspectrum/tapfile';
+import { DATA_FILE_TYPE, buildPmdImage } from './pmd85/tape';
 
 /**
  * Machines whose file store holds the payload itself, and why. Every dialect
@@ -40,7 +41,6 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   cpc464: 'no file-I/O trap, so nothing reaches the store',
   cpc6128: 'no file-I/O trap, so nothing reaches the store',
   altair8800: 'no file-I/O trap, so nothing reaches the store',
-  pmd85: 'no file-I/O trap, so nothing reaches the store',
   apple1: 'no file-I/O trap, so nothing reaches the store',
 };
 
@@ -55,6 +55,7 @@ const PAYLOAD = Uint8Array.from([0x10, 0x20, 0x30, 0x40, 0x00, 0xff]);
 const STORED_SHAPE: Record<string, () => Uint8Array> = {
   zxspectrum: spectrumTapeImage,
   zxspectrum128: spectrumTapeImage,
+  pmd85: pmd85TapeImage,
 };
 
 /** A two-block tape image, as the Spectrum deck stores a `SAVE … DATA`. */
@@ -64,6 +65,14 @@ function spectrumTapeImage(): Uint8Array {
   header[11] = PAYLOAD.length & 0xff;
   header[12] = (PAYLOAD.length >> 8) & 0xff;
   return tapFromPayloads(header, PAYLOAD);
+}
+
+/** One tape file, as the PMD 85 deck stores a `DSAVE`: header block then body. */
+function pmd85TapeImage(): Uint8Array {
+  return buildPmdImage({
+    header: { number: 2, type: DATA_FILE_TYPE, start: 0x7000, name: '' },
+    bytes: PAYLOAD,
+  });
 }
 
 /** Bytes no machine's own capture path produced, in the shapes that trip framing. */

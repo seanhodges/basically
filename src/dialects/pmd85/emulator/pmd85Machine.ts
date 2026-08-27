@@ -17,6 +17,7 @@ import type {
   JoystickState,
   LineCost,
   MachineEmulator,
+  MachineFileStore,
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
@@ -240,10 +241,21 @@ export class Pmd85Machine implements MachineEmulator {
    * long and a frame is 40960: sampling the tape once a frame would read every
    * twenty-fourth bit.
    */
-  private readonly tape = new Pmd85TapeDeck();
+  private readonly tape: Pmd85TapeDeck;
   private cycles = 0;
 
-  constructor(opts: { monitor: Uint8Array; romModule: Uint8Array }) {
+  constructor(opts: {
+    monitor: Uint8Array;
+    romModule: Uint8Array;
+    /**
+     * Sink for the files a program saves. The deck keeps each completed `SAVE`
+     * or `DSAVE` here and refills the tape from it, which is the whole of this
+     * machine's data-file I/O - there is nothing else to trap, because the
+     * cassette is the only thing BASIC-G can write to.
+     */
+    files?: MachineFileStore;
+  }) {
+    this.tape = new Pmd85TapeDeck(opts.files);
     this.firmware = opts.monitor.length > 0 && opts.romModule.length > 0;
     this.memory = new Pmd85Memory(opts.monitor);
     this.romModule = new Pmd85RomModule(opts.romModule);
@@ -336,10 +348,14 @@ export class Pmd85Machine implements MachineEmulator {
       typeRun: () => {
         // Extra files off a multi-file tape go on the deck rather than into
         // RAM: what they are for is the program's own `LOAD n`, and that reads
-        // a tape.
-        const tapeFiles = opts?.tapeFiles ?? [];
-        if (tapeFiles.length > 0) {
-          this.playTape(tapeFiles.flatMap((f) => parseTapeImage(f.tap).files));
+        // a tape. Files a previous run saved join them, so a program can pick
+        // up its own data where the last one left it.
+        const imported = (opts?.tapeFiles ?? []).flatMap(
+          (f) => parseTapeImage(f.tap).files,
+        );
+        const kept = this.tape.filesFromStore();
+        if (imported.length > 0 || kept.length > 0) {
+          this.playTape([...imported, ...kept]);
         }
 
         // Armed before the keystrokes that start the program rather than after
@@ -681,7 +697,7 @@ export class Pmd85Machine implements MachineEmulator {
       if ((port & BOARD_MASK) !== BOARD_IO) return;
       switch (port & IO_DEVICE_MASK) {
         case IO_USART:
-          if ((port & 0x01) === 0) this.tape.record(value);
+          if ((port & 0x01) === 0) this.tape.record(value, this.cycles);
           return;
         case IO_GPIO:
           this.gpio.writePort(port & 0x03, value);

@@ -17,8 +17,10 @@ import { splitRomImage } from '../romImage';
 import { tokenizeProgram } from '../tokenizer';
 import { PROGRAM_BASE, VARTAB } from '../addresses';
 import { buildTapeFile } from '../audio/cassetteEncoder';
+import type { MachineFileEntry, MachineFileStore } from '../../types';
 import {
   BASIC_FILE_TYPE,
+  DATA_FILE_TYPE,
   DEFAULT_FILE_NUMBER,
   buildPtpImage,
   parseTapeImage,
@@ -32,8 +34,31 @@ const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
 );
 
-function machine(): Pmd85Machine {
-  return new Pmd85Machine(splitRomImage(rom));
+function machine(files?: MachineFileStore): Pmd85Machine {
+  return new Pmd85Machine({ ...splitRomImage(rom), files });
+}
+
+/** Map-backed MachineFileStore, same shape as commodore/diskDrive.test.ts. */
+function fakeStore() {
+  const files = new Map<string, { data: Uint8Array; kind?: string }>();
+  const store: MachineFileStore = {
+    save: (name, data, meta) =>
+      void files.set(name, { data: data.slice(), kind: meta?.kind }),
+    load: (name) => files.get(name)?.data.slice() ?? null,
+    list: (): MachineFileEntry[] =>
+      [...files.entries()].map(([name, f]) => ({
+        name,
+        size: f.data.length,
+        updatedAt: 1,
+        kind: f.kind,
+      })),
+    delete: (name) => files.delete(name),
+  };
+  return { store, files };
+}
+
+function screenLines(pmd: Pmd85Machine): string[] {
+  return pmd.readScreenText()!.lines.map((l) => l.trimEnd());
 }
 
 /** Type at the emulated keyboard; the machine's own helper, as `RUN` uses it. */
@@ -159,6 +184,76 @@ describe('PMD 85 tape', () => {
     expect(pmd.isProgramRunning()).toBe(false);
     expect(pmd.readScreenText()!.lines.map((l) => l.trimEnd())).toContain(
       'RUNS',
+    );
+  });
+
+  it('writes a headed data file when a program runs DSAVE', () => {
+    // What `DSAVE` puts on the tape, read off the interpreter rather than
+    // assumed. It is a whole file and not a bare block: a 63-byte header
+    // carrying the number the program named it by and the `D` type letter that
+    // separates a program's data from a program, then the array.
+    //
+    // The spelling is the interpreter's own and is not the one a comma-shaped
+    // reading of `DSAVE n,v` would suggest: the argument parser wants a
+    // semicolon and an array's first element, and a comma is `Syntax err`.
+    const { store, files } = fakeStore();
+    const pmd = machine(store);
+    pmd.loadProgram(
+      tokenizeProgram(
+        '10 DIM A(3)\n20 A(1)=4\n30 A(2)=9\n40 DSAVE 2;A(0)\n50 END\n',
+      ).program,
+    );
+    runUntil(pmd, 'wrote the array', () => files.size > 0);
+
+    expect([...files.keys()]).toEqual(['FILE 2']);
+    const parsed = parseTapeImage(files.get('FILE 2')!.data);
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.headerless).toEqual([]);
+    expect(parsed.files).toHaveLength(1);
+    expect(parsed.files[0]!.header.number).toBe(2);
+    expect(parsed.files[0]!.header.type).toBe(DATA_FILE_TYPE);
+    // The header's name field is not the machine's to fill - `DSAVE` leaves
+    // whatever was lying above the array in it - which is why the store keys on
+    // the number instead.
+    expect(files.get('FILE 2')!.kind).toBe('data');
+  });
+
+  it('reads a saved array back inside the same run', () => {
+    // The whole point of keeping the file: the deck puts what the program saved
+    // back on the tape, so its own `DLOAD` finds it with no user to rewind
+    // anything. Without that the program does not fail, it waits.
+    const { store } = fakeStore();
+    const pmd = machine(store);
+    pmd.loadProgram(
+      tokenizeProgram(
+        '10 DIM A(3)\n' +
+          '20 A(1)=4\n' +
+          '30 A(2)=9\n' +
+          '40 DSAVE 2;A(0)\n' +
+          '50 DIM B(3)\n' +
+          '60 DLOAD 2;B(0)\n' +
+          '70 PRINT "B=";B(2)\n' +
+          '80 END\n',
+      ).program,
+    );
+    runUntil(pmd, 'read the array back', () =>
+      screenLines(pmd).some((l) => l.includes('B= 9')),
+    );
+  });
+
+  it('keeps nothing when the machine was handed no store', () => {
+    // The deck records and plays exactly as it did before there was a store to
+    // hand it; a machine constructed without one must not start behaving as if
+    // it had one.
+    const pmd = machine();
+    pmd.loadProgram(
+      tokenizeProgram('10 DIM A(3)\n20 A(1)=4\n30 DSAVE 2;A(0)\n40 END\n')
+        .program,
+    );
+    runUntil(
+      pmd,
+      'wrote the array',
+      () => parseTapeImage(pmd.recordedTape()).files.length === 1,
     );
   });
 

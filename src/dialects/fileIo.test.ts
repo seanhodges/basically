@@ -70,10 +70,6 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // keyword table offers - reach a tape layer that does not exist.
   cpc464: 'the store is accepted and dropped; no cassette-manager traps',
   cpc6128: 'the store is accepted and dropped; no cassette-manager traps',
-  // The one machine that captures the bytes and has nowhere to put them: every
-  // byte the 8251's transmitter emits is recorded, and the store is never
-  // offered to the machine at all, so a SAVE is complete and unreachable.
-  pmd85: 'records SAVE bytes internally, but is never handed the store',
   // Its SAVE trap skips the ROM's tape-output loop straight to the routine's
   // completion, so the program continues as it would have on real hardware and
   // no bytes are ever generated to capture.

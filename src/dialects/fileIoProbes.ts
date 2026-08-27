@@ -160,6 +160,37 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     maxFrames: 1200,
   },
 
+  /**
+   * BASIC-G: `DSAVE`/`DLOAD`, the machine's only data-file statements.
+   *
+   * Nothing here looks like the others because nothing on this machine does.
+   * The cassette is the only storage, so a file is a *number* rather than a
+   * name; what travels is a whole array rather than a stream of bytes, named by
+   * its first element (`A(0)`); and the separator is a semicolon, which is what
+   * the interpreter's own argument parser insists on - a comma is `Syntax err`.
+   * The file lands in the store under the number, because that is the only part
+   * of the header `DLOAD` matches on.
+   *
+   * The frame budget is the tape's rather than the program's: a load costs its
+   * leaders (2.8s of carrier before the header, half a second before the body)
+   * whatever is in the file, and the deck starts the tape over when the save
+   * completes.
+   */
+  pmd85: {
+    program:
+      '10 DIM A(3)\n' +
+      '20 A(1)=4\n' +
+      '30 A(2)=9\n' +
+      '40 DSAVE 2;A(0)\n' +
+      '50 DIM B(3)\n' +
+      '60 DLOAD 2;B(0)\n' +
+      '70 PRINT "B=";B(2)\n' +
+      '80 PRINT "ZZEND"\n',
+    file: 'FILE 2',
+    readBack: 'B= 9',
+    maxFrames: 2400,
+  },
+
   /** TRS-80 Disk BASIC: OPEN "O"/"I" by mode, serviced at statement level. */
   trs80: {
     program:
@@ -189,4 +220,5 @@ export const FILE_IO_PROBE_BY_DIALECT: Record<string, string> = {
   vic20: 'cbm',
   pet: 'cbm',
   trs80: 'trs80',
+  pmd85: 'pmd85',
 };

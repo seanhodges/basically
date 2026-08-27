@@ -1602,10 +1602,10 @@ export const domainGuidance: DomainGuidance[] = [
     summary:
       'Cassette only: SAVE and LOAD for programs, DSAVE and DLOAD for an array, and CHECK to verify a recording against memory.',
     instead:
-      'No named files, no disc and no OPEN/CLOSE: every tape command takes a file NUMBER, so SAVE 1 rather than SAVE "PROG". Sequential data files are DSAVE arrays.',
+      'No named files, no disc and no OPEN/CLOSE: every tape command takes a file NUMBER, so SAVE 1 not SAVE "PROG". A sequential data file becomes a DSAVE array, and its separator is a semicolon.',
     example: {
-      caption: 'A tape file is a number',
-      code: ['10 SAVE 1', '20 CHECK 1'],
+      caption: 'A data file is an array, by number',
+      code: ['10 DSAVE 2;A(0)', '20 DLOAD 2;B(0)'],
     },
     reachFor: ['SAVE', 'LOAD', 'DSAVE', 'CHECK'],
   },

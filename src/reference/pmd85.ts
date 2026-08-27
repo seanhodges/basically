@@ -710,16 +710,17 @@ const pmd85Table: BasicReferenceTableData = {
       name: 'DLOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DLOAD <tapefile>, <var>',
-      description: 'Loads an array back from tape, filling the named variable.',
+      syntax: 'DLOAD <tapefile>;<numvar>(<number>)',
+      description:
+        'Loads an array back from tape, filling it from the named element on. The separator is a semicolon, not a comma.',
     },
     {
       name: 'DSAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DSAVE <tapefile>, <var>',
+      syntax: 'DSAVE <tapefile>;<numvar>(<number>)',
       description:
-        'Records an array to tape - data rather than program, which SAVE cannot carry.',
+        'Records an array to tape from the named element on - data rather than program, which SAVE cannot carry. The separator is a semicolon, not a comma.',
     },
     {
       name: 'LABEL',
