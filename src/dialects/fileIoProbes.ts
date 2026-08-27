@@ -134,9 +134,14 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
   },
 
   /**
-   * CBM BASIC V2 against a virtual disk unit: device 8, secondary address 2,
-   * with the ",S,W" / ",S,R" filename suffixes a 1541 reads as "sequential,
-   * write" and "sequential, read".
+   * CBM BASIC against a virtual disk unit: device 8, secondary address 2, with
+   * the ",S,W" / ",S,R" filename suffixes a 1541 reads as "sequential, write"
+   * and "sequential, read".
+   *
+   * BASIC 4.0 runs this unchanged. Its own disk commands are spelled
+   * differently and reach the drive another way, but every word here is one the
+   * PET inherited from the V2 machines' keyword table and services through the
+   * same KERNAL routines.
    */
   cbm: {
     program:
@@ -182,5 +187,6 @@ export const FILE_IO_PROBE_BY_DIALECT: Record<string, string> = {
   atom: 'atom',
   commodore64: 'cbm',
   vic20: 'cbm',
+  pet: 'cbm',
   trs80: 'trs80',
 };

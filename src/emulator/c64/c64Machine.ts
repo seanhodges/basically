@@ -61,7 +61,12 @@ import { attach as cias } from './viciious/target/cias.js';
 import { attach as cpu } from './viciious/target/cpu.js';
 // @ts-expect-error vendored JS, no types
 import { attach as tape } from './viciious/target/tape.js';
-import { BASIC_V2_ZP, MAX_BASIC_LINE, NDX } from '../commodore/basicPointers';
+import {
+  BASIC_V2_ZP,
+  KERNAL_IO_V2,
+  MAX_BASIC_LINE,
+  NDX,
+} from '../commodore/basicPointers';
 import { createMachineLoop } from '../machineLoop';
 
 /** PAL 6510 clock: the 17.734472 MHz colour carrier ÷ 18. */
@@ -332,7 +337,9 @@ export class C64Machine implements MachineEmulator {
   private backImageData: ImageData | null = null;
 
   constructor(opts?: { roms?: C64Roms; files?: MachineFileStore }) {
-    this.drive = opts?.files ? new CbmDiskDrive(opts.files) : null;
+    this.drive = opts?.files
+      ? new CbmDiskDrive(opts.files, KERNAL_IO_V2)
+      : null;
     // Alpha is fixed; VIC only writes RGB. (Matches viciious's video-canvas.)
     for (let i = 3; i < this.rgba.length; i += 4) this.rgba[i] = 255;
 

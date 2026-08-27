@@ -42,6 +42,7 @@ import { VicI, VIC20_DISPLAY_WIDTH, VIC20_DISPLAY_HEIGHT } from './vicI';
 import { vic20DomCodeToTokens, vic20TokenToPositions } from './keyboard';
 import {
   BASIC_V2_ZP,
+  KERNAL_IO_V2,
   MAX_BASIC_LINE,
   KEYBUF,
   NDX,
@@ -206,7 +207,9 @@ export class Vic20Machine implements MachineEmulator {
   private backImageData: ImageData | null = null;
 
   constructor(opts?: { roms?: Vic20Roms; files?: MachineFileStore }) {
-    this.drive = opts?.files ? new CbmDiskDrive(opts.files) : null;
+    this.drive = opts?.files
+      ? new CbmDiskDrive(opts.files, KERNAL_IO_V2)
+      : null;
     this.keys = new KeyMatrix(8, (t) => vic20TokenToPositions(t));
     // VIA #1: joystick up/down/left/fire read on PA2–PA5 (active-low); other PA
     // lines (serial, cassette sense) idle high so the KERNAL sees no activity.

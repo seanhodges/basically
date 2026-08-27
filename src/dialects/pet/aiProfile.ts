@@ -13,7 +13,8 @@ export const petAiProfile: AiProfile = composeAiProfile({
         `Monochrome green phosphor, and no sprites or SID. Do NOT POKE the C64's VIC-II (53280+), colour RAM (55296) or SID (54272+); none of them exist here.`,
         'Screen RAM is at 32768 ($8000), 1000 bytes (40x25). POKE screen codes there to draw; PEEK reads them back. Screen codes: space=32, A-Z=1-26, solid block (reversed space)=160, filled ball=81.',
         'The character screen shows screen codes, not PETSCII, and there is no bitmap/hi-res mode.',
-        `BASIC 4.0's disk commands (DOPEN, DCLOSE, DLOAD, DSAVE, SCRATCH, DIRECTORY, HEADER, CATALOG…) tokenise, but this IDE wires NO disk drive, so they will not do anything useful - avoid relying on them.`,
+        `Data files work through OPEN/PRINT#/INPUT#/GET#/CLOSE on device 8 - OPEN 2,8,2,"NAME,S,W" to write and ",S,R" to read - and what a program saves is kept for it to load back.`,
+        `BASIC 4.0's own disk commands (DOPEN, DCLOSE, DLOAD, DSAVE, SCRATCH, DIRECTORY, HEADER, CATALOG…) tokenise, but reach a drive this IDE does not model and will hang - use the OPEN form above instead.`,
       ],
     },
     {
