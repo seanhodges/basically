@@ -12,7 +12,7 @@ import type { MachineFileStore } from '../../dialects/types';
  * filing-system entry vectors (see {@link ../bbcMachine.ts}). This class is
  * the pure bridge those traps call: it holds no CPU dependency, reads and
  * writes emulator memory only through the injected {@link Bus}, and mirrors
- * the shape of `C64DiskDrive` (`src/emulator/c64/diskDrive.ts`).
+ * the shape of `CbmDiskDrive` (`src/emulator/commodore/diskDrive.ts`).
  *
  * Whole-program transfers (`SAVE`/`LOAD`/`*SAVE`/`*LOAD`/`*CAT`, which go
  * through OSFILE/OSGBPB and the `*`-command dispatcher) are out of scope —
@@ -223,7 +223,7 @@ export class BbcDiskDrive {
    * (CLOSE#0, or OSARGS's ensure-written-for-everything call); `false`
    * discards them (a machine reset/reload, where the IDE has already cleared
    * the VFS and a late flush would resurrect stale data). Mirrors
-   * `C64DiskDrive.closeAll`.
+   * `CbmDiskDrive.closeAll`.
    */
   closeAll(flush: boolean): void {
     if (flush) {

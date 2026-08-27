@@ -2,27 +2,57 @@ import type { MachineFileStore } from '../../dialects/types';
 
 /**
  * A virtual Commodore disk unit (devices 8–11) backed by the IDE's virtual
- * filesystem. It services the C64 KERNAL's channel-I/O calls — OPEN, CLOSE,
+ * filesystem. It services a CBM KERNAL's channel-I/O calls — OPEN, CLOSE,
  * CHKIN, CHKOUT, CLRCHN, CHRIN/BASIN, CHROUT/BSOUT — so BASIC's
  * `OPEN/PRINT#/INPUT#/GET#/CMD/CLOSE` on device 8 read and write named
  * sequential data files, exactly as they would against a real 1541.
  *
- * The C64 runs the real KERNAL ROM on the viciious 6510 core with no serial-bus
- * device attached, so — like the ZX Spectrum's tape-ROM traps and unlike the
- * TRS-80's interpreter — file I/O is intercepted by trapping the KERNAL entry
- * points ({@link ../c64Machine.ts}). This class is the pure bridge those traps
- * call: it holds no viciious dependency, reads and writes emulator memory only
- * through the injected {@link Bus}, and mirrors the semantics of the TRS-80's
- * `SequentialFiles` (`src/dialects/trs80/interpreter/seqfiles.ts`). BASIC's own
- * INPUT#/PRINT# do all field/CR formatting, so the drive just streams bytes.
+ * Shared by the C64 and the VIC-20, which is why it lives here rather than
+ * under either. The two run different CPU cores and different video hardware,
+ * but the same BASIC V2 KERNAL layout: the zero-page cells below and the
+ * {@link KERNAL_TRAPS} vectors are identical on both, the way
+ * {@link ./basicPointers.ts}'s `BASIC_V2_ZP` already is. A machine wires it up
+ * by trapping those vectors on its own core and forging the RTS its own way;
+ * everything between is here.
+ *
+ * These machines run the real KERNAL ROM with no serial-bus device attached, so
+ * — like the ZX Spectrum's tape-ROM traps and unlike the TRS-80's interpreter —
+ * file I/O is intercepted at the KERNAL entry points. This class is the pure
+ * bridge those traps call: it holds no dependency on either core, reads and
+ * writes emulator memory only through the injected {@link Bus}, and mirrors the
+ * semantics of the TRS-80's `SequentialFiles`
+ * (`src/dialects/trs80/interpreter/seqfiles.ts`). BASIC's own INPUT#/PRINT# do
+ * all field/CR formatting, so the drive just streams bytes.
  *
  * File contents are stored as raw PETSCII, byte-per-char; only the filename is
  * mapped to ASCII for the VFS key. Non-disk devices (screen 3, keyboard 0, tape
  * 1) are never our concern — every method returns {@link PASS} for them so the
  * real KERNAL routine runs untouched.
+ *
+ * The PET is deliberately not here: BASIC 4.0 moved these zero-page cells (see
+ * `BASIC_4_ZP`), so it needs the addresses parameterised before it can share
+ * this, which is work of its own.
  */
 
-// Zero-page KERNAL variables, read/written through the CPU bus.
+/**
+ * KERNAL jump-table entry points a machine traps for VFS disk I/O. These `$FFxx`
+ * vectors are documented and stable across every KERNAL revision (unlike the
+ * internal `$Fxxx` routine bodies) and are always reached by `JSR`, so the
+ * caller's return address sits cleanly on the stack for the forged RTS.
+ */
+export const KERNAL_TRAPS = {
+  open: 0xffc0,
+  close: 0xffc3,
+  chkin: 0xffc6,
+  chkout: 0xffc9,
+  clrchn: 0xffcc,
+  chrin: 0xffcf,
+  chrout: 0xffd2,
+  getin: 0xffe4,
+} as const;
+
+// Zero-page KERNAL variables, read/written through the CPU bus. BASIC V2, so
+// the C64's and the VIC-20's alike.
 const STATUS = 0x90; // ST — status byte; bit 6 (0x40) = end of file
 const DFLTN = 0x99; // current input device
 const DFLTO = 0x9a; // current output device
@@ -77,7 +107,7 @@ interface Channel {
   pos: number;
 }
 
-export class C64DiskDrive {
+export class CbmDiskDrive {
   /** Open channels, keyed by logical file number. */
   private channels = new Map<number, Channel>();
   /** Logical file made current by the last CHKIN (reset by CLRCHN). */
@@ -94,7 +124,7 @@ export class C64DiskDrive {
   /** OPEN — reads FA/SA/LA/FNLEN/FNADR set up by SETLFS+SETNAM. */
   open(bus: Bus): TrapResult {
     const device = bus.read(FA);
-    if (!C64DiskDrive.ours(device)) return PASS;
+    if (!CbmDiskDrive.ours(device)) return PASS;
     const lf = bus.read(LA);
     const secondary = bus.read(SA);
     const { key, mode } = parseFilename(this.readFilename(bus), secondary);
@@ -178,7 +208,7 @@ export class C64DiskDrive {
 
   /** CHRIN/BASIN — one byte from the current input channel into A. */
   chrin(bus: Bus): TrapResult {
-    if (!C64DiskDrive.ours(bus.read(DFLTN))) return PASS;
+    if (!CbmDiskDrive.ours(bus.read(DFLTN))) return PASS;
     const ch = this.currentReadChannel();
     if (!ch) return PASS;
     return this.readByte(ch, bus);
@@ -191,7 +221,7 @@ export class C64DiskDrive {
 
   /** CHROUT/BSOUT — A holds the byte; append it to the current output channel. */
   chrout(byte: number, bus: Bus): TrapResult {
-    if (!C64DiskDrive.ours(bus.read(DFLTO))) return PASS;
+    if (!CbmDiskDrive.ours(bus.read(DFLTO))) return PASS;
     const lf = this.currentOutput;
     const ch = lf === null ? undefined : this.channels.get(lf);
     if (!ch || ch.mode !== 'w') return PASS;

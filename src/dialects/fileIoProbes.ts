@@ -181,5 +181,6 @@ export const FILE_IO_PROBE_BY_DIALECT: Record<string, string> = {
   bbcmaster: 'bbc',
   atom: 'atom',
   commodore64: 'cbm',
+  vic20: 'cbm',
   trs80: 'trs80',
 };

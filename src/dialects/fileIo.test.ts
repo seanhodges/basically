@@ -57,11 +57,12 @@ const BOOT_TIMEOUT_MS = 120000;
 /**
  * The machines that do not capture a program's files, and why.
  *
- * Four of these are not hardware limitations and are not written as if they
+ * Three of these are not hardware limitations and are not written as if they
  * were: the machine is handed the store, declares it in its constructor, and
  * never reads it. Those entries are outstanding work, and saying so is the
  * point - a reason like "no disk hardware" would close a question that is
- * actually open.
+ * actually open. The VIC-20 was a fourth until its traps were wired, which is
+ * how an entry is meant to leave this table.
  */
 const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // Accepts the store in its constructor and never reads it. The firmware's
@@ -69,13 +70,12 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // keyword table offers - reach a tape layer that does not exist.
   cpc464: 'the store is accepted and dropped; no cassette-manager traps',
   cpc6128: 'the store is accepted and dropped; no cassette-manager traps',
-  // Accepts the store and never reads it. Its KERNAL jump table is the C64's,
-  // and the C64's drive is a pure bus bridge, but nothing routes one to the
-  // other yet; PIA2's IEEE-488 lines just idle high.
-  pet: 'the store is accepted and dropped; no IEEE-488 or KERNAL traps',
-  // The same, and the closest of the four: the VIC shares BASIC V2's zero page
-  // and the $FFxx jump table with the C64 that already has the traps.
-  vic20: 'the store is accepted and dropped; no KERNAL traps',
+  // Accepts the store and never reads it. The nearest of the three: it shares
+  // the $FFxx jump table with the two machines that do capture, and
+  // `CbmDiskDrive` is already shared between them - but BASIC 4.0 moved the
+  // zero-page cells that drive reads (`BASIC_4_ZP` beside `BASIC_V2_ZP`), so it
+  // needs those addresses parameterised and derived against the real ROM first.
+  pet: 'the store is accepted and dropped; the drive is hard-coded to BASIC V2 zero page',
   // The one machine that captures the bytes and has nowhere to put them: every
   // byte the 8251's transmitter emits is recorded, and the store is never
   // offered to the machine at all, so a SAVE is complete and unreachable.

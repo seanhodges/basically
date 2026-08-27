@@ -24,7 +24,12 @@ import {
 } from '../memoryActivityBuffer';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { SidRenderer, SID_SAMPLES_PER_FRAME } from './sid';
-import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
+import {
+  CbmDiskDrive,
+  KERNAL_TRAPS,
+  type Bus,
+  type TrapResult,
+} from '../commodore/diskDrive';
 import {
   bringup,
   loadPrg,
@@ -95,21 +100,6 @@ const FIRST_Y = 10;
  * this; the cap only guards against a mis-boot looping forever.
  */
 const BOOT_CYCLE_CAP = 4_000_000;
-
-/**
- * KERNAL jump-table entry points trapped for VFS disk I/O. These `$FFxx` vectors
- * are documented and stable across every KERNAL revision (unlike the internal
- * `$Fxxx` routine bodies) and are always reached by `JSR`, so the caller's
- * return address sits cleanly on the stack for {@link C64Machine.forgeRts}.
- */
-const KERNAL_OPEN = 0xffc0;
-const KERNAL_CLOSE = 0xffc3;
-const KERNAL_CHKIN = 0xffc6;
-const KERNAL_CHKOUT = 0xffc9;
-const KERNAL_CLRCHN = 0xffcc;
-const KERNAL_CHRIN = 0xffcf;
-const KERNAL_CHROUT = 0xffd2;
-const KERNAL_GETIN = 0xffe4;
 
 /** Three C64 ROM images, supplied directly (tests) or fetched (browser). */
 export interface C64Roms {
@@ -304,7 +294,7 @@ export class C64Machine implements MachineEmulator {
   private rawCpuRead: (addr: number) => number = () => 0;
 
   /** VFS-backed virtual disk (devices 8–11), or null when no store was wired. */
-  private readonly drive: C64DiskDrive | null;
+  private readonly drive: CbmDiskDrive | null;
   /** Memory accessor handed to the drive's trap handlers; set at bringup. */
   private bus: Bus | null = null;
   /** The `fd_fetch_T0` micro-op, used to detect clean opcode-fetch boundaries. */
@@ -342,7 +332,7 @@ export class C64Machine implements MachineEmulator {
   private backImageData: ImageData | null = null;
 
   constructor(opts?: { roms?: C64Roms; files?: MachineFileStore }) {
-    this.drive = opts?.files ? new C64DiskDrive(opts.files) : null;
+    this.drive = opts?.files ? new CbmDiskDrive(opts.files) : null;
     // Alpha is fixed; VIC only writes RGB. (Matches viciious's video-canvas.)
     for (let i = 3; i < this.rgba.length; i += 4) this.rgba[i] = 255;
 
@@ -700,7 +690,7 @@ export class C64Machine implements MachineEmulator {
   /**
    * Wire the KERNAL disk traps: capture the opcode-fetch micro-op, build a
    * memory {@link Bus} over the CPU wires, and map each trapped jump-table entry
-   * to its {@link C64DiskDrive} handler. Called once at bringup, only when a
+   * to its {@link CbmDiskDrive} handler. Called once at bringup, only when a
    * file store was supplied.
    */
   private installTraps(c64: C64): void {
@@ -712,14 +702,14 @@ export class C64Machine implements MachineEmulator {
     };
     this.bus = bus;
     this.trapTable = new Map<number, (st: CpuState) => TrapResult>([
-      [KERNAL_OPEN, () => drive.open(bus)],
-      [KERNAL_CLOSE, (st) => drive.close(st.a, bus)],
-      [KERNAL_CHKIN, (st) => drive.chkin(st.x, bus)],
-      [KERNAL_CHKOUT, (st) => drive.chkout(st.x, bus)],
-      [KERNAL_CLRCHN, () => drive.clrchn(bus)],
-      [KERNAL_CHRIN, () => drive.chrin(bus)],
-      [KERNAL_CHROUT, (st) => drive.chrout(st.a, bus)],
-      [KERNAL_GETIN, () => drive.getin(bus)],
+      [KERNAL_TRAPS.open, () => drive.open(bus)],
+      [KERNAL_TRAPS.close, (st) => drive.close(st.a, bus)],
+      [KERNAL_TRAPS.chkin, (st) => drive.chkin(st.x, bus)],
+      [KERNAL_TRAPS.chkout, (st) => drive.chkout(st.x, bus)],
+      [KERNAL_TRAPS.clrchn, () => drive.clrchn(bus)],
+      [KERNAL_TRAPS.chrin, () => drive.chrin(bus)],
+      [KERNAL_TRAPS.chrout, (st) => drive.chrout(st.a, bus)],
+      [KERNAL_TRAPS.getin, () => drive.getin(bus)],
     ]);
   }
 

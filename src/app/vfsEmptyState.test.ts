@@ -10,10 +10,13 @@ describe('the emulator file list explains an empty list', () => {
   });
 
   it('says the machine cannot capture files where it cannot', () => {
-    const message = vfsEmptyMessage(getDialect('vic20'));
+    // The Apple 1 rather than a machine merely waiting to be wired up: it has
+    // no file statements and no modelled cassette port, so this example stays
+    // an example.
+    const message = vfsEmptyMessage(getDialect('apple1'));
     expect(message).toContain('does not capture');
     // Named, so the sentence is about the machine the user chose.
-    expect(message).toContain(getDialect('vic20').name);
+    expect(message).toContain(getDialect('apple1').name);
   });
 
   it('distinguishes the two cases on every registered machine', () => {

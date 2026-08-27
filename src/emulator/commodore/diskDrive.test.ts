@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
-import { C64DiskDrive, type Bus } from './diskDrive';
+import { CbmDiskDrive, type Bus } from './diskDrive';
 
 // Zero-page addresses the drive reads/writes (mirrors diskDrive.ts).
 const STATUS = 0x90;
@@ -49,7 +49,7 @@ function fakeBus() {
   }
   /** Stage SETLFS+SETNAM state, then call OPEN. */
   function open(
-    drive: C64DiskDrive,
+    drive: CbmDiskDrive,
     lf: number,
     device: number,
     secondary: number,
@@ -68,10 +68,10 @@ function bytes(store: ReturnType<typeof fakeStore>, name: string): number[] {
   return [...(store.files.get(name)?.data ?? [])];
 }
 
-describe('C64DiskDrive', () => {
+describe('CbmDiskDrive', () => {
   it('writes a file: OPEN,S,W → CHKOUT → CHROUT → CLOSE flushes to the store', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, mem, open } = fakeBus();
 
     expect(open(drive, 2, 8, 2, 'DATA,S,W')).toEqual({
@@ -91,7 +91,7 @@ describe('C64DiskDrive', () => {
   it('reads a file back: OPEN,S,R → CHKIN → CHRIN yields bytes then EOF', () => {
     const s = fakeStore();
     s.store.save('DATA', Uint8Array.from([0x41, 0x42]), { kind: 'data' });
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, mem, open } = fakeBus();
 
     open(drive, 2, 8, 2, 'DATA,S,R');
@@ -109,7 +109,7 @@ describe('C64DiskDrive', () => {
 
   it('round-trips a full write then read of the same store', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, open } = fakeBus();
     open(drive, 1, 8, 2, 'MSG,S,W');
     drive.chkout(1, bus);
@@ -128,7 +128,7 @@ describe('C64DiskDrive', () => {
 
   it('passes non-disk devices (screen/keyboard/tape) through untouched', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, open } = fakeBus();
     // Tape (device 1) OPEN is not ours.
     expect(open(drive, 1, 1, 0, 'X')).toEqual({ handled: false });
@@ -142,7 +142,7 @@ describe('C64DiskDrive', () => {
   it('reports wrong-direction CHKIN/CHKOUT with carry set', () => {
     const s = fakeStore();
     s.store.save('R', Uint8Array.from([1]), { kind: 'data' });
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, open } = fakeBus();
 
     open(drive, 2, 8, 2, 'W,S,W');
@@ -153,7 +153,7 @@ describe('C64DiskDrive', () => {
 
   it('rejects a re-opened logical file with KERNAL error 2', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { open } = fakeBus();
     expect(open(drive, 2, 8, 2, 'A,S,W')).toEqual({ handled: true, carry: 0 });
     expect(open(drive, 2, 8, 2, 'B,S,W')).toEqual({
@@ -165,7 +165,7 @@ describe('C64DiskDrive', () => {
 
   it('opens a missing file for read and hits EOF immediately', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, mem, open } = fakeBus();
     expect(open(drive, 2, 8, 2, 'GHOST,S,R')).toEqual({
       handled: true,
@@ -178,7 +178,7 @@ describe('C64DiskDrive', () => {
 
   it('CLRCHN restores default channels only while a channel is current', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, mem, open } = fakeBus();
     // No current channel → not handled (real CLRCHN runs).
     expect(drive.clrchn(bus)).toEqual({ handled: false });
@@ -196,7 +196,7 @@ describe('C64DiskDrive', () => {
   it('append mode ("A") seeds the buffer with the existing file', () => {
     const s = fakeStore();
     s.store.save('LOG', Uint8Array.from([0x31]), { kind: 'data' }); // "1"
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, open } = fakeBus();
     open(drive, 2, 8, 2, 'LOG,S,A');
     drive.chkout(2, bus);
@@ -207,7 +207,7 @@ describe('C64DiskDrive', () => {
 
   it('strips an "@" overwrite flag and a drive prefix from the name', () => {
     const s = fakeStore();
-    const drive = new C64DiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store);
     const { bus, open } = fakeBus();
     open(drive, 2, 8, 2, '@0:SAVE,S,W');
     drive.chkout(2, bus);
@@ -218,7 +218,7 @@ describe('C64DiskDrive', () => {
 
   it('closeAll(true) flushes open writes; closeAll(false) discards them', () => {
     const s1 = fakeStore();
-    const d1 = new C64DiskDrive(s1.store);
+    const d1 = new CbmDiskDrive(s1.store);
     const b1 = fakeBus();
     b1.open(d1, 2, 8, 2, 'KEEP,S,W');
     d1.chkout(2, b1.bus);
@@ -227,7 +227,7 @@ describe('C64DiskDrive', () => {
     expect(s1.files.has('KEEP')).toBe(true);
 
     const s2 = fakeStore();
-    const d2 = new C64DiskDrive(s2.store);
+    const d2 = new CbmDiskDrive(s2.store);
     const b2 = fakeBus();
     b2.open(d2, 2, 8, 2, 'DROP,S,W');
     d2.chkout(2, b2.bus);
