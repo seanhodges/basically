@@ -143,6 +143,24 @@ export function CameraIcon() {
   );
 }
 
+// Hash mark for the byte editor's hex view tab.
+export function HexIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />
+    </svg>
+  );
+}
+
+// Paragraph lines for the byte editor's character view tab.
+export function TextIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 6h16M4 12h16M4 18h10" />
+    </svg>
+  );
+}
+
 // Game controller for the input-overlay toggle. Shared so the IDE status bar,
 // the phone-landscape rail and the standalone player all show the same outline
 // icon (matching the keyboard glyph's line-art style).
