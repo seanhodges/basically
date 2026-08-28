@@ -23,6 +23,7 @@ import {
   parseTapeImage,
   programFromTapeFile,
 } from './tape';
+import { unwrapPmd85StoredFile } from './storedFile';
 import { tokenizeProgram } from './tokenizer';
 import { pmd85VariableErrors } from '../../editor/variableLint';
 import { Pmd85Machine } from './emulator/pmd85Machine';
@@ -144,9 +145,17 @@ export const pmd85: Dialect = {
    */
   joystickModes: ['native'],
 
+  /**
+   * The cassette, which is the only thing BASIC-G can write to: the deck keeps
+   * what `SAVE` and `DSAVE` put on tape and plays it back for `LOAD`/`DLOAD`.
+   */
+  capturesDataFiles: true,
+
   createEmulator(opts) {
-    return new Pmd85Machine(splitRomImage(opts.rom));
+    return new Pmd85Machine({ ...splitRomImage(opts.rom), files: opts.files });
   },
+
+  unwrapStoredFile: unwrapPmd85StoredFile,
 
   keyboardLayout: pmd85KeyboardLayout,
   samples: pmd85Samples,

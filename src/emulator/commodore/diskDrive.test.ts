@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 import { CbmDiskDrive, type Bus } from './diskDrive';
+import {
+  KERNAL_IO_BASIC_4,
+  KERNAL_IO_V2,
+  type CbmKernalIo,
+} from './basicPointers';
 
-// Zero-page addresses the drive reads/writes (mirrors diskDrive.ts).
-const STATUS = 0x90;
-const DFLTN = 0x99;
-const DFLTO = 0x9a;
-const FNLEN = 0xb7;
-const LA = 0xb8;
-const SA = 0xb9;
-const FA = 0xba;
-const FNADR = 0xbb;
+// The cells the cases below read back, taken from the layout itself rather than
+// restated: a mirrored copy would keep passing after the drive was pointed
+// somewhere else. The cells a call is staged in are reached through the layout
+// `fakeBus` is given.
+const { status: STATUS, dfltn: DFLTN, dflto: DFLTO } = KERNAL_IO_V2;
 
 const FN_BUF = 0x0200; // where tests park the filename bytes
 
@@ -33,8 +34,12 @@ function fakeStore() {
   return { store, files };
 }
 
-/** A flat 64K memory as the Bus, with helpers to stage a KERNAL call. */
-function fakeBus() {
+/**
+ * A flat 64K memory as the Bus, with helpers to stage a KERNAL call. Takes the
+ * layout so a case can stage the call at one ROM's addresses and watch the
+ * drive answer at those, and only those.
+ */
+function fakeBus(zp: CbmKernalIo = KERNAL_IO_V2) {
   const mem = new Uint8Array(0x10000);
   const bus: Bus = {
     read: (a) => mem[a & 0xffff]!,
@@ -42,12 +47,12 @@ function fakeBus() {
   };
   function setName(name: string): void {
     const bytes = [...name].map((c) => c.charCodeAt(0));
-    mem[FNLEN] = bytes.length;
-    mem[FNADR] = FN_BUF & 0xff;
-    mem[FNADR + 1] = FN_BUF >> 8;
+    mem[zp.fnlen] = bytes.length;
+    mem[zp.fnadr] = FN_BUF & 0xff;
+    mem[zp.fnadr + 1] = FN_BUF >> 8;
     bytes.forEach((b, i) => (mem[FN_BUF + i] = b));
   }
-  /** Stage SETLFS+SETNAM state, then call OPEN. */
+  /** Stage the cells OPEN reads (SETLFS+SETNAM on a V2 machine), then call it. */
   function open(
     drive: CbmDiskDrive,
     lf: number,
@@ -55,9 +60,9 @@ function fakeBus() {
     secondary: number,
     name: string,
   ) {
-    mem[LA] = lf;
-    mem[FA] = device;
-    mem[SA] = secondary;
+    mem[zp.la] = lf;
+    mem[zp.fa] = device;
+    mem[zp.sa] = secondary;
     setName(name);
     return drive.open(bus);
   }
@@ -71,7 +76,7 @@ function bytes(store: ReturnType<typeof fakeStore>, name: string): number[] {
 describe('CbmDiskDrive', () => {
   it('writes a file: OPEN,S,W → CHKOUT → CHROUT → CLOSE flushes to the store', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, mem, open } = fakeBus();
 
     expect(open(drive, 2, 8, 2, 'DATA,S,W')).toEqual({
@@ -91,7 +96,7 @@ describe('CbmDiskDrive', () => {
   it('reads a file back: OPEN,S,R → CHKIN → CHRIN yields bytes then EOF', () => {
     const s = fakeStore();
     s.store.save('DATA', Uint8Array.from([0x41, 0x42]), { kind: 'data' });
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, mem, open } = fakeBus();
 
     open(drive, 2, 8, 2, 'DATA,S,R');
@@ -109,7 +114,7 @@ describe('CbmDiskDrive', () => {
 
   it('round-trips a full write then read of the same store', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, open } = fakeBus();
     open(drive, 1, 8, 2, 'MSG,S,W');
     drive.chkout(1, bus);
@@ -128,7 +133,7 @@ describe('CbmDiskDrive', () => {
 
   it('passes non-disk devices (screen/keyboard/tape) through untouched', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, open } = fakeBus();
     // Tape (device 1) OPEN is not ours.
     expect(open(drive, 1, 1, 0, 'X')).toEqual({ handled: false });
@@ -142,7 +147,7 @@ describe('CbmDiskDrive', () => {
   it('reports wrong-direction CHKIN/CHKOUT with carry set', () => {
     const s = fakeStore();
     s.store.save('R', Uint8Array.from([1]), { kind: 'data' });
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, open } = fakeBus();
 
     open(drive, 2, 8, 2, 'W,S,W');
@@ -153,7 +158,7 @@ describe('CbmDiskDrive', () => {
 
   it('rejects a re-opened logical file with KERNAL error 2', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { open } = fakeBus();
     expect(open(drive, 2, 8, 2, 'A,S,W')).toEqual({ handled: true, carry: 0 });
     expect(open(drive, 2, 8, 2, 'B,S,W')).toEqual({
@@ -165,7 +170,7 @@ describe('CbmDiskDrive', () => {
 
   it('opens a missing file for read and hits EOF immediately', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, mem, open } = fakeBus();
     expect(open(drive, 2, 8, 2, 'GHOST,S,R')).toEqual({
       handled: true,
@@ -178,7 +183,7 @@ describe('CbmDiskDrive', () => {
 
   it('CLRCHN restores default channels only while a channel is current', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, mem, open } = fakeBus();
     // No current channel → not handled (real CLRCHN runs).
     expect(drive.clrchn(bus)).toEqual({ handled: false });
@@ -196,7 +201,7 @@ describe('CbmDiskDrive', () => {
   it('append mode ("A") seeds the buffer with the existing file', () => {
     const s = fakeStore();
     s.store.save('LOG', Uint8Array.from([0x31]), { kind: 'data' }); // "1"
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, open } = fakeBus();
     open(drive, 2, 8, 2, 'LOG,S,A');
     drive.chkout(2, bus);
@@ -207,7 +212,7 @@ describe('CbmDiskDrive', () => {
 
   it('strips an "@" overwrite flag and a drive prefix from the name', () => {
     const s = fakeStore();
-    const drive = new CbmDiskDrive(s.store);
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_V2);
     const { bus, open } = fakeBus();
     open(drive, 2, 8, 2, '@0:SAVE,S,W');
     drive.chkout(2, bus);
@@ -218,7 +223,7 @@ describe('CbmDiskDrive', () => {
 
   it('closeAll(true) flushes open writes; closeAll(false) discards them', () => {
     const s1 = fakeStore();
-    const d1 = new CbmDiskDrive(s1.store);
+    const d1 = new CbmDiskDrive(s1.store, KERNAL_IO_V2);
     const b1 = fakeBus();
     b1.open(d1, 2, 8, 2, 'KEEP,S,W');
     d1.chkout(2, b1.bus);
@@ -227,12 +232,43 @@ describe('CbmDiskDrive', () => {
     expect(s1.files.has('KEEP')).toBe(true);
 
     const s2 = fakeStore();
-    const d2 = new CbmDiskDrive(s2.store);
+    const d2 = new CbmDiskDrive(s2.store, KERNAL_IO_V2);
     const b2 = fakeBus();
     b2.open(d2, 2, 8, 2, 'DROP,S,W');
     d2.chkout(2, b2.bus);
     d2.chrout(0x59, b2.bus);
     d2.closeAll(false);
     expect(s2.files.has('DROP')).toBe(false);
+  });
+
+  // Every cell moved between BASIC V2 and BASIC 4.0, so a drive still reading
+  // the V2 addresses would find a device number of zero and pass the call
+  // through - which looks, from the store, exactly like a machine with no
+  // traps at all. Asserting the V2 cells stay untouched is what separates
+  // "reads the layout it was given" from "happens to read something".
+  it('answers through the layout it was given, and not the other one', () => {
+    const s = fakeStore();
+    const drive = new CbmDiskDrive(s.store, KERNAL_IO_BASIC_4);
+    const { bus, mem, open } = fakeBus(KERNAL_IO_BASIC_4);
+
+    expect(open(drive, 2, 8, 2, 'DATA,S,W')).toEqual({
+      handled: true,
+      carry: 0,
+    });
+    drive.chkout(2, bus);
+    expect(mem[KERNAL_IO_BASIC_4.dflto]).toBe(8);
+    expect(mem[KERNAL_IO_V2.dflto]).toBe(0);
+    for (const b of [0x48, 0x49]) drive.chrout(b, bus);
+    drive.close(2, bus);
+    expect(bytes(s, 'DATA')).toEqual([0x48, 0x49]);
+
+    open(drive, 3, 8, 2, 'DATA,S,R');
+    drive.chkin(3, bus);
+    expect(mem[KERNAL_IO_BASIC_4.dfltn]).toBe(8);
+    expect(mem[KERNAL_IO_V2.dfltn]).toBe(0);
+    expect(drive.chrin(bus)).toEqual({ handled: true, a: 0x48, carry: 0 });
+    expect(drive.chrin(bus)).toEqual({ handled: true, a: 0x49, carry: 0 });
+    expect(mem[KERNAL_IO_BASIC_4.status]).toBe(0x40);
+    expect(mem[KERNAL_IO_V2.status]).toBe(0);
   });
 });

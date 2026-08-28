@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { PetMachine, type PetRoms } from './petMachine';
 import { READ_BIT, WRITE_BIT } from '../memoryActivityBuffer';
 import { tokenizeProgram } from '../../dialects/pet/tokenizer';
+import { KERNAL_IO_BASIC_4 } from '../commodore/basicPointers';
+import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 
 const ROOT = join(__dirname, '../../../public/roms/pet');
 const roms: PetRoms = {
@@ -339,4 +341,150 @@ describe('PetMachine', () => {
   // Whether a program is running - reported while it runs, not before it starts,
   // and no longer once it has ended - is checked over the whole registry, on
   // every machine, by src/dialects/programRunState.test.ts.
+});
+
+describe('PetMachine disk I/O over the VFS', () => {
+  /** Map-backed MachineFileStore, same shape as commodore/diskDrive.test.ts. */
+  function fakeStore() {
+    const files = new Map<string, { data: Uint8Array; kind?: string }>();
+    const store: MachineFileStore = {
+      save: (name, data, meta) =>
+        void files.set(name, { data: data.slice(), kind: meta?.kind }),
+      load: (name) => files.get(name)?.data.slice() ?? null,
+      list: (): MachineFileEntry[] =>
+        [...files.entries()].map(([name, f]) => ({
+          name,
+          size: f.data.length,
+          updatedAt: 1,
+          kind: f.kind,
+        })),
+      delete: (name) => files.delete(name),
+    };
+    return { store, files };
+  }
+
+  /** A stored file's contents as PETSCII-as-ASCII text. */
+  function text(
+    files: Map<string, { data: Uint8Array }>,
+    name: string,
+  ): string {
+    const f = files.get(name);
+    return f ? String.fromCharCode(...f.data) : '';
+  }
+
+  /** Tokenize, load and run a program against the given store. */
+  async function run(store: MachineFileStore, src: string, frames = 300) {
+    const m = new PetMachine({ roms, files: store });
+    await m.whenReady();
+    m.loadProgram(image(src));
+    await new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < frames; i++) m.runFrame();
+    return m;
+  }
+
+  it(
+    'writes a data file with OPEN/PRINT#/CLOSE on device 8',
+    async () => {
+      const { store, files } = fakeStore();
+      const m = await run(
+        store,
+        '10 OPEN 2,8,2,"DATA,S,W"\n' +
+          '20 PRINT#2,"HELLO"\n' +
+          '30 PRINT#2,42\n' +
+          '40 CLOSE 2\n' +
+          '50 PRINT "DONE"\n',
+      );
+      expect(contains(screen(m), screenCodes('DONE'))).toBe(true);
+      expect([...files.keys()]).toEqual(['DATA']);
+      expect(files.get('DATA')!.kind).toBe('data');
+      // PRINT# terminates each item with a carriage return ($0d).
+      expect(text(files, 'DATA')).toContain('HELLO');
+      expect(text(files, 'DATA')).toContain('42');
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'reads a data file back with INPUT# (string then number)',
+    async () => {
+      const { store } = fakeStore();
+      // One machine writes the file...
+      const writer = await run(
+        store,
+        '10 OPEN 2,8,2,"REC,S,W"\n' +
+          '20 PRINT#2,"HELLO"\n' +
+          '30 PRINT#2,42\n' +
+          '40 CLOSE 2\n',
+      );
+      writer.dispose();
+
+      // ...a second machine, sharing the store, reads it back.
+      const reader = await run(
+        store,
+        '10 OPEN 2,8,2,"REC,S,R"\n' +
+          '20 INPUT#2,A$\n' +
+          '30 INPUT#2,B\n' +
+          '40 CLOSE 2\n',
+      );
+      const byName = new Map(reader.readVariables().map((v) => [v.name, v]));
+      expect(byName.get('A$')).toMatchObject({
+        kind: 'string',
+        value: '"HELLO"',
+      });
+      expect(byName.get('B')).toMatchObject({ kind: 'number', value: '42' });
+      reader.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'leaves the store untouched for ordinary screen output',
+    async () => {
+      // CHROUT is trapped at the routine every PRINT goes through, so a screen
+      // write (device 3) reaches the handler on its way past. Nothing may land
+      // in the store.
+      const { store, files } = fakeStore();
+      const m = await run(store, '10 PRINT "DONE"\n');
+      expect(contains(screen(m), screenCodes('DONE'))).toBe(true);
+      expect(files.size).toBe(0);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'traps the KERNAL routines its own jump table points at',
+    async () => {
+      // The trap addresses are derived at bringup rather than written down, and
+      // two of them are offset past an argument parse this ROM does inside the
+      // routine. Re-derive them here: a ROM that moved a routine, or one whose
+      // OPEN stopped opening with that parse call, would leave the machine
+      // trapping addresses the CPU never fetches - and the failure is silent,
+      // because an untrapped OPEN on device 8 waits on the IEEE bus rather
+      // than erroring.
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      const word = (a: number) => m.peek(a) | (m.peek(a + 1) << 8);
+
+      const open = word(0xffc1);
+      const close = word(0xffc4);
+      expect(m.peek(0xffc0)).toBe(0x4c); // JMP abs
+      expect(m.peek(open)).toBe(0x20); // JSR the argument parse
+      expect(m.peek(close)).toBe(0x20);
+      // Both parse through the same routine, and read LA straight after it.
+      expect(word(open + 1)).toBe(word(close + 1));
+      expect(m.peek(open + 3)).toBe(0xa5); // LDA zp
+      expect(m.peek(open + 4)).toBe(KERNAL_IO_BASIC_4.la);
+      expect(m.peek(close + 3)).toBe(0xa5);
+      expect(m.peek(close + 4)).toBe(KERNAL_IO_BASIC_4.la);
+
+      // And the six trapped at their entry are reached by a plain JMP.
+      for (const vector of [0xffc6, 0xffc9, 0xffcc, 0xffcf, 0xffd2, 0xffe4]) {
+        expect(m.peek(vector)).toBe(0x4c);
+      }
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 });

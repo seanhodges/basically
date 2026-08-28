@@ -18,8 +18,7 @@
  *
  * Structural for the machines that do not, and deliberately so. Proving that
  * negative means running the file statement, which is the thing those machines
- * cannot do: with no device modelled the PET and the VIC-20 sit on KERNAL
- * handshake lines that idle high and the CPCs sit in a cassette manager with no
+ * cannot do: with no device modelled the CPCs sit in a cassette manager with no
  * tape behind it, so the program does not fail, it waits - burning the whole
  * frame budget per machine to discover what {@link NO_DATA_FILE_TRAPS} already
  * says. The hang is the finding, and it belongs in the reason text.
@@ -30,10 +29,11 @@
  * table, and setting the flag moves it into the behavioural branch, so traps
  * cannot be acquired without being run or lost without failing here.
  *
- * Seven machines boot; the other nine cost nothing. ~8s of test time in total,
- * against the ~36s `loopSpeed.test.ts` pays to run a program on all sixteen. A
- * claimant whose wiring breaks does not fail fast, though - it waits out its
- * frame budget first, which is what the per-case timeout is sized for.
+ * Only the claimants boot; the machines in the table below cost nothing, which
+ * is why this battery is a fraction of what `loopSpeed.test.ts` pays to run a
+ * program on every registered machine. A claimant whose wiring breaks does not
+ * fail fast, though - it waits out its frame budget first, which is what the
+ * per-case timeout is sized for.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
@@ -57,12 +57,12 @@ const BOOT_TIMEOUT_MS = 120000;
 /**
  * The machines that do not capture a program's files, and why.
  *
- * Three of these are not hardware limitations and are not written as if they
+ * Some of these are not hardware limitations and are not written as if they
  * were: the machine is handed the store, declares it in its constructor, and
  * never reads it. Those entries are outstanding work, and saying so is the
  * point - a reason like "no disk hardware" would close a question that is
- * actually open. The VIC-20 was a fourth until its traps were wired, which is
- * how an entry is meant to leave this table.
+ * actually open. The VIC-20 and the PET were two such until their traps were
+ * wired, which is how an entry is meant to leave this table.
  */
 const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // Accepts the store in its constructor and never reads it. The firmware's
@@ -70,16 +70,6 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // keyword table offers - reach a tape layer that does not exist.
   cpc464: 'the store is accepted and dropped; no cassette-manager traps',
   cpc6128: 'the store is accepted and dropped; no cassette-manager traps',
-  // Accepts the store and never reads it. The nearest of the three: it shares
-  // the $FFxx jump table with the two machines that do capture, and
-  // `CbmDiskDrive` is already shared between them - but BASIC 4.0 moved the
-  // zero-page cells that drive reads (`BASIC_4_ZP` beside `BASIC_V2_ZP`), so it
-  // needs those addresses parameterised and derived against the real ROM first.
-  pet: 'the store is accepted and dropped; the drive is hard-coded to BASIC V2 zero page',
-  // The one machine that captures the bytes and has nowhere to put them: every
-  // byte the 8251's transmitter emits is recorded, and the store is never
-  // offered to the machine at all, so a SAVE is complete and unreachable.
-  pmd85: 'records SAVE bytes internally, but is never handed the store',
   // Its SAVE trap skips the ROM's tape-output loop straight to the routine's
   // completion, so the program continues as it would have on real hardware and
   // no bytes are ever generated to capture.

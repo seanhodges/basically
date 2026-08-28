@@ -34,6 +34,8 @@ export const pmd85AiProfile: AiProfile = composeAiProfile({
         'No CLS (GCLEAR clears the screen), no LOCATE, no PRINT USING, no INSTR, no STRING$, no SPACE$, no MID$ as an assignment target.',
         `No &H or 0x: a hex literal takes a leading apostrophe, as in POKE 'C000,255.`,
         'No named files. LOAD, SAVE, DLOAD, DSAVE and CHECK all take a file NUMBER: SAVE 1, not SAVE "PROG".',
+        'No OPEN, CLOSE, PRINT# or INPUT#. A program keeps data by saving a whole array to tape: DSAVE 2;A(0) writes it and DLOAD 2;B(0) reads it back, and what a program saves this IDE keeps for it to load again.',
+        'DSAVE and DLOAD take a SEMICOLON and an array element, not a comma and a bare name: DSAVE 2;A(0), never DSAVE 2,A - the comma form is a hard Syntax err.',
       ],
     },
     {

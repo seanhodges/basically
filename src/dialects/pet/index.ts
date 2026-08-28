@@ -105,8 +105,12 @@ export const pet: Dialect = {
 
   debuggable: true,
 
+  // The KERNAL channel-I/O routines, for devices 8-11: a virtual disk unit.
+  capturesDataFiles: true,
+
   // opts.rom/ramKb are ignored: the PET machine loads its own six ROM images and
-  // models a fixed 32 KB machine. opts.files carries tape I/O.
+  // models a fixed 32 KB machine. opts.files is the VFS store the PET's KERNAL
+  // disk traps use for OPEN/PRINT#/INPUT#/GET#/CLOSE data-file I/O.
   createEmulator(opts) {
     return new PetMachine({ files: opts.files });
   },

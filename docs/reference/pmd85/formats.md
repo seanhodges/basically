@@ -32,14 +32,14 @@ block**.
 The header block opens with 48 bytes of leader — sixteen `FF`, sixteen `00`,
 sixteen `55` — and then describes the file in fifteen:
 
-| Offset | Size | Field                                        |
-| ------ | ---- | -------------------------------------------- |
-| 48     | 1    | file number, the argument `SAVE`/`LOAD` take |
-| 49     | 1    | type letter; `>` for a BASIC-G program       |
-| 50     | 2    | load address, little endian                  |
-| 52     | 2    | body length **minus one**, little endian     |
-| 54     | 8    | name, space padded                           |
-| 62     | 1    | checksum of the fourteen bytes before it     |
+| Offset | Size | Field                                         |
+| ------ | ---- | --------------------------------------------- |
+| 48     | 1    | file number, the argument `SAVE`/`LOAD` take  |
+| 49     | 1    | type letter; `>` a program, `D` a saved array |
+| 50     | 2    | load address, little endian                   |
+| 52     | 2    | body length **minus one**, little endian      |
+| 54     | 8    | name, space padded                            |
+| 62     | 1    | checksum of the fourteen bytes before it      |
 
 The body block is the bytes themselves followed by one checksum byte. Both
 checksums are the same thing — the bytes summed modulo 256 — despite the
@@ -65,6 +65,12 @@ finds it. A block with no header is reported and not opened: what is in one is
 the business of the program that wrote it. A block whose checksum disagrees is
 reported and kept anyway, because a tape that read back imperfectly is still
 worth more than an error message.
+
+A running program's own tape writes are kept the same way, so `DSAVE 2;A(0)`
+followed later by `DLOAD 2;B(0)` finds the array — within the run and in the
+next one. Each saved file is listed under its number, because the number is the
+only part of the header the interpreter matches on: the name field is blank
+after a `SAVE` and holds whatever was next to the array after a `DSAVE`.
 
 Bytes found after the end-of-program marker are what would have been sitting
 straight above the program in memory, so they come back as a [memory
@@ -128,4 +134,5 @@ and `LOAD 1` and press EOL, then start playback, to load; the machine returns to
 either command — `SAVE "GAME"` answers with a type error. Import and export here
 work on the file and the audio directly, without going through the emulator;
 what the emulator's own tape deck plays is the extra files an imported tape
-carried, so a running program's `LOAD n` finds them.
+carried, together with whatever the running program has saved for itself, so a
+`LOAD n` or `DLOAD n` finds either.

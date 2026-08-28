@@ -58,6 +58,15 @@ export const HEADER_NAME_BYTES = 8;
 export const BASIC_FILE_TYPE = 0x3e;
 
 /**
+ * The type letter BASIC-G writes for an array a program saved with `DSAVE`: `D`.
+ *
+ * The distinction is what tells a tape browser - and this IDE - a program from
+ * a program's data, and it is the interpreter's own: `LOAD` will not take a `D`
+ * file and `DLOAD` will not take a `>` one.
+ */
+export const DATA_FILE_TYPE = 0x44;
+
+/**
  * The file number a program is exported under, and the one to type back:
  * `LOAD 1`. BASIC-G's tape commands take a number rather than a name - `SAVE
  * "A"` answers `Type conv.` - so the eight-character name in the header is a
@@ -198,6 +207,21 @@ export function programTapeFile(
   };
 }
 
+/**
+ * What to file a captured tape file under, from the header the machine wrote.
+ *
+ * The number, not the name. BASIC-G's tape commands take a number - `DSAVE
+ * 2;A(0)`, `DLOAD 2;B(0)` - and that number is the only part of the header the
+ * interpreter matches on, so it is the only part that can be relied on to lead
+ * back to the file. The name field is not written at all by the machine's own
+ * commands: a `SAVE` leaves it blank and a `DSAVE` leaves whatever bytes were
+ * lying above the array, so keying on it would file a program's data under
+ * whatever junk it found.
+ */
+export function storedFileName(header: Pmd85TapeHeader): string {
+  return `FILE ${header.number}`;
+}
+
 /** The tokenized program inside a BASIC-G tape file: the body less its tail. */
 export function programFromTapeFile(file: Pmd85TapeFile): Uint8Array {
   return file.bytes.subarray(0, Math.max(0, file.bytes.length - 1));
@@ -207,9 +231,13 @@ export function programFromTapeFile(file: Pmd85TapeFile): Uint8Array {
 export interface Pmd85TapeParse {
   files: Pmd85TapeFile[];
   /**
-   * Blocks with no header in front of them, preserved verbatim. A program that
-   * writes its own data with `DSAVE` leaves one of these, and the format of
-   * what is in it is that program's business rather than the tape's.
+   * Blocks with no header in front of them, preserved verbatim - a recording
+   * that starts mid-file, or a block some other tool wrote. What is in one is
+   * the business of whatever wrote it rather than the tape's.
+   *
+   * Not where a program's own data lands: `DSAVE` writes a full header block
+   * with {@link DATA_FILE_TYPE} in front of the array, which is what lets
+   * `DLOAD` find the file by its number.
    */
   headerless: Uint8Array[];
   /** Import-fidelity notes: bad checksums, truncated blocks, odd framing. */

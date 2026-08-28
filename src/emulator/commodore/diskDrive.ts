@@ -1,4 +1,5 @@
 import type { MachineFileStore } from '../../dialects/types';
+import { ST_EOF, type CbmKernalIo } from './basicPointers';
 
 /**
  * A virtual Commodore disk unit (devices 8–11) backed by the IDE's virtual
@@ -7,13 +8,14 @@ import type { MachineFileStore } from '../../dialects/types';
  * `OPEN/PRINT#/INPUT#/GET#/CMD/CLOSE` on device 8 read and write named
  * sequential data files, exactly as they would against a real 1541.
  *
- * Shared by the C64 and the VIC-20, which is why it lives here rather than
- * under either. The two run different CPU cores and different video hardware,
- * but the same BASIC V2 KERNAL layout: the zero-page cells below and the
- * {@link KERNAL_TRAPS} vectors are identical on both, the way
- * {@link ./basicPointers.ts}'s `BASIC_V2_ZP` already is. A machine wires it up
- * by trapping those vectors on its own core and forging the RTS its own way;
- * everything between is here.
+ * Shared by every Commodore here, which is why it lives beside them rather than
+ * under one. They run different CPU cores and different video hardware, and the
+ * PET does not even share the others' zero page, so the cells the routines
+ * answer through are injected as a {@link CbmKernalIo} layout
+ * (`KERNAL_IO_V2` for the V2 machines, `KERNAL_IO_BASIC_4` for the PET). What
+ * they do share is the {@link KERNAL_TRAPS} jump table and the semantics behind
+ * it. A machine wires this up by trapping those entries on its own core and
+ * forging the RTS its own way; everything between is here.
  *
  * These machines run the real KERNAL ROM with no serial-bus device attached, so
  * — like the ZX Spectrum's tape-ROM traps and unlike the TRS-80's interpreter —
@@ -28,10 +30,6 @@ import type { MachineFileStore } from '../../dialects/types';
  * mapped to ASCII for the VFS key. Non-disk devices (screen 3, keyboard 0, tape
  * 1) are never our concern — every method returns {@link PASS} for them so the
  * real KERNAL routine runs untouched.
- *
- * The PET is deliberately not here: BASIC 4.0 moved these zero-page cells (see
- * `BASIC_4_ZP`), so it needs the addresses parameterised before it can share
- * this, which is work of its own.
  */
 
 /**
@@ -50,19 +48,6 @@ export const KERNAL_TRAPS = {
   chrout: 0xffd2,
   getin: 0xffe4,
 } as const;
-
-// Zero-page KERNAL variables, read/written through the CPU bus. BASIC V2, so
-// the C64's and the VIC-20's alike.
-const STATUS = 0x90; // ST — status byte; bit 6 (0x40) = end of file
-const DFLTN = 0x99; // current input device
-const DFLTO = 0x9a; // current output device
-const FNLEN = 0xb7; // filename length
-const LA = 0xb8; // logical file number (set by SETLFS before OPEN)
-const SA = 0xb9; // secondary address
-const FA = 0xba; // device number
-const FNADR = 0xbb; // pointer to the filename (2 bytes, little-endian)
-
-const EOF_BIT = 0x40; // ST bit 6
 
 // The disk-unit device numbers routed to the VFS. Everything else falls through.
 const MIN_DEVICE = 8;
@@ -115,18 +100,28 @@ export class CbmDiskDrive {
   /** Logical file made current by the last CHKOUT (reset by CLRCHN). */
   private currentOutput: number | null = null;
 
-  constructor(private store: MachineFileStore) {}
+  /**
+   * @param store the IDE's virtual filesystem, where a channel's bytes land.
+   * @param zp which ROM's zero page the trapped routines answer through.
+   */
+  constructor(
+    private store: MachineFileStore,
+    private zp: CbmKernalIo,
+  ) {}
 
   private static ours(device: number): boolean {
     return device >= MIN_DEVICE && device <= MAX_DEVICE;
   }
 
-  /** OPEN — reads FA/SA/LA/FNLEN/FNADR set up by SETLFS+SETNAM. */
+  /**
+   * OPEN — reads FA/SA/LA/FNLEN/FNADR, filled by SETLFS+SETNAM on a V2 machine
+   * and by the KERNAL's own argument parse on the PET.
+   */
   open(bus: Bus): TrapResult {
-    const device = bus.read(FA);
+    const device = bus.read(this.zp.fa);
     if (!CbmDiskDrive.ours(device)) return PASS;
-    const lf = bus.read(LA);
-    const secondary = bus.read(SA);
+    const lf = bus.read(this.zp.la);
+    const secondary = bus.read(this.zp.sa);
     const { key, mode } = parseFilename(this.readFilename(bus), secondary);
     // Re-opening a logical file already in use is KERNAL error 2, "file open".
     if (this.channels.has(lf)) {
@@ -160,7 +155,11 @@ export class CbmDiskDrive {
     return { handled: true, carry: 0 };
   }
 
-  /** CLOSE — A holds the logical file number. Flushes a write buffer. */
+  /**
+   * CLOSE — `lf` is the logical file number, which the caller takes from
+   * wherever its ROM keeps it (A on a V2 machine, LA on the PET). Flushes a
+   * write buffer.
+   */
   close(lf: number, _bus: Bus): TrapResult {
     const ch = this.channels.get(lf);
     if (!ch) return PASS; // not ours — let the real CLOSE run
@@ -176,7 +175,7 @@ export class CbmDiskDrive {
     const ch = this.channels.get(lf);
     if (!ch) return PASS;
     if (ch.mode !== 'r') return { handled: true, a: ERR_NOT_INPUT, carry: 1 };
-    bus.write(DFLTN, ch.device);
+    bus.write(this.zp.dfltn, ch.device);
     this.currentInput = lf;
     return { handled: true, carry: 0 };
   }
@@ -186,7 +185,7 @@ export class CbmDiskDrive {
     const ch = this.channels.get(lf);
     if (!ch) return PASS;
     if (ch.mode !== 'w') return { handled: true, a: ERR_NOT_OUTPUT, carry: 1 };
-    bus.write(DFLTO, ch.device);
+    bus.write(this.zp.dflto, ch.device);
     this.currentOutput = lf;
     return { handled: true, carry: 0 };
   }
@@ -201,14 +200,14 @@ export class CbmDiskDrive {
     if (this.currentInput === null && this.currentOutput === null) return PASS;
     this.currentInput = null;
     this.currentOutput = null;
-    bus.write(DFLTN, 0); // keyboard
-    bus.write(DFLTO, 3); // screen
+    bus.write(this.zp.dfltn, 0); // keyboard
+    bus.write(this.zp.dflto, 3); // screen
     return { handled: true, carry: 0 };
   }
 
   /** CHRIN/BASIN — one byte from the current input channel into A. */
   chrin(bus: Bus): TrapResult {
-    if (!CbmDiskDrive.ours(bus.read(DFLTN))) return PASS;
+    if (!CbmDiskDrive.ours(bus.read(this.zp.dfltn))) return PASS;
     const ch = this.currentReadChannel();
     if (!ch) return PASS;
     return this.readByte(ch, bus);
@@ -221,7 +220,7 @@ export class CbmDiskDrive {
 
   /** CHROUT/BSOUT — A holds the byte; append it to the current output channel. */
   chrout(byte: number, bus: Bus): TrapResult {
-    if (!CbmDiskDrive.ours(bus.read(DFLTO))) return PASS;
+    if (!CbmDiskDrive.ours(bus.read(this.zp.dflto))) return PASS;
     const lf = this.currentOutput;
     const ch = lf === null ? undefined : this.channels.get(lf);
     if (!ch || ch.mode !== 'w') return PASS;
@@ -254,19 +253,19 @@ export class CbmDiskDrive {
 
   private readByte(ch: Channel, bus: Bus): TrapResult {
     if (ch.pos >= ch.in.length) {
-      bus.write(STATUS, EOF_BIT);
+      bus.write(this.zp.status, ST_EOF);
       return { handled: true, a: 0, carry: 0 };
     }
     const byte = ch.in[ch.pos++]!;
     // A real drive flags EOF together with the final byte, so the BASIC
     // INPUT#/GET# loop (which tests ST) stops after consuming it.
-    bus.write(STATUS, ch.pos >= ch.in.length ? EOF_BIT : 0);
+    bus.write(this.zp.status, ch.pos >= ch.in.length ? ST_EOF : 0);
     return { handled: true, a: byte, carry: 0 };
   }
 
   private readFilename(bus: Bus): number[] {
-    const len = bus.read(FNLEN);
-    const addr = bus.read(FNADR) | (bus.read(FNADR + 1) << 8);
+    const len = bus.read(this.zp.fnlen);
+    const addr = bus.read(this.zp.fnadr) | (bus.read(this.zp.fnadr + 1) << 8);
     const bytes: number[] = [];
     for (let i = 0; i < len; i++) bytes.push(bus.read((addr + i) & 0xffff));
     return bytes;
