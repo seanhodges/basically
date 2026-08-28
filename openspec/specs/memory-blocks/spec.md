@@ -9,14 +9,24 @@ validated before running, and included wherever the program travels.
 ### Requirement: Blocks are part of the document
 
 A document SHALL be its BASIC source plus zero or more named memory blocks
-(raw bytes at a fixed address). Blocks SHALL travel with the document through
-autosave, save/open, export, and sharing, and SHALL reset when a different
-program becomes active.
+(raw bytes at a fixed address). A block SHALL declare which of three kinds it
+is: machine **code** at a fixed address, a block of **memory** at a fixed
+address, or a **data** file a program saved to tape or disk. The first two are
+the document's blocks and are what this capability governs; a data file has no
+address, is not part of the document, and is governed where the files a running
+program saves are governed.
+
+Blocks SHALL travel with the document through autosave, save/open, export, and
+sharing, and SHALL reset when a different program becomes active.
 
 Where a machine's export format can hold more than the BASIC program, that
 export SHALL carry the document's blocks, so a program exported and loaded on
 real hardware is the whole program. Where a machine's format has no room for
 them, the IDE SHALL say so before exporting rather than dropping them silently.
+
+A document saved before blocks distinguished memory from files SHALL open
+unchanged: a block it recorded as data SHALL be read as a block of memory, at
+the address and with the bytes it was saved with.
 
 #### Scenario: Blocks survive a reload
 
@@ -36,6 +46,12 @@ them, the IDE SHALL say so before exporting rather than dropping them silently.
   the BASIC program
 - **THEN** they are told the blocks will not travel, and choose whether to
   export without them
+
+#### Scenario: A block saved under the old kind name reopens as memory
+
+- **WHEN** the user opens a document saved with a block recorded as data
+- **THEN** that block is a block of memory, at its original address, with its
+  bytes unchanged
 
 ### Requirement: Code blocks are editable as assembly
 
@@ -82,9 +98,11 @@ as data rather than mis-decoding them.
 
 ### Requirement: Runs are gated on block validity
 
-Before running, blocks SHALL be checked against the machine's legal ranges,
-against each other, and against the tokenized program's footprint; any
-error-severity conflict SHALL block the run with an explanation.
+Before running, the document's blocks — those holding code or memory at an
+address — SHALL be checked against the machine's legal ranges, against each
+other, and against the tokenized program's footprint; any error-severity
+conflict SHALL block the run with an explanation. A data file has no address to
+check and SHALL never gate a run.
 
 Where a machine lets a program move the memory its BASIC workspace occupies, the
 footprint judged against SHALL be the one the open program asks for, not the
@@ -108,16 +126,27 @@ is refused rather than silently written over.
   cannot move
 - **THEN** they are judged against the same footprint as before
 
+#### Scenario: Saved data files do not gate a run
+
+- **WHEN** the user invokes Run while data files a previous run saved are shown
+- **THEN** they are not checked for address conflicts and the run proceeds
+
 ### Requirement: Blocks load with the program
 
-When a program runs, its blocks SHALL be present in machine memory at their
-addresses before the program starts, so the BASIC can call into them
-immediately.
+When a program runs, the document's blocks — those holding code or memory at an
+address — SHALL be present in machine memory at their addresses before the
+program starts, so the BASIC can call into them immediately. A data file SHALL
+NOT be written into machine memory: it is a file a program saved, not a location.
 
 #### Scenario: BASIC calls machine code
 
 - **WHEN** a program whose first statement calls a routine in a block is run
 - **THEN** the routine executes correctly
+
+#### Scenario: A saved data file is not loaded into memory
+
+- **WHEN** a program is run while data files a previous run saved are shown
+- **THEN** no part of machine memory is set from them
 
 ### Requirement: A block may sit in conditionally free memory
 
@@ -179,8 +208,8 @@ Machines that declare no such region SHALL behave exactly as before.
 
 ### Requirement: Blocks are editable as bytes
 
-A block that is not editable as assembly — a data block, or a code block for a
-CPU the IDE has no assembler for — SHALL be editable as bytes in its own tab,
+A block that is not editable as assembly — a memory block, or a code block for
+a CPU the IDE has no assembler for — SHALL be editable as bytes in its own tab,
 showing each byte's address, its value in hexadecimal, and the character the
 machine's own character set gives it.
 
@@ -219,9 +248,9 @@ exists.
 Editing bytes SHALL be possible on a touch screen as well as with a keyboard,
 using the same on-screen keyboard the program's own editor uses.
 
-#### Scenario: A data block can be edited
+#### Scenario: A memory block can be edited
 
-- **WHEN** the user opens the tab of a block that holds data rather than code
+- **WHEN** the user opens the tab of a block that holds memory rather than code
 - **THEN** they can see its bytes with their addresses and change them
 
 #### Scenario: The two views stay in step
