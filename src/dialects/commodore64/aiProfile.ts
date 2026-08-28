@@ -21,7 +21,7 @@ export const c64AiProfile: AiProfile = composeAiProfile({
       bullets: [
         'This IDE gives the C64 a virtual disk on device 8 for saving and loading named sequential data files, so OPEN/PRINT#/INPUT#/GET#/CLOSE work as on a real 1541. (There is no LOAD/SAVE of programs to disk, and no random-access/relative files.)',
         'Write: OPEN 2,8,2,"NAME,S,W" : PRINT#2,X$ : PRINT#2,N : CLOSE 2. Read: OPEN 2,8,2,"NAME,S,R" : INPUT#2,X$ : INPUT#2,N : CLOSE 2. Use GET#2,A$ to read one character; check ST for end-of-file (ST AND 64).',
-        `ALWAYS CLOSE a file you wrote - as on real hardware, an unclosed write file is not saved. Files persist across runs and appear in the IDE's "Emulator files" panel.`,
+        `ALWAYS CLOSE a file you wrote - as on real hardware, an unclosed write file is not saved. Files persist across runs and appear as their own tabs in the IDE's editor.`,
       ],
     },
     {

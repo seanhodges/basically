@@ -22,9 +22,9 @@ Acorn Atom.
   table below, and the search box finds a keyword by it.
 - **Data files.** `FIN`/`FOUT` open a file for input/output and `BGET`/`BPUT`
   read/write a byte, while `SGET`/`SPUT` transfer whole strings; in this IDE they
-  are served from the emulator's virtual filesystem (open the Emulator files
-  viewer to inspect what a program wrote). On the emulated tape ROM there is no
-  `SHUT`, so an output file is saved as each `BPUT` runs.
+  are served from the emulator's virtual filesystem, and each file a program
+  writes appears as its own tab in the editor. On the emulated tape ROM there is
+  no `SHUT`, so an output file is saved as each `BPUT` runs.
 - **Memory and bit operators.** Real Atom BASIC reaches memory through the
   indirection operators `?` (byte), `!` (4-byte word) and `$` (string) instead
   of `PEEK`/`POKE`, and offers the remainder operator `%` and the bitwise

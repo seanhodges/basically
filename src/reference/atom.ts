@@ -250,7 +250,7 @@ const atomTable: BasicReferenceTableData = {
       domain: 'storage',
       syntax: 'BPUT <file>, <byte>',
       description:
-        "Writes the low byte of the value to an output file opened with FOUT. In the IDE these bytes are stored in the emulator's virtual filesystem, viewable via the Emulator files viewer.",
+        "Writes the low byte of the value to an output file opened with FOUT. In the IDE these bytes are stored in the emulator's virtual filesystem, and the file appears as its own tab in the editor.",
     },
     {
       name: 'PUT',
@@ -351,7 +351,7 @@ const atomTable: BasicReferenceTableData = {
       domain: 'storage',
       syntax: 'FOUT <filename>',
       description:
-        "Opens a file for output and returns a handle to pass to BPUT. In the IDE the file lives in the emulator's virtual filesystem (see the Emulator files viewer).",
+        "Opens a file for output and returns a handle to pass to BPUT. In the IDE the file lives in the emulator's virtual filesystem, and appears as its own tab in the editor.",
     },
     {
       name: 'FIN',

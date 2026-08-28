@@ -76,7 +76,6 @@ export function Toolbar() {
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
   const setShareLinkOpen = useIdeStore((s) => s.setShareLinkOpen);
-  const setVfsInspectorOpen = useIdeStore((s) => s.setVfsInspectorOpen);
   const setImportOpen = useIdeStore((s) => s.setImportOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
   const openDocs = useIdeStore((s) => s.openDocs);
@@ -221,7 +220,6 @@ export function Toolbar() {
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
   const openShareLink = guard(() => setShareLinkOpen(true));
-  const openVfsInspector = guard(() => setVfsInspectorOpen(true));
   const openMemoryMap = guard(() => setMemoryMapOpen(true));
   // Reads the document name at click time, so renaming doesn't re-render the
   // toolbar. A machine that has drawn nothing yet is reported, not thrown.
@@ -298,16 +296,6 @@ export function Toolbar() {
                 )}
               >
                 Publish to Web…{hint('file.publish')}
-              </button>
-              <div className={styles.menuSeparator} />
-              <button
-                onClick={openVfsInspector}
-                title={withKeys(
-                  'Inspect the files the program has saved',
-                  'view.vfsInspector',
-                )}
-              >
-                Emulator files{hint('view.vfsInspector')}
               </button>
             </div>
           )}
@@ -650,9 +638,6 @@ export function Toolbar() {
                   {/* The toolbar's camera is an .icon-btn, which the mobile
                       rules hide, so the action is surfaced here as well. */}
                   <button onClick={takeScreenshot}>Save a screenshot</button>
-                  <button onClick={openVfsInspector}>
-                    Emulator files{hint('view.vfsInspector')}
-                  </button>
                 </>
               )}
               {/* Memory map - the inline toolbar icon is an .icon-btn, which the

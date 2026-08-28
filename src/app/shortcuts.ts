@@ -49,7 +49,6 @@ export type ShortcutId =
   | 'view.keyboard'
   | 'view.watcher'
   | 'view.controller'
-  | 'view.vfsInspector'
   | 'view.escape';
 
 export type ShortcutCategory = 'File' | 'Edit' | 'Run' | 'View';
@@ -271,12 +270,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Game controller',
     category: 'View',
     keys: [c('KeyG', { mod: true, alt: true })],
-  },
-  {
-    id: 'view.vfsInspector',
-    label: 'Emulator files',
-    category: 'View',
-    keys: [c('KeyF', { mod: true, alt: true })],
   },
   {
     // Not `native`: the emulator-release half is handled by the pane itself,

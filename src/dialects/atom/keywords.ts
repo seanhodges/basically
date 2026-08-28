@@ -202,7 +202,7 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'BPUT',
     kind: 'command',
     signature: 'BPUT handle,expr',
-    doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem (see the Emulator files viewer).",
+    doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem, and the file appears as its own tab in the editor.",
   },
   {
     word: 'SPUT',

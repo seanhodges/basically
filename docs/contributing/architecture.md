@@ -72,8 +72,8 @@ opened. `Toolbar` / `StatusBar` carry the menus, target machine control, and the
 byte-budget ticker; `MobileTabBar` does the same job on a phone.
 
 Dialogs cover transfer/export, import, settings, publishing a share link, the
-emulator-filesystem inspector, the program outline, block settings and deletion,
-the target-switch confirmation, the first-launch welcome, and `NewProjectDialog`
+program outline, block settings and deletion, the target-switch confirmation,
+the first-launch welcome, and `NewProjectDialog`
 
 - the single place a program starts, carrying the machine picker (grouped by
   manufacturer), the project name and the starting point (blank, a bundled sample,

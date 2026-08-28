@@ -107,7 +107,6 @@ function resetStore() {
     importOpen: false,
     transferOpen: false,
     shareLinkOpen: false,
-    vfsInspectorOpen: false,
     procedureListOpen: false,
     memoryMapOpen: false,
     welcomeOpen: false,
@@ -166,7 +165,6 @@ describe('computeSnapshot / openKeys', () => {
       importOpen: true,
       transferOpen: true,
       shareLinkOpen: true,
-      vfsInspectorOpen: true,
       procedureListOpen: true,
       memoryMapOpen: true,
       welcomeOpen: true,
@@ -183,7 +181,6 @@ describe('computeSnapshot / openKeys', () => {
         'outline',
         'share',
         'transfer',
-        'vfs',
         'welcome',
       ].sort(),
     );

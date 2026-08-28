@@ -50,7 +50,6 @@ debugging, file operations, and toggling the panels.
 | Toggle the on-screen keyboard        | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> |
 | Toggle the variable watcher          | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd> |
 | Toggle the game controller           | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>G</kbd> |
-| Toggle the emulator files viewer     | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> |
 | Release the emulator / close a panel | <kbd>Esc</kbd>                             |
 
 When the emulator screen is focused it captures your keystrokes for the running

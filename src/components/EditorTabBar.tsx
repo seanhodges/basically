@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useState } from 'react';
-import { useIdeStore, useBlocks } from '../app/store';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useIdeStore, useBlocks, tabKey, type ActiveTab } from '../app/store';
 import { useDataBlocks } from '../app/dataBlocks';
 import { decodeDataText, dataBlockFileName } from '../app/dataBlockFile';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
@@ -11,6 +11,12 @@ import { useLongPress } from './useLongPress';
 import { asmEngineFor } from '../asm/registry';
 import { downloadBlob, openBinaryFile, withExtension } from '../storage/files';
 import { loadBytes } from '../app/byteEdit';
+import {
+  fitTabs,
+  rankOf,
+  MAX_DATA_TABS,
+  type StripTab,
+} from '../app/tabOverflow';
 import type { Block, DataBlock } from '../dialects/types';
 import styles from './EditorTabBar.module.css';
 
@@ -31,16 +37,31 @@ interface TabMenu {
   y: number;
 }
 
+/** A tab as the fit rule ranks it and the overflow menu lists it. */
+interface MenuTab extends StripTab {
+  name: string;
+  /** The kind glyph the tab wears, so the menu reads as the strip does. */
+  glyph?: string;
+  /** What showing it from the menu selects. */
+  tab: ActiveTab;
+}
+
 /** Keep the fixed-position menu inside the viewport's right edge. */
 const MENU_WIDTH_PX = 160;
 
 /**
- * How many saved files the strip shows. A program in a loop can write
- * arbitrarily many, and each one appearing as a peer of the BASIC tab would
- * push the program's own tabs off the strip; the rest are reached through the
- * Emulator files dialog, which the overflow tab opens.
+ * The width set aside for each of the two buttons after the tabs - the one that
+ * adds a tab, and the one that lists the tabs there was no room for.
+ *
+ * A constant rather than a measurement: measuring the overflow button would mean
+ * its width deciding whether it is drawn at all, and a border case could flip
+ * between the two on every frame. Generous enough for `.addTab`'s minimum plus
+ * its padding at the widest count either button shows.
  */
-const MAX_DATA_TABS = 4;
+const TRAILING_BUTTON_PX = 56;
+
+/** `.tabBar`'s gap, which each tab costs the strip on top of its own width. */
+const TAB_GAP_PX = 2;
 
 /**
  * The editor pane's tab strip: the BASIC source, one tab per memory block, then
@@ -52,10 +73,15 @@ const MAX_DATA_TABS = 4;
  *
  * After the blocks come the files the running program has saved - the tab
  * strip's only tabs that are not part of the document at all, arriving as the
- * program writes them and gone with the next run. A bounded number of them
- * show; where a program has written more, the rest stay reachable through the
- * Emulator files dialog, so no program can take the strip over by saving in a
- * loop.
+ * program writes them and gone with the next run.
+ *
+ * The strip does not scroll. It shows the tabs it has room for and lists the
+ * rest under a count button at its end: the BASIC tab is pinned first, and the
+ * width left over goes to the most recently used of the others (see
+ * `src/app/tabOverflow.ts`, which holds the rule and the reason for each part of
+ * it). The tabs that show keep the order below, so a tab does not move under the
+ * pointer as it is used; a tab that does not show stays rendered but offstage,
+ * because its width is what says whether it fits.
  *
  * Right-clicking or long-pressing a tab opens a context menu. The BASIC tab
  * offers "Download .bas" (the single-file export that used to be File → Save's
@@ -84,12 +110,19 @@ export function EditorTabBar() {
   const requestRemoveBlock = useIdeStore((s) => s.requestRemoveBlock);
   const openBlockSettings = useIdeStore((s) => s.openBlockSettings);
   const asmErrorBlocks = useIdeStore((s) => s.asmErrorBlocks);
-  const setVfsInspectorOpen = useIdeStore((s) => s.setVfsInspectorOpen);
+  const tabTouchedAt = useIdeStore((s) => s.tabTouchedAt);
 
   const [menu, setMenu] = useState<TabMenu | null>(null);
   // The plus button's menu (new scratch buffer / new block), anchored under the
   // button rather than at a pointer position.
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
+  // The count button's menu, listing the tabs there was no room for. Anchored
+  // the same way, and the same shape - it is the tab strip's third menu, not a
+  // surface of its own.
+  const [overflowMenu, setOverflowMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   // The scratch buffer being renamed in place, or null. The tab becomes a text
   // input for the duration; there is no dialog for a name nothing resolves by.
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -106,7 +139,71 @@ export function EditorTabBar() {
   const addMenuRef = useDismiss<HTMLDivElement>(addMenu !== null, () =>
     setAddMenu(null),
   );
+  const overflowMenuRef = useDismiss<HTMLDivElement>(
+    overflowMenu !== null,
+    () => setOverflowMenu(null),
+  );
   const longPress = useLongPress<TabTarget>(openMenu);
+
+  // What the fit is decided from: the strip's own width, and each tab's.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [barWidth, setBarWidth] = useState(0);
+  const tabEls = useRef(new Map<string, HTMLElement>());
+  const [widths, setWidths] = useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  );
+
+  /** Hold each rendered tab's element, offstage ones included - they are the
+   *  ones whose width would otherwise be unknowable. */
+  const measureRef = useCallback(
+    (key: string) => (el: HTMLElement | null) => {
+      if (el) tabEls.current.set(key, el);
+      else tabEls.current.delete(key);
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    // contentRect excludes the strip's own padding, which is what the tabs
+    // actually have to fit inside.
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setBarWidth(entry.contentRect.width);
+    });
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+
+  // After every render, and deliberately so: a tab's width changes with its own
+  // name as much as with the tabs around it, and handing back the same map when
+  // nothing moved is what stops that from chaining. A width already taken is
+  // kept rather than re-measured, because a scratch tab mid-rename is an input
+  // rather than a tab - dropping its width there would drop the buffer out of
+  // the strip while it is being renamed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    setWidths((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const key of next.keys()) {
+        if (!tabEls.current.has(key)) {
+          next.delete(key);
+          changed = true;
+        }
+      }
+      for (const [key, el] of tabEls.current) {
+        const width = el.offsetWidth + TAB_GAP_PX;
+        // A tab not yet laid out measures nothing; leaving it unmeasured reads
+        // as "shows for free", which is the right guess for the one frame.
+        if (el.offsetWidth > 0 && next.get(key) !== width) {
+          next.set(key, width);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  });
 
   // The disassembler for the active CPU, used to reconstruct a code block's
   // .asm text for download when it has no stored asmSource (mirrors what the
@@ -221,12 +318,98 @@ export function EditorTabBar() {
     const { name } = menu.target;
     menuDataFile = dataBlocks.find((f) => f.name === name) ?? null;
   }
-  const shownDataBlocks = dataBlocks.slice(0, MAX_DATA_TABS);
-  const hiddenDataCount = dataBlocks.length - shownDataBlocks.length;
+  // Every tab there is, in the order the strip draws them - carrying what the
+  // overflow menu needs to list a tab as well as what the fit needs to choose
+  // it. A data tab carries the time the program wrote it: that is what it ranks
+  // by until the user shows it, so a file just saved appears on its own.
+  const allTabs = useMemo<MenuTab[]>(
+    () => [
+      { key: 'basic', kind: 'basic', name: 'BASIC', tab: { kind: 'basic' } },
+      ...blocks.map((b) => ({
+        key: tabKey({ kind: 'block', id: b.id }),
+        kind: 'block' as const,
+        name: b.name,
+        glyph: b.kind === 'code' ? '⚙' : '▤',
+        tab: { kind: 'block' as const, id: b.id },
+      })),
+      ...scratchBuffers.map((b) => ({
+        key: tabKey({ kind: 'scratch', id: b.id }),
+        kind: 'scratch' as const,
+        name: b.name,
+        glyph: '✎',
+        tab: { kind: 'scratch' as const, id: b.id },
+      })),
+      ...dataBlocks.map((f) => ({
+        key: tabKey({ kind: 'data', name: f.name }),
+        kind: 'data' as const,
+        updatedAt: f.updatedAt,
+        name: f.name,
+        glyph: '🖫',
+        tab: { kind: 'data' as const, name: f.name },
+      })),
+    ],
+    [blocks, scratchBuffers, dataBlocks],
+  );
+
+  /**
+   * The tabs actually rendered, which is where a program saving in a loop is
+   * held in check: a tab has to be in the DOM to be measured, and the fit will
+   * never show more than `MAX_DATA_TABS` files however many there are, so
+   * rendering past the most recent that many - plus the one being shown, which
+   * has to be somewhere - buys nothing and would let the strip's DOM grow with
+   * the file store. The files past it are still named in the overflow menu,
+   * which lists rather than measures.
+   */
+  const activeKey = tabKey(activeTab);
+  const renderable = useMemo(() => {
+    const files = allTabs.filter((t) => t.kind === 'data');
+    if (files.length <= MAX_DATA_TABS) return allTabs;
+    const keep = new Set(
+      [...files]
+        .sort((a, b) => rankOf(b, tabTouchedAt) - rankOf(a, tabTouchedAt))
+        .slice(0, MAX_DATA_TABS)
+        .map((t) => t.key),
+    );
+    keep.add(activeKey);
+    return allTabs.filter((t) => t.kind !== 'data' || keep.has(t.key));
+  }, [allTabs, tabTouchedAt, activeKey]);
+
+  const { shown } = fitTabs({
+    tabs: renderable,
+    widths,
+    touchedAt: tabTouchedAt,
+    barWidth,
+    addWidth: TRAILING_BUTTON_PX,
+    overflowWidth: TRAILING_BUTTON_PX,
+  });
+  const shownKeys = new Set(shown.map((t) => t.key));
+  // Everything not on the strip, whether it lost the fit or was never rendered
+  // to compete in it.
+  const hidden = allTabs.filter((t) => !shownKeys.has(t.key));
+  const renderedKeys = new Set(renderable.map((t) => t.key));
+  const offstage = (key: string) => !shownKeys.has(key);
+  /** A tab's class list: active underline, and offstage when it did not fit. */
+  const tabClass = (key: string, active: boolean) =>
+    [active ? 'active' : '', offstage(key) ? styles.offstage : '']
+      .filter(Boolean)
+      .join(' ');
+  /**
+   * What takes an offstage tab out of the strip's reach without taking it out
+   * of the DOM: `.offstage` already stops the pointer, and these stop the
+   * keyboard and the screen reader. The overflow menu lists it instead.
+   */
+  const offstageProps = (key: string) =>
+    offstage(key) ? { 'aria-hidden': true, tabIndex: -1 } : {};
 
   return (
-    <div className={styles.tabBar} role="tablist" aria-label="Editor content">
+    <div
+      ref={barRef}
+      className={styles.tabBar}
+      role="tablist"
+      aria-label="Editor content"
+    >
       <button
+        ref={measureRef('basic')}
         role="tab"
         aria-selected={activeTab.kind === 'basic'}
         aria-label="BASIC"
@@ -246,6 +429,8 @@ export function EditorTabBar() {
       {blocks.map((block) => (
         <button
           key={block.id}
+          ref={measureRef(tabKey({ kind: 'block', id: block.id }))}
+          {...offstageProps(tabKey({ kind: 'block', id: block.id }))}
           role="tab"
           aria-selected={
             activeTab.kind === 'block' && activeTab.id === block.id
@@ -257,11 +442,10 @@ export function EditorTabBar() {
               : `${block.name} - memory block`) +
             ' (right-click or long-press for options)'
           }
-          className={
-            activeTab.kind === 'block' && activeTab.id === block.id
-              ? 'active'
-              : ''
-          }
+          className={tabClass(
+            tabKey({ kind: 'block', id: block.id }),
+            activeTab.kind === 'block' && activeTab.id === block.id,
+          )}
           onClick={() => {
             // Swallow the click that follows a completed long-press so the
             // tab doesn't also activate under the context menu.
@@ -312,17 +496,18 @@ export function EditorTabBar() {
         ) : (
           <button
             key={buffer.id}
+            ref={measureRef(tabKey({ kind: 'scratch', id: buffer.id }))}
+            {...offstageProps(tabKey({ kind: 'scratch', id: buffer.id }))}
             role="tab"
             aria-selected={
               activeTab.kind === 'scratch' && activeTab.id === buffer.id
             }
             aria-label={buffer.name}
             title={`${buffer.name} - scratch buffer, not part of the document (right-click or long-press for options)`}
-            className={
-              activeTab.kind === 'scratch' && activeTab.id === buffer.id
-                ? 'active'
-                : ''
-            }
+            className={tabClass(
+              tabKey({ kind: 'scratch', id: buffer.id }),
+              activeTab.kind === 'scratch' && activeTab.id === buffer.id,
+            )}
             onClick={() => {
               if (!longPress.consumeFired())
                 setActiveTab({ kind: 'scratch', id: buffer.id });
@@ -345,51 +530,66 @@ export function EditorTabBar() {
           </button>
         ),
       )}
-      {shownDataBlocks.map((file) => (
-        <button
-          key={file.name}
-          role="tab"
-          aria-selected={
-            activeTab.kind === 'data' && activeTab.name === file.name
-          }
-          aria-label={file.name}
-          title={`${file.name} - saved by the program, read-only (right-click or long-press for options)`}
-          className={
-            activeTab.kind === 'data' && activeTab.name === file.name
-              ? 'active'
-              : ''
-          }
-          onClick={() => {
-            if (!longPress.consumeFired())
-              setActiveTab({ kind: 'data', name: file.name });
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            openMenu(
-              { kind: 'data', name: file.name },
-              { x: e.clientX, y: e.clientY },
-            );
-          }}
-          {...longPress.bind({ kind: 'data', name: file.name })}
-        >
-          {/* Its own glyph: not the document's (⚙ code, ▤ memory), and not the
+      {dataBlocks
+        .filter((f) => renderedKeys.has(tabKey({ kind: 'data', name: f.name })))
+        .map((file) => (
+          <button
+            key={file.name}
+            ref={measureRef(tabKey({ kind: 'data', name: file.name }))}
+            {...offstageProps(tabKey({ kind: 'data', name: file.name }))}
+            role="tab"
+            aria-selected={
+              activeTab.kind === 'data' && activeTab.name === file.name
+            }
+            aria-label={file.name}
+            title={`${file.name} - saved by the program, read-only (right-click or long-press for options)`}
+            className={tabClass(
+              tabKey({ kind: 'data', name: file.name }),
+              activeTab.kind === 'data' && activeTab.name === file.name,
+            )}
+            onClick={() => {
+              if (!longPress.consumeFired())
+                setActiveTab({ kind: 'data', name: file.name });
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              openMenu(
+                { kind: 'data', name: file.name },
+                { x: e.clientX, y: e.clientY },
+              );
+            }}
+            {...longPress.bind({ kind: 'data', name: file.name })}
+          >
+            {/* Its own glyph: not the document's (⚙ code, ▤ memory), and not the
               scratch buffer's ✎ - this is what the machine wrote. */}
-          <span className={styles.kindGlyph} aria-hidden="true">
-            🖫
-          </span>
-          <span className={styles.tabName}>{file.name}</span>
-        </button>
-      ))}
-      {hiddenDataCount > 0 && (
+            <span className={styles.kindGlyph} aria-hidden="true">
+              🖫
+            </span>
+            <span className={styles.tabName}>{file.name}</span>
+          </button>
+        ))}
+      {hidden.length > 0 && (
         <button
           className={styles.addTab}
-          aria-label={`${hiddenDataCount} more saved files`}
-          title={`${hiddenDataCount} more saved ${
-            hiddenDataCount === 1 ? 'file' : 'files'
-          } - open Emulator files`}
-          onClick={() => setVfsInspectorOpen(true)}
+          aria-haspopup="menu"
+          aria-expanded={overflowMenu !== null}
+          aria-label={`Show one of ${hidden.length} more tabs`}
+          title={`Show one of ${hidden.length} more ${
+            hidden.length === 1 ? 'tab' : 'tabs'
+          } - there is no room for ${hidden.length === 1 ? 'it' : 'them'} here`}
+          onClick={(e) => {
+            if (overflowMenu !== null) {
+              setOverflowMenu(null);
+              return;
+            }
+            const rect = e.currentTarget.getBoundingClientRect();
+            setOverflowMenu({
+              x: Math.min(rect.left, window.innerWidth - MENU_WIDTH_PX),
+              y: rect.bottom,
+            });
+          }}
         >
-          +{hiddenDataCount}
+          +{hidden.length}
         </button>
       )}
       <button
@@ -440,6 +640,36 @@ export function EditorTabBar() {
               New machine code block
             </button>
           )}
+        </div>
+      )}
+      {overflowMenu && (
+        <div
+          ref={overflowMenuRef}
+          className={styles.contextMenu}
+          role="menu"
+          aria-label="Tabs there is no room for"
+          style={{ left: overflowMenu.x, top: overflowMenu.y }}
+        >
+          {hidden.map((t) => (
+            <button
+              key={t.key}
+              role="menuitem"
+              onClick={() => {
+                setOverflowMenu(null);
+                // Showing it stamps it, and the stamp is what brings it into
+                // the strip on the next render - there is no second rule making
+                // room for the tab the user just chose.
+                setActiveTab(t.tab);
+              }}
+            >
+              {t.glyph && (
+                <span className={styles.kindGlyph} aria-hidden="true">
+                  {t.glyph}
+                </span>
+              )}
+              <span className={styles.tabName}>{t.name}</span>
+            </button>
+          ))}
         </div>
       )}
       {menu && (

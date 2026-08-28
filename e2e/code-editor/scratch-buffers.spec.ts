@@ -119,3 +119,61 @@ test('a snippet is written, run and kept beside the program', async ({
   await expect(page.locator(EDITOR)).toContainText('70 PRINT "SNIPPET"');
   await expect(breakpointDot(page)).toHaveCount(0);
 });
+
+/**
+ * The strip fits itself to its width: what does not fit is listed by the count
+ * button at its end, and the BASIC tab is never what leaves.
+ *
+ * Browser-only and cheap - no machine boots. The rule itself (which tabs win the
+ * room, in what order, and the bound on saved files) is pinned headlessly in
+ * `src/app/tabOverflow.test.ts`; what only a real browser can show is that the
+ * widths driving it are the widths the strip actually lays out, and that a
+ * viewport change re-runs the fit.
+ */
+test('tabs the strip has no room for are reachable from its count button', async ({
+  page,
+}) => {
+  await openApp(page);
+  await setEditorSource(page, PROGRAM);
+
+  // Enough buffers that no plausible viewport fits them all.
+  for (let i = 0; i < 6; i += 1) {
+    await page.getByRole('button', { name: 'Add a tab' }).click();
+    await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  }
+  const basic = page.getByRole('tab', { name: 'BASIC' });
+  await expect(basic).toBeVisible();
+
+  // Narrow enough that the strip has to give something up. The count button
+  // names how many, which is how the assertion knows the fit ran at all.
+  await page.setViewportSize({ width: 500, height: 800 });
+  const overflow = page.getByRole('button', {
+    name: /Show one of \d+ more tabs/,
+  });
+  await expect(overflow).toBeVisible();
+
+  // Pinned: the way back to the program is never what the strip drops.
+  await expect(basic).toBeVisible();
+
+  // A tab in the overflow is not in the strip - offstage, unreachable, and not
+  // announced - but the menu lists it and choosing it brings it in.
+  await overflow.click();
+  const menu = page.getByRole('menu', { name: 'Tabs there is no room for' });
+  const firstHidden = menu.getByRole('menuitem').first();
+  // The name span, not the whole item - the item leads with the kind glyph, and
+  // the tab it names is found by the name alone.
+  const hiddenName =
+    (await firstHidden.locator('[class*="tabName"]').textContent())?.trim() ??
+    '';
+  expect(hiddenName).not.toBe('');
+  await expect(page.getByRole('tab', { name: hiddenName })).toHaveCount(0);
+
+  await firstHidden.click();
+  await expect(page.getByRole('tab', { name: hiddenName })).toBeVisible();
+  await expect(basic).toBeVisible();
+
+  // Widening gives the room back, and the button goes with the overflow.
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await expect(overflow).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Scratch 1' })).toBeVisible();
+});

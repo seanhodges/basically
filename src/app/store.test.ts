@@ -34,6 +34,7 @@ const {
   selectVisibleProfile,
   selectVisibleTiming,
   BASIC_TAB,
+  tabKey,
 } = await import('./store');
 const { bufferHistories, basicBufferKey, blockBufferKey, freshBufferState } =
   await import('../editor/bufferHistory');
@@ -1097,6 +1098,92 @@ describe('active block tab state', () => {
       kind: 'block',
       id: BLOCK_B.id,
     });
+  });
+});
+
+describe('tab recency', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [BLOCK_A, BLOCK_B],
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+      tabTouchedAt: {},
+    });
+  });
+
+  it("tabKey tells the strip's four kinds of tab apart", () => {
+    // A block, a buffer and a file can share a name, so the kind is part of the
+    // key rather than the name alone answering for the tab.
+    expect(tabKey(BASIC_TAB)).toBe('basic');
+    expect(tabKey({ kind: 'block', id: 'x' })).toBe('block:x');
+    expect(tabKey({ kind: 'scratch', id: 'x' })).toBe('scratch:x');
+    expect(tabKey({ kind: 'data', name: 'x' })).toBe('data:x');
+    expect(
+      new Set([
+        tabKey({ kind: 'block', id: 'x' }),
+        tabKey({ kind: 'scratch', id: 'x' }),
+        tabKey({ kind: 'data', name: 'x' }),
+      ]).size,
+    ).toBe(3);
+  });
+
+  it('showing a tab stamps it', () => {
+    const before = Date.now();
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    const stamp = useIdeStore.getState().tabTouchedAt[`block:${BLOCK_A.id}`];
+    expect(stamp).toBeGreaterThanOrEqual(before);
+    expect(stamp).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('creating a scratch buffer or a block stamps the tab it opens', () => {
+    useIdeStore.getState().addScratchBuffer();
+    const buffer = useIdeStore.getState().scratchBuffers[0]!;
+    expect(
+      useIdeStore.getState().tabTouchedAt[`scratch:${buffer.id}`],
+    ).toBeGreaterThan(0);
+
+    useIdeStore.getState().addBlock();
+    const created = useIdeStore.getState().activeTab;
+    expect(created.kind).toBe('block');
+    expect(
+      useIdeStore.getState().tabTouchedAt[tabKey(created)],
+    ).toBeGreaterThan(0);
+  });
+
+  it('destroying a tab drops its stamp', () => {
+    useIdeStore.getState().addScratchBuffer();
+    const buffer = useIdeStore.getState().scratchBuffers[0]!;
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    useIdeStore.getState().closeScratchBuffer(buffer.id);
+    expect(useIdeStore.getState().tabTouchedAt).not.toHaveProperty(
+      `scratch:${buffer.id}`,
+    );
+
+    useIdeStore.getState().removeBlock(BLOCK_A.id);
+    expect(useIdeStore.getState().tabTouchedAt).not.toHaveProperty(
+      `block:${BLOCK_A.id}`,
+    );
+  });
+
+  it('a different document clears every stamp', () => {
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    expect(Object.keys(useIdeStore.getState().tabTouchedAt)).not.toHaveLength(
+      0,
+    );
+    useIdeStore.getState().replaceDocument('10 REM other', 'other.bas');
+    expect(useIdeStore.getState().tabTouchedAt).toEqual({});
+  });
+
+  it('an in-place apply keeps the stamps, as it keeps the tab', () => {
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_B.id });
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    expect(useIdeStore.getState().tabTouchedAt).toHaveProperty(
+      `block:${BLOCK_B.id}`,
+    );
   });
 });
 

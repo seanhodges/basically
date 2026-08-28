@@ -8,7 +8,6 @@ import { Workspace } from './components/Workspace';
 import { AiSettingsDialog } from './components/AiSettingsDialog';
 import { TransferDialog } from './components/TransferDialog';
 import { ShareLinkDialog } from './components/ShareLinkDialog';
-import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { TargetMachineDialog } from './components/TargetMachineDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
@@ -104,7 +103,6 @@ export default function App() {
       <AiSettingsDialog />
       <TransferDialog />
       <ShareLinkDialog />
-      <VfsInspectorDialog />
       <ImportDialog />
       <TargetMachineDialog />
       <SwitchTargetDialog />
