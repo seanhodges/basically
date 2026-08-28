@@ -12,7 +12,10 @@ import type {
   JoystickState,
   LineCost,
   MachineEmulator,
+  MachineMemoryStats,
+  MachineReport,
   MachineScreenText,
+  MachineVariable,
 } from '../../dialects/types';
 import {
   atasciiGlyph,
@@ -23,6 +26,8 @@ import {
   ATARI_800_RAM_TOP,
   BASIC_POINTERS,
 } from '../../dialects/atari800/addresses';
+import { readAtariVariables } from './vars';
+import { readAtariReport } from './reports';
 import { HEADER_BYTES, IMMEDIATE_LINE } from '../../dialects/atari800/basfile';
 import { createMachineLoop } from '../machineLoop';
 import { ProgramEndLatch } from '../programEndLatch';
@@ -137,6 +142,13 @@ const { LOMEM, STMCUR } = BASIC_POINTERS;
 const RUNSTK = 0x8e;
 const BASIC_MEMTOP = 0x90;
 
+/**
+ * The OS's own top of free memory: the last byte below the display list, which
+ * the OS lowers every time a program asks for a bigger screen. BASIC measures
+ * what is left against it, and so does `FRE(0)`.
+ */
+const OS_MEMTOP = 0x02e5;
+
 /** The text shapes of the three modes that hold characters. */
 const TEXT_LAYOUTS: Record<number, { cols: number; rows: number }> = {
   0: { cols: 40, rows: 24 },
@@ -193,7 +205,10 @@ export class AtariMachine implements MachineEmulator {
    * arms it for the life of a run, and the CPU step charges the cycle it runs
    * to the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
 
   /** Whether an image was supplied at all, and whether a cartridge is in it. */
   private readonly hasOs: boolean;
@@ -678,8 +693,94 @@ export class AtariMachine implements MachineEmulator {
         layout.rows,
       );
     }
-    if (mem[BOTSCR] !== TEXT_WINDOW_ROWS) return null;
-    return this.readText(this.memory.peekWord(TXTMSC), 40, TEXT_WINDOW_ROWS);
+    return this.textWindow();
+  }
+
+  /**
+   * The four rows at the foot of the screen that a graphics mode leaves for
+   * text, or null when the mode was opened with no window.
+   */
+  private textWindow(): MachineScreenText | null {
+    if (this.memory.mem[BOTSCR] !== TEXT_WINDOW_ROWS) return null;
+    return this.readText(
+      this.memory.peekWord(TXTMSC),
+      TEXT_LAYOUTS[0]!.cols,
+      TEXT_WINDOW_ROWS,
+    );
+  }
+
+  /**
+   * The window BASIC prints into: the whole screen in GRAPHICS 0, and the four
+   * rows at the foot in every other mode that leaves a text window.
+   *
+   * Not the same thing as {@link readScreenText}, which answers with whatever
+   * the machine is showing: GRAPHICS 1 and 2 have a screen full of characters
+   * of their own, and a report still goes to the window under it. A mode opened
+   * with no window has nowhere to print at all, and answers with nothing.
+   */
+  private editorText(): MachineScreenText | null {
+    const layout = TEXT_LAYOUTS[0]!;
+    if ((this.memory.mem[DINDEX]! & 0x0f) === 0) {
+      return this.readText(
+        this.memory.peekWord(SAVMSC),
+        layout.cols,
+        layout.rows,
+      );
+    }
+    return this.textWindow();
+  }
+
+  /**
+   * The machine's RAM as the introspection readers index it.
+   *
+   * The raw array rather than the CPU's bus, so the watcher and the memory
+   * panel polling every frame never show up as the program's own accesses in
+   * the memory-map overlay.
+   */
+  private memPort(): { read(a: number): number; readWord(a: number): number } {
+    const mem = this.memory.mem;
+    return {
+      read: (address) => mem[address & 0xffff]!,
+      readWord: (address) => this.memory.peekWord(address),
+    };
+  }
+
+  /**
+   * The running program's variables, decoded from BASIC's own name and value
+   * tables (see `./vars`).
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.hasOs || this.injecting || this.disposed) return [];
+    return readAtariVariables(this.memPort());
+  }
+
+  /** How the last run ended, from BASIC's cells and what it printed (`./reports`). */
+  readReport(): MachineReport | null {
+    if (!this.hasOs || this.injecting || this.disposed) return null;
+    return readAtariReport(this.memPort(), this.editorText());
+  }
+
+  /**
+   * BASIC's own account of the RAM it holds and the RAM it has left.
+   *
+   * Every pool a program spends is inside one span: BASIC's memory runs from
+   * `LOMEM` - its line buffer, then the variable name and value tables, the
+   * tokenized statements, the string and array space and the runtime stack - up
+   * to its own `MEMTOP`, and what is free is whatever lies between there and
+   * the OS's `MEMTOP` under the display list. The second figure is `FRE(0)`
+   * exactly: that is the subtraction the function itself performs.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.hasOs || this.injecting || this.disposed) return null;
+    const lomem = this.memory.peekWord(LOMEM);
+    const basicTop = this.memory.peekWord(BASIC_MEMTOP);
+    const osTop = this.memory.peekWord(OS_MEMTOP);
+    const used = basicTop - lomem;
+    const free = osTop - basicTop;
+    // Mid-boot the pointers are still zero, and mid-injection they disagree;
+    // either way there is no figure worth showing.
+    if (lomem === 0 || used < 0 || free < 0) return null;
+    return { used, free };
   }
 
   private readText(

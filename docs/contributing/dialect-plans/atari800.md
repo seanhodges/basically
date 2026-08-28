@@ -87,7 +87,7 @@ machine has more undocumented corners than most:
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
-| 5     | Memory map & runtime introspection | ⬜     |
+| 5     | Memory map & runtime introspection | ✅     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
 
@@ -304,27 +304,46 @@ No target carries the document's memory blocks: page 6 is outside what `SAVE`
 and `CSAVE` write, so the Transfer dialog's "blocks won't be included" warning
 is the whole story rather than a gap for Stage 5 to close.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection ✅
 
 Both dialects own their own map and blocks — this is most of what makes
 `atari400` a separate machine rather than a label.
 
-- [ ] `memoryMap.ts` per dialect — regions tiling the whole 64K, differing in
-      where RAM ends (`$BFFF` on the 800, `$3FFF` on the 400)
+- [x] `memoryMap.ts` per dialect — one builder taking where RAM ends, so the
+      pair is the same description twice and the 400 carries one extra region
+      for the empty sockets above its 16K
 - [x] `memoryBlocks.ts` per dialect + machine-side block injection in
       `loadProgram` — both landed early (the injection in Stage 2, the linter
-      figures in Stage 3); revisit only if the memory map turns up a range
-      they get wrong
-- [ ] `vars.ts` / `reports.ts` — decode the VNT/VVT and the error code →
+      figures in Stage 3); the ranges survived the map and only the comment
+      naming them needed correcting
+- [x] `vars.ts` / `reports.ts` — decode the VNT/VVT and the error code →
       `readVariables()` / `readReport()`
-- [ ] `readMemoryStats()` spanning **every** pool a program spends (program text,
-      variables, string/array space — not just the program area) + the
-      memory-activity hooks
-- [ ] `addressNotation: 'dec'` and `memoryWrites`/`memoryReads` (`POKE`/`PEEK`)
-- [ ] tests: memory-map layout for both machines, block round-trip
+- [x] `readMemoryStats()` spanning **every** pool a program spends, and the
+      per-line memory attribution the profiler wants from it; the
+      memory-activity hooks were already in place from Stage 2
+- [x] `addressNotation: 'dec'` and `memoryWrites`/`memoryReads` (`POKE`/`PEEK`)
+- [x] tests: memory-map layout for both machines against the OS's own pointers,
+      variables, memory figures and reports read off real runs
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; variable watcher shows live vars.
+
+Three facts the machine settled that no chart would have:
+
+- The screen is not at an address. The OS lays the display list and the screen
+  out downwards from the top of fitted RAM every time `GRAPHICS` is called, so
+  the map's screen regions are the GRAPHICS 0 pair BASIC sits in at its prompt
+  and the program area's ceiling is where the _smallest_ screen leaves off.
+  `memoryMap.test.ts` boots both machines and checks all of it against
+  `RAMTOP`, `MEMTOP`, `SDLSTL` and `SAVMSC`.
+- `ERRSAV` alone cannot say a program failed. A `TRAP`ped error leaves the code
+  and the line exactly as an untrapped one does — that is what TRAP is for, and
+  a program is expected to `PEEK` them afterwards — so the only thing separating
+  the two is that an untrapped error _prints_. The report reads the cells first
+  and scans the editor screen only when they are non-zero, which is also what
+  keeps the common case off the screen entirely.
+- The cartridge answers a `READ` past the end of `DATA` with error 8, where the
+  Atari BASIC manual documents 6. Pinned in the tests rather than argued with.
 
 ## Stage 6 — Reference docs ⬜
 

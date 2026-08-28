@@ -29,10 +29,11 @@ import {
 const FREE_PAGE = 0x0600;
 
 /**
- * The cassette and printer buffers, `$0400`-`$05FF`. A block may live here -
- * a program that touches neither device never disturbs it - but the OS will
- * overwrite it the moment one is used, so it is flagged rather than accepted
- * quietly.
+ * The OS's buffers, `$0400`-`$05FF`: the cassette record, the spare bytes a
+ * disk operating system would take, and the line buffer the screen editor
+ * assembles every `PRINT` in. A block may live here - a program that leaves the
+ * devices alone never disturbs it - but the OS writes over it the moment one is
+ * used, so it is flagged rather than accepted quietly.
  */
 const DEVICE_BUFFERS: MemoryRange = { start: 0x0400, end: 0x05ff };
 
