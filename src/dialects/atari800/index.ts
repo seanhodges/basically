@@ -17,6 +17,7 @@ import { atariBuildTargets, atariCassetteAudio } from './targets';
 import { atariKeyboardLayout } from './keyboardLayout';
 import { atariSamples } from './samples';
 import { atari800MemoryBlocks } from './memoryBlocks';
+import { atari800MemoryMap } from './memoryMap';
 import {
   ATARI_800_RAM_TOP,
   ATARI_ROM_BYTES,
@@ -89,6 +90,11 @@ export const atari800: Dialect = {
   // Atari BASIC has no hex literals, so POKE and PEEK addresses are decimal.
   addressNotation: 'dec',
 
+  // POKE and nothing else: this BASIC has no indirection operator, and no form
+  // of LOAD that takes an address - a machine-code routine arrives as a block
+  // of DATA the program POKEs into place itself.
+  memoryWrites: { forms: ['poke'] },
+
   // USR's first argument is the address it calls, unlike the Microsoft USR that
   // passes its argument to a routine reached through a vector.
   memoryReads: { forms: ['peek'], calls: ['USR'] },
@@ -107,6 +113,7 @@ export const atari800: Dialect = {
     return new AtariMachine({ model: '800', rom: opts.rom });
   },
 
+  memoryMap: atari800MemoryMap,
   memoryBlocks: atari800MemoryBlocks,
 
   keyboardLayout: atariKeyboardLayout,

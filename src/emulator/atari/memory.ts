@@ -25,11 +25,12 @@ import {
  *
  * ### Where the memory ends
  *
- * `ramTop` is the whole hardware difference between the two machines: `$C000`
- * on a 48K 800, `$4000` on a 16K 400. Above it and below the cartridge there is
- * no RAM fitted and nothing driving the data lines, so those addresses read as
- * `$FF` and swallow writes - which is exactly what the OS's power-on memory
- * sizing walks the address space looking for.
+ * `ramTop` is the whole hardware difference between the two machines: `$A000`
+ * on a 48K 800, where the cartridge takes the bus off the RAM behind it, and
+ * `$4000` on a 16K 400. Above it and below the cartridge there is no RAM fitted
+ * and nothing driving the data lines, so those addresses read as `$FF` and
+ * swallow writes - which is exactly what the OS's power-on memory sizing walks
+ * the address space looking for.
  */
 
 /** Every unfitted address reads as a floating bus. */

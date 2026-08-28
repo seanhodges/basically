@@ -28,6 +28,7 @@ import { atariBuildTargets, atariCassetteAudio } from '../atari800/targets';
 import { atariKeyboardLayout } from '../atari800/keyboardLayout';
 import { atariSamples } from '../atari800/samples';
 import { atari400MemoryBlocks } from '../atari800/memoryBlocks';
+import { atari400MemoryMap } from '../atari800/memoryMap';
 import { atari400AiProfile } from './aiProfile';
 import {
   ATARI_400_RAM_TOP,
@@ -93,6 +94,7 @@ export const atari400: Dialect = {
 
   statementSeparator: ':',
   addressNotation: 'dec',
+  memoryWrites: { forms: ['poke'] },
   memoryReads: { forms: ['peek'], calls: ['USR'] },
 
   romUrl: `${import.meta.env.BASE_URL}roms/atari.rom`,
@@ -109,6 +111,7 @@ export const atari400: Dialect = {
     return new AtariMachine({ model: '400', rom: opts.rom });
   },
 
+  memoryMap: atari400MemoryMap,
   memoryBlocks: atari400MemoryBlocks,
 
   keyboardLayout: atariKeyboardLayout,
