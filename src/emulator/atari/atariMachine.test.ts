@@ -89,6 +89,22 @@ describe('the Atari machine on its own ROM', () => {
     m.dispose();
   });
 
+  it('gets past the boot request for a disk without waiting it out', () => {
+    // The cartridge header says a disk may boot ahead of it, so every power-on
+    // asks D1: for its status. The drive on the bus answers "no disk" at the
+    // first attempt (see ./sio); an unanswered bus would have to be discovered
+    // by timing out twenty-eight times, which is most of a second the user pays
+    // on the front of every run.
+    const m = machine();
+    let frames = 0;
+    while (frames < 400 && !/READY/i.test(screen(m))) {
+      m.runFrame();
+      frames++;
+    }
+    expect(frames).toBeLessThan(30);
+    m.dispose();
+  });
+
   it('runs an injected program and prints what it should', () => {
     const m = run(
       '10 PRINT "HELLO ATARI"\n' +

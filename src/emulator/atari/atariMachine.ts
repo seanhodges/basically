@@ -46,6 +46,7 @@ import {
 } from './keyboard';
 import { AtariMemory } from './memory';
 import { Pia } from './pia';
+import { AtariSerialBus } from './sio';
 import { KB_CTRL, KB_SHIFT, Pokey } from './pokey';
 import { POKEY_SAMPLES_PER_FRAME, PokeyAudioRenderer } from './pokeyAudio';
 
@@ -89,7 +90,11 @@ const CYCLES_PER_LINE = 114;
 /** PAL frame: 312 lines of 114 cycles. */
 const CYCLES_PER_FRAME = CYCLES_PER_LINE * SCANLINES_PER_FRAME;
 
-/** Frames the boot may take before it is declared a mis-boot. */
+/**
+ * Frames the boot may take before it is declared a mis-boot. Far more than the
+ * twenty or so it needs, because the cap is only there to stop a wrong image
+ * spinning: a real one is never near it.
+ */
 const MAX_BOOT_FRAMES = 400;
 
 /** Frames a typed line may take to be consumed. */
@@ -165,7 +170,12 @@ export class AtariMachine implements MachineEmulator {
 
   private readonly memory: AtariMemory;
   private readonly gtia = new Gtia();
-  private readonly pia = new Pia();
+  /**
+   * The serial bus, and the drive with no disk in it that answers the OS's
+   * boot request rather than leaving it to time out - see `./sio`.
+   */
+  private readonly bus = new AtariSerialBus();
+  private readonly pia = new Pia((asserted) => this.bus.setCommand(asserted));
   private readonly pokey: Pokey;
   private readonly antic: Antic;
   private readonly audio = new PokeyAudioRenderer();
@@ -222,7 +232,10 @@ export class AtariMachine implements MachineEmulator {
     // would point into the padding. Every path that would step the CPU checks
     // this rather than booting into nothing.
     this.hasOs = opts.rom.length > 0;
-    this.pokey = new Pokey((asserted) => this.cpu?.setInterrupt(asserted));
+    this.pokey = new Pokey(
+      (asserted) => this.cpu?.setInterrupt(asserted),
+      this.bus,
+    );
     this.antic = new Antic(this.memory.mem, this.gtia, () => this.cpu?.nmi());
     this.cpu = new StateMachineCpu(this.busInterface());
     this.hardReset();
@@ -361,6 +374,7 @@ export class AtariMachine implements MachineEmulator {
   private hardReset(): void {
     this.gtia.reset();
     this.pia.reset();
+    this.bus.reset();
     this.pokey.reset();
     this.antic.reset();
     this.audio.reset();
@@ -552,10 +566,10 @@ export class AtariMachine implements MachineEmulator {
    * Run until BASIC is at its prompt, or give up.
    *
    * Stepped directly rather than through the loop, because the loop is holding
-   * still for the injection this boot is part of. It takes a second or so of
-   * emulated time, nearly all of it the OS asking an empty serial bus for a
-   * disk to boot and waiting out the timeouts - which is exactly how long a
-   * real 800 with no drive attached takes to reach BASIC.
+   * still for the injection this boot is part of. It costs a third of a second
+   * of emulated time: the OS sizes the RAM, asks the serial bus whether a disk
+   * wants to boot ahead of the cartridge, is told there is no disk (see
+   * `./sio`), and starts BASIC.
    */
   private bootToReady(): boolean {
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {

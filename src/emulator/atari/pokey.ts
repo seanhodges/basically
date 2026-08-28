@@ -2,14 +2,15 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * The POKEY: the keyboard, the four timers, the noise source and the sound.
+ * The POKEY: the keyboard, the four timers, the noise source, the sound and the
+ * serial port.
  *
  * Everything POKEY does it does with counters. The keyboard is a counter
  * scanning a matrix, which stops on a pressed key and leaves its position in
  * KBCODE; the timers are counters dividing one of three clocks; RANDOM is a
- * 17-bit shift register free-running at the CPU clock. The one thing it does
- * not do here is the serial bus - this machine has no disk drive or cassette
- * fitted, so nothing ever answers, and the OS's SIO finds an empty bus.
+ * 17-bit shift register free-running at the CPU clock. The serial port is two
+ * shift registers, and what is on the other end of them is a {@link
+ * SerialDevice} the machine supplies - see `./sio`.
  *
  * Sound is synthesized separately, in `./pokeyAudio`, from the registers this
  * chip holds; the split is the one the VIC-20 and C64 machines already use.
@@ -20,6 +21,8 @@
  * when written and RANDOM when read, $D20E is IRQEN out and IRQST in. The two
  * paths below therefore share nothing.
  */
+
+import { SIO_BYTE_CYCLES, type SerialDevice } from './sio';
 
 /** Write-side register offsets. */
 const AUDF1 = 0x00;
@@ -34,6 +37,7 @@ const SKCTL = 0x0f;
 const ALLPOT = 0x08;
 const KBCODE = 0x09;
 const RANDOM = 0x0a;
+const SERIN = 0x0d;
 const IRQST = 0x0e;
 const SKSTAT = 0x0f;
 
@@ -43,6 +47,7 @@ const IRQ_TIMER2 = 0x02;
 const IRQ_TIMER4 = 0x04;
 const IRQ_SEROC = 0x08;
 const IRQ_SEROR = 0x10;
+const IRQ_SERIN = 0x20;
 const IRQ_KEY = 0x40;
 const IRQ_BREAK = 0x80;
 
@@ -79,18 +84,13 @@ const DIVIDER_15K = 114;
 const FAST_CLOCK_BIAS = 4;
 
 /**
- * CPU cycles one byte takes to leave the serial port: ten bit times at the
- * 19200 baud the OS drives the peripheral bus at.
+ * CPU cycles one byte takes to leave the serial port.
  *
- * The transmitter is modelled and the receiver is not, because that is the
- * machine this dialect emulates - a console with nothing on its serial bus.
- * The OS still sends its boot request, and still has to be told the bytes went
- * out, or SIO waits for a transmission that never completes and the machine
- * never reaches BASIC at all. What it gets back is silence, which is what an
- * empty bus sounds like: SIO times out, retries, gives up, and starts the
- * cartridge.
+ * The chip's own baud rate comes from its timers, which the OS programs; the
+ * rate it programs them to for the peripheral bus is the only one anything on
+ * that bus ever runs at, so the bus's own figure serves for both ends.
  */
-const SERIAL_BYTE_CYCLES = Math.round((10 * 1_773_447) / 19200);
+const SERIAL_BYTE_CYCLES = SIO_BYTE_CYCLES;
 
 export class Pokey {
   private readonly audf = new Uint8Array(4);
@@ -112,6 +112,8 @@ export class Pokey {
 
   /** Cycles left before the byte in the serial output register has gone. */
   private serialDue = 0;
+  /** The byte the bus last handed back, waiting in the input register. */
+  private serin = 0;
 
   /** The key held at the emulated keyboard, or -1 for none. */
   private heldKey = -1;
@@ -123,6 +125,8 @@ export class Pokey {
   constructor(
     /** Pulse the CPU's IRQ line. Level-sensitive, so it is re-asserted. */
     private readonly setIrq: (asserted: boolean) => void,
+    /** What is on the other end of the serial port, if anything is. */
+    private readonly device?: SerialDevice,
   ) {}
 
   reset(): void {
@@ -139,6 +143,7 @@ export class Pokey {
     this.poly = 0x1ffff;
     this.timerDue.fill(0);
     this.serialDue = 0;
+    this.serin = 0;
     this.heldKey = -1;
     this.heldShift = false;
     this.heldBreak = false;
@@ -156,6 +161,8 @@ export class Pokey {
     switch (reg) {
       case KBCODE:
         return this.kbcode;
+      case SERIN:
+        return this.serin;
       case RANDOM:
         return this.random();
       case IRQST:
@@ -196,6 +203,7 @@ export class Pokey {
         this.serialDue = SERIAL_BYTE_CYCLES;
         this.irqst |= IRQ_SEROR | IRQ_SEROC;
         this.updateIrq();
+        this.device?.send(byte);
         return;
       case IRQEN:
         this.irqen = byte;
@@ -273,6 +281,16 @@ export class Pokey {
       const idle = this.irqen & (IRQ_SEROR | IRQ_SEROC);
       if (idle !== 0) {
         this.irqst &= ~idle;
+        this.updateIrq();
+      }
+    }
+    const arrived = this.device?.poll(cycles) ?? null;
+    if (arrived !== null) {
+      this.serin = arrived & 0xff;
+      // Unlike the two output interrupts this one is an edge: a byte arriving
+      // is an event, and the one already in the register is not a second.
+      if (this.irqen & IRQ_SERIN) {
+        this.irqst &= ~IRQ_SERIN;
         this.updateIrq();
       }
     }

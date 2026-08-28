@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KB_CTRL, KB_SHIFT, Pokey } from './pokey';
+import type { SerialDevice } from './sio';
 
 /** Write-side register offsets. */
 const AUDF1 = 0x00;
@@ -11,6 +12,7 @@ const SKCTL = 0x0f;
 
 /** Read-side register offsets. */
 const KBCODE = 0x09;
+const SERIN = 0x0d;
 const RANDOM = 0x0a;
 const IRQST = 0x0e;
 const SKSTAT = 0x0f;
@@ -171,12 +173,48 @@ describe('POKEY', () => {
       expect(irq).toBe(true);
     });
 
-    it('never reports anything arriving', () => {
-      // Nothing is plugged into the serial bus, so the input interrupt cannot
-      // fire however long the OS waits for it.
+    it('never reports anything arriving with nothing on the bus', () => {
+      // A POKEY built with no device has nothing that can answer, so the input
+      // interrupt cannot fire however long the OS waits for it.
       pokey.write(IRQEN, 0x20);
       for (let i = 0; i < 200; i++) pokey.tick(LINE);
       expect(pokey.read(IRQST) & 0x20).toBe(0x20);
+    });
+
+    it('hands a device what the machine sent, and the machine what it said', () => {
+      const sent: number[] = [];
+      const commands: boolean[] = [];
+      let waiting: number[] = [];
+      const device: SerialDevice = {
+        send: (byte) => sent.push(byte),
+        setCommand: (asserted) => commands.push(asserted),
+        poll: () => waiting.shift() ?? null,
+      };
+      const wired = new Pokey((asserted) => {
+        irq = asserted;
+      }, device);
+      wired.write(SKCTL, 0x03);
+
+      wired.write(SEROUT, 0x31);
+      expect(sent).toEqual([0x31]);
+
+      wired.write(IRQEN, 0x20);
+      waiting = [0x41];
+      wired.tick(LINE);
+      expect(wired.read(SERIN)).toBe(0x41);
+      expect(irq).toBe(true);
+      expect(wired.read(IRQST) & 0x20).toBe(0);
+
+      // The byte already in the register is not a second arrival: acknowledging
+      // and re-enabling leaves the interrupt clear until another one lands.
+      wired.write(IRQEN, 0x00);
+      wired.write(IRQEN, 0x20);
+      expect(irq).toBe(false);
+      wired.tick(LINE);
+      expect(irq).toBe(false);
+      expect(wired.read(SERIN)).toBe(0x41);
+      // The command line is the PIA's, and is only passed through.
+      expect(commands).toEqual([]);
     });
   });
 });

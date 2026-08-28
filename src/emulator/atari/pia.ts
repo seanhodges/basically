@@ -27,6 +27,20 @@ const PACTL = 0x02;
 /** Control register bit 2: 1 selects the port, 0 the data direction register. */
 const PORT_SELECT = 0x04;
 
+/**
+ * PBCTL's CB2 lines: bit 5 puts CB2 under program control as an output, and
+ * bit 3 is then the level it drives. CB2 is the serial bus's COMMAND line, so
+ * the bus hears a command only when the OS is driving it and driving it low -
+ * out of reset both bits are clear, CB2 is an input, and the line idles high.
+ */
+const COMMAND_OUTPUT = 0x20;
+const COMMAND_LEVEL = 0x08;
+
+/** Whether PBCTL is driving the serial bus's COMMAND line low. */
+function commandAsserted(pbctl: number): boolean {
+  return (pbctl & COMMAND_OUTPUT) !== 0 && (pbctl & COMMAND_LEVEL) === 0;
+}
+
 /** The four direction switches, in the order a joystick nibble carries them. */
 const DIRECTIONS = ['up', 'down', 'left', 'right'] as const;
 
@@ -40,6 +54,11 @@ export class Pia {
 
   /** The two sticks the on-screen controller can drive, port 0 and port 1. */
   private readonly sticks: (JoystickState | null)[] = [null, null];
+
+  constructor(
+    /** Told whenever the serial bus's COMMAND line changes. */
+    private readonly onCommandLine?: (asserted: boolean) => void,
+  ) {}
 
   reset(): void {
     this.porta = 0;
@@ -107,9 +126,13 @@ export class Pia {
       case PACTL:
         this.pactl = byte;
         return;
-      default:
+      default: {
+        const was = commandAsserted(this.pbctl);
         this.pbctl = byte;
+        const now = commandAsserted(byte);
+        if (now !== was) this.onCommandLine?.(now);
         return;
+      }
     }
   }
 }

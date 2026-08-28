@@ -200,12 +200,20 @@ terminator, and a sign written **touching** a numeric constant folds into that
 constant's value rather than emitting the unary operator (`A=-7` is one
 negative constant; `A=- 7` keeps its operator).
 
-Two facts worth carrying into later stages: the machine is PAL (312 scanlines
-of 114 cycles, 49.86 Hz, and GTIA's `$D014` answers `$01`), and BASIC keeps no
-cell saying whether a program is running - `STMCUR` is left pointing at the
-line an `END` or `STOP` finished on - so `isProgramRunning` latches the
-cartridge address BASIC returns to its prompt at, in the shape
-`emulator/programEndLatch` already carries for the Sinclair machines.
+Three facts worth carrying into later stages:
+
+- The machine is PAL: 312 scanlines of 114 cycles, 49.86 Hz, and GTIA's
+  `$D014` answers `$01`.
+- BASIC keeps no cell saying whether a program is running — `STMCUR` is left
+  pointing at the line an `END` or `STOP` finished on — so `isProgramRunning`
+  latches the cartridge address BASIC returns to its prompt at, in the shape
+  `emulator/programEndLatch` already carries for the Sinclair machines.
+- The serial bus (`emulator/atari/sio.ts`) carries one device: a disk drive
+  with no disk in it. The cartridge header lets a disk boot ahead of BASIC, so
+  every power-on asks `D1:` for its status; a bare bus can only be discovered
+  by timing out, which the OS does twenty-eight times before giving up. The
+  drive answers at the first attempt and the boot costs 17 frames rather than 72. Stage 4's cassette work does not go through here — nothing answers the
+  recorder's device id, and the tape formats are built in the transfer layer.
 
 ## Stage 3 — Wire-up: keyboard + samples ⬜
 
