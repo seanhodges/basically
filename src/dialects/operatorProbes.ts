@@ -388,4 +388,52 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
       REL: '1',
     },
   },
+  {
+    id: 'atari',
+    machines: ['Atari 800', 'Atari 400'],
+    dialects: ['atari800', 'atari400'],
+    // Its own family: `^` for exponent (no `**`/`↑` spelling to choose between),
+    // AND/OR/NOT read their operand as true-or-false rather than bit by bit -
+    // `5 AND 3` is 1, not the bitwise table's 1-coincidence-that-isn't (`5 OR 3`
+    // tells the two apart: 1 here, 7 on a bitwise machine) - and a true
+    // comparison is 1. There is no MOD, integer-division or exclusive-OR
+    // keyword at all, so a port supplies those with `-INT(-x/y)` arithmetic.
+    // `/` keeps the fraction, unlike Integer BASIC's floor.
+    //
+    // No CAT: `+` is arithmetic only. `"A"+"B"` does not error, but it does not
+    // concatenate either - booted and tried both as plain strings and as the
+    // array strings the language actually uses for text (`A$(5)`), `A$+B$`
+    // print the *second* operand's value alone rather than joining the two, so
+    // there is no true/false answer this probe could pin; a program builds a
+    // string by assigning into a slice past the end of the first
+    // (`A$(LEN(A$)+1)=B$`) instead. The two POWR probes and ASSC/UNMI's
+    // BCD-through-logs results are quoted verbatim off the booted ROM, not
+    // rounded - the cartridge computes `2^3` as 7.99999991.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2^3',
+      '30 PRINT "ASSC";2^3^2',
+      '40 PRINT "UNMI";0-2^2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "REL";(1<=2)',
+      '110 PRINT "ZZEND"',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '7.99999991',
+      ASSC: '63.99999787',
+      UNMI: '-3.99999996',
+      ANDV: '1',
+      ORV: '1',
+      NOTV: '0',
+      TRU: '1',
+      DIVV: '3.5',
+      REL: '1',
+    },
+  },
 ];

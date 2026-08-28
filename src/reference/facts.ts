@@ -1243,6 +1243,115 @@ const entries: PortingFactsEntry[] = [
     // carries as rows scoped to this machine - and the version name above,
     // which is what tells a reader why those twelve are there.
   },
+  {
+    id: 'atari800',
+    basicDialect: 'Atari BASIC',
+    portingNotes: [
+      {
+        text: 'No ELSE, WHILE or REPEAT: put the negative case on the next line, or invert the test and GOTO past the positive one. IF…THEN takes either a line number or a full statement.',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'Names are kept in full and case folds, so Score and SCORE are one variable; $ is the only type suffix - there is no integer %. A program holds at most 128 variables in total, names and arrays together.',
+        topics: ['variable-names'],
+      },
+      {
+        text: '+ does not join strings. Build one by assigning past the end of another (A$(LEN(A$)+1)=B$), and read a substring with A$(first,last) - there is no MID$, LEFT$ or RIGHT$. A string is a fixed buffer sized by its first DIM.',
+        topics: ['strings'],
+      },
+      {
+        text: 'GRAPHICS n picks the mode, PLOT/DRAWTO draw into it and SETCOLOR sets one of five colour registers - up to 320×192 in two luminances (GRAPHICS 8) or 160×192 in four colours (GRAPHICS 7).',
+        topics: ['graphics'],
+      },
+      {
+        text: 'The screen has no fixed address: GRAPHICS lays it out downwards from the top of fitted RAM each time it runs, so a bigger-screen mode takes the space from the program below it.',
+        topics: ['memory'],
+      },
+      {
+        text: 'Any statement name may be typed as a prefix plus a period, resolved against the ROM’s own statement order rather than alphabetically - a bare "." is REM, and "P." is POINT, not POKE or PRINT.',
+        topics: ['spelling'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: follow the IF with the negative case on the next line, or invert the test and GOTO past the positive one.',
+      },
+      {
+        keyword: 'MID$',
+        note: 'No MID$, LEFT$ or RIGHT$: slice a string by subscripting it, A$(first,last).',
+      },
+      {
+        keyword: 'MOD',
+        note: 'No MOD and no integer division: A-INT(A/B)*B is the remainder, INT(A/B) the quotient.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'No INKEY$: GET #chan,var blocks for one key, or PEEK the console/keyboard registers directly.',
+      },
+    ],
+    lineNumberRange: '0–32767',
+    lineNumbers: { min: 0, max: 32767 },
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    // The ROM resolves a dotted prefix against its own statement table in
+    // order - confirmed by booting the real ROM (see
+    // `dialects/keywordSpellings.ts`'s atari800 entry) - and stores the same
+    // token the full spelling stores, so an abbreviated program is no smaller.
+    abbreviatedEntry: { style: 'dot', symbols: [], shrinksProgram: false },
+    variableNaming:
+      'Any-length names, kept in full; case folds, so Score and SCORE are one variable. $ is the only type suffix, and A and A$ are different variables.',
+    variableSignificance: {
+      plain: null,
+      marked: null,
+      markerDistinguishes: true,
+      markers: '$',
+      caseSensitive: false,
+    },
+    numberHandling:
+      'Floating point only: ten significant decimal digits in a six-byte BCD format, magnitude 1e-98 to just under 1e98.',
+    numbers: { fractions: true },
+    exponentOperator: '^',
+    logicalOperators: 'logical',
+    comparisonTrue: 1,
+    // $60 and $7B are card suits rather than a backtick and a brace, $7D is the
+    // clear-screen control rather than a close brace, and $7E is an arrow
+    // rather than a tilde.
+    unsupportedCharacters: ['`', '{', '}', '~'],
+    screen:
+      '40×24 text (GRAPHICS 0); bitmap graphics up to 320×192 (GRAPHICS 8).',
+    textScreen: { columns: 40, rows: 24 },
+    // RTCLOK ($14-$16): booted and PEEKed sixty frames apart, its low byte had
+    // advanced by exactly sixty - the OS's vertical-blank interrupt keeps it,
+    // and BASIC has no clock keyword of its own to read it with.
+    waitIdiom: {
+      text: 'the jiffy clock at $14 (RTCLOK), which the OS advances every frame in its vertical-blank interrupt: PEEK it and loop until it moves',
+      keywords: ['PEEK'],
+    },
+    // Measured: `loopSpeed.test.ts` counts the frames a 5000-iteration empty
+    // FOR/NEXT loop takes on the booted ROM. Identical on the 400 - RAM size
+    // cannot slow a CPU loop down - so `atari400` below states it again rather
+    // than leaving it to drift from a false assumption that it must differ.
+    loopSpeed: 1123,
+    screenBase: '$9C40',
+    programStart: '$0800',
+    freeRamBytes: 37920,
+    colour:
+      'GTIA: five colour registers (SETCOLOR/COLOR), 16 hues × 8 luminances, 128 colours in all.',
+    sound: 'Four-voice POKEY: SOUND voice,pitch,distortion,volume.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'dec',
+  },
+  {
+    id: 'atari400',
+    extends: 'atari800',
+    // Same OS, same BASIC cartridge, same ANTIC/GTIA/POKEY - only the fitted
+    // RAM differs, which is what every field below restates.
+    loopSpeed: 1123,
+    screenBase: '$3C40',
+    freeRamBytes: 13344,
+  },
 ];
 
 /** Machine facts with every `extends` folded in; see {@link resolvePortingFacts}. */

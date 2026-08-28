@@ -1,3 +1,5 @@
+import { atasciiToScreenCode } from './atari800/atascii';
+
 /**
  * Where each machine's glyph shapes physically live.
  *
@@ -151,6 +153,12 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // is why an I/O address is written `PEEK(-12272)` - but `$` is the Apple house
   // notation and what every Apple 1 listing and the monitor's own prompt use.
   apple1: '$',
+  // Atari BASIC's PEEK/POKE take decimal too - there is no hex literal - and
+  // this project's own memory map and reference pages already write its
+  // addresses `$D800`/`$E000` in the same house `$` this file uses for every
+  // other decimal-only machine.
+  atari800: '$',
+  atari400: '$',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -270,6 +278,41 @@ const commodoreFont = (
   note:
     'Indexed by screen code, not PETSCII - petsciiToScreen() does the conversion ' +
     'the KERNAL does.',
+});
+
+/**
+ * AltirraOS's built-in character generator, which both machines share: one OS
+ * image, loaded whole, so there is nothing per-model to parametrise.
+ *
+ * `CHBASE` reads `$E0` at the READY prompt on the booted ROM (`0xE0 << 8` =
+ * `$E000`), 0x0800 into `public/roms/atari.rom` once the OS's own base
+ * (`$D800`, `OS_ROM_BASE` in `dialects/atari800/addresses.ts`) is subtracted -
+ * matching the 128-glyph, 1024-byte table `memoryMap.ts`'s
+ * `CHARACTER_SET_BASE`/`_TOP` already describe. ANTIC indexes it by *screen*
+ * code, not ATASCII: ATASCII 0-31 (the CTRL graphics) sit at screen 64-95,
+ * ATASCII 32-95 at screen 0-63, and 96-127 are unmoved - ATASCII 65 (`A`)
+ * really is screen-code 33, exactly what `atasciiToScreenCode` (already
+ * pinned against the booted ROM by `keyboardLayout.test.ts`'s echo checks)
+ * computes. Bit 7 (inverse video) selects no separate shape - ANTIC just
+ * inverts the fetched byte - so it stays out of `codes` and `indexOf` alike,
+ * the way the Sinclair machines' inverse run does above.
+ */
+const atariFont = (): RomGlyphSource => ({
+  kind: 'rom',
+  file: 'atari.rom',
+  base: 0xe000,
+  baseCode: 0x00,
+  baseCodeIs: 'screen code',
+  fileOffset: 0x0800,
+  stride: 8,
+  cell: { w: 8, h: 8 },
+  codes: range(0x00, 0x7f),
+  indexOf: (code) => atasciiToScreenCode(code & 0x7f),
+  note:
+    'AltirraOS font, 0x0800 into the concatenated image (OS_ROM_BASE $D800 ' +
+    'to CHBASE $E000). Indexed by screen code, not ATASCII - ' +
+    'atasciiToScreenCode() does the swap the OS editor does on the way to ' +
+    'screen memory.',
 });
 
 /**
@@ -534,6 +577,10 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
         'register the 6502 only ever writes characters into.',
     },
   ],
+
+  atari800: [atariFont()],
+  // One OS image, shared byte for byte - see atariFont()'s own note.
+  atari400: [atariFont()],
 };
 
 /** What a dialect's glyph for `code` comes from, or undefined if nothing claims it. */

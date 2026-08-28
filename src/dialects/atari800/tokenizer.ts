@@ -270,6 +270,48 @@ class LineScanner {
     return null;
   }
 
+  /**
+   * The statement keyword opening this position, expanding a dot-abbreviation
+   * where the plain spelling does not match.
+   *
+   * Any statement name may be typed as its shortest prefix plus a period - a
+   * bare `.` for REM, which is first in the table below, `L.` for LIST, `PR.`
+   * for PRINT - and ambiguity is resolved by the ROM's own scan, first entry
+   * in `atariStatements`' table order wins: `G.` and `GO.` are GOTO rather
+   * than GO TO or GOSUB, `C.`/`CO.` are COLOR rather than CLOSE or CONT, `P.`
+   * is POINT rather than POKE or PRINT. All confirmed by booting the real ROM
+   * and typing each at the prompt, rather than trusting the *Altirra BASIC
+   * Reference Manual*'s own worked example (which only names G./GOTO) or its
+   * per-statement abbreviations (which are not always this table's shortest -
+   * the manual shows POINT as `PO.`, and the ROM accepts the shorter `P.` too).
+   *
+   * A whole word followed by a stray period is not one of these: `PRINT.`
+   * fails on the real ROM exactly as a bare `.` after a full word fails here,
+   * so only a candidate longer than the typed prefix is offered.
+   *
+   * Statement position only - the one call site below, which is also reached
+   * after a colon and after a `THEN` that hands the rest of the line to a
+   * statement. `GOTO`/`GOSUB` inside `ON` are a different keyword table
+   * entirely (`OPERAND_WORDS`, matched from {@link expression}) and never
+   * reach here, which is exactly the manual's "cannot be abbreviated" rule for
+   * them - nothing further has to enforce it.
+   */
+  private takeStatementWord(): AtariKeyword | null {
+    const plain = this.takeWord(STATEMENT_WORDS);
+    if (plain !== null) return plain;
+
+    this.skipSpaces();
+    const match = /^([A-Z]*)\./.exec(this.text.slice(this.at));
+    if (!match) return null;
+    const prefix = match[1]!;
+    const keyword = atariStatements.find(
+      (k) => k.word.length > prefix.length && k.word.startsWith(prefix),
+    );
+    if (!keyword) return null;
+    this.at += prefix.length + 1;
+    return keyword;
+  }
+
   /** The line number this line opens with, or null when it has none. */
   takeLineNumber(): number | null {
     this.skipSpaces();
@@ -325,7 +367,7 @@ class LineScanner {
   private statement(): number[] {
     this.reset();
     const out: number[] = [];
-    const keyword = this.takeWord(STATEMENT_WORDS);
+    const keyword = this.takeStatementWord();
 
     if (keyword === null) {
       // No reserved word here, so this is an assignment written without LET.

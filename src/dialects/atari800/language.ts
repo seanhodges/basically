@@ -6,6 +6,7 @@ import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { atariKeywords, atariOperators } from './keywords';
 
 /**
@@ -33,8 +34,10 @@ export function atariLanguageSupport(): Extension {
     suffixChars: '$',
     graphicsEscapes: false,
     crunched: atariCrunched,
-    // The ROM compares a keyword against an upper-case table, and ATASCII keeps
-    // the two cases apart, so a lower-case spelling reaches it as a name.
-    foldsKeywordCase: false,
+    // The ROM compares a keyword against an upper-case table and ATASCII keeps
+    // the two cases apart, so a lower-case spelling reaches it as a name there
+    // - but the tokenizer reads one anyway and says so (`letterCase.ts`'s
+    // `lenient`), which is what leaves this at the default `true`.
+    spellings: keywordSpellingsFor('atari800'),
   });
 }
