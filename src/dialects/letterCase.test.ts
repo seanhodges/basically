@@ -68,6 +68,10 @@ const RESTATED: Record<string, string> = {
   pmd85:
     'lower case always; keywords upper case only; names are case-sensitive; encoding preserves; dialect is lenient',
   apple1: 'no lower case; keyword case folds; names fold; encoding folds',
+  atari800:
+    'lower case always; keywords upper case only; names fold; encoding preserves; dialect is lenient',
+  atari400:
+    'lower case always; keywords upper case only; names fold; encoding preserves; dialect is lenient',
 };
 
 /** Turn one restatement back into the fields it claims. */
@@ -189,12 +193,12 @@ describe('letter case', () => {
 
     it('warns only where the ROM matches by character and the encoding preserves', () => {
       expect(dialects.map((d) => d.id).filter(warnsOnLowerCaseKeyword)).toEqual(
-        ['bbcmicro', 'bbcmaster', 'atom', 'pmd85'],
+        ['bbcmicro', 'bbcmaster', 'atom', 'pmd85', 'atari800', 'atari400'],
       );
     });
 
     it('reads a declared leniency as folding without silencing the report', () => {
-      for (const id of ['atom', 'pmd85']) {
+      for (const id of ['atom', 'pmd85', 'atari800', 'atari400']) {
         expect(letterCaseFor(id)!.lenient, id).toBe(true);
         expect(foldsKeywordCase(id), id).toBe(true);
         expect(warnsOnLowerCaseKeyword(id), id).toBe(true);

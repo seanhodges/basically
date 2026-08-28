@@ -45,12 +45,10 @@ import {
  * Atari 400 - the 16K machine of the pair: a membrane keyboard, one cartridge
  * slot, and otherwise the 800's hardware. The 16K it was sold with is the whole
  * of what the emulator does differently, and it is one argument.
- *
- * Not registered yet, for the reason the sibling gives.
  */
 export const atari400: Dialect = {
   id: 'atari400',
-  name: '400',
+  name: 'Atari 400',
   manufacturer: 'Atari',
   year: 1979,
   blurb: 'The budget model, with a membrane keyboard. Runs Atari BASIC.',
@@ -88,7 +86,7 @@ export const atari400: Dialect = {
   lint(source: string) {
     return [
       ...tokenizeProgram(source).errors,
-      ...atariVariableErrors(source, atariKeywords),
+      ...atariVariableErrors(source, atariKeywords, 'atari400'),
     ];
   },
 
@@ -106,6 +104,9 @@ export const atari400: Dialect = {
   displaySize: { width: ATARI_DISPLAY_WIDTH, height: ATARI_DISPLAY_HEIGHT },
 
   debuggable: true,
+
+  // The Atari's own analogue port: one stick, one fire line.
+  joystickModes: ['native'],
 
   createEmulator(opts) {
     return new AtariMachine({ model: '400', rom: opts.rom });

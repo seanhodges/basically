@@ -547,12 +547,8 @@ const CPC: ConstructTemplate[] = [
 /**
  * Atari BASIC. `NEXT` needs its control variable, and there is no `ELSE`, so
  * the shared `IF … THEN` and `FOR … NEXT` shapes carry over unchanged.
- *
- * Exported rather than reached through {@link constructsByDialect}, because
- * that map is pinned to the registry and the Atari dialects are not registered
- * yet: `atari800/language.ts` reads this directly until they are.
  */
-export const ATARI_CONSTRUCTS: ConstructTemplate[] = [
+const ATARI_CONSTRUCTS: ConstructTemplate[] = [
   ifThen(),
   forNext(),
   gosub('GOSUB'),
@@ -601,6 +597,9 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   cpc464: CPC,
   // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's blocks are the 464's.
   cpc6128: CPC,
+  // The 400 and 800 share Atari BASIC exactly; the same blocks apply.
+  atari800: ATARI_CONSTRUCTS,
+  atari400: ATARI_CONSTRUCTS,
 };
 
 /**

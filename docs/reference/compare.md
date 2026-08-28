@@ -4,6 +4,7 @@ title: Porting guide
 
 <script setup>
 import { altair8800Reference } from '../../src/reference/altair8800';
+import { atariReference } from '../../src/reference/atari';
 import { atomReference } from '../../src/reference/atom';
 import { bbcReference } from '../../src/reference/bbc';
 import { commodoreReference } from '../../src/reference/commodore';
@@ -14,6 +15,7 @@ import { zx80Reference } from '../../src/reference/zx80';
 import { zx81Reference } from '../../src/reference/zx81';
 
 import { altair8800Escapes } from '../../src/reference/escapes/altair8800';
+import { atariEscapes } from '../../src/reference/escapes/atari';
 import { atomEscapes } from '../../src/reference/escapes/atom';
 import { bbcEscapes } from '../../src/reference/escapes/bbc';
 import { commodoreEscapes } from '../../src/reference/escapes/commodore';
@@ -24,6 +26,10 @@ import { zx80Escapes } from '../../src/reference/escapes/zx80';
 import { zx81Escapes } from '../../src/reference/escapes/zx81';
 
 import { altair8800MemoryMap } from '../../src/dialects/altair8800/memoryMap';
+import {
+  atari800MemoryMap,
+  atari400MemoryMap,
+} from '../../src/dialects/atari800/memoryMap';
 import { atomMemoryMap } from '../../src/dialects/atom/memoryMap';
 import { bbcMasterMemoryMap } from '../../src/dialects/bbcmaster/memoryMap';
 import { bbcMicroMemoryMap } from '../../src/dialects/bbcmicro/memoryMap';
@@ -46,6 +52,7 @@ import { machines as machineList } from '../../src/reference/machines';
 // survive being averaged across a family.
 const referenceByPage = {
   altair8800: altair8800Reference,
+  atari: atariReference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,
@@ -57,6 +64,7 @@ const referenceByPage = {
 };
 const escapesByPage = {
   altair8800: altair8800Escapes,
+  atari: atariEscapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
   commodore: commodoreEscapes,
@@ -76,6 +84,8 @@ const escapesByPage = {
 // these modules and holds that line.
 const memoryMapById = {
   altair8800: altair8800MemoryMap,
+  atari800: atari800MemoryMap,
+  atari400: atari400MemoryMap,
   atom: atomMemoryMap,
   bbcmaster: bbcMasterMemoryMap,
   bbcmicro: bbcMicroMemoryMap,

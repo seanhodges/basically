@@ -33,6 +33,8 @@ import {
   parseChar as apple1ParseChar,
   decodeSpan as apple1DecodeSpan,
 } from './apple1/charset';
+import { atariCharset } from './atari800/charset';
+import { parseAtariChar } from './atari800/atascii';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -138,6 +140,12 @@ const SINCLAIR_ESCAPE_FORM = (t: string) =>
   t.startsWith('\\') || t.startsWith('%');
 const BRACED_ESCAPE_FORM = (t: string) => /^\{.+\}$/.test(t);
 const RAW_HEX_BRACE = /^\{0x[0-9A-F]{2}\}$/;
+// Atari escapes spell a raw code point `{$xx}`, not `{0xNN}` - lower case,
+// always two digits, matching `atasciiToText`'s fallback in
+// `./atari800/atascii`. The parser itself accepts either case and one or two
+// digits (see `parseAtariChar`), but this is the canonical spelling a decode
+// produces.
+const RAW_HEX_DOLLAR_BRACE = /^\{\$[0-9a-f]{2}\}$/;
 
 export const CHARSET_PROBES: CharsetProbe[] = [
   {
@@ -286,6 +294,18 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',
+  },
+  {
+    id: 'atari',
+    varName: 'atariEscapes',
+    title: 'Atari escape codes',
+    machines: ['Atari 800', 'Atari 400'],
+    dialects: ['atari800', 'atari400'],
+    decode: (b) => atariCharset.glyph(b),
+    ...parseAll(parseAtariChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_DOLLAR_BRACE,
+    rawSpelling: '{$NN}',
   },
 ];
 

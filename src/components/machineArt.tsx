@@ -96,6 +96,12 @@ const APPLE_CHIP = '#1b1d21';
 const APPLE_GOLD = '#c9a227';
 const APPLE_WOOD = '#8c5a34'; // the Byte Shop's koa tray, not a factory case
 const SCREEN_BLACK = '#0b0d0a';
+const ATARI_CASE = '#d7cbae';
+const ATARI_DECK = '#e6ddc7';
+const ATARI_FN = '#8a4a3a'; // VirtualKeyboard.css .vk-theme-atari .vk-style-fn
+const ATARI_DOOR = '#3a352c';
+const ATARI_MEMBRANE = '#e8e0cc';
+const ATARI_MEMBRANE_KEY = '#cfc6ab';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
 const BASE = {
@@ -113,6 +119,7 @@ const BASE = {
   altair: '#20262f',
   pmd: '#3f4247',
   apple: '#5e3b21',
+  atari: '#a89878',
 };
 
 /* ---------------------------------------------------------------------------
@@ -593,6 +600,59 @@ function Apple1Art({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Atari */
+
+/**
+ * Atari 800: the full-travel keyboard, the rust-brown console strip
+ * (START/SELECT/OPTION/BREAK) above it, and the hinged door over its two
+ * cartridge slots - the 800's tell against the 400's single slot.
+ */
+function Atari800Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.atari} />
+      <path d="M3 11h42v13H3z" fill={ATARI_CASE} />
+      <path d="M6 7h35v4H6z" fill={ATARI_DECK} />
+      <rect x="6" y="8.2" width="30" height="1.6" fill={ATARI_FN} />
+      <rect x="6" y="13" width="30" height="2.2" fill={DARK_KEYS} />
+      <rect x="6" y="17" width="30" height="2.4" fill={DARK_KEYS} />
+      <rect x="6" y="21" width="26" height="2.4" fill={DARK_KEYS} />
+      {/* The cartridge door and its two slots. */}
+      <rect x="39" y="11" width="6" height="13" fill={ATARI_DOOR} />
+      <rect x="40.5" y="13" width="3" height="4" fill="#55503f" />
+      <rect x="40.5" y="18" width="3" height="4" fill="#55503f" />
+    </svg>
+  );
+}
+
+/**
+ * Atari 400: the same case in miniature, but the keyboard is a sealed
+ * membrane - one flat panel rather than individual keycaps - and there is
+ * only one cartridge slot, set into the top rather than a side door.
+ */
+function Atari400Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.atari} />
+      <path d="M3 13h42v11H3z" fill={ATARI_CASE} />
+      <path d="M6 9h35v4H6z" fill={ATARI_DECK} />
+      <rect x="19" y="5" width="10" height="4" fill={ATARI_DOOR} />
+      <rect x="6" y="15.5" width="30" height="7" fill={ATARI_MEMBRANE} />
+      {Array.from({ length: 10 }, (_, i) => (
+        <rect
+          key={i}
+          x={6.4 + i * 3}
+          y="16.3"
+          width="2.4"
+          height="5.4"
+          fill={ATARI_MEMBRANE_KEY}
+        />
+      ))}
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -614,6 +674,8 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   altair8800: Altair8800Art,
   pmd85: Pmd85Art,
   apple1: Apple1Art,
+  atari800: Atari800Art,
+  atari400: Atari400Art,
 };
 
 /** A machine's portrait, `size` px tall. */

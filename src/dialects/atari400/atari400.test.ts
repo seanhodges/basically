@@ -63,7 +63,7 @@ describe('Atari 400', () => {
 
   it('keeps its own identity in the machine picker', () => {
     expect(atari400.id).toBe('atari400');
-    expect(atari400.name).toBe('400');
+    expect(atari400.name).toBe('Atari 400');
     expect(atari400.manufacturer).toBe('Atari');
     expect(atari400.blurb.length).toBeLessThanOrEqual(72);
     expect(atari800.blurb.length).toBeLessThanOrEqual(72);

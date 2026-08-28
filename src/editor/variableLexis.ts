@@ -162,6 +162,13 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   cpc6128: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   pmd85: PMD85_LEXIS,
   apple1: APPLE1_LEXIS,
+  // Names are fully significant and the ROM ignores spaces everywhere outside
+  // a string literal (`atariCrunched` in `dialects/atari800/language.ts`);
+  // `$` is the only type marker, there being no `%` integer suffix. REM and
+  // DATA keep their text verbatim - confirmed by the tokenizer's own
+  // `ATARI_VERBATIM` and pinned against the ROM in `tokenizerRom.test.ts`.
+  atari800: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
+  atari400: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
 };
 
 /**

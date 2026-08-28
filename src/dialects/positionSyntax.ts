@@ -155,6 +155,19 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
     commands: [{ keyword: 'TAB', kind: 'column' }],
     escapes: [],
   },
+  // POSITION x,y sets the column and row the next PRINT starts at, both
+  // counted from zero, the same origin PLOT and DRAWTO use. No control code
+  // carries an operand - the cursor codes are one byte each.
+  atari800: {
+    origin: 0,
+    commands: [{ keyword: 'POSITION', kind: 'column-row' }],
+    escapes: [],
+  },
+  atari400: {
+    origin: 0,
+    commands: [{ keyword: 'POSITION', kind: 'column-row' }],
+    escapes: [],
+  },
 };
 
 /** How `dialectId` states print positions, or undefined where it states none. */

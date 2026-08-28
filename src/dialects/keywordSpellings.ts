@@ -45,6 +45,7 @@ import { cpc6128Keywords } from './cpc6128/keywords';
 import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
 import { pmd85Keywords, PMD85_ALIASES } from './pmd85/keywords';
 import { apple1Keywords } from './apple1/keywords';
+import { atariKeywords } from './atari800/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -98,6 +99,8 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   altair8800: [...altair8800Keywords, ...ALTAIR8800_ALIASES],
   pmd85: [...pmd85Keywords, ...PMD85_ALIASES],
   apple1: apple1Keywords,
+  atari800: atariKeywords,
+  atari400: atariKeywords,
 };
 
 /** The registered machines this module knows a keyword table for. */
@@ -136,6 +139,17 @@ const ORDERS: Record<
   commodore64: { style: 'shifted', of: byToken },
   pet: { style: 'shifted', of: byToken },
   vic20: { style: 'shifted', of: byToken },
+  // Atari BASIC's dot abbreviations (`PR.` for PRINT, `L.` for LIST) apply to
+  // statement keywords only, and resolve in the table's own token order -
+  // `atariKeywords` is already built that way, so no extra sort is needed.
+  atari800: {
+    style: 'dot',
+    of: (table) => table.filter((k) => k.kind === 'command').map((k) => k.word),
+  },
+  atari400: {
+    style: 'dot',
+    of: (table) => table.filter((k) => k.kind === 'command').map((k) => k.word),
+  },
 };
 
 /**

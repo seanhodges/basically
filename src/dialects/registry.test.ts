@@ -35,6 +35,8 @@ describe('dialect registry', () => {
     altair8800: 'dec',
     pmd85: 'hex',
     apple1: 'hex',
+    atari800: 'dec',
+    atari400: 'dec',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -68,6 +70,10 @@ describe('dialect registry', () => {
     // monitor leads so that a short replacement - the monitor alone - still
     // boots, the seam padding the rest with 0xFF.
     'apple1',
+    // Same shape again: the OS leads so a BASIC-only replacement still boots
+    // to the Memo Pad rather than a machine that cannot reset.
+    'atari800',
+    'atari400',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {

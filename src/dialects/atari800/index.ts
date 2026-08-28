@@ -35,14 +35,10 @@ import {
  * The whole language layer lives here and the Atari 400 imports it; the two
  * machines differ only in how much RAM is fitted, which is why they ship
  * together in the shape the BBC Micro and BBC Master already use.
- *
- * Not registered yet: the machine runs, and the dialect is driven by its own
- * tests, but the picker will not offer it until the rest of the batteries a
- * registered dialect owes are in place.
  */
 export const atari800: Dialect = {
   id: 'atari800',
-  name: '800',
+  name: 'Atari 800',
   manufacturer: 'Atari',
   year: 1979,
   blurb: 'Two cartridge slots and 48K. Runs Atari BASIC.',
@@ -81,7 +77,7 @@ export const atari800: Dialect = {
   lint(source: string) {
     return [
       ...tokenizeProgram(source).errors,
-      ...atariVariableErrors(source, atariKeywords),
+      ...atariVariableErrors(source, atariKeywords, 'atari800'),
     ];
   },
 
@@ -108,6 +104,9 @@ export const atari800: Dialect = {
   displaySize: { width: ATARI_DISPLAY_WIDTH, height: ATARI_DISPLAY_HEIGHT },
 
   debuggable: true,
+
+  // The Atari's own analogue port: one stick, one fire line.
+  joystickModes: ['native'],
 
   createEmulator(opts) {
     return new AtariMachine({ model: '800', rom: opts.rom });

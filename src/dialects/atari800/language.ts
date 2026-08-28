@@ -5,7 +5,7 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
-import { ATARI_CONSTRUCTS } from '../../editor/constructs';
+import { constructsByDialect } from '../../editor/constructs';
 import { atariKeywords, atariOperators } from './keywords';
 
 /**
@@ -19,7 +19,7 @@ export const atariCrunched = true;
 
 export const atariCompletionSource: CompletionSource = buildCompletionSource(
   atariKeywords,
-  ATARI_CONSTRUCTS,
+  constructsByDialect.atari800,
   { crunched: atariCrunched },
 );
 

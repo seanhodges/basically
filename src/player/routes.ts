@@ -32,6 +32,8 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'csave', dialectId: 'altair8800' }, // CSAVE - Altair 8K BASIC cassette save
   { verb: 'plot', dialectId: 'pmd85' }, // PLOT - BASIC-G's draw-to-here command
   { verb: 'auto', dialectId: 'apple1' }, // AUTO - Integer BASIC's automatic line numbering
+  { verb: 'drawto', dialectId: 'atari800' }, // DRAWTO - Atari BASIC's line-draw command
+  { verb: 'setcolor', dialectId: 'atari400' }, // SETCOLOR - Atari BASIC's palette command
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).
