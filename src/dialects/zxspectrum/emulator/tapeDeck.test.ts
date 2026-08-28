@@ -5,10 +5,17 @@ import { VfsTapeDeck } from './tapeDeck';
 
 /** Map-backed MachineFileStore for tests. */
 function fakeStore(): MachineFileStore & { names(): string[] } {
-  const files = new Map<string, { data: Uint8Array; kind?: string }>();
+  const files = new Map<
+    string,
+    { data: Uint8Array; kind?: string; mounted?: boolean }
+  >();
   return {
     save: (name, data, meta) =>
-      files.set(name, { data: data.slice(), kind: meta?.kind }),
+      files.set(name, {
+        data: data.slice(),
+        kind: meta?.kind,
+        mounted: meta?.mounted,
+      }),
     load: (name) => files.get(name)?.data.slice() ?? null,
     list: (): MachineFileEntry[] =>
       [...files.entries()].map(([name, f]) => ({
@@ -16,6 +23,7 @@ function fakeStore(): MachineFileStore & { names(): string[] } {
         size: f.data.length,
         updatedAt: 1,
         kind: f.kind,
+        mounted: f.mounted,
       })),
     delete: (name) => files.delete(name),
     names: () => [...files.keys()],
@@ -96,10 +104,24 @@ describe('VfsTapeDeck.addFile', () => {
     expect(deck.hasFiles()).toBe(true);
     expect(files.names()).toEqual(['z']);
     expect(files.list()[0]!.kind).toBe('code');
+    // Mounted by the IDE, not written by the program: the store still lists it
+    // (that is what the deck serves LOAD from), but nothing shows it back as a
+    // file the program saved.
+    expect(files.list()[0]!.mounted).toBe(true);
     const h = deck.nextBlock(0x00); // header block served
     expect(h.kind).toBe('block');
     expect((h as { payload: Uint8Array }).payload[0]).toBe(3); // CODE type
     expect(deck.nextBlock(0xff)).toMatchObject({ kind: 'block' }); // data served
+  });
+
+  it('a program saving over a mounted name makes it output again', () => {
+    const files = fakeStore();
+    const deck = new VfsTapeDeck(files);
+    deck.addFile('z', codeTap('z', 50000, new Uint8Array([9, 9])), 'code');
+    // The ROM's own SAVE path, which knows nothing of mounting.
+    deck.recordBlock(0x00, header(3, 'z', 2));
+    deck.recordBlock(0xff, new Uint8Array([1, 2]));
+    expect(files.list()[0]!.mounted).toBeFalsy();
   });
 });
 

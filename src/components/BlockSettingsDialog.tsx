@@ -95,7 +95,7 @@ export function BlockSettingsDialog() {
         <h2>Block settings</h2>
         <p>
           {block.bytes.length} {block.bytes.length === 1 ? 'byte' : 'bytes'} of{' '}
-          {block.kind === 'code' ? 'machine code' : 'memory'}.
+          {block.kind === 'code' ? 'assembly' : 'binary'}.
         </p>
         <label>
           Name
@@ -132,8 +132,8 @@ export function BlockSettingsDialog() {
             value={draft.kind}
             onChange={(e) => field({ kind: e.target.value as Block['kind'] })}
           >
-            <option value="code">Machine code</option>
-            <option value="memory">Memory</option>
+            <option value="code">Assembly</option>
+            <option value="memory">Binary</option>
           </select>
         </label>
         {!inListing && (

@@ -26,6 +26,14 @@ offers no other way in.
 - The **+ menu's single "New machine code block" splits into "New assembly
   block" and "New binary block"**, so a block of bytes can be made directly
   instead of made as code and converted.
+- **A block the IDE puts on the machine's tape stops appearing as a data tab.**
+  Running a Spectrum program mounts each of the document's blocks as a loadable
+  CODE file, so a program's own `LOAD "name" CODE` finds it - and, until now,
+  every one of them came back as a tab claiming the program had saved it. The
+  same went for tape files carried in from an import. Copying a file into a
+  block makes this impossible to miss (the block is named after a file, so the
+  next run shows two tabs of that name), but the fault is older than this
+  change and is fixed here rather than left next to it.
 - The block settings dialog **renames the two kinds it offers** to **Assembly**
   (machine code) and **Binary** (a block of memory), matching those menu items.
   Wording only: what is stored, and everything that reads it, is unchanged.
@@ -55,6 +63,9 @@ None.
 
 ### Modified Capabilities
 
+- `code-editor`: the same requirement also gains the rule that only what the
+  program wrote is shown, so the files the IDE mounts for it to load are not
+  reflected back as tabs.
 - `memory-blocks`: two added requirements - a saved data file can be copied into
   a block of memory, and a new block can be created as either kind rather than
   only as machine code.
@@ -68,6 +79,10 @@ state, and the copy that becomes a block is a block.
 
 - `src/app/store.ts` - a new `addBlockFromDataFile` action, and `addBlock` takes
   the kind to create.
+- `src/dialects/types.ts` - a file store entry says whether the program wrote
+  it; `src/storage/vfs/vfsStore.ts` carries that through;
+  `src/app/dataBlocks.ts` projects only what the program wrote;
+  `src/dialects/zxspectrum/emulator/tapeDeck.ts` marks what it mounts.
 - `src/app/blockEdit.ts` - deriving a legal block name from a program's file
   name.
 - `src/components/EditorTabBar.tsx` - the data tab's copy item and the split +

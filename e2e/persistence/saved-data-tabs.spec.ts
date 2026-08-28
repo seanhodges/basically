@@ -11,7 +11,8 @@ import {
 
 /**
  * A file a running program saves appears as an editor tab, outlives the run,
- * and is discarded by the next one.
+ * can be copied into a block of the document, and is discarded by the next run
+ * while the block it seeded stays.
  *
  * Browser-only, and worth its minute: the file arrives from a ROM trap inside a
  * real run, reaches the editor through the file store's own change
@@ -24,7 +25,7 @@ import {
  * One journey with staged assertions rather than four tests: the Spectrum is
  * booted once and the program is run twice, which is the whole cost here.
  */
-test('a saved file appears as a tab, survives the stop, and goes with the next run', async ({
+test('a saved file appears as a tab, survives the stop, copies into a block, and goes with the next run', async ({
   page,
 }) => {
   // The Spectrum stores a whole two-block tape image, so it is also the machine
@@ -75,11 +76,44 @@ test('a saved file appears as a tab, survives the stop, and goes with the next r
   await expect(tab).toHaveCount(1);
   await expect(bytes).toContainText('01 02 00 00 00 07');
 
+  // Copying the file into a block rides on this journey rather than on a
+  // memory-blocks spec of its own: the file has to come from a real run, and
+  // that boot (the ROM SAVE and its tape prompt) is the whole cost here.
+  await tab.click({ button: 'right' });
+  const tabMenu = page.getByRole('menu', { name: 'Tab actions' });
+  await tabMenu
+    .getByRole('menuitem', { name: 'Copy to a binary block' })
+    .click();
+
+  // The block arrives with its settings open on it, because the address it
+  // starts at is a suggestion. Renaming here also keeps the two tabs apart:
+  // the block is named after the file, so both would answer to "SCORES".
+  await expect(
+    page.getByRole('heading', { name: 'Block settings' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Name')).toHaveValue('SCORES');
+  await page.getByLabel('Name').fill('kept');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // The block holds a copy of what the tab showed - the file, not the framing.
+  const blockTab = page.getByRole('tab', { name: 'kept' });
+  await blockTab.click();
+  await expect(bytes).toContainText('01 02 00 00 00 07');
+  // ...and the file is unaffected by the copy.
+  await expect(tab).toHaveCount(1);
+
   // Running again starts clean. The second run is never given the keypress the
   // tape prompt waits for, so it cannot re-save the file - what the tab shows
   // is the store being cleared, not a race with the next capture.
   await playAndWaitRunning(page);
   await expect(tab).toHaveCount(0);
-  // The tab was the one on screen, so the editor falls back to the program.
+  // The block is part of the document, so it outlives the file it came from -
+  // as exactly one tab. Loading a program also puts each block on the deck as a
+  // CODE file, so that a program's own `LOAD "name" CODE` finds it; what the
+  // IDE mounts that way is the document going in, not output coming back, so it
+  // is not shown back as a second tab claiming the program saved it.
+  await expect(blockTab).toHaveCount(1);
+  await expect(page.getByRole('tab')).toHaveText(['BASIC', /kept/]);
+  await page.getByRole('tab', { name: 'BASIC' }).click();
   await expect(page.locator(EDITOR)).toContainText('SAVE "SCORES" DATA');
 });

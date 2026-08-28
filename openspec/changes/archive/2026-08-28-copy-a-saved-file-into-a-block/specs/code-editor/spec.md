@@ -10,6 +10,13 @@ character set gives them — the same byte view a block's bytes are shown in,
 distinguished by counting from the start of the file, since a file has no
 address.
 
+Only what the program itself wrote SHALL appear. To serve a program's own
+`LOAD`, the IDE hands the machine the document's own content before a run — its
+memory blocks, and any tape files imported with it — as files the program can
+load by name. Those are the document being given to the machine, not output
+coming back, and SHALL NOT be shown as tabs; a file the program then saves over
+one of them SHALL appear like any other.
+
 The bytes SHALL be shown read-only. A data file is neither kept with the
 document nor returned to the machine, so there is nothing an edit to one could
 change; it is a view onto what the program produced.
@@ -18,16 +25,24 @@ The tab SHALL offer the file for download both as its raw bytes and as text,
 SHALL offer to copy it into a block of the document's memory, and SHALL let the
 user discard it, from the same menu a block's tab offers its own downloads.
 
-Where a program has saved more files than the tab strip can show without
-crowding out the program itself, the strip SHALL show a bounded number of them
-and the rest SHALL remain reachable, so no program can take the strip over by
-writing files.
+Saved files SHALL compete for room in the strip under the same rule as every
+other tab, and SHALL in addition be held to a bounded share of the tabs shown.
+A program can write files without limit, and while the strip is the machine's
+way of reporting them, it is the user's way back to their own work: no amount of
+saving SHALL displace every block and scratch buffer the user opened, and files
+beyond what is shown SHALL remain reachable like any other overflowing tab.
 
 #### Scenario: A tab appears as the program writes
 
 - **WHEN** a running program saves a data file
 - **THEN** a tab named after that file appears in the editor, and selecting it
   shows the bytes the program wrote
+
+#### Scenario: What the IDE handed the machine is not shown back
+
+- **WHEN** a program whose document has memory blocks is run, and the machine is
+  given those blocks as files the program can load
+- **THEN** no tab appears for them — the tabs are the files the program saved
 
 #### Scenario: The file's bytes cannot be edited
 

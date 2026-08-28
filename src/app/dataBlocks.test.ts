@@ -52,6 +52,23 @@ describe('projectDataBlocks', () => {
     expect(Array.from(blocks[1]!.bytes)).toEqual([0x02]);
   });
 
+  it('drops what the IDE mounted for the program to load', () => {
+    const files = new Map([
+      ['engine', bytes(0xc9)],
+      ['SCORES', bytes(1, 2, 3)],
+    ]);
+    const blocks = projectDataBlocks(
+      // A block the IDE put on the tape so a `LOAD "engine" CODE` finds it,
+      // then a file the program actually saved.
+      [
+        { ...entry('engine', 1, 10, 'code'), mounted: true },
+        entry('SCORES', 3, 20, 'data-num'),
+      ],
+      (name) => files.get(name) ?? null,
+    );
+    expect(blocks.map((b) => b.name)).toEqual(['SCORES']);
+  });
+
   it('drops an entry whose bytes have gone', () => {
     const blocks = projectDataBlocks(
       [entry('GONE', 3), entry('HERE', 1)],

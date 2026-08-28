@@ -56,11 +56,20 @@ export class VfsTapeDeck {
   /**
    * Place a ready-made two-block `.TAP` file on the tape, so the program's own
    * `LOAD "name" …` finds it (e.g. imported CODE blocks - see
-   * `spectrumMachine.loadProgram`). The bytes are stored under `name` exactly
-   * like a program-driven save, and served by {@link nextBlock}.
+   * `spectrumMachine.loadProgram`). The bytes are stored under `name` and
+   * served by {@link nextBlock} exactly like a program-driven save.
+   *
+   * Marked `mounted`, which is the one thing that separates it from such a
+   * save: this is the document being handed to the machine, not something the
+   * program produced, so the IDE does not show it back as a file the program
+   * saved. A program saving over the same name leaves the mark unset, and the
+   * file becomes output like any other.
    */
   addFile(name: string, tap: Uint8Array, kind?: string): void {
-    this.files.save(name, tap, kind !== undefined ? { kind } : undefined);
+    this.files.save(name, tap, {
+      mounted: true,
+      ...(kind !== undefined ? { kind } : {}),
+    });
   }
 
   /** Forget half-captured saves and rewind the tape (reset / new program). */

@@ -9,7 +9,7 @@ import { addMemoryBlock } from '../helpers';
  * chip on the BASIC tab. This checks the round trip between the two surfaces:
  *
  *  1. On a ZX81 document the tab strip is present (it is `memoryBlocks`-capable).
- *  2. "New machine code block" appends a `#BIN` REM record: a `bin1` tab opens on the return
+ *  2. "New assembly block" appends a `#BIN` REM record: a `bin1` tab opens on the return
  *     stub, and the BASIC tab now shows a binary-line chip for it.
  *  3. Editing the block's assembly rewrites that chip (its byte count grows).
  *  4. A block switched to `data` opens the byte editor, and editing a byte

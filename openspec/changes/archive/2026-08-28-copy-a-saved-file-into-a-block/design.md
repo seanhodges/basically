@@ -108,6 +108,32 @@ A binary block starts at one zero byte rather than none: the byte editor then
 has a row to open on and the block has a length the lint can judge, and the
 editor's own overwrite-and-extend rules take it from there.
 
+### A mounted file is not program output
+
+The projection shows the file store, and the store holds two kinds of thing.
+One is what a program saved - the tab's whole reason to exist. The other is what
+the IDE put there on the way in: `loadProgram` mounts each of the document's
+blocks on the Spectrum deck as a CODE file so a tape front-end's own
+`LOAD "name" CODE` is served, and mounts any imported tape files beside them.
+Reflecting those back as "files the program saved" is wrong on its face, and
+copying a file into a block makes it plain - the block is named after a file, so
+the next run shows a block tab and a data tab of the same name.
+
+The store is where the difference is known, so that is where it is recorded: an
+entry says whether the program wrote it, `VfsTapeDeck.addFile` (the one path the
+IDE mounts through, shared by both Spectrums) marks what it mounts, and the
+projection keeps only what the program wrote. Filtering in the projection rather
+than in the store is what keeps the deck whole: a mounted file still has to be
+listed, because the deck serves `LOAD` by walking that same listing.
+
+The flag rides on the save that sets it, so a program saving over a mounted name
+clears it and the file becomes a tab, which is what a user watching their
+program write a file expects.
+
+Not mirrored into the RxDB copy: that copy feeds a reactive inspector that does
+not exist yet, and an extra field there would cost a schema version and a
+migration for no reader.
+
 ### Listing-backed dialects
 
 On ZX80/ZX81 a block is a `#BIN` record inside the BASIC listing and its address

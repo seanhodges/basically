@@ -40,7 +40,8 @@ const NO_BLOCKS: readonly DataBlock[] = [];
  * the store lists them in, so a tab keeps its place as the program writes more.
  * `read` hands back a file's stored bytes by name (the store's own `load`); an
  * entry whose bytes have gone between the listing and the read is dropped
- * rather than shown as an empty file.
+ * rather than shown as an empty file, and so is one the IDE mounted for the
+ * program to load rather than the program writing it.
  */
 export function projectDataBlocks(
   entries: readonly MachineFileEntry[],
@@ -50,6 +51,9 @@ export function projectDataBlocks(
   if (entries.length === 0) return NO_BLOCKS;
   const blocks: DataBlock[] = [];
   for (const entry of entries) {
+    // What the IDE mounted for the program to load is the document going in,
+    // not output coming back, so it is not one of the program's files.
+    if (entry.mounted) continue;
     const stored = read(entry.name);
     if (stored === null) continue;
     blocks.push({

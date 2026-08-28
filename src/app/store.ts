@@ -12,6 +12,7 @@ import type {
   MachineReport,
   MachineScreenText,
   MachineVariable,
+  MemoryBlocksSupport,
   Block,
 } from '../dialects/types';
 import {
@@ -108,6 +109,8 @@ import {
   UNTITLED_FILE_NAME,
 } from '../storage/settings';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
+import { blockNameFromFileName } from './blockEdit';
+import { selectDataBlocks } from './dataBlocks';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 import {
   basicBufferKey,
@@ -935,12 +938,28 @@ interface IdeState {
   /** Flag or clear a block's does-not-assemble state (tab error dot). */
   setBlockAsmError(id: string, hasError: boolean): void;
   /**
-   * Create a machine-code block with defaults - first free `block<n>` name,
-   * the dialect's suggested address, a one-instruction return stub as both
-   * `asmSource` and assembled `bytes` - and switch to its tab (sets `dirty`).
-   * No-op when the dialect declares no `memoryBlocks` capability.
+   * Create a block with defaults - first free `block<n>` name, the dialect's
+   * suggested address - and switch to its tab (sets `dirty`). A `'code'` block
+   * starts as a one-instruction return stub, held as both `asmSource` and
+   * assembled `bytes`; a `'memory'` block starts as a single zero byte with no
+   * assembly source, so the byte editor has a row to open on. No-op when the
+   * dialect declares no `memoryBlocks` capability.
    */
-  addBlock(): void;
+  addBlock(kind?: Block['kind']): void;
+  /**
+   * Copy a file a running program saved into a `'memory'` block: the bytes the
+   * file's tab shows (the machine's container already stripped), at the
+   * dialect's suggested address, under a block name derived from the file's.
+   * Selects the new block's tab and opens its settings on it in one update,
+   * because the address is a suggestion the user has yet to make a decision
+   * about (sets `dirty`).
+   *
+   * The file itself is untouched - a running program can still load it, and the
+   * next run discards it as it always did. No-op when the file is gone, or when
+   * the dialect has no fixed-address blocks (those dialects wire no file store,
+   * so they never show a data tab).
+   */
+  addBlockFromDataFile(name: string): void;
   /**
    * Ask to delete a block (opens the DeleteBlockDialog). Unknown ids are
    * ignored, so the BASIC tab - which has no block id - can never be deleted.
@@ -1581,6 +1600,32 @@ const startupScratch = hydrateScratchBuffers(autosaved?.scratch ?? []);
  * listing as `#BIN` records (ZX80/ZX81), else `null`. The gate the block
  * mutation actions and `selectBlocks` branch on.
  */
+/**
+ * A new machine code block: a one-instruction return stub held as both
+ * `asmSource` and assembled `bytes`, so the two start in sync. Both engines
+ * exist for every `MemoryBlocksSupport.cpu`, so the fallback byte (the CPU's
+ * return opcode) is defensive only.
+ */
+function buildCodeBlock(
+  name: string,
+  address: number,
+  cpu: MemoryBlocksSupport['cpu'],
+): Block {
+  const ret = cpu === 'z80' ? 'RET' : 'RTS';
+  const asmSource = `; ${name} - machine code at ${formatWord(address)}\n${ret}\n`;
+  const assembled = asmEngineFor(cpu)?.assemble(asmSource, address);
+  return {
+    id: `block-${name}`,
+    name,
+    address,
+    bytes: assembled?.ok
+      ? assembled.bytes
+      : new Uint8Array([cpu === 'z80' ? 0xc9 : 0x60]),
+    kind: 'code',
+    asmSource,
+  };
+}
+
 function listingLayoutOf(dialect: Dialect): ListingLayout | null {
   const support = dialect.memoryBlocks;
   return support?.inListing && support.listing ? support.listing : null;
@@ -2219,7 +2264,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         return { scratchBuffers, tabTouchedAt };
       return { scratchBuffers, tabTouchedAt, activeTab: BASIC_TAB };
     }),
-  addBlock: () =>
+  addBlock: (kind = 'code') =>
     set((s) => {
       const support = s.dialect.memoryBlocks;
       if (!support) return {};
@@ -2235,6 +2280,17 @@ export const useIdeStore = create<IdeState>((set) => ({
           // Always pushed, whatever the outgoing tab was: the record was
           // appended to the program, and the hidden editor must hold it.
           docOverride: { text: source, seq: s.docOverride.seq + 1 },
+          // A listing block's kind lives in the per-listing metadata the
+          // settings dialog writes, since the record itself carries only bytes.
+          // `'code'` is the derived default, so only `'memory'` is recorded.
+          ...(kind === 'memory'
+            ? {
+                listingBlockMeta: {
+                  ...s.listingBlockMeta,
+                  [ordinal]: { ...s.listingBlockMeta[ordinal], kind },
+                },
+              }
+            : {}),
           activeTab: { kind: 'block', id: `listing-${ordinal}` },
           tabTouchedAt: touched(s.tabTouchedAt, {
             kind: 'block',
@@ -2248,23 +2304,19 @@ export const useIdeStore = create<IdeState>((set) => ({
       while (taken.has(`block${n}`)) n++;
       const name = `block${n}`;
       const address = support.defaultAddress;
-      const ret = support.cpu === 'z80' ? 'RET' : 'RTS';
-      const asmSource = `; ${name} - machine code at ${formatWord(address)}\n${ret}\n`;
-      // Assemble the stub so bytes and asmSource start in sync; both engines
-      // exist for every MemoryBlocksSupport.cpu, so the fallback byte (the
-      // CPU's return opcode) is defensive only.
-      const assembled = asmEngineFor(support.cpu)?.assemble(asmSource, address);
-      const bytes = assembled?.ok
-        ? assembled.bytes
-        : new Uint8Array([support.cpu === 'z80' ? 0xc9 : 0x60]);
-      const block: Block = {
-        id: `block-${name}`,
-        name,
-        address,
-        bytes,
-        kind: 'code',
-        asmSource,
-      };
+      const block =
+        kind === 'memory'
+          ? // One zero byte rather than none: the byte editor opens on a row,
+            // and the block has a length the pre-run lint can judge. The
+            // editor's own overwrite-and-extend rules take it from there.
+            ({
+              id: `block-${name}`,
+              name,
+              address,
+              bytes: new Uint8Array(1),
+              kind: 'memory',
+            } satisfies Block)
+          : buildCodeBlock(name, address, support.cpu);
       const blocks = [...s.blocks, block];
       assertValidBlocks(blocks);
       // Authoring a block turns a preserved boot-disc document into an
@@ -2273,6 +2325,43 @@ export const useIdeStore = create<IdeState>((set) => ({
         blocks,
         activeTab: { kind: 'block', id: block.id },
         tabTouchedAt: touched(s.tabTouchedAt, { kind: 'block', id: block.id }),
+        dirty: true,
+        ...(s.bootDisc !== null ? { bootDisc: null } : {}),
+      };
+    }),
+  addBlockFromDataFile: (name) =>
+    set((s) => {
+      const support = s.dialect.memoryBlocks;
+      // Guarded on a fixed-address block being possible at all. The listing
+      // dialects wire no file store, so this is a guard against a case that
+      // cannot arise rather than one anyone will meet.
+      if (!support || listingLayoutOf(s.dialect)) return {};
+      // Through the same projection the tab strip renders, so the block holds
+      // the bytes the user was shown rather than the raw stored image.
+      const file = selectDataBlocks(s.dialect).find((f) => f.name === name);
+      if (!file) return {};
+      const blockName = blockNameFromFileName(
+        name,
+        s.blocks.map((b) => b.name),
+      );
+      const block: Block = {
+        id: `block-${blockName}`,
+        name: blockName,
+        address: support.defaultAddress,
+        // A copy: the projection memoizes its arrays, so sharing one would let
+        // a byte edit reach back into what the file's tab shows.
+        bytes: new Uint8Array(file.bytes),
+        kind: 'memory',
+      };
+      const blocks = [...s.blocks, block];
+      assertValidBlocks(blocks);
+      return {
+        blocks,
+        activeTab: { kind: 'block', id: block.id },
+        tabTouchedAt: touched(s.tabTouchedAt, { kind: 'block', id: block.id }),
+        // In the same update as the tab, so the dialog and the tab it belongs
+        // to arrive together rather than in two renders.
+        blockSettingsId: block.id,
         dirty: true,
         ...(s.bootDisc !== null ? { bootDisc: null } : {}),
       };

@@ -22,6 +22,7 @@ interface StoredFile {
   data: Uint8Array;
   updatedAt: number;
   kind?: string;
+  mounted?: boolean;
 }
 
 export class EmulatorVfs implements MachineFileStore {
@@ -33,12 +34,17 @@ export class EmulatorVfs implements MachineFileStore {
   /** Serializes mirror operations so RxDB sees them in call order. */
   private pending: Promise<void> = Promise.resolve();
 
-  save(name: string, data: Uint8Array, meta?: { kind?: string }): void {
+  save(
+    name: string,
+    data: Uint8Array,
+    meta?: { kind?: string; mounted?: boolean },
+  ): void {
     // Copy: machines pass views over live emulator RAM.
     const file: StoredFile = {
       data: data.slice(),
       updatedAt: Date.now(),
       kind: meta?.kind,
+      mounted: meta?.mounted,
     };
     this.files.set(name, file);
     this.notify();
@@ -50,6 +56,9 @@ export class EmulatorVfs implements MachineFileStore {
       dialectId: this.dialectId,
       ...(file.kind !== undefined ? { kind: file.kind } : {}),
     };
+    // `mounted` is deliberately not mirrored: the mirror feeds a reactive
+    // inspector that does not exist yet, and the field would cost the schema a
+    // version and a migration for no reader.
     this.mirror((col) => col.incrementalUpsert(doc));
   }
 
@@ -64,6 +73,7 @@ export class EmulatorVfs implements MachineFileStore {
       size: f.data.length,
       updatedAt: f.updatedAt,
       ...(f.kind !== undefined ? { kind: f.kind } : {}),
+      ...(f.mounted ? { mounted: true } : {}),
     }));
   }
 

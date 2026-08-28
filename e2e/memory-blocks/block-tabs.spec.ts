@@ -5,9 +5,9 @@ import { addMemoryBlock, playAndWaitRunning } from '../helpers';
 /**
  * Block creation, settings and deletion from the editor tab strip:
  *
- *  1. The plus button creates a code block with defaults (`block1`,
- *     `block2`…), activates its tab, and opens the assembly editor on the
- *     one-instruction return stub.
+ *  1. The plus button creates a block of either kind with defaults (`block1`,
+ *     `block2`…) and activates its tab: an assembly block opens the assembly
+ *     editor on the one-instruction return stub, a binary block the byte editor.
  *  2. Right-clicking a code block tab opens a context menu with "Download
  *     .asm", "Download .bin", "Settings…" and "Delete…"; Escape (or an outside
  *     click) dismisses it.
@@ -61,6 +61,22 @@ test('the plus button creates blocks with sequential default names', async ({
     /block1/,
     /block2/,
   ]);
+
+  // The other kind is created directly rather than created as code and
+  // converted, and opens on its bytes.
+  await page.getByRole('button', { name: 'Add a tab' }).click();
+  await page.getByRole('menuitem', { name: 'New binary block' }).click();
+  await expect(page.getByRole('tab', { name: 'block3' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  // The byte editor's testid is the discriminator: both editors are CodeMirror
+  // and both carry an ORG strip, so neither the editor element nor the strip
+  // says which one is mounted.
+  await expect(page.getByTestId('byte-editor')).toBeVisible();
+  // Seeded with the one zero byte the editor needs a row to open on.
+  await expect(page.getByTestId('byte-length')).toHaveValue('1');
+  await expect(page.getByTestId('byte-editor')).toContainText('00');
 });
 
 test('the context menu offers the block actions, and Settings edits its metadata', async ({
