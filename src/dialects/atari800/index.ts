@@ -16,6 +16,7 @@ import { atari800AiProfile } from './aiProfile';
 import { atariBuildTargets } from './targets';
 import { atariKeyboardLayout } from './keyboardLayout';
 import { atariSamples } from './samples';
+import { atari800MemoryBlocks } from './memoryBlocks';
 import {
   ATARI_800_RAM_TOP,
   ATARI_ROM_BYTES,
@@ -105,6 +106,8 @@ export const atari800: Dialect = {
   createEmulator(opts) {
     return new AtariMachine({ model: '800', rom: opts.rom });
   },
+
+  memoryBlocks: atari800MemoryBlocks,
 
   keyboardLayout: atariKeyboardLayout,
   samples: atariSamples,

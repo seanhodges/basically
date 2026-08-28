@@ -27,6 +27,7 @@ import {
 import { atariBuildTargets } from '../atari800/targets';
 import { atariKeyboardLayout } from '../atari800/keyboardLayout';
 import { atariSamples } from '../atari800/samples';
+import { atari400MemoryBlocks } from '../atari800/memoryBlocks';
 import { atari400AiProfile } from './aiProfile';
 import {
   ATARI_400_RAM_TOP,
@@ -107,6 +108,8 @@ export const atari400: Dialect = {
   createEmulator(opts) {
     return new AtariMachine({ model: '400', rom: opts.rom });
   },
+
+  memoryBlocks: atari400MemoryBlocks,
 
   keyboardLayout: atariKeyboardLayout,
   samples: atariSamples,
