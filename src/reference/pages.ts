@@ -18,6 +18,7 @@ import type { BasicReferenceTableData, EscapeTableData } from './types';
 
 import { altair8800Reference } from './altair8800';
 import { apple1Reference } from './apple1';
+import { atariReference } from './atari';
 import { atomReference } from './atom';
 import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';
@@ -30,6 +31,7 @@ import { zxspectrumReference } from './zxspectrum';
 
 import { altair8800Escapes } from './escapes/altair8800';
 import { apple1Escapes } from './escapes/apple1';
+import { atariEscapes } from './escapes/atari';
 import { atomEscapes } from './escapes/atom';
 import { bbcEscapes } from './escapes/bbc';
 import { commodoreEscapes } from './escapes/commodore';
@@ -42,10 +44,28 @@ import { zxspectrumEscapes } from './escapes/zxspectrum';
 
 export { referencePageOf } from '../dialects/referencePage';
 
+/**
+ * Pages whose machines have not joined the registry yet.
+ *
+ * A target system's reference set is written before its dialects are
+ * registered, because registering turns every registry-driven battery on at
+ * once and the reference set is one of the things they demand. Until the switch
+ * is thrown, the page below is real - its data is checked by every battery that
+ * reads this map by page - but no registered machine reads from it, so the two
+ * assertions that would otherwise call it dead consult this list instead.
+ *
+ * Naming a page here is a promise to delete the name in the change that
+ * registers its machines, and pages.test.ts fails on an entry that is not a
+ * page or whose machines have arrived - so the exemption cannot outlive the
+ * staging it exists for.
+ */
+export const PENDING_PAGE_IDS: readonly string[] = ['atari'];
+
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {
   altair8800: altair8800Reference,
   apple1: apple1Reference,
+  atari: atariReference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,
@@ -65,6 +85,7 @@ export const referencePages: Record<string, BasicReferenceTableData> = {
 export const escapePages: Record<string, EscapeTableData> = {
   altair8800: altair8800Escapes,
   apple1: apple1Escapes,
+  atari: atariEscapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
   commodore: commodoreEscapes,

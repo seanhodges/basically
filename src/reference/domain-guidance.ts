@@ -1830,4 +1830,228 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
+
+  // ---------------------------------------------------------------- atari --
+  {
+    to: 'atari',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF…THEN, FOR…NEXT with STEP, GOTO/GOSUB and ON…GOTO cover jumps and loops; POP unwinds a GOSUB left early.',
+    instead:
+      'No ELSE, no WHILE and no REPEAT. Everything after THEN belongs to the THEN, so put the negative case on the next line and jump past the positive one.',
+    example: {
+      caption: 'No ELSE: split into two lines',
+      code: [
+        '10 IF X=0 THEN GOTO 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'atari',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'LET, DIM, DATA/READ/RESTORE and CLR hold constants and declare arrays and strings.',
+    instead:
+      'No type declarations and no ERASE: a name is typed by its spelling, a trailing $ making it a string, and DIM sizes it once and for good until CLR.',
+    example: {
+      caption: 'Sizes are fixed at DIM and never grow',
+      code: ['10 DIM A(10),N$(20)', '20 N$="BASICALLY"', '30 PRINT LEN(N$)'],
+    },
+    reachFor: ['DIM', 'DATA', 'READ', 'CLR'],
+  },
+  {
+    to: 'atari',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Ten-digit decimal floating point with the usual roots, logs and trig, and DEG and RAD to choose the angle unit.',
+    instead:
+      'No TAN, no PI and no integer division: TAN is SIN/COS, PI is 3.14159265, and A DIV B is INT(A/B) with A-B*INT(A/B) for the remainder.',
+    example: {
+      caption: 'TAN, PI and integer division by hand',
+      code: ['10 P=3.14159265', '20 T=SIN(X)/COS(X)', '30 D=INT(A/B):R=A-B*D'],
+    },
+    reachFor: ['SIN', 'SQR', 'INT', 'RND'],
+  },
+  {
+    to: 'atari',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, ASC, CHR$, STR$ and VAL convert between strings and numbers.',
+    instead:
+      'No LEFT$/MID$/RIGHT$ and no string arrays: slice with A$(from,to), and join by assigning past the end with A$(LEN(A$)+1)=B$.',
+    example: {
+      caption: 'Slice and join by subscript',
+      code: [
+        '10 DIM A$(20),B$(10)',
+        '20 A$="HELLO":B$=" THERE"',
+        '30 A$(LEN(A$)+1)=B$',
+        '40 PRINT A$(1,5)',
+      ],
+    },
+    reachFor: ['LEN', 'ASC', 'CHR$', 'VAL'],
+  },
+  {
+    to: 'atari',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT and POSITION write anywhere on the 40x24 screen; PUT sends a byte to a channel and LPRINT to the printer.',
+    instead:
+      'No CLS, TAB or SPC: clear by printing the {clear} escape or re-selecting GRAPHICS 0, and space text out with POSITION. Never print into column 39.',
+    example: {
+      caption: 'Clear and place text without CLS or TAB',
+      code: ['10 PRINT "{clear}"', '20 POSITION 10,5:PRINT "SCORE";S'],
+    },
+    reachFor: ['PRINT', 'POSITION', 'PUT', 'LPRINT'],
+  },
+  {
+    to: 'atari',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'GRAPHICS picks one of twelve modes, PLOT and DRAWTO draw in the register COLOR selected, and LOCATE reads a point back.',
+    instead:
+      'No MOVE, CLG or FILL keyword: PLOT sets where a line starts, GRAPHICS clears the screen as it selects a mode, and XIO 18 fills an outlined area.',
+    example: {
+      caption: 'Move, clear and fill the Atari way',
+      code: [
+        '10 GRAPHICS 7+16:COLOR 1',
+        '20 PLOT 10,10:DRAWTO 80,40',
+        '30 POSITION 10,10',
+        '40 XIO 18,#6,0,0,"S:"',
+      ],
+    },
+    reachFor: ['GRAPHICS', 'PLOT', 'DRAWTO', 'LOCATE'],
+  },
+  {
+    to: 'atari',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'SETCOLOR loads one of five registers with a hue and a brightness; COLOR picks which register drawing uses next.',
+    instead:
+      'No INK, PAPER or BORDER: register 2 is the background, 1 the text luminance and 4 the border, and a pixel names a register rather than a colour.',
+    example: {
+      caption: 'Background, text and border by register',
+      code: ['10 SETCOLOR 2,9,4', '20 SETCOLOR 1,9,14', '30 SETCOLOR 4,0,0'],
+    },
+    reachFor: ['SETCOLOR', 'COLOR'],
+  },
+  {
+    to: 'atari',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'SOUND plays a tone on one of four voices and holds it until the voice is changed or the program ends.',
+    instead:
+      'No ENVELOPE, BEEP or PLAY: shape a note by changing its volume in a loop, and silence a voice by giving it a volume of 0.',
+    example: {
+      caption: 'Fade a note instead of an envelope',
+      code: [
+        '10 FOR V=15 TO 0 STEP -1',
+        '20 SOUND 0,121,10,V',
+        '30 FOR W=1 TO 20:NEXT W',
+        '40 NEXT V',
+        '50 SOUND 0,0,0,0',
+      ],
+    },
+    reachFor: ['SOUND'],
+  },
+  {
+    to: 'atari',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a line, GET waits for a byte on a channel, and STICK, STRIG, PADDLE and PTRIG read the controller ports.',
+    instead:
+      'No INKEY$: PEEK(764) holds the last key’s hardware code, 255 for none, and keeps it until the program POKEs 764,255 to clear it.',
+    example: {
+      caption: 'Poll a key without waiting',
+      code: [
+        '10 K=PEEK(764)',
+        '20 IF K=255 THEN GOTO 10',
+        '30 POKE 764,255',
+        '40 PRINT "KEY ";K',
+      ],
+    },
+    reachFor: ['INPUT', 'GET', 'STICK', 'STRIG'],
+  },
+  {
+    to: 'atari',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'OPEN, CLOSE, GET, PUT and XIO reach any device by name; SAVE, LOAD, CSAVE and CLOAD move whole programs.',
+    instead:
+      'No BGET/BPUT and no CHAIN: OPEN a channel on "C:" or "D:NAME" and move bytes with GET and PUT, and RUN "D:NEXT" chains to another program.',
+    example: {
+      caption: 'Open a channel and move bytes',
+      code: ['10 OPEN #1,8,0,"D:SCORES"', '20 PUT #1,ASC("A")', '30 CLOSE #1'],
+    },
+    reachFor: ['OPEN', 'CLOSE', 'XIO', 'SAVE'],
+  },
+  {
+    to: 'atari',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK and POKE reach any address in decimal, USR calls machine code, ADR finds a string’s bytes and FRE(0) reports free memory.',
+    instead:
+      'No CALL and no indirection operators: USR(address) is the only way in, and the routine must PLA the argument count USR pushed before anything else.',
+    example: {
+      caption: 'Call machine code with USR',
+      code: [
+        '10 FOR I=0 TO 3:READ B',
+        '20 POKE 1536+I,B:NEXT I',
+        '30 X=USR(1536)',
+        '40 DATA 104,169,7,96',
+      ],
+    },
+    reachFor: ['PEEK', 'POKE', 'USR', 'FRE'],
+  },
+  {
+    to: 'atari',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'LIST, NEW, RUN and CONT drive the session, REM comments a line, and BYE leaves BASIC for the Memo Pad.',
+    instead:
+      'No AUTO, RENUMBER, DELETE or TRACE: typing a line number on its own deletes that line, and retyping a line replaces it. Leave gaps to insert into.',
+    example: {
+      caption: 'Editing without AUTO or RENUMBER',
+      code: [
+        '10 REM leave gaps to insert later',
+        '20 REM typing 20 alone deletes it',
+      ],
+    },
+    reachFor: ['LIST', 'NEW', 'RUN', 'CONT'],
+  },
+  {
+    to: 'atari',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'TRAP sends the next error to a line instead of stopping, and the code and line it failed on are read back with PEEK.',
+    instead:
+      'No ERR, ERL or RESUME: PEEK(195) is the error code and PEEK(187)*256+PEEK(186) the line. TRAP clears itself, so the handler has to set it again.',
+    example: {
+      caption: 'Read the error back after a TRAP',
+      code: [
+        '10 TRAP 100',
+        '20 X=VAL(A$)',
+        '30 END',
+        '100 E=PEEK(195)',
+        '110 PRINT "ERROR ";E:TRAP 100',
+      ],
+    },
+    reachFor: ['TRAP'],
+  },
 ];

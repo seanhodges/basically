@@ -88,7 +88,7 @@ machine has more undocumented corners than most:
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ✅     |
-| 6     | Reference docs                     | ⬜     |
+| 6     | Reference docs                     | ✅     |
 | 7     | Register & ship                    | ⬜     |
 
 ---
@@ -345,30 +345,73 @@ Three facts the machine settled that no chart would have:
 - The cartridge answers a `READ` past the end of `DATA` with error 8, where the
   Atari BASIC manual documents 6. Pinned in the tests rather than argued with.
 
-## Stage 6 — Reference docs ⬜
+## Stage 6 — Reference docs ✅
 
 Every artifact here is registry-pinned, so it lands **before** the machines
 register. Run the **`dialect-reference-docs`** sub-skill. Both dialects share one
 page via `docsReference: 'atari'`, exactly as `bbcmicro`/`bbcmaster` share
 `'bbc'`.
 
-- [ ] **The sidebar entry is already approved** by the user for this machine, so
+- [x] **The sidebar entry is already approved** by the user for this machine, so
       add it to `docs/.vitepress/config.ts` in this stage — alongside the pages
       it points at, never before them (`docs:build` fails on a dead link)
-- [ ] `src/reference/atari.ts` + `escapes/atari.ts` — scaffold with
+- [x] `src/reference/atari.ts` + `escapes/atari.ts` — scaffold with
       `npm run gen:reference` / `npm run gen:escapes`, then hand-enrich
-- [ ] `docs/reference/atari.md` + `atari/{hardware,escapes,formats}.md`
-- [ ] `pages.ts`, `machines.ts` (both machines), the index bullet, the CPU
-      assembly page's machine lists, `ai/machineReference.ts`'s lazy loaders
-- [ ] `facts.ts` porting entry (`loopSpeed` **measured**, not authored), the
-      `porting.ts` groups, and the `domain-guidance.ts` / `escape-guidance.ts`
-      cells
+- [x] `docs/reference/atari.md` + `atari/{hardware,escapes,formats}.md`, plus a
+      row and a link in the cross-machine `file-formats.md`
+- [x] `pages.ts`, the index bullet, the CPU assembly page's machine lists,
+      `ai/machineReference.ts`'s lazy loaders
+- [x] the `porting.ts` groups and the `domain-guidance.ts` /
+      `escape-guidance.ts` cells
+- [ ] `machines.ts` and the `facts.ts` porting entry — **moved to Stage 7**, see
+      below
 
 **Depends on:** Stages 1–3.
 **Verify:** `npm run docs:build` + the reference crosschecks.
 
+Two things this stage settled that the checklist above had wrong:
+
+- **`machines.ts` and `facts.ts` cannot land before registration**, and not
+  merely because their crosschecks demand a bijection with the registry.
+  `machines.ts` is what the porting guide offers as a source and a target, and an
+  entry there with no `facts.ts` row beside it is a picker option that renders
+  nothing; `facts-crosscheck` in turn reads `keywordSpellings`, `letterCase`,
+  `glyphSources` and `OPERATOR_PROBES` for each machine it covers, every one of
+  which is a Stage 7 table. So the two files are one unit with the registry line,
+  and they have moved there. The visible cost until then is that the hardware
+  page labels its two memory maps with the dialect ids rather than the machine
+  names, because `MemoryMapSingle` reads the name from `machines.ts`.
+- **The batteries needed one way to say "written, not registered yet".**
+  `pages.test.ts` and `keyword-crosscheck.test.ts` both refuse a reference page
+  no registered machine reads from, which is exactly what a page written ahead of
+  its machines is. `PENDING_PAGE_IDS` in `src/reference/pages.ts` names it, both
+  assertions consult it, and two new assertions in `pages.test.ts` fail on an
+  entry that is not a real page or whose machines have arrived — so emptying the
+  list is part of registering the machines rather than something to remember.
+
+The machine settled the figures the hardware page quotes, none of which came off
+a chart:
+
+- The mode table's resolutions are the coordinate limits the OS itself enforces,
+  found by `TRAP`ping a `PLOT` that walks off each edge. They are the _whole
+  picture_ in every mode, text window or not: `GRAPHICS 8` accepts `PLOT 0,191`
+  and displays 160 rows, which decoding the display list confirms — 160 rows of
+  ANTIC mode 15 with the window, 192 without.
+- Modes 9, 10 and 11 have no text window at all, and their display list is the
+  same ANTIC 15 as `GRAPHICS 8`: they are that bitmap read four bits at a time by
+  GTIA, which is where the wide pixel and the deep palette come from.
+- `SETCOLOR`'s odd luminances are indistinguishable from the even one below, so
+  the palette a program can name is 128 colours rather than 256.
+
 ## Stage 7 — Register & ship ⬜
 
+- [ ] `src/reference/machines.ts` and the `facts.ts` porting entry
+      (`loopSpeed` **measured**, not authored) for both machines, deferred here
+      from Stage 6 — and `docs/reference/compare.md`'s `referenceByPage`,
+      `escapesByPage` and `memoryMapById` maps, which the porting guide needs
+      before it can be pointed at either machine
+- [ ] delete `'atari'` from `PENDING_PAGE_IDS` in `src/reference/pages.ts` in
+      the same change as the registry line; `pages.test.ts` fails until it goes
 - [ ] picker identity on both dialects: `name`, `manufacturer` (`Atari`, one
       spelling so the group does not split), `year` (from a primary source;
       `registry.test.ts` bounds 1975–1995), `blurb` (aim 60 chars, hard cap 72).

@@ -16,7 +16,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
-import { escapePages, referencePageOf, referencePages } from './pages';
+import {
+  escapePages,
+  PENDING_PAGE_IDS,
+  referencePageOf,
+  referencePages,
+} from './pages';
 
 const pages = new Set(dialects.map((d) => referencePageOf(d)));
 
@@ -41,10 +46,36 @@ describe('the shared reference page map', () => {
   // looping over the map would be measuring documentation for a machine that
   // is not registered any more.
   it('carries no page no machine reads from', () => {
-    expect(Object.keys(referencePages).filter((p) => !pages.has(p))).toEqual(
-      [],
-    );
-    expect(Object.keys(escapePages).filter((p) => !pages.has(p))).toEqual([]);
+    const stale = (map: Record<string, unknown>) =>
+      Object.keys(map).filter(
+        (p) => !pages.has(p) && !PENDING_PAGE_IDS.includes(p),
+      );
+    expect(stale(referencePages)).toEqual([]);
+    expect(stale(escapePages)).toEqual([]);
+  });
+
+  // The pending list is what lets a machine's documentation be written and
+  // checked before it is registered. It has to name a real page, and it has to
+  // be emptied by the change that registers the machines - otherwise it would
+  // quietly restore the hole the assertion above exists to close.
+  it('lists only real pages as pending', () => {
+    for (const page of PENDING_PAGE_IDS) {
+      expect(
+        referencePages[page],
+        `${page} is not a keyword table`,
+      ).toBeDefined();
+      expect(
+        escapePages[page],
+        `${page} is not a control-code table`,
+      ).toBeDefined();
+    }
+  });
+
+  it('lists no page as pending once a machine reads from it', () => {
+    expect(
+      PENDING_PAGE_IDS.filter((p) => pages.has(p)),
+      'remove these from PENDING_PAGE_IDS in src/reference/pages.ts',
+    ).toEqual([]);
   });
 
   it('keys both maps the same way', () => {

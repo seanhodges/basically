@@ -11,7 +11,8 @@ import { m6502AssemblyReference } from '../../src/reference/m6502-assembly';
 Every legal NMOS 6502 instruction, plus the assembler directives, understood by
 the built-in assembly editor. This one reference covers every 6502 machine
 Basically supports — the **Commodore 64**, **VIC-20** and **PET**, the **BBC
-Micro** and **Master**, the **Acorn Atom** and the **Apple I** all share the
+Micro** and **Master**, the **Acorn Atom**, the **Apple I** and the **Atari
+800** and **400** all share the
 identical instruction set and assembler syntax. What differs between them is only the
 memory map (where a block may live and the entry points you call), which stays
 on each machine's own hardware page.
@@ -77,8 +78,8 @@ The address ranges a routine may occupy, the default load address, and the entry
 points you call (`SYS`, `CALL`, `USR`, `LINK`) are machine-specific — see the
 **Memory** section on each machine's hardware page:
 [Commodore 64, VIC-20 & PET](./commodore/hardware),
-[BBC Micro & Master](./bbc/hardware), [Acorn Atom](./atom/hardware) and
-[Apple I](./apple1/hardware).
+[BBC Micro & Master](./bbc/hardware), [Acorn Atom](./atom/hardware),
+[Apple I](./apple1/hardware) and [Atari 800 & 400](./atari/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

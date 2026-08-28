@@ -1170,4 +1170,133 @@ export const escapeGuidance: EscapeGuidance[] = [
     support: 'full',
     instead: RESPELL_HEX,
   },
+
+  // ---------------------------------------------------------------- atari --
+  // ATASCII carries its graphics as ordinary characters rather than as escapes,
+  // and everything the screen editor acts on is a cursor or an editing code, so
+  // the two classes it really has are those - plus inverse video, which is a
+  // bit rather than a code.
+  {
+    to: 'atari',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour in the character stream: colour is a property of the screen, not of the text. Set a colour register with SETCOLOR before printing, and change it again afterwards.',
+    example: {
+      caption: 'Colour the screen, not the string',
+      code: ['10 SETCOLOR 2,4,4', '20 PRINT "WARNING"', '30 SETCOLOR 2,9,4'],
+    },
+  },
+  {
+    to: 'atari',
+    class: 'cursor',
+    support: 'full',
+    instead:
+      'Respell as {up}, {down}, {left} and {right}. There is no home code: POSITION 0,0 puts the cursor in the corner, and it is usually what {home} meant.',
+    example: {
+      caption: 'Home the cursor with POSITION',
+      code: ['10 POSITION 0,0:PRINT "TOP LEFT";'],
+    },
+  },
+  {
+    to: 'atari',
+    class: 'editing',
+    support: 'full',
+    instead:
+      'Respell as {clear}, {insert line}, {delete line}, {insert char}, {delete char}, {set tab} and {clear tab}. A carriage return becomes {eol}, which is code 155 here rather than 13.',
+  },
+  {
+    to: 'atari',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'One character set with both letter cases in it, so there is no case switch to make. Reverse video is a bit on each character rather than a mode: see the inverse-video advice.',
+  },
+  {
+    to: 'atari',
+    class: 'screen-effect',
+    support: 'none',
+    instead:
+      'No attribute to flash, conceal or double: drop the effect. Inverse video is the one emphasis this machine has in the character stream, and animating a colour register is the other.',
+  },
+  {
+    to: 'atari',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No function keys on a 400 or an 800. Read the console keys with PEEK(53279) — START, SELECT and OPTION — or branch on an ordinary key from PEEK(764).',
+  },
+  {
+    to: 'atari',
+    class: 'block-graphics',
+    support: 'full',
+    instead:
+      'The block and line shapes are ordinary characters here, codes 0 to 26 plus three on punctuation keys, so type the character rather than an escape. Each has an inverse twin 128 higher.',
+    example: {
+      caption: 'Draw a box from ATASCII characters',
+      code: ['10 PRINT "┌──┐"', '20 PRINT "└──┘"'],
+    },
+  },
+  {
+    to: 'atari',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'No redefinable characters from BASIC. Copy the ROM character set into RAM, change the shapes there and POKE 756 with its page — machine-code work, and 1K of RAM.',
+  },
+  {
+    to: 'atari',
+    class: 'inverse-video',
+    support: 'full',
+    instead:
+      'Inverse video is the top bit of the code, not a switch: write {$a0} for an inverse space, or add 128 to any code. CHR$(160) is the same solid block computed.',
+    example: {
+      caption: 'A solid block is an inverse space',
+      code: ['10 PRINT "{$a0}{$a0}{$a0}"', '20 PRINT CHR$(160);'],
+    },
+  },
+  {
+    to: 'atari',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces, or move to the column with POSITION and print nothing in between, which is faster and shorter.',
+  },
+  {
+    to: 'atari',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'atari',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'Type the character itself: space and backslash are ordinary here. Three ASCII positions are not: 96 is a diamond, 123 a spade, and 126 and 127 the backspace and tab arrows.',
+  },
+  {
+    to: 'atari',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Respell as {eol} for a line ending, {bell} for the buzzer and {esc} for the escape code. A line feed, a backspace or a form feed has no code of its own here — drop it.',
+  },
+  {
+    to: 'atari',
+    class: 'raw-byte',
+    support: 'full',
+    instead:
+      'Respell the byte as {$xx} — a dollar and two hex digits, lower case. It is the only place hexadecimal appears on this machine; BASIC itself has none.',
+  },
+  // ----------------------------------------------- commodore, editing --
+  // Added with the Atari page: its screen editor has tab-stop and line-opening
+  // codes the Commodore's has no spelling for, so the class became losable.
+  {
+    to: 'commodore',
+    class: 'editing',
+    support: 'partial',
+    instead:
+      'Respell as {clr}, {del}, {inst} and {cr}. There are no tab-stop codes and no insert- or delete-line code: open a line by printing {inst} once per column, or redraw the screen.',
+  },
 ];
