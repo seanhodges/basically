@@ -631,24 +631,39 @@ character set gives them — the same byte view a block's bytes are shown in,
 distinguished by counting from the start of the file, since a file has no
 address.
 
+Only what the program itself wrote SHALL appear. To serve a program's own
+`LOAD`, the IDE hands the machine the document's own content before a run — its
+memory blocks, and any tape files imported with it — as files the program can
+load by name. Those are the document being given to the machine, not output
+coming back, and SHALL NOT be shown as tabs; a file the program then saves over
+one of them SHALL appear like any other.
+
 The bytes SHALL be shown read-only. A data file is neither kept with the
 document nor returned to the machine, so there is nothing an edit to one could
 change; it is a view onto what the program produced.
 
-The tab SHALL offer the file for download both as its raw bytes and as text, and
-SHALL let the user discard it, from the same menu a block's tab offers its own
-downloads.
+The tab SHALL offer the file for download both as its raw bytes and as text,
+SHALL offer to copy it into a block of the document's memory, and SHALL let the
+user discard it, from the same menu a block's tab offers its own downloads.
 
-Where a program has saved more files than the tab strip can show without
-crowding out the program itself, the strip SHALL show a bounded number of them
-and the rest SHALL remain reachable, so no program can take the strip over by
-writing files.
+Saved files SHALL compete for room in the strip under the same rule as every
+other tab, and SHALL in addition be held to a bounded share of the tabs shown.
+A program can write files without limit, and while the strip is the machine's
+way of reporting them, it is the user's way back to their own work: no amount of
+saving SHALL displace every block and scratch buffer the user opened, and files
+beyond what is shown SHALL remain reachable like any other overflowing tab.
 
 #### Scenario: A tab appears as the program writes
 
 - **WHEN** a running program saves a data file
 - **THEN** a tab named after that file appears in the editor, and selecting it
   shows the bytes the program wrote
+
+#### Scenario: What the IDE handed the machine is not shown back
+
+- **WHEN** a program whose document has memory blocks is run, and the machine is
+  given those blocks as files the program can load
+- **THEN** no tab appears for them — the tabs are the files the program saved
 
 #### Scenario: The file's bytes cannot be edited
 
@@ -659,6 +674,12 @@ writing files.
 
 - **WHEN** the user asks, from a saved data file's tab, to download it
 - **THEN** they can save it as its raw bytes or as text
+
+#### Scenario: The file can be copied into a block from its tab
+
+- **WHEN** the user opens the menu of a saved data file's tab
+- **THEN** copying the file into a block of memory is offered there, alongside
+  its downloads
 
 #### Scenario: Many saved files do not crowd out the program
 
@@ -848,4 +869,62 @@ into the editor SHALL have its case changed.
 
 - **WHEN** Strict characters is on and the target machine can draw lower case
 - **THEN** text is entered in whatever case the user wrote
+
+### Requirement: The tab strip fits the room it has
+
+The editor's tab strip SHALL show as many of its tabs as its own width allows,
+rather than letting tabs run off the edge. The program's tab SHALL be pinned
+first and SHALL always be shown: whatever else the strip is holding, the way back
+to the program is never hidden.
+
+The remaining room SHALL be given to the most recently used of the other tabs —
+memory blocks, scratch buffers and saved data files alike, under one rule rather
+than one rule each. A tab the user has just shown, and a tab that has just come
+into being, both count as recently used, so a newly created buffer or block and a
+file the running program has just saved appear without being asked for.
+
+Tabs the width does not allow SHALL remain reachable from a single control at the
+end of the strip, which SHALL say how many tabs it is holding and SHALL list them
+by name. Choosing one SHALL show that tab and bring it into the strip, so the tab
+being shown is always the tab marked as showing.
+
+The tabs that are shown SHALL keep the strip's own order. Recency SHALL decide
+which tabs are shown and never where a shown tab sits, so a tab does not move
+under the pointer as it is used.
+
+Which tabs were shown SHALL NOT outlive the session: it is a view of the window's
+width at a moment, not part of the document, and SHALL be neither saved with the
+project nor restored with it.
+
+#### Scenario: The program's tab is never hidden
+
+- **WHEN** the strip holds more tabs than it has room for
+- **THEN** the program's tab is shown, first in the strip, and is not among the
+  tabs the overflow control lists
+
+#### Scenario: Narrowing the window moves the least recently used tab out of view
+
+- **WHEN** the user narrows the window until the strip can no longer hold every
+  tab
+- **THEN** the tabs used least recently are the ones that leave the strip, the
+  tab being shown stays, and the overflow control reports how many left
+
+#### Scenario: A tab chosen from the overflow comes into view
+
+- **WHEN** the user opens the overflow control and chooses one of the tabs it
+  lists
+- **THEN** the editor shows that tab, and the tab appears in the strip marked as
+  showing
+
+#### Scenario: A new tab appears without being asked for
+
+- **WHEN** the user creates a scratch buffer or a memory code block while the
+  strip is already full
+- **THEN** the new tab is shown in the strip rather than starting in the overflow
+
+#### Scenario: Widening the window brings tabs back
+
+- **WHEN** the user widens the window again
+- **THEN** tabs return to the strip until the width is used up, and the overflow
+  control is gone once every tab is shown
 

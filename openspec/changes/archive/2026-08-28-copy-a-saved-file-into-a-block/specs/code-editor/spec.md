@@ -25,10 +25,12 @@ The tab SHALL offer the file for download both as its raw bytes and as text,
 SHALL offer to copy it into a block of the document's memory, and SHALL let the
 user discard it, from the same menu a block's tab offers its own downloads.
 
-Where a program has saved more files than the tab strip can show without
-crowding out the program itself, the strip SHALL show a bounded number of them
-and the rest SHALL remain reachable, so no program can take the strip over by
-writing files.
+Saved files SHALL compete for room in the strip under the same rule as every
+other tab, and SHALL in addition be held to a bounded share of the tabs shown.
+A program can write files without limit, and while the strip is the machine's
+way of reporting them, it is the user's way back to their own work: no amount of
+saving SHALL displace every block and scratch buffer the user opened, and files
+beyond what is shown SHALL remain reachable like any other overflowing tab.
 
 #### Scenario: A tab appears as the program writes
 
