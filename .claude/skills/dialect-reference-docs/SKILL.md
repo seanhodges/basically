@@ -76,11 +76,16 @@ has no sound hardware.").
    without an explicit request, and a page absent from the sidebar fails
    `src/app/docsNavigation.test.ts` — so the permission is needed, and asking
    for it at the start of the work beats discovering it at the end.
-5. **Extend the crosscheck layer.** Add the new set to
-   `src/reference/reference-data.test.ts`,
-   `src/reference/keyword-crosscheck.test.ts` and
-   `src/reference/escapes/escape-crosscheck.test.ts` (imports + a
-   per-dialect probe block for the escapes).
+5. **Extend the crosscheck layer**, which is one edit rather than three: the
+   data-shape, keyword and guidance batteries all read
+   `src/reference/pages.ts`, so adding the page to `referencePages` and
+   `escapePages` turns every one of them on. For a machine that has not
+   registered yet, also name the page in `PENDING_PAGE_IDS` in the same file —
+   `pages.test.ts` and `keyword-crosscheck.test.ts` otherwise reject a page no
+   registered machine reads from. `escapes/escape-crosscheck.test.ts` is the
+   exception: it is driven by `src/dialects/charsetProbes.ts`, which refuses an
+   unregistered dialect, so its per-dialect probe block goes in the
+   registration change.
 
 ## Workflow B — update or audit an existing dialect
 
@@ -117,12 +122,18 @@ Run before finishing:
 - `npm test` — the crosscheck layer (`reference-data`, `keyword-crosscheck`,
   `escape-crosscheck`) plus `src/app/docsTopic.test.ts`, which asserts every
   registered dialect resolves (via `docsReference` or its id) to a real
-  reference page. For a **new** machine these pages are only half of what its
-  registration demands: `facts-crosscheck`, `machines-crosscheck`,
-  `porting-crosscheck` and the two guidance crosschecks want entries in
-  `facts.ts`, `machines.ts`, `porting.ts`, `domain-guidance.ts` and
-  `escape-guidance.ts` as well, and `loopSpeed.test.ts` wants a **measured**
-  loop speed in the porting facts. Budget for those in the same pass.
+  reference page. For a **new** machine, budget for the page-keyed data these
+  pages sit beside: `porting-crosscheck` and the two guidance crosschecks want
+  entries in `porting.ts`, `domain-guidance.ts` and `escape-guidance.ts`, and
+  they are quickest to author from the crosschecks' own failures, which name
+  the exact groups, domains and control-code classes that are missing.
+  `machines.ts` and `facts.ts` are **not** part of this pass on a machine that
+  has not registered yet: both crosschecks demand a strict bijection with the
+  registry, `facts-crosscheck` resolves each entry through `getDialect` and
+  reads four of the registration stage's own per-dialect tables, and a
+  `machines.ts` row without a `facts.ts` row beside it is a porting-guide
+  option that renders nothing. They belong in the change that registers the
+  machine, together with its **measured** `loopSpeed`.
 - `npm run typecheck` · `npm run lint` · `npm run format:check`
 - `npm run docs:build` — VitePress fails on dead links; new pages, anchors and
   retargeted links all get checked here.

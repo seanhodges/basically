@@ -34,6 +34,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       altair8800: 'GOSUB',
       apple1: 'GOSUB',
+      atari: 'GOSUB',
       atom: 'GOSUB',
       bbc: 'GOSUB',
       commodore: 'GOSUB',
@@ -49,6 +50,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     concept: 'resume-after-break',
     spellings: {
       altair8800: 'CONT',
+      atari: 'CONT',
       commodore: 'CONT',
       cpc: 'CONT',
       pmd85: 'CONT',
@@ -65,6 +67,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       altair8800: 'CLEAR',
       apple1: 'CLR',
+      atari: 'CLR',
       bbc: 'CLEAR',
       commodore: 'CLR',
       cpc: 'CLEAR',
@@ -114,6 +117,8 @@ export const falseFriends: FalseFriend[] = [
       altair8800: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       apple1:
         'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
+      atari:
+        'Neither bits nor values, but truth: 5 AND 3 is 1, because both operands are reduced to true or false first. There is no bitwise operator at all here.',
       atom: 'Bitwise on integers: 5 AND 3 is 1. The & operator is the same thing.',
       bbc: 'Bitwise on integers: 5 AND 3 is 1.',
       commodore: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
@@ -132,6 +137,8 @@ export const falseFriends: FalseFriend[] = [
       altair8800: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       apple1:
         'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      atari:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
       atom: 'Bitwise on integers: 5 OR 3 is 7. There is no symbolic spelling.',
       bbc: 'Bitwise on integers: 5 OR 3 is 7.',
       commodore: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
@@ -148,6 +155,7 @@ export const falseFriends: FalseFriend[] = [
     keyword: 'LOG',
     meanings: {
       altair8800: 'Natural (base-e) logarithm. There is no LN.',
+      atari: 'Natural (base-e) logarithm; CLOG gives the base-10 one.',
       atom: 'Base-10 logarithm; LN gives the natural logarithm.',
       bbc: 'Base-10 logarithm; LN gives the natural logarithm.',
       commodore: 'Natural (base-e) logarithm. There is no LN.',
@@ -183,6 +191,8 @@ export const falseFriends: FalseFriend[] = [
     // read at all.
     keyword: 'GET',
     meanings: {
+      atari:
+        'Waits for one byte on an I/O channel: a key press when the channel is open on "K:", a byte of a file otherwise. PEEK(764) is the non-blocking key read.',
       atom: 'Reads a value from a hardware I/O port.',
       bbc: 'Waits for a key press and returns its character code.',
       commodore: 'Reads a pending key without waiting; empty if none.',
@@ -221,6 +231,8 @@ export const falseFriends: FalseFriend[] = [
     meanings: {
       altair8800:
         'The argument is data: it calls the routine whose address is held in the USR vector, and returns that routine’s result.',
+      atari:
+        'The argument is the address, and any arguments after it are pushed with a count on top — so the routine must PLA that count first, and it answers with what it leaves in locations 212 and 213.',
       bbc: 'The argument is the address: it calls machine code there with the registers preset from A%, X%, Y% and the carry flag, and returns them packed into one number.',
       commodore:
         'The argument is data: it calls the routine whose address is held in the USR vector at $0311, and returns that routine’s result.',

@@ -22,6 +22,10 @@ import { trs80Keywords } from '../src/dialects/trs80/keywords';
 import { locoKeywordTable } from '../src/dialects/cpc464/keywords';
 import { altair8800Keywords } from '../src/dialects/altair8800/keywords';
 import { apple1Keywords } from '../src/dialects/apple1/keywords';
+import {
+  atariKeywords,
+  atariOperators,
+} from '../src/dialects/atari800/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -121,11 +125,15 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     },
   },
   {
-    id: 'commodore64',
-    varName: 'commodore64Reference',
+    // The page slug, not a dialect id: one table covers all three Commodore
+    // machines. Naming it after the C64 made the generator write a second,
+    // empty src/reference/commodore64.ts every time it ran, because it never
+    // saw the enriched commodore.ts sitting beside it.
+    id: 'commodore',
+    varName: 'commodoreReference',
     data: {
       title: 'Commodore BASIC',
-      machines: ['Commodore 64'],
+      machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
       entries: dedupe(c64Keywords.map((k) => toEntry(k))),
     },
   },
@@ -181,6 +189,28 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     },
   },
   {
+    id: 'atari',
+    varName: 'atariReference',
+    data: {
+      title: 'Atari BASIC',
+      machines: ['Atari 800', 'Atari 400'],
+      // The symbolic operators are declared on the dialect rather than held in
+      // the keyword table, and the reference page lists both (see
+      // src/dialects/operators.ts), so seed a row for each of them too.
+      entries: dedupe([
+        ...atariKeywords.map((k) => toEntry(k)),
+        ...atariOperators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
     id: 'z80-assembly',
     varName: 'z80AssemblyReference',
     data: {
@@ -206,6 +236,9 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
         'BBC Micro',
         'BBC Master',
         'Acorn Atom',
+        'Apple I',
+        'Atari 800',
+        'Atari 400',
       ],
       entries: asmEntries(m6502Engine),
     },

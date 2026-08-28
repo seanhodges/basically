@@ -128,6 +128,16 @@ export default withPwa(
               ],
             },
             {
+              text: 'Atari BASIC',
+              link: '/reference/atari',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/atari/hardware' },
+                { text: 'Escape codes', link: '/reference/atari/escapes' },
+                { text: 'File formats', link: '/reference/atari/formats' },
+              ],
+            },
+            {
               text: 'Atom BASIC',
               link: '/reference/atom',
               collapsed: true,

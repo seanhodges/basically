@@ -157,10 +157,12 @@ machine yet — that is Stage 7's verify).
 
 ## Stage 6 — Reference docs ⬜
 
-Every artifact here is pinned to the registry, so it lands **before** the
-machine registers rather than after. Run the **`dialect-reference-docs`**
-sub-skill, which owns the scaffold commands, the four page templates and the
-crosscheck wiring.
+Everything here is keyed by **docs page**, so it lands and is checked before
+the machine registers. The machine-keyed half of the reference bundle —
+`machines.ts` and `facts.ts` — is not here: it goes with the registry line in
+Stage 7, for the reasons under _Two halves of the reference bundle_ in the
+skill. Run the **`dialect-reference-docs`** sub-skill, which owns the scaffold
+commands, the four page templates and the crosscheck wiring.
 
 - [ ] **Ask about the sidebar first.** `CLAUDE.md` forbids adding an entry to
       `docs/.vitepress/config.ts` without the user's explicit say-so, and
@@ -168,16 +170,27 @@ crosscheck wiring.
       before this stage starts, not in the middle of it
 - [ ] `src/reference/<page>.ts` + `escapes/<page>.ts` — scaffold with
       `npm run gen:reference` / `npm run gen:escapes`, then hand-enrich
-- [ ] `docs/reference/<page>.md` + `<page>/{hardware,escapes,formats}.md`
-- [ ] `pages.ts`, `machines.ts`, the index bullet, the CPU assembly page's
-      machine lists, and `ai/machineReference.ts`'s lazy loaders
-- [ ] `facts.ts` porting entry (`loopSpeed` **measured**, not authored), the
-      `porting.ts` equivalence groups and false friends, and the
-      `domain-guidance.ts` / `escape-guidance.ts` cells
+- [ ] `docs/reference/<page>.md` + `<page>/{hardware,escapes,formats}.md`, plus
+      a row and a link in the cross-machine `docs/reference/file-formats.md`
+- [ ] `pages.ts`, the index bullet, the CPU assembly page's machine lists, and
+      `ai/machineReference.ts`'s lazy loaders
+- [ ] add `'<page>'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` — without
+      it `pages.test.ts` and `keyword-crosscheck.test.ts` both reject the page
+      as one no registered machine reads from
+- [ ] the `porting.ts` equivalence groups and false friends, and the
+      `domain-guidance.ts` / `escape-guidance.ts` cells for the new page. Author
+      these from the crosschecks' own failures: they name the exact domains and
+      control-code classes some source can lose into this machine, which is
+      shorter and more honest than guessing at the set
 
 **Depends on:** Stages 1–3 (keywords, charset, memory map, samples).
 **Verify:** `npm run docs:build` (it fails on dead links) + the reference
 crosschecks.
+
+Until Stage 7 lands `machines.ts`, the hardware page's `<MemoryMapSingle>`
+labels the map with the dialect id rather than the machine's name — it reads the
+name from `machines.ts`. That is the whole visible cost of the split, and it
+disappears with the registry line.
 
 ## Stage 7 — Register & ship ⬜
 
@@ -186,12 +199,20 @@ crosschecks.
 - [ ] **register in `src/dialects/registry.ts` and add the `<verb>` entry to
       `SHARE_VERBS` in `src/player/routes.ts` in the same change** —
       `routes.test.ts` enforces a strict bijection with the registry
+- [ ] the machine-keyed half of the reference bundle, which can only land here:
+      `src/reference/machines.ts`, the `facts.ts` porting entry (`loopSpeed`
+      **measured**, not authored), and the `referenceByPage`, `escapesByPage`
+      and `memoryMapById` maps in `docs/reference/compare.md` that the porting
+      guide needs before it can be pointed at this machine
+- [ ] delete `'<page>'` from `PENDING_PAGE_IDS` in `src/reference/pages.ts` in
+      this same change — `pages.test.ts` fails on an entry whose machine has
+      arrived, so the list empties itself rather than being remembered
 - [ ] the remaining per-dialect tables the batteries pin: `glyphSources`,
       `charsetProbes`, `keywordSpellings`, `loopSpeedProbes`, `operatorProbes`,
       `semigraphicsAudit`, `machineArtIds` + `machineArt`, `e2e/bootMachines`
       (and `e2e/paletteMachines` where the machine has a graphics palette)
-- [ ] the measured figures the batteries ask for: `loopSpeed`, the prompt-size
-      ceiling, the frame rate
+- [ ] the measured figures the batteries ask for: the `loopSpeed` above, the
+      prompt-size ceiling, the frame rate
 - [ ] optional `.virtual-keyboard.vk-theme-<id>` block in
       `src/keyboard/VirtualKeyboard.css` (colour and label position only — a
       theme never overrides a width). **In this change, not earlier:**

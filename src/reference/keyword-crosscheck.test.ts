@@ -44,7 +44,7 @@ import { describe, expect, it } from 'vitest';
 import type { EditorKeyword } from '../dialects/types';
 import type { ReferenceTableData } from './types';
 
-import { referencePages as PAGES } from './pages';
+import { PENDING_PAGE_IDS, referencePages as PAGES } from './pages';
 
 import { dialects } from '../dialects/registry';
 import { referencePageOf } from '../dialects/referencePage';
@@ -109,9 +109,15 @@ describe.each(CASES)('keyword crosscheck: %s', (_id, rows, spellings) => {
 });
 
 describe('page coverage', () => {
+  // A page still waiting on its machines is excused, and only while it stays
+  // named in PENDING_PAGE_IDS - which pages.test.ts empties at registration.
   it('every reference page belongs to at least one registered machine', () => {
     const used = new Set(dialects.map((d) => referencePageOf(d)));
-    expect([...Object.keys(PAGES)].filter((p) => !used.has(p))).toEqual([]);
+    expect(
+      [...Object.keys(PAGES)].filter(
+        (p) => !used.has(p) && !PENDING_PAGE_IDS.includes(p),
+      ),
+    ).toEqual([]);
   });
 
   // A scoped row naming a machine that is not on its own page would be silently

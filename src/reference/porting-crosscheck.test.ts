@@ -128,6 +128,10 @@ const NOT_IN_GROUP: Record<string, string> = {
   // The Atom's CLEAR selects a screen mode; it has no discard-variables command
   // at all, which is what the CLEAR false friend below exists to say.
   'discard-variables:atom': 'CLEAR means something else entirely there',
+  // Atari BASIC has GOTO and GO TO as separate tokens and lists each back the
+  // way it was typed, so it holds both of the group's spellings and there is
+  // nothing to rename in either direction.
+  'unconditional-jump:atari': "it spells the jump both of the group's ways",
 };
 
 describe('porting data completeness', () => {
