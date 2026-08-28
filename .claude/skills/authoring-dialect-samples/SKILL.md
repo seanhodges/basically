@@ -226,9 +226,15 @@ line: restyle the banner, never omit it.
 The routine is **readable assembly in the repo, assembled on load** — no binary
 fixtures. Two wiring mechanisms; use whichever the dialect supports:
 
-**A. Memory block (most dialects).** Keep the source at `samples/kaleido.asm`
-(its `ORG` = the block's load address). In `samples.ts` export a block const and
-attach it to the kaleido entry:
+**A. Memory block (most dialects).** **Prerequisite:** the dialect must already
+declare `memoryBlocks` (`MemoryBlocksSupport`) and its `loadProgram` must write
+the blocks it is handed — `src/app/sampleBlocks.ts` throws rather than assembling
+one for a dialect without the first, and the routine never reaches RAM without
+the second. On a new machine whose plan defers them to a later stage, write them
+here: this sample is what needs them.
+
+Keep the source at `samples/kaleido.asm` (its `ORG` = the block's load address).
+In `samples.ts` export a block const and attach it to the kaleido entry:
 
 ```ts
 import kaleidoAsm from './samples/kaleido.asm?raw';

@@ -85,7 +85,7 @@ machine has more undocumented corners than most:
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
-| 3     | Wire-up: keyboard + samples        | ⬜     |
+| 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
@@ -215,31 +215,55 @@ Three facts worth carrying into later stages:
   drive answers at the first attempt and the boot costs 17 frames rather than 72. Stage 4's cassette work does not go through here — nothing answers the
   recorder's device id, and the tape formats are built in the transfer layer.
 
-## Stage 3 — Wire-up: keyboard + samples ⬜
+## Stage 3 — Wire-up: keyboard + samples ✅
 
 No registry change: the machines are finished and driven headlessly, and are
 offered to the user in Stage 7. Verify by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
-- [ ] `keyboardLayout.ts` — key tokens match the emulator's `setKey`; geometry
+- [x] `keyboardLayout.ts` — key tokens match the emulator's `setKey`; geometry
       from `templateRows` (`gridColumns: GRID_COLUMNS`, every key `KEY_SPAN`,
       `centerRow`/`bottomRow`) — never author a width. Both machines share one
       layout; the 400's membrane keyboard is a theme, not a different geometry
-- [ ] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard and the
+- [x] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard and the
       charset so they cannot drift. The Atari printed its graphics on the
       keycaps (CTRL + letter), so `key` is populated
-- [ ] `palette: 'graphics'` editor mode + `graphicsPalette` on the layout
-- [ ] `samples/` + `samples.ts` — the canonical set
+- [x] `palette: 'graphics'` editor mode + `graphicsPalette` on the layout
+- [x] `samples/` + `samples.ts` — the canonical set
       (`hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to Atari BASIC via
       the `authoring-dialect-samples` skill; `hello` is the starter
-- [ ] every sample **run on the machine** and fixed until its screen is right
-- [ ] `aiProfile.ts` for each dialect; `index.ts` assembling each `Dialect`
+- [x] every sample **run on the machine** and fixed until its screen is right
+- [x] `aiProfile.ts` for each dialect; `index.ts` assembling each `Dialect`
 - [ ] optional `.virtual-keyboard.vk-theme-atari800` block in
-      `src/keyboard/VirtualKeyboard.css` (colour and label position only)
-- [ ] tests: keyboard matrix reachability; samples tokenize **and run**
+      `src/keyboard/VirtualKeyboard.css` (colour and label position only) —
+      **moved to Stage 7**: `src/keyboard/keyboardTheme.test.ts` fails on a
+      theme block no _registered_ layout names, so the CSS cannot land before
+      the machines do. The layout already names `vk-theme-atari`
+- [x] tests: keyboard matrix reachability; samples tokenize **and run**
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run typecheck` + `npm test`.
+
+Every SHIFT pair, CTRL graphic and cursor key in the layout was read off the
+booted OS ROM rather than off a chart (`atari800/keyboardLayout.test.ts` presses
+each and reads the echo back), which is where the two surprises came from: `[`
+and `]` are SHIFT over `,` and `.`, and `@` is SHIFT+8. The case lock is
+one-way — CAPS alone selects lower case and SHIFT+CAPS locks the capitals back
+on — so the keycap carries both, one per layer.
+
+The samples cost one fact the plan had not anticipated and one artifact from a
+later stage:
+
+- **Nothing may print in column 39.** The screen editor reads a character
+  written there as the end of a logical line and pushes the rest of the screen
+  down a row, which tore the maze's map and left a second paddle on the screen
+  several moves after the fact. The games stop one column short, and
+  `samples.test.ts` pins that they do.
+- **`memoryBlocks.ts` landed here rather than in Stage 5**, because the
+  kaleidoscope's routine is a memory block and `materializeSampleBlocks` will
+  not assemble one without it. It is the block-linter's figures only — page 6
+  (`$0600`) as the default address, the device buffers and the screen at the top
+  of RAM as reserved — and the two machines differ only in where RAM ends.
 
 ## Stage 4 — Transfer & tape I/O ⬜
 
@@ -261,8 +285,10 @@ Both dialects own their own map and blocks — this is most of what makes
 
 - [ ] `memoryMap.ts` per dialect — regions tiling the whole 64K, differing in
       where RAM ends (`$BFFF` on the 800, `$3FFF` on the 400)
-- [ ] `memoryBlocks.ts` per dialect + machine-side block injection in
-      `loadProgram`
+- [x] `memoryBlocks.ts` per dialect + machine-side block injection in
+      `loadProgram` — both landed early (the injection in Stage 2, the linter
+      figures in Stage 3); revisit only if the memory map turns up a range
+      they get wrong
 - [ ] `vars.ts` / `reports.ts` — decode the VNT/VVT and the error code →
       `readVariables()` / `readReport()`
 - [ ] `readMemoryStats()` spanning **every** pool a program spends (program text,

@@ -43,6 +43,18 @@ describe('Atari 400', () => {
     expect(atari800.programRamBytes).toBe(37920);
   });
 
+  it('stops a memory block where its own RAM stops', () => {
+    // The block linter is the one place the 16K shows up as an address rather
+    // than as a total: a block the 800 accepts at $8000 has nothing to live in
+    // here. The free page both machines share is the same either way.
+    const [range] = atari400.memoryBlocks!.validRanges;
+    expect(range!.end).toBe(0x3fff);
+    expect(atari800.memoryBlocks!.validRanges[0]!.end).toBe(0x9fff);
+    expect(atari400.memoryBlocks!.defaultAddress).toBe(
+      atari800.memoryBlocks!.defaultAddress,
+    );
+  });
+
   it('tells the assistant which machine it is writing for', () => {
     expect(atari400.aiProfile.systemPrompt).toContain('Atari 400');
     expect(atari400.aiProfile.systemPrompt).not.toContain('Atari 800');
