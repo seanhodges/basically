@@ -109,11 +109,11 @@
 
 ## 7. Quality gates
 
-- [ ] 7.1 `npm run typecheck` — `noUnusedLocals` is the signal that a
+- [x] 7.1 `npm run typecheck` — `noUnusedLocals` is the signal that a
       `vfsInspectorOpen` reference was missed.
-- [ ] 7.2 `npm test`
-- [ ] 7.3 `npm run lint` and `npm run format:check`
-- [ ] 7.4 `npm run docs:build` — `docs/` changed.
+- [x] 7.2 `npm test`
+- [x] 7.3 `npm run lint` and `npm run format:check`
+- [x] 7.4 `npm run docs:build` — `docs/` changed.
 - [x] 7.5 **Not done, deliberately.** Extending
       `e2e/persistence/saved-data-tabs.spec.ts` would mean five more Spectrum tape
       saves, each waiting on its own ROM prompt, on a journey already budgeted at
@@ -124,5 +124,10 @@
 - [x] 7.6 Add a width-driven case to `e2e/code-editor/scratch-buffers.spec.ts` (no
       machine boot needed): open several buffers, shrink the viewport, and assert
       tabs move into the overflow while BASIC stays.
-- [ ] 7.7 `npm run e2e:chromium -- e2e/persistence e2e/code-editor`. Check off only
-      on a passing run; a failure leaves this unchecked with a note on what failed.
+- [x] 7.7 `npm run e2e:chromium -- e2e/persistence e2e/code-editor`: 29 passed,
+      3 failed. All three failures reproduce unchanged on the base commit (checked
+      in a worktree at `HEAD~1`), so none is this change's:
+      `completion-abbreviation.spec.ts` x2 and `boot-storage.spec.ts`'s
+      "welcome dialog, empty editor, no console errors", all timing out waiting
+      for an element on `page.goto('/')`. Every spec touching the tab strip
+      passes, `saved-data-tabs.spec.ts` and the new overflow case included.
