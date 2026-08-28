@@ -85,6 +85,7 @@ const MOVES: [string, 16 | 32 | 64, string, string][] = [
   ['pet', 32, 'A', 'B'],
   ['cpc464', 64, 'A', 'B'],
   ['pmd85', 64, 'KeyA', 'KeyB'],
+  ['atari800', 16, 'A', 'B'],
 ];
 
 describe("the on-screen cursor keys move the machine's own cursor", () => {
@@ -169,6 +170,9 @@ const CLAIMED: Record<string, string[]> = {
   bbcmicro: ['bbcmicro', 'bbcmaster'],
   /** The self-contained Z80 machines under src/dialects/<id>/. */
   zxspectrum: ['zxspectrum', 'zxspectrum128', 'zx80', 'zx81'],
+  /** ANTIC's own bus over the shared cpu6502 core - a family of its own, the
+   *  way pmd85 is despite reusing the i8080 core. */
+  atari800: ['atari800', 'atari400'],
 };
 
 /** Machines neither battery can reach, and why. */

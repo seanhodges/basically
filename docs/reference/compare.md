@@ -26,10 +26,8 @@ import { zx80Escapes } from '../../src/reference/escapes/zx80';
 import { zx81Escapes } from '../../src/reference/escapes/zx81';
 
 import { altair8800MemoryMap } from '../../src/dialects/altair8800/memoryMap';
-import {
-  atari800MemoryMap,
-  atari400MemoryMap,
-} from '../../src/dialects/atari800/memoryMap';
+import { atari800MemoryMap } from '../../src/dialects/atari800/memoryMap';
+import { atari400MemoryMap } from '../../src/dialects/atari400/memoryMap';
 import { atomMemoryMap } from '../../src/dialects/atom/memoryMap';
 import { bbcMasterMemoryMap } from '../../src/dialects/bbcmaster/memoryMap';
 import { bbcMicroMemoryMap } from '../../src/dialects/bbcmicro/memoryMap';

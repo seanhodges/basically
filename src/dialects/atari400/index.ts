@@ -28,7 +28,7 @@ import { atariBuildTargets, atariCassetteAudio } from '../atari800/targets';
 import { atariKeyboardLayout } from '../atari800/keyboardLayout';
 import { atariSamples } from '../atari800/samples';
 import { atari400MemoryBlocks } from '../atari800/memoryBlocks';
-import { atari400MemoryMap } from '../atari800/memoryMap';
+import { atari400MemoryMap } from './memoryMap';
 import { atari400AiProfile } from './aiProfile';
 import {
   ATARI_400_RAM_TOP,

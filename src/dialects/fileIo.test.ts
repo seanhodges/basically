@@ -77,6 +77,13 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // The 8K BASIC image is Microsoft copyright and does not ship, so there is no
   // BASIC here to perform file I/O in the first place.
   altair8800: 'the 8K BASIC image does not ship',
+  // OPEN/PUT/CLOSE reach the disk drive over SIO, which answers only the
+  // boot-time status poll and decodes no other command - there is no disk to
+  // write a file to.
+  atari800:
+    'the emulated disk drive answers status only; no command is decoded',
+  atari400:
+    'the emulated disk drive answers status only; no command is decoded',
 };
 
 let restoreRomLoading: () => void;

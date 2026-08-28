@@ -106,6 +106,7 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
   ['pet', 32],
   ['pmd85', 64],
   ['apple1', null],
+  ['atari800', null],
 ];
 
 /** Machines whose tables are proved elsewhere, and by what. */
@@ -116,6 +117,7 @@ const EXCUSED: Record<string, string> = {
   cpc6128: 'reuses the cpc464 layout',
   zxspectrum128: 'reuses the zxspectrum layout',
   bbcmaster: 'reuses the bbcmicro layout',
+  atari400: 'reuses the atari800 layout',
 };
 
 describe('every registered machine is covered', () => {

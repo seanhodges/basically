@@ -29,6 +29,7 @@ import {
   bootMachine,
   installNodeRomLoading,
   runFrames,
+  runUntil,
   screenText,
 } from './bootHarness';
 import { letterCaseFor } from './letterCase';
@@ -127,6 +128,22 @@ describe('the case a machine types', () => {
     expect(screenText(machine)).toContain('ready');
     expect(screenText(machine)).not.toContain('READY');
   }, 120000);
+
+  it('boots the Atari caps-locked, with CAPS reaching lower and SHIFT+CAPS relocking', async () => {
+    // The lock is one-way from either keycap: CAPS alone selects lower case,
+    // and it is SHIFT+CAPS - not CAPS alone - that locks the capitals back on.
+    const machine = await bootMachine(getDialect('atari800'));
+    expect(
+      await runUntil(machine, () => /Ready/i.test(screenText(machine))),
+      'the machine never reached its prompt',
+    ).toBe(true);
+    expect(await echo(machine, ['A'])).toBe('A');
+    await tap(machine, ['CapsLock']);
+    expect(await echo(machine, ['B'])).toBe('b');
+    expect(await echo(machine, ['Shift', 'C'])).toBe('C');
+    await tap(machine, ['Shift', 'CapsLock']);
+    expect(await echo(machine, ['D'])).toBe('D');
+  }, 120000);
 });
 
 describe('every machine with a second case is covered', () => {
@@ -137,10 +154,18 @@ describe('every machine with a second case is covered', () => {
     zxspectrum128: 'reuses the zxspectrum layout',
     vic20: 'reuses the commodore64 layout and the same set switch',
     pet: 'has no Commodore key: its set switch is a POKE, not a keypress',
+    atari400: 'reuses the atari800 layout and BASIC',
   };
 
   it('boots here, or is excused by name', () => {
-    const probed = ['bbcmicro', 'cpc464', 'zxspectrum', 'pmd85', 'commodore64'];
+    const probed = [
+      'bbcmicro',
+      'cpc464',
+      'zxspectrum',
+      'pmd85',
+      'commodore64',
+      'atari800',
+    ];
     const covered = new Set([...probed, ...Object.keys(EXCUSED)]);
     const withLowerCase = dialects
       .map((d) => d.id)

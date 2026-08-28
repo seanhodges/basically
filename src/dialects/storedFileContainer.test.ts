@@ -42,6 +42,8 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   zx80: 'no file-I/O trap, so nothing reaches the store',
   altair8800: 'no file-I/O trap, so nothing reaches the store',
   apple1: 'no file-I/O trap, so nothing reaches the store',
+  atari800: 'no file-I/O trap, so nothing reaches the store',
+  atari400: 'no file-I/O trap, so nothing reaches the store',
 };
 
 /** The payload every case below unwraps to, so a partial split is visible. */

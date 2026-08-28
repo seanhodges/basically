@@ -3,10 +3,8 @@ title: Atari hardware
 ---
 
 <script setup>
-import {
-  atari400MemoryMap,
-  atari800MemoryMap,
-} from '../../../src/dialects/atari800/memoryMap';
+import { atari800MemoryMap } from '../../../src/dialects/atari800/memoryMap';
+import { atari400MemoryMap } from '../../../src/dialects/atari400/memoryMap';
 </script>
 
 # Atari hardware
