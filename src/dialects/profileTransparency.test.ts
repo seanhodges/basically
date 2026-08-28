@@ -52,6 +52,8 @@ const FAMILIES: Record<string, string[]> = {
   pmd85: ['pmd85'],
   /** Its own bus over the shared cpu6502 core. */
   apple1: ['apple1'],
+  /** ANTIC's own bus over the shared cpu6502 core. */
+  atari800: ['atari800', 'atari400'],
 };
 
 /** Machines with no profiled run to compare, and why. */
