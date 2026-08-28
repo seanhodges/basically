@@ -167,5 +167,59 @@ export function parseAtariChar(
   return { code, length: glyph.length };
 }
 
+/**
+ * The shapes the character generator draws for the six codes {@link
+ * atasciiToText} spells as an escape. A code in a string means "move the
+ * cursor"; the same code sitting in screen memory is a character the machine
+ * has already drawn, and this is what it looks like.
+ */
+const CONTROL_SHAPES: Record<number, string> = {
+  0x1b: '\u241b',
+  0x1c: '\u2191',
+  0x1d: '\u2193',
+  0x1e: '\u2190',
+  0x1f: '\u2192',
+  0x7d: '\u21b0',
+};
+
+/**
+ * The single character the character generator draws for one ATASCII code -
+ * what a screen reader wants, as opposed to {@link atasciiToText}, which spells
+ * the control codes and the inverse half as escapes so that text round-trips.
+ *
+ * Always exactly one code point, because a screen row has to stay as wide as
+ * the screen. Inverse video carries no shape of its own - ANTIC draws the same
+ * glyph with the pixels turned over - so the top bit is dropped.
+ */
+export function atasciiGlyph(code: number): string {
+  const shape = code & 0x7f;
+  return CONTROL_SHAPES[shape] ?? codeToText.get(shape) ?? ' ';
+}
+
+/**
+ * ATASCII for one of the character codes the screen is made of.
+ *
+ * Screen memory does not hold ATASCII. ANTIC indexes the character generator
+ * directly, and the generator is in shape order - the printable ASCII first,
+ * then the graphics, then the lower case - so the two orderings differ by a
+ * rotation of the low seven bits. Inverse video is the top bit in both.
+ */
+export function screenCodeToAtascii(code: number): number {
+  const inverse = code & 0x80;
+  const shape = code & 0x7f;
+  if (shape < 0x40) return inverse | (shape + 0x20);
+  if (shape < 0x60) return inverse | (shape - 0x40);
+  return inverse | shape;
+}
+
+/** The screen character code for an ATASCII code: {@link screenCodeToAtascii} back. */
+export function atasciiToScreenCode(code: number): number {
+  const inverse = code & 0x80;
+  const ch = code & 0x7f;
+  if (ch < 0x20) return inverse | (ch + 0x40);
+  if (ch < 0x60) return inverse | (ch - 0x20);
+  return inverse | ch;
+}
+
 /** End of line - what RETURN stores and what terminates every ATASCII record. */
 export const ATASCII_EOL = 0x9b;

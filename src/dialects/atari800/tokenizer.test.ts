@@ -81,8 +81,19 @@ describe('Atari BASIC tokenizer', () => {
       expect(statementBytes('10 PRINT 1,2')).toContain(0x12);
     });
 
-    it('writes a leading minus as unary', () => {
-      expect(statementBytes('10 X=-1')).toContain(0x36);
+    it('writes a leading minus as unary, but folds one into a constant', () => {
+      // A sign touching a number is part of the number: `-1` is one negative
+      // constant, not a positive one behind an operator. A sign in front of
+      // anything else - a variable, or a number it is not touching - is the
+      // unary operator. Checked against the ROM in `tokenizerRom.test.ts`.
+      const bcd = (source: string) => [...statementBytes(source).slice(-8, -1)];
+      expect(bcd('10 X=-1')).toEqual([0x0e, 0xc0, 0x01, 0, 0, 0, 0]);
+      expect(bcd('10 X=1')).toEqual([0x0e, 0x40, 0x01, 0, 0, 0, 0]);
+      // $36 in the expression space is the unary minus (and, confusingly, the
+      // implied LET in the statement space, which is why these look for it past
+      // the statement token every one of these lines opens with).
+      expect(statementBytes('10 X=-Y').slice(1)).toContain(0x36);
+      expect(statementBytes('10 X=- 1').slice(1)).toContain(0x36);
       expect(statementBytes('10 X=2-1')).toContain(0x26);
     });
   });
@@ -177,13 +188,23 @@ describe('Atari BASIC tokenizer', () => {
   });
 
   describe('REM and DATA', () => {
-    it('stores the rest of the line verbatim and carries no terminator', () => {
+    it('stores the rest of the line as an ATASCII record', () => {
+      // Not a statement with tokens in it: the text runs to an end-of-line
+      // rather than to a statement terminator, and the blank that separated it
+      // from the keyword is the separator rather than part of it.
       const rem = statementBytes('10 REM A:B"C');
       expect(rem[0]).toBe(0x00);
       expect(rem).not.toContain(ATARI_TOKENS.END_OF_STATEMENT);
+      expect(rem.at(-1)).toBe(0x9b);
+      expect(rem[1]).toBe('A'.charCodeAt(0));
       expect(detokenizeProgram(tokenizeProgram('10 REM A:B"C').image)).toBe(
         '10 REM A:B"C',
       );
+    });
+
+    it('keeps an empty REM empty', () => {
+      expect(statementBytes('10 REM')).toEqual([0x00, 0x9b]);
+      expect(roundTrip('10 REM')).toBe('10 REM');
     });
 
     it('keeps a colon inside DATA as data', () => {

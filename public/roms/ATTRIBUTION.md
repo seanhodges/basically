@@ -266,3 +266,59 @@ They are included here, unmodified, solely for use with the bundled emulator.
 If you are the rights holder and want this file removed, please open an
 issue — the IDE also supports supplying your own ROM image at runtime, from
 Settings ▸ Emulator.
+
+# Atari ROM attribution
+
+`atari.rom` is the Atari 400/800 firmware, and unlike every other image here it
+ships on an explicit grant rather than on tolerance: both halves are clean-room
+reimplementations by Avery Lee, written for the
+[Altirra](https://www.virtualdub.org/altirra.html) emulator and offered under
+the FSF all-permissive licence. No Atari-copyright code is involved.
+
+It is two images in one file, because the machine needs both and the emulator
+seam carries one image: the first 10240 bytes are **AltirraOS 3.49**, the
+operating system that lives at `$D800`–`$FFFF`, and the remaining 8192 bytes are
+**Altirra 8K BASIC 1.59**, the BASIC cartridge that lives at `$A000`–`$BFFF`.
+The OS comes **first** rather than in address order, so that a file carrying
+only the OS pads the cartridge window to `$FF` — which the machine reads at
+`$BFFC` as "no cartridge fitted" and boots to the Memo Pad, exactly as an 800
+with an empty slot, rather than becoming a machine that cannot reset.
+`scripts/build-atari-rom.mts` builds the file from the two images and verifies
+both before writing.
+
+Both halves are unmodified copies of the byte arrays the
+[atari800](https://github.com/atari800/atari800) emulator carries in
+`src/roms/altirraos_800.c` and `src/roms/altirra_basic.c`, which are in turn
+compiled from the `emuos` sources in the Altirra distribution. Each of those
+files carries the same notice, reproduced verbatim:
+
+> Altirra - Atari 800/800XL emulator
+> Kernel ROM replacement, version 3.11
+> Copyright (C) 2008-2018 Avery Lee
+>
+> Copying and distribution of this file, with or without modification,
+> are permitted in any medium without royalty provided the copyright
+> notice and this notice are preserved. This file is offered as-is,
+> without any warranty.
+
+> Altirra BASIC, version 1.58
+> Copyright (C) 2008-2022 Avery Lee
+>
+> Copying and distribution of this file, with or without modification,
+> are permitted in any medium without royalty provided the copyright
+> notice and this notice are preserved. This file is offered as-is,
+> without any warranty.
+
+The version numbers in those two notices are the ones upstream wrote and have
+not kept current: the images themselves sign on as AltirraOS 3.49 and Altirra
+8K BASIC 1.59, and those are the versions this dialect was derived against. For
+anyone rebuilding the file, the SHA-256 of each part is
+
+    OS      10240 bytes  1bbb1d3f72017654725fc71ad6aa8ffd786637541fd49ddda3c32f7ada73db18
+    BASIC    8192 bytes  19fd64377895eb5d4414319855322dd3f860c21fdc1df9adc0e98ab72c540913
+    file    18432 bytes  1cfe13fb1d8197c09ec15dbbb7254cae1b7770c02c4b6bf25dd1e7d475af4f35
+
+(The IDE also supports supplying your own ROM image at runtime, from Settings ▸
+Emulator, so the bundled copy can be replaced with a genuine Atari OS and
+BASIC pair. A replacement image may be any size; it is fitted to the machine's
+ROM area, which for this machine is the full 18432 bytes, both parts.)

@@ -16,7 +16,16 @@ import { atari800AiProfile } from './aiProfile';
 import { atariBuildTargets } from './targets';
 import { atariKeyboardLayout } from './keyboardLayout';
 import { atariSamples } from './samples';
-import { ATARI_800_RAM_TOP, programRamBytes } from './addresses';
+import {
+  ATARI_800_RAM_TOP,
+  ATARI_ROM_BYTES,
+  programRamBytes,
+} from './addresses';
+import {
+  ATARI_DISPLAY_HEIGHT,
+  ATARI_DISPLAY_WIDTH,
+  AtariMachine,
+} from '../../emulator/atari/atariMachine';
 
 /**
  * Atari 800 - the 48K machine of the pair, running Atari BASIC from cartridge.
@@ -25,9 +34,9 @@ import { ATARI_800_RAM_TOP, programRamBytes } from './addresses';
  * machines differ only in how much RAM is fitted, which is why they ship
  * together in the shape the BBC Micro and BBC Master already use.
  *
- * The emulator is not wired yet, so `createEmulator` throws and the dialect is
- * not registered: it is driven by its own tests until there is a machine to run
- * it on.
+ * Not registered yet: the machine runs, and the dialect is driven by its own
+ * tests, but the picker will not offer it until the rest of the batteries a
+ * registered dialect owes are in place.
  */
 export const atari800: Dialect = {
   id: 'atari800',
@@ -83,8 +92,18 @@ export const atari800: Dialect = {
   // passes its argument to a routine reached through a vector.
   memoryReads: { forms: ['peek'], calls: ['USR'] },
 
-  createEmulator() {
-    throw new Error('atari800: the emulator is not implemented yet');
+  romUrl: `${import.meta.env.BASE_URL}roms/atari.rom`,
+  romBytes: ATARI_ROM_BYTES,
+
+  // The widest playfield ANTIC can show, at two pixels a colour clock, and the
+  // scanlines either side of it that a television showed: the 40x24 text screen
+  // sits in the middle of it with a border, exactly as it does on a set.
+  displaySize: { width: ATARI_DISPLAY_WIDTH, height: ATARI_DISPLAY_HEIGHT },
+
+  debuggable: true,
+
+  createEmulator(opts) {
+    return new AtariMachine({ model: '800', rom: opts.rom });
   },
 
   keyboardLayout: atariKeyboardLayout,

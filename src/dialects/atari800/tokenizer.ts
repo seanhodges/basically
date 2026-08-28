@@ -4,6 +4,7 @@
 import { CharsetError, type TokenizeError } from '../types';
 import { lowerCaseKeywordMessage } from '../../editor/keywordCase';
 import { atariCharset } from './charset';
+import { ATASCII_EOL } from './atascii';
 import { isRepresentable, toAtariFloat } from './bcd';
 import {
   ATARI_MAX_VARIABLES,
@@ -280,19 +281,28 @@ class LineScanner {
     return Number(this.text.slice(start, this.at));
   }
 
-  /** Everything left on the line, as ATASCII - what REM and DATA store. */
+  /**
+   * Everything left on the line, as ATASCII, terminated by an end-of-line -
+   * what REM and DATA store.
+   *
+   * The blanks between the keyword and the text are the interpreter's
+   * separator and are not kept; blanks inside the text are, so `DATA 1, 2`
+   * stores `1, 2`. The `$9B` on the end is the terminator every ATASCII record
+   * carries, and it is there even when the text is empty.
+   */
   private takeRestOfLine(): number[] {
+    while (this.text[this.at] === ' ') this.at++;
     const rest = this.text.slice(this.at);
     this.at = this.text.length;
     try {
-      return [...atariCharset.toMachine(rest)];
+      return [...atariCharset.toMachine(rest), ATASCII_EOL];
     } catch (e) {
       const column = e instanceof CharsetError ? e.index : undefined;
       this.fail(
         e instanceof Error ? e.message : String(e),
         (column ?? 0) + this.text.length - rest.length,
       );
-      return [];
+      return [ATASCII_EOL];
     }
   }
 
@@ -327,9 +337,9 @@ class LineScanner {
     out.push(keyword.token);
 
     if (ATARI_VERBATIM.has(keyword.word)) {
-      // REM and DATA store the rest of the line as characters, and carry no
-      // terminator: the line's own length byte says where they stop. A colon
-      // inside either is therefore data, not a statement separator.
+      // REM and DATA store the rest of the line as characters and end with the
+      // ATASCII end-of-line rather than a statement terminator, so a colon
+      // inside either is data rather than a statement separator.
       out.push(...this.takeRestOfLine());
       return out;
     }
@@ -505,7 +515,18 @@ class LineScanner {
     return true;
   }
 
-  private numberConstant(out: number[]): boolean {
+  /**
+   * A numeric constant, with any sign written directly in front of it folded
+   * into its value.
+   *
+   * Atari BASIC has a unary-minus token and does not use it here: `A=-7` stores
+   * a constant of minus seven, not a positive seven behind an operator, and
+   * `A=+7` stores the seven with no operator at all. Only a sign *touching* the
+   * digits folds - `A=- 7` keeps its operator - because what the interpreter
+   * lexes at that point is a negative literal rather than an operator and a
+   * literal.
+   */
+  private numberConstant(out: number[], sign = 1): boolean {
     const start = this.at;
     while (DIGIT.test(this.text[this.at] ?? '')) this.at++;
     if (this.text[this.at] === '.') {
@@ -523,7 +544,7 @@ class LineScanner {
         this.at = mark;
       }
     }
-    const value = Number(this.text.slice(start, this.at));
+    const value = sign * Number(this.text.slice(start, this.at));
     if (!isRepresentable(value)) {
       this.fail(
         `${this.text.slice(start, this.at)} is outside Atari BASIC's number range`,
@@ -675,6 +696,11 @@ class LineScanner {
     }
 
     if (this.wantOperand && (ch === '+' || ch === '-')) {
+      const next = this.text[this.at + 1] ?? '';
+      if (DIGIT.test(next) || next === '.') {
+        this.at++;
+        return this.numberConstant(out, ch === '-' ? -1 : 1);
+      }
       this.at++;
       out.push(ch === '+' ? T.UNARY_PLUS : T.UNARY_MINUS);
       return true;
