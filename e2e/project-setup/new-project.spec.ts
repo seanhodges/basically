@@ -58,7 +58,7 @@ test('the new-project shortcut then Enter gives a blank program on the same mach
 
   // A scratch buffer belongs to this project, so the new one must start
   // without it (the discard confirm is auto-accepted by `open`).
-  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('button', { name: 'Add a tab' }).click();
   await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
   await expect(page.getByRole('tab', { name: 'Scratch 1' })).toBeVisible();
   await page.getByRole('tab', { name: 'BASIC' }).click();

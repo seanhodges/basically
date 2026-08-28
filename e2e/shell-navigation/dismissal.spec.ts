@@ -49,9 +49,11 @@ test('desktop: stacked AI panel + docs close in LIFO order', async ({
   await open(page);
 
   // Open the AI panel, then the docs drawer on top of it.
-  await page.getByRole('button', { name: 'AI code generation' }).click();
+  await page.getByRole('button', { name: 'Show the AI assistant' }).click();
   await expect(page.getByText('AI assistant')).toBeVisible();
-  await page.getByRole('button', { name: 'Open documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Open the documentation panel' })
+    .click();
   // Locate the drawer by attribute, not role: once closed it sets
   // aria-hidden="true" and drops out of the accessibility tree.
   const docs = page.locator('[aria-label="Documentation"]');
@@ -121,7 +123,9 @@ test('baseline: with nothing open, Back leaves the app and Escape does not', asy
 test('Back surfaces survive an orientation flip', async ({ page }) => {
   await open(page);
   // Open the docs drawer on desktop...
-  await page.getByRole('button', { name: 'Open documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Open the documentation panel' })
+    .click();
   const docs = page.locator('[aria-label="Documentation"]');
   await expect(docs).toHaveAttribute('aria-hidden', 'false');
 
@@ -170,9 +174,11 @@ test('Escape unwinds stacked surfaces one at a time', async ({ page }) => {
   await open(page);
 
   // AI panel, then the docs drawer on top of it.
-  await page.getByRole('button', { name: 'AI code generation' }).click();
+  await page.getByRole('button', { name: 'Show the AI assistant' }).click();
   await expect(page.getByText('AI assistant')).toBeVisible();
-  await page.getByRole('button', { name: 'Open documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Open the documentation panel' })
+    .click();
   const docs = page.locator('[aria-label="Documentation"]');
   await expect(docs).toHaveAttribute('aria-hidden', 'false');
 
@@ -198,7 +204,7 @@ test('a menu closing on Escape does not also close the screen behind it', async 
   //
   // The panel rather than a dialog on purpose: a modal's backdrop swallows
   // pointer events, so no toolbar menu can be opened over one.
-  await page.getByRole('button', { name: 'AI code generation' }).click();
+  await page.getByRole('button', { name: 'Show the AI assistant' }).click();
   const panel = page.getByText('AI assistant');
   await expect(panel).toBeVisible();
 

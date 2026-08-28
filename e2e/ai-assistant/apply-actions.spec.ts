@@ -45,7 +45,7 @@ async function seedThread(page: Page, assistant: string): Promise<void> {
 }
 
 async function openAiPanel(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /AI code generation/ }).click();
+  await page.getByRole('button', { name: /Show the AI assistant/ }).click();
 }
 
 const block = (page: Page) => page.locator('[data-block-kind]');

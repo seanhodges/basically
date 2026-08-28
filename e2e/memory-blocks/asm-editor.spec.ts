@@ -91,7 +91,9 @@ test('a blockless document still shows the strip: BASIC plus the new-tab button'
   await seedProject(page, null);
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
-  await expect(tablist.getByRole('button', { name: 'New tab' })).toBeVisible();
+  await expect(
+    tablist.getByRole('button', { name: 'Add a tab' }),
+  ).toBeVisible();
 });
 
 test('block tabs appear; the code block opens an editable disassembly', async ({
@@ -174,7 +176,7 @@ test('a syntax error marks the tab and leaves the bytes untouched', async ({
 
   const borderTab = page.getByRole('tab', { name: 'border' });
   await expect(
-    borderTab.locator('[aria-label="does not assemble"]'),
+    borderTab.locator('[aria-label="Does not assemble"]'),
   ).toBeVisible();
   // The broken text is kept (asmSource), the bytes are not.
   await expect

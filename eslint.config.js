@@ -5,6 +5,16 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
 import noPlanReferences from './eslint-rules/no-plan-references.js';
+import noVagueUiLabels from './eslint-rules/no-vague-ui-labels.js';
+
+// The project's own rules share one plugin namespace, which a flat config may
+// define only once; the blocks below scope them to the files they govern.
+const local = {
+  rules: {
+    'no-plan-references': noPlanReferences,
+    'no-vague-ui-labels': noVagueUiLabels,
+  },
+};
 
 export default tseslint.config(
   // Vendored / generated / build output - not ours to lint.
@@ -19,6 +29,7 @@ export default tseslint.config(
       '*.config.ts',
     ],
   },
+  { plugins: { local } },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   // The AudioWorklet processor runs in the worklet global scope, not the DOM -
@@ -92,8 +103,16 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}', 'e2e/**/*.ts'],
     ignores: ['src/ai/**', 'src/components/AiPanel.tsx'],
-    plugins: { local: { rules: { 'no-plan-references': noPlanReferences } } },
     rules: { 'local/no-plan-references': 'error' },
+  },
+  // A control's label says what activating it does, in one voice, and does not
+  // state a keyboard binding or a set of machines it doesn't read at runtime.
+  // The virtual keyboard is exempt: a keycap is labelled with the key it
+  // produces, which is specced behaviour, not a tooltip written by hand.
+  {
+    files: ['src/**/*.tsx'],
+    ignores: ['src/keyboard/**'],
+    rules: { 'local/no-vague-ui-labels': 'error' },
   },
   // Keep ESLint out of Prettier's lane (must be last).
   prettier,

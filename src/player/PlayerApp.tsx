@@ -284,6 +284,7 @@ export default function PlayerApp({
       className={`run ${styles.runButton}`}
       onClick={requestRun}
       title="Restart the program"
+      aria-label={landscape ? 'Restart the program' : undefined}
     >
       {landscape ? '▶' : '▶ Play'}
     </button>
@@ -319,7 +320,7 @@ export default function PlayerApp({
             <button
               type="button"
               className={styles.screenshotButton}
-              title="Save the machine's screen as a PNG"
+              title="Save a screenshot of the machine as a PNG"
               aria-label="Save a screenshot"
               // The button only exists once the program is running, so the
               // "nothing drawn yet" result has nowhere useful to go here - and
@@ -344,6 +345,11 @@ export default function PlayerApp({
             type="button"
             className={styles.seeCode}
             title="Open this program in the Basically IDE"
+            aria-label={
+              isMobile || landscape
+                ? 'Open this program in the Basically IDE'
+                : undefined
+            }
             onClick={openInIde}
           >
             {isMobile || landscape ? <CodeIcon /> : 'See the Code'}

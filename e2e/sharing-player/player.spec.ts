@@ -174,9 +174,10 @@ test.describe('phone landscape', () => {
     );
     expect(landscapeActive, 'LANDSCAPE_MOBILE_QUERY should match').toBe(true);
 
-    // The restart control collapses to just the glyph in the landscape rail.
+    // The restart control collapses to just the glyph in the landscape rail,
+    // where its accessible name is all that still says what it does.
     await expect(
-      page.getByRole('button', { name: '▶', exact: true }),
+      page.getByRole('button', { name: 'Restart the program', exact: true }),
     ).toBeVisible({ timeout: 30_000 });
 
     // Even with auto-show opted in, the landscape emulator surface never

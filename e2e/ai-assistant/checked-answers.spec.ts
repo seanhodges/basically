@@ -15,7 +15,7 @@ import { stubAssistant } from '../aiStub';
 const PROGRAM = ['10 CLS', '20 PRINT "MINE"', '30 GOTO 20'].join('\n');
 
 async function ask(page: Page, request = 'make it better'): Promise<void> {
-  await page.getByRole('button', { name: /AI code generation/ }).click();
+  await page.getByRole('button', { name: /Show the AI assistant/ }).click();
   const box = page
     .getByPlaceholder(/ask/i)
     .or(page.locator('textarea'))

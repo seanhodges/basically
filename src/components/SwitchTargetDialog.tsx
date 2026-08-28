@@ -20,10 +20,7 @@ export function SwitchTargetDialog() {
     <div className={dialog.modalBackdrop} onClick={cancelDialectSwitch}>
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Switch to {name}?</h2>
-        <p>
-          You have code in the editor. What would you like to do when switching
-          to {name}?
-        </p>
+        <p>You have code in the editor.</p>
         <p className={dialog.modalWarning}>
           Keeping your code may not run on {name} - its BASIC dialect differs.
         </p>

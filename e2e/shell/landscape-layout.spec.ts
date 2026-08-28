@@ -85,7 +85,7 @@ async function expectLandscapeLayout(
   // a "Help" item inside this menu instead (the @container (max-width: 430px)
   // tier in Toolbar.module.css), so the trigger is what fills the rail here.
   await page.getByRole('tab', { name: 'Run' }).click();
-  const overflowTrigger = page.locator('button[title="Run actions"]');
+  const overflowTrigger = page.locator('button[title="Show the run actions"]');
   const overflowTriggerBox = await overflowTrigger.boundingBox();
   expect(overflowTriggerBox).not.toBeNull();
   // Stretched to (near enough) the full rail width, not squished to its glyph.

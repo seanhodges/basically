@@ -187,7 +187,9 @@ test('a program that cannot be read, and no program at all, are both declined', 
   await expect(drawer).toBeVisible();
   await expect(targetMachine(page)).toHaveText(/ZX81/);
   // Closed to read the status bar it would otherwise cover.
-  await page.getByRole('button', { name: 'Close documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Close the documentation panel' })
+    .click();
   await expect(page.getByText(/nothing to convert/i).first()).toBeVisible();
   expect(requests).toHaveLength(0);
   await expect(page.locator('.cm-content')).not.toContainText('{clr}HI');
@@ -213,7 +215,7 @@ test('asking to convert with no assistant configured offers to set one up', asyn
     page.getByRole('tab', { name: 'AI', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
   // Exact: the docs drawer is still open behind the dialog, and its handle is
-  // "Close documentation".
+  // "Close the documentation panel".
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   // The machine is the one the port moved to; the program is untouched.
   await expect(targetMachine(page)).toHaveText(/ZX81/);

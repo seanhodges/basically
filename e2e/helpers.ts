@@ -292,8 +292,8 @@ export async function expectMenuStaysOpen(
   page: Page,
   item: RegExp,
 ): Promise<void> {
-  // Scope to the open dropdown panel - loose names like /^New/ also match
-  // buttons elsewhere in the app (the tab strip's "New tab").
+  // Scope to the open dropdown panel, so a loose name like /^New/ is matched
+  // against the menu's own entries and not the whole app.
   const panel = page.locator('[class*="menuItems"]');
   await expect(panel.getByRole('button', { name: item })).toBeVisible();
   await page.mouse.move(0, 0);
@@ -308,7 +308,7 @@ export async function expectMenuStaysOpen(
 export async function addMemoryBlock(page: Page): Promise<void> {
   await page
     .getByRole('tablist', { name: 'Editor content' })
-    .getByRole('button', { name: 'New tab' })
+    .getByRole('button', { name: 'Add a tab' })
     .click();
   await page.getByRole('menuitem', { name: 'New machine code block' }).click();
 }

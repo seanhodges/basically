@@ -45,6 +45,13 @@ import {
 } from './icons';
 import styles from './Toolbar.module.css';
 
+// Each of these labels a toolbar or Edit-menu entry and its twin in the mobile
+// overflow menu. Shared so the pair cannot drift into two names for one action.
+const OUTLINE_TITLE = "List this program's procedures and jump targets";
+const PROFILE_TITLE = "Show where the last run's time and memory went";
+const RENUMBER_LINE_TITLE = 'Renumber this line and update GOTO/GOSUB';
+const RENUMBER_FILE_TITLE = 'Renumber the program and update every reference';
+
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
   const setMachinePickerOpen = useIdeStore((s) => s.setMachinePickerOpen);
@@ -244,6 +251,13 @@ export function Toolbar() {
     return s ? `${text} (${formatAllShortcuts(s)})` : text;
   };
 
+  // What the overflow menu is offering right now, so its trigger says which.
+  const overflowTitle = contextTab
+    ? mobileTab === 'editor'
+      ? 'Show the edit actions'
+      : 'Show the run actions'
+    : 'Show more actions';
+
   // Shared by the Docs book icon and the "Help" overflow item. Opens the
   // porting comparison offered for the open program where there is one, else
   // the CPU's page while a machine-code block tab is open, else the docs home.
@@ -289,7 +303,7 @@ export function Toolbar() {
               <button
                 onClick={openVfsInspector}
                 title={withKeys(
-                  'Inspect files the running program has saved to the virtual filesystem',
+                  'Inspect the files the program has saved',
                   'view.vfsInspector',
                 )}
               >
@@ -310,6 +324,7 @@ export function Toolbar() {
               playProgram();
             }}
             title={playTitle}
+            aria-label={playTitle}
           >
             ▶
           </button>
@@ -345,13 +360,13 @@ export function Toolbar() {
               <button
                 onClick={guard(() => setProcedureListOpen(true))}
                 disabled={unavailable('outline')}
-                title="List procedures, subroutines and jump targets in this program"
+                title={OUTLINE_TITLE}
               >
                 Outline{hint('edit.outline')}
               </button>
               <button
                 onClick={guard(() => setRunProfileOpen(true))}
-                title="Where the last run's time and memory went, line by line"
+                title={PROFILE_TITLE}
               >
                 Profiler report…
               </button>
@@ -359,20 +374,14 @@ export function Toolbar() {
               <button
                 onClick={editAction('renumber')}
                 disabled={unavailable('renumber')}
-                title={withKeys(
-                  'Renumber the current line and update GOTO/GOSUB references',
-                  'edit.renumber',
-                )}
+                title={withKeys(RENUMBER_LINE_TITLE, 'edit.renumber')}
               >
                 Renumber line{hint('edit.renumber')}
               </button>
               <button
                 onClick={editAction('renumberFile')}
                 disabled={unavailable('renumberFile')}
-                title={withKeys(
-                  'Renumber the whole program by the line-number increment and update all references',
-                  'edit.renumberFile',
-                )}
+                title={withKeys(RENUMBER_FILE_TITLE, 'edit.renumberFile')}
               >
                 Renumber file{hint('edit.renumberFile')}
               </button>
@@ -443,6 +452,9 @@ export function Toolbar() {
           className={`icon-btn ${emulatorMuted ? 'active' : ''}`}
           onClick={() => setEmulatorMuted(!emulatorMuted)}
           disabled={!emulatorAudio}
+          aria-label={
+            emulatorMuted ? 'Unmute emulator audio' : 'Mute emulator audio'
+          }
           title={
             !emulatorAudio
               ? 'Emulator audio is disabled in settings'
@@ -464,7 +476,7 @@ export function Toolbar() {
           className="icon-btn"
           onClick={takeScreenshot}
           title={withKeys(
-            "Save the machine's screen as a PNG",
+            'Save a screenshot of the machine as a PNG',
             'run.screenshot',
           )}
           aria-label="Save a screenshot"
@@ -475,7 +487,8 @@ export function Toolbar() {
           <button
             className={`icon-btn ${memoryMapOpen ? 'active' : ''}`}
             onClick={toggleMemoryMap}
-            title="Memory map - the machine's memory layout and what your program POKEs"
+            title="Show the memory map and what your program POKEs"
+            aria-label="Show the memory map"
           >
             <MemoryIcon />
           </button>
@@ -483,14 +496,16 @@ export function Toolbar() {
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
-          title={withKeys('AI code generation', 'view.ai')}
+          title={withKeys('Show the AI assistant', 'view.ai')}
+          aria-label="Show the AI assistant"
         >
           <SparkleIcon />
         </button>
         <button
           className="icon-btn"
           onClick={() => setSettingsOpen(true)}
-          title={withKeys('Settings', 'view.settings')}
+          title={withKeys('Open settings', 'view.settings')}
+          aria-label="Open settings"
         >
           <GearIcon />
         </button>
@@ -499,7 +514,8 @@ export function Toolbar() {
             docsDrawerOpen ? 'active' : ''
           }`}
           onClick={openDocumentation}
-          title={withKeys('Documentation', 'view.docs')}
+          title={withKeys('Open documentation', 'view.docs')}
+          aria-label="Open documentation"
         >
           <BookIcon />
         </button>
@@ -535,13 +551,8 @@ export function Toolbar() {
               contextTab ? '' : styles.overflowTargetOnly
             }`}
             onClick={toggleOverflowMenu}
-            title={
-              contextTab
-                ? mobileTab === 'editor'
-                  ? 'Edit actions'
-                  : 'Run actions'
-                : 'More actions'
-            }
+            title={overflowTitle}
+            aria-label={overflowTitle}
           >
             <DotsIcon />
           </button>
@@ -556,13 +567,13 @@ export function Toolbar() {
                   <button
                     onClick={guard(() => setProcedureListOpen(true))}
                     disabled={unavailable('outline')}
-                    title="List procedures, subroutines and jump targets in this program"
+                    title={OUTLINE_TITLE}
                   >
                     Outline
                   </button>
                   <button
                     onClick={guard(() => setRunProfileOpen(true))}
-                    title="Where the last run's time and memory went, line by line"
+                    title={PROFILE_TITLE}
                   >
                     Profiler report…
                   </button>
@@ -570,14 +581,14 @@ export function Toolbar() {
                   <button
                     onClick={editAction('renumber')}
                     disabled={unavailable('renumber')}
-                    title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
+                    title={withKeys(RENUMBER_LINE_TITLE, 'edit.renumber')}
                   >
                     Renumber line
                   </button>
                   <button
                     onClick={editAction('renumberFile')}
                     disabled={unavailable('renumberFile')}
-                    title="Renumber the whole program by the line-number increment and update all references"
+                    title={withKeys(RENUMBER_FILE_TITLE, 'edit.renumberFile')}
                   >
                     Renumber file
                   </button>

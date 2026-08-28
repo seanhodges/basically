@@ -29,7 +29,7 @@ test('Save project downloads a .zip carrying the scratch buffers, and Open bring
   await expect(page.getByText(/untitled\.txt\s*•/)).toBeVisible(); // dirty
 
   // A scratch buffer beside the program, to ride along in the bundle.
-  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('button', { name: 'Add a tab' }).click();
   await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
   await setEditorSource(page, '70 PRINT "SNIPPET"');
   await page.getByRole('tab', { name: 'BASIC' }).click();
@@ -77,8 +77,7 @@ test('File menu opens, stays open, and dismisses on outside click / Escape', asy
   await page.getByRole('button', { name: 'File ▾' }).click();
   await expectMenuStaysOpen(page, /^New/);
 
-  // Dismisses on a click outside the menu. (Scope to the dropdown panel: the
-  // editor tab strip's "New tab" button also matches /^New/.)
+  // Dismisses on a click outside the menu, asserted on the menu's own entry.
   const menuNew = page
     .locator('[class*="menuItems"]')
     .getByRole('button', { name: /^New/ });

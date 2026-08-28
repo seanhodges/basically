@@ -230,7 +230,7 @@ export function EditorTabBar() {
         role="tab"
         aria-selected={activeTab.kind === 'basic'}
         aria-label="BASIC"
-        title="BASIC (right-click or long-press to download)"
+        title="BASIC - right-click or long-press to download"
         className={activeTab.kind === 'basic' ? 'active' : ''}
         onClick={() => {
           if (!longPress.consumeFired()) setActiveTab({ kind: 'basic' });
@@ -285,7 +285,7 @@ export function EditorTabBar() {
             <span
               className={styles.errorDot}
               role="img"
-              aria-label="does not assemble"
+              aria-label="Does not assemble"
             />
           )}
         </button>
@@ -394,10 +394,10 @@ export function EditorTabBar() {
       )}
       <button
         className={styles.addTab}
-        aria-label="New tab"
+        aria-label="Add a tab"
         aria-haspopup="menu"
         aria-expanded={addMenu !== null}
-        title="New scratch buffer or machine code block"
+        title="Add a tab - a scratch buffer or a machine code block"
         onClick={(e) => {
           if (addMenu !== null) {
             setAddMenu(null);
@@ -417,7 +417,7 @@ export function EditorTabBar() {
           ref={addMenuRef}
           className={styles.contextMenu}
           role="menu"
-          aria-label="New tab"
+          aria-label="Add a tab"
           style={{ left: addMenu.x, top: addMenu.y }}
         >
           <button

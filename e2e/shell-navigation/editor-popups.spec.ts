@@ -56,7 +56,9 @@ test('a surface takes the editor popups away, and covers one raised beside it', 
   const menu = page.locator('.cm-clickMenu');
   await expect(menu).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Open the documentation panel' })
+    .click();
   const docs = page.locator('[aria-label="Documentation"]');
   await expect(docs).toHaveAttribute('aria-hidden', 'false');
   await expect(menu).toBeHidden();

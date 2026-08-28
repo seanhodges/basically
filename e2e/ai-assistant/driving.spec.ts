@@ -41,7 +41,7 @@ const WAITS_FOR_A_KEY = [
 ].join('\n');
 
 async function ask(page: Page, request = 'write me something'): Promise<void> {
-  await page.getByRole('button', { name: /AI code generation/ }).click();
+  await page.getByRole('button', { name: /Show the AI assistant/ }).click();
   const box = page
     .getByPlaceholder(/ask/i)
     .or(page.locator('textarea'))

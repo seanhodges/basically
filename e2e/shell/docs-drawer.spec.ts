@@ -16,14 +16,16 @@ test('docs drawer opens from the toolbar and F1, with content', async ({
   await openApp(page);
   const drawer = page.getByRole('dialog', { name: 'Documentation' });
 
-  await page.getByRole('button', { name: /^Documentation/ }).click();
+  await page.getByRole('button', { name: 'Open documentation' }).click();
   await expect(drawer).toBeVisible();
   // Actual documentation rendered, not an empty shell. The drawer hosts the
   // docs site in an iframe, so reach through it with a frame locator.
   await expect(
     drawer.frameLocator('iframe').locator('h1, h2').first(),
   ).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Close documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Close the documentation panel' })
+    .click();
   await expect(drawer).toBeHidden();
 
   await page.keyboard.press('F1');

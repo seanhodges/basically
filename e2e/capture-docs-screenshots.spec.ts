@@ -295,7 +295,7 @@ test('AI code generation panel', async ({ page }) => {
   await hideKeyboard(page);
   // The desktop AI control is the toolbar button (the ✦ tab only exists in the
   // mobile tab bar, which isn't rendered at this capture viewport).
-  await page.getByRole('button', { name: 'AI code generation' }).click();
+  await page.getByRole('button', { name: 'Show the AI assistant' }).click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/feature-ai.png` });
 });
@@ -405,7 +405,7 @@ async function setEditorSource(page: Page, source: string) {
 
 /** Open the memory map from the toolbar and wait for its panel. */
 async function openMemoryMap(page: Page) {
-  await page.locator('button[title^="Memory map"]').click();
+  await page.locator('button[aria-label="Show the memory map"]').click();
   await page.locator('[class*="memoryHost"]').waitFor({ state: 'visible' });
 }
 
@@ -656,7 +656,7 @@ test('annotated editor features - mobile', async ({ page }) => {
   await openCompletionPopup(page);
   // Open the "three dots" overflow menu (which carries the Edit actions on the
   // editor tab) without blurring the editor - see the desktop note above.
-  await page.getByTitle('Edit actions').dispatchEvent('click');
+  await page.getByTitle('Show the edit actions').dispatchEvent('click');
   await page
     .locator('[class*="menuItems"]')
     .first()

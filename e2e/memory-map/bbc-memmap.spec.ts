@@ -36,7 +36,7 @@ test('memory map opens over a running jsbeeb machine', async ({ page }) => {
   await chooseTargetMachine(page, 'bbcmicro');
 
   // The toolbar toggle only renders when the dialect defines a memory map.
-  const toggle = page.locator('button[title^="Memory map"]');
+  const toggle = page.locator('button[aria-label="Show the memory map"]');
   await expect(toggle).toBeVisible();
   await toggle.click();
   await expect(memoryHost(page)).toBeVisible();

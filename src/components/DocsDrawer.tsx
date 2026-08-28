@@ -442,8 +442,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         type="button"
         className={styles.openHandle}
         onClick={openContextual}
-        title="Open documentation"
-        aria-label="Open documentation"
+        title="Open the documentation panel"
+        aria-label="Open the documentation panel"
         // Keep it out of the tab order (and unclickable) while the drawer is open,
         // when it's hidden behind the drawer.
         tabIndex={open ? -1 : 0}
@@ -463,8 +463,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
           onClick={closeDocs}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
-          title="Close documentation"
-          aria-label="Close documentation"
+          title="Close the documentation panel"
+          aria-label="Close the documentation panel"
           // The drawer is hidden off-screen when closed; keep its controls out of
           // the tab order so they aren't focusable behind the app.
           tabIndex={open ? 0 : -1}

@@ -708,8 +708,7 @@ export function AiPanel() {
       )}
       {!online && (
         <div className={styles.aiOffline}>
-          You’re offline - the AI assistant needs an internet connection and is
-          unavailable until you reconnect.
+          You’re offline - the AI assistant needs a connection.
         </div>
       )}
       {messages.length > 0 && (
@@ -784,7 +783,7 @@ export function AiPanel() {
           <button
             className={styles.aiAttach}
             aria-label="Attach a photo of a printed listing"
-            title="Attach a photo or scan of a printed listing and it will be typed in for you. Half a page reads better than a whole one."
+            title="Attach a photo of a printed listing to type it in"
             disabled={!online}
             onClick={() => void attach()}
           >
