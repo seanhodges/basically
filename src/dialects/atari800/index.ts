@@ -13,7 +13,7 @@ import {
   atariLanguageSupport,
 } from './language';
 import { atari800AiProfile } from './aiProfile';
-import { atariBuildTargets } from './targets';
+import { atariBuildTargets, atariCassetteAudio } from './targets';
 import { atariKeyboardLayout } from './keyboardLayout';
 import { atariSamples } from './samples';
 import { atari800MemoryBlocks } from './memoryBlocks';
@@ -112,5 +112,16 @@ export const atari800: Dialect = {
   keyboardLayout: atariKeyboardLayout,
   samples: atariSamples,
   buildTargets: atariBuildTargets,
+
+  // The tokenized `.bas` also serves as an editor-text extension, so a file
+  // dropped on the editor is read as text; the tokenized form is imported
+  // through the Import dialog, which asks the dialect rather than the name.
+  binaryImports: [
+    { extension: '.bas', label: 'Import tokenized .BAS…' },
+    { extension: '.lst', label: 'Import .LST listing…' },
+    { extension: '.cas', label: 'Import .CAS cassette…' },
+  ],
+
+  audio: atariCassetteAudio,
   aiProfile: atari800AiProfile,
 };

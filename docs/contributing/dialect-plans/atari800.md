@@ -86,7 +86,7 @@ machine has more undocumented corners than most:
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
-| 4     | Transfer & tape I/O                | ⬜     |
+| 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
@@ -265,18 +265,44 @@ later stage:
   (`$0600`) as the default address, the device buffers and the screen at the top
   of RAM as reserved — and the two machines differ only in where RAM ends.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-- [ ] `targets.ts` — `BuildTarget[]`: `.bas` tokenized, `.lst` ATASCII listing,
+- [x] `targets.ts` — `BuildTarget[]`: `.bas` tokenized, `.lst` ATASCII listing,
       `.cas` cassette, `.wav` audio
-- [ ] `audio/` — the Atari FSK cassette scheme (600 baud, 3995 Hz mark /
-      5327 Hz space, 8-N-1 framing) as `buildSamples` + `decodeSamples`, with
+- [x] `audio/` — the Atari FSK cassette scheme (600 baud, 5327 Hz mark /
+      3995 Hz space, 8-N-1 framing) as `buildSamples` + `decodeSamples`, with
       load/save instructions
-- [ ] `binaryImports` — the formats `detokenize()` can read back
-- [ ] tests: cassette encode→decode round-trip
+- [x] `binaryImports` — the formats `detokenize()` can read back
+- [x] tests: cassette encode→decode round-trip
 
 **Depends on:** Stage 1.
 **Verify:** audio round-trip test + import/export in the app.
+
+Four things this stage settled that the plan above had wrong or had not
+anticipated:
+
+- **The tones are the other way round.** Mark — a `1` bit, and what the leader
+  and the gaps are made of — is 5327 Hz, and space is 3995 Hz. Both are POKEY's
+  64 kHz clock divided by 12 and by 16, which is where `cassetteEncoder.ts`
+  derives them rather than quoting the rounded figures.
+- **Nothing on the tape carries a name.** The recorder is one device with no
+  directory, so `decodeSamples` returns an empty `programName` and the `.cas`
+  container's FUJI chunk is the only place the document's name survives.
+- **The two tones are too close to decode by measuring half-cycles**, the way
+  every Kansas City machine in the tree does: at 44.1 kHz a half-cycle is four
+  or five samples and the two are a sample apart. The decoder correlates
+  against both tones over a one-bit window instead, and measures the bit period
+  off the `$55 $55` sync bytes — which is what those bytes are there for, and
+  what lets a recording survive a wrong sample rate or a tape running slow.
+- **`.bas` is both the tokenized extension and one the editor accepts as
+  text**, and the drop handler reads text first, so a tokenized `.bas` dropped
+  on the editor arrives as mojibake. Import → "Import tokenized .BAS…" is the
+  route that asks the dialect; `.lst` and `.cas` have no such collision and drop
+  cleanly.
+
+No target carries the document's memory blocks: page 6 is outside what `SAVE`
+and `CSAVE` write, so the Transfer dialog's "blocks won't be included" warning
+is the whole story rather than a gap for Stage 5 to close.
 
 ## Stage 5 — Memory map & runtime introspection ⬜
 
