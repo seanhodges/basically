@@ -10,6 +10,13 @@ character set gives them — the same byte view a block's bytes are shown in,
 distinguished by counting from the start of the file, since a file has no
 address.
 
+Only what the program itself wrote SHALL appear. To serve a program's own
+`LOAD`, the IDE hands the machine the document's own content before a run — its
+memory blocks, and any tape files imported with it — as files the program can
+load by name. Those are the document being given to the machine, not output
+coming back, and SHALL NOT be shown as tabs; a file the program then saves over
+one of them SHALL appear like any other.
+
 The bytes SHALL be shown read-only. A data file is neither kept with the
 document nor returned to the machine, so there is nothing an edit to one could
 change; it is a view onto what the program produced.
@@ -28,6 +35,12 @@ writing files.
 - **WHEN** a running program saves a data file
 - **THEN** a tab named after that file appears in the editor, and selecting it
   shows the bytes the program wrote
+
+#### Scenario: What the IDE handed the machine is not shown back
+
+- **WHEN** a program whose document has memory blocks is run, and the machine is
+  given those blocks as files the program can load
+- **THEN** no tab appears for them — the tabs are the files the program saved
 
 #### Scenario: The file's bytes cannot be edited
 

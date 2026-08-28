@@ -31,6 +31,22 @@ describe('EmulatorVfs (synchronous store)', () => {
     expect(vfs.load('A')).toBeNull();
   });
 
+  it('round-trips the mounted mark, and a plain save clears it', () => {
+    const vfs = new EmulatorVfs();
+    vfs.clear('zxspectrum');
+    vfs.save('engine', bytes(0xc9), { kind: 'code', mounted: true });
+    vfs.save('SCORES', bytes(1));
+    expect(vfs.list().map((f) => [f.name, f.mounted])).toEqual([
+      ['engine', true],
+      // Absent rather than false, like `kind`: no mark means the program wrote
+      // it, which is the ordinary case.
+      ['SCORES', undefined],
+    ]);
+    // A program saving over a mounted name is writing output, so the mark goes.
+    vfs.save('engine', bytes(1, 2));
+    expect(vfs.list()[0]!.mounted).toBeUndefined();
+  });
+
   it('copies payloads on save and load', () => {
     const vfs = new EmulatorVfs();
     const ram = bytes(1, 2, 3);

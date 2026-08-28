@@ -57,6 +57,27 @@
       journey: "New binary block" opens the byte editor rather than the assembly
       editor. No new cold `page.goto('/')`.
 
+## 6. Only what the program wrote appears as a tab
+
+- [x] 6.1 `src/dialects/types.ts`: `MachineFileEntry` gains a flag saying the
+      entry was mounted by the IDE rather than written by the program, and
+      `MachineFileStore.save`'s `meta` gains the same. Document both.
+- [x] 6.2 `src/storage/vfs/vfsStore.ts`: hold the flag on the stored file and
+      emit it from `list()`. Not mirrored into RxDB - that would cost a schema
+      version for a reader that does not exist.
+- [x] 6.3 `src/app/dataBlocks.ts`: `projectDataBlocks` skips a mounted entry.
+- [x] 6.4 `src/dialects/zxspectrum/emulator/tapeDeck.ts`: `addFile` marks what
+      it mounts, so both Spectrums' blocks and their imported tape files are
+      covered by the one path.
+- [x] 6.5 Cover it: `projectDataBlocks` drops a mounted entry and keeps the rest
+      (`src/app/dataBlocks.test.ts`); the store round-trips the flag and a
+      program's save over a mounted name clears it
+      (`src/storage/vfs/vfsStore.test.ts`); `addFile` marks it and the deck
+      still serves what it mounted
+      (`src/dialects/zxspectrum/emulator/tapeDeck.test.ts`).
+- [x] 6.6 Assert it in the browser: the `e2e/persistence/saved-data-tabs.spec.ts`
+      journey's final stage shows one tab for the copied block, not two.
+
 ## 5. Quality gates
 
 - [x] 5.1 `npm run typecheck`

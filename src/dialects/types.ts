@@ -316,6 +316,15 @@ export interface MachineFileEntry {
   updatedAt: number;
   /** Dialect-specific tag, e.g. 'code' | 'data-num' | 'data-str' | 'data'. */
   kind?: string;
+  /**
+   * True when the IDE mounted this file for the program to load, rather than
+   * the program writing it: the document's own memory blocks and imported tape
+   * files, put on the machine's store before a run so a program's own
+   * `LOAD "name"` is served. The store lists them because that is what the
+   * machine loads from, but they are the document going in, not output coming
+   * back, so nothing that shows the user what a program produced counts them.
+   */
+  mounted?: boolean;
 }
 
 /**
@@ -326,7 +335,17 @@ export interface MachineFileEntry {
  * owns the store's lifetime and clears it around emulator start/stop.
  */
 export interface MachineFileStore {
-  save(name: string, data: Uint8Array, meta?: { kind?: string }): void;
+  save(
+    name: string,
+    data: Uint8Array,
+    meta?: {
+      kind?: string;
+      /** Set only by the IDE mounting a file for the program to load; a
+       *  program's own save leaves it unset, which is what makes saving over a
+       *  mounted name turn it into output (see {@link MachineFileEntry}). */
+      mounted?: boolean;
+    },
+  ): void;
   /** The stored bytes, or null when no file has that name. */
   load(name: string): Uint8Array | null;
   /** All files in insertion order (oldest save first, like a tape). */

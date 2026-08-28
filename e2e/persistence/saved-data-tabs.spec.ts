@@ -96,13 +96,7 @@ test('a saved file appears as a tab, survives the stop, copies into a block, and
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // The block holds a copy of what the tab showed - the file, not the framing.
-  // Picked by its ▤ block glyph rather than by name alone: loading a program
-  // also puts each block on the deck as a CODE file, so that a program's own
-  // `LOAD "name" CODE` finds it - which gives the block a 🖫 data tab of the
-  // same name from the next run onwards.
-  const blockTab = page
-    .getByRole('tab', { name: 'kept' })
-    .filter({ hasText: '▤' });
+  const blockTab = page.getByRole('tab', { name: 'kept' });
   await blockTab.click();
   await expect(bytes).toContainText('01 02 00 00 00 07');
   // ...and the file is unaffected by the copy.
@@ -113,8 +107,13 @@ test('a saved file appears as a tab, survives the stop, copies into a block, and
   // is the store being cleared, not a race with the next capture.
   await playAndWaitRunning(page);
   await expect(tab).toHaveCount(0);
-  // The block is part of the document, so it outlives the file it came from.
+  // The block is part of the document, so it outlives the file it came from -
+  // as exactly one tab. Loading a program also puts each block on the deck as a
+  // CODE file, so that a program's own `LOAD "name" CODE` finds it; what the
+  // IDE mounts that way is the document going in, not output coming back, so it
+  // is not shown back as a second tab claiming the program saved it.
   await expect(blockTab).toHaveCount(1);
+  await expect(page.getByRole('tab')).toHaveText(['BASIC', /kept/]);
   await page.getByRole('tab', { name: 'BASIC' }).click();
   await expect(page.locator(EDITOR)).toContainText('SAVE "SCORES" DATA');
 });
