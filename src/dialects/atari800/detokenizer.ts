@@ -12,6 +12,8 @@ import {
   variableSpelling,
   type AtariVariable,
 } from './basfile';
+import { collectRecordData, isCasImage, parseCasImage } from './casfile';
+import { atasciiToListing, isAtasciiListing } from './listing';
 
 /**
  * Atari BASIC's `LIST`: a tokenized image back to editable text.
@@ -167,8 +169,20 @@ function listStatement(
   return out;
 }
 
-/** List a tokenized image back to text, reporting anything it could not hold. */
+/**
+ * List a file back to text, reporting anything it could not hold.
+ *
+ * Three things arrive here, and which one a file is can be read off its first
+ * bytes: a `.cas` opens with the FUJI chunk, a tokenized image opens with a
+ * zero word, and an ATASCII listing opens with a line number. The cassette is
+ * unwrapped to the image it carries and falls through to the same walk, so a
+ * program imported off tape and one imported from disk list identically.
+ */
 export function detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+  if (isCasImage(image)) return listCassette(image);
+  if (isAtasciiListing(image)) {
+    return { source: atasciiToListing(image), warnings: [] };
+  }
   if (!isAtariImage(image)) {
     return {
       source: '',
@@ -177,7 +191,22 @@ export function detokenizeWithReport(image: Uint8Array): DetokenizeResult {
       ],
     };
   }
+  return listImage(image);
+}
 
+/** The `.cas` import path: records back to the byte stream `CSAVE` wrote. */
+function listCassette(image: Uint8Array): DetokenizeResult {
+  const cas = parseCasImage(image);
+  const { data, warnings } = collectRecordData(cas.records);
+  const listed = detokenizeWithReport(data);
+  return {
+    ...listed,
+    warnings: [...cas.warnings, ...warnings, ...listed.warnings],
+  };
+}
+
+/** The walk proper: a tokenized image's lines, statement by statement. */
+function listImage(image: Uint8Array): DetokenizeResult {
   const parsed = parseAtariImage(image);
   const warnings = [...parsed.warnings];
   const lines: string[] = [];
