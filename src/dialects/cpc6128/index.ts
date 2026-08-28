@@ -103,6 +103,10 @@ export const cpc6128: Dialect = {
     return tokenizeProgram(source, 'basic11').errors;
   },
 
+  // The firmware cassette jumpblock, at the same addresses the 464 uses: the
+  // jumpblock is central RAM, so it does not move with the ROM.
+  capturesDataFiles: true,
+
   createEmulator(opts): MachineEmulator {
     // ramKb is ignored: the 6128's 128K is not an option, it is the machine.
     return new CpcMachine({ rom: opts.rom, model: '6128', files: opts.files });
@@ -120,9 +124,8 @@ export const cpc6128: Dialect = {
     sampleRate: CASSETTE_SAMPLE_RATE,
     buildSamples: (source, programName, robust) =>
       buildCassetteSamples(source, programName, robust, 'basic11'),
-    // The 6128 boots addressing the disc drive, so tape I/O needs |TAPE first.
     loadInstructions:
-      'On the CPC type |TAPE and press ENTER to switch from disc to tape (the | is SHIFT+@), then RUN" (or LOAD "" for a program you want to list first) and press any key to start the tape. Press-any-key and the "Loading" message appear as it reads.',
+      'On the CPC type RUN" and press ENTER (or LOAD "" for a program you want to list first), then press any key to start the tape. Press-any-key and the "Loading" message appear as it reads. No |TAPE is needed: this 6128 runs without AMSDOS, so the cassette is already its filing system.',
     decodeSamples: (samples, sampleRate) => {
       const { name, program, warnings } = decodeCassette(samples, sampleRate);
       const report = importCpcImage(program, 'basic11');
@@ -133,7 +136,7 @@ export const cpc6128: Dialect = {
       };
     },
     saveInstructions:
-      'On the CPC type |TAPE and press ENTER to switch from disc to tape, then SAVE "NAME" and ENTER, then press REC and PLAY; the program plays out as a tape tone you can capture here.',
+      'On the CPC type SAVE "NAME" and press ENTER, then press REC and PLAY; the program plays out as a tape tone you can capture here.',
   },
 
   aiProfile: cpc6128AiProfile,

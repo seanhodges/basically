@@ -122,12 +122,20 @@ never disturbs the screen.
 ### Tape, not disc
 
 The real 6128 has a 3" disc drive, and boots addressing it. This IDE runs the
-machine with **tape only** — there is no disc drive and no AMSDOS ROM — so a
-program doing cassette `LOAD`/`SAVE` must issue `|TAPE` first (the `|` is
-<kbd>SHIFT</kbd>+<kbd>@</kbd>). The AMSDOS disc commands (`|DIR`, `|ERA`, `|REN`)
-are not available, and `.dsk` images are neither imported nor exported. Because
-AMSDOS is absent, the machine reports the 464's free-RAM figure rather than the
-42,249 bytes a disc-equipped 6128 leaves.
+machine with **tape only** — there is no disc drive and no AMSDOS ROM. Because
+AMSDOS is absent so are its commands: `|DIR`, `|ERA` and `|REN` are not
+available, and neither is `|TAPE` — there is no disc filing system to switch
+away from, so the cassette is already in use and `|TAPE` would answer `Unknown
+command`. `.dsk` images are neither imported nor exported, and the machine
+reports the 464's free-RAM figure rather than the 42,249 bytes a disc-equipped
+6128 leaves.
+
+Data files work regardless of the missing drive. A program that writes with
+`OPENOUT` and `PRINT #9` and reads back with `OPENIN` and `INPUT #9` is served
+by the IDE, which keeps what it saves and shows it alongside the program — see
+[file formats](./formats). `LOAD`, `RUN"` and `CHAIN` read from the same place
+when the name is one a program saved; `SAVE` and `CAT` still address the
+cassette itself.
 
 ### Memory {#cpc6128-memory}
 

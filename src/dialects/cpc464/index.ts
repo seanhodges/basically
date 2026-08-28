@@ -54,6 +54,9 @@ export const cpc464: Dialect = {
   // The emulator introspects the current BASIC line (currentLine/debugStep), so
   // the toolbar offers the step debugger.
   debuggable: true,
+  // The firmware cassette jumpblock, for the data-file entries: OPENIN/OPENOUT
+  // and the character calls either side of them reach the IDE's file store.
+  capturesDataFiles: true,
   // Joystick 0 is matrix line 9, read through the AY like the keyboard; the CPC
   // port exposes two independent fire buttons.
   joystickModes: ['native'],

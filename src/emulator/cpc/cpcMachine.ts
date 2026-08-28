@@ -36,6 +36,7 @@ import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { cpcFontSignatures, readCpcScreenText } from './screenText';
 import type { GlyphSignatures } from '../fontMatcher';
 import { createMachineLoop } from '../machineLoop';
+import { CpcCassette, type CasResult } from './cassette';
 
 const CPU_HZ = 4_000_000;
 /** 4MHz Z80, 64µs (256 T-state) scanlines, 312 lines → ~50.08Hz. */
@@ -44,6 +45,36 @@ const TSTATES_PER_LINE = 256;
 const MAX_BOOT_FRAMES = 300;
 /** Frames to settle after the boot screen draws, so the input loop is ready. */
 const BOOT_SETTLE_FRAMES = 40;
+/**
+ * The firmware cassette jumpblock, where a program's data file I/O is caught.
+ *
+ * These live in central RAM (&4000-&BFFF has no ROM overlay), so they are the
+ * same addresses on every model and need no paging awareness. Locomotive BASIC
+ * calls them directly on both machines - OPENOUT is `CALL &D273` / `CALL &F637`
+ * / `JP &BC8C` on the 464 - which is what makes catching the program counter
+ * here sufficient.
+ *
+ * CAS IN DIRECT (&BC83), CAS OUT DIRECT (&BC98) and CAS CATALOG (&BC9B) are
+ * deliberately absent: whole-file SAVE and CAT are not serviced from the store,
+ * so they run the real firmware. The whole-file *read* needs no entry here -
+ * LOAD and CHAIN reach a stored file through CAS IN OPEN and CAS IN CHAR, which
+ * are trapped for OPENIN anyway.
+ */
+const CAS_IN_OPEN = 0xbc77;
+const CAS_IN_CLOSE = 0xbc7a;
+const CAS_IN_ABANDON = 0xbc7d;
+const CAS_IN_CHAR = 0xbc80;
+const CAS_RETURN = 0xbc86;
+const CAS_TEST_EOF = 0xbc89;
+const CAS_OUT_OPEN = 0xbc8c;
+const CAS_OUT_CLOSE = 0xbc8f;
+const CAS_OUT_ABANDON = 0xbc92;
+const CAS_OUT_CHAR = 0xbc95;
+
+/** The span the trap check compares against before it looks any closer. */
+const CAS_FIRST = CAS_IN_OPEN;
+const CAS_LAST = CAS_OUT_CHAR;
+
 /**
  * Locomotive BASIC's end-of-program / start-of-variables / start-of-arrays /
  * end-of-arrays pointers. On a freshly injected program (no variables yet) all
@@ -101,6 +132,11 @@ export class CpcMachine implements MachineEmulator {
   private readonly ay = new Ay38912(AY_CLOCK_CPC);
   private readonly ppi: Ppi;
   private readonly cpu: Z80Core;
+  /**
+   * Where a program's own data files go, when the IDE hands the machine a
+   * store. Null without one, which is the shape a bare boot sees.
+   */
+  private readonly cassette: CpcCassette | null;
 
   /** Which AY register the PPI last latched (for the reg-14 keyboard read). */
   private aySelected = 0;
@@ -169,6 +205,11 @@ export class CpcMachine implements MachineEmulator {
       read: (addr) => this.memory.readScreen(addr),
       readWord: (addr) => this.memory.readWord(addr),
     };
+    this.cassette = opts.files
+      ? // Raw RAM, not the paged read: a filename lives in the program area
+        // from &0170, which is under the lower ROM's window.
+        new CpcCassette(opts.files, { read: this.memory.readScreen })
+      : null;
 
     const host: PpiHost = {
       aySelectRegister: (reg) => {
@@ -207,6 +248,9 @@ export class CpcMachine implements MachineEmulator {
     this.ay.reset();
     this.aySelected = 0;
     this.vsync = false;
+    // Discard rather than flush: the IDE clears the VFS around a reload, so a
+    // part-written file flushed here would outlive the run that wrote it.
+    this.cassette?.closeAll(false);
     this.cpu.reset();
   }
 
@@ -288,6 +332,17 @@ export class CpcMachine implements MachineEmulator {
    * like any other.
    */
   private stepInstruction(): number {
+    if (this.cassette && !this.cpu.isHalted()) {
+      const pc = this.cpu.getPC();
+      // One compare on the ordinary path; the switch only runs on the handful
+      // of addresses the whole jumpblock spans.
+      if (pc >= CAS_FIRST && pc <= CAS_LAST && this.serviceCassette(pc)) {
+        // Serviced in place of the routine, so no instruction ran and no
+        // T-states were consumed - the machine loop carries its debt across
+        // steps, so a zero here simply takes another step this frame.
+        return 0;
+      }
+    }
     const t = this.cpu.isHalted() ? 4 : this.cpu.run_instruction();
     const p = this.profile;
     if (p.enabled) {
@@ -295,6 +350,70 @@ export class CpcMachine implements MachineEmulator {
       if (p.pending >= p.slice) p.sample(this.currentLine());
     }
     return t;
+  }
+
+  /**
+   * Offer one firmware cassette-manager call to the VFS, returning whether it
+   * was serviced. Declined calls (an address that is not a data-file entry, a
+   * file the store does not hold) return false and the real firmware runs.
+   *
+   * The entry conventions are Locomotive BASIC's own, read off the shipped
+   * ROMs: both opens arrive with HL = the filename and B = its length, and
+   * BASIC has already set its own open-file state before the call, so nothing
+   * here has to fill the firmware's 2K buffer or synthesise a header.
+   */
+  private serviceCassette(pc: number): boolean {
+    const cas = this.cassette!;
+    const st = this.cpu.getState();
+    let res: CasResult;
+    switch (pc) {
+      case CAS_OUT_OPEN:
+        res = cas.openOut(cas.readName((st.h << 8) | st.l, st.b));
+        break;
+      case CAS_OUT_CHAR:
+        res = cas.outChar(st.a);
+        break;
+      case CAS_OUT_CLOSE:
+        res = cas.closeOut();
+        break;
+      case CAS_OUT_ABANDON:
+        res = cas.abandonOut();
+        break;
+      case CAS_IN_OPEN:
+        res = cas.openIn(cas.readName((st.h << 8) | st.l, st.b));
+        break;
+      case CAS_IN_CHAR:
+        res = cas.inChar();
+        break;
+      case CAS_RETURN:
+        res = cas.casReturn();
+        break;
+      case CAS_TEST_EOF:
+        res = cas.testEof();
+        break;
+      case CAS_IN_CLOSE:
+        res = cas.closeIn();
+        break;
+      case CAS_IN_ABANDON:
+        res = cas.abandonIn();
+        break;
+      default:
+        return false;
+    }
+    if (!res.handled) return false;
+
+    // Complete the call as the firmware would: return to the caller with the
+    // result in carry, and A where the routine yields one. Zero is always
+    // cleared - BASIC reads Z set after these calls as ESC and jumps to its
+    // break handler.
+    const ret = this.memory.readWord(st.sp);
+    st.sp = (st.sp + 2) & 0xffff;
+    st.pc = ret;
+    st.flags.C = res.carry ? 1 : 0;
+    st.flags.Z = 0;
+    if (res.a !== undefined) st.a = res.a;
+    this.cpu.setState(st);
+    return true;
   }
 
   /**

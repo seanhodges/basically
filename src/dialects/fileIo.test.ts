@@ -18,10 +18,9 @@
  *
  * Structural for the machines that do not, and deliberately so. Proving that
  * negative means running the file statement, which is the thing those machines
- * cannot do: with no device modelled the CPCs sit in a cassette manager with no
- * tape behind it, so the program does not fail, it waits - burning the whole
- * frame budget per machine to discover what {@link NO_DATA_FILE_TRAPS} already
- * says. The hang is the finding, and it belongs in the reason text.
+ * cannot do, and on several of them it waits rather than failing - burning the
+ * whole frame budget per machine to discover what {@link NO_DATA_FILE_TRAPS}
+ * already says. The hang is the finding, and it belongs in the reason text.
  *
  * What that costs is worth naming: this cannot tell a machine with no traps from
  * one whose traps are broken. The gap closes at the transition rather than in
@@ -65,11 +64,6 @@ const BOOT_TIMEOUT_MS = 120000;
  * wired, which is how an entry is meant to leave this table.
  */
 const NO_DATA_FILE_TRAPS: Record<string, string> = {
-  // Accepts the store in its constructor and never reads it. The firmware's
-  // cassette jumpblock is not trapped, so OPENIN/OPENOUT - which this dialect's
-  // keyword table offers - reach a tape layer that does not exist.
-  cpc464: 'the store is accepted and dropped; no cassette-manager traps',
-  cpc6128: 'the store is accepted and dropped; no cassette-manager traps',
   // Its SAVE trap skips the ROM's tape-output loop straight to the routine's
   // completion, so the program continues as it would have on real hardware and
   // no bytes are ever generated to capture.
