@@ -13,11 +13,12 @@ import { encodeLocoFloat } from './numbers';
  * Locomotive BASIC tokenizer: per line
  * `[u16 LE total length][u16 LE line number][tokens…][0x00]`, the program
  * terminated by a zero length word. Numeric constants are stored in binary
- * (`&0E-&18` small integers 0-10, `&19` byte, `&1A` 16-bit integer, `&1B`
- * binary, `&1C` hex, `&1E` line number, `&1F` 5-byte real); spaces are
- * stored verbatim (the CPC LISTs your own spacing back). Collects
- * TokenizeError[] (1-based line, 0-based column) instead of throwing;
- * statement-shape lint is non-fatal so imported programs stay runnable.
+ * (`&0E-&17` small integers 0-9, `&19` byte - which is what 10 upwards takes -
+ * `&1A` 16-bit integer, `&1B` binary, `&1C` hex, `&1E` line number, `&1F`
+ * 5-byte real); spaces are stored verbatim (the CPC LISTs your own spacing
+ * back). Collects TokenizeError[] (1-based line, 0-based column) instead of
+ * throwing; statement-shape lint is non-fatal so imported programs stay
+ * runnable.
  */
 
 /** Statement separator, end-of-line and the special mid-line tokens. */
@@ -295,7 +296,8 @@ function tokenizeBody(
   const emitInt = (value: number): void => {
     if (value <= 9) {
       // The single-byte integer tokens &0E-&17 cover 0-9 only; 10 needs the
-      // 8-bit form (&18 is not a numeric constant, so the ROM would reject it).
+      // 8-bit form. &18 does not continue the run - the ROM reads it as 0, so
+      // an off-by-one here would be a wrong answer rather than an error.
       out.push(SMALL_INT_BASE + value);
     } else if (value <= 0xff) {
       out.push(BYTE_INT, value);
