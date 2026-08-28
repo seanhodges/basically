@@ -99,7 +99,8 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       `setKey`; geometry from `templateRows` (`gridColumns: GRID_COLUMNS`, every
       key `KEY_SPAN`, `ROW_KEYS` to a band, `centerRow`/`bottomRow`) — never
       author a width. The function-key strip is one row of keycaps that scrolls
-      past ten, so design for ten
+      past ten, so design for ten. The layout **names** its `vk-theme-<id>`; the
+      stylesheet block itself waits for Stage 7
 - [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
       `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
       (degrade gracefully; `hello` is the starter)
@@ -116,9 +117,6 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
 - [ ] finalize `aiProfile.ts` (system prompt teaching the dialect)
 - [ ] `index.ts` — assemble the full `Dialect` (placeholder picker identity
       until Stage 7, which writes it for real)
-- [ ] optional `.virtual-keyboard.vk-theme-<id>` block in
-      `src/keyboard/VirtualKeyboard.css` (colour and label position only — a
-      theme never overrides a width)
 - [ ] tests: keyboard matrix (every token reachable by keycap or host key),
       samples tokenize cleanly **and run**. The template geometry is pinned
       against the registry by `src/keyboard/layoutGeometry.test.ts`, which picks
@@ -194,6 +192,11 @@ crosschecks.
       (and `e2e/paletteMachines` where the machine has a graphics palette)
 - [ ] the measured figures the batteries ask for: `loopSpeed`, the prompt-size
       ceiling, the frame rate
+- [ ] optional `.virtual-keyboard.vk-theme-<id>` block in
+      `src/keyboard/VirtualKeyboard.css` (colour and label position only — a
+      theme never overrides a width). **In this change, not earlier:**
+      `keyboardTheme.test.ts` fails on a theme block that no _registered_ layout
+      names, so the stylesheet cannot precede the registry line
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`, and whatever
       polish the audit listed — `joystickModes`, emulator sound (`readAudio`),
       dialect quirks, the AI-profile accuracy pass
