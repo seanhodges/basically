@@ -177,4 +177,10 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
     iterations: 2000,
     ...integerBasicPrograms(2000),
   },
+  {
+    id: 'atari',
+    dialects: ['atari800', 'atari400'],
+    iterations: 5000,
+    ...programs(5000),
+  },
 ];

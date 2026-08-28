@@ -5,7 +5,8 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
-import { ATARI_CONSTRUCTS } from '../../editor/constructs';
+import { constructsByDialect } from '../../editor/constructs';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { atariKeywords, atariOperators } from './keywords';
 
 /**
@@ -19,7 +20,7 @@ export const atariCrunched = true;
 
 export const atariCompletionSource: CompletionSource = buildCompletionSource(
   atariKeywords,
-  ATARI_CONSTRUCTS,
+  constructsByDialect.atari800,
   { crunched: atariCrunched },
 );
 
@@ -33,8 +34,10 @@ export function atariLanguageSupport(): Extension {
     suffixChars: '$',
     graphicsEscapes: false,
     crunched: atariCrunched,
-    // The ROM compares a keyword against an upper-case table, and ATASCII keeps
-    // the two cases apart, so a lower-case spelling reaches it as a name.
-    foldsKeywordCase: false,
+    // The ROM compares a keyword against an upper-case table and ATASCII keeps
+    // the two cases apart, so a lower-case spelling reaches it as a name there
+    // - but the tokenizer reads one anyway and says so (`letterCase.ts`'s
+    // `lenient`), which is what leaves this at the default `true`.
+    spellings: keywordSpellingsFor('atari800'),
   });
 }

@@ -78,6 +78,9 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // video field, so a field is both the frame budget and the character time,
   // and the field rate is the American 60Hz rather than PAL's 50.
   apple1: 60.0,
+  // PAL: 312 scanlines of 114 cycles each at the machine's 1.79MHz clock.
+  atari800: 49.86,
+  atari400: 49.86,
 };
 
 describe('machine frame rates', () => {

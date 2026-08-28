@@ -29,4 +29,6 @@ export const BOOT_MACHINES = [
   { id: 'cpc6128', label: 'CPC 6128' },
   { id: 'pmd85', label: 'PMD 85-2' },
   { id: 'apple1', label: 'Apple I' },
+  { id: 'atari800', label: 'Atari 800' },
+  { id: 'atari400', label: 'Atari 400' },
 ];

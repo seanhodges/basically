@@ -95,6 +95,12 @@ const ROM_NAME_FACTS: Record<
   // `A1` and `A2` are different variables. Lower case is refused outright, as
   // on the Atom, and there is no DATA keyword to read items from.
   apple1: { significant: 'all', case: 'folded', dataItems: 'none' },
+  // A name is kept in full - there is no truncation - and DATA/REM keep their
+  // text verbatim. Lower case is refused outright at the ROM's own line
+  // parser (booted and typed: `2 b=6` and `a=2` both come back `ERROR-`), so
+  // it folds case with the majority for the same reason the Atom does.
+  atari800: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  atari400: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
 };
 
 describe('name facts are stated per machine', () => {

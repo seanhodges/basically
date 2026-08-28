@@ -118,7 +118,19 @@ const CHURN_BY_DIALECT: Record<string, string> = {
     '40 NEXT I\n' +
     '50 A$="X"\n' +
     '60 GOTO 20\n',
+  // Atari BASIC's `+` does not concatenate strings (verified against the real
+  // ROM - see operatorProbes.ts), so a string grows the way Integer BASIC's
+  // does: a fixed DIMmed buffer, written into by position. `A$(I)="X"` extends
+  // A$'s length to I when I is past its current end.
+  atari800:
+    '10 DIM A$(20)\n' +
+    '20 FOR I=1 TO 20\n' +
+    '30 A$(I)="X"\n' +
+    '40 NEXT I\n' +
+    '50 A$=""\n' +
+    '60 GOTO 20\n',
 };
+CHURN_BY_DIALECT.atari400 = CHURN_BY_DIALECT.atari800!;
 
 /** Frames measured for the memory probe; the slowest machine needs the room. */
 const CHURN_FRAMES = 300;
@@ -146,6 +158,12 @@ const NO_CHURN_IN_FIGURE: Record<string, string> = {
   cpc6128: 'string churn happens above the ceiling its figure counts up to',
   zx80: 'the ROM has no string concatenation, so the probe cannot churn',
   apple1:
+    'a string is a fixed buffer allocated at DIM, so no loop grows the heap',
+  // Same reason as the Apple I, and for the same cause: `+` does not
+  // concatenate on this machine, so the probe is DIMmed positional writes too.
+  atari800:
+    'a string is a fixed buffer allocated at DIM, so no loop grows the heap',
+  atari400:
     'a string is a fixed buffer allocated at DIM, so no loop grows the heap',
 };
 

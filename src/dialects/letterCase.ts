@@ -262,6 +262,32 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'maps both cases onto the one code, so a lower-case letter is stored as ' +
       'the capital and a lower-case keyword is the keyword.',
   },
+  atari800: {
+    lowerCase: 'always',
+    keywordScan: 'upper-only',
+    nameCase: 'folded',
+    encoding: 'preserved',
+    lenient: true,
+    note:
+      "AltirraOS's font carries lower case as its own shapes and the charset " +
+      'stores it as typed, but booting the real ROM and typing a line with a ' +
+      'lower-case letter in it - `2 b=6`, or `a=2` at the prompt - shows the ' +
+      'cartridge refuses the whole line outright (`ERROR-`, no code and no ' +
+      '`at line`): there is no legal program with a lower-case name to tell ' +
+      'apart from its capital, so nothing rides on `sensitive` versus ' +
+      "`folded` and the tokenizer's own choice to fold wins. The same test " +
+      'with a keyword (`PRINT`) is refused the identical way, which is what ' +
+      '`upper-only` records; the tokenizer reads a lower-case keyword anyway ' +
+      "and says so (`lenient`), exactly as the Atom's and the PMD 85's do.",
+  },
+  atari400: {
+    lowerCase: 'always',
+    keywordScan: 'upper-only',
+    nameCase: 'folded',
+    encoding: 'preserved',
+    lenient: true,
+    note: "The 400 shares the 800's BASIC cartridge and OS font byte for byte.",
+  },
 };
 
 /** The declared facts for a registered machine, or undefined for an unknown id. */

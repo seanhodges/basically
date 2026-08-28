@@ -545,13 +545,30 @@ describe('abbreviated entry is the tokenizer’s own', () => {
     shifted: { short: '10 goT 10\n', full: '10 GOTO 10\n' },
   };
 
+  /**
+   * A dialect whose own dot table does not resolve `P.` to PRINT, so the
+   * shared probe above would prove nothing about its style and fail testing
+   * the wrong claim. Atari's ROM scans its statement table in order and POINT
+   * (an earlier entry) wins the `P` prefix, not PRINT - confirmed by booting
+   * the real ROM and typing `P. #1,A,B`, which lists back as `POINT #1,A,B`.
+   * Named per dialect rather than widening the shared probe, since the shared
+   * one is still the right claim for every other `dot` machine here.
+   */
+  const PROBE_OVERRIDE: Partial<
+    Record<string, { short: string; full: string }>
+  > = {
+    atari800: { short: '10 L.\n', full: '10 LIST\n' },
+    atari400: { short: '10 L.\n', full: '10 LIST\n' },
+  };
+
   const bytes = (d: Dialect, src: string): string =>
     Array.from(d.tokenize(src).image).join(',');
 
   it.each(PAIRS)('%s', (id, facts, dialect) => {
     const { style, shrinksProgram } = facts.abbreviatedEntry;
 
-    for (const [named, probe] of Object.entries(PROBES)) {
+    for (const [named, shared] of Object.entries(PROBES)) {
+      const probe = named === style ? (PROBE_OVERRIDE[id] ?? shared) : shared;
       // The full spelling has to be a line this machine accepts, or both arms
       // of the comparison below are error images and the probe proves nothing.
       expect(
@@ -583,7 +600,7 @@ describe('abbreviated entry is the tokenizer’s own', () => {
         .toBe(false);
       return;
     }
-    const probe = PROBES[style];
+    const probe = PROBE_OVERRIDE[id] ?? PROBES[style];
     const saved =
       dialect.tokenize(probe.full).byteSize -
       dialect.tokenize(probe.short).byteSize;

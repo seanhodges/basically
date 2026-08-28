@@ -1156,3 +1156,25 @@
 .vk-theme-apple1 .vk-style-fn .vk-label {
   color: #f6e2dd;
 }
+
+/* ---------------------------------------------------------------------------
+   Atari 400/800 keyboard theme: the console strip's rust-brown plastic
+   (ESC, TAB, the inverse-video key, BREAK, START, SELECT, OPTION) against a
+   pale legend, and a muted SHIFT layer indicator. The 400 and 800 share one
+   keyboard layout and theme - see `atariKeyboardLayout`. Activated by the
+   layout's `theme: 'vk-theme-atari'`. */
+.vk-theme-atari .vk-style-fn .vk-keycap {
+  background: linear-gradient(#8a4a3a, #6c382b);
+}
+
+.vk-theme-atari .vk-style-fn .vk-label {
+  color: #f3ded6;
+}
+
+.vk-theme-atari .vk-layer-shifted {
+  color: #9a8f7c;
+}
+
+.vk-theme-atari .vk-layer-shifted.vk-active {
+  color: #efe6d6;
+}

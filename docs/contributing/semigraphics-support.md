@@ -51,6 +51,8 @@ reported as such rather than guessed at.
 | Altair 8800 | — | _none_ | — | — | — | — | — |
 | PMD 85-2 | — | _none_ | — | — | — | — | — |
 | Apple I | — | _none_ | — | — | — | — | — |
+| Atari 800 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
+| Atari 400 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -209,9 +211,25 @@ it can display is an ordinary character; see the citation beside its
 entry in src/dialects/semigraphicsAudit.ts for how that was
 established.
 
+### Atari 800
+
+Charset family `atari`. Graphics bytes 0x00-0x1A.
+
+Spelled as: 2 glyph-astral, 25 glyph-bmp.
+
+No gaps: every graphics byte has its own character and can be typed.
+
+### Atari 400
+
+Charset family `atari`. Graphics bytes 0x00-0x1A.
+
+Spelled as: 2 glyph-astral, 25 glyph-bmp.
+
+No gaps: every graphics byte has its own character and can be typed.
+
 ## Characters the machines need
 
-225 distinct non-ASCII codepoints, 114 of them astral.
+227 distinct non-ASCII codepoints, 115 of them astral.
 This is the exact set the bundled character-graphics font is subset to.
 
 | Codepoint | Character | Plane | Used by |
@@ -248,29 +266,30 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+03C8` | ψ | BMP | cpc464, cpc6128 |
 | `U+03C9` | ω | BMP | cpc464, cpc6128 |
 | `U+2019` | ’ | BMP | cpc464, cpc6128 |
+| `U+2022` | • | BMP | atari400, atari800 |
 | `U+2190` | ← | BMP | commodore64, pet, vic20 |
 | `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zxspectrum, zxspectrum128 |
 | `U+231C` | ⌜ | BMP | commodore64, pet, vic20 |
 | `U+231D` | ⌝ | BMP | commodore64, pet, vic20 |
 | `U+231E` | ⌞ | BMP | commodore64, pet, vic20 |
 | `U+231F` | ⌟ | BMP | commodore64, pet, vic20 |
-| `U+2500` | ─ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2500` | ─ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2502` | │ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+250C` | ┌ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2510` | ┐ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2514` | └ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2518` | ┘ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+251C` | ├ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2524` | ┤ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+252C` | ┬ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2534` | ┴ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+253C` | ┼ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+250C` | ┌ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2510` | ┐ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2514` | └ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2518` | ┘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+251C` | ├ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2524` | ┤ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+252C` | ┬ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2534` | ┴ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+253C` | ┼ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+256D` | ╭ | BMP | commodore64, pet, vic20 |
 | `U+256E` | ╮ | BMP | commodore64, pet, vic20 |
 | `U+256F` | ╯ | BMP | commodore64, pet, vic20 |
 | `U+2570` | ╰ | BMP | commodore64, pet, vic20 |
-| `U+2571` | ╱ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2572` | ╲ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2571` | ╱ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2572` | ╲ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2573` | ╳ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2574` | ╴ | BMP | cpc464, cpc6128 |
 | `U+2575` | ╵ | BMP | cpc464, cpc6128 |
@@ -278,38 +297,38 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+2577` | ╷ | BMP | cpc464, cpc6128 |
 | `U+2580` | ▀ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2581` | ▁ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2582` | ▂ | BMP | commodore64, pet, vic20 |
+| `U+2582` | ▂ | BMP | atari400, atari800, commodore64, pet, vic20 |
 | `U+2583` | ▃ | BMP | commodore64, pet, vic20 |
-| `U+2584` | ▄ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2584` | ▄ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, pmd85, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+258C` | ▌ | BMP | atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+258C` | ▌ | BMP | atari400, atari800, atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258D` | ▍ | BMP | commodore64, pet, vic20 |
-| `U+258E` | ▎ | BMP | commodore64, pet, vic20 |
+| `U+258E` | ▎ | BMP | atari400, atari800, commodore64, pet, vic20 |
 | `U+258F` | ▏ | BMP | cpc464, cpc6128 |
 | `U+2590` | ▐ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2592` | ▒ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81 |
 | `U+2594` | ▔ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2595` | ▕ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2596` | ▖ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2597` | ▗ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2598` | ▘ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2596` | ▖ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2597` | ▗ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2598` | ▘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2599` | ▙ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+259A` | ▚ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+259B` | ▛ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+259C` | ▜ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259D` | ▝ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259D` | ▝ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+259E` | ▞ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+259F` | ▟ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+25A0` | ■ | BMP | cpc464, cpc6128 |
 | `U+25A1` | □ | BMP | cpc464, cpc6128 |
 | `U+25B2` | ▲ | BMP | cpc464, cpc6128 |
-| `U+25B6` | ▶ | BMP | cpc464, cpc6128 |
+| `U+25B6` | ▶ | BMP | atari400, atari800, cpc464, cpc6128 |
 | `U+25BC` | ▼ | BMP | cpc464, cpc6128 |
-| `U+25C0` | ◀ | BMP | cpc464, cpc6128 |
+| `U+25C0` | ◀ | BMP | atari400, atari800, cpc464, cpc6128 |
 | `U+25CB` | ○ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+25CF` | ● | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+25E2` | ◢ | BMP | cpc464, cpc6128 |
-| `U+25E3` | ◣ | BMP | cpc464, cpc6128 |
+| `U+25E2` | ◢ | BMP | atari400, atari800, cpc464, cpc6128 |
+| `U+25E3` | ◣ | BMP | atari400, atari800, cpc464, cpc6128 |
 | `U+25E4` | ◤ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+25E5` | ◥ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2639` | ☹ | BMP | cpc464, cpc6128 |
@@ -317,10 +336,10 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+263C` | ☼ | BMP | cpc464, cpc6128 |
 | `U+2640` | ♀ | BMP | cpc464, cpc6128 |
 | `U+2642` | ♂ | BMP | cpc464, cpc6128 |
-| `U+2660` | ♠ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2663` | ♣ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2665` | ♥ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2666` | ♦ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2660` | ♠ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2663` | ♣ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2665` | ♥ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2666` | ♦ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2669` | ♩ | BMP | cpc464, cpc6128 |
 | `U+266A` | ♪ | BMP | cpc464, cpc6128 |
 | `U+2B60` | ⭠ | BMP | cpc464, cpc6128 |
@@ -415,8 +434,9 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+1FB76` | 🭶 | astral | commodore64, pet, vic20 |
 | `U+1FB77` | 🭷 | astral | commodore64, pet, vic20 |
 | `U+1FB79` | 🭹 | astral | commodore64, pet, vic20 |
-| `U+1FB82` | 🮂 | astral | commodore64, pet, vic20 |
+| `U+1FB82` | 🮂 | astral | atari400, atari800, commodore64, pet, vic20 |
 | `U+1FB83` | 🮃 | astral | commodore64, pet, vic20 |
+| `U+1FB87` | 🮇 | astral | atari400, atari800 |
 | `U+1FB88` | 🮈 | astral | commodore64, pet, vic20 |
 | `U+1FB8C` | 🮌 | astral | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+1FB8D` | 🮍 | astral | cpc464, cpc6128 |

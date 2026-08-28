@@ -45,6 +45,7 @@ import { cpc6128Keywords } from './cpc6128/keywords';
 import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
 import { pmd85Keywords, PMD85_ALIASES } from './pmd85/keywords';
 import { apple1Keywords } from './apple1/keywords';
+import { atariKeywords, atariStatements } from './atari800/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -98,6 +99,8 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   altair8800: [...altair8800Keywords, ...ALTAIR8800_ALIASES],
   pmd85: [...pmd85Keywords, ...PMD85_ALIASES],
   apple1: apple1Keywords,
+  atari800: atariKeywords,
+  atari400: atariKeywords,
 };
 
 /** The registered machines this module knows a keyword table for. */
@@ -136,6 +139,25 @@ const ORDERS: Record<
   commodore64: { style: 'shifted', of: byToken },
   pet: { style: 'shifted', of: byToken },
   vic20: { style: 'shifted', of: byToken },
+  // Atari BASIC's dot abbreviations (`PR.` for PRINT, `L.` for LIST, a bare
+  // `.` for REM) resolve in the ROM's own statement-table order - confirmed by
+  // booting the real ROM and typing each at the prompt (`atari800/tokenizer.ts`'s
+  // `takeStatementWord` does the same match). `atariStatements` on its own
+  // rather than the combined `atariKeywords`: the latter also carries
+  // GOTO/GOSUB/TO/STEP/THEN's *clause* entries (matched by a different table
+  // entirely, and never abbreviated - the ROM's own manual says as much for
+  // ON..GOTO/GOSUB), and letting one of those stand in for a real statement
+  // here would claim a short spelling the tokenizer does not accept.
+  atari800: {
+    style: 'dot',
+    of: () =>
+      atariStatements.filter((k) => /^[A-Z]/.test(k.word)).map((k) => k.word),
+  },
+  atari400: {
+    style: 'dot',
+    of: () =>
+      atariStatements.filter((k) => /^[A-Z]/.test(k.word)).map((k) => k.word),
+  },
 };
 
 /**

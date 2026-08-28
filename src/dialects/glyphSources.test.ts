@@ -228,6 +228,34 @@ const ANCHORS: Record<
       '........',
     ],
   },
+  // Screen-code indexed, like the Commodores: ATASCII 'A' (0x41) is screen
+  // code 0x21, read off the booted ROM's own font table.
+  atari800: {
+    code: 0x41,
+    rows: [
+      '........',
+      '...##...',
+      '..####..',
+      '.##..##.',
+      '.##..##.',
+      '.######.',
+      '.##..##.',
+      '........',
+    ],
+  },
+  atari400: {
+    code: 0x41,
+    rows: [
+      '........',
+      '...##...',
+      '..####..',
+      '.##..##.',
+      '.##..##.',
+      '.######.',
+      '.##..##.',
+      '........',
+    ],
+  },
 };
 
 /**
@@ -347,6 +375,34 @@ const LOWER_ANCHORS: Record<
       '.#..#.',
       '..###.',
       '......',
+    ],
+  },
+  // ATASCII 'a' (0x61) is screen code 0x61 too - this is the one run where the
+  // two numberings agree, per atasciiToScreenCode's own "unmoved" branch.
+  atari800: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+  atari400: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
     ],
   },
 };
@@ -564,10 +620,17 @@ describe('glyph sources', () => {
       for (const [id, sources] of Object.entries(GLYPH_SOURCES)) {
         for (const source of sources) {
           if (source.kind !== 'rom' || source.base < 0) continue;
-          // The Commodores index by screen code, so the step from baseCode is
-          // the mapping rather than the code itself; they are checked against
-          // the character ROM by shape below instead.
-          if (id === 'commodore64' || id === 'vic20' || id === 'pet') continue;
+          // The Commodores and the Atari pair index by screen code, so the
+          // step from baseCode is the mapping rather than the code itself;
+          // they are checked against the character ROM by shape above instead.
+          if (
+            id === 'commodore64' ||
+            id === 'vic20' ||
+            id === 'pet' ||
+            id === 'atari800' ||
+            id === 'atari400'
+          )
+            continue;
           for (const code of source.codes) {
             const index = source.indexOf(code);
             if (index === undefined) continue;

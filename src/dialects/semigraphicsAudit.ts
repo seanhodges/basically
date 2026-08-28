@@ -144,6 +144,11 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // the machine has no graphics hardware for a mosaic to reach even if the chip
   // held one.
   apple1: [],
+  // The character generator's block and line-graphics range, drawn from the
+  // keyboard as CTRL + a key; see the `GRAPHICS` table in `atari800/atascii.ts`.
+  // Both machines share one ROM font.
+  atari800: range(0x00, 0x1a),
+  atari400: range(0x00, 0x1a),
 };
 
 /** Classify one byte from its canonical text form. */

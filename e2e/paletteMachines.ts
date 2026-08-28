@@ -21,4 +21,6 @@ export const PALETTE_MACHINES = [
   'trs80',
   'cpc464',
   'cpc6128',
+  'atari800',
+  'atari400',
 ];
