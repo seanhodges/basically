@@ -134,9 +134,6 @@ export function dispatchShortcut(id: ShortcutId): boolean {
     case 'view.controller':
       s.setControllerEnabled(!s.controllerEnabled);
       return true;
-    case 'view.vfsInspector':
-      s.setVfsInspectorOpen(!s.vfsInspectorOpen);
-      return true;
     case 'view.escape':
       // Nothing above claimed the key (the editor and the emulator both
       // preventDefault when Escape is theirs), so close the topmost open

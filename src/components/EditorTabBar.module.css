@@ -1,16 +1,29 @@
 /* The editor pane's tab strip (BASIC + one tab per memory block + the new-
    block plus button). Follows the MobileTabBar look - underline marks the
-   active tab - but is always visible rather than media-gated, and scrolls
-   horizontally when a document carries many blocks. */
+   active tab - but is always visible rather than media-gated. It does not
+   scroll: it shows the tabs it has room for and lists the rest in the overflow
+   menu, so `position: relative` here is what the offstage tabs measure against. */
 .tabBar {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 2px;
   flex: 0 0 auto;
-  overflow-x: auto;
+  overflow: hidden;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   padding: 0 4px;
+}
+
+/* A tab the strip has no room for. Still rendered and still laid out, because
+   its width is what decides whether it fits: a tab measured only while shown
+   reads as zero once hidden, is then judged to fit, and the strip oscillates.
+   Out of flow, out of reach and unannounced - the overflow menu is where it is
+   chosen from. */
+.offstage {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tabBar button {
@@ -89,6 +102,9 @@
 .contextMenu button {
   display: flex;
   align-items: center;
+  /* The overflow menu lists tabs, glyph and all, so it spaces them as the strip
+     does; the action menus have no glyph and the gap costs them nothing. */
+  gap: 6px;
   background: none;
   border: none;
   border-radius: 4px;

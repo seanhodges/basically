@@ -320,7 +320,10 @@ program costs it nothing.
 ## Reading the data your program saved
 
 On the machines that can write non-program data files, the IDE captures what
-your program saves so you can see what it stored.
+your program saves so you can see what it stored. Not every machine's emulation
+does: where it does not, nothing appears however correct your program's `SAVE`
+or `PRINT#` is, so if a file you are sure you wrote never shows up, check
+whether your machine is one of them before you go looking for the bug.
 
 Each file appears as its own **tab** in the editor, beside your program, under
 the name the program gave it - and it appears as the program writes it, without
@@ -352,12 +355,10 @@ open a different program - so every run starts with an empty filesystem. The
 files live only in the browser for the current session and do not survive a
 reload, so download anything you want to keep.
 
-Where a program has saved more files than the tab strip shows at once, the rest
-stay reachable from **File ▸ Emulator files** (shortcut
-**Ctrl/Cmd + Alt + F**), which lists every file with its **Name**, **Kind** (a
-dialect-specific tag such as `code`, `data-num`, or `data-str`), **Size** and
-the time it was saved. Click a row for a **hex dump**, or use its buttons to
-open the file in its tab, download it, or delete it.
+A saved file's tab competes for room in the strip like any other, and a program
+that saves in a loop cannot crowd out your own tabs: only a few files show at a
+time, and the rest are listed by the count button at the end of the strip - see
+**[the tab strip](./writing-basic#the-tab-strip)**.
 
 When your program runs the way you want, see **[Running on real
 hardware](/guide/hardware)** to get it onto - or off - an actual machine.

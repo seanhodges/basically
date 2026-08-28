@@ -162,6 +162,48 @@ export function activeBlockIdOf(tab: ActiveTab): string | null {
 export function editorBufferOf(tab: ActiveTab): string | null {
   return tab.kind === 'scratch' ? tab.id : null;
 }
+/**
+ * One key per tab, which `ActiveTab`'s union has no single field for. The tab
+ * strip's recency map and its fit selector are both keyed by it.
+ */
+export function tabKey(tab: ActiveTab): string {
+  switch (tab.kind) {
+    case 'basic':
+      return 'basic';
+    case 'block':
+      return `block:${tab.id}`;
+    case 'scratch':
+      return `scratch:${tab.id}`;
+    case 'data':
+      return `data:${tab.name}`;
+  }
+}
+
+/**
+ * Stamp a tab as just used, for the strip's fit rule.
+ *
+ * `Date.now()` rather than a counter because the stamps share a scale with a
+ * saved file's own `updatedAt`: a file the running program has just written
+ * ranks against a tab the user last opened without needing a second rule for
+ * the tabs that arrive on their own.
+ */
+function touched(
+  map: Readonly<Record<string, number>>,
+  tab: ActiveTab,
+): Record<string, number> {
+  return { ...map, [tabKey(tab)]: Date.now() };
+}
+
+/** Drop a destroyed tab's stamp. Same object back when there is none to drop. */
+function untouched(
+  map: Readonly<Record<string, number>>,
+  key: string,
+): Readonly<Record<string, number>> {
+  if (!(key in map)) return map;
+  const next = { ...map };
+  delete next[key];
+  return next;
+}
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
 export type SettingsTab = 'editor' | 'emulator' | 'input' | 'ai';
 /** Editor operations the toolbar's Edit menu asks CodeMirrorHost to run. */
@@ -235,6 +277,18 @@ interface IdeState {
    * when the active block disappears.
    */
   activeTab: ActiveTab;
+  /**
+   * When each tab was last shown, by {@link tabKey}. Drives which tabs the
+   * strip has room for: the most recently used win the width left over once the
+   * BASIC tab, which is pinned, has taken its own.
+   *
+   * Transient UI state, like `asmErrorBlocks` - a view of one window width at
+   * one moment, so it is neither autosaved nor carried in a project bundle, and
+   * it clears wherever `activeTab` resets. A saved data file gets no entry until
+   * it is shown: a file arrives on its own, and ranks by its own `updatedAt`
+   * until the user picks it.
+   */
+  tabTouchedAt: Readonly<Record<string, number>>;
   /**
    * Disposable BASIC buffers alongside the program (see {@link ScratchBuffer}).
    * Owned by the document: autosaved, saved into the project bundle, and
@@ -596,8 +650,6 @@ interface IdeState {
    * the Toolbar's `openShare` handler already means the Export/Transfer dialog.
    */
   shareLinkOpen: boolean;
-  /** The emulator virtual-filesystem inspector dialog (Emulator files). */
-  vfsInspectorOpen: boolean;
   importOpen: boolean;
   settingsOpen: boolean;
   /** Active tab within the settings form (dialog on desktop, tab pane on mobile). */
@@ -1013,7 +1065,6 @@ interface IdeState {
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
-  setVfsInspectorOpen(open: boolean): void;
   setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
@@ -1175,6 +1226,7 @@ function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
     blocks: s.blocks.filter((b) => b.id !== id),
     dirty: true,
     ...(activeBlockIdOf(s.activeTab) === id ? { activeTab: BASIC_TAB } : {}),
+    tabTouchedAt: untouched(s.tabTouchedAt, tabKey({ kind: 'block', id })),
     ...(s.asmErrorBlocks.has(id)
       ? {
           asmErrorBlocks: new Set(
@@ -1220,6 +1272,11 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
     docOverride: { text: source, seq: s.docOverride.seq + 1 },
     listingBlockMeta: meta,
     activeTab,
+    // Listing block ids are ordinals, so a removal renames every block past the
+    // gap and the stamps left behind belong to the ids they used to be. Stamping
+    // the tab that ends up showing is what stops it from landing in the strip's
+    // overflow under a stamp it inherited.
+    tabTouchedAt: touched(s.tabTouchedAt, activeTab),
     dirty: true,
     ...(s.asmErrorBlocks.has(id)
       ? {
@@ -1429,6 +1486,7 @@ function applyDialectSwitch(
     blocks: [],
     listingBlockMeta: {},
     activeTab: BASIC_TAB,
+    tabTouchedAt: {},
     asmErrorBlocks: new Set<string>(),
     pendingDeleteBlockId: null,
     blockSettingsId: null,
@@ -1560,6 +1618,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   blocks: startupDoc.blocks,
   listingBlockMeta: startupDoc.listingBlockMeta ?? {},
   activeTab: BASIC_TAB,
+  tabTouchedAt: {},
   scratchBuffers: startupScratch,
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
@@ -1630,7 +1689,6 @@ export const useIdeStore = create<IdeState>((set) => ({
   aiPanelOpen: false,
   transferOpen: false,
   shareLinkOpen: false,
-  vfsInspectorOpen: false,
   importOpen: false,
   settingsOpen: false,
   settingsTab: 'editor',
@@ -1745,6 +1803,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         blocks: blocks ?? [],
         listingBlockMeta: {},
         activeTab: BASIC_TAB,
+        tabTouchedAt: {},
         asmErrorBlocks: new Set<string>(),
         pendingDeleteBlockId: null,
         blockSettingsId: null,
@@ -1935,6 +1994,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             // with it - an in-place apply, which passes no name, keeps them.
             scratchBuffers: [],
             activeTab: BASIC_TAB,
+            tabTouchedAt: {},
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
             blockSettingsId: null,
@@ -1990,6 +2050,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // As for Open: the buffers belonged to the document being replaced.
       scratchBuffers: [],
       activeTab: BASIC_TAB,
+      tabTouchedAt: {},
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
       blockSettingsId: null,
@@ -2099,7 +2160,11 @@ export const useIdeStore = create<IdeState>((set) => ({
       else next[ordinal] = merged;
       return { listingBlockMeta: next, dirty: true };
     }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) =>
+    set((s) => ({
+      activeTab: tab,
+      tabTouchedAt: touched(s.tabTouchedAt, tab),
+    })),
   addScratchBuffer: () =>
     set((s) => {
       // First free ordinal, mirroring addBlock's first-free-`block<n>` rule, so
@@ -2116,6 +2181,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       return {
         scratchBuffers: [...s.scratchBuffers, buffer],
         activeTab: { kind: 'scratch', id: buffer.id },
+        tabTouchedAt: touched(s.tabTouchedAt, {
+          kind: 'scratch',
+          id: buffer.id,
+        }),
       };
     }),
   renameScratchBuffer: (id, name) =>
@@ -2142,8 +2211,13 @@ export const useIdeStore = create<IdeState>((set) => ({
       // The buffer's breakpoints live on the buffer, so they go with it; its
       // edit history is the one thing held elsewhere, so drop that here.
       bufferHistories.drop(basicBufferKey(id));
-      if (editorBufferOf(s.activeTab) !== id) return { scratchBuffers };
-      return { scratchBuffers, activeTab: BASIC_TAB };
+      const tabTouchedAt = untouched(
+        s.tabTouchedAt,
+        tabKey({ kind: 'scratch', id }),
+      );
+      if (editorBufferOf(s.activeTab) !== id)
+        return { scratchBuffers, tabTouchedAt };
+      return { scratchBuffers, tabTouchedAt, activeTab: BASIC_TAB };
     }),
   addBlock: () =>
     set((s) => {
@@ -2162,6 +2236,10 @@ export const useIdeStore = create<IdeState>((set) => ({
           // appended to the program, and the hidden editor must hold it.
           docOverride: { text: source, seq: s.docOverride.seq + 1 },
           activeTab: { kind: 'block', id: `listing-${ordinal}` },
+          tabTouchedAt: touched(s.tabTouchedAt, {
+            kind: 'block',
+            id: `listing-${ordinal}`,
+          }),
           dirty: true,
         };
       }
@@ -2194,6 +2272,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       return {
         blocks,
         activeTab: { kind: 'block', id: block.id },
+        tabTouchedAt: touched(s.tabTouchedAt, { kind: 'block', id: block.id }),
         dirty: true,
         ...(s.bootDisc !== null ? { bootDisc: null } : {}),
       };
@@ -2391,7 +2470,6 @@ export const useIdeStore = create<IdeState>((set) => ({
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),
   setShareLinkOpen: (open) => set({ shareLinkOpen: open }),
-  setVfsInspectorOpen: (open) => set({ vfsInspectorOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsTab: (tab) => set({ settingsTab: tab }),

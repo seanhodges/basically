@@ -169,11 +169,6 @@ export const SURFACES: readonly Surface[] = [
     write: (s, v) => s.setShareLinkOpen(v === true),
   },
   {
-    key: 'vfs',
-    read: (s) => s.vfsInspectorOpen,
-    write: (s, v) => s.setVfsInspectorOpen(v === true),
-  },
-  {
     key: 'outline',
     read: (s) => s.procedureListOpen,
     write: (s, v) => s.setProcedureListOpen(v === true),

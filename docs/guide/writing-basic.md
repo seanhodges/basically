@@ -141,6 +141,21 @@ The sections that appear depend on the dialect: a machine with `PROC`/`FN`
 definitions lists **Procedures** and **Functions**, and every dialect groups the
 lines its `GOSUB`s and `GOTO`s jump to under **Subroutines** and **GOTOs**.
 
+### The tab strip
+
+The strip above the editor holds your **BASIC** program, one tab per
+[machine-code block](./machine-code), one per scratch buffer, and one per file a
+running program has saved. It shows as many of them as it has room for and does
+not scroll: the **BASIC** tab is pinned first, so the way back to your program is
+never hidden, and the width left over goes to the tabs you have used most
+recently. A tab you have just opened, and a file your program has just written,
+both count as recent, so they appear without your asking.
+
+Anything that does not fit is listed by a count button at the end of the strip -
+**+2**, **+7** - and choosing a tab from it brings that tab into view. Widen the
+window and the tabs come back on their own. The tabs that show always keep their
+usual order, so a tab never moves under the pointer as you use it.
+
 ### Scratch buffers
 
 To try something out without editing your program, press **+** after the last
