@@ -44,6 +44,9 @@ const { materializeSampleBlocks } = await import('./sampleBlocks');
 const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
 const { emulatorVfs } = await import('../storage/vfs/vfsStore');
+const { selectDataBlocks, resetDataBlockCacheForTests } =
+  await import('./dataBlocks');
+const { tapFromPayloads } = await import('../dialects/zxspectrum/tapfile');
 const { setVfsStorageForTests, getVfsCollection } =
   await import('../storage/vfs/db');
 const { getRxStorageMemory } = await import('rxdb/plugins/storage-memory');
@@ -1239,6 +1242,17 @@ describe('addBlock', () => {
     expect(Array.from(block.bytes)).toEqual([0x60]);
     expect(block.asmSource).toContain('RTS');
   });
+
+  it("addBlock('memory') seeds one zero byte and no assembly source", () => {
+    useIdeStore.getState().addBlock('memory');
+    const block = useIdeStore.getState().blocks[0]!;
+    expect(block.kind).toBe('memory');
+    expect(Array.from(block.bytes)).toEqual([0]);
+    expect(block.asmSource).toBeUndefined();
+    // Named and placed exactly as a code block is.
+    expect(block.name).toBe('block1');
+    expect(block.address).toBe(0x8000);
+  });
 });
 
 describe('listing-backed blocks (ZX81/ZX80)', () => {
@@ -1264,6 +1278,20 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
     expect(s.dirty).toBe(true);
     // The BASIC program still tokenizes, so the block rides in the .P image.
     expect(zx81.tokenize(s.source).errors).toEqual([]);
+  });
+
+  it("addBlock('memory') records the kind for the inserted record", () => {
+    useIdeStore.getState().addBlock('memory');
+    const s = useIdeStore.getState();
+    // A listing block's bytes are the record; only its kind is metadata, so
+    // that is what makes the new tab open on bytes rather than on assembly.
+    expect(s.listingBlockMeta[0]).toEqual({ kind: 'memory' });
+    expect(s.activeTab).toEqual({ kind: 'block', id: 'listing-0' });
+  });
+
+  it('a code block records no kind override', () => {
+    useIdeStore.getState().addBlock();
+    expect(useIdeStore.getState().listingBlockMeta[0]).toBeUndefined();
   });
 
   it("commitListingBlockBytes rewrites the block's #BIN line", () => {
@@ -2190,6 +2218,99 @@ describe('saved files and the document that owns them', () => {
     expect(names()).toEqual(['LOG']);
     const col = await getVfsCollection();
     expect((await col.findOne('LOG').exec())!.dialectId).toBe('zx81');
+  });
+});
+
+describe('addBlockFromDataFile', () => {
+  /** Save a file as the Spectrum deck stores one: a tape header, then data. */
+  const seedTap = (name: string, data: number[]) => {
+    const header = new Uint8Array(17);
+    header[0] = 0x03; // CODE
+    emulatorVfs.save(name, tapFromPayloads(header, Uint8Array.from(data)));
+    resetDataBlockCacheForTests();
+  };
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [],
+      listingBlockMeta: {},
+      activeTab: BASIC_TAB,
+      blockSettingsId: null,
+    });
+    emulatorVfs.clear(spectrum.id);
+    resetDataBlockCacheForTests();
+  });
+
+  it("copies the bytes the tab shows, not the machine's container", () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const block = useIdeStore.getState().blocks[0]!;
+    expect(Array.from(block.bytes)).toEqual([1, 2, 3]);
+    expect(block.kind).toBe('memory');
+    expect(block.address).toBe(0x8000); // zxspectrum defaultAddress
+    expect(block.asmSource).toBeUndefined();
+  });
+
+  it("copies rather than shares the projection's array", () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const block = useIdeStore.getState().blocks[0]!;
+    const shown = selectDataBlocks(spectrum).find((f) => f.name === 'SCORES')!;
+    expect(Array.from(block.bytes)).toEqual(Array.from(shown.bytes));
+    expect(block.bytes).not.toBe(shown.bytes);
+    block.bytes[0] = 0xff;
+    expect(shown.bytes[0]).toBe(1);
+  });
+
+  it('names the block after the file and opens its settings on it', () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const s = useIdeStore.getState();
+    const block = s.blocks[0]!;
+    expect(block.name).toBe('SCORES');
+    expect(s.activeTab).toEqual({ kind: 'block', id: block.id });
+    expect(s.blockSettingsId).toBe(block.id);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('derives a legal name and de-duplicates against the document', () => {
+    seedTap('hi score.dat', [7]);
+    useIdeStore.getState().addBlockFromDataFile('hi score.dat');
+    expect(useIdeStore.getState().blocks[0]!.name).toBe('hiscoredat');
+    useIdeStore.getState().addBlockFromDataFile('hi score.dat');
+    expect(useIdeStore.getState().blocks.map((b) => b.name)).toEqual([
+      'hiscoredat',
+      'hiscoredat2',
+    ]);
+  });
+
+  it('leaves the file alone', () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    expect(emulatorVfs.list().map((f) => f.name)).toEqual(['SCORES']);
+  });
+
+  it('is a no-op for a file that is not there', () => {
+    useIdeStore.getState().addBlockFromDataFile('GONE');
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]);
+    expect(s.blockSettingsId).toBeNull();
+    expect(s.dirty).toBe(false);
+  });
+
+  it('is a no-op on a listing-backed dialect', () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.setState({ dialect: zx81 });
+    resetDataBlockCacheForTests();
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]);
+    expect(s.source).not.toContain('#BIN ');
+    expect(s.blockSettingsId).toBeNull();
   });
 });
 

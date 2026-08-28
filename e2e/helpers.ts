@@ -301,14 +301,14 @@ export async function expectMenuStaysOpen(
 }
 
 /**
- * Create a memory block from the tab strip's plus-button menu. The plus button
- * offers both kinds of new tab (a scratch buffer or a machine code block), so
- * block creation is two clicks rather than one.
+ * Create an assembly block from the tab strip's plus-button menu. The plus
+ * button offers every kind of new tab (a scratch buffer, an assembly block or a
+ * binary block), so block creation is two clicks rather than one.
  */
 export async function addMemoryBlock(page: Page): Promise<void> {
   await page
     .getByRole('tablist', { name: 'Editor content' })
     .getByRole('button', { name: 'Add a tab' })
     .click();
-  await page.getByRole('menuitem', { name: 'New machine code block' }).click();
+  await page.getByRole('menuitem', { name: 'New assembly block' }).click();
 }

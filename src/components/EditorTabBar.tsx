@@ -65,7 +65,8 @@ const TAB_GAP_PX = 2;
 
 /**
  * The editor pane's tab strip: the BASIC source, one tab per memory block, then
- * one per scratch buffer, then a plus button whose menu creates either. Always
+ * one per scratch buffer, then a plus button whose menu creates any of them.
+ * Always
  * rendered - scratch buffers are dialect-independent, so the strip is not gated
  * on the `memoryBlocks` capability (only the block tabs and the new-block menu
  * item are). Lives inside `.editorPane`, above the editor, so it composes with
@@ -93,8 +94,10 @@ const TAB_GAP_PX = 2;
  * closing is unconfirmed, since a scratch buffer is disposable by definition.
  * A data tab offers "Download .bin" (the bytes as saved), "Download .txt" (the
  * same bytes read through the machine's own character set, which is what a
- * `PRINT#` file is) and "Delete" - unconfirmed, like a scratch buffer's Close,
- * since the file is program output and re-running produces it again.
+ * `PRINT#` file is), "Copy to a binary block" (the same bytes kept in the
+ * document, since the file itself is not) and "Delete" - unconfirmed, like a
+ * scratch buffer's Close, since the file is program output and re-running
+ * produces it again.
  */
 export function EditorTabBar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -104,6 +107,7 @@ export function EditorTabBar() {
   const scratchBuffers = useIdeStore((s) => s.scratchBuffers);
   const setActiveTab = useIdeStore((s) => s.setActiveTab);
   const addBlock = useIdeStore((s) => s.addBlock);
+  const addBlockFromDataFile = useIdeStore((s) => s.addBlockFromDataFile);
   const addScratchBuffer = useIdeStore((s) => s.addScratchBuffer);
   const renameScratchBuffer = useIdeStore((s) => s.renameScratchBuffer);
   const closeScratchBuffer = useIdeStore((s) => s.closeScratchBuffer);
@@ -597,7 +601,7 @@ export function EditorTabBar() {
         aria-label="Add a tab"
         aria-haspopup="menu"
         aria-expanded={addMenu !== null}
-        title="Add a tab - a scratch buffer or a machine code block"
+        title="Add a tab - a scratch buffer or a block"
         onClick={(e) => {
           if (addMenu !== null) {
             setAddMenu(null);
@@ -630,15 +634,26 @@ export function EditorTabBar() {
             New scratch buffer
           </button>
           {dialect.memoryBlocks && (
-            <button
-              role="menuitem"
-              onClick={() => {
-                setAddMenu(null);
-                addBlock();
-              }}
-            >
-              New machine code block
-            </button>
+            <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setAddMenu(null);
+                  addBlock('code');
+                }}
+              >
+                New assembly block
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setAddMenu(null);
+                  addBlock('memory');
+                }}
+              >
+                New binary block
+              </button>
+            </>
           )}
         </div>
       )}
@@ -741,6 +756,19 @@ export function EditorTabBar() {
               >
                 Download .txt
               </button>
+              {/* Guarded, like the action, on a fixed-address block being
+                possible: a listing dialect has no address to copy bytes to. */}
+              {dialect.memoryBlocks && !dialect.memoryBlocks.inListing && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    addBlockFromDataFile(menuDataFile.name);
+                  }}
+                >
+                  Copy to a binary block
+                </button>
+              )}
               <div className={styles.menuSeparator} />
               <button
                 role="menuitem"

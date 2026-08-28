@@ -6,6 +6,7 @@ import { asmEngineFor } from '../asm/registry';
 import type { Block } from '../dialects/types';
 import {
   applyBlockSettings,
+  blockNameFromFileName,
   draftFromBlock,
   parseAddressInput,
   validateBlockSettings,
@@ -173,5 +174,36 @@ describe('applyBlockSettings', () => {
     expect(moved.address).toBe(0x9000);
     expect(moved.bytes).toBe(BLOCK.bytes);
     expect(moved.asmSource).toBeUndefined();
+  });
+});
+
+describe('blockNameFromFileName', () => {
+  it('passes a name that is already an identifier through', () => {
+    expect(blockNameFromFileName('SCORES', [])).toBe('SCORES');
+  });
+
+  it('drops spaces and punctuation', () => {
+    expect(blockNameFromFileName('level map.dat', [])).toBe('levelmapdat');
+  });
+
+  it('drops what comes before the first letter', () => {
+    expect(blockNameFromFileName('3DMAP', [])).toBe('DMAP');
+  });
+
+  it('falls back to a stem when no character survives', () => {
+    // A name of graphics characters: nothing a block name may hold.
+    expect(blockNameFromFileName('\u2592\u2591\u2588', [])).toBe('data');
+    expect(blockNameFromFileName('', [])).toBe('data');
+  });
+
+  it('takes the first free name against the document', () => {
+    expect(blockNameFromFileName('SCORES', ['SCORES'])).toBe('SCORES2');
+    expect(blockNameFromFileName('SCORES', ['SCORES', 'SCORES2'])).toBe(
+      'SCORES3',
+    );
+  });
+
+  it('de-duplicates the fallback stem too', () => {
+    expect(blockNameFromFileName('!!', ['data'])).toBe('data2');
   });
 });

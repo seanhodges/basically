@@ -143,3 +143,31 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 }
+
+/**
+ * A block name derived from the name a program gave a file it saved. The two
+ * alphabets barely overlap: a block name is an identifier (letter first, then
+ * letters, digits and underscores, unique per document), while a file name is
+ * whatever the machine's character set allows - spaces, punctuation, graphics
+ * characters. So drop what a block name cannot hold, drop what is left before
+ * the first letter, and fall back to a stem when nothing usable remains.
+ *
+ * `taken` is the names already in the document; the result is the first free
+ * one, the same first-free rule `addBlock` applies to `block<n>`.
+ *
+ * Not the download-name helper: that one targets filenames, whose alphabet
+ * includes `.`, `_` and `-`, so it can return a name a block may not have.
+ */
+export function blockNameFromFileName(
+  fileName: string,
+  taken: Iterable<string>,
+): string {
+  const stem =
+    fileName.replace(/[^A-Za-z0-9_]+/g, '').replace(/^[^A-Za-z]+/, '') ||
+    'data';
+  const used = new Set(taken);
+  if (!used.has(stem)) return stem;
+  let n = 2;
+  while (used.has(`${stem}${n}`)) n++;
+  return `${stem}${n}`;
+}
