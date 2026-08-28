@@ -64,7 +64,7 @@ test('undo/redo via Edit menu and shortcut, one history per buffer', async ({
   // what is at stake is the text that comes back on screen.
   await setEditorSource(page, '10 PRINT "PROGRAM"');
   await expect(page.locator(EDITOR)).toContainText('PROGRAM');
-  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('button', { name: 'Add a tab' }).click();
   await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
   await expect(page.locator(EDITOR)).not.toContainText('PROGRAM');
   await page.locator(EDITOR).click();

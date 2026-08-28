@@ -200,6 +200,15 @@ cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
   place only where it explains why a test or guard exists ("the renderer used to
   draw a fixed 24 rows"). Don't hardcode a machine or dialect count; say "every
   registered machine". Best exemplar: `src/emulator/cpc/ppi.ts`.
+- **UI labels** — a control's `title` and `aria-label` say what activating it
+  does, as a short imperative phrase in sentence case with no trailing period:
+  "Open documentation", not "Documentation". An icon-only control carries both,
+  and where it has a shortcut the chord goes in `title` only, read from the
+  shortcut map rather than typed out. Anything longer than a phrase belongs in
+  the documentation the control can open.
+  `eslint-rules/no-vague-ui-labels.js` fails the build on what it can check
+  mechanically; the rest is a review job. The virtual keyboard is exempt — a
+  keycap's label is specced behaviour, not copy.
 - **Docs** — everything under `docs/` publishes to the public VitePress site.
   Pages in `docs/guide/` and `docs/reference/` are for end-users: don't reference
   unpublished internal files there (source paths like `src/…`, `CLAUDE.md`, plan

@@ -62,7 +62,7 @@ test('a snippet is written, run and kept beside the program', async ({
   await expect(breakpointDot(page)).toHaveCount(1);
 
   // A scratch buffer, created from the plus button's menu.
-  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('button', { name: 'Add a tab' }).click();
   await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
   const scratchTab = page.getByRole('tab', { name: 'Scratch 1' });
   await expect(scratchTab).toHaveAttribute('aria-selected', 'true');

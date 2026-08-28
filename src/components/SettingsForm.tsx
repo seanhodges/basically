@@ -247,7 +247,7 @@ export function SettingsForm() {
           <h3>Characters</h3>
           <label
             className={styles.inline}
-            title="Report every character this machine would store as a different one as an error, instead of converting it silently - and type upper case on a machine that has no lower case"
+            title="Refuse characters the machine can't store; force upper case"
           >
             <input
               type="checkbox"
@@ -279,7 +279,7 @@ export function SettingsForm() {
           </label>
           <label
             className={styles.inline}
-            title="When off, only tokenizer errors block Run; lint findings still underline in the editor"
+            title="When off, only tokenizer errors block Run"
           >
             <input
               type="checkbox"
@@ -370,8 +370,8 @@ export function SettingsForm() {
                 </p>
               )}
               <p>
-                The image is kept in this browser only, is never uploaded
-                anywhere, and is not included in programs you publish.
+                The image stays in this browser: it is never uploaded, and never
+                goes into a program you publish.
               </p>
               {romDialect.romBundled === false && (
                 <p>

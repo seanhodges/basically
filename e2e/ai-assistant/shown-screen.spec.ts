@@ -28,7 +28,7 @@ const PROGRAM = ['10 CLS', '20 PRINT "MINE"', '30 GOTO 20'].join('\n');
 const REPLY = '```basic\n10 CLS\n20 PRINT "HI"\n```';
 
 async function openAiPanel(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /AI code generation/ }).click();
+  await page.getByRole('button', { name: /Show the AI assistant/ }).click();
 }
 
 async function ask(page: Page, request: string): Promise<void> {

@@ -46,7 +46,7 @@ async function seedThread(page: Page, turns: StoredTurn[]): Promise<void> {
 }
 
 const openAssistant = (page: Page) =>
-  page.getByRole('button', { name: /AI code generation/ }).click();
+  page.getByRole('button', { name: /Show the AI assistant/ }).click();
 
 async function ask(page: Page, request: string): Promise<void> {
   const box = page.locator('textarea').first();

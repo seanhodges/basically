@@ -463,9 +463,11 @@ test('a keyword lookup names its own topic and the comparison waits', async ({
   // the app decides whether a following F1 arrives, and that is a question
   // about focus, not about which topic an unnamed opener lands on. F1's own
   // routing is covered in e2e/shell/docs-drawer.spec.ts.
-  await page.getByRole('button', { name: 'Close documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Close the documentation panel' })
+    .click();
   await expect(drawer).toBeHidden();
-  await page.getByRole('button', { name: /^Documentation/ }).click();
+  await page.getByRole('button', { name: 'Open documentation' }).click();
   await expect(drawer).toBeVisible();
   await expect(
     frame.getByRole('button', { name: /^Porting from:/ }),
@@ -489,7 +491,9 @@ test('the indicator goes as soon as the user does anything else', async ({
   await expect(hint).toBeHidden();
 
   // The comparison is still there to be opened afterwards, by any means.
-  await page.getByRole('button', { name: /^Open documentation/ }).click();
+  await page
+    .getByRole('button', { name: 'Open the documentation panel' })
+    .click();
   const drawer = drawerOf(page);
   await expect(drawer).toBeVisible();
   await expect(
@@ -513,7 +517,9 @@ test('the indicator never appears while the documentation is already open', asyn
 
   // Documentation open before the switch: the comparison it opens on is the
   // offer, so pointing at a handle that is not on screen would be nonsense.
-  await page.getByRole('button', { name: /^Open documentation/ }).click();
+  await page
+    .getByRole('button', { name: 'Open the documentation panel' })
+    .click();
   await expect(drawerOf(page)).toBeVisible();
   await selectDialect(page, 'zx81', 'keep my code');
 

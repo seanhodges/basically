@@ -53,7 +53,7 @@ test('the map draws a machine’s own regions and a marker per POKE', async ({
 
   // The toolbar entry is gated on the dialect having a memory map, so its
   // presence confirms the C64 opted in.
-  const mapButton = page.locator('button[title^="Memory map"]');
+  const mapButton = page.locator('button[aria-label="Show the memory map"]');
   await expect(mapButton).toBeVisible();
   await mapButton.click();
   await expect(memoryHost(page)).toBeVisible();
@@ -77,7 +77,7 @@ test('the map swaps to the left column while the emulator runs', async ({
   await setEditorSource(page, LOOP_SRC);
 
   // Open the memory map from the toolbar.
-  await page.locator('button[title^="Memory map"]').click();
+  await page.locator('button[aria-label="Show the memory map"]').click();
   await expect(memoryHost(page)).toBeVisible();
 
   // Stopped: memory map on the RIGHT (shares the right slot), editor on the

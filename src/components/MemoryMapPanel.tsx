@@ -244,7 +244,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
             step={1}
             value={zoom}
             onChange={(e) => changeZoom(Number(e.target.value))}
-            title="Zoom"
+            title="Zoom level"
             aria-label="Zoom level"
           />
           <button

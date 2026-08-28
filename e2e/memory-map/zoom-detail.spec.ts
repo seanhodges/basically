@@ -44,7 +44,7 @@ test('ZX81 memory map resolves into sub-regions when zoomed in', async ({
   await open(page);
   await chooseTargetMachine(page, 'zx81');
 
-  await page.locator('button[title^="Memory map"]').click();
+  await page.locator('button[aria-label="Show the memory map"]').click();
   await expect(memoryHost(page)).toBeVisible();
 
   // Zoomed out: the grouping band is shown, its sub-regions are not.

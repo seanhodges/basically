@@ -53,7 +53,11 @@ export default defineConfig({
   ],
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'docs/**/*.test.ts'],
+    include: [
+      'src/**/*.test.ts',
+      'docs/**/*.test.ts',
+      'eslint-rules/**/*.test.ts',
+    ],
     /**
      * Vitest's default is 5s, which suits unit tests and does not suit this
      * suite: a large part of it boots a real ROM and emulates hundreds of

@@ -61,9 +61,8 @@ export function VfsInspectorDialog() {
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Emulator files</h2>
         <p>
-          Files the program has saved to tape/disk/network. They stay after the
-          machine stops, and are discarded when the program is run again, the
-          machine is reset, or a different program is opened.
+          Files the program has saved to tape, disk or network. They outlast the
+          machine stopping, but not the next run, reset or open.
         </p>
 
         {files.length === 0 ? (
