@@ -15,7 +15,8 @@ export const cpc6128AiProfile: AiProfile = composeAiProfile({
         `SOUND's channel is a bit mask (1, 2, 4) and its period is 62500/frequency.`,
         `Numbers may be written in hex with & (&7F00) or binary with &X (&X1010). ? is shorthand for PRINT and ' for REM.`,
         'CALL address runs machine code; this IDE injects code blocks the program can CALL.',
-        'This IDE runs the 6128 with tape, not disc: a program doing cassette I/O must issue |TAPE first, since the 6128 defaults to disc. Do not write AMSDOS disc commands (|DIR, |ERA, |REN) - there is no disc drive here.',
+        'OPENOUT/PRINT #9/CLOSEOUT write a data file and OPENIN/INPUT #9/EOF/CLOSEIN read it back; stream 9 is the file stream (0-7 are screen windows, 8 the printer). This IDE captures those files and shows them to the user, so a program can write data and read it back within the same run. Each run starts with an empty file store, so do not expect a file to survive to the next one. SAVE and CAT still expect a real tape, so do not use SAVE to store data - though LOAD, RUN" and CHAIN can read back a listing the program itself wrote.',
+        'This IDE runs the 6128 with tape, not disc, and with no AMSDOS ROM at all - so the cassette is already the default and there is no |TAPE to switch to it (it would raise Unknown command). Do not write AMSDOS disc commands (|DIR, |ERA, |REN) either: there is no disc drive here.',
       ],
     },
     {

@@ -33,13 +33,13 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   vic20: 'the KERNAL trap stores the bytes the program wrote',
   pet: 'the KERNAL trap stores the bytes the program wrote',
   trs80: 'the interpreter stores a sequential file as the text it wrote',
+  cpc464: 'the cassette-manager trap stores the bytes the program wrote',
+  cpc6128: 'the cassette-manager trap stores the bytes the program wrote',
   // Machines that do not trap file I/O at all: nothing reaches the store, so
   // there is nothing to unwrap. Wiring them up is its own piece of work, and
   // whichever of them gains a container has to come out of this table.
   zx81: 'no file-I/O trap, so nothing reaches the store',
   zx80: 'no file-I/O trap, so nothing reaches the store',
-  cpc464: 'no file-I/O trap, so nothing reaches the store',
-  cpc6128: 'no file-I/O trap, so nothing reaches the store',
   altair8800: 'no file-I/O trap, so nothing reaches the store',
   apple1: 'no file-I/O trap, so nothing reaches the store',
 };

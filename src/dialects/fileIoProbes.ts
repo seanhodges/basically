@@ -191,6 +191,33 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     maxFrames: 2400,
   },
 
+  /**
+   * Locomotive BASIC: OPENOUT/PRINT#9 out, OPENIN/INPUT#9 back, on the firmware
+   * cassette jumpblock. Stream 9 is the CPC's file stream - streams 0-7 are
+   * screen windows and 8 is the printer.
+   *
+   * No key tap, unlike the Sinclair probe: the traps sit above the point where
+   * the cassette manager prompts for REC and PLAY, so nothing waits for a key.
+   *
+   * The stored bytes are the record as PRINT# lays it down, terminated CR LF -
+   * the CPC writes both, where the CBM machines write a bare CR.
+   */
+  cpc: {
+    program:
+      '10 OPENOUT "DATA"\n' +
+      '20 PRINT #9,"HELLO"\n' +
+      '30 CLOSEOUT\n' +
+      '40 OPENIN "DATA"\n' +
+      '50 INPUT #9,A$\n' +
+      '60 CLOSEIN\n' +
+      '70 PRINT "B=";A$\n' +
+      '80 PRINT "ZZEND"\n',
+    file: 'DATA',
+    readBack: 'B=HELLO',
+    bytes: [0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x0d, 0x0a],
+    maxFrames: 1200,
+  },
+
   /** TRS-80 Disk BASIC: OPEN "O"/"I" by mode, serviced at statement level. */
   trs80: {
     program:
@@ -214,6 +241,8 @@ export const FILE_IO_PROBE_BY_DIALECT: Record<string, string> = {
   zxspectrum: 'sinclair',
   zxspectrum128: 'sinclair',
   bbcmicro: 'bbc',
+  cpc464: 'cpc',
+  cpc6128: 'cpc',
   bbcmaster: 'bbc',
   atom: 'atom',
   commodore64: 'cbm',

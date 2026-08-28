@@ -48,6 +48,23 @@ one such tape file; import replays the blocks back into the tokenized image and
 detokenizes it to source. On the real machine such a tape loads with `RUN"` (or
 `LOAD ""`).
 
+## Program data files
+
+A running program's own data files do not go to tape at all. `OPENOUT` with
+`PRINT #9`, and `OPENIN` with `INPUT #9` and `EOF`, are served by the IDE: what
+the program writes is kept as a named file you can view and download alongside
+the program, and the same program reads it straight back. Stream 9 is the file
+stream — streams 0 to 7 are screen windows and 8 is the printer.
+
+The file holds exactly the bytes the program wrote, so a `PRINT #9` record ends
+with the carriage return and line feed Locomotive BASIC lays down. Each run
+starts with an empty set of files.
+
+`LOAD`, `RUN"` and `CHAIN` open a file the same way `OPENIN` does, so they are
+served from the same place: a program can write a listing and then chain to it.
+A name that has not been saved is left to the cassette, as are `SAVE` and `CAT`
+— which is what the `.cdt` and audio sections below cover.
+
 ## Cassette audio
 
 The CPC exposes a `.wav` export (and "play through speakers") **and** a

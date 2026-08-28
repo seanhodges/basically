@@ -15,6 +15,7 @@ export const cpc464AiProfile: AiProfile = composeAiProfile({
         'Do NOT use BASIC 1.1-only keywords (FILL, FRAME, GRAPHICS PEN/PAPER, MASK, DERR, DEC$, COPYCHR$, CURSOR, CLEAR INPUT, ON BREAK CONT) - the 464 has BASIC 1.0 only and will reject them.',
         `Numbers may be written in hex with & (&7F00) or binary with &X (&X1010). ? is shorthand for PRINT and ' for REM.`,
         'CALL address runs machine code; this IDE injects code blocks the program can CALL.',
+        'OPENOUT/PRINT #9/CLOSEOUT write a data file and OPENIN/INPUT #9/EOF/CLOSEIN read it back; stream 9 is the file stream (0-7 are screen windows, 8 the printer). This IDE captures those files and shows them to the user, so a program can write data and read it back within the same run. Each run starts with an empty file store, so do not expect a file to survive to the next one. SAVE and CAT still expect a real tape, so do not use SAVE to store data - though LOAD, RUN" and CHAIN can read back a listing the program itself wrote.',
       ],
     },
     {
