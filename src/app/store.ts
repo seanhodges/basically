@@ -319,6 +319,14 @@ interface IdeState {
    */
   pendingDeleteBlockId: string | null;
   /**
+   * Name of a saved data file the user asked to delete that awaits
+   * confirmation. Drives the DeleteDataFileDialog; null when no deletion is
+   * pending. Same reset rule as `pendingDeleteBlockId`: a dialog left standing
+   * across a document change would offer to delete a file that went with the
+   * previous program.
+   */
+  pendingDeleteDataFile: string | null;
+  /**
    * Id of the block whose metadata is open in the BlockSettingsDialog (via
    * the tab context menu's "Settings"), or null. Same reset rule as
    * `pendingDeleteBlockId`.
@@ -955,9 +963,9 @@ interface IdeState {
    * about (sets `dirty`).
    *
    * The file itself is untouched - a running program can still load it, and the
-   * next run discards it as it always did. No-op when the file is gone, or when
-   * the dialect has no fixed-address blocks (those dialects wire no file store,
-   * so they never show a data tab).
+   * copy is a block of the document rather than a second claim on the file.
+   * No-op when the file is gone, or when the dialect has no fixed-address
+   * blocks (those dialects wire no file store, so they never show a data tab).
    */
   addBlockFromDataFile(name: string): void;
   /**
@@ -969,6 +977,19 @@ interface IdeState {
   confirmRemoveBlock(): void;
   /** Dismiss the pending deletion, keeping the block. */
   cancelRemoveBlock(): void;
+  /**
+   * Ask to delete a saved data file (opens the DeleteDataFileDialog). Names
+   * the file store does not hold are ignored, as unknown block ids are.
+   */
+  requestDeleteDataFile(name: string): void;
+  /**
+   * Confirm the pending deletion. The file is gone for good - it is kept for
+   * the machine that wrote it, and running again does not recreate it - and
+   * the editor falls back to the program if that file was showing.
+   */
+  confirmDeleteDataFile(): void;
+  /** Dismiss the pending deletion, keeping the file. */
+  cancelDeleteDataFile(): void;
   /** Open the block-metadata dialog for a block; unknown ids are ignored. */
   openBlockSettings(id: string): void;
   /** Close the block-metadata dialog. */
@@ -1464,9 +1485,10 @@ function applyDialectSwitch(
   persistDialectId(next.id);
   // A different program on a different machine: nothing to undo back into.
   bufferHistories.clear();
-  // The files a program saved belong to that program. They used to go with the
-  // machine, which happened to cover this because a switch stops one; they
-  // outlive the run now, so the document taking them with it has to be said.
+  // The files a program saved belong to that program and that machine, and
+  // nothing about the emulator takes them away, so the document taking them
+  // with it has to be said here. The new machine id retags the store, so what
+  // it saves is not filed under the machine being left.
   emulatorVfs.clear(next.id);
   return {
     dialect: next,
@@ -1508,6 +1530,7 @@ function applyDialectSwitch(
     tabTouchedAt: {},
     asmErrorBlocks: new Set<string>(),
     pendingDeleteBlockId: null,
+    pendingDeleteDataFile: null,
     blockSettingsId: null,
     tapeFiles: [],
     autoStart: null,
@@ -1667,6 +1690,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   scratchBuffers: startupScratch,
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
+  pendingDeleteDataFile: null,
   blockSettingsId: null,
   tapeFiles: startupDoc.tapeFiles,
   bootDisc: startupDoc.bootDisc,
@@ -1851,6 +1875,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         tabTouchedAt: {},
         asmErrorBlocks: new Set<string>(),
         pendingDeleteBlockId: null,
+        pendingDeleteDataFile: null,
         blockSettingsId: null,
         // A shared program is a single BASIC program with no preserved tape.
         tapeFiles: [],
@@ -2042,6 +2067,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             tabTouchedAt: {},
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
+            pendingDeleteDataFile: null,
             blockSettingsId: null,
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
@@ -2098,6 +2124,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       tabTouchedAt: {},
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
+      pendingDeleteDataFile: null,
       blockSettingsId: null,
       tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
@@ -2381,10 +2408,35 @@ export const useIdeStore = create<IdeState>((set) => ({
               ? withListingBlockRemoved(s, s.pendingDeleteBlockId)
               : withBlockRemoved(s, s.pendingDeleteBlockId)),
             pendingDeleteBlockId: null,
+            pendingDeleteDataFile: null,
             blockSettingsId: null,
           },
     ),
   cancelRemoveBlock: () => set({ pendingDeleteBlockId: null }),
+  requestDeleteDataFile: (name) =>
+    set(() =>
+      // Checked against the store the file lives in, as a block deletion is
+      // checked against the blocks: a menu can outlive the file it names.
+      emulatorVfs.list().some((f) => f.name === name && !f.mounted)
+        ? { pendingDeleteDataFile: name }
+        : {},
+    ),
+  confirmDeleteDataFile: () =>
+    set((s) => {
+      const name = s.pendingDeleteDataFile;
+      if (name === null) return {};
+      emulatorVfs.delete(name);
+      return {
+        pendingDeleteDataFile: null,
+        // In the same commit as the deletion, so the tab strip never renders a
+        // tab for a file that has gone.
+        ...(s.activeTab.kind === 'data' && s.activeTab.name === name
+          ? { activeTab: BASIC_TAB }
+          : {}),
+        tabTouchedAt: untouched(s.tabTouchedAt, tabKey({ kind: 'data', name })),
+      };
+    }),
+  cancelDeleteDataFile: () => set({ pendingDeleteDataFile: null }),
   openBlockSettings: (id) =>
     set((s) =>
       selectBlocks(s).some((b) => b.id === id) ? { blockSettingsId: id } : {},

@@ -215,9 +215,10 @@ export class CpcCassette {
 
   /**
    * Drop every open channel. `flush` writes a part-written output file to the
-   * store; `false` discards it, which is what a machine reset wants - the IDE
-   * has already cleared the VFS by then and a late flush would resurrect the
-   * previous run's data. Mirrors `BbcDiskDrive.closeAll`.
+   * store; `false` discards it, which is what a machine reset wants - the reset
+   * abandons the session that had the file open, and storing the buffer now
+   * would look like a file the program closed. Mirrors
+   * `BbcDiskDrive.closeAll`.
    */
   closeAll(flush: boolean): void {
     if (flush && this.out) this.closeOut();

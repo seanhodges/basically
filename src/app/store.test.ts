@@ -2121,14 +2121,16 @@ describe('boot hydration of scratch buffers', () => {
 });
 
 /**
- * Files a program saved outlive the run that wrote them, so nothing about the
- * machine takes them away any more. What ends them is a different program
- * becoming active - and every path that installs one has to say so, rather
- * than inheriting a clear from a machine that happened to be running.
+ * Files a program saved are kept for the machine that wrote them and served
+ * back to its later runs, so nothing about the machine takes them away. What
+ * ends them is a different program becoming active - and every path that
+ * installs one has to say so, rather than inheriting a clear from a machine
+ * that happened to be running - or the user deleting one.
  *
- * The rules that belong to the machine - a stop keeps the files, a run start
- * and a reset purge them, a breakpoint pause keeps them - live in the emulator
- * pane and are proved in the browser (`e2e/persistence/`).
+ * The emulator lifecycle discards nothing: a start restores the files instead
+ * of emptying them, and a reset, a stop, a breakpoint pause and the pane going
+ * away all leave them standing. That round trip needs a real machine, so it is
+ * proved in the browser (`e2e/persistence/`).
  */
 describe('saved files and the document that owns them', () => {
   const seed = () => emulatorVfs.save('SCORES', Uint8Array.from([1, 2, 3]));
@@ -2217,7 +2219,65 @@ describe('saved files and the document that owns them', () => {
     await emulatorVfs.idle();
     expect(names()).toEqual(['LOG']);
     const col = await getVfsCollection();
-    expect((await col.findOne('LOG').exec())!.dialectId).toBe('zx81');
+    const row = await col.findOne({ selector: { name: 'LOG' } }).exec();
+    expect(row!.dialectId).toBe('zx81');
+  });
+
+  // Deleting is the user's only way to lose a file, so it is confirmed first.
+  describe('deleting one', () => {
+    const showing = (name: string) =>
+      useIdeStore.setState({ activeTab: { kind: 'data', name } });
+
+    it('asks first, then deletes and gives the editor back', () => {
+      seed();
+      showing('SCORES');
+      useIdeStore.getState().requestDeleteDataFile('SCORES');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBe('SCORES');
+      // Nothing has gone until the user says so.
+      expect(names()).toEqual(['SCORES']);
+
+      useIdeStore.getState().confirmDeleteDataFile();
+      const s = useIdeStore.getState();
+      expect(names()).toEqual([]);
+      expect(s.activeTab).toEqual(BASIC_TAB);
+      expect(s.pendingDeleteDataFile).toBeNull();
+    });
+
+    it('cancelling keeps the file and the tab showing it', () => {
+      seed();
+      showing('SCORES');
+      useIdeStore.getState().requestDeleteDataFile('SCORES');
+      useIdeStore.getState().cancelDeleteDataFile();
+      const s = useIdeStore.getState();
+      expect(names()).toEqual(['SCORES']);
+      expect(s.activeTab).toEqual({ kind: 'data', name: 'SCORES' });
+      expect(s.pendingDeleteDataFile).toBeNull();
+    });
+
+    it('ignores a file the store does not hold', () => {
+      useIdeStore.getState().requestDeleteDataFile('GONE');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBeNull();
+    });
+
+    // What the IDE mounted has no tab, so no menu can ask to delete it - and
+    // the request must not open a dialog for it if something else does.
+    it('ignores what the IDE mounted', () => {
+      emulatorVfs.save('engine', Uint8Array.from([0xc9]), {
+        kind: 'code',
+        mounted: true,
+      });
+      useIdeStore.getState().requestDeleteDataFile('engine');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBeNull();
+    });
+
+    // A dialog left standing across a document change would offer to delete a
+    // file that went with the program before it.
+    it('drops the pending name when a different program becomes active', () => {
+      seed();
+      useIdeStore.getState().requestDeleteDataFile('SCORES');
+      useIdeStore.getState().loadUnsavedDocument('10 REM sample');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBeNull();
+    });
   });
 });
 

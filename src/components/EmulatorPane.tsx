@@ -887,6 +887,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // loadProgram boots the ROM synchronously (~200ms on the Z80 machines),
         // blocking the main thread - paint the overlay first so it is visible.
         await nextPaint();
+        // A start serves the program the files this machine already has, so a
+        // run can load what an earlier run saved. Before the guard below, which
+        // has to stay the last thing before loadProgram; the restore races a
+        // short timeout of its own and never throws, so it cannot cost a run.
+        await emulatorVfs.hydrate(dialect.id);
         // `cancelled` only trips on another run request. The identity check
         // catches the other way a start is invalidated: something disposed the
         // machine while this was awaiting - a Stop, a dialect switch, a ROM
@@ -899,9 +904,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           setLoading(false);
           return;
         }
-        // A start empties the virtual filesystem; only files the new run
-        // saves are visible to it (a pause mid-run does NOT clear).
-        emulatorVfs.clear(dialect.id);
+        // What the last run mounted is dropped here and given again below:
+        // mounted content is the document going in, so a block the user has
+        // since renamed must not stay in the deck under its old name.
+        emulatorVfs.clearMounted();
         // A boot disc supersedes blocks/tape/auto-start: it is booted verbatim.
         // A scratch run carries the document's memory blocks - testing a call
         // into machine code you are writing is a first-order reason to want a
@@ -1101,9 +1107,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         const machine = await ensureMachine();
         if (cancelled) return;
         machine.releaseAllKeys();
-        // Reset reboots into a fresh session: clear the VFS like a start, so
-        // the new session can't read the old session's files.
-        emulatorVfs.clear(dialect.id);
+        // The files stay: a reboot is the same machine, and what a program
+        // saved is what the next run of it is meant to read.
         machine.reset();
         // A reboot ends the run that was being measured; the machine has no
         // program until the next Run loads one.
@@ -1135,7 +1140,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       machineRef.current?.releaseAllKeys();
       machineRef.current?.dispose();
       machineRef.current = null;
-      emulatorVfs.clear(); // unmount skips the stop effect; clear here too
       disposeAudio();
       setLiveMemory(null);
       flushProfile();
@@ -1168,7 +1172,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Switching target machine - or replacing this machine's ROM image - disposes
   // the old emulator so the next run builds a fresh one with the ROM now in
   // force. The editor and virtual keyboard re-render from the new dialect on
-  // their own. Tearing down a *running* machine on a ROM change is deliberate:
+  // their own. The saved files stay where they are: a ROM swap is the same
+  // machine running the same program, and a target switch discards them from
+  // the store's own action rather than from the machine going away. Tearing down a *running* machine on a ROM change is deliberate:
   // leaving the old firmware executing while Settings reports a new image would
   // be a lie, and the change is always an explicit act in Settings.
   //
@@ -1201,7 +1207,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
-    emulatorVfs.clear(dialect.id); // machine gone: its files go with it
     disposeAudio();
     // The measurements go with the machine; the store drops the published ones
     // on the same switch.

@@ -231,8 +231,9 @@ export class CbmDiskDrive {
   /**
    * Close every channel. `flush` writes each output buffer to the store (RUN /
    * STOP / END, where BASIC closes files too); `false` discards them (a machine
-   * reset, where the IDE has just cleared the VFS for a fresh session and a late
-   * flush would resurrect stale data). Mirrors `SequentialFiles.closeAll`.
+   * reset, which abandons the session that had them open - storing a
+   * half-written buffer now would look like a file the program closed).
+   * Mirrors `SequentialFiles.closeAll`.
    */
   closeAll(flush: boolean): void {
     if (flush) {

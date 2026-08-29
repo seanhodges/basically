@@ -346,14 +346,24 @@ Right-click or long-press a file's tab for:
 - **Download .bin** - the bytes exactly as your program wrote them.
 - **Download .txt** - the same bytes read as text through your machine's own
   character set, which is what a `PRINT#` file usually is.
-- **Delete** - discard the file.
+- **Delete** - discard the file for good; you are asked to confirm first.
 
-**A saved file outlives the run that wrote it**, so you can stop the machine and
-read what your program produced. It is discarded when you run the program again,
-when you reset the machine, when you switch to a different target, and when you
-open a different program - so every run starts with an empty filesystem. The
-files live only in the browser for the current session and do not survive a
-reload, so download anything you want to keep.
+**A saved file is kept for the machine that wrote it**, so a program can read on
+one run what it saved on an earlier one - a high-score table written at the end
+of one game and loaded at the start of the next. Running the program again,
+stopping the machine and resetting it all leave the files alone, and they are
+shown again when you reload the IDE, without your having to run anything.
+
+They are discarded when you switch to a different target machine and when you
+open, create or import a different program: the files belong to the program and
+the machine that produced them. Deleting one is permanent - running again does
+not bring it back, which is why the IDE asks before it goes.
+
+The files belong to the browser tab they were saved in. A second tab keeps its
+own set: it is neither shown nor served the first tab's files, and nothing it
+does destroys them - two tabs can run programs that save the same file name
+without disturbing each other. Closing a tab abandons what its programs wrote,
+so **Download .bin** is the way to keep a file for good.
 
 A saved file's tab competes for room in the strip like any other, and a program
 that saves in a loop cannot crowd out your own tabs: only a few files show at a

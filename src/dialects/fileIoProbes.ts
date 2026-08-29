@@ -3,11 +3,15 @@
  * per language family.
  *
  * `fileIo.test.ts` runs one of these on every machine that claims
- * {@link Dialect.capturesDataFiles} and checks two things: that the file store
- * received something under the name the program used, and that the program then
- * read its own bytes back. The read-back half is the point. A machine can be
+ * {@link Dialect.capturesDataFiles} and checks three things: that the file store
+ * received something under the name the program used, that the program then
+ * read its own bytes back, and that a *later* run of a program that only loads
+ * is served the same file. The read-back halves are the point. A machine can be
  * wired to write into the store and never serve a load from it, and a check
- * that only watched `save` would call that working.
+ * that only watched `save` would call that working; and since the IDE keeps a
+ * file for the machine that wrote it rather than emptying the store at a start,
+ * every machine now has a load path that has to answer out of what an earlier
+ * run left - the {@link FileIoProbe.restore} program is that path's probe.
  *
  * The programs are not new. Each is lifted from the test that already runs it
  * against that machine's real ROM - the C64's, the BBC's, the Atom's, the
@@ -24,6 +28,21 @@
 
 /** Printed last by every probe; the test runs frames until the screen shows it. */
 export const FILE_IO_SENTINEL = 'ZZEND';
+
+/**
+ * Printed last by every restore probe, and deliberately not `ZZEND`: the second
+ * run happens on the same machine as the first, so a marker the first run also
+ * printed could be matched against its screen before the reboot has cleared it.
+ */
+export const FILE_IO_RESTORE_SENTINEL = 'ZZDONE';
+
+/**
+ * Printed by a restore probe only when the file it loaded holds what the first
+ * run saved. A marker rather than the value itself: these machines pad numeric
+ * PRINT output to a field width of their own, so a screen match on the digits
+ * would be an assertion about column layout.
+ */
+export const FILE_IO_RESTORE_OK = 'ZZOK';
 
 export interface FileIoProbe {
   /**
@@ -58,6 +77,16 @@ export interface FileIoProbe {
   keys?: Record<number, string>;
   /** Frames to allow; these machines are two orders of magnitude apart in speed. */
   maxFrames: number;
+  /**
+   * A program that only *loads* the file {@link program} saved, prints
+   * {@link FILE_IO_RESTORE_OK} if what it read is what was written, and then
+   * prints {@link FILE_IO_RESTORE_SENTINEL}.
+   *
+   * Run on the same machine after the write probe, against the store the write
+   * probe filled - which is what the IDE hands a second Run now that a start
+   * restores the machine's files instead of discarding them.
+   */
+  restore: string;
 }
 
 export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
@@ -80,6 +109,10 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     file: 'NUMS',
     readBack: 'B=4',
     keys: { 60: 'KeyQ' },
+    restore:
+      '10 LOAD "NUMS" DATA b()\n' +
+      '20 IF b(2)=4 THEN PRINT "ZZOK"\n' +
+      '30 PRINT "ZZDONE"\n',
     maxFrames: 1200,
   },
 
@@ -107,6 +140,13 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     file: 'DATA',
     readBack: '131',
     bytes: [65, 66],
+    restore:
+      '10 Y%=OPENIN("DATA")\n' +
+      '20 A%=BGET#Y%\n' +
+      '30 B%=BGET#Y%\n' +
+      '40 CLOSE#Y%\n' +
+      '50 IF A%+B%=131 THEN PRINT "ZZOK"\n' +
+      '60 PRINT "ZZDONE"\n',
     maxFrames: 1200,
   },
 
@@ -130,6 +170,13 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     file: 'DAT',
     readBack: '99',
     bytes: [49, 50],
+    restore:
+      '10 G=FIN"DAT"\n' +
+      '20 A=BGET G\n' +
+      '30 B=BGET G\n' +
+      '40 IF A+B=99 THEN PRINT "ZZOK"\'\n' +
+      '50 PRINT "ZZDONE"\'\n' +
+      '60 END\n',
     maxFrames: 1200,
   },
 
@@ -157,6 +204,12 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     readBack: 'B=HELLO',
     // PRINT# terminates each item with a carriage return ($0d).
     bytes: [0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x0d],
+    restore:
+      '10 OPEN 3,8,2,"DATA,S,R"\n' +
+      '20 INPUT#3,A$\n' +
+      '30 CLOSE 3\n' +
+      '40 IF A$="HELLO" THEN PRINT "ZZOK"\n' +
+      '50 PRINT "ZZDONE"\n',
     maxFrames: 1200,
   },
 
@@ -188,6 +241,11 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
       '80 PRINT "ZZEND"\n',
     file: 'FILE 2',
     readBack: 'B= 9',
+    restore:
+      '10 DIM B(3)\n' +
+      '20 DLOAD 2;B(0)\n' +
+      '30 IF B(2)=9 THEN PRINT "ZZOK"\n' +
+      '40 PRINT "ZZDONE"\n',
     maxFrames: 2400,
   },
 
@@ -215,6 +273,12 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     file: 'DATA',
     readBack: 'B=HELLO',
     bytes: [0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x0d, 0x0a],
+    restore:
+      '10 OPENIN "DATA"\n' +
+      '20 INPUT #9,A$\n' +
+      '30 CLOSEIN\n' +
+      '40 IF A$="HELLO" THEN PRINT "ZZOK"\n' +
+      '50 PRINT "ZZDONE"\n',
     maxFrames: 1200,
   },
 
@@ -232,6 +296,12 @@ export const FILE_IO_PROBES: Record<string, FileIoProbe> = {
     file: 'LOG',
     readBack: 'B=HELLO',
     bytes: [0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x0a],
+    restore:
+      '10 OPEN "I",2,"LOG"\n' +
+      '20 INPUT #2,A$\n' +
+      '30 CLOSE 2\n' +
+      '40 IF A$="HELLO" THEN PRINT "ZZOK"\n' +
+      '50 PRINT "ZZDONE"\n',
     maxFrames: 1200,
   },
 };

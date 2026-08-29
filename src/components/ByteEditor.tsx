@@ -716,7 +716,7 @@ export function ByteEditor({
   /**
    * Park this block's state so coming back to it finds its history. A file a
    * program saved has none to park: it is read-only, so there is nothing to
-   * undo, and it is gone with the next run anyway.
+   * undo.
    */
   const parkState = useCallback((view: EditorView, of: ByteSubject) => {
     if (of.historyKey === null) return;

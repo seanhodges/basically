@@ -569,8 +569,9 @@ export class PetMachine implements MachineEmulator {
   reset(): void {
     this.loadGeneration++;
     this.loadError = '';
-    // Drop any open channels without flushing: the IDE clears the VFS around a
-    // reset, so a late flush would resurrect stale data.
+    // Drop any open channels without flushing: a reset abandons the session
+    // that had them open, so a half-written buffer stored now would look like
+    // a file the program closed.
     this.drive?.closeAll(false);
     void this.ready.then(() => {
       if (!this.disposed && this.cpu) this.hardReset();

@@ -12,6 +12,7 @@ import { ImportDialog } from './components/ImportDialog';
 import { TargetMachineDialog } from './components/TargetMachineDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { DeleteBlockDialog } from './components/DeleteBlockDialog';
+import { DeleteDataFileDialog } from './components/DeleteDataFileDialog';
 import { BlockSettingsDialog } from './components/BlockSettingsDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { RunProfileDialog } from './components/RunProfileDialog';
@@ -31,6 +32,7 @@ import { installUnloadGuard } from './ai/unloadGuard';
 import { useHistorySync } from './app/useHistorySync';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
 import { useOpenShared } from './app/useOpenShared';
+import { useRestoreDataFiles } from './app/useRestoreDataFiles';
 import styles from './App.module.css';
 
 export default function App() {
@@ -52,6 +54,10 @@ export default function App() {
   // A `?open=<shareId>` URL is the player's "See the Code" handover - fetch
   // the shared program into the editor once at boot.
   useOpenShared();
+
+  // Put the files this tab's programs saved back on screen, so a reload finds
+  // them without a run.
+  useRestoreDataFiles();
 
   // Greet first-time visitors with the welcome modal (once per browser).
   useEffect(() => {
@@ -107,6 +113,7 @@ export default function App() {
       <TargetMachineDialog />
       <SwitchTargetDialog />
       <DeleteBlockDialog />
+      <DeleteDataFileDialog />
       <BlockSettingsDialog />
       <ProcedureListDialog />
       <RunProfileDialog />

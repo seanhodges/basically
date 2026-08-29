@@ -5,7 +5,6 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore, useBlocks, tabKey, type ActiveTab } from '../app/store';
 import { useDataBlocks } from '../app/dataBlocks';
 import { decodeDataText, dataBlockFileName } from '../app/dataBlockFile';
-import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { useDismiss } from '../app/useDismiss';
 import { useLongPress } from './useLongPress';
 import { asmEngineFor } from '../asm/registry';
@@ -74,7 +73,8 @@ const TAB_GAP_PX = 2;
  *
  * After the blocks come the files the running program has saved - the tab
  * strip's only tabs that are not part of the document at all, arriving as the
- * program writes them and gone with the next run.
+ * program writes them and staying until the user deletes one or opens a
+ * different program.
  *
  * The strip does not scroll. It shows the tabs it has room for and lists the
  * rest under a count button at its end: the BASIC tab is pinned first, and the
@@ -95,9 +95,9 @@ const TAB_GAP_PX = 2;
  * A data tab offers "Download .bin" (the bytes as saved), "Download .txt" (the
  * same bytes read through the machine's own character set, which is what a
  * `PRINT#` file is), "Copy to a binary block" (the same bytes kept in the
- * document, since the file itself is not) and "Delete" - unconfirmed, like a
- * scratch buffer's Close, since the file is program output and re-running
- * produces it again.
+ * document, since the file itself is not) and "Delete" - confirmed, unlike a
+ * scratch buffer's Close, since the file is kept for the machine that wrote it
+ * and running again does not produce it back.
  */
 export function EditorTabBar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -108,6 +108,7 @@ export function EditorTabBar() {
   const setActiveTab = useIdeStore((s) => s.setActiveTab);
   const addBlock = useIdeStore((s) => s.addBlock);
   const addBlockFromDataFile = useIdeStore((s) => s.addBlockFromDataFile);
+  const requestDeleteDataFile = useIdeStore((s) => s.requestDeleteDataFile);
   const addScratchBuffer = useIdeStore((s) => s.addScratchBuffer);
   const renameScratchBuffer = useIdeStore((s) => s.renameScratchBuffer);
   const closeScratchBuffer = useIdeStore((s) => s.closeScratchBuffer);
@@ -285,17 +286,6 @@ export function EditorTabBar() {
       }),
       dataBlockFileName(file.name, '.txt'),
     );
-  };
-
-  /**
-   * Discard a saved file. A delete against the store the file lives in - there
-   * is no copy of it anywhere else - and the projection follows.
-   */
-  const deleteDataFile = (name: string) => {
-    emulatorVfs.delete(name);
-    if (activeTab.kind === 'data' && activeTab.name === name) {
-      setActiveTab({ kind: 'basic' });
-    }
   };
 
   /** Download a code block's assembly source as `<name>.asm`. */
@@ -774,7 +764,7 @@ export function EditorTabBar() {
                 role="menuitem"
                 onClick={() => {
                   setMenu(null);
-                  deleteDataFile(menuDataFile.name);
+                  requestDeleteDataFile(menuDataFile.name);
                 }}
               >
                 Delete
