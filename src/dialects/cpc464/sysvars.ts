@@ -75,10 +75,12 @@ const BASIC_10: LocoSysVars = {
 };
 
 /**
- * BASIC 1.1 workspace (Amstrad CPC 6128), verified against the real ROM the
- * same way. The whole workspace sits lower than 1.0's but NOT by a single
- * offset - the pointer block moves by &1D, `errCode` by &1A, `errLine` by &22
- * and `curLinePtr` by &19 - so every address here was measured, none derived.
+ * BASIC 1.1 workspace, verified against the real ROM the same way - and against
+ * both 1.1 ROMs, the 664's being a different firmware build from the 6128's
+ * that puts its workspace at the same addresses. The whole workspace sits lower
+ * than 1.0's but NOT by a single offset - the pointer block moves by &1D,
+ * `errCode` by &1A, `errLine` by &22 and `curLinePtr` by &19 - so every address
+ * here was measured, none derived.
  */
 const BASIC_11: LocoSysVars = {
   programStart: PROGRAM_BASE,

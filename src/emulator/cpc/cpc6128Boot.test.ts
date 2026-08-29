@@ -45,9 +45,11 @@ suite('CpcMachine 6128 firmware boot', () => {
     // reading 1.1's pointers at 1.0's addresses inflates this figure.
     //
     // This is the emulator's own reading, and deliberately NOT the dialect's
-    // programRamBytes, which is the real machine's documented no-AMSDOS budget
-    // of 42619 - the same on both CPCs, since AMSDOS is exactly the 370 bytes
-    // that take a disc-equipped 6128 down to 42249.
+    // programRamBytes: that is the whole no-AMSDOS budget, 43535 (see
+    // cpc464/index.ts), where this figure is what is left of it once the
+    // 14-byte program above is in memory. The budget is the same on every CPC
+    // here; fitting AMSDOS is what takes a disc-equipped machine down to 42249,
+    // by dropping HIMEM from &AB7F to &A67B.
     expect(ocr(m)).toContain(' 43521');
     m.dispose();
   });
