@@ -24,7 +24,8 @@ import { SYMBOL_LAYER_1, SYMBOL_LAYER_2 } from '../keyboard/templateRows';
  * Unlike the cursor-key battery, one machine per wiring family is not
  * enough here: the table under test is per-machine data, so every machine
  * with its own table boots. Variants that reuse a parent's layout
- * (vic20, cpc6128, zxspectrum128, bbcmaster) are covered by the parent.
+ * (vic20, cpc664, cpc6128, zxspectrum128, bbcmaster) are covered by the
+ * parent.
  */
 
 let restoreRomLoading: () => void;
@@ -114,6 +115,7 @@ const EXCUSED: Record<string, string> = {
   trs80: 'no key matrix - the input adapter is exercised in its layout test',
   altair8800: 'no ROM in this checkout - tokenToByte is checked in its test',
   vic20: 'reuses the commodore64 layout',
+  cpc664: 'reuses the cpc464 layout',
   cpc6128: 'reuses the cpc464 layout',
   zxspectrum128: 'reuses the zxspectrum layout',
   bbcmaster: 'reuses the bbcmicro layout',

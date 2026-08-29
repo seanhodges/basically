@@ -1060,6 +1060,27 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Amstrad CPC 664 keyboard theme: the same layout as the 464 in the 664's own
+   colours - it dropped the blue keypad for the grey caps the 6128 kept, so it
+   shares the 6128's values. Activated by the layout's
+   `theme: 'vk-theme-cpc664'`. */
+.vk-theme-cpc664 .vk-style-fn .vk-keycap {
+  background: linear-gradient(#8d9299, #666b72);
+}
+
+.vk-theme-cpc664 .vk-style-fn .vk-label {
+  color: #f2f4f6;
+}
+
+.vk-theme-cpc664 .vk-layer-cursor {
+  color: #9aa1a9;
+}
+
+.vk-theme-cpc664 .vk-layer-cursor.vk-active {
+  color: #e6eaee;
+}
+
+/* ---------------------------------------------------------------------------
    Amstrad CPC 6128 keyboard theme: the same layout as the 464 in the 6128's
    own colours - the later machine dropped the blue keypad for grey caps with
    pale legends. Activated by the layout's `theme: 'vk-theme-cpc6128'`. */

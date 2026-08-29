@@ -158,7 +158,7 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
   },
   {
     id: 'locomotive',
-    dialects: ['cpc464', 'cpc6128'],
+    dialects: ['cpc464', 'cpc664', 'cpc6128'],
     iterations: 20000,
     ...programs(20000),
   },

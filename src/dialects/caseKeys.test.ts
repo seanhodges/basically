@@ -150,6 +150,7 @@ describe('every machine with a second case is covered', () => {
   /** Machines with lower case whose case keys are proved elsewhere, and by what. */
   const EXCUSED: Record<string, string> = {
     bbcmaster: 'reuses the bbcmicro layout and BASIC',
+    cpc664: 'reuses the cpc464 layout',
     cpc6128: 'reuses the cpc464 layout',
     zxspectrum128: 'reuses the zxspectrum layout',
     vic20: 'reuses the commodore64 layout and the same set switch',

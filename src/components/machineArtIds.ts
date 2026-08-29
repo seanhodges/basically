@@ -24,6 +24,7 @@ export const MACHINE_ART_IDS = [
   'pet',
   'trs80',
   'cpc464',
+  'cpc664',
   'cpc6128',
   'altair8800',
   'pmd85',

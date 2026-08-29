@@ -137,6 +137,14 @@ export const machines: MachineChoice[] = [
     blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
   },
   {
+    id: 'cpc664',
+    page: 'cpc',
+    name: 'CPC 664',
+    manufacturer: 'Amstrad',
+    year: 1985,
+    blurb: 'The CPC between the 464 and the 6128. Locomotive BASIC 1.1.',
+  },
+  {
     id: 'cpc6128',
     page: 'cpc',
     name: 'CPC 6128',

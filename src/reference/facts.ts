@@ -1234,6 +1234,15 @@ const entries: PortingFactsEntry[] = [
     sound: 'Three tone voices and a noise voice on the VIC-I, driven by POKE.',
   },
   {
+    id: 'cpc664',
+    extends: 'cpc464',
+    basicDialect: 'Locomotive BASIC 1.1',
+    // Identical on every crosschecked figure: the 664 is a 464 with a later
+    // BASIC and a disc drive, and neither changes what BASIC has to spend or
+    // how fast it spends it. What it adds is the twelve BASIC 1.1 commands the
+    // reference table carries as rows scoped to the 1.1 machines.
+  },
+  {
     id: 'cpc6128',
     extends: 'cpc464',
     basicDialect: 'Locomotive BASIC 1.1',

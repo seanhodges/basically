@@ -77,6 +77,7 @@ export const IN_SCOPE = new Set([
   'pet',
   'trs80',
   'cpc464',
+  'cpc664',
   'cpc6128',
   'bbcmicro',
   'bbcmaster',
@@ -112,6 +113,7 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   trs80: range(0x80, 0xbf),
   // Quadrant mosaics plus the upper block cpc464/charset.ts leaves unmapped.
   cpc464: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
+  cpc664: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
   cpc6128: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
   // SAA5050 MODE 7 mosaics. The chip treats a code as a mosaic iff bit 5 is
   // set (%xx1xxxxx; teletext level-1 character set, and the SAA5050

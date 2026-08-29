@@ -74,6 +74,7 @@ describe('semigraphics audit', () => {
       'commodore64',
       'cpc464',
       'cpc6128',
+      'cpc664',
       'pet',
       'trs80',
       'vic20',

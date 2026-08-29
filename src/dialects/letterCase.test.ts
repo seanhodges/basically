@@ -61,6 +61,8 @@ const RESTATED: Record<string, string> = {
   trs80: 'no lower case; keyword case folds; names fold; encoding preserves',
   cpc464:
     'lower case always; keyword case folds; names fold; encoding preserves',
+  cpc664:
+    'lower case always; keyword case folds; names fold; encoding preserves',
   cpc6128:
     'lower case always; keyword case folds; names fold; encoding preserves',
   altair8800:

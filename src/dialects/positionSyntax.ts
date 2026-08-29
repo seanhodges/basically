@@ -137,6 +137,7 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
   bbcmicro: BBC,
   bbcmaster: BBC,
   cpc464: LOCOMOTIVE,
+  cpc664: LOCOMOTIVE,
   cpc6128: LOCOMOTIVE,
   // The one single-offset machine here: `PRINT @ n` counts cells across a
   // 64-column screen, so every one of those numbers has the width baked in.

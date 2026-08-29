@@ -26,6 +26,7 @@ export const BOOT_MACHINES = [
   { id: 'atom', label: 'Atom' },
   { id: 'trs80', label: 'TRS-80' },
   { id: 'cpc464', label: 'CPC 464' },
+  { id: 'cpc664', label: 'CPC 664' },
   { id: 'cpc6128', label: 'CPC 6128' },
   { id: 'pmd85', label: 'PMD 85-2' },
   { id: 'apple1', label: 'Apple I' },

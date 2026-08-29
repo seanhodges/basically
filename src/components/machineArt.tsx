@@ -66,7 +66,7 @@ const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
 const PMD_BLUE = '#7fb4d4'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-fn
 const PMD_RED = '#c0362c'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-shift
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
-const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc6128
+const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc664/-cpc6128
 
 const DARK_KEYS = '#2a2a2e';
 
@@ -396,6 +396,31 @@ function Cpc464Art({ size }: ArtProps) {
 }
 
 /**
+ * CPC 664: the 464's case with the 3" disc drive where the cassette deck was.
+ * Its caps went grey, but the cursor block kept a colour - that pairing of a
+ * drive with a coloured key cluster is what tells it from the all-grey 6128.
+ */
+function Cpc664Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M2 24h44v5H2z" fill={BASE.cpc} />
+      <path d="M2 11h44v13H2z" fill={CPC_CASE} />
+      <path d="M5 7h41v4H5z" fill="#2b2b31" />
+      <rect x="5" y="13.5" width="24" height="2.4" fill="#3a3a42" />
+      <rect x="5" y="17.4" width="24" height="2.4" fill="#3a3a42" />
+      <rect x="5" y="21.3" width="20" height="2.4" fill="#3a3a42" />
+      {/* The coloured cursor block the 6128 dropped. */}
+      <rect x="26" y="21.3" width="3" height="2.4" fill={CPC_BLUE} />
+      {/* 3" disc drive, as on the 6128 - the 664's tell against the 464. */}
+      <rect x="31" y="12.6" width="13" height="11" fill="#33333b" />
+      <rect x="32.5" y="15.4" width="10" height="2.6" fill="#15151a" />
+      <rect x="32.5" y="20.4" width="6" height="1.8" fill={CPC_GREY} />
+      <rect x="40.5" y="20" width="2" height="2.6" fill={CPC_GREY} />
+    </svg>
+  );
+}
+
+/**
  * CPC 6128: the same black case, but the cassette deck is gone - in its place
  * the 3" disc drive with its slot and eject button, and the keypad went grey.
  */
@@ -670,6 +695,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   pet: PetArt,
   trs80: Trs80Art,
   cpc464: Cpc464Art,
+  cpc664: Cpc664Art,
   cpc6128: Cpc6128Art,
   altair8800: Altair8800Art,
   pmd85: Pmd85Art,

@@ -31,6 +31,7 @@ describe('dialect registry', () => {
     zxspectrum128: 'dec',
     trs80: 'dec',
     cpc464: 'hex',
+    cpc664: 'hex',
     cpc6128: 'hex',
     altair8800: 'dec',
     pmd85: 'hex',
@@ -59,6 +60,7 @@ describe('dialect registry', () => {
     'zxspectrum',
     'zxspectrum128',
     'cpc464',
+    'cpc664',
     'cpc6128',
     // The one machine whose image does not ship at all: supplying it is the
     // only way to start the Altair (see `romBundled` on the dialect).

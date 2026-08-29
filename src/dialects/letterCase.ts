@@ -217,6 +217,13 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'a keyword before matching it - `print` lists back as PRINT - and folds ' +
       'a variable name too.',
   },
+  cpc664: {
+    lowerCase: 'always',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'preserved',
+    note: 'As the 464; BASIC 1.1 changed neither the font nor the case rules.',
+  },
   cpc6128: {
     lowerCase: 'always',
     keywordScan: 'folded',
