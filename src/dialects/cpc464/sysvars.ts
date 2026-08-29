@@ -3,8 +3,9 @@ import type { LocoBasicVariant } from './keywords';
 /**
  * Locomotive BASIC workspace pointers used by the variable watcher, the runtime
  * report and the memory-stats readout. Keyed by variant: the BASIC 1.0 (464)
- * and BASIC 1.1 (6128) workspaces sit at different addresses, so the cpc6128
- * dialect supplies its own table through the same readers rather than new code.
+ * and BASIC 1.1 (664, 6128) workspaces sit at different addresses, so the two
+ * 1.1 dialects select the other table through the same readers rather than new
+ * code.
  *
  * Both tables were pinned against the genuine ROM in the emulator rather than
  * quoted: a program that assigns/errors is injected and RUN, then the workspace
@@ -54,9 +55,9 @@ export interface LocoSysVars {
 }
 
 /**
- * Where Locomotive BASIC stores the tokenized program (&0170), on both the 464
- * and the 6128: the rest of the workspace moved between BASIC 1.0 and 1.1, but
- * the program base did not.
+ * Where Locomotive BASIC stores the tokenized program (&0170), on every CPC
+ * here: the rest of the workspace moved between BASIC 1.0 and 1.1, but the
+ * program base did not.
  */
 export const PROGRAM_BASE = 0x0170;
 
