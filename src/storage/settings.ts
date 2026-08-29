@@ -126,6 +126,8 @@ const KEYS = {
   gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
   lastShare: 'mbide.lastShare',
+  tabId: 'mbide.tabId',
+  tabRegistry: 'mbide.tabs',
 } as const;
 
 /**
@@ -324,6 +326,91 @@ export function getDialectId(): string | null {
 
 export function setDialectId(id: string): void {
   writeThrough(KEYS.dialectId, id);
+}
+
+/**
+ * How long a tab id stays vouched for after the tab last said it was alive.
+ * Generous on purpose: the registry is what decides whose saved files may be
+ * reclaimed, and a tab left open over a holiday weekend - or a laptop shut
+ * mid-session and reopened - must still own its files when it comes back. Only
+ * a tab that is really gone should age out, and the rows it left cost tens of
+ * KB, so waiting is cheap and sweeping early is not.
+ */
+const TAB_REGISTRY_CUTOFF_MS = 14 * 24 * 60 * 60 * 1000;
+
+let tabId: string | null = null;
+
+/**
+ * This browser tab's own id, generated on first read and kept in
+ * `sessionStorage` alone.
+ *
+ * Deliberately not `readSessionFirst`/`writeThrough`: the shared localStorage
+ * backup those use exists to seed a new tab from the last edited program, and
+ * applied to identity it would hand every new tab the previous tab's id - the
+ * opposite of the isolation the id is for. `sessionStorage` survives a reload
+ * of this tab (so its saved files come back) and a brand-new tab gets a new id
+ * (so it starts empty). A browser refusing to store site data gets the
+ * in-memory stand-in from `safeStorage`, and so a fresh id per load.
+ */
+export function getTabId(): string {
+  if (tabId !== null) return tabId;
+  let id: string | null = null;
+  try {
+    id = sessionStorage.getItem(KEYS.tabId);
+  } catch {
+    // No storage at all (a non-browser host): fall through to a fresh id.
+  }
+  if (id === null || id === '') {
+    id = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    try {
+      sessionStorage.setItem(KEYS.tabId, id);
+    } catch {
+      // Best-effort: the id still holds for this page's lifetime.
+    }
+  }
+  tabId = id;
+  return id;
+}
+
+/** The registry as stored: tab id to the epoch ms that tab last checked in. */
+function readTabRegistry(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(KEYS.tabRegistry);
+    if (raw === null) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const out: Record<string, number> = {};
+    for (const [id, seen] of Object.entries(parsed)) {
+      if (typeof seen === 'number' && Number.isFinite(seen)) out[id] = seen;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Record this tab as alive and return the ids of every tab still vouched for
+ * (this one included), dropping the entries past the cutoff as it goes.
+ *
+ * Shared across tabs (localStorage) because the point of it is to tell one tab
+ * which *other* tabs' saved files are still owned by a tab that could come
+ * back. Nothing runs at unload: browsers do not reliably deliver that event, so
+ * a tab announces that it is here rather than that it has gone.
+ */
+export function refreshTabRegistry(): string[] {
+  const now = Date.now();
+  const registry = readTabRegistry();
+  for (const [id, seen] of Object.entries(registry)) {
+    if (now - seen > TAB_REGISTRY_CUTOFF_MS) delete registry[id];
+  }
+  registry[getTabId()] = now;
+  try {
+    localStorage.setItem(KEYS.tabRegistry, JSON.stringify(registry));
+  } catch {
+    // Quota or blocked storage: the sweep just has less to go on this session.
+  }
+  return Object.keys(registry);
 }
 
 export function getAutoLineNumbering(): boolean {

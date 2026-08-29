@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { MachineFileEntry } from '../dialects/types';
 import { getDialect } from '../dialects/registry';
-import { emulatorVfs } from '../storage/vfs/vfsStore';
+import { EmulatorVfs, emulatorVfs } from '../storage/vfs/vfsStore';
+import { closeVfsDbForTests, setVfsStorageForTests } from '../storage/vfs/db';
 import {
   projectDataBlocks,
   resetDataBlockCacheForTests,
@@ -17,6 +19,30 @@ const entry = (
 ): MachineFileEntry => ({ name, size, updatedAt, ...(kind ? { kind } : {}) });
 
 const bytes = (...v: number[]) => Uint8Array.from(v);
+
+beforeAll(() => {
+  // The environment is `node`: give the mirror a storage to write into, and
+  // the store the per-tab keys it reads.
+  const stub = () => {
+    const store = new Map<string, string>();
+    return {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: () => null,
+      length: 0,
+    } as Storage;
+  };
+  (globalThis as { localStorage?: Storage }).localStorage = stub();
+  (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
+  setVfsStorageForTests(getRxStorageMemory());
+});
+
+afterAll(async () => {
+  await closeVfsDbForTests();
+  setVfsStorageForTests(null);
+});
 
 describe('projectDataBlocks', () => {
   it('maps entries to blocks in the order the store lists them', () => {
@@ -142,5 +168,41 @@ describe('selectDataBlocks', () => {
     expect(selectDataBlocks(spectrum)).toHaveLength(1);
     emulatorVfs.clear();
     expect(selectDataBlocks(spectrum)).toEqual([]);
+  });
+});
+
+describe('what a restored session projects', () => {
+  const spectrum = getDialect('zxspectrum');
+
+  const tapeImage = (payload: Uint8Array): Uint8Array => {
+    const header = new Uint8Array(17).fill(0x20);
+    header[0] = 1; // number array
+    header[11] = payload.length & 0xff;
+    return tapFromPayloads(header, payload);
+  };
+
+  const project = (vfs: EmulatorVfs) =>
+    projectDataBlocks(
+      vfs.list(),
+      (name) => vfs.load(name),
+      spectrum.unwrapStoredFile?.bind(spectrum),
+    );
+
+  it('shows the files the program saved, and never what the IDE mounted', async () => {
+    const session = new EmulatorVfs('tab-reload');
+    session.setDialect('zxspectrum');
+    // The IDE mounts the document's own block so a `LOAD "engine" CODE` finds
+    // it; the program then saves a file of its own.
+    session.save('engine', bytes(0xc9), { kind: 'code', mounted: true });
+    session.save('SCORES', tapeImage(bytes(1, 2, 3)), { kind: 'data-num' });
+    expect(project(session).map((b) => b.name)).toEqual(['SCORES']);
+    await session.idle();
+
+    // The IDE reloads: the same tab, a store that starts empty.
+    const reloaded = new EmulatorVfs('tab-reload');
+    await reloaded.hydrate('zxspectrum');
+    const blocks = project(reloaded);
+    expect(blocks.map((b) => b.name)).toEqual(['SCORES']);
+    expect(Array.from(blocks[0]!.bytes)).toEqual([1, 2, 3]);
   });
 });

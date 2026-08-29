@@ -11,21 +11,22 @@ import {
 
 /**
  * A file a running program saves appears as an editor tab, outlives the run,
- * can be copied into a block of the document, and is discarded by the next run
- * while the block it seeded stays.
+ * can be copied into a block of the document, comes back on a reload, and goes
+ * only when the user confirms deleting it.
  *
  * Browser-only, and worth its minute: the file arrives from a ROM trap inside a
  * real run, reaches the editor through the file store's own change
- * notification, and then has to survive the pane tearing the machine down and
- * be gone once the next run clears the store. None of that is reachable without
- * an actual machine running in an actual browser - the projection itself is
- * covered in `src/app/dataBlocks.test.ts`, and the tape unwrap in
- * `src/dialects/zxspectrum/storedFile.test.ts`.
+ * notification, then has to survive the pane tearing the machine down, a
+ * reload of the whole IDE (the round trip through the browser's database) and
+ * a second start. None of that is reachable without an actual machine running
+ * in an actual browser - the projection itself is covered in
+ * `src/app/dataBlocks.test.ts`, the restore in `src/storage/vfs/vfsStore.test.ts`,
+ * and the tape unwrap in `src/dialects/zxspectrum/storedFile.test.ts`.
  *
- * One journey with staged assertions rather than four tests: the Spectrum is
+ * One journey with staged assertions rather than five tests: the Spectrum is
  * booted once and the program is run twice, which is the whole cost here.
  */
-test('a saved file appears as a tab, survives the stop, copies into a block, and goes with the next run', async ({
+test('a saved file appears as a tab, survives the stop, copies into a block, comes back on a reload, and goes only when confirmed', async ({
   page,
 }) => {
   // The Spectrum stores a whole two-block tape image, so it is also the machine
@@ -102,18 +103,62 @@ test('a saved file appears as a tab, survives the stop, copies into a block, and
   // ...and the file is unaffected by the copy.
   await expect(tab).toHaveCount(1);
 
-  // Running again starts clean. The second run is never given the keypress the
-  // tape prompt waits for, so it cannot re-save the file - what the tab shows
-  // is the store being cleared, not a race with the next capture.
+  // The file is kept for the machine that wrote it, so reloading the IDE brings
+  // it back from the browser's own database - no run, no keypress. Polling for
+  // the block's own autosave write rather than the document's, which landed
+  // before the block existed: the 2s loop has yet to carry the block over.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          try {
+            return localStorage.getItem('mbide.autosave.blocks');
+          } catch {
+            return null; // storage blocked - nothing will ever land
+          }
+        }),
+      { timeout: 15_000, intervals: [200] },
+    )
+    .toContain('kept');
+  await page.reload();
+  await expect(tab).toHaveCount(1);
+  await tab.click();
+  await expect(bytes).toContainText('01 02 00 00 00 07');
+
+  // Running again is served what the machine already has rather than emptying
+  // it. The second run is never given the keypress the tape prompt waits for,
+  // so it cannot re-save the file - what the tab shows is the restore, not a
+  // race with the next capture.
   await playAndWaitRunning(page);
-  await expect(tab).toHaveCount(0);
-  // The block is part of the document, so it outlives the file it came from -
-  // as exactly one tab. Loading a program also puts each block on the deck as a
-  // CODE file, so that a program's own `LOAD "name" CODE` finds it; what the
-  // IDE mounts that way is the document going in, not output coming back, so it
-  // is not shown back as a second tab claiming the program saved it.
+  await expect(tab).toHaveCount(1);
+  // The block is part of the document, so it stands beside the file it came
+  // from. Loading a program also puts each block on the deck as a CODE file, so
+  // that a program's own `LOAD "name" CODE` finds it; what the IDE mounts that
+  // way is the document going in, not output coming back, so it is never shown
+  // back as a tab claiming the program saved it - which is also the guard
+  // against a restore bringing one back.
   await expect(blockTab).toHaveCount(1);
-  await expect(page.getByRole('tab')).toHaveText(['BASIC', /kept/]);
+  await expect(page.getByRole('tab')).toHaveText(['BASIC', /kept/, /SCORES/]);
   await page.getByRole('tab', { name: 'BASIC' }).click();
   await expect(page.locator(EDITOR)).toContainText('SAVE "SCORES" DATA');
+
+  // Deleting is the only way the file goes, and it asks first: cancelling
+  // leaves it exactly as it was.
+  await tab.click({ button: 'right' });
+  await tabMenu.getByRole('menuitem', { name: 'Delete' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Delete SCORES?' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(tab).toHaveCount(1);
+
+  await tab.click({ button: 'right' });
+  await tabMenu.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(tab).toHaveCount(0);
+  // Permanent: the machine is not asked to run again, and a reload - the thing
+  // that brought the file back before - now finds nothing to bring.
+  await page.reload();
+  await expect(tab).toHaveCount(0);
+  await expect(blockTab).toHaveCount(1);
 });

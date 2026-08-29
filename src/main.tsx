@@ -11,6 +11,7 @@ import './storage/safeStorage';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { parsePlayerPath } from './player/routes';
+import { emulatorVfs } from './storage/vfs/vfsStore';
 import './styles.css';
 
 // The only routing decision in the app: /<verb>/<shareId> paths open the
@@ -21,6 +22,12 @@ const App = React.lazy(() => import('./App'));
 const PlayerApp = React.lazy(() => import('./player/PlayerApp'));
 
 const playerRoute = parsePlayerPath(window.location.pathname);
+
+// The player keeps its files in memory only. It runs someone else's program in
+// a tab that may also be the user's own IDE tab: nothing it saves may be
+// stored, and nothing the IDE has stored may be disturbed by it. Set before the
+// render, so no machine can exist before the store knows.
+if (playerRoute) emulatorVfs.setPersistence(false);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

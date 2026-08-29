@@ -248,8 +248,9 @@ export class CpcMachine implements MachineEmulator {
     this.ay.reset();
     this.aySelected = 0;
     this.vsync = false;
-    // Discard rather than flush: the IDE clears the VFS around a reload, so a
-    // part-written file flushed here would outlive the run that wrote it.
+    // Discard rather than flush: the session that had the file open is over,
+    // so storing a part-written buffer now would look like a file the program
+    // closed.
     this.cassette?.closeAll(false);
     this.cpu.reset();
   }
