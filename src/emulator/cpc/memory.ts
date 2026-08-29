@@ -15,10 +15,10 @@ import { MemoryActivityBuffer } from '../memoryActivityBuffer';
  * BASIC. Writes ALWAYS land in the underlying RAM, ROM enabled or not - so the
  * screen stays writable while BASIC ROM is paged in for reads.
  *
- * The 464 has a single lower and a single upper ROM and a flat 64K of RAM. The
- * 6128 fits a second 64K that the PAL banks over the base one in 16K windows -
- * see {@link setRamConfig}; on the 464 only configuration 0 exists, so it is
- * inert.
+ * The 464 and the 664 have a single lower and a single upper ROM and a flat 64K
+ * of RAM. The 6128 fits a second 64K that the PAL banks over the base one in
+ * 16K windows - see {@link setRamConfig}; on the other two only configuration 0
+ * exists, so it is inert.
  */
 
 /** Combined ROM image size: 16K lower (OS) + 16K upper (BASIC). */
@@ -33,7 +33,7 @@ const UPPER_ROM_BASE = 0xc000; // &C000–&FFFF
  */
 export { SCREEN_BASE } from '../../dialects/cpc464/addresses';
 
-export type CpcModel = '464' | '6128';
+export type CpcModel = '464' | '664' | '6128';
 
 /** The four 16K CPU windows a RAM configuration maps: &0000/&4000/&8000/&C000. */
 const WINDOW_SIZE = 0x4000;
@@ -77,8 +77,8 @@ export class CpcMemory {
   readonly activity = new MemoryActivityBuffer(0x10000);
 
   /**
-   * The 6128's second 64K, as four 16K banks (4-7). Empty on the 464, which has
-   * none fitted.
+   * The 6128's second 64K, as four 16K banks (4-7). Empty on the 464 and the
+   * 664, neither of which has one fitted.
    */
   readonly expansionRam: Uint8Array;
   /** The selected RAM configuration (index into {@link RAM_CONFIGS}). */
@@ -140,8 +140,8 @@ export class CpcMemory {
   /**
    * Select a RAM configuration from a `&7Fxx` `%11xxxxxx` write (bits 0-2; the
    * upper bits are the expansion-RAM bank select on machines with more than
-   * 128K, which the 6128 does not have). On the 464 no second bank is fitted,
-   * so every request is a no-op and the flat 64K stands.
+   * 128K, which the 6128 does not have). On the 464 and the 664 no second bank
+   * is fitted, so every request is a no-op and the flat 64K stands.
    */
   setRamConfig(config: number): void {
     if (this.model !== '6128') return;

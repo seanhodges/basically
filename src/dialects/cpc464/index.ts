@@ -32,8 +32,9 @@ import { CPC_ROM_SIZE } from '../../emulator/cpc/memory';
  * Locomotive BASIC program-area byte layout - binary numeric constants and all
  * - and that tokenized program is the dialect's "image", loadable at &170. The
  * AMSDOS `.bas` container (basfile.ts) wraps/unwraps it for file import/export.
- * The machine lives in `src/emulator/cpc/`, shared with the CPC 6128 sibling
- * (../cpc6128/), which delegates to this dialect.
+ * The machine lives in `src/emulator/cpc/`, shared with the two siblings that
+ * delegate to this dialect: the CPC 664 (../cpc664/) and the CPC 6128
+ * (../cpc6128/), both of which take the BASIC 1.1 half of the variant seam.
  */
 export const cpc464: Dialect = {
   id: 'cpc464',

@@ -40,6 +40,11 @@ const MACHINES = [
     detail: 'Main firmware jumpblock',
   },
   {
+    id: 'cpc664',
+    coarse: 'System (high)',
+    detail: 'Main firmware jumpblock',
+  },
+  {
     id: 'cpc6128',
     coarse: 'System (high)',
     detail: 'Main firmware jumpblock',

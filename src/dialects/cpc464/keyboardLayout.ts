@@ -47,8 +47,8 @@ import {
  * and the keyboard-joystick, which binds to them through `controllerKeys`.
  * The numeric-keypad function keys `f0`-`f9` live in the top strip. The 464's
  * coloured keycaps come from the `vk-theme-cpc464` block in
- * VirtualKeyboard.css; the CPC 6128 sibling (`../cpc6128/`) re-exports these
- * rows under its own theme.
+ * VirtualKeyboard.css; the CPC 664 (`../cpc664/`) and CPC 6128 (`../cpc6128/`)
+ * siblings re-export these rows under grey themes of their own.
  */
 
 /** The two character layers, index-aligned with `layout.layers` below. */

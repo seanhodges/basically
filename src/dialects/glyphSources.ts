@@ -125,6 +125,7 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   bbcmicro: '&',
   bbcmaster: '&',
   cpc464: '&',
+  cpc664: '&',
   cpc6128: '&',
   // Atom BASIC writes `#` (`?#8000=1`), likewise mirrored.
   atom: '#',
@@ -458,6 +459,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   pet: [commodoreFont('pet/characters-2.901447-10.bin', null, 0x7f)],
 
   cpc464: [cpcFont('cpc/cpc464.rom')],
+  cpc664: [cpcFont('cpc/cpc664.rom')],
   cpc6128: [cpcFont('cpc/cpc6128.rom')],
 
   atom: [

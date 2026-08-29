@@ -4,6 +4,7 @@ title: Amstrad CPC hardware
 
 <script setup>
 import { cpc464MemoryMap } from '../../../src/dialects/cpc464/memoryMap';
+import { cpc664MemoryMap } from '../../../src/dialects/cpc664/memoryMap';
 import { cpc6128MemoryMap } from '../../../src/dialects/cpc6128/memoryMap';
 </script>
 
@@ -80,16 +81,17 @@ warns (but allows) a block over reserved workspace or the screen. See the
 Every mnemonic, directive and operand form the assembly editor accepts is in the
 [Z80 assembly reference](../z80-assembly).
 
-## Amstrad CPC 6128
+## Amstrad CPC 664
 
-The 6128 is the same computer with more memory and a later BASIC. Its screen
-modes, colours, graphics coordinate space and sound hardware are identical to the
-[464's](#amstrad-cpc-464) — everything above applies unchanged.
+The 664 is the 464 with a later BASIC and a disc drive in place of the tape
+deck. Its memory, screen modes, colours, graphics coordinate space and sound
+hardware are identical to the [464's](#amstrad-cpc-464) — everything above
+applies unchanged.
 
-### Locomotive BASIC 1.1
+### Locomotive BASIC 1.1 {#basic-11}
 
-The 6128 runs BASIC 1.1, which adds eleven keywords to BASIC 1.0. They are marked
-**BASIC 1.1 only** in the [keyword reference](../cpc), and the most useful in
+The 664 is where BASIC 1.1 first shipped. It adds eleven keywords to BASIC 1.0,
+marked **BASIC 1.1 only** in the [keyword reference](../cpc); the most useful in
 practice are:
 
 | Keyword                           | What it does                                             |
@@ -105,8 +107,41 @@ practice are:
 | `ON BREAK CONT`                   | Makes <kbd>ESC</kbd> ignored                             |
 | `DERR`                            | The last disc error number                               |
 
-A program written in BASIC 1.0 runs on both machines and builds the same
-program bytes on either; one using the keywords above runs only on the 6128.
+A program written in BASIC 1.0 runs on all three CPCs and builds the same program
+bytes on each; one using the keywords above runs on the 664 and the 6128 but not
+the 464.
+
+### Tape, not disc {#cpc664-tape}
+
+The real 664 has a 3" disc drive built in. This IDE runs the machine with **tape
+only** — there is no disc drive and no AMSDOS ROM. Because AMSDOS is absent so
+are its commands: `|DISC`, `|DIR`, `|ERA` and `|REN` are not available, and
+neither is `|TAPE` — there is no disc filing system to switch away from, so the
+cassette is already in use and `|TAPE` would answer `Unknown command`. `.dsk`
+images are neither imported nor exported, and the machine reports the 464's
+free-RAM figure rather than the smaller one a disc-equipped 664 leaves.
+
+Data files work regardless of the missing drive, exactly as they do on the
+[6128](#cpc6128-tape).
+
+### Memory {#cpc664-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="cpc664" :map="cpc664MemoryMap" />
+
+Memory blocks work exactly as on the [464](#cpc464-memory), with the same valid
+range, the same **&8000** default and the same three warned regions.
+
+## Amstrad CPC 6128
+
+The 6128 is the 664 with more memory. Its screen modes, colours, graphics
+coordinate space and sound hardware are identical to the
+[464's](#amstrad-cpc-464), and it runs the same
+[Locomotive BASIC 1.1](#basic-11) as the 664 — everything above applies
+unchanged.
 
 ### The second 64K
 
@@ -119,7 +154,7 @@ machine code, not for BASIC variables or arrays. Configuration 0 is the flat bas
 once. The display always reads the base 64K whatever is selected, so banking
 never disturbs the screen.
 
-### Tape, not disc
+### Tape, not disc {#cpc6128-tape}
 
 The real 6128 has a 3" disc drive, and boots addressing it. This IDE runs the
 machine with **tape only** — there is no disc drive and no AMSDOS ROM. Because

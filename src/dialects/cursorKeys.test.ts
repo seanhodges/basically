@@ -163,7 +163,7 @@ const CLAIMED: Record<string, string[]> = {
   /** The shared cpu6502 core. */
   pet: ['pet', 'atom'],
   /** The CPC's own Z80 run loop. */
-  cpc464: ['cpc464', 'cpc6128'],
+  cpc464: ['cpc464', 'cpc664', 'cpc6128'],
   /** 8080 object code through the shared i8080 layer. */
   pmd85: ['pmd85'],
   /** jsbeeb. */

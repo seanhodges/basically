@@ -33,6 +33,7 @@ import { bbcMasterMemoryMap } from '../../src/dialects/bbcmaster/memoryMap';
 import { bbcMicroMemoryMap } from '../../src/dialects/bbcmicro/memoryMap';
 import { c64MemoryMap } from '../../src/dialects/commodore64/memoryMap';
 import { cpc464MemoryMap } from '../../src/dialects/cpc464/memoryMap';
+import { cpc664MemoryMap } from '../../src/dialects/cpc664/memoryMap';
 import { cpc6128MemoryMap } from '../../src/dialects/cpc6128/memoryMap';
 import { petMemoryMap } from '../../src/dialects/pet/memoryMap';
 import { vic20MemoryMap } from '../../src/dialects/vic20/memoryMap';
@@ -89,6 +90,7 @@ const memoryMapById = {
   bbcmicro: bbcMicroMemoryMap,
   commodore64: c64MemoryMap,
   cpc464: cpc464MemoryMap,
+  cpc664: cpc664MemoryMap,
   cpc6128: cpc6128MemoryMap,
   pet: petMemoryMap,
   vic20: vic20MemoryMap,

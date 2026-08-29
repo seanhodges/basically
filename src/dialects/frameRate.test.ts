@@ -69,6 +69,7 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // 4MHz / (256 T x 312 lines). Not a constant on this machine: the CRTC sets
   // the frame length, so this is the rate at the power-on register values.
   cpc464: 50.08,
+  cpc664: 50.08,
   cpc6128: 50.08,
   // No video at all - a front panel and a serial terminal. 50 is how often the
   // host is given a chance to redraw the terminal, not a hardware figure.

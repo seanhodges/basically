@@ -3,15 +3,18 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CpcMachine } from './cpcMachine';
 import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
-import { cpc6128Samples } from '../../dialects/cpc6128/samples';
+import { cpc664Samples } from '../../dialects/cpc664/samples';
 
 /**
- * Acceptance tests for the real CPC 6128 firmware (OS 2.x + Locomotive BASIC
- * 1.1), the 6128 half of the cpcBoot suite. The combined 32K `cpc6128.rom`
- * ships at public/roms/cpc/cpc6128.rom under the terms in
- * public/roms/ATTRIBUTION.md; the suite skips if it is absent.
+ * Acceptance tests for the real CPC 664 firmware (OS v2 + Locomotive BASIC
+ * 1.1), the 664 half of the cpcBoot suite. The combined 32K `cpc664.rom` ships
+ * at public/roms/cpc/cpc664.rom under the terms in public/roms/ATTRIBUTION.md;
+ * the suite skips if it is absent.
+ *
+ * The 664's BASIC 1.1 is an earlier revision than the 6128's and a different
+ * image, so "1.1 works" is not inherited from the 6128 suite - these run it.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc6128.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc664.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 
@@ -22,69 +25,58 @@ function ocr(m: CpcMachine): string {
   return m.readScreenText()?.lines.join('\n') ?? '';
 }
 
-suite('CpcMachine 6128 firmware boot', () => {
-  it('boots the ROM to the BASIC 1.1 banner', () => {
-    const m = new CpcMachine({ rom, model: '6128' });
+suite('CpcMachine 664 firmware boot', () => {
+  it('boots the ROM to the 64K BASIC 1.1 banner', () => {
+    const m = new CpcMachine({ rom, model: '664' });
     for (let i = 0; i < 200; i++) m.runFrame();
     const screen = ocr(m);
-    expect(screen).toContain('Amstrad 128K Microcomputer');
+    // The 664 announces itself as a 64K machine at firmware v2 - the middle
+    // banner between the 464's "64K ... (v1)" and the 6128's "128K ... (v3)".
+    expect(screen).toContain('Amstrad 64K Microcomputer');
+    expect(screen).toContain('(v2)');
     expect(screen).toContain('BASIC 1.1');
     expect(screen).toContain('Ready');
     m.dispose();
   });
 
   it('reports its free BASIC RAM through PRINT FRE(0)', () => {
-    const m = new CpcMachine({ rom, model: '6128' });
+    const m = new CpcMachine({ rom, model: '664' });
     const { bytes, errors } = tokenizeProgram('10 PRINT FRE(0)', 'basic11');
     expect(errors).toEqual([]);
     m.loadProgram(bytes);
     for (let i = 0; i < 40; i++) m.runFrame();
-    // Pinned against the running ROM, and identical to what the 464 prints for
-    // the same 14-byte program: BASIC 1.1 moved its workspace pointers but not
-    // the amount of RAM it leaves for a program. That equality is the check -
-    // reading 1.1's pointers at 1.0's addresses inflates this figure.
-    //
-    // This is the emulator's own reading, and deliberately NOT the dialect's
-    // programRamBytes: that is the whole no-AMSDOS budget, 43535 (see
-    // cpc464/index.ts), where this figure is what is left of it once the
-    // 14-byte program above is in memory. The budget is the same on every CPC
-    // here; fitting AMSDOS is what takes a disc-equipped machine down to 42249,
-    // by dropping HIMEM from &AB7F to &A67B.
+    // Pinned against the running ROM, and the same figure the 464 and the 6128
+    // print for this program: BASIC 1.1 moved its workspace pointers but not
+    // the amount of RAM it leaves for a program, and the 664 has no AMSDOS
+    // below HIMEM here. That equality is the check - reading 1.1's pointers at
+    // 1.0's addresses would not land on it.
     expect(ocr(m)).toContain(' 43521');
     m.dispose();
   });
 
-  it('banks RAM from BASIC through a &7Fxx configuration write', () => {
-    // The end-to-end path the memory unit tests cannot reach: a real OUT from
-    // the firmware's own interpreter, through the Gate Array's %11xxxxxx
-    // command group, into the PAL RAM configuration. &7000 sits in free BASIC
-    // RAM inside the &4000-&7FFF window that configuration 4 banks.
-    const m = new CpcMachine({ rom, model: '6128' });
+  it('has no second bank to switch to, whatever BASIC writes to &7Fxx', () => {
+    // The 6128's banking test, run on the machine that does not bank: the same
+    // Gate Array command group must leave the base RAM showing through.
+    const m = new CpcMachine({ rom, model: '664' });
     const { bytes, errors } = tokenizeProgram(
       [
         '10 POKE &7000,17',
         '20 OUT &7F00,&C4',
-        '30 POKE &7000,153',
+        '30 PRINT "STILL";PEEK(&7000)',
         '40 OUT &7F00,&C0',
-        '50 PRINT "BASE";PEEK(&7000)',
-        '60 OUT &7F00,&C4',
-        '70 PRINT "BANK";PEEK(&7000)',
-        '80 OUT &7F00,&C0',
       ].join('\n'),
       'basic11',
     );
     expect(errors).toEqual([]);
     m.loadProgram(bytes);
     for (let i = 0; i < 60; i++) m.runFrame();
-    const screen = ocr(m);
-    expect(screen).toContain('BASE 17'); // the banked write missed the base RAM
-    expect(screen).toContain('BANK 153'); // and is still there in bank 4
+    expect(ocr(m)).toContain('STILL 17');
     expect(m.mem.ramConfiguration).toBe(0);
     m.dispose();
   });
 
   it('runs a BASIC 1.1-only keyword the 464 cannot', () => {
-    const m = new CpcMachine({ rom, model: '6128' });
+    const m = new CpcMachine({ rom, model: '664' });
     const { bytes, errors } = tokenizeProgram(
       '10 MODE 1:GRAPHICS PEN 2:FRAME:PRINT "BASIC-11-OK"',
       'basic11',
@@ -98,10 +90,14 @@ suite('CpcMachine 6128 firmware boot', () => {
   });
 });
 
-suite('CpcMachine 6128 runtime introspection', () => {
-  /** Park a program in an idle loop so the readers see a live interpreter. */
+suite('CpcMachine 664 runtime introspection', () => {
+  /**
+   * The 1.1 workspace table is shared with the 6128, and the 664's firmware is
+   * a different build - so these confirm the shared addresses are right for
+   * this ROM too, rather than assuming it.
+   */
   const running = (src: string, frames = 80) => {
-    const m = new CpcMachine({ rom, model: '6128' });
+    const m = new CpcMachine({ rom, model: '664' });
     const { bytes, errors } = tokenizeProgram(src, 'basic11');
     expect(errors, src).toEqual([]);
     m.loadProgram(bytes);
@@ -118,6 +114,7 @@ suite('CpcMachine 6128 runtime introspection', () => {
       { name: 'B$', kind: 'string', value: '"HI"' },
       { name: 'C()', kind: 'number-array', value: '[4] = 0, 7, 0, 0' },
     ]);
+    expect(m.readMemoryStats()?.used).toBeGreaterThan(0);
     m.dispose();
   });
 
@@ -137,25 +134,14 @@ suite('CpcMachine 6128 runtime introspection', () => {
     });
     m.dispose();
   });
-
-  it('reports used and free BASIC RAM', () => {
-    const m = running(
-      '10 A=42\n20 B$="HI"\n30 DIM C(3)\n40 C(1)=7\n50 GOTO 50',
-    );
-    const stats = m.readMemoryStats();
-    expect(stats).not.toBeNull();
-    expect(stats!.used).toBeGreaterThan(0);
-    expect(stats!.free).toBeGreaterThan(40000);
-    m.dispose();
-  });
 });
 
-suite('CpcMachine 6128 sample programs run without BASIC errors', () => {
-  // The shared samples are BASIC 1.0 source; they must run on the 6128 too,
+suite('CpcMachine 664 sample programs run without BASIC errors', () => {
+  // The shared samples are BASIC 1.0 source; they must run on the 664 too,
   // tokenized under 1.1. Same guard as the 464 suite.
-  for (const sample of cpc6128Samples) {
+  for (const sample of cpc664Samples) {
     it(`${sample.name}`, () => {
-      const m = new CpcMachine({ rom, model: '6128' });
+      const m = new CpcMachine({ rom, model: '664' });
       const { bytes, errors } = tokenizeProgram(sample.text, 'basic11');
       expect(errors, sample.name).toEqual([]);
       m.loadProgram(bytes);

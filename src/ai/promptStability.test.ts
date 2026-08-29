@@ -57,6 +57,7 @@ const PROMPT_CEILINGS: Record<string, number> = {
   atom: 30_000,
   trs80: 33_000,
   cpc464: 32_000,
+  cpc664: 34_000,
   cpc6128: 34_000,
   altair8800: 30_000,
   pmd85: 39_000,

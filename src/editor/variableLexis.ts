@@ -159,6 +159,7 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
     dataIsVerbatim: true,
   },
   cpc464: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
+  cpc664: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   cpc6128: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   pmd85: PMD85_LEXIS,
   apple1: APPLE1_LEXIS,

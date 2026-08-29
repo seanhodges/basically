@@ -34,6 +34,7 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   pet: 'the KERNAL trap stores the bytes the program wrote',
   trs80: 'the interpreter stores a sequential file as the text it wrote',
   cpc464: 'the cassette-manager trap stores the bytes the program wrote',
+  cpc664: 'the cassette-manager trap stores the bytes the program wrote',
   cpc6128: 'the cassette-manager trap stores the bytes the program wrote',
   // Machines that do not trap file I/O at all: nothing reaches the store, so
   // there is nothing to unwrap. Wiring them up is its own piece of work, and

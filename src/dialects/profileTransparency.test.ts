@@ -47,7 +47,7 @@ const FAMILIES: Record<string, string[]> = {
   /** jsbeeb. */
   bbcmicro: ['bbcmicro', 'bbcmaster'],
   /** The CPC's own Z80 run loop. */
-  cpc464: ['cpc464', 'cpc6128'],
+  cpc464: ['cpc464', 'cpc664', 'cpc6128'],
   /** 8080 object code through the shared i8080 layer. */
   pmd85: ['pmd85'],
   /** Its own bus over the shared cpu6502 core. */

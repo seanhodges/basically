@@ -595,7 +595,9 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   pmd85: PMD85,
   apple1: APPLE1_CONSTRUCTS,
   cpc464: CPC,
-  // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's blocks are the 464's.
+  // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 664's and the
+  // 6128's blocks are the 464's.
+  cpc664: CPC,
   cpc6128: CPC,
   // The 400 and 800 share Atari BASIC exactly; the same blocks apply.
   atari800: ATARI_CONSTRUCTS,

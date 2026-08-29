@@ -140,6 +140,9 @@ describe('CpcMemory 6128 RAM banking', () => {
   it('fits a second 64K only on the 6128', () => {
     expect(new CpcMemory(testRom(), '6128').expansionRam.length).toBe(0x10000);
     expect(new CpcMemory(testRom(), '464').expansionRam.length).toBe(0);
+    // The 664 is a 64K machine like the 464 - the disc drive is what it added,
+    // not memory - so it gets the flat base RAM and nothing to bank.
+    expect(new CpcMemory(testRom(), '664').expansionRam.length).toBe(0);
   });
 
   it('writes through a banked window without disturbing the base RAM', () => {
@@ -212,14 +215,17 @@ describe('CpcMemory 6128 RAM banking', () => {
     expect(mem.ramConfiguration).toBe(4);
   });
 
-  it('is inert on the 464, which has no second bank fitted', () => {
-    const mem = new CpcMemory(testRom(), '464');
-    mem.setRomEnables(false, false);
-    mem.write(0x4000, 0x11);
-    mem.setRamConfig(0xc2); // "all expansion" - nothing to switch to
-    expect(mem.ramConfiguration).toBe(0);
-    expect(mem.read(0x4000)).toBe(0x11);
-  });
+  it.each(['464', '664'] as const)(
+    'is inert on the %s, which has no second bank fitted',
+    (model) => {
+      const mem = new CpcMemory(testRom(), model);
+      mem.setRomEnables(false, false);
+      mem.write(0x4000, 0x11);
+      mem.setRamConfig(0xc2); // "all expansion" - nothing to switch to
+      expect(mem.ramConfiguration).toBe(0);
+      expect(mem.read(0x4000)).toBe(0x11);
+    },
+  );
 
   it('returns to configuration 0 on a paging reset', () => {
     const mem = mem6128();

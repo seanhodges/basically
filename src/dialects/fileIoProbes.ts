@@ -312,6 +312,7 @@ export const FILE_IO_PROBE_BY_DIALECT: Record<string, string> = {
   zxspectrum128: 'sinclair',
   bbcmicro: 'bbc',
   cpc464: 'cpc',
+  cpc664: 'cpc',
   cpc6128: 'cpc',
   bbcmaster: 'bbc',
   atom: 'atom',

@@ -48,7 +48,13 @@ describe('controller bindings resolve for every dialect', () => {
  * Everywhere else the field is omitted (defaults to one fire line) so a 2-button
  * layout wires only the primary button in a joystick mode.
  */
-const TWO_FIRE_DIALECTS = ['bbcmicro', 'bbcmaster', 'cpc464', 'cpc6128'];
+const TWO_FIRE_DIALECTS = [
+  'bbcmicro',
+  'bbcmaster',
+  'cpc464',
+  'cpc664',
+  'cpc6128',
+];
 
 describe('joystickFireButtons capability', () => {
   for (const dialect of dialects) {

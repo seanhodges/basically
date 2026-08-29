@@ -28,7 +28,7 @@ function control(code: number, description: string) {
 
 export const cpcEscapes: EscapeTableData = {
   title: 'Amstrad CPC escape codes',
-  machines: ['Amstrad CPC 464', 'Amstrad CPC 6128'],
+  machines: ['Amstrad CPC 464', 'Amstrad CPC 664', 'Amstrad CPC 6128'],
   categories: [
     // One chip for 32 firmware codes spanning colour, cursor, mode and sound, so
     // the class is the grab-bag one rather than any of the jobs it does.

@@ -41,6 +41,7 @@ import { vic20Keywords } from './vic20/keywords';
 import { atomKeywords } from './atom/keywords';
 import { trs80Keywords, TRS80_ALIASES } from './trs80/keywords';
 import { cpc464Keywords } from './cpc464/keywords';
+import { cpc664Keywords } from './cpc664/keywords';
 import { cpc6128Keywords } from './cpc6128/keywords';
 import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
 import { pmd85Keywords, PMD85_ALIASES } from './pmd85/keywords';
@@ -95,6 +96,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   atom: atomKeywords,
   trs80: [...trs80Keywords, ...TRS80_ALIASES],
   cpc464: cpc464Keywords,
+  cpc664: cpc664Keywords,
   cpc6128: cpc6128Keywords,
   altair8800: [...altair8800Keywords, ...ALTAIR8800_ALIASES],
   pmd85: [...pmd85Keywords, ...PMD85_ALIASES],

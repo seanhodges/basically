@@ -38,6 +38,7 @@ const EXPECTED_WIDTHS: Record<string, number> = {
   atom: 1024, // 256 (default) x4
   trs80: 1024, // 512 x2
   cpc464: 1280, // 640 x2
+  cpc664: 1280, // 640 x2
   cpc6128: 1280, // 640 x2
   altair8800: 1280, // 640 x2
   pmd85: 1152, // 288 x4

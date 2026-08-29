@@ -299,6 +299,7 @@ const NO_NAME_RULE: Record<string, string> = {
   bbcmaster: 'names are fully significant',
   // Locomotive BASIC likewise keeps every character of a name.
   cpc464: 'names are fully significant',
+  cpc664: 'names are fully significant',
   cpc6128: 'names are fully significant',
   // Atari BASIC keeps every character of a name too; its own restriction (a
   // name may not open with a reserved word the greedy scan matches first) is

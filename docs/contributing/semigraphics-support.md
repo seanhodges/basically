@@ -47,6 +47,7 @@ reported as such rather than guessed at.
 | Atom | ✅ | 64 (0xA0-0xDF) | 63 | 60 | 0 | 1 | 63/64 |
 | TRS-80 | ✅ | 64 (0x80-0xBF) | 63 | 60 | 0 | 1 | 63/64 |
 | CPC 464 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
+| CPC 664 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 | CPC 6128 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 | Altair 8800 | — | _none_ | — | — | — | — | — |
 | PMD 85-2 | — | _none_ | — | — | — | — | — |
@@ -177,6 +178,16 @@ Spelled as: 1 escape-raw, 20 glyph-astral, 43 glyph-bmp.
 
 **Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
 
+### CPC 664
+
+Charset family `cpc`. Graphics bytes 0x80-0x9F, 0xC0-0xDF.
+
+Spelled as: 1 escape-raw, 20 glyph-astral, 43 glyph-bmp.
+
+**Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
+
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
+
 ### CPC 6128
 
 Charset family `cpc`. Graphics bytes 0x80-0x9F, 0xC0-0xDF.
@@ -234,118 +245,118 @@ This is the exact set the bundled character-graphics font is subset to.
 
 | Codepoint | Character | Plane | Used by |
 | --- | :-: | --- | --- |
-| `U+00A1` | ¡ | BMP | cpc464, cpc6128 |
-| `U+00A3` | £ | BMP | bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+00A7` | § | BMP | cpc464, cpc6128 |
-| `U+00A8` | ¨ | BMP | cpc464, cpc6128 |
-| `U+00A9` | © | BMP | cpc464, cpc6128, zxspectrum, zxspectrum128 |
-| `U+00AC` | ¬ | BMP | cpc464, cpc6128 |
-| `U+00B1` | ± | BMP | cpc464, cpc6128 |
-| `U+00B4` | ´ | BMP | cpc464, cpc6128 |
-| `U+00B6` | ¶ | BMP | cpc464, cpc6128 |
-| `U+00B7` | · | BMP | cpc464, cpc6128 |
-| `U+00BC` | ¼ | BMP | cpc464, cpc6128 |
-| `U+00BD` | ½ | BMP | cpc464, cpc6128 |
-| `U+00BE` | ¾ | BMP | cpc464, cpc6128 |
-| `U+00BF` | ¿ | BMP | cpc464, cpc6128 |
-| `U+00F7` | ÷ | BMP | cpc464, cpc6128 |
-| `U+03A3` | Σ | BMP | cpc464, cpc6128 |
-| `U+03A9` | Ω | BMP | cpc464, cpc6128 |
-| `U+03B1` | α | BMP | cpc464, cpc6128 |
-| `U+03B2` | β | BMP | cpc464, cpc6128 |
-| `U+03B3` | γ | BMP | cpc464, cpc6128 |
-| `U+03B4` | δ | BMP | cpc464, cpc6128 |
-| `U+03B5` | ε | BMP | cpc464, cpc6128 |
-| `U+03B8` | θ | BMP | cpc464, cpc6128 |
-| `U+03BB` | λ | BMP | cpc464, cpc6128 |
-| `U+03BC` | μ | BMP | cpc464, cpc6128 |
-| `U+03C0` | π | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+03C3` | σ | BMP | cpc464, cpc6128 |
-| `U+03C6` | φ | BMP | cpc464, cpc6128 |
-| `U+03C7` | χ | BMP | cpc464, cpc6128 |
-| `U+03C8` | ψ | BMP | cpc464, cpc6128 |
-| `U+03C9` | ω | BMP | cpc464, cpc6128 |
-| `U+2019` | ’ | BMP | cpc464, cpc6128 |
+| `U+00A1` | ¡ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00A3` | £ | BMP | bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+00A7` | § | BMP | cpc464, cpc6128, cpc664 |
+| `U+00A8` | ¨ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00A9` | © | BMP | cpc464, cpc6128, cpc664, zxspectrum, zxspectrum128 |
+| `U+00AC` | ¬ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00B1` | ± | BMP | cpc464, cpc6128, cpc664 |
+| `U+00B4` | ´ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00B6` | ¶ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00B7` | · | BMP | cpc464, cpc6128, cpc664 |
+| `U+00BC` | ¼ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00BD` | ½ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00BE` | ¾ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00BF` | ¿ | BMP | cpc464, cpc6128, cpc664 |
+| `U+00F7` | ÷ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03A3` | Σ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03A9` | Ω | BMP | cpc464, cpc6128, cpc664 |
+| `U+03B1` | α | BMP | cpc464, cpc6128, cpc664 |
+| `U+03B2` | β | BMP | cpc464, cpc6128, cpc664 |
+| `U+03B3` | γ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03B4` | δ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03B5` | ε | BMP | cpc464, cpc6128, cpc664 |
+| `U+03B8` | θ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03BB` | λ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03BC` | μ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03C0` | π | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+03C3` | σ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03C6` | φ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03C7` | χ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03C8` | ψ | BMP | cpc464, cpc6128, cpc664 |
+| `U+03C9` | ω | BMP | cpc464, cpc6128, cpc664 |
+| `U+2019` | ’ | BMP | cpc464, cpc6128, cpc664 |
 | `U+2022` | • | BMP | atari400, atari800 |
 | `U+2190` | ← | BMP | commodore64, pet, vic20 |
-| `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zxspectrum, zxspectrum128 |
+| `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20, zxspectrum, zxspectrum128 |
 | `U+231C` | ⌜ | BMP | commodore64, pet, vic20 |
 | `U+231D` | ⌝ | BMP | commodore64, pet, vic20 |
 | `U+231E` | ⌞ | BMP | commodore64, pet, vic20 |
 | `U+231F` | ⌟ | BMP | commodore64, pet, vic20 |
-| `U+2500` | ─ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2502` | │ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+250C` | ┌ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2510` | ┐ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2514` | └ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2518` | ┘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+251C` | ├ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2524` | ┤ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+252C` | ┬ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2534` | ┴ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+253C` | ┼ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2500` | ─ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2502` | │ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+250C` | ┌ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2510` | ┐ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2514` | └ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2518` | ┘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+251C` | ├ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2524` | ┤ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+252C` | ┬ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2534` | ┴ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+253C` | ┼ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
 | `U+256D` | ╭ | BMP | commodore64, pet, vic20 |
 | `U+256E` | ╮ | BMP | commodore64, pet, vic20 |
 | `U+256F` | ╯ | BMP | commodore64, pet, vic20 |
 | `U+2570` | ╰ | BMP | commodore64, pet, vic20 |
-| `U+2571` | ╱ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2572` | ╲ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2573` | ╳ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2574` | ╴ | BMP | cpc464, cpc6128 |
-| `U+2575` | ╵ | BMP | cpc464, cpc6128 |
-| `U+2576` | ╶ | BMP | cpc464, cpc6128 |
-| `U+2577` | ╷ | BMP | cpc464, cpc6128 |
-| `U+2580` | ▀ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2581` | ▁ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+2571` | ╱ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2572` | ╲ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2573` | ╳ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2574` | ╴ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2575` | ╵ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2576` | ╶ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2577` | ╷ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2580` | ▀ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2581` | ▁ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
 | `U+2582` | ▂ | BMP | atari400, atari800, commodore64, pet, vic20 |
 | `U+2583` | ▃ | BMP | commodore64, pet, vic20 |
-| `U+2584` | ▄ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, pmd85, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+258C` | ▌ | BMP | atari400, atari800, atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2584` | ▄ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, cpc664, pmd85, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+258C` | ▌ | BMP | atari400, atari800, atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, cpc664, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258D` | ▍ | BMP | commodore64, pet, vic20 |
 | `U+258E` | ▎ | BMP | atari400, atari800, commodore64, pet, vic20 |
-| `U+258F` | ▏ | BMP | cpc464, cpc6128 |
-| `U+2590` | ▐ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2592` | ▒ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81 |
-| `U+2594` | ▔ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2595` | ▕ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2596` | ▖ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2597` | ▗ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2598` | ▘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2599` | ▙ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259A` | ▚ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259B` | ▛ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259C` | ▜ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259D` | ▝ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259E` | ▞ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259F` | ▟ | BMP | cpc464, cpc6128, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+25A0` | ■ | BMP | cpc464, cpc6128 |
-| `U+25A1` | □ | BMP | cpc464, cpc6128 |
-| `U+25B2` | ▲ | BMP | cpc464, cpc6128 |
-| `U+25B6` | ▶ | BMP | atari400, atari800, cpc464, cpc6128 |
-| `U+25BC` | ▼ | BMP | cpc464, cpc6128 |
-| `U+25C0` | ◀ | BMP | atari400, atari800, cpc464, cpc6128 |
-| `U+25CB` | ○ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+25CF` | ● | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+25E2` | ◢ | BMP | atari400, atari800, cpc464, cpc6128 |
-| `U+25E3` | ◣ | BMP | atari400, atari800, cpc464, cpc6128 |
-| `U+25E4` | ◤ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+25E5` | ◥ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2639` | ☹ | BMP | cpc464, cpc6128 |
-| `U+263A` | ☺ | BMP | cpc464, cpc6128 |
-| `U+263C` | ☼ | BMP | cpc464, cpc6128 |
-| `U+2640` | ♀ | BMP | cpc464, cpc6128 |
-| `U+2642` | ♂ | BMP | cpc464, cpc6128 |
-| `U+2660` | ♠ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2663` | ♣ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2665` | ♥ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2666` | ♦ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+2669` | ♩ | BMP | cpc464, cpc6128 |
-| `U+266A` | ♪ | BMP | cpc464, cpc6128 |
-| `U+2B60` | ⭠ | BMP | cpc464, cpc6128 |
-| `U+2B61` | ⭡ | BMP | cpc464, cpc6128 |
-| `U+2B62` | ⭢ | BMP | cpc464, cpc6128 |
-| `U+2B63` | ⭣ | BMP | cpc464, cpc6128 |
+| `U+258F` | ▏ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2590` | ▐ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, cpc664, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2592` | ▒ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81 |
+| `U+2594` | ▔ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2595` | ▕ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2596` | ▖ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2597` | ▗ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2598` | ▘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2599` | ▙ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259A` | ▚ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259B` | ▛ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259C` | ▜ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259D` | ▝ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259E` | ▞ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259F` | ▟ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+25A0` | ■ | BMP | cpc464, cpc6128, cpc664 |
+| `U+25A1` | □ | BMP | cpc464, cpc6128, cpc664 |
+| `U+25B2` | ▲ | BMP | cpc464, cpc6128, cpc664 |
+| `U+25B6` | ▶ | BMP | atari400, atari800, cpc464, cpc6128, cpc664 |
+| `U+25BC` | ▼ | BMP | cpc464, cpc6128, cpc664 |
+| `U+25C0` | ◀ | BMP | atari400, atari800, cpc464, cpc6128, cpc664 |
+| `U+25CB` | ○ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+25CF` | ● | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+25E2` | ◢ | BMP | atari400, atari800, cpc464, cpc6128, cpc664 |
+| `U+25E3` | ◣ | BMP | atari400, atari800, cpc464, cpc6128, cpc664 |
+| `U+25E4` | ◤ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+25E5` | ◥ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2639` | ☹ | BMP | cpc464, cpc6128, cpc664 |
+| `U+263A` | ☺ | BMP | cpc464, cpc6128, cpc664 |
+| `U+263C` | ☼ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2640` | ♀ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2642` | ♂ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2660` | ♠ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2663` | ♣ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2665` | ♥ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2666` | ♦ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+2669` | ♩ | BMP | cpc464, cpc6128, cpc664 |
+| `U+266A` | ♪ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2B60` | ⭠ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2B61` | ⭡ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2B62` | ⭢ | BMP | cpc464, cpc6128, cpc664 |
+| `U+2B63` | ⭣ | BMP | cpc464, cpc6128, cpc664 |
 | `U+1F130` | 🄰 | astral | zxspectrum, zxspectrum128 |
 | `U+1F131` | 🄱 | astral | zxspectrum, zxspectrum128 |
 | `U+1F132` | 🄲 | astral | zxspectrum, zxspectrum128 |
@@ -438,29 +449,29 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+1FB83` | 🮃 | astral | commodore64, pet, vic20 |
 | `U+1FB87` | 🮇 | astral | atari400, atari800 |
 | `U+1FB88` | 🮈 | astral | commodore64, pet, vic20 |
-| `U+1FB8C` | 🮌 | astral | commodore64, cpc464, cpc6128, pet, vic20 |
-| `U+1FB8D` | 🮍 | astral | cpc464, cpc6128 |
-| `U+1FB8E` | 🮎 | astral | cpc464, cpc6128, zx80, zx81 |
-| `U+1FB8F` | 🮏 | astral | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81 |
+| `U+1FB8C` | 🮌 | astral | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
+| `U+1FB8D` | 🮍 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FB8E` | 🮎 | astral | cpc464, cpc6128, cpc664, zx80, zx81 |
+| `U+1FB8F` | 🮏 | astral | commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81 |
 | `U+1FB90` | 🮐 | astral | zx80, zx81 |
 | `U+1FB91` | 🮑 | astral | zx80, zx81 |
 | `U+1FB92` | 🮒 | astral | zx80, zx81 |
-| `U+1FB95` | 🮕 | astral | cpc464, cpc6128 |
-| `U+1FB9C` | 🮜 | astral | cpc464, cpc6128 |
-| `U+1FB9D` | 🮝 | astral | cpc464, cpc6128 |
-| `U+1FB9E` | 🮞 | astral | cpc464, cpc6128 |
-| `U+1FB9F` | 🮟 | astral | cpc464, cpc6128 |
-| `U+1FBA0` | 🮠 | astral | cpc464, cpc6128 |
-| `U+1FBA1` | 🮡 | astral | cpc464, cpc6128 |
-| `U+1FBA2` | 🮢 | astral | cpc464, cpc6128 |
-| `U+1FBA3` | 🮣 | astral | cpc464, cpc6128 |
-| `U+1FBA4` | 🮤 | astral | cpc464, cpc6128 |
-| `U+1FBA5` | 🮥 | astral | cpc464, cpc6128 |
-| `U+1FBA6` | 🮦 | astral | cpc464, cpc6128 |
-| `U+1FBA7` | 🮧 | astral | cpc464, cpc6128 |
-| `U+1FBA8` | 🮨 | astral | cpc464, cpc6128 |
-| `U+1FBA9` | 🮩 | astral | cpc464, cpc6128 |
-| `U+1FBAE` | 🮮 | astral | cpc464, cpc6128 |
+| `U+1FB95` | 🮕 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FB9C` | 🮜 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FB9D` | 🮝 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FB9E` | 🮞 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FB9F` | 🮟 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA0` | 🮠 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA1` | 🮡 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA2` | 🮢 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA3` | 🮣 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA4` | 🮤 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA5` | 🮥 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA6` | 🮦 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA7` | 🮧 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA8` | 🮨 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBA9` | 🮩 | astral | cpc464, cpc6128, cpc664 |
+| `U+1FBAE` | 🮮 | astral | cpc464, cpc6128, cpc664 |
 
 <!-- semigraphics:end -->
 

@@ -12,8 +12,9 @@ Every command, function and operator in Locomotive BASIC, the full-featured BASI
 of the Amstrad CPC — with real structured keywords such as `IF … THEN … ELSE`,
 `WHILE … WEND` and the `AFTER`/`EVERY` interrupt timers.
 
-Two machines run it here: the **CPC 464** with BASIC 1.0, and the **CPC 6128**
-with BASIC 1.1, which adds eleven keywords to the same language.
+Three machines run it here: the **CPC 464** with BASIC 1.0, and the **CPC 664**
+and **CPC 6128** with BASIC 1.1, which adds eleven keywords to the same
+language.
 
 **In this reference:** [Hardware](./cpc/hardware) · [Escape codes](./cpc/escapes) · [File formats](./cpc/formats) · [Argument notation](./#argument-notation)
 
@@ -34,8 +35,8 @@ with BASIC 1.1, which adds eleven keywords to the same language.
   `INKEY(1)` right. `JOY(0)` returns the joystick as a bit mask (bit 0 up, 1
   down, 2 left, 3 right, 4 fire 2, 5 fire 1).
 - Entries tagged **BASIC 1.1 only** are the additions Locomotive BASIC 1.1 (the
-  CPC 6128) brings; the BASIC 1.0 464 rejects them. Everything untagged works on
-  both machines and produces the same program either way, so a listing that
-  avoids the tagged entries moves between them unchanged.
+  CPC 664 and CPC 6128) brings; the BASIC 1.0 464 rejects them. Everything
+  untagged works on all three machines and produces the same program on each, so
+  a listing that avoids the tagged entries moves between them unchanged.
 
 <ReferenceTable :data="cpcReference" />

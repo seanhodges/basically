@@ -79,6 +79,7 @@ const ROM_NAME_FACTS: Record<
   bbcmicro: { significant: 'all', case: 'sensitive', dataItems: 'verbatim' },
   bbcmaster: { significant: 'all', case: 'sensitive', dataItems: 'verbatim' },
   cpc464: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  cpc664: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
   cpc6128: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
   commodore64: { significant: 2, case: 'folded', dataItems: 'verbatim' },
   pet: { significant: 2, case: 'folded', dataItems: 'verbatim' },

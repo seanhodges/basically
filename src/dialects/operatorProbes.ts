@@ -301,8 +301,8 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
   },
   {
     id: 'cpc',
-    machines: ['CPC 464', 'CPC 6128'],
-    dialects: ['cpc464', 'cpc6128'],
+    machines: ['CPC 464', 'CPC 664', 'CPC 6128'],
+    dialects: ['cpc464', 'cpc664', 'cpc6128'],
     // Locomotive BASIC has the richest operator set here: `\` for integer
     // division as well as `MOD`, and a spelled-out `XOR`.
     program: [

@@ -7,7 +7,7 @@ import { withAbbreviations } from './abbreviations';
 
 const cpcTable: BasicReferenceTableData = {
   title: 'Amstrad CPC Locomotive BASIC (1.0 & 1.1)',
-  machines: ['Amstrad CPC 464', 'Amstrad CPC 6128'],
+  machines: ['Amstrad CPC 464', 'Amstrad CPC 664', 'Amstrad CPC 6128'],
   placeholders: [
     { id: 'pen', meaning: 'a pen number in the current palette' },
     { id: 'stream', meaning: 'one of the eight screen windows, #0 to #7' },
@@ -688,7 +688,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'FILL <pen>',
       description: 'Flood-fill from the graphics cursor.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'GRAPHICS',
@@ -697,7 +697,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'GRAPHICS PEN [<pen>][, <number>]',
       description: 'GRAPHICS PEN / PAPER prefix.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'MASK',
@@ -706,7 +706,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'MASK [<mask>][, <number>]',
       description: 'Set the line-drawing dot pattern.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'FRAME',
@@ -715,7 +715,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'FRAME',
       description: 'Wait for a display frame flyback.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'CURSOR',
@@ -724,7 +724,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'CURSOR [<number>][, <number>]',
       description: 'Switch the text cursor on or off.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'ERL',
@@ -1188,7 +1188,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'DERR',
       description: 'Disc error number of the last error.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'BIN$',
@@ -1204,7 +1204,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'DEC$(<number>, <string>)',
       description: 'Number formatted to a template.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'HEX$',
@@ -1290,7 +1290,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'COPYCHR$(#<stream>)',
       description: 'Character under the text cursor.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'VPOS',
@@ -1376,7 +1376,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'CLEAR INPUT',
       description: 'Discard pending keyboard input.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'GRAPHICS PEN',
@@ -1385,7 +1385,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'GRAPHICS PEN [<pen>][, <number>]',
       description: 'Set the graphics drawing ink.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'GRAPHICS PAPER',
@@ -1394,7 +1394,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'GRAPHICS PAPER <pen>',
       description: 'Set the graphics background ink.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
     {
       name: 'ON BREAK CONT',
@@ -1403,7 +1403,7 @@ const cpcTable: BasicReferenceTableData = {
       syntax: 'ON BREAK CONT',
       description: 'Ignore the ESC (break) key.',
       tag: 'BASIC 1.1 only',
-      onlyOn: ['cpc6128'],
+      onlyOn: ['cpc664', 'cpc6128'],
     },
   ],
 };
