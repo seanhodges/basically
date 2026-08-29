@@ -1,6 +1,7 @@
 /**
  * Every registered machine says whether it captures the files a running program
- * saves, and every machine that says it does is made to prove it.
+ * saves, and every machine that says it does is made to prove it - both within
+ * a run and across two of them.
  *
  * The IDE hands the same virtual filesystem to every machine at construction
  * (`src/components/EmulatorPane.tsx`), and taking that argument is not evidence
@@ -15,6 +16,16 @@
  * write: a machine can be wired to fill the store and never serve a load out of
  * it, and a check that only watched `save` would call that working. The programs
  * come from `fileIoProbes.ts`, lifted from each machine's own file-I/O test.
+ *
+ * Then the same machine is run a second time, on a program that only loads,
+ * against the store the first run filled. That is the cross-run guarantee the
+ * IDE now makes - a start restores the machine's files rather than emptying
+ * them, so a program reads on one run what it saved on an earlier one - and it
+ * is a claim about each machine's load path rather than about the store: no
+ * machine's code changed to gain it, which is precisely why nothing in a
+ * machine would fail if one of them stopped answering out of a store it did not
+ * fill itself. Every machine that captures files is held to it; the ones that
+ * capture none are excused here by the same table that excuses them above.
  *
  * Structural for the machines that do not, and deliberately so. Proving that
  * negative means running the file statement, which is the thing those machines
@@ -46,6 +57,8 @@ import {
 import {
   FILE_IO_PROBES,
   FILE_IO_PROBE_BY_DIALECT,
+  FILE_IO_RESTORE_OK,
+  FILE_IO_RESTORE_SENTINEL,
   FILE_IO_SENTINEL,
 } from './fileIoProbes';
 import type { MachineFileEntry, MachineFileStore } from './types';
@@ -127,6 +140,11 @@ function spyStore(): {
   return { store, saved, loads };
 }
 
+/** The store's contents as plain arrays, so two states can be compared. */
+function snapshot(saved: Map<string, Uint8Array>): Record<string, number[]> {
+  return Object.fromEntries([...saved].map(([name, d]) => [name, [...d]]));
+}
+
 describe('every machine that claims to capture a program files does', () => {
   for (const dialect of dialects) {
     const excused = NO_DATA_FILE_TRAPS[dialect.id];
@@ -146,7 +164,7 @@ describe('every machine that claims to capture a program files does', () => {
     }
 
     it(
-      `${dialect.id} round-trips a program's own data file`,
+      `${dialect.id} round-trips a program's own data file, and a later run reads it back`,
       async () => {
         const family = FILE_IO_PROBE_BY_DIALECT[dialect.id];
         expect(
@@ -207,6 +225,47 @@ describe('every machine that claims to capture a program files does', () => {
             `${dialect.id} wrote its file but did not read it back; screen ` +
               `was:\n${screen}`,
           ).toContain(probe.readBack);
+
+          // The cross-run half: a second loadProgram on the same machine, with
+          // the store still holding what the first run saved - which is exactly
+          // what pressing Run twice hands the machine now that a start restores
+          // the files instead of discarding them.
+          const restore = dialect.tokenize(probe.restore);
+          expect(
+            restore.errors,
+            `${dialect.id} could not tokenize its own restore probe program`,
+          ).toEqual([]);
+          const savedBefore = snapshot(spy.saved);
+          spy.loads.length = 0;
+          machine.loadProgram(restore.image);
+          await new Promise((r) => setTimeout(r, 0));
+          const reran = await runUntil(
+            machine,
+            () => screenText(machine).includes(FILE_IO_RESTORE_SENTINEL),
+            probe.maxFrames,
+          );
+          const second = screenText(machine);
+          expect(
+            reran,
+            `${dialect.id} never printed ${FILE_IO_RESTORE_SENTINEL} on its ` +
+              `second run; screen was:\n${second}`,
+          ).toBe(true);
+          expect(
+            second,
+            `${dialect.id} did not read back, on a later run, the file the ` +
+              `first run saved; screen was:\n${second}`,
+          ).toContain(FILE_IO_RESTORE_OK);
+          expect(
+            spy.loads,
+            `${dialect.id} printed ${FILE_IO_RESTORE_OK} without loading ` +
+              `"${probe.file}" out of the store`,
+          ).toContain(probe.file);
+          // Served, not rewritten: the second program only loads, so a machine
+          // that quietly re-saved on the way would be reading its own writing.
+          expect(
+            snapshot(spy.saved),
+            `${dialect.id} changed the store on a run that only loads`,
+          ).toEqual(savedBefore);
         } finally {
           machine.dispose();
         }
@@ -244,6 +303,13 @@ describe('every machine that claims to capture a program files does', () => {
       expect(
         FILE_IO_PROBES[family],
         `${id} names probe family "${family}", which fileIoProbes.ts does not define`,
+      ).toBeTruthy();
+      // Both halves, so a family cannot be added with only the write program
+      // and leave its machines unchecked across runs.
+      expect(
+        FILE_IO_PROBES[family]?.restore,
+        `probe family "${family}" has no restore program, so ${id} would never ` +
+          'be asked to read a file back on a later run',
       ).toBeTruthy();
     }
   });

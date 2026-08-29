@@ -126,6 +126,14 @@
       both are now false and must be rewritten, not just re-asserted.
 - [x] 7.2 `src/app/dataBlocks.test.ts`: restored files project into tabs, and
       restored mounted entries never do.
+- [x] 7.3 `src/dialects/fileIo.test.ts`: the cross-run guarantee, per machine.
+      Every dialect that claims `capturesDataFiles` — that is, every machine not
+      excused by `NO_DATA_FILE_TRAPS` — runs a load-only probe on a second
+      `loadProgram` against the store the first run filled, and must read the
+      earlier run's file back out of it without writing to the store. No
+      machine's code changed to gain this, which is exactly why nothing in a
+      machine would fail if one stopped answering out of a store it did not fill
+      itself.
 
 ## 8. Docs
 
