@@ -91,10 +91,12 @@ const basicVarPointers = (v: LocoSysVars) => [
 ];
 
 /**
- * The Amstrad CPC as one machine, parameterised by model so the CPC 6128 reuses
- * it wholesale (its extra 64K hooks in through {@link CpcMemory.setRamConfig}
- * and Locomotive BASIC 1.1 through a different upper ROM). Over the vendored
- * Z80 core it wires:
+ * The Amstrad CPC as one machine, parameterised by model so the CPC 664 and
+ * CPC 6128 reuse it wholesale (Locomotive BASIC 1.1 comes in through a
+ * different upper ROM on both; the 6128's extra 64K hooks in through
+ * {@link CpcMemory.setRamConfig}, and the 664 needs nothing else - its
+ * divergence from the 464 is firmware and a disc drive the IDE does not model).
+ * Over the vendored Z80 core it wires:
  *
  *   - {@link CpcMemory}  64K RAM + firmware/BASIC ROM overlays
  *   - {@link GateArray}  palette, screen mode, ROM paging, the 300Hz interrupt
@@ -180,7 +182,7 @@ export class CpcMachine implements MachineEmulator {
   /**
    * Locomotive workspace pointers for program injection and runtime
    * introspection (variables, report, memory stats), keyed by the model's BASIC
-   * variant: 1.0 on the 464, 1.1 on the 6128.
+   * variant: 1.0 on the 464, 1.1 on the 664 and the 6128.
    */
   private readonly sysvars: LocoSysVars;
   /** Side-effect-free RAM view the introspection readers walk. */
