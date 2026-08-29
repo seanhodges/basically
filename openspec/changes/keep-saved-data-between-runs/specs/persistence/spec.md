@@ -12,15 +12,22 @@ stopping the machine to read what a program produced does not destroy it.
 
 A file SHALL be kept for the machine that wrote it and served back to that
 machine's later runs, so a program can read on one run what it saved on an
-earlier one — including a run in a later session, after the IDE has been
-reloaded. Neither starting a program nor resetting the machine SHALL discard the
-files, and the files SHALL be shown again when the IDE reopens, without the user
-having to run anything.
+earlier one — including a run after the IDE has been reloaded. Neither starting
+a program nor resetting the machine SHALL discard the files, and the files SHALL
+be shown again when the IDE reloads, without the user having to run anything.
 
 Only the machine that wrote a file SHALL be served or shown it. Captured files
 SHALL be discarded when the target machine changes, whenever a different program
 becomes active, and when the user discards one — so the user is never served,
 and never shown, the files of a machine or a program that is no longer open.
+
+A file SHALL belong to the browser tab whose program produced it, as that tab's
+document already does. A second tab of the IDE SHALL be neither served nor shown
+another tab's files, whatever machine it is running, and nothing it does SHALL
+discard them: two tabs SHALL be able to run programs that write the same file
+name without either one disturbing the other. Files SHALL NOT outlive the tab
+that produced them indefinitely; once a tab is gone, what it wrote MAY be
+reclaimed.
 
 What the IDE hands the machine for a program to load — the document's own memory
 blocks and the tape files imported with it — SHALL NOT be kept: it is the
@@ -71,10 +78,17 @@ download SHALL be the file the program saved, not the container around it.
 - **WHEN** the user resets the machine after a run saved files
 - **THEN** the files are still shown, and the program can still load them
 
-#### Scenario: Saved files survive reopening the IDE
+#### Scenario: Saved files survive reloading the IDE
 
-- **WHEN** the user reloads the IDE after a run saved files
+- **WHEN** the user reloads the IDE in the tab where a run saved files
 - **THEN** the files are shown again for that machine, and a run can load them
+
+#### Scenario: Another browser tab keeps its own files
+
+- **WHEN** the user opens the IDE in a second browser tab and runs a program
+  there that saves a file under a name the first tab's program also used
+- **THEN** each tab is shown and served only its own file, and neither tab's
+  files are changed or discarded by the other
 
 #### Scenario: Files are kept per machine
 

@@ -20,6 +20,9 @@ empties them stands between the user and a program that keeps its data.
   first run of the new session.
 - Files belong to the machine that wrote them: only that machine's files are
   restored and shown.
+- Files belong to the browser tab that produced them. A second tab of the IDE
+  keeps its own set: it is neither shown nor served another tab's files, and
+  nothing it does destroys them.
 - Switching target machine still discards, and so does opening, creating or
   importing a different program — unchanged.
 - Discarding a data file's tab asks the user to confirm first, and then removes
@@ -55,17 +58,21 @@ None.
   writing one still leaves the document clean.
 - No per-program (per-document) scoping. Files are per machine; two programs on
   the same machine share one set, as they would on one real cassette.
-- No cross-tab coordination. The browser's database is one per origin while a
-  document is per tab; two IDE tabs on the same machine will see and overwrite
-  each other's files.
+- No sharing of files between browser tabs, and no way to reach one tab's files
+  from another. Tabs are isolated, not synchronised — a file follows the tab
+  that produced it, as its document already does, and is abandoned when that tab
+  is closed.
 - No storage quota policy, eviction or ageing-out of old files.
 - No editing of a saved file's bytes; the byte view stays read-only.
 
 ## Impact
 
-- `src/storage/vfs/vfsStore.ts` (restore, per-machine purge, mounted files never
-  kept, memory-only mode), `src/storage/vfs/db.ts` (notes only — no schema
-  version change).
+- `src/storage/vfs/vfsStore.ts` (restore, per-machine and per-tab purge, mounted
+  files never kept, memory-only mode), `src/storage/vfs/db.ts` (a stored row
+  gains the tab that wrote it, which makes the file's name no longer unique on
+  its own: a schema version, a composite key and a migration).
+- `src/storage/settings.ts` — the browser tab's own identity, alongside the
+  per-tab settings already kept there.
 - `src/components/EmulatorPane.tsx` — every discard leaves the emulator
   lifecycle; the run effect restores instead.
 - `src/app/store.ts` — the surviving discard points, plus the confirm-before-
