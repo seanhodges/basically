@@ -6,40 +6,6 @@
   flex-direction: column;
 }
 
-/* Same row height as the tab strips above it (EditorTabBar's .tabBar and this
-   file's .viewTabs), so the whole stack of touch targets is consistent. */
-.statusStrip {
-  flex: 0 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  font-size: 13px;
-  color: var(--text);
-  opacity: 0.85;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-}
-
-.lengthField {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.lengthField input {
-  width: 5em;
-  padding: 4px 6px;
-  font: inherit;
-  font-family: var(--mono);
-  text-align: right;
-  color: var(--text);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-}
-
 .action {
   padding: 4px 10px;
   font: inherit;
@@ -48,10 +14,6 @@
   border: 1px solid var(--border);
   border-radius: 3px;
   cursor: pointer;
-}
-
-.comment {
-  font-style: italic;
 }
 
 .refusal {
@@ -104,23 +66,22 @@
   font-style: italic;
 }
 
-/* Matches the editor pane's own tab strip (EditorTabBar.module.css .tabBar):
-   same height, underline for the active tab, icon-plus-label buttons. */
+/* The choice between the two views, which exists only where both cannot be
+   shown. It rides in the bar's control slot rather than in a strip of its own -
+   a row of chrome is most expensive on the phone that is the only place this
+   choice appears. Underline for the active view, as the tab strips above it. */
 .viewTabs {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 2px;
   flex: 0 0 auto;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  padding: 0 4px;
 }
 
 .viewTabs button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 2px 8px;
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;

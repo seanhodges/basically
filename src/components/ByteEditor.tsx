@@ -62,7 +62,6 @@ import {
   listingByteRefusal,
   maxBlockLength,
   parseByteValue,
-  setLength,
   truncateLast,
   type ByteCaret,
   type ByteEditOutcome,
@@ -94,10 +93,11 @@ import {
 } from '../editor/bufferHistory';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
+import { BlockBar } from './BlockBar';
 import { HexIcon, TextIcon } from './icons';
 import styles from './ByteEditor.module.css';
 
-/** How long a refusal stays on the status strip. */
+/** How long a refusal stays on the bar. */
 const REFUSAL_MS = 2500;
 
 /** Columns the address gutter and the editor's own padding take from a row. */
@@ -126,13 +126,13 @@ interface ByteSubject {
   id: string;
   /** Where a parked edit history lives, or null where there is none. */
   historyKey: string | null;
-  name: string;
   bytes: Uint8Array;
   /** What the gutter counts from: an address, or zero for a file's offsets. */
   base: number;
   /** True where the gutter reads as offsets into a file, not as addresses. */
   offsets: boolean;
   readOnly: boolean;
+  entry?: number;
   comment?: string;
 }
 
@@ -141,11 +141,11 @@ function byteSubject(block: Block | DataBlock): ByteSubject {
     return {
       id: block.id,
       historyKey: blockBytesBufferKey(block.id),
-      name: block.name,
       bytes: block.bytes,
       base: block.address,
       offsets: false,
       readOnly: false,
+      ...(block.entry !== undefined ? { entry: block.entry } : {}),
       ...(block.comment !== undefined ? { comment: block.comment } : {}),
     };
   }
@@ -153,7 +153,6 @@ function byteSubject(block: Block | DataBlock): ByteSubject {
     // Files are keyed by name, as the store that holds them is.
     id: `data:${block.name}`,
     historyKey: null,
-    name: block.name,
     bytes: block.bytes,
     base: 0,
     offsets: true,
@@ -216,7 +215,6 @@ export function ByteEditor({
   const projectionRef = useRef<ByteProjection | null>(null);
 
   const [refusal, setRefusal] = useState<string | null>(null);
-  const [lengthDraft, setLengthDraft] = useState<string | null>(null);
   const [fillOpen, setFillOpen] = useState(false);
 
   /** How many bytes a row holds, stepped from the width the surface has. */
@@ -312,16 +310,15 @@ export function ByteEditor({
 
   /**
    * Apply one outcome from the pure edit model to the view. Every write goes
-   * through here, which is where a file a program saved is refused: it is
+   * through here, which is where a file a program saved is dropped: it is
    * neither kept with the document nor returned to the machine, so an edit to
-   * one would change nothing that outlives the tab.
+   * one would change nothing that outlives the tab. Nothing is said about it -
+   * the bar marks the file read-only for as long as it is open, which is a
+   * state rather than an answer to a keystroke.
    */
   const applyOutcome = useCallback(
     (view: EditorView, outcome: ByteEditOutcome, field?: ByteField) => {
-      if (subjectRef.current.readOnly) {
-        flashRefusal('Saved by the program - read-only.');
-        return;
-      }
+      if (subjectRef.current.readOnly) return;
       if (!outcome.ok) {
         flashRefusal(outcome.message);
         return;
@@ -825,9 +822,10 @@ export function ByteEditor({
     adoptDocument(view);
   }, [adoptDocument, subject, buildExtensions, glyph, parkState, restoreState]);
 
-  // The bytes changed from somewhere else (a file load, a sample, an undo in
-  // another surface - or, for a file, the program writing it again): drop the
-  // projection and rebuild it. Not the user's edit, so not theirs to undo.
+  // The bytes changed from somewhere else (a file load, a size set in the
+  // block's settings, a sample, an undo in another surface - or, for a file,
+  // the program writing it again): drop the projection and rebuild it. Not the
+  // user's edit, so not theirs to undo.
   useEffect(() => {
     if (prevBytes.current === subject.bytes) return;
     prevBytes.current = subject.bytes;
@@ -840,6 +838,26 @@ export function ByteEditor({
     }
     const view = viewRef.current;
     if (!view) return;
+    const projection = projectBytes(subject.bytes, {
+      bytesPerRow: bytesPerRowRef.current,
+      glyph,
+    });
+    if (projection.text !== view.state.doc.toString()) {
+      // A reseed that rewrites the document leaves this buffer's history
+      // describing text that is no longer there, and an undo would then splice
+      // a stretch of the old projection into the current one. The change came
+      // from outside this editor, so there is nothing here to take back: the
+      // history goes with the document it described. A whole new state is what
+      // discards it - a `history()` field keeps its value when the extension is
+      // merely reconfigured away.
+      projectionRef.current = projection;
+      view.setState(freshBufferState(projection.text, buildExtensions()));
+      adoptDocument(view);
+      return;
+    }
+    // The same bytes laid out the same way - a block that only moved reads its
+    // new addresses off the gutter - so the document, and the history that
+    // describes it, stand.
     reseeding.current = true;
     project(
       view,
@@ -849,7 +867,7 @@ export function ByteEditor({
       { toHistory: false },
     );
     reseeding.current = false;
-  }, [subject.bytes, project]);
+  }, [subject.bytes, adoptDocument, buildExtensions, glyph, project]);
 
   // The row width and what the gutter counts from are configuration, and a
   // parked state comes back with whatever it was put away with.
@@ -932,74 +950,56 @@ export function ByteEditor({
     else if (editorCommand.name === 'redo') redo(view);
   }, [editorCommand]);
 
-  /** Commit the byte count typed into the status strip. */
-  const commitLength = useCallback(() => {
-    const view = viewRef.current;
-    const draft = lengthDraft;
-    setLengthDraft(null);
-    if (!view || draft === null) return;
-    const value = /^[0-9]+$/.test(draft.trim())
-      ? parseInt(draft.trim(), 10)
-      : NaN;
-    if (!Number.isInteger(value)) {
-      flashRefusal('Enter a whole number of bytes.');
-      return;
-    }
-    applyOutcome(view, setLength(targetOf(view), value));
-  }, [applyOutcome, flashRefusal, lengthDraft, targetOf]);
-
   const tabbed = mode !== 'both';
   const length = subject.bytes.length;
   const editableBlock = 'address' in block ? block : null;
 
   return (
     <div className={styles.byteEditor}>
-      <div className={styles.statusStrip}>
-        <strong>{subject.name}</strong>{' '}
-        {editableBlock === null ? (
-          <>
-            · {length} {length === 1 ? 'byte' : 'bytes'} · saved by the program,
-            read-only
-          </>
-        ) : (
-          <>
-            · ORG {formatWord(subject.base)} ·{' '}
-            <label className={styles.lengthField}>
-              <input
-                aria-label="Block length in bytes"
-                data-testid="byte-length"
-                value={lengthDraft ?? String(length)}
-                onChange={(e) => setLengthDraft(e.currentTarget.value)}
-                onBlur={commitLength}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  else if (e.key === 'Escape') setLengthDraft(null);
-                }}
-              />
-              {length === 1 ? 'byte' : 'bytes'}
-            </label>
-            <button
-              className={styles.action}
-              onClick={() => setFillOpen((open) => !open)}
-              aria-expanded={fillOpen}
-            >
-              Fill…
-            </button>
-          </>
-        )}
-        {subject.comment !== undefined && (
-          <span className={styles.comment}> · {subject.comment}</span>
-        )}
-        {refusal !== null && (
-          <span
-            className={styles.refusal}
-            role="alert"
-            data-testid="byte-refusal"
+      <BlockBar
+        address={editableBlock === null ? undefined : subject.base}
+        byteCount={length}
+        entry={subject.entry}
+        comment={subject.comment}
+        readOnly={subject.readOnly}
+        refusal={refusal}
+      >
+        {editableBlock !== null && (
+          <button
+            className={styles.action}
+            onClick={() => setFillOpen((open) => !open)}
+            aria-expanded={fillOpen}
           >
-            {refusal}
-          </span>
+            Fill…
+          </button>
         )}
-      </div>
+        {tabbed && (
+          <div
+            className={styles.viewTabs}
+            role="tablist"
+            aria-label="Byte views"
+          >
+            <button
+              role="tab"
+              aria-selected={byteViewTab === 'hex'}
+              className={byteViewTab === 'hex' ? 'active' : ''}
+              onClick={() => setByteViewTab('hex')}
+            >
+              <HexIcon />
+              Hex
+            </button>
+            <button
+              role="tab"
+              aria-selected={byteViewTab === 'chars'}
+              className={byteViewTab === 'chars' ? 'active' : ''}
+              onClick={() => setByteViewTab('chars')}
+            >
+              <TextIcon />
+              Text
+            </button>
+          </div>
+        )}
+      </BlockBar>
       {fillOpen && editableBlock !== null && (
         <FillRow
           block={editableBlock}
@@ -1011,28 +1011,6 @@ export function ByteEditor({
             applyOutcome(view, fillRange(targetOf(view), from, to, value));
           }}
         />
-      )}
-      {tabbed && (
-        <div className={styles.viewTabs} role="tablist" aria-label="Byte views">
-          <button
-            role="tab"
-            aria-selected={byteViewTab === 'hex'}
-            className={byteViewTab === 'hex' ? 'active' : ''}
-            onClick={() => setByteViewTab('hex')}
-          >
-            <HexIcon />
-            Hex
-          </button>
-          <button
-            role="tab"
-            aria-selected={byteViewTab === 'chars'}
-            className={byteViewTab === 'chars' ? 'active' : ''}
-            onClick={() => setByteViewTab('chars')}
-          >
-            <TextIcon />
-            Text
-          </button>
-        </div>
       )}
       <div
         className={styles.editorHost}

@@ -45,21 +45,22 @@ test('the plus button creates blocks with sequential default names', async ({
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
 
   await addMemoryBlock(page);
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
   // The new block's tab is active and shows the assembled return stub.
   await expect(page.getByRole('tab', { name: 'block1' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
   await expect(asmContent(page)).toContainText('RET');
-  // Spectrum defaultAddress pins the origin strip.
-  await expect(page.getByText('ORG $8000')).toBeVisible();
+  // Spectrum defaultAddress pins where the block sits; the one-byte stub
+  // occupies one address.
+  await expect(page.getByTestId('block-bar')).toContainText('$8000 - $8000');
 
   await addMemoryBlock(page);
   await expect(tablist.getByRole('tab')).toHaveText([
     'BASIC',
-    /block1/,
-    /block2/,
+    'block1',
+    'block2',
   ]);
 
   // The other kind is created directly rather than created as code and
@@ -71,11 +72,11 @@ test('the plus button creates blocks with sequential default names', async ({
     'true',
   );
   // The byte editor's testid is the discriminator: both editors are CodeMirror
-  // and both carry an ORG strip, so neither the editor element nor the strip
-  // says which one is mounted.
+  // and both carry the same bar, so neither the editor element nor the bar says
+  // which one is mounted.
   await expect(page.getByTestId('byte-editor')).toBeVisible();
   // Seeded with the one zero byte the editor needs a row to open on.
-  await expect(page.getByTestId('byte-length')).toHaveValue('1');
+  await expect(page.getByTestId('block-bar')).toContainText('1 byte');
   await expect(page.getByTestId('byte-editor')).toContainText('00');
 });
 
@@ -120,9 +121,9 @@ test('the context menu offers the block actions, and Settings edits its metadata
   await page.getByLabel('Comment (optional)').fill('the draw routine');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /sprites/]);
-  // The block tab is still active; its origin strip follows the move.
-  await expect(page.getByText('ORG $9000')).toBeVisible();
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'sprites']);
+  // The block tab is still active; the addresses in its bar follow the move.
+  await expect(page.getByTestId('block-bar')).toContainText('$9000 - $9000');
   await expect(page.getByText('the draw routine')).toBeVisible();
 });
 
@@ -142,7 +143,7 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
     page.getByRole('heading', { name: /Delete block1/ }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
 
   // Delete removes it and falls back to the BASIC tab.
   await blockTab.click({ button: 'right' });
@@ -180,7 +181,7 @@ test('a block in the Atom video RAM runs while the program stays in text mode', 
   await tabMenu(page).getByRole('menuitem', { name: 'Settings…' }).click();
   await page.getByLabel('Load address').fill('$8400');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByText('ORG $8400')).toBeVisible();
+  await expect(page.getByTestId('block-bar')).toContainText('$8400 - $8400');
 
   // CLEAR 4 draws into the video RAM, so the placement is refused - and the
   // refusal says what would make it legal rather than only that it is not.

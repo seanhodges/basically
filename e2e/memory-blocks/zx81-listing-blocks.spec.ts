@@ -37,7 +37,7 @@ test('a new block is a #BIN REM chip on the BASIC tab', async ({ page }) => {
 
   // Create a block: it appends a hidden-code REM to the program.
   await addMemoryBlock(page);
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /bin1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'bin1']);
   await expect(page.getByRole('tab', { name: 'bin1' })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -100,7 +100,7 @@ test('a listing block switched to memory is editable as bytes', async ({
   await page.keyboard.press('End');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.type('00');
-  await expect(page.getByTestId('byte-length')).toHaveValue('2');
+  await expect(page.getByTestId('block-bar')).toContainText('2 bytes');
 
   await page.getByRole('tab', { name: 'BASIC' }).click();
   const chip = page.locator('.cm-binaryLineChip');

@@ -43,7 +43,6 @@ import {
 } from '@codemirror/view';
 import { selectBlocks, useIdeStore } from '../app/store';
 import { asmLanguage } from '../asm/language';
-import { formatWord } from '../asm/format';
 import type { AsmEngine, AsmError } from '../asm/types';
 import type { Block } from '../dialects/types';
 import { basicHighlightStyle } from '../editor/basicLanguage';
@@ -53,6 +52,7 @@ import { clickMenu } from '../editor/clickMenu';
 import { ASM_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
 import { asmReferenceTopic } from '../app/docsTopic';
 import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
+import { BlockBar } from './BlockBar';
 import styles from './AsmEditor.module.css';
 
 /** No operator has a row on an assembly page, so no operator run is cut back. */
@@ -422,14 +422,12 @@ export function AsmEditor({
 
   return (
     <div className={styles.asmEditor}>
-      <div className={styles.statusStrip}>
-        <strong>{block.name}</strong> · ORG {formatWord(block.address)} ·{' '}
-        {block.bytes.length} {block.bytes.length === 1 ? 'byte' : 'bytes'}
-        {block.entry !== undefined && <> · entry {formatWord(block.entry)}</>}
-        {block.comment !== undefined && (
-          <span className={styles.comment}> · {block.comment}</span>
-        )}
-      </div>
+      <BlockBar
+        address={block.address}
+        byteCount={block.bytes.length}
+        entry={block.entry}
+        comment={block.comment}
+      />
       <div className={styles.editorHost} ref={hostRef} />
     </div>
   );

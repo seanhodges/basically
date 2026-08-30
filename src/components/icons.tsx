@@ -1,6 +1,7 @@
-// Shared inline-SVG icon set for the toolbar and mobile tab bar. All icons use
-// the same line-art theme: 16x16, currentColor stroke so they inherit the
-// button's colour (normal --text, active --accent).
+// Shared inline-SVG icon set for the toolbar, the mobile tab bar and the
+// editor's own tab strip. All icons use the same line-art theme: 16x16,
+// currentColor stroke so they inherit the button's colour (normal --text,
+// active --accent).
 
 const iconProps = {
   width: 16,
@@ -172,6 +173,70 @@ export function GamepadIcon() {
       <line x1="15" y1="12" x2="15.01" y2="12" />
       <line x1="18" y1="10" x2="18.01" y2="10" />
       <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.585-.685-7.258A4 4 0 0 0 17.32 5z" />
+    </svg>
+  );
+}
+
+// The five marks the editor's tab strip wears, one per kind of tab. Each is
+// drawn for what the tab's contents look like rather than for the object behind
+// them, and none may repeat a meaning the set has already given away: the gear
+// is Open settings, the memory chip is Show the memory map, the `</>` is the
+// Editor pane, the floppy is the File menu, and the hash and the stacked rules
+// are the byte editor's two views. An assembly block is therefore not a chip
+// and a saved file is not a floppy, however well either would read alone.
+
+// A numbered BASIC listing for the program's own tab: the line-number gutter,
+// its numbers, and the code beside them.
+export function ProgramIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M8.5 4.5v15" />
+      <path d="M4 8h1.8M4 12h1.8M4 16h1.8" />
+      <path d="M11 8h9M11 12h6M11 16h7.5" />
+    </svg>
+  );
+}
+
+// A pencil for a scratch buffer - text the document does not keep.
+export function ScratchIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 20h4L18.6 9.4a2.1 2.1 0 0 0-3-3L5 17v3z" />
+      <path d="M14.4 7.6l3 3" />
+    </svg>
+  );
+}
+
+// Rows of opcode and operand for an assembly block: a mnemonic and what it
+// acts on, which is what such a block's source looks like.
+export function AsmBlockIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="3.5" y="5.4" width="6" height="3.4" rx="1" />
+      <rect x="3.5" y="13.4" width="6" height="3.4" rx="1" />
+      <path d="M12 7.1h8.5M12 15.1h6.5" />
+    </svg>
+  );
+}
+
+// A grid of cells for a block of bytes - the shape the byte editor lays them
+// out in.
+export function ByteBlockIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="3.5" y="6" width="17" height="12" rx="1" />
+      <path d="M3.5 12h17M9.17 6v12M14.83 6v12" />
+    </svg>
+  );
+}
+
+// A folded page for a file the running program saved - written by the machine
+// rather than held in the document.
+export function DataFileIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M13.5 3.5H7a1.5 1.5 0 0 0-1.5 1.5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z" />
+      <path d="M13.5 3.5v5h5" />
     </svg>
   );
 }

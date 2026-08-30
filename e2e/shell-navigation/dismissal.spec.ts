@@ -273,7 +273,7 @@ test('dismissing the delete confirmation keeps the block', async ({ page }) => {
   await expect(confirm).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(confirm).toBeHidden();
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
 
   // So does Back.
   await blockTab.click({ button: 'right' });
@@ -281,5 +281,5 @@ test('dismissing the delete confirmation keeps the block', async ({ page }) => {
   await expect(confirm).toBeVisible();
   await page.goBack();
   await expect(confirm).toBeHidden();
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
 });

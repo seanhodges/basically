@@ -67,10 +67,14 @@ test('a saved file appears as a tab, survives the stop, copies into a block, com
   await expect(bytes).toContainText('01 02 00 00 00 07');
 
   // Read-only: the bytes are program output, with nowhere an edit could go.
+  // The bar says so throughout rather than answering the keystroke, and the
+  // keystroke simply does nothing.
+  const readOnly = page.getByRole('img', { name: /Read-only/ });
+  await expect(readOnly).toBeVisible();
   await bytes.click();
   await page.keyboard.press('f');
-  await expect(page.getByTestId('byte-refusal')).toBeVisible();
   await expect(bytes).toContainText('01 02 00 00 00 07');
+  await expect(readOnly).toBeVisible();
 
   // Stopping the machine to read what the program produced does not destroy it.
   await stopEmulator(page);
@@ -138,7 +142,7 @@ test('a saved file appears as a tab, survives the stop, copies into a block, com
   // back as a tab claiming the program saved it - which is also the guard
   // against a restore bringing one back.
   await expect(blockTab).toHaveCount(1);
-  await expect(page.getByRole('tab')).toHaveText(['BASIC', /kept/, /SCORES/]);
+  await expect(page.getByRole('tab')).toHaveText(['BASIC', 'kept', 'SCORES']);
   await page.getByRole('tab', { name: 'BASIC' }).click();
   await expect(page.locator(EDITOR)).toContainText('SAVE "SCORES" DATA');
 
