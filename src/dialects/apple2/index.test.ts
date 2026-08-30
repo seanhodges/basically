@@ -38,3 +38,28 @@ describe('apple2 dialect', () => {
     expect(apple2.debuggable).toBe(true);
   });
 });
+
+describe('apple2 cassette seam', () => {
+  const audio = apple2.audio!;
+
+  it('decodes the tape audio it builds, straight through the dialect', () => {
+    // The registry-driven `cassetteRoundTrip.test.ts` covers this for every
+    // registered dialect; this machine is not registered yet, so the same bar
+    // is held here until it is.
+    const source = '10 A=1\n20 PRINT A\n30 GOTO 10';
+    const samples = audio.buildSamples(source, 'TEST', false);
+    const decoded = audio.decodeSamples!(samples, audio.sampleRate);
+    expect(decoded.source).toBe(source);
+    expect(decoded.warnings ?? []).toEqual([]);
+    expect(apple2.tokenize(decoded.source).errors).toEqual([]);
+  });
+
+  it('tells the user to restate a workspace the tape cannot carry', () => {
+    const instructions = audio.loadInstructions as (s: string) => string;
+    // `LOAD` puts the program at the top of whatever workspace the machine
+    // already has, so a program that moved its own has to say so first.
+    expect(instructions('HIMEM:20480\n10 END')).toContain('HIMEM:20480');
+    expect(instructions('10 END')).not.toContain('HIMEM');
+    expect(instructions('10 END')).toContain('LOAD');
+  });
+});

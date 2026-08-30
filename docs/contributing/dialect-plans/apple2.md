@@ -116,7 +116,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
-| 4     | Transfer & tape I/O                | ⬜     |
+| 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
@@ -328,15 +328,15 @@ What the machine decided, once each sample was run on it:
   than in Stage 2, where the paddle hardware was written but the dialect flags
   were not.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
 Unlike the Apple I, this machine has `LOAD` and `SAVE` in BASIC, so the
 instructions are a command rather than a monitor incantation — which makes this
 stage simpler than the Apple I's, not harder.
 
-- [ ] `targets.ts` — `BuildTarget[]`: the cassette record as `.bin`, the
+- [x] `targets.ts` — `BuildTarget[]`: the cassette record as `.bin`, the
       modulated audio as `.wav`, and the listing as `.bas`
-- [ ] `audio/` — `buildSamples` + `decodeSamples`. Read
+- [x] `audio/` — `buildSamples` + `decodeSamples`. Read
       `src/dialects/apple1/audio/aciEncoder.ts` first: the modulation is Woz's
       same scheme (a long leader tone, a sync bit, then one full cycle per data
       bit at two different periods), but the **framing is different** — the Apple
@@ -344,14 +344,52 @@ stage simpler than the Apple I's, not harder.
       ACI is raw address ranges the monitor is told about. Derive the periods and
       the framing from a primary source and pin them in a round-trip test; do not
       copy the Apple I's numbers across on the assumption they match
-- [ ] `loadInstructions` / `saveInstructions` — `LOAD` and `SAVE` at the `>`
+- [x] `loadInstructions` / `saveInstructions` — `LOAD` and `SAVE` at the `>`
       prompt, with the recorder cued to the leader tone
-- [ ] `binaryImports` — the `.bin` record, read back by `detokenize`
-- [ ] tests: cassette encode → decode round-trip, including a deliberately
+- [x] `binaryImports` — the `.bin` record, read back by `detokenize`
+- [x] tests: cassette encode → decode round-trip, including a deliberately
       corrupted checksum reported as a warning rather than swallowed
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
-**Verify:** audio round-trip test + import/export in the app.
+**Verify:** `npm run typecheck` + `npm test` (the app cannot offer the machine's
+Transfer dialog until Stage 7 registers it, so the seam is exercised through
+`index.test.ts` instead).
+
+What the machine decided, once the ROM's own routines were run:
+
+- The primary source is the ROM in the tree. `public/roms/apple2.rom` was run on
+  the vendored 6502 core with the monitor's `WRITE` at `$FECD` as the entry
+  point and every access to the cassette-output flip-flop at `$C020` timed, so
+  every constant in `audio/cassetteEncoder.ts` is in CPU cycles and
+  `audio/cassetteRom.test.ts` re-derives it from the ROM on each run. Nothing
+  was taken from the Apple I, and nothing from a manual.
+- The measured timings: a 652-cycle leader phase (~780 Hz), a 195-cycle sync
+  phase followed by a 250-cycle one, and bits of 253/250 (`0`) and 503/500
+  (`1`) cycles. The two phases of a bit are **not** equal — `WRBYTE` reaches the
+  first through `ASL`/`JSR` and the second by falling through `WRBIT`'s two
+  `INY`s — so the round 250/500 figures the manuals quote are a tidied version
+  of this machine, not this machine. A tape written either way reads back, since
+  `RD2BIT` times the pair with one counter.
+- The checksum seed is `$FF`, and it is nowhere in the ROM as a constant:
+  `HEADR` ends by subtracting its way down to a borrow, which leaves `A = $FF`
+  whatever leader count it was handed, and `WRITE` and `READ` both take the
+  accumulator they get back as the seed.
+- `SAVE` writes **two** records, at `$F140`: the two-byte length behind a
+  `$40` leader (~10.6 s) and the program text behind a `$1A` one (~4.4 s),
+  entering `WRITE` at `$FECF` the second time so the count in A is its own.
+  That pair is exactly the length-prefixed image `basicImage.ts` already built,
+  split at its header — so the `.bin` target and the tape carry the same bytes.
+  Neither leader may be shortened: `READ` spends a `$16` leader's worth (~3.8 s)
+  letting the tape settle before it starts hunting for a sync bit.
+- A checksum mismatch is a warning, not a throw. The bytes are all there and
+  readable, and a damaged tape the user can see beats an error that hides what
+  it held. The same goes for a length record disagreeing with the program behind
+  it: the image is rebuilt around what was actually recovered and the
+  disagreement is reported once.
+- The measurement front end (`phaseLengths` and its high-pass) is the Apple I's
+  again, and so is every other tape decoder in the tree — nine copies of it by
+  now. Hoisting them into one module is a refactor across nine dialects and no
+  part of this stage.
 
 ## Stage 5 — Memory map & runtime introspection ⬜
 
