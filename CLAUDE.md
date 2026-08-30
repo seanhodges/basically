@@ -130,6 +130,49 @@ Chromium run from 207 tests to 138 and halved the summed test duration a
 one-worker runner pays. The existing specs are the worked examples: read the
 capability folder you are adding to before adding to it.
 
+### The Vitest side
+
+The unit suite has its own budget, and it is shaped nothing like the e2e one.
+Cost is extremely concentrated: the top twenty files are ~72% of the runtime and
+the remaining four hundred are under 2%. So a new cheap test is genuinely free,
+and the rules are about the few files that are not.
+
+- **Boots are cheap; frames are the cost.** Booting a machine is ~30-80ms - a
+  battery doing three boots for each of nineteen dialects lands under three
+  seconds. What costs is frames, and unevenly: a C64 or Atari frame is several
+  times a ZX81 one. Sharing a booted machine between tests buys almost nothing
+  and couples them; running fewer frames is the whole game.
+- **Frame budgets are named constants with a comment saying why that number.**
+  `SETTLE_FRAMES`, `MAX_FRAMES` and friends. A cap on a `runUntil` predicate
+  costs nothing when the predicate trips early; a fixed `runFrames(n)` pays
+  every frame, so reach for the predicate.
+- **Never call `runFrames(machine, 1)` in a loop.** `runUntil` yields the
+  macrotask every twenty frames so the ROM loads that settle on timers can land,
+  and asking for one frame at a time yields on every frame instead - Node clamps
+  `setTimeout(fn, 0)` to ~1.1ms, so the sleeping costs more than the emulation.
+  Pass the loop body to `runUntil`'s `onFrame` instead.
+- **One `it` per behaviour, not per row.** A table of N rows is one test that
+  loops and names the offending row in the assertion message - never
+  `describe.each` over the rows with the assertions inside. Two crosschecks here
+  declared 1170 tests, 12% of the whole suite, from 327 lines and half a second
+  of work; a reader scrolling 819 identically-named cases learns less than one
+  failure naming its cell. `it.each` over _machines_ is fine and often right:
+  the point is not to multiply a test by data it already names.
+- **A fact true of every registered machine gets one registry-driven test.**
+  Before adding `src/dialects/<new>/foo.test.ts`, check whether
+  `src/dialects/foo.test.ts` already asserts it for every dialect. If the same
+  file exists for three or more dialects, it should have been a table -
+  `cassetteRoundTrip.test.ts` and `graphicsPalette.test.ts` are the pattern.
+- **Shared titles are not proof of duplication.** Per-dialect files often share
+  every test name while asserting genuinely different facts - the memory-map
+  suites all say "names every region" about entirely different machines. Merge
+  on what the assertions do, not on what they are called. Where the _tests_
+  differ but their scaffolding does not, extract the helper and leave the tests
+  alone, as `dialects/audio/tapeSignal.ts` does.
+- **The suite is sharded three ways in CI**, so a new file lands in whichever
+  shard its path hashes to. Nothing to do about that except keep the slow files
+  few: the slowest single file is a floor the whole gate waits on.
+
 ## Architecture
 
 | Path                           | Role                                                                                                                                      |
