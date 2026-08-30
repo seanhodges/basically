@@ -635,16 +635,26 @@ Only what the program itself wrote SHALL appear. To serve a program's own
 `LOAD`, the IDE hands the machine the document's own content before a run — its
 memory blocks, and any tape files imported with it — as files the program can
 load by name. Those are the document being given to the machine, not output
-coming back, and SHALL NOT be shown as tabs; a file the program then saves over
-one of them SHALL appear like any other.
+coming back, and SHALL NOT be shown as tabs, on that run or on any later one; a
+file the program then saves over one of them SHALL appear like any other.
 
 The bytes SHALL be shown read-only. A data file is neither kept with the
 document nor returned to the machine, so there is nothing an edit to one could
-change; it is a view onto what the program produced.
+change; it is a view onto what the program produced. Because that is true of the
+file for as long as it is open, the editor SHALL mark it read-only throughout
+rather than reporting it in answer to an edit: an attempted edit SHALL simply
+leave the bytes as they are, and the mark SHALL still be there afterwards to say
+why.
 
 The tab SHALL offer the file for download both as its raw bytes and as text,
 SHALL offer to copy it into a block of the document's memory, and SHALL let the
 user discard it, from the same menu a block's tab offers its own downloads.
+
+Discarding SHALL ask the user to confirm first, and SHALL say that the file is
+gone for good — unlike closing a scratch buffer, which is unconfirmed. A saved
+file is kept for the machine that wrote it and is not recreated by running
+again, so discarding one is the user's only way to lose it and SHALL NOT happen
+on a mis-aimed menu. Cancelling SHALL leave the file and its tab as they were.
 
 Saved files SHALL compete for room in the strip under the same rule as every
 other tab, and SHALL in addition be held to a bounded share of the tabs shown.
@@ -668,7 +678,8 @@ beyond what is shown SHALL remain reachable like any other overflowing tab.
 #### Scenario: The file's bytes cannot be edited
 
 - **WHEN** the user selects a saved data file's tab and types into the bytes
-- **THEN** nothing changes, and it is clear the view is read-only
+- **THEN** nothing changes, and the file is marked read-only before the user
+  types, while they type, and after
 
 #### Scenario: The file can be downloaded from its tab
 
@@ -687,10 +698,21 @@ beyond what is shown SHALL remain reachable like any other overflowing tab.
 - **THEN** the strip still shows the program's own tabs, and the files beyond
   the bound are still reachable
 
+#### Scenario: Discarding a saved file is confirmed
+
+- **WHEN** the user asks to discard a saved data file from its tab
+- **THEN** they are asked to confirm, and told the file will not come back
+
 #### Scenario: A discarded file's tab closes
 
-- **WHEN** the user discards a saved data file from its tab
-- **THEN** the tab closes and the editor returns to the program
+- **WHEN** the user confirms discarding a saved data file
+- **THEN** the tab closes, the editor returns to the program, and the file does
+  not return on a later run or after reopening the IDE
+
+#### Scenario: Cancelling keeps the file
+
+- **WHEN** the user asks to discard a saved data file and then cancels
+- **THEN** the file and its tab are unchanged
 
 ### Requirement: The editor's variable checks follow the machine's case rule
 
@@ -928,3 +950,51 @@ project nor restored with it.
 - **THEN** tabs return to the strip until the width is used up, and the overflow
   control is gone once every tab is shown
 
+### Requirement: A tab says what kind of editor it opens
+
+Every tab in the editor's strip SHALL carry a mark saying what kind of thing it
+holds, and the marks SHALL tell the kinds apart: the program, a scratch buffer,
+a block of machine code, a block of bytes and a file the running program saved
+are five kinds, and SHALL be five marks. No kind SHALL be left unmarked, the
+program's own tab included.
+
+A mark SHALL be legible wherever the IDE runs and at the size the strip gives
+it, and SHALL NOT be one the IDE already uses elsewhere for something else — a
+mark that means one thing in the toolbar and another in the tab strip teaches
+the user nothing.
+
+Where a tab is offered somewhere other than the strip — listed among the tabs
+the strip has no room for, or offered by the control that creates it — it SHALL
+be offered with the mark it wears in the strip, so that what the user picks and
+what they get look alike.
+
+The mark SHALL identify the tab without becoming its name: a tab SHALL still be
+announced to assistive technology by its own name, and what kind of tab it is
+SHALL remain available to a user who asks the tab about itself.
+
+#### Scenario: Each kind of tab is marked differently
+
+- **WHEN** the editor is showing tabs of more than one kind at once
+- **THEN** each kind carries its own mark, and no two kinds carry the same one
+
+#### Scenario: The program's tab is marked too
+
+- **WHEN** the user looks at the tab strip of a document with no blocks and no
+  scratch buffers
+- **THEN** the program's tab carries a mark of its own
+
+#### Scenario: The control that creates a tab shows the mark it will wear
+
+- **WHEN** the user opens the control that adds a tab
+- **THEN** each kind it offers is shown with the mark the tab it creates will
+  carry in the strip
+
+#### Scenario: The overflow list marks its tabs as the strip does
+
+- **WHEN** the user opens the list of tabs the strip has no room for
+- **THEN** each tab listed carries the same mark it carries in the strip
+
+#### Scenario: A tab is still announced by its name
+
+- **WHEN** a user reaches a tab with assistive technology
+- **THEN** it is announced by the tab's own name, not by the name of its kind
