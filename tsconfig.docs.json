@@ -30,7 +30,10 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "types": ["w3c-web-serial"]
+    // "node" because the crosschecks in this program read the committed ROMs
+    // and doc pages off disk. It was reaching them transitively until vitest
+    // stopped pulling @types/node in; naming it here is what actually holds.
+    "types": ["w3c-web-serial", "node"]
   },
   // The crosscheck tests import the registry, so this program contains src/ too
   // - and needs the app's ambient declarations (vite/client, the jsbeeb module

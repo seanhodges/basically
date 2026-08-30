@@ -419,14 +419,18 @@ describe('every registered machine measures what it can', () => {
         // in the profiler rather than in the machine: the machine reports what
         // it can, and the profiler prices what is left over.
         const profiler = new RunProfiler(null, [10]);
-        for (let i = 0; i < MEMORY_SAMPLE_FRAMES * 12; i++) {
-          await runFrames(machine, 1);
-          profiler.frame(
-            machine.drainProfile?.() ?? null,
-            () => machine.readMemoryStats?.() ?? null,
-            machine.frameHz,
-          );
-        }
+        await runUntil(
+          machine,
+          () => false,
+          MEMORY_SAMPLE_FRAMES * 12,
+          () => {
+            profiler.frame(
+              machine.drainProfile?.() ?? null,
+              () => machine.readMemoryStats?.() ?? null,
+              machine.frameHz,
+            );
+          },
+        );
 
         const profile = profiler.snapshot();
         // The premise: memory climbed over the run, and the machine charged
@@ -482,14 +486,18 @@ describe('every registered machine measures what it can', () => {
         await new Promise((r) => setTimeout(r, 0));
 
         const profiler = new RunProfiler(null, [10, 20, 30]);
-        for (let i = 0; i < SETTLE_FRAMES + MEASURED_FRAMES; i++) {
-          await runFrames(machine, 1);
-          profiler.frame(
-            machine.drainProfile?.() ?? null,
-            () => machine.readMemoryStats?.() ?? null,
-            machine.frameHz,
-          );
-        }
+        await runUntil(
+          machine,
+          () => false,
+          SETTLE_FRAMES + MEASURED_FRAMES,
+          () => {
+            profiler.frame(
+              machine.drainProfile?.() ?? null,
+              () => machine.readMemoryStats?.() ?? null,
+              machine.frameHz,
+            );
+          },
+        );
 
         const measured = profiler.snapshot().lines!;
         expect(

@@ -35,7 +35,12 @@
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import { bootMachine, installNodeRomLoading, runFrames } from './bootHarness';
+import {
+  bootMachine,
+  installNodeRomLoading,
+  runFrames,
+  runUntil,
+} from './bootHarness';
 import type { MachineEmulator } from './types';
 
 /** Booting the real ROMs dominates every case here (see c64Machine.test.ts). */
@@ -133,10 +138,14 @@ function measured(machine: MachineEmulator, cycles: number, samples: number) {
 async function frameWindow(machine: MachineEmulator): Promise<Window> {
   drain(machine);
   let samples = 0;
-  for (let i = 0; i < WINDOW; i++) {
-    await runFrames(machine, 1);
-    samples += machine.readAudio?.().length ?? 0;
-  }
+  await runUntil(
+    machine,
+    () => false,
+    WINDOW,
+    () => {
+      samples += machine.readAudio?.().length ?? 0;
+    },
+  );
   const costs = machine.drainProfile?.() ?? [];
   return measured(
     machine,

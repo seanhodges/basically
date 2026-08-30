@@ -31,8 +31,16 @@ function domainsOnTarget(id: string): Set<KeywordDomain> {
   return new Set(PAGES[id]!.entries.map((e) => e.domain));
 }
 
-/** Domains some other source dialect can lose when porting into this target. */
+/**
+ * Domains some other source dialect can lose when porting into this target.
+ *
+ * Memoised because it diffs every source page against the target, and the
+ * checks below ask for the same target once per guidance cell.
+ */
+const losableCache = new Map<string, Set<KeywordDomain>>();
 function losableDomains(to: string): Set<KeywordDomain> {
+  const cached = losableCache.get(to);
+  if (cached) return cached;
   const losable = new Set<KeywordDomain>();
   for (const from of IDS) {
     if (from === to) continue;
@@ -48,6 +56,7 @@ function losableDomains(to: string): Set<KeywordDomain> {
       if (entry.domain) losable.add(entry.domain);
     }
   }
+  losableCache.set(to, losable);
   return losable;
 }
 
@@ -77,56 +86,58 @@ describe('domain guidance: structural validity', () => {
   });
 });
 
-describe.each(IDS)('domain guidance for %s', (to) => {
-  const present = domainsOnTarget(to);
-  const losable = losableDomains(to);
-
+describe('domain guidance covers every target', () => {
   it('has a cell with `instead` for every domain a source can lose into it', () => {
-    for (const domain of losable) {
-      const cell = cellsByKey.get(`${to}:${domain}`);
-      expect(
-        cell?.instead,
-        `${to} has no "instead" advice for ${domain}, which some source loses into it`,
-      ).toBeTruthy();
+    for (const to of IDS) {
+      for (const domain of losableDomains(to)) {
+        const cell = cellsByKey.get(`${to}:${domain}`);
+        expect(
+          cell?.instead,
+          `${to} has no "instead" advice for ${domain}, which some source loses into it`,
+        ).toBeTruthy();
+      }
     }
   });
 
   it('has a cell with `summary` for every domain it provides at least one command in', () => {
-    for (const domain of present) {
-      const cell = cellsByKey.get(`${to}:${domain}`);
-      expect(
-        cell?.summary,
-        `${to} has no "summary" for ${domain}, which it has commands in`,
-      ).toBeTruthy();
+    for (const to of IDS) {
+      for (const domain of domainsOnTarget(to)) {
+        const cell = cellsByKey.get(`${to}:${domain}`);
+        expect(
+          cell?.summary,
+          `${to} has no "summary" for ${domain}, which it has commands in`,
+        ).toBeTruthy();
+      }
     }
   });
 
   it('carries no dead cell — every cell is either present on the target or losable into it', () => {
-    for (const domain of KEYWORD_DOMAINS) {
-      const cell = cellsByKey.get(`${to}:${domain}`);
-      if (!cell) continue;
-      const isPresent = present.has(domain);
-      const isLosable = losable.has(domain);
-      expect(
-        isPresent || isLosable,
-        `${to}/${domain} is neither present on the target nor losable into it — nothing can arise for this cell`,
-      ).toBe(true);
-      if (cell.instead) {
+    for (const to of IDS) {
+      const present = domainsOnTarget(to);
+      const losable = losableDomains(to);
+      for (const domain of KEYWORD_DOMAINS) {
+        const cell = cellsByKey.get(`${to}:${domain}`);
+        if (!cell) continue;
+        const isPresent = present.has(domain);
+        const isLosable = losable.has(domain);
         expect(
-          isLosable,
-          `${to}/${domain} carries "instead" advice but nothing is losable into it there`,
+          isPresent || isLosable,
+          `${to}/${domain} is neither present on the target nor losable into it — nothing can arise for this cell`,
         ).toBe(true);
+        if (cell.instead) {
+          expect(
+            isLosable,
+            `${to}/${domain} carries "instead" advice but nothing is losable into it there`,
+          ).toBe(true);
+        }
       }
     }
   });
 });
 
-describe.each(domainGuidance.map((g) => [`${g.to}/${g.domain}`, g] as const))(
-  'domain guidance cell: %s',
-  (_key, g) => {
-    const present = domainsOnTarget(g.to);
-
-    it('reports support honestly', () => {
+describe('every domain guidance cell', () => {
+  it('reports support honestly', () => {
+    for (const g of domainGuidance) {
       const count = [...PAGES[g.to]!.entries].filter(
         (e) => e.domain === g.domain,
       ).length;
@@ -142,14 +153,23 @@ describe.each(domainGuidance.map((g) => [`${g.to}/${g.domain}`, g] as const))(
           `${g.to} claims full ${g.domain} support but has no command there`,
         ).toBeGreaterThan(0);
       }
-    });
+    }
+  });
 
-    it('shows an example exactly when support is not full and instead is set', () => {
+  it('shows an example exactly when support is not full and instead is set', () => {
+    for (const g of domainGuidance) {
       const shouldHaveExample = g.support !== 'full' && Boolean(g.instead);
-      expect(Boolean(g.example)).toBe(shouldHaveExample);
-    });
+      expect(
+        Boolean(g.example),
+        shouldHaveExample
+          ? `${g.to}/${g.domain} needs an example: it is not full support and carries "instead"`
+          : `${g.to}/${g.domain} carries an example it should not have`,
+      ).toBe(shouldHaveExample);
+    }
+  });
 
-    it('pins every reachFor name to a real row on the target page in this domain', () => {
+  it('pins every reachFor name to a real row on the target page in this domain', () => {
+    for (const g of domainGuidance) {
       for (const name of g.reachFor ?? []) {
         const row = PAGES[g.to]!.entries.find((e) => e.name === name);
         expect(row, `${g.to} has no "${name}" row`).toBeTruthy();
@@ -158,11 +178,19 @@ describe.each(domainGuidance.map((g) => [`${g.to}/${g.domain}`, g] as const))(
           `${g.to}'s "${name}" is not in the ${g.domain} domain`,
         ).toBe(g.domain);
       }
-      expect(g.reachFor?.length ?? 0).toBeLessThanOrEqual(MAX_REACH_FOR);
-    });
+      expect(
+        g.reachFor?.length ?? 0,
+        `${g.to}/${g.domain} points at more than ${MAX_REACH_FOR} rows`,
+      ).toBeLessThanOrEqual(MAX_REACH_FOR);
+    }
+  });
 
-    it('stays within the reading budget', () => {
-      expect(g.summary.length).toBeGreaterThan(0);
+  it('stays within the reading budget', () => {
+    for (const g of domainGuidance) {
+      expect(
+        g.summary.length,
+        `${g.to}/${g.domain} has an empty summary`,
+      ).toBeGreaterThan(0);
       expect(
         g.summary.length,
         `too long to scan: "${g.summary}"`,
@@ -174,9 +202,18 @@ describe.each(domainGuidance.map((g) => [`${g.to}/${g.domain}`, g] as const))(
         ).toBeLessThanOrEqual(MAX_INSTEAD_CHARS);
       }
       if (g.example) {
-        expect(g.example.caption.length).toBeLessThanOrEqual(MAX_CAPTION_CHARS);
-        expect(g.example.code.length).toBeGreaterThan(0);
-        expect(g.example.code.length).toBeLessThanOrEqual(MAX_EXAMPLE_LINES);
+        expect(
+          g.example.caption.length,
+          `${g.to}/${g.domain} caption too long`,
+        ).toBeLessThanOrEqual(MAX_CAPTION_CHARS);
+        expect(
+          g.example.code.length,
+          `${g.to}/${g.domain} has an empty example`,
+        ).toBeGreaterThan(0);
+        expect(
+          g.example.code.length,
+          `${g.to}/${g.domain} example runs over ${MAX_EXAMPLE_LINES} lines`,
+        ).toBeLessThanOrEqual(MAX_EXAMPLE_LINES);
         for (const line of g.example.code) {
           expect(
             line.length,
@@ -184,11 +221,17 @@ describe.each(domainGuidance.map((g) => [`${g.to}/${g.domain}`, g] as const))(
           ).toBeLessThanOrEqual(MAX_EXAMPLE_LINE_CHARS);
         }
       }
-    });
+    }
+  });
 
-    it('only claims a domain present on the target or losable into it', () => {
+  it('only claims a domain present on the target or losable into it', () => {
+    for (const g of domainGuidance) {
+      const present = domainsOnTarget(g.to);
       const losable = losableDomains(g.to);
-      expect(present.has(g.domain) || losable.has(g.domain)).toBe(true);
-    });
-  },
-);
+      expect(
+        present.has(g.domain) || losable.has(g.domain),
+        `${g.to}/${g.domain} is claimed but the target neither has that domain nor can lose into it`,
+      ).toBe(true);
+    }
+  });
+});
