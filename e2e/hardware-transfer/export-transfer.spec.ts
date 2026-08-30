@@ -141,7 +141,7 @@ async function openC64WithBlock(page: Page) {
   // Add a memory block so the document holds something the .prg can't carry.
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
   await addMemoryBlock(page);
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
 }
 
 test('C64 .d64 export carries blocks; .prg warns before dropping them', async ({

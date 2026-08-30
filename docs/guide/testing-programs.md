@@ -332,10 +332,11 @@ start of the file, their values in hexadecimal, and the characters your
 machine's own character set gives them - the same view a memory block's bytes
 are shown in, counting from the file's first byte rather than from an address.
 
-The bytes are shown read-only. A saved file is what your program produced, not
-part of your document: it is never saved with your project, never carried by a
-share link, and running a program does not mark your document as having unsaved
-changes.
+The bytes are shown read-only, and the bar above them says so — a red **RO** at
+its end, there for as long as the tab is. Typing into the bytes simply does
+nothing. A saved file is what your program produced, not part of your document:
+it is never saved with your project, never carried by a share link, and running
+a program does not mark your document as having unsaved changes.
 
 Where a machine wraps a file in a container of its own - a Spectrum keeps a
 whole tape image, a header ahead of the data - you are shown the file your

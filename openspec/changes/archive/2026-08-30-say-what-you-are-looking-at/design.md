@@ -222,10 +222,10 @@ requires nothing but leaving it alone.
   what it is before the user saves. This is the deliberate cost of decision
   four; it is in the spec rather than hidden in the implementation.
 - **Applying a size through the store reseeds the byte editor's document**,
-  which may cost that block's editing history → establish what actually
-  happens to the per-buffer history when the block comes back changed, and if
-  the history is lost, say so where the size is set rather than letting the
-  user discover it by pressing undo.
+  which costs that block's editing history → established while implementing
+  (see the open questions below): the history is discarded with the document it
+  described, and the size field says so where the size is set rather than
+  leaving the user to discover it by pressing undo.
 - **Pinning the view toggle in a wrapping bar is a layout claim, not a
   guarantee** → check it at a phone-portrait width, with a long comment
   present, since the comment is the element that will fight it for room.
@@ -253,6 +253,12 @@ opens identically after it.
   in a less useful form, where a block's address range says something the size
   cannot. Worth revisiting only if a file's bar looks bare in practice.
 - Does the byte editor's per-buffer undo history survive a size change made in
-  settings? Assumed **not**, and treated as acceptable (a move has the same
-  effect today), but it should be established rather than assumed while
-  implementing — the answer decides whether the dialog needs to say anything.
+  settings? **Established while implementing: no — and a move is not the same
+  case.** A move leaves the document alone (the same bytes, laid out the same
+  way, read against a different gutter), so its history stands and undo still
+  takes back the last byte edit. A resize rewrites the document, which left the
+  old history describing text that was no longer there: undoing spliced a
+  stretch of the old projection into the new one rather than reverting
+  anything. So a reseed that rewrites the document now installs a fresh state,
+  the history goes with the document it described, and the size field says so
+  beside the ceiling.

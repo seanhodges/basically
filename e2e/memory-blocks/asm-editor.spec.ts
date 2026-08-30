@@ -116,8 +116,8 @@ test('block tabs appear; the code block opens an editable disassembly', async ({
   await expect(asmContent(page)).toContainText('LD A,$02');
   await expect(asmContent(page)).toContainText('OUT ($FE),A');
   await expect(asmContent(page)).toContainText('RET');
-  // The status strip pins the block's origin.
-  await expect(page.getByText('ORG $8000')).toBeVisible();
+  // The bar says which addresses the block occupies.
+  await expect(page.getByTestId('block-bar')).toContainText('$8000 - $8004');
 
   // Edit $02 -> $07: after the debounce the reassembled bytes replace the
   // block's contents (observed through autosave, like a reload would).
@@ -262,7 +262,7 @@ test('a data block opens the byte editor, and its edits round-trip', async ({
   const content = editor.locator('.cm-content');
   await expect(editor).toBeVisible();
   await expect(page.getByRole('note')).toHaveCount(0);
-  await expect(page.getByText('ORG $9000')).toBeVisible();
+  await expect(page.getByTestId('block-bar')).toContainText('$9000 - $9003');
   await expect(content).toContainText('01 02 03 04');
 
   // Overwrite the first byte with $41. Two nibbles typed over the byte that was
@@ -287,7 +287,7 @@ test('a data block opens the byte editor, and its edits round-trip', async ({
   await page.keyboard.press('End');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.type('7e');
-  await expect(page.getByTestId('byte-length')).toHaveValue('5');
+  await expect(page.getByTestId('block-bar')).toContainText('5 bytes');
 
   // The edit and the new length reached the document...
   await expect
@@ -311,7 +311,7 @@ test('a data block opens the byte editor, and its edits round-trip', async ({
   await expect(page.locator('.cm-content').first()).toBeVisible();
   await page.getByRole('tab', { name: 'sprites' }).click();
   await expect(content).toContainText('42 02 03 04 7E');
-  await expect(page.getByTestId('byte-length')).toHaveValue('5');
+  await expect(page.getByTestId('block-bar')).toContainText('5 bytes');
 });
 
 test("a block's byte edits are undoable, and outlive showing another tab", async ({
@@ -341,15 +341,25 @@ test("a block's byte edits are undoable, and outlive showing another tab", async
   await page.getByLabel('Fill byte value').fill('$AA');
   await page.getByRole('button', { name: 'Fill', exact: true }).click();
   await expect(content).toContainText('01 AA AA 04');
-  await expect(page.getByTestId('byte-length')).toHaveValue('4');
+  await expect(page.getByTestId('block-bar')).toContainText('4 bytes');
 
-  // A length change too large to type goes through the byte count in the status
-  // strip - and undo reaches it like any other edit, bringing back the bytes it
-  // discarded with the values they had.
-  await page.getByTestId('byte-length').fill('2');
-  await page.getByTestId('byte-length').press('Enter');
+  // A length change too large to type is set outright in the block's settings,
+  // beside the address that bounds it, and takes effect on Save.
+  await page.getByRole('tab', { name: 'sprites' }).click({ button: 'right' });
+  await page
+    .getByRole('menu', { name: 'Tab actions' })
+    .getByRole('menuitem', { name: 'Settings…' })
+    .click();
+  await page.getByLabel('Size in bytes').fill('2');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(content).toContainText('01 AA');
   await expect(content).not.toContainText('01 AA AA');
-  await editMenu(page, /^Undo/);
-  await expect(content).toContainText('01 AA AA 04');
+  await expect(page.getByTestId('block-bar')).toContainText('2 bytes');
+
+  // Save is what confirms it, and the field says so: the discarded bytes do not
+  // come back, because the history went with the document it described.
+  await content.click();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(content).toContainText('01 AA');
+  await expect(content).not.toContainText('01 AA AA');
 });

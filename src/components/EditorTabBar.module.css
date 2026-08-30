@@ -46,9 +46,14 @@
   border-bottom-color: var(--accent);
 }
 
-.kindGlyph {
+/* The tab's kind mark. An inline SVG sits on the text's baseline only if it is
+   laid out as a box of its own: as an inline child it would ride the baseline
+   and sit proud of the name beside it. */
+.kindMark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
   opacity: 0.7;
-  font-size: 12px;
 }
 
 /* Block names come from tape headers and can be long - keep tabs usable. */
@@ -102,8 +107,9 @@
 .contextMenu button {
   display: flex;
   align-items: center;
-  /* The overflow menu lists tabs, glyph and all, so it spaces them as the strip
-     does; the action menus have no glyph and the gap costs them nothing. */
+  /* The overflow menu lists tabs, mark and all, and the add menu leads each
+     item with the mark the tab it creates will wear, so both space them as the
+     strip does; the action menus have no mark and the gap costs them nothing. */
   gap: 6px;
   background: none;
   border: none;

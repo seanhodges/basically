@@ -8,6 +8,7 @@ import {
   applyBlockSettings,
   blockNameFromFileName,
   draftFromBlock,
+  formatBlockExtent,
   parseAddressInput,
   validateBlockSettings,
   type BlockSettingsDraft,
@@ -23,10 +24,26 @@ const BLOCK: Block = {
   kind: 'code',
 };
 
+/** A block the assembler does not size, so its settings offer a size. */
+const BINARY: Block = {
+  id: 'blk-c',
+  name: 'sprites',
+  address: 0x9000,
+  bytes: Uint8Array.from([0x11, 0x22, 0x33]),
+  kind: 'memory',
+};
+
 const draft = (
   patch: Partial<BlockSettingsDraft> = {},
 ): BlockSettingsDraft => ({
   ...draftFromBlock(BLOCK),
+  ...patch,
+});
+
+const binaryDraft = (
+  patch: Partial<BlockSettingsDraft> = {},
+): BlockSettingsDraft => ({
+  ...draftFromBlock(BINARY),
   ...patch,
 });
 
@@ -57,10 +74,29 @@ describe('draftFromBlock', () => {
       kind: 'code',
       entry: '',
       comment: '',
+      size: '1',
     });
     expect(
       draftFromBlock({ ...BLOCK, entry: 0x8003, comment: 'draw' }),
     ).toMatchObject({ entry: '$8003', comment: 'draw' });
+  });
+});
+
+describe('formatBlockExtent', () => {
+  it('reads first address to last', () => {
+    expect(formatBlockExtent(0x8000, 174)).toBe('$8000 - $80AD');
+  });
+
+  it('gives a one-byte block a range of one', () => {
+    expect(formatBlockExtent(0x8000, 1)).toBe('$8000 - $8000');
+  });
+
+  it('gives a block of no bytes its address alone', () => {
+    expect(formatBlockExtent(0x8000, 0)).toBe('$8000');
+  });
+
+  it('reads a block that ends at the top of memory', () => {
+    expect(formatBlockExtent(0xfff0, 16)).toBe('$FFF0 - $FFFF');
   });
 });
 
@@ -103,6 +139,56 @@ describe('validateBlockSettings', () => {
     expect(
       validateBlockSettings(draft({ entry: '' }), BLOCK.id, [BLOCK]),
     ).toEqual({});
+  });
+
+  it('accepts a whole number of bytes and rejects anything else', () => {
+    expect(
+      validateBlockSettings(binaryDraft({ size: '256' }), BINARY.id, [BINARY]),
+    ).toEqual({});
+    expect(
+      validateBlockSettings(binaryDraft({ size: 'lots' }), BINARY.id, [BINARY])
+        .size,
+    ).toBeDefined();
+    expect(
+      validateBlockSettings(binaryDraft({ size: '12.5' }), BINARY.id, [BINARY])
+        .size,
+    ).toBeDefined();
+    expect(
+      validateBlockSettings(binaryDraft({ size: '' }), BINARY.id, [BINARY])
+        .size,
+    ).toBeDefined();
+  });
+
+  it('rejects a size past what the machine can hold at that address', () => {
+    expect(
+      validateBlockSettings(
+        binaryDraft({ address: '$FFF0', size: '16' }),
+        BINARY.id,
+        [BINARY],
+      ),
+    ).toEqual({});
+    expect(
+      validateBlockSettings(
+        binaryDraft({ address: '$FFF0', size: '17' }),
+        BINARY.id,
+        [BINARY],
+      ).size,
+    ).toBeDefined();
+  });
+
+  it('holds a move and a resize to the ceiling at the new address', () => {
+    // 32 bytes fit at $9000 and do not fit at $FFF8, and it is where the block
+    // lands that decides.
+    expect(
+      validateBlockSettings(binaryDraft({ size: '32' }), BINARY.id, [BINARY]),
+    ).toEqual({});
+    expect(
+      validateBlockSettings(
+        binaryDraft({ address: '$FFF8', size: '32' }),
+        BINARY.id,
+        [BINARY],
+      ).size,
+    ).toBeDefined();
   });
 });
 
@@ -167,6 +253,40 @@ describe('applyBlockSettings', () => {
     const moved = applyBlockSettings(block, draft({ address: '$9000' }), z80);
     expect(moved.address).toBe(0x9000);
     expect(moved.bytes).toBe(BLOCK.bytes);
+  });
+
+  it('grows a block with zero and shrinks it from the end', () => {
+    const grown = applyBlockSettings(BINARY, binaryDraft({ size: '5' }), z80);
+    expect(Array.from(grown.bytes)).toEqual([0x11, 0x22, 0x33, 0, 0]);
+    const shrunk = applyBlockSettings(BINARY, binaryDraft({ size: '2' }), z80);
+    expect(Array.from(shrunk.bytes)).toEqual([0x11, 0x22]);
+  });
+
+  it('clamps a size applied with a move to the new address', () => {
+    const moved = applyBlockSettings(
+      BINARY,
+      binaryDraft({ address: '$FFF8', size: '32' }),
+      z80,
+    );
+    expect(moved.address).toBe(0xfff8);
+    expect(moved.bytes.length).toBe(8);
+    expect(Array.from(moved.bytes.subarray(0, 3))).toEqual([0x11, 0x22, 0x33]);
+  });
+
+  it('leaves an assembly-backed block the length the assembler made it', () => {
+    const source = 'ORG $8000\nRET\n';
+    const assembled = z80.assemble(source, 0x8000);
+    expect(assembled.ok).toBe(true);
+    if (!assembled.ok) return;
+    const block: Block = {
+      ...BLOCK,
+      bytes: assembled.bytes,
+      asmSource: source,
+    };
+    // The dialog states such a block's size rather than offering it, so a size
+    // that disagrees with the assembler's is not the user's and is not applied.
+    const updated = applyBlockSettings(block, draft({ size: '64' }), z80);
+    expect(updated.bytes).toBe(assembled.bytes);
   });
 
   it('moving a raw-bytes block (no asm source) just changes the address', () => {

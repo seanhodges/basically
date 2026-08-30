@@ -160,8 +160,8 @@ test('tabs the strip has no room for are reachable from its count button', async
   await overflow.click();
   const menu = page.getByRole('menu', { name: 'Tabs there is no room for' });
   const firstHidden = menu.getByRole('menuitem').first();
-  // The name span, not the whole item - the item leads with the kind glyph, and
-  // the tab it names is found by the name alone.
+  // The name span, not the whole item - the item leads with the tab's kind
+  // mark, and the tab it names is found by the name alone.
   const hiddenName =
     (await firstHidden.locator('[class*="tabName"]').textContent())?.trim() ??
     '';

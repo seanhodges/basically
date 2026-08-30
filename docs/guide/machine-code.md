@@ -28,10 +28,13 @@ paints the whole screen.
 **Right-click** a block's tab (or **long-press** on a touch screen) for its
 menu:
 
-- **Settings** — rename the block, move it to another address, switch it between
-  **code** and **data**, and set an optional entry address or comment. Moving a
-  block re-assembles it at the new address, so labels keep pointing to the right
-  place.
+- **Settings** — rename the block, move it to another address, set how many
+  bytes it holds, switch it between **code** and **data**, and set an optional
+  entry address or comment. Moving a block re-assembles it at the new address,
+  so labels keep pointing to the right place. The size sits beside the address
+  because each bounds the other: how many bytes a block may hold depends on
+  where it sits. A block whose bytes come from assembling its source is sized
+  by the assembler, so its settings state the size rather than offer it.
 - **Download .bin** — the block's bytes, exactly as they are.
 - **Load bytes…** — replace the block's contents from a file. The block keeps
   its own name, address and kind; only what it holds changes.
@@ -77,12 +80,15 @@ The block's **length** is yours to change, though:
 
 - type a value one position past the last byte and the block grows by it;
 - press **Backspace** there, or **Delete** on the last byte, and it shrinks;
-- for a bigger change than you would want to type, edit the **byte count** in
-  the strip above the block — growing pads with zeros, shrinking truncates.
+- for a bigger change than you would want to type, set the **size in bytes** in
+  the block's settings — growing pads with zeros, shrinking truncates.
 
-Nothing here asks you to confirm, because undo reaches a length change the same
-as any other edit. **Fill** sets a run of bytes to one value: name the address
-range and the value, and it fills what falls inside the block.
+The two gestures in the editor ask you to confirm nothing, because undo reaches
+a length change the same as any other edit. A size set in the settings is the
+other bargain: **Save** is what confirms it, and it clears that block's byte
+history, so undo will not bring back what shrinking discarded. **Fill** sets a
+run of bytes to one value: name the address range and the value, and it fills
+what falls inside the block.
 
 The on-screen keyboard types into the byte editor just as it does into your
 BASIC program, so a block can be edited on a touch screen.

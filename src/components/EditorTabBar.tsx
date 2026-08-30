@@ -17,6 +17,13 @@ import {
   type StripTab,
 } from '../app/tabOverflow';
 import type { Block, DataBlock } from '../dialects/types';
+import {
+  AsmBlockIcon,
+  ByteBlockIcon,
+  DataFileIcon,
+  ProgramIcon,
+  ScratchIcon,
+} from './icons';
 import styles from './EditorTabBar.module.css';
 
 /**
@@ -36,11 +43,42 @@ interface TabMenu {
   y: number;
 }
 
+/**
+ * What a tab holds, which is what its mark says. A block splits in two here
+ * because its two kinds are edited on different surfaces; the strip's own
+ * `StripTab['kind']` does not.
+ */
+type TabMark = 'program' | 'scratch' | 'code' | 'memory' | 'data';
+
+/**
+ * One mark per kind of tab, read by the strip, by the overflow menu and by the
+ * menu that creates a tab - so what the user picks and what they get look
+ * alike by construction rather than by keeping three lists in step.
+ */
+const KIND_MARKS: Record<TabMark, () => JSX.Element> = {
+  program: ProgramIcon,
+  scratch: ScratchIcon,
+  code: AsmBlockIcon,
+  memory: ByteBlockIcon,
+  data: DataFileIcon,
+};
+
+/** The mark a tab wears. Drawn `aria-hidden`, as every icon in the set is: a
+ *  tab is announced by its name, and its kind stays in its hover text. */
+function KindMark({ mark }: { mark: TabMark }) {
+  const Icon = KIND_MARKS[mark];
+  return (
+    <span className={styles.kindMark}>
+      <Icon />
+    </span>
+  );
+}
+
 /** A tab as the fit rule ranks it and the overflow menu lists it. */
 interface MenuTab extends StripTab {
   name: string;
-  /** The kind glyph the tab wears, so the menu reads as the strip does. */
-  glyph?: string;
+  /** The mark the tab wears, so the menu reads as the strip does. */
+  mark: TabMark;
   /** What showing it from the menu selects. */
   tab: ActiveTab;
 }
@@ -318,19 +356,25 @@ export function EditorTabBar() {
   // by until the user shows it, so a file just saved appears on its own.
   const allTabs = useMemo<MenuTab[]>(
     () => [
-      { key: 'basic', kind: 'basic', name: 'BASIC', tab: { kind: 'basic' } },
+      {
+        key: 'basic',
+        kind: 'basic',
+        name: 'BASIC',
+        mark: 'program' as const,
+        tab: { kind: 'basic' },
+      },
       ...blocks.map((b) => ({
         key: tabKey({ kind: 'block', id: b.id }),
         kind: 'block' as const,
         name: b.name,
-        glyph: b.kind === 'code' ? '⚙' : '▤',
+        mark: b.kind === 'code' ? ('code' as const) : ('memory' as const),
         tab: { kind: 'block' as const, id: b.id },
       })),
       ...scratchBuffers.map((b) => ({
         key: tabKey({ kind: 'scratch', id: b.id }),
         kind: 'scratch' as const,
         name: b.name,
-        glyph: '✎',
+        mark: 'scratch' as const,
         tab: { kind: 'scratch' as const, id: b.id },
       })),
       ...dataBlocks.map((f) => ({
@@ -338,7 +382,7 @@ export function EditorTabBar() {
         kind: 'data' as const,
         updatedAt: f.updatedAt,
         name: f.name,
-        glyph: '🖫',
+        mark: 'data' as const,
         tab: { kind: 'data' as const, name: f.name },
       })),
     ],
@@ -418,7 +462,8 @@ export function EditorTabBar() {
         }}
         {...longPress.bind({ kind: 'basic' })}
       >
-        BASIC
+        <KindMark mark="program" />
+        <span className={styles.tabName}>BASIC</span>
       </button>
       {blocks.map((block) => (
         <button
@@ -455,9 +500,7 @@ export function EditorTabBar() {
           }}
           {...longPress.bind({ kind: 'block', blockId: block.id })}
         >
-          <span className={styles.kindGlyph} aria-hidden="true">
-            {block.kind === 'code' ? '⚙' : '▤'}
-          </span>
+          <KindMark mark={block.kind === 'code' ? 'code' : 'memory'} />
           <span className={styles.tabName}>{block.name}</span>
           {asmErrorBlocks.has(block.id) && (
             <span
@@ -515,11 +558,7 @@ export function EditorTabBar() {
             }}
             {...longPress.bind({ kind: 'scratch', scratchId: buffer.id })}
           >
-            {/* Distinct from the block glyphs (⚙ code, ▤ data) so a scratch
-                buffer reads as not part of the document. */}
-            <span className={styles.kindGlyph} aria-hidden="true">
-              ✎
-            </span>
+            <KindMark mark="scratch" />
             <span className={styles.tabName}>{buffer.name}</span>
           </button>
         ),
@@ -554,11 +593,7 @@ export function EditorTabBar() {
             }}
             {...longPress.bind({ kind: 'data', name: file.name })}
           >
-            {/* Its own glyph: not the document's (⚙ code, ▤ memory), and not the
-              scratch buffer's ✎ - this is what the machine wrote. */}
-            <span className={styles.kindGlyph} aria-hidden="true">
-              🖫
-            </span>
+            <KindMark mark="data" />
             <span className={styles.tabName}>{file.name}</span>
           </button>
         ))}
@@ -621,6 +656,7 @@ export function EditorTabBar() {
               addScratchBuffer();
             }}
           >
+            <KindMark mark="scratch" />
             New scratch buffer
           </button>
           {dialect.memoryBlocks && (
@@ -632,6 +668,7 @@ export function EditorTabBar() {
                   addBlock('code');
                 }}
               >
+                <KindMark mark="code" />
                 New assembly block
               </button>
               <button
@@ -641,6 +678,7 @@ export function EditorTabBar() {
                   addBlock('memory');
                 }}
               >
+                <KindMark mark="memory" />
                 New binary block
               </button>
             </>
@@ -667,11 +705,7 @@ export function EditorTabBar() {
                 setActiveTab(t.tab);
               }}
             >
-              {t.glyph && (
-                <span className={styles.kindGlyph} aria-hidden="true">
-                  {t.glyph}
-                </span>
-              )}
+              <KindMark mark={t.mark} />
               <span className={styles.tabName}>{t.name}</span>
             </button>
           ))}
