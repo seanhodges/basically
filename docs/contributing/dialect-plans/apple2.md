@@ -67,17 +67,23 @@ The interpreter-support seam is the thing to get right in the emulator stage.
 
 ```ts
 interface Apple2BasicSupport {
-  loadProgram(
-    mem: Apple2Memory,
-    image: Uint8Array,
-    blocks?: readonly Block[],
-  ): void;
+  readonly coldEntry: number;
+  readonly commandLoop: number;
+  readonly prompt: string;
+  loadProgram(mem: Apple2Memory, image: Uint8Array): void;
   currentLine(mem: Apple2Memory): number | null;
-  readVariables(mem: Apple2Memory): MachineVariable[];
-  readReport(screen: MachineScreenText | null): MachineReport | null;
   readMemoryStats(mem: Apple2Memory): MachineMemoryStats | null;
+  readVariables?(mem: Apple2Memory): MachineVariable[];
+  readReport?(screen: MachineScreenText | null): MachineReport | null;
 }
 ```
+
+As shipped: the entry point, the command-loop address and the prompt are each
+the interpreter's, so they belong here too. Machine-code blocks are **not** —
+they are plain writes into RAM at addresses the user chose, carry no interpreter
+knowledge, and the machine lays them down itself. The last two members are
+optional because reading a variable table and recognising a report are Stage 5's
+work on each side.
 
 Every one of those five differs completely between the two interpreters —
 Integer BASIC grows its program down from `HIMEM:` and names its line in `PLINE`,
@@ -108,7 +114,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
-| 2     | Emulator core                      | ⬜     |
+| 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
@@ -181,7 +187,7 @@ rather than with the emulator, because the token table is read off the image and
 a table nobody can re-derive from the repository is not a measurement. Stage 2's
 ROM item is therefore already done.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
 The machine both dialects run. Build it once, here.
 
@@ -191,18 +197,18 @@ source and derive `frameHz` from them rather than writing 60. RAM is 48K at
 `$0000`–`$BFFF`; `createEmulator`'s `ramKb` is 16/32/64 and none of them is 48,
 so the machine fixes its own size and ignores the argument, as the Apple I does.
 
-- [ ] `src/emulator/apple2/memory.ts` — RAM, the ROM window at `$D000`–`$FFFF`,
+- [x] `src/emulator/apple2/memory.ts` — RAM, the ROM window at `$D000`–`$FFFF`,
       and the `$C000`–`$CFFF` I/O page. Reads and writes both have side effects
       there, and several switches are readable _and_ writable with the same
       effect; model the page as a dispatch rather than as an array
-- [ ] `src/emulator/apple2/softSwitches.ts` — the display state:
+- [x] `src/emulator/apple2/softSwitches.ts` — the display state:
       `$C050`/`$C051` graphics/text, `$C052`/`$C053` full/mixed,
       `$C054`/`$C055` page 1/2, `$C056`/`$C057` lo-res/hi-res
-- [ ] `src/emulator/apple2/keyboard.ts` — `$C000` returns the last key with bit 7
+- [x] `src/emulator/apple2/keyboard.ts` — `$C000` returns the last key with bit 7
       as the strobe; any access to `$C010` clears it. Nothing here stops a
       running program, which is the single most consequential difference from
       the Apple I and the reason this machine can have a `breakout`
-- [ ] `src/emulator/apple2/display.ts` — the three modes into one 280×192
+- [x] `src/emulator/apple2/display.ts` — the three modes into one 280×192
       raster. All three address memory non-linearly and the formulae must be
       written down where the renderer uses them: **text and lo-res**, row `r`
       starts at `base + 128 × (r mod 8) + 40 × (r div 8)`; **hi-res**, line `y`
@@ -212,14 +218,14 @@ so the machine fixes its own size and ignores the argument, as the Apple I does.
       four text lines; hi-res is `$2000` (page 2 `$4000`), 7 pixels to a byte with
       bit 7 selecting the colour pair. Verify each formula by booting the ROM and
       reading a known screen back, not by trusting this paragraph
-- [ ] `src/emulator/apple2/speaker.ts` — `$C030` toggles the cone; accumulate to
+- [x] `src/emulator/apple2/speaker.ts` — `$C030` toggles the cone; accumulate to
       `readAudio()` / `audioSampleRate`. The Apple I had no speaker, so there is
       no in-family precedent — the CPC and Spectrum beeper paths are the ones to
       read
-- [ ] `src/emulator/apple2/paddles.ts` — `$C061`–`$C063` buttons, `$C064`–`$C067`
+- [x] `src/emulator/apple2/paddles.ts` — `$C061`–`$C063` buttons, `$C064`–`$C067`
       timers, `$C070` trigger. Drives `setJoystick`, and so
       `joystickModes: ['native']` with `joystickFireButtons: 2` on both dialects
-- [ ] `src/emulator/apple2/apple2Machine.ts` — `MachineEmulator`, built on
+- [x] `src/emulator/apple2/apple2Machine.ts` — `MachineEmulator`, built on
       `createMachineLoop` and taking the `Apple2BasicSupport` object described
       under _Pair split_. **Do not write `runFrame` by hand and add the stepper
       afterwards**: a debug session opens on any press of Play, so the profile
@@ -228,15 +234,15 @@ so the machine fixes its own size and ignores the argument, as the Apple I does.
       on a slice as well as on a frame. `createMachineLoop`'s contract
       (`cyclesPerFrame`, `step()`, `currentLine()`, `onSliceStart`/`onSliceEnd`)
       is what makes that structural
-- [ ] `currentLine` / `debugStep`, and `debuggable: true` on the dialect —
+- [x] `currentLine` / `debugStep`, and `debuggable: true` on the dialect —
       Integer BASIC keeps the executing line in `PLINE`, exactly as the Apple I's
       does
 - [x] `public/roms/apple2.rom` **+ an attribution block in
       `public/roms/ATTRIBUTION.md`** — landed with Stage 1, which needs the image
       to derive the token table. The original (non-Autostart) monitor, reset
       vector `$FF59`; SHA-256 of the file and of each socket are in the block
-- [ ] `displaySize: { width: 280, height: 192 }` on the dialect
-- [ ] tests: boot the ROM to the `>` prompt; type a program in and read it back
+- [x] `displaySize: { width: 280, height: 192 }` on the dialect
+- [x] tests: boot the ROM to the `>` prompt; type a program in and read it back
       out of the program area; assert on the text page for a known `PRINT`, on
       the lo-res page for a known `PLOT`, and on the hi-res page for a known
       poke — the last of these is the only proof the interleave formulae are right

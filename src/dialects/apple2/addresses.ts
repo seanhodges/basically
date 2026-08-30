@@ -34,8 +34,35 @@ export const MONITOR_BASE = 0xf800;
 /** One image covering the whole window, in address order. */
 export const FIRMWARE_BYTES = ROM_TOP - ROM_BASE + 1;
 
-/** Integer BASIC's cold start, typed at the monitor as `E000G`. */
+/**
+ * Integer BASIC's cold start, typed at the monitor as `E000G`.
+ *
+ * `$E000` is `JSR $F000` (the interpreter's own initialisation) followed by
+ * `JMP $E2B3` into the warm start, which is why the two entries are not three
+ * bytes apart the way the Apple I's are.
+ */
 export const BASIC_COLD_ENTRY = 0xe000;
+export const BASIC_WARM_ENTRY = 0xe2b3;
+
+/**
+ * The head of the interpreter's command loop, and the one address every way of
+ * finishing with a program arrives at.
+ *
+ * The warm start is `JSR $FD8E` (print a carriage return) and falls straight
+ * into it; the three instructions here are `LSR $D9` (drop the flag that says a
+ * program is running), `LDA #$BE` and `JSR $E006`, which is the `>` prompt being
+ * printed. Falling off the end, `END`, a break from the keyboard and every
+ * `*** ... ERR` report all reach it, whereas the warm start itself is reached by
+ * only some of them - which is why this is the address the emulator watches to
+ * know a run is over.
+ */
+export const BASIC_COMMAND_LOOP = 0xe2b6;
+
+/** The prompt Integer BASIC prints, and the only thing that says it is up. */
+export const BASIC_PROMPT = '>';
+
+/** The monitor's own prompt, which a reset drops the machine at. */
+export const MONITOR_PROMPT = '*';
 
 /** Display pages. Text and lo-res share one; hi-res has its own. */
 export const TEXT_PAGE1 = 0x0400;
