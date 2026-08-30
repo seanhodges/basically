@@ -32,14 +32,16 @@ import { buildBasicImage, parseBasicImage } from './basicImage';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 import { apple2VariableErrors } from '../../editor/variableLint';
+import { Apple2Machine } from '../../emulator/apple2/apple2Machine';
+import { integerBasicSupport } from './machineSupport';
 
 /**
  * The Apple II (Apple II Integer BASIC).
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
- * once. The emulator, the keyboard, the samples and the build targets below are
- * throwing stubs until each is written; the language layer is real.
+ * once. The keyboard, the samples and the build targets below are empty stubs
+ * until each is written; the language layer and the emulator are real.
  *
  * The picker identity and the RAM figure are placeholders that satisfy the
  * contract; each is written for real when the dialect is registered.
@@ -142,8 +144,13 @@ export const apple2: Dialect = {
   memoryMap: apple2MemoryMap,
   memoryBlocks: apple2MemoryBlocks,
 
-  createEmulator(): MachineEmulator {
-    throw new Error('apple2: not implemented');
+  /**
+   * The board is shared with the Apple II Plus, which is the same hardware with
+   * the other BASIC in its ROM sockets, so what makes this an Apple II rather
+   * than a II Plus is the support object rather than the machine.
+   */
+  createEmulator(opts): MachineEmulator {
+    return new Apple2Machine({ rom: opts.rom, basic: integerBasicSupport });
   },
 
   keyboardLayout: apple2KeyboardLayout,
