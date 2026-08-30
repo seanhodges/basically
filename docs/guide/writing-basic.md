@@ -176,6 +176,10 @@ loading another program clears them along with the program they were written
 for, and you are warned first, so download anything you want to keep -
 right-click the buffer's tab and choose **Download .bas** - before you move on.
 
+They go where your program goes. Switching the target machine and choosing
+**Keep my code** brings every buffer to the new machine with it; choosing
+**Start new** leaves them behind with the program they were written for.
+
 ### Strict characters
 
 Every machine holds only the characters its own set has, and where your program

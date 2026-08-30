@@ -36,6 +36,7 @@ import {
   type ControllerOverrides,
   type GamepadMode,
 } from '../keyboard/controllerConfig';
+import { retainBlocksAcross } from './blockRetention';
 import { materializeSampleBlocks } from './sampleBlocks';
 import { profileStillApplies, type RunProfile } from './runProfile';
 import type { PauseInterval, RunTiming } from './runTiming';
@@ -259,8 +260,10 @@ interface IdeState {
    * Memory blocks attached to the current document (raw bytes at a fixed
    * address, alongside the BASIC source). Document-model state that survives
    * autosave and Save/Open (as a `.zip` bundle) like `source` does. Reset
-   * whenever a different program becomes active (New/Open/Sample/Import/dialect
-   * switch/player boot), same as breakpoints.
+   * whenever a different program becomes active (New/Open/Sample/Import/player
+   * boot), same as breakpoints. A target switch that keeps the program keeps
+   * the blocks the new machine can hold (see `retainBlocksAcross`); one that
+   * starts a new program resets them like any other replacement.
    */
   blocks: readonly Block[];
   /**
@@ -270,7 +273,8 @@ interface IdeState {
    * blocks themselves are re-derived from `source` (see `selectBlocks`); this
    * carries only what the `#BIN` record can't. Empty and unused for
    * fixed-address dialects. Document-model state: reset when a different program
-   * becomes active, and persisted alongside `source`.
+   * becomes active, kept alongside the kept text when a switch between two
+   * listing machines keeps the program, and persisted alongside `source`.
    */
   listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   /**
@@ -297,12 +301,12 @@ interface IdeState {
    * Owned by the document: autosaved, saved into the project bundle, and
    * restored from both.
    *
-   * Their lifecycle is the one `blocks` and `breakpoints` follow - any
-   * replacement of the document replaces them, so New/Open/Sample/Import clear
-   * them and opening a project installs its own. An in-place assistant apply
-   * edits the program rather than replacing the document, so it leaves them
-   * standing. Also cleared on a target-machine switch (their BASIC belongs to
-   * the machine being left) and on player boot.
+   * Their lifecycle is the one `blocks` follows - any replacement of the
+   * document replaces them, so New/Open/Sample/Import clear them and opening a
+   * project installs its own, and player boot starts without any. An in-place
+   * assistant apply edits the program rather than replacing the document, so it
+   * leaves them standing. A target switch takes them where it takes the
+   * program: kept when the user keeps their code, cleared when they start new.
    */
   scratchBuffers: readonly ScratchBuffer[];
   /**
@@ -1476,15 +1480,35 @@ function clearProgramDocs(s: IdeState): Partial<IdeState> {
  * State patch that performs an actual target switch: persist the choice, swap
  * the dialect, push `text` into the (rebuilt) editor, and stop the emulator.
  * Shared by the immediate path and the confirmation dialog.
+ *
+ * `retain` is the user keeping their program rather than starting a new one on
+ * the new machine: the workbench that program came with - its blocks, its
+ * scratch buffers and its undo history - moves with it. Everything else this
+ * does is the same either way, including discarding the files a run saved.
+ * Only the two keep paths pass it; every document load leaves it unset.
  */
 function applyDialectSwitch(
   s: IdeState,
   next: Dialect,
   text: string,
+  { retain = false }: { retain?: boolean } = {},
 ): Partial<IdeState> {
   persistDialectId(next.id);
-  // A different program on a different machine: nothing to undo back into.
-  bufferHistories.clear();
+  const kept = retain
+    ? retainBlocksAcross(s.dialect, next, s.blocks, s.listingBlockMeta)
+    : { blocks: [], listingBlockMeta: {} };
+  if (retain) {
+    // A block the new machine cannot hold takes its parked editor state with
+    // it, so no snapshot outlives the block it belongs to.
+    for (const b of s.blocks) {
+      if (kept.blocks.includes(b)) continue;
+      bufferHistories.drop(blockBufferKey(b.id));
+      bufferHistories.drop(blockBytesBufferKey(b.id));
+    }
+  } else {
+    // A different program on a different machine: nothing to undo back into.
+    bufferHistories.clear();
+  }
   // The files a program saved belong to that program and that machine, and
   // nothing about the emulator takes them away, so the document taking them
   // with it has to be said here. The new machine id retags the store, so what
@@ -1514,18 +1538,17 @@ function applyDialectSwitch(
     breakpoints: new Set<number>(),
     debugLine: null,
     debugBufferId: null,
-    // Scratch buffers die with the *machine*, not with the document: they hold
-    // BASIC a different machine does not speak, but they are a workbench rather
-    // than part of any program. This helper serves both - a real target switch
-    // and the document loads (New/Open/Shared) that route through it to get the
-    // teardown semantics - so the reset is gated on the machine actually
-    // changing rather than folded into the shared reset above.
-    ...(next.id !== s.dialect.id ? { scratchBuffers: [] } : {}),
-    // Memory blocks belong to the old machine's address space; a dialect
-    // switch always starts with none, as blocks aren't re-targeted across
-    // machines.
-    blocks: [],
-    listingBlockMeta: {},
+    // Scratch buffers are the workbench of the program beside them, so they go
+    // where that program goes: kept when the user keeps their code, discarded
+    // when a different program becomes active. This helper serves both - a real
+    // target switch and the document loads (New/Open/Shared) that route through
+    // it to get the teardown semantics - so the reset is gated on the machine
+    // actually changing rather than folded into the shared reset above.
+    ...(!retain && next.id !== s.dialect.id ? { scratchBuffers: [] } : {}),
+    // A kept block keeps the address it was given: nothing here re-targets it
+    // for the new machine, and the block linter reports one that no longer
+    // fits. What survives which switch is `retainBlocksAcross`'s to say.
+    ...kept,
     activeTab: BASIC_TAB,
     tabTouchedAt: {},
     asmErrorBlocks: new Set<string>(),
@@ -1828,13 +1851,14 @@ export const useIdeStore = create<IdeState>((set) => ({
       // A highly compatible target - one whose tokenizer accepts the code with
       // zero errors, the same bar the share/player boundary uses - runs the
       // program as-is, so switch straight to it and keep the code without the
-      // "may not run" prompt. Restricted to block-free documents: memory blocks
-      // are dropped on any switch, a loss the user should still confirm.
+      // "may not run" prompt. Restricted to block-free documents: a block keeps
+      // its address across a switch, which the new machine's memory map may
+      // refuse, and that is worth confirming rather than discovering.
       if (
         s.blocks.length === 0 &&
         computeCompatibleDialects(s.source, [], [next]).length > 0
       ) {
-        return applyDialectSwitch(s, next, s.source);
+        return applyDialectSwitch(s, next, s.source, { retain: true });
       }
 
       // The user's own code that the target may not run: defer to the
@@ -1994,7 +2018,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // `isMobileViewport()` applyDialectSwitch uses for `mobileTab`.
       const narrow = isMobileViewport();
       return {
-        ...applyDialectSwitch(s, next, s.source),
+        ...applyDialectSwitch(s, next, s.source, { retain: true }),
         docsProgramTopic: topic,
         ...(narrow
           ? { docsHintRequest: s.docsHintRequest + 1 }

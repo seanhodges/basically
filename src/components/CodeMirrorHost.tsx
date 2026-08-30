@@ -908,8 +908,24 @@ export function CodeMirrorHost({
 
   useEffect(() => {
     if (!hostRef.current) return;
+    // The view is thrown away and rebuilt when the machine changes, so a switch
+    // that keeps the program has to hand the history across itself. Which
+    // switches those are is not decided here: a switch that starts a different
+    // program clears the histories, which moves the generation, so the state
+    // parked on the way out is refused and this comes back fresh - undo must
+    // never reach back across a New, an Open or a start-new switch.
+    const parked = bufferHistories.restore(
+      basicBufferKey(bufferId),
+      override.text,
+      buildExtensions(),
+    );
     const view = new EditorView({
-      state: freshBufferState(override.text, buildExtensions()),
+      state:
+        parked.doc.toString() === override.text
+          ? parked
+          : // The text moved on without the snapshot: show what the store says
+            // and lose the history rather than the edit.
+            freshBufferState(override.text, buildExtensions()),
       parent: hostRef.current,
     });
     viewRef.current = view;
@@ -919,6 +935,20 @@ export function CodeMirrorHost({
     if (inputRef)
       inputRef.current = (action) => applyEditorAction(view, action);
     return () => {
+      // Park the showing buffer on the way out, so a switch that keeps the
+      // program can put its history back. A buffer discarded by the switch has
+      // nothing to come back to, and `save` refuses a state whose generation
+      // the teardown has already moved past.
+      const outgoing = lastBuffer.current;
+      const stillOpen =
+        outgoing === null ||
+        useIdeStore.getState().scratchBuffers.some((b) => b.id === outgoing);
+      if (stillOpen)
+        bufferHistories.save(
+          basicBufferKey(outgoing),
+          view.state,
+          lastHistoryGeneration.current,
+        );
       view.destroy();
       viewRef.current = null;
       if (inputRef) inputRef.current = null;

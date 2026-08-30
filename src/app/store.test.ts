@@ -273,9 +273,31 @@ describe('setDialect', () => {
     expect(s.pendingDialectId).toBeNull();
   });
 
+  it('a silent compatible switch keeps the workbench too', () => {
+    // No prompt is raised, so nothing asked the user whether their buffers
+    // could go - which means they have to come.
+    useIdeStore.setState({
+      source: '10 PRINT "HI"\n20 GOTO 10',
+      scratchBuffers: [
+        {
+          id: 'scratch-1',
+          name: 'Scratch 1',
+          text: '10 PRINT 1',
+          breakpoints: new Set<number>(),
+        },
+      ],
+    });
+    useIdeStore.getState().setDialect('bbcmicro');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.pendingDialectId).toBeNull();
+    expect(s.scratchBuffers.map((b) => b.text)).toEqual(['10 PRINT 1']);
+  });
+
   it('still prompts for a block-bearing document even when compatible', () => {
-    // Memory blocks are dropped on any switch, so a document that
-    // carries one keeps the confirmation prompt regardless of compatibility.
+    // A block keeps the address it has, which the new machine's memory map may
+    // refuse, so a document that carries one keeps the confirmation prompt
+    // regardless of how compatible its BASIC is.
     useIdeStore.setState({
       source: '10 PRINT "HI"\n20 GOTO 10',
       blocks: [BLOCK_A],
@@ -316,6 +338,43 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     expect(s.source).toBe('10 REM mine');
     expect(s.dirty).toBe(true);
     expect(s.pendingDialectId).toBeNull();
+  });
+
+  it("'keep' brings the scratch buffers with the program", () => {
+    useIdeStore.setState({
+      scratchBuffers: [
+        {
+          id: 'scratch-1',
+          name: 'Scratch 1',
+          text: '10 PRINT 1',
+          breakpoints: new Set([10]),
+        },
+      ],
+    });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([
+      {
+        id: 'scratch-1',
+        name: 'Scratch 1',
+        text: '10 PRINT 1',
+        breakpoints: new Set([10]),
+      },
+    ]);
+  });
+
+  it("'new' leaves the scratch buffers with the program they belonged to", () => {
+    useIdeStore.setState({
+      scratchBuffers: [
+        {
+          id: 'scratch-1',
+          name: 'Scratch 1',
+          text: '10 PRINT 1',
+          breakpoints: new Set(),
+        },
+      ],
+    });
+    useIdeStore.getState().confirmDialectSwitch('new');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
   });
 
   it('cancel leaves the current machine in place', () => {
@@ -1003,8 +1062,39 @@ describe('memory blocks reset on document identity changes', () => {
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
-  it('confirmDialectSwitch clears blocks on both "new" and "keep"', () => {
+  it('confirmDialectSwitch clears blocks on "new"', () => {
     useIdeStore.setState({ pendingDialectId: 'bbcmicro' });
+    useIdeStore.getState().confirmDialectSwitch('new');
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('confirmDialectSwitch keeps blocks on "keep", addresses and all', () => {
+    useIdeStore.setState({ pendingDialectId: 'bbcmicro' });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    // A 6502 machine taking a Z80 document's block: the block linter and the
+    // assembler are what report that, not a silent deletion.
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
+
+  it('a "keep" between two listing machines carries the block overrides', () => {
+    // A listing dialect derives its blocks from the source, so what a switch
+    // has to carry is the naming the `#BIN` record cannot hold.
+    useIdeStore.setState({
+      dialect: zx81,
+      blocks: [],
+      listingBlockMeta: { 0: { name: 'PLOT', kind: 'code' } },
+      pendingDialectId: 'zx80',
+    });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().listingBlockMeta).toEqual({
+      0: { name: 'PLOT', kind: 'code' },
+    });
+  });
+
+  it('a "keep" onto a machine that holds blocks differently drops them', () => {
+    // Spectrum blocks are bytes at a fixed address; ZX81's are `#BIN` records
+    // inside the listing, which travels with the kept text.
+    useIdeStore.setState({ pendingDialectId: 'zx81' });
     useIdeStore.getState().confirmDialectSwitch('keep');
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
@@ -1849,8 +1939,8 @@ describe('scratch buffers', () => {
     });
     expect(useIdeStore.getState().scratchBuffers).toEqual([]);
 
-    // A target switch: the snippet is written in a BASIC the new machine does
-    // not speak, so it goes with the old machine.
+    // A target switch on an empty editor is a fresh start on a new machine,
+    // not a program moving, so the workbench goes with the old one.
     seed();
     useIdeStore.setState({ source: '' });
     useIdeStore.getState().setDialect('bbcmicro');
@@ -2414,13 +2504,9 @@ describe('parked edit histories', () => {
     expect(s.docOverride.seq).toBe(seqBefore + 1);
   });
 
-  it('a sample, a machine switch and a player boot clear them too', () => {
+  it('a sample and a player boot clear them too', () => {
     park();
     useIdeStore.getState().loadUnsavedDocument('10 REM sample');
-    expect(parked()).toEqual([false, false]);
-
-    park();
-    useIdeStore.getState().setDialect(zx81.id);
     expect(parked()).toEqual([false, false]);
 
     park();
@@ -2430,6 +2516,34 @@ describe('parked edit histories', () => {
       fileName: 'shared.bas',
     });
     expect(parked()).toEqual([false, false]);
+  });
+
+  it('a machine switch clears them only when the program does not come along', () => {
+    useIdeStore.setState({ pendingDialectId: bbc.id });
+    park();
+    useIdeStore.getState().confirmDialectSwitch('new');
+    expect(parked()).toEqual([false, false]);
+
+    // Keeping the program leaves its text untouched, so there is something to
+    // undo back into and the histories have to survive the rebuilt editor.
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      pendingDialectId: bbc.id,
+    });
+    park();
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(parked()).toEqual([true, true]);
+
+    // The silent switch onto a machine that takes the program as it stands is
+    // a keep as much as the confirmed one is.
+    useIdeStore.setState({ dialect: spectrum, source: '10 REM prog' });
+    park();
+    useIdeStore.getState().setDialect(zx81.id);
+    // It really did switch: without this the assertion below would pass on a
+    // switch that never happened.
+    expect(useIdeStore.getState().dialect.id).toBe(zx81.id);
+    expect(parked()).toEqual([true, true]);
   });
 
   it('an in-place AI apply stays undoable, so the histories stand', () => {
