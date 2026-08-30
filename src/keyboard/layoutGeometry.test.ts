@@ -52,11 +52,9 @@ const NO_CASE_KEY: Record<string, string> = {
   pet: 'no Commodore key: the set switch is a POKE, not a keypress',
 };
 
-/** Whether any keycap on this layout latches the machine's letter case. */
+/** Whether locking a modifier on this layout latches the machine's letter case. */
 const hasCaseLock = (layout: KeyboardLayout): boolean =>
-  [...layout.rows.flat(), ...(layout.functionKeys ?? [])].some(
-    (k) => k.caseLock,
-  );
+  layout.modifiers.some((m) => m.caseLock);
 
 /** Whether any letter key carries the two cases across the shift layer. */
 function hasCasePair(layout: KeyboardLayout): boolean {
@@ -117,6 +115,22 @@ describe('both letter cases are reachable where the machine has them', () => {
       expect(layout.powerOnCase, `${dialect.id} power-on case`).toBeDefined();
     });
   }
+
+  it('reaches every case lock by locking a sticky modifier', () => {
+    // The lock is the shift key's second tap, as a phone keyboard's is, so the
+    // modifier carrying it must be one that can be tapped and locked at all.
+    for (const dialect of dialects) {
+      for (const mod of dialect.keyboardLayout.modifiers) {
+        if (!mod.caseLock) continue;
+        expect(mod.sticky, `${dialect.id} ${mod.id}`).toBe(true);
+        expect(mod.lockable, `${dialect.id} ${mod.id}`).toBe(true);
+        expect(
+          mod.caseLock.emits.length,
+          `${dialect.id} ${mod.id}`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
 
   it('excuses only registered machines that really have lower case', () => {
     for (const id of Object.keys(NO_CASE_KEY)) {

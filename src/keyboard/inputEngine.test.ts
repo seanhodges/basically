@@ -365,23 +365,31 @@ describe('KeyboardInputEngine (editor target)', () => {
 });
 
 describe('KeyboardInputEngine case lock', () => {
-  /** The test layout plus a case-lock key and a power-on case. */
+  /**
+   * The test layout with the case lock on its shift, as a machine with one
+   * has: the lock is the shift key's second tap, not a keycap of its own.
+   * `releaseEmits` differs from `emits` the way the Atari's does, so the two
+   * halves of the latch cannot be confused for each other.
+   */
   const cased: KeyboardLayout = {
     ...layout,
     powerOnCase: 'upper',
-    rows: [
-      [
-        ...layout.rows[0]!,
-        {
-          id: 'CapsLock',
-          spanX: 1,
-          emits: ['CapsLock'],
-          caseLock: true,
-          labels: [{ text: 'CAPS', editor: null }, null, null],
-        },
-      ],
+    modifiers: [
+      {
+        id: 'shift',
+        emits: ['Shift'],
+        sticky: true,
+        lockable: true,
+        caseLock: { emits: ['CapsLock'], releaseEmits: ['Shift', 'CapsLock'] },
+      },
     ],
   };
+
+  /** Tap the shift keycap once, as a pointer down and up on it. */
+  function tapShift(engine: KeyboardInputEngine, pointerId: number) {
+    engine.pointerDown('Shift', pointerId);
+    engine.pointerUp(pointerId);
+  }
 
   function casedSetup() {
     const cases: string[] = [];
@@ -392,23 +400,41 @@ describe('KeyboardInputEngine case lock', () => {
     return { cases, engine };
   }
 
-  it('starts in the layout’s power-on case', () => {
+  it('starts in the layout\u2019s power-on case', () => {
     const { engine } = casedSetup();
     expect(engine.getLetterCase()).toBe('upper');
   });
 
-  it('flips on a press and stays flipped after the release', () => {
-    // A tap, not a hold: the lock lives in the machine, so releasing the key
-    // must not undo it - which is exactly what a modifier would have done.
+  it('shifts on one tap and locks the case on the second', () => {
     const { engine } = casedSetup();
-    engine.pointerDown('CapsLock', 1);
-    engine.pointerUp(1);
+    tapShift(engine, 1);
+    // One tap is the ordinary sticky shift: the next key is shifted, and the
+    // case the letters type has not moved.
+    expect(engine.getModifierState('shift')).toBe('sticky');
+    expect(engine.getActiveLayer().id).toBe('shift');
+    expect(engine.getLetterCase()).toBe('upper');
+
+    tapShift(engine, 2);
+    expect(engine.getModifierState('shift')).toBe('locked');
     expect(engine.getLetterCase()).toBe('lower');
-    engine.pointerDown('KeyP', 2);
-    engine.pointerUp(2);
-    expect(engine.getLetterCase()).toBe('lower');
-    engine.pointerDown('CapsLock', 3);
+    // A latched lock pins no layer: the letters have already changed case, and
+    // drawing the shift legends over them would show one case and type another.
+    expect(engine.getActiveLayer().id).toBe('main');
+  });
+
+  it('stays locked after other keys, and unlocks on a further tap', () => {
+    // The lock lives in the machine, so a key pressed under it must not undo
+    // it - which is exactly what a held modifier would have done.
+    const { engine } = casedSetup();
+    tapShift(engine, 1);
+    tapShift(engine, 2);
+    engine.pointerDown('KeyP', 3);
     engine.pointerUp(3);
+    expect(engine.getLetterCase()).toBe('lower');
+    expect(engine.getModifierState('shift')).toBe('locked');
+
+    tapShift(engine, 4);
+    expect(engine.getModifierState('shift')).toBe('off');
     expect(engine.getLetterCase()).toBe('upper');
   });
 
@@ -416,27 +442,67 @@ describe('KeyboardInputEngine case lock', () => {
     const { cases, engine } = casedSetup();
     engine.pointerDown('KeyP', 1);
     engine.pointerUp(1);
-    engine.pointerDown('CapsLock', 2);
-    engine.pointerUp(2);
-    engine.pointerDown('KeyP', 3);
-    engine.pointerUp(3);
-    // Three presses, and the lock's own is the middle one: it is an ordinary
-    // key to the callback (its legend simply types nothing), and it reports
-    // the case it has just switched to rather than the one it left.
-    expect(cases).toEqual(['upper', 'lower', 'lower']);
+    tapShift(engine, 2);
+    tapShift(engine, 3);
+    engine.pointerDown('KeyP', 4);
+    engine.pointerUp(4);
+    // Only the letter presses reach the callback - a modifier is not a key
+    // press - and the second reports the case the lock has just switched to.
+    expect(cases).toEqual(['upper', 'lower']);
   });
 
-  it('still presses the machine’s own key', () => {
+  it('taps the machine\u2019s own case key and lets the shift up', () => {
     const machine = new FakeMachine();
     const engine = new KeyboardInputEngine(cased, {
       kind: 'machine',
       getMachine: () => machine as unknown as MachineEmulator,
     });
-    engine.pointerDown('CapsLock', 1);
+    tapShift(engine, 1);
+    expect(machine.down.has('Shift')).toBe(true);
+
+    tapShift(engine, 2);
+    // The shift cell comes back up - the lock is latched in the ROM, not held
+    // down - and the machine's own case key goes down in its place.
+    frames(engine, 3);
+    expect(machine.down.has('Shift')).toBe(false);
+    expect(machine.down.has('CapsLock')).toBe(true);
+    // Held long enough for a ROM keyboard scan to see it, then released.
+    frames(engine, 2);
+    expect(machine.down.has('CapsLock')).toBe(false);
+    expect(engine.getLetterCase()).toBe('lower');
+
+    // Unlocking presses the machine's other route back, not the same one.
+    tapShift(engine, 3);
+    expect(machine.down.has('Shift')).toBe(true);
     expect(machine.down.has('CapsLock')).toBe(true);
     frames(engine, 5);
-    engine.pointerUp(1);
+    expect(machine.down.size).toBe(0);
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+
+  it('keeps the latch when everything else is released', () => {
+    // Blur, stop, machine swap: a latched case lock holds no matrix cell, so
+    // there is nothing here to release, and clearing it would draw an unlocked
+    // shift over a machine that is still in the other case.
+    const { engine } = casedSetup();
+    tapShift(engine, 1);
+    tapShift(engine, 2);
+    engine.cancelAll();
+    expect(engine.getModifierState('shift')).toBe('locked');
     expect(engine.getLetterCase()).toBe('lower');
+  });
+
+  it('locks a modifier without a case lock the way it always did', () => {
+    // The plain lockable modifier: the second tap pins its cell down, and its
+    // layer stays the active one.
+    const { engine, machine } = setup();
+    engine.pointerDown('Shift', 1);
+    engine.pointerUp(1);
+    engine.pointerDown('Shift', 2);
+    engine.pointerUp(2);
+    expect(engine.getModifierState('shift')).toBe('locked');
+    expect(engine.getActiveLayer().id).toBe('shift');
+    expect(machine.down.has('Shift')).toBe(true);
   });
 
   it('reports upper case on a layout that declares no power-on case', () => {

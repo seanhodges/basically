@@ -129,22 +129,6 @@ const zxcvRow = flankedRow(
   delKey,
 );
 
-/**
- * CAPS LOCK, in the bottom-left machine region.
- *
- * The CPC powers up in lower case and reaches upper by SHIFT or by this key
- * (`src/dialects/caseKeys.test.ts`), so the base legends below are the
- * lower-case letters and this is what latches the other case. A tap, not a
- * held modifier - the lock lives in the firmware.
- */
-const capsKey: KeyDef = {
-  id: 'CapsLock',
-  spanX: 6,
-  emits: ['CapsLock'],
-  caseLock: true,
-  labels: [{ text: 'CAPS', editor: null }, null, null],
-};
-
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -169,7 +153,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([capsKey], spaceKey, [quoteKey, returnKey]),
+  bottomRow([], spaceKey, [quoteKey, returnKey]),
 ];
 
 // The numeric-keypad function keys f0–f9, in the top strip behind the toggle.
@@ -280,7 +264,17 @@ export const cpc464KeyboardLayout: KeyboardLayout = withSymbolMode(
       { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
     ],
     modifiers: [
-      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+      // CAPS LOCK, latched by locking the shift key. The CPC powers up in
+      // lower case and reaches upper by SHIFT or by the lock
+      // (`src/dialects/caseKeys.test.ts`), so the base legends are the
+      // lower-case letters and this is what latches the other case.
+      {
+        id: 'shift',
+        emits: ['Shift'],
+        sticky: true,
+        lockable: true,
+        caseLock: { emits: ['CapsLock'] },
+      },
     ],
     rows,
     graphicsPalette: {

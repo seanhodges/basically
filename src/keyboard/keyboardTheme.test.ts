@@ -113,6 +113,18 @@ describe('per-machine keyboard themes', () => {
   });
 
   /**
+   * The word size the renderer asks for is a size the stylesheet gives. A
+   * legend of more than one character carries `vk-word` (see
+   * `isWordLegend` in ./legendKit); with no rule behind it a machine key's
+   * word would silently go back to being sized from its keycap, which draws it
+   * larger than the letters beside it.
+   */
+  it('sizes the word legends the renderer marks', () => {
+    expect(css).toContain('.vk-pos-center.vk-word');
+    expect(css).toContain('.vk-single-label.vk-word');
+  });
+
+  /**
    * Nothing switches the layered keycap on screen width any more: it prints one
    * marking at every size, so a rule keyed on the old responsive class would
    * silently never apply.

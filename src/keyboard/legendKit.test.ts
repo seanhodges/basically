@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { act, cursorKey, ins, key, lbl, withLegend, word } from './legendKit';
+import {
+  act,
+  cursorKey,
+  ins,
+  isWordLegend,
+  key,
+  lbl,
+  withLegend,
+  word,
+} from './legendKit';
 import { KEY_SPAN } from './templateRows';
 
 /**
@@ -106,5 +115,24 @@ describe('withLegend', () => {
     );
     expect(arrowed.labels).toHaveLength(4);
     expect(arrowed.labels.slice(1, 3)).toEqual([null, null]);
+  });
+});
+
+describe('isWordLegend', () => {
+  it('calls a legend of several characters a word', () => {
+    // The machine keys the bottom-left region carries, and the SYM page
+    // toggle - every legend that must not be sized from its keycap.
+    for (const text of ['CTRL', 'Esc', 'C=', 'BREAK', '1/2'])
+      expect(isWordLegend(text), text).toBe(true);
+  });
+
+  it('calls a single character a character, symbols and arrows included', () => {
+    for (const text of ['A', 'a', '"', '␣', '↵', '⌫', '⇧', '£'])
+      expect(isWordLegend(text), text).toBe(false);
+  });
+
+  it('counts code points, not UTF-16 units', () => {
+    // A legend outside the basic plane is still one character on the keycap.
+    expect(isWordLegend('𝔸')).toBe(false);
   });
 });

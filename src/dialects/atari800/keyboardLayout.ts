@@ -137,30 +137,6 @@ const ctrlKey: KeyDef = {
   labels: [{ text: 'CTRL', editor: null }, null, null],
 };
 
-/**
- * CAPS/LOWR, the machine's case lock, beside the CTRL key it is pressed with.
- *
- * The Atari's route to lower case, and the reason this keycap is here: it
- * powers up caps-locked and its SHIFT gives upper case in either lock state, so
- * nothing else on the board reaches lower case. A tap, not a held modifier -
- * the lock lives in the OS's SHFLOK cell.
- *
- * The keycap is one-way on the real machine: alone it selects lower case, and
- * it is SHIFT+CAPS that locks the capitals back on. So the keycap presses that
- * pair while SHIFT is engaged, which is what a reader of the cap would do.
- */
-const capsKey: KeyDef = {
-  id: 'CapsLock',
-  spanX: 6,
-  emits: ['CapsLock'],
-  caseLock: true,
-  labels: [
-    { text: 'CAPS', editor: null },
-    { text: 'CAPS', editor: null, emits: ['Shift', 'CapsLock'] },
-    null,
-  ],
-};
-
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -182,7 +158,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([ctrlKey, capsKey], spaceKey, [quoteKey, returnKey]),
+  bottomRow([ctrlKey], spaceKey, [quoteKey, returnKey]),
 ];
 
 /**
@@ -294,7 +270,23 @@ export const atariKeyboardLayout: KeyboardLayout = withSymbolMode(
       { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
     ],
     modifiers: [
-      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+      // CAPS/LOWR, the machine's case lock, latched by locking the shift
+      // key. The Atari's route to lower case: it powers up caps-locked and
+      // its SHIFT gives upper case in either lock state, so nothing else on
+      // the board reaches lower case, and the lock lives in the OS's SHFLOK
+      // cell. It is one-way on the real machine - CAPS alone only ever
+      // selects lower case, and it is SHIFT+CAPS that locks the capitals back
+      // on, which is what releasing the lock presses.
+      {
+        id: 'shift',
+        emits: ['Shift'],
+        sticky: true,
+        lockable: true,
+        caseLock: {
+          emits: ['CapsLock'],
+          releaseEmits: ['Shift', 'CapsLock'],
+        },
+      },
       { id: 'ctrl', emits: ['Ctrl'], sticky: true, lockable: true },
     ],
     rows,

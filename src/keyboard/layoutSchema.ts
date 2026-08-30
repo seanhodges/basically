@@ -235,22 +235,6 @@ export interface KeyDef {
   labels: (KeyLabel | null)[];
   /** When set, this key IS the named modifier (see layout.modifiers). */
   modifier?: string;
-  /**
-   * When set, pressing this key flips the case an unshifted letter key types -
-   * the machine's own CAPS LOCK, or the Commodores' character-set switch.
-   *
-   * Deliberately not a modifier. A modifier here is a matrix cell *held down*
-   * with a momentary effect; a case lock on every machine that has one is the
-   * exact inverse - a momentary press whose effect is latched inside the ROM.
-   * Reusing {@link ModifierDef}'s `locked` state would mean holding the case
-   * key down forever, which is not what any of these machines do, and would
-   * put a layer under it that has no legends to show.
-   *
-   * The key still presses its own `emits`, so the machine sees the real key.
-   * On the editor target, where there is no machine to see anything, the
-   * engine's latch is what decides the case (see `KeyboardInputEngine`).
-   */
-  caseLock?: true;
   /** Extra CSS class suffix for per-key styling. */
   style?: string;
 }
@@ -281,6 +265,33 @@ export interface ModifierDef {
   sticky: boolean;
   /** Double-tap locks it until tapped again. */
   lockable: boolean;
+  /**
+   * The machine's own case lock, reached by locking this modifier - the shift
+   * key's second tap, as a phone keyboard's does - rather than by a keycap of
+   * its own. Locking taps {@link CaseLockDef.emits} and flips the case an
+   * unshifted letter key types; unlocking taps `releaseEmits`, which the Atari
+   * needs because CAPS alone only ever selects lower case there and it is
+   * SHIFT+CAPS that locks the capitals back on.
+   *
+   * The modifier's own tokens are *released* while it is locked, and its layer
+   * stops being the active one. A case lock is latched inside the ROM rather
+   * than held down, and the letters have already changed case: leaving the
+   * shift cell down would type the shifted legends over a latched case, which
+   * is not what any of these machines do.
+   *
+   * On the editor target, where there is no machine to latch anything, the
+   * engine's own case latch is what decides the case (see
+   * `KeyboardInputEngine`).
+   */
+  caseLock?: CaseLockDef;
+}
+
+/** How one machine's case lock is pressed; see {@link ModifierDef.caseLock}. */
+export interface CaseLockDef {
+  /** Tokens tapped to latch the other case. */
+  emits: string[];
+  /** Tokens tapped to latch it back, where that is not the same press. */
+  releaseEmits?: string[];
 }
 
 /**
