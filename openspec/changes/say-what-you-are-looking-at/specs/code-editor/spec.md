@@ -1,3 +1,54 @@
+## ADDED Requirements
+
+### Requirement: A tab says what kind of editor it opens
+
+Every tab in the editor's strip SHALL carry a mark saying what kind of thing it
+holds, and the marks SHALL tell the kinds apart: the program, a scratch buffer,
+a block of machine code, a block of bytes and a file the running program saved
+are five kinds, and SHALL be five marks. No kind SHALL be left unmarked, the
+program's own tab included.
+
+A mark SHALL be legible wherever the IDE runs and at the size the strip gives
+it, and SHALL NOT be one the IDE already uses elsewhere for something else — a
+mark that means one thing in the toolbar and another in the tab strip teaches
+the user nothing.
+
+Where a tab is offered somewhere other than the strip — listed among the tabs
+the strip has no room for, or offered by the control that creates it — it SHALL
+be offered with the mark it wears in the strip, so that what the user picks and
+what they get look alike.
+
+The mark SHALL identify the tab without becoming its name: a tab SHALL still be
+announced to assistive technology by its own name, and what kind of tab it is
+SHALL remain available to a user who asks the tab about itself.
+
+#### Scenario: Each kind of tab is marked differently
+
+- **WHEN** the editor is showing tabs of more than one kind at once
+- **THEN** each kind carries its own mark, and no two kinds carry the same one
+
+#### Scenario: The program's tab is marked too
+
+- **WHEN** the user looks at the tab strip of a document with no blocks and no
+  scratch buffers
+- **THEN** the program's tab carries a mark of its own
+
+#### Scenario: The control that creates a tab shows the mark it will wear
+
+- **WHEN** the user opens the control that adds a tab
+- **THEN** each kind it offers is shown with the mark the tab it creates will
+  carry in the strip
+
+#### Scenario: The overflow list marks its tabs as the strip does
+
+- **WHEN** the user opens the list of tabs the strip has no room for
+- **THEN** each tab listed carries the same mark it carries in the strip
+
+#### Scenario: A tab is still announced by its name
+
+- **WHEN** a user reaches a tab with assistive technology
+- **THEN** it is announced by the tab's own name, not by the name of its kind
+
 ## MODIFIED Requirements
 
 ### Requirement: Saved data files appear as tabs

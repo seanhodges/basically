@@ -6,6 +6,14 @@ with its own hand-rolled status strip, and the two editors' strips have drifted
 apart — one 13px and wrapping, the other 12px and ellipsising — for no reason
 other than being written at different times.
 
+The tab strip the bar defers to is in a similar state. Four of the five kinds
+of tab are marked by a single character chosen for being roughly the right
+shape, one of them a gear that means "settings" three inches away in the
+toolbar and one an emoji with no reliable glyph on Linux; the fifth, the
+program itself, is marked by nothing. Each character is written twice — once
+where the strip draws the tab, once in the model the overflow menu reads — and
+the menu that creates three of these kinds shows none of them.
+
 Everything this change shows is already in the components' hands: the byte
 editor computes a block's last address for the fill row's own hint, and both
 editors hold the address, the bytes, the entry point and the comment. Nothing
@@ -30,6 +38,8 @@ dependency — the charset it encodes characters through — is untouched.
 - A block's size and its address are set in the same place, because each
   bounds the other.
 - Read-only is stated continuously, because it is continuously true.
+- A tab says which of five things it opens, and says it the same way wherever
+  that tab is offered.
 
 **Non-Goals**
 
@@ -147,6 +157,63 @@ was not a number — leaves with the field it belonged to, into the dialog's own
 validation, which is where every other bad value in that dialog is already
 reported.
 
+### The kind marks are a drawn family, not characters that were to hand
+
+The present marks were picked from what a font happens to contain, and it
+shows: they disagree on weight and size, two of them depend on the platform's
+emoji coverage, and one is a gear the toolbar already uses for something else.
+The rest of the IDE does not work this way — the toolbar, the mobile bar and
+the byte editor's own view tabs all draw line art at a fixed size in the
+current text colour.
+
+**Decision: five drawn icons in the shared set, under the convention it already
+enforces**, so a tab mark sits at the same weight as every other mark in the
+app and looks the same on every machine.
+
+The family is chosen by **what the data looks like**, not by object metaphor: a
+numbered listing for the program, a pencil for a scratch buffer, rows of opcode
+and operand for an assembly block, a grid of cells for a block of bytes, a
+folded page for a file the machine wrote.
+
+That is a rule with teeth, because it excludes the obvious choices. **No mark
+in this family may repeat a meaning the app has already given away**: the gear
+is Open settings, the memory chip is Show the memory map, the `</>` is the
+editor pane, the floppy is the File menu, and the hash and the stacked rules
+are the byte editor's own two views. An assembly block is therefore not a chip
+and a saved file is not a floppy, however well either would read alone. This is
+written down because the next person to add a tab kind will reach for the chip.
+
+The one pair at real risk of reading alike at sixteen pixels is the program's
+numbered listing and the assembly block's opcode rows, both being horizontal
+rules. They are separated by the ticks and by the two-column rhythm; if that
+does not survive the two being seen side by side, the opcode rows are redrawn.
+The rule stands, the drawing gives way.
+
+### One mapping from kind to mark
+
+Each mark is currently written twice, in two places a hundred lines apart: the
+strip's own JSX and the flat tab model the overflow menu renders from. They
+agree today because someone kept them in step by hand, which is not a mechanism.
+
+**Decision: one table keyed by the tab's kind, read by the strip, the overflow
+menu and the creation menu alike.** That table is what makes "the menu shows
+the mark the tab will wear" true by construction rather than by discipline, and
+it is why the creation menu can gain marks without gaining a second opinion
+about what they are. The pattern is the one the mobile tab bar already uses —
+a table of kind, label and icon, rendered as an icon beside a name.
+
+### The mark identifies; the name still names
+
+A mark could be folded into what a tab announces to a screen reader — "machine
+code block block1" — which sounds like more information and is not. It renames
+every tab for exactly the users who cannot see the thing being described, and
+the kind is already on hover, where it has been all along.
+
+**Decision: the marks stay out of the accessible name.** A tab is announced by
+its name, as it is today; the kind stays in the hover text. The marks are drawn
+`aria-hidden`, which the shared icon convention does by default, so this
+requires nothing but leaving it alone.
+
 ## Risks / Trade-offs
 
 - **A size set in settings can discard bytes on Save, and undo will not bring
@@ -162,6 +229,12 @@ reported.
 - **Pinning the view toggle in a wrapping bar is a layout claim, not a
   guarantee** → check it at a phone-portrait width, with a long comment
   present, since the comment is the element that will fight it for room.
+- **An icon is wider than the character it replaces**, so every tab grows a few
+  pixels and the strip fits marginally fewer before overflowing → the fit is
+  measured from the tabs as rendered rather than computed from a glyph width,
+  and the overflow unit tests supply their own widths, so nothing fails and
+  nothing catches it either. It is checked by eye at a phone width, in the same
+  pass as the bar.
 - **The bar's text is what several e2e specs assert against**, including two
   that use `ORG $8000` as the only evidence that a block editor is on screen at
   all → those assertions move with the text they assert; the range is at least

@@ -26,6 +26,17 @@ And for a saved data file, a sentence of the strip is spent saying the view is
 read-only — while the editor separately answers each attempted keystroke with a
 message that flashes for two and a half seconds and then leaves nothing behind.
 
+And the case for dropping the name from the bar rests entirely on the tab
+above, which is thinner still. The program's own tab carries no mark at all.
+The other four kinds carry one character each — a gear for an assembly block,
+which is the same gear the toolbar uses for **Open settings**; a shaded square
+for a binary block; a pencil for a scratch buffer; a floppy disk for a saved
+file, an emoji that renders differently on every platform and not at all on
+some. The menu that creates three of those kinds shows no mark whatsoever, so
+what the user picks and what they get have nothing in common to look at. A tab
+worth leaning on has to say which of five things it opens; these five say it
+by accident, in whatever the font happens to have.
+
 ## What Changes
 
 - **One bar, shared by both editors.** The assembly editor and the byte editor
@@ -47,6 +58,16 @@ message that flashes for two and a half seconds and then leaves nothing behind.
   stay undoable in the editor. Only the typed byte count moves, and with it the
   fact that setting a size outright is now confirmed by Save rather than being
   an edit undo reaches.
+- **Every kind of tab wears its own mark**, drawn in the same line art as the
+  rest of the IDE: the program, a scratch buffer, an assembly block, a binary
+  block and a file the running program saved are five kinds, and become five
+  marks. The program's tab gains one for the first time.
+- **The marks say what the tab holds** rather than borrowing a symbol that
+  already means something else. Nothing in the set repeats the meaning of the
+  gear, the memory chip, the floppy or the editor's own `</>`.
+- **The menu that creates a tab shows the mark that tab will wear**, and so
+  does the list of tabs the strip has no room for, so the same kind reads the
+  same way wherever it is offered.
 - **A saved data file is marked read-only, permanently, rather than told so on
   each keystroke.** A red `RO` at the end of the bar replaces the sentence, and
   typing into the file simply does nothing. The refusals that really are events
@@ -69,7 +90,11 @@ None.
   outright is set in the block's settings rather than typed into the editor's
   own strip; length changes made by editing the end of the block are unchanged
   and stay undoable.
-- `code-editor`: *Saved data files appear as tabs* is modified so that the
+- `code-editor`: one requirement added — *A tab says what kind of editor it
+  opens* — covering that every tab carries a mark, that the five kinds are
+  five distinct marks, that a tab offered anywhere else wears the same one, and
+  that the mark identifies the tab without becoming its name. And
+  *Saved data files appear as tabs* is modified so that the
   read-only state is marked for as long as the tab is open, and an attempted
   edit does nothing rather than reporting a refusal. Its existing wording —
   "it is clear the view is read-only" — is satisfied by either behaviour, which
@@ -104,13 +129,30 @@ components already hold.
   are exactly as they are. Only where the choice is *presented* changes.
 - **Removing the refusal channel.** Two refusals are genuine events and stay
   visible. What goes is the one that reports an unchanging state.
-- **Restyling the tab strip, the toolbar or the RAM budget bar.** This is the
-  bar between a block's tab and its bytes, and nothing else.
+- **Restyling the tab strip beyond its marks, or touching the toolbar or the
+  RAM budget bar.** Tab order, the rule that decides which tabs fit, and the
+  overflow control are all exactly as they are.
+- **Changing which kinds of tab can be created.** A saved data file is written
+  by the running program and the program's tab is never created at all, so
+  three of the five kinds appear in the creation menu, as today.
+- **Putting the kind into a tab's name for assistive technology.** A tab is
+  announced by its name; what kind it is stays where it already is, on hover.
 
 ## Impact
 
 Affected code (confirm against the tree when implementing):
 
+- Five new icons in the IDE's shared icon set, and one mapping from a tab's
+  kind to its icon in `src/components/EditorTabBar.tsx` — replacing the two
+  copies of each glyph literal that live there now, one in the strip and one in
+  the model the overflow menu reads. The creation menu's items lead with the
+  same icons; the CSS rule those menu items already carry was written with a
+  glyph in mind and needs no change. `src/components/EditorTabBar.module.css`
+  needs the kind mark laid out for an inline SVG rather than a character.
+- Tab widths shift a little, since an icon is wider than the character it
+  replaces, so marginally fewer tabs fit before the strip overflows. The fit is
+  measured from the rendered tabs rather than computed, so nothing breaks; it
+  is a thing to look at, not to fix.
 - A new shared bar component, replacing the status strips in
   `src/components/AsmEditor.tsx` and `src/components/ByteEditor.tsx` and their
   two disagreeing `.statusStrip` rules. `src/components/UnsupportedBlockNotice.tsx`
@@ -126,6 +168,9 @@ Affected code (confirm against the tree when implementing):
   and needs no change.
 - The address range is `formatWord` from `src/asm/format.ts` over an expression
   the fill row already computes for its own hint. Nothing new is derived.
+- Several e2e specs match a tab strip's text with regular expressions
+  *because* a glyph prefixes each tab's name; an icon contributes no text, so
+  those can tighten to exact strings.
 - e2e specs assert the strip's text directly — the literal `ORG $8000` and the
   byte-count field's test id in `e2e/memory-blocks/`, and the read-only refusal
   in `e2e/persistence/saved-data-tabs.spec.ts`. Those assertions move with the
