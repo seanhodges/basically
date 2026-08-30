@@ -47,12 +47,6 @@ export function romInUseLabel(
         : `trimmed to ${size.toLocaleString()}`;
     return `Using your own ROM: ${custom.name} (${own}, ${fit}).`;
   }
-  // A machine whose image cannot be redistributed has no bundled ROM to be
-  // "using" - saying so would be the one wrong thing this line could say, since
-  // the machine will not start until the user supplies one.
-  if (dialect.romBundled === false) {
-    return `No ${dialect.name} ROM ships with this IDE - upload your own image to start the machine.`;
-  }
   return size === undefined
     ? `Using the bundled ${dialect.name} ROM.`
     : `Using the bundled ${dialect.name} ROM (${size.toLocaleString()} bytes).`;

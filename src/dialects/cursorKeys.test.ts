@@ -178,9 +178,9 @@ const CLAIMED: Record<string, string[]> = {
 /** Machines neither battery can reach, and why. */
 const NO_CURSOR_KEYS: Record<string, string> = {
   // A front panel and a teletype: the layout has no CURSOR mode to read a
-  // legend from, and the 8K BASIC image does not ship, so there would be
-  // nothing to boot and watch either.
-  altair8800: 'no cursor keys on the machine, and no ROM in this checkout',
+  // legend from, and BASIC's line editor rubs characters out rather than
+  // moving over them, so there is no arrow to press.
+  altair8800: 'no cursor keys on the machine',
   // The default backend interprets BASIC statements rather than scanning a key
   // matrix, so a cursor keypress reaches no ROM here to be shown moving - the
   // same reason it records no memory activity (see memoryActivity.test.ts).

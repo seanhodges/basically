@@ -132,11 +132,11 @@ export function SettingsForm() {
    *
    * Its own choice rather than the IDE's current machine, because the two
    * questions genuinely differ: the machine you are programming, and the machine
-   * whose firmware you are installing. They were the same control until a
-   * machine appeared whose image ships with nobody - the Altair - which the
-   * picker hides until one is supplied (see `app/machineAvailability.ts`). With
-   * no way to select that machine there was no way to reach its ROM settings
-   * either, so the only route in was a self-hosted drop-in.
+   * whose firmware you are installing. They were the same control until the
+   * picker started hiding a machine whose image is missing (see
+   * `app/machineAvailability.ts`): with no way to select that machine there was
+   * no way to reach its ROM settings either, and installing an image is
+   * precisely how it comes back.
    *
    * It still *opens* on the current machine every time the settings are shown,
    * which is what makes the common case ("replace the ROM of the thing I am
@@ -352,17 +352,13 @@ export function SettingsForm() {
                 <button type="button" onClick={() => void uploadRom()}>
                   Upload ROM image…
                 </button>
-                {/* Nothing to restore on a machine that bundles no image -
-                    the button would offer to remove the only ROM it has. */}
-                {romDialect.romBundled !== false && (
-                  <button
-                    type="button"
-                    onClick={restoreRom}
-                    disabled={!customRom}
-                  >
-                    Restore bundled ROM
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={restoreRom}
+                  disabled={!customRom}
+                >
+                  Restore bundled ROM
+                </button>
               </div>
               {romError && (
                 <p role="alert" className={styles.settingsError}>
@@ -373,12 +369,6 @@ export function SettingsForm() {
                 The image stays in this browser: it is never uploaded, and never
                 goes into a program you publish.
               </p>
-              {romDialect.romBundled === false && (
-                <p>
-                  Until you supply one, the {romDialect.name} is not offered in
-                  the machine picker.
-                </p>
-              )}
               {!localStorageIsPersistent() && (
                 <p role="alert" className={styles.settingsError}>
                   This browser is blocking site data, so a ROM you upload will

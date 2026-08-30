@@ -58,10 +58,10 @@ const FAMILIES: Record<string, string[]> = {
 
 /** Machines with no profiled run to compare, and why. */
 const NOT_PROFILED: Record<string, string> = {
-  // The 8K BASIC image carries no redistribution grant and does not ship, so
-  // there is no CPU to run here at all - the same split the loop-speed and
-  // memory-activity batteries make.
-  altair8800: 'its ROM does not ship, so no run can be measured',
+  // Charges no line costs, because 8K BASIC keeps no readable "line being
+  // executed" cell (see lineProfiling.test.ts), so there is no measurement to
+  // arm and nothing an armed run could perturb.
+  altair8800: 'charges no line costs, so no run is ever measured',
   // The default backend interprets BASIC statements rather than executing a CPU
   // over a RAM image, so there is no run loop to fold a profiler onto (see
   // memoryActivity.test.ts).

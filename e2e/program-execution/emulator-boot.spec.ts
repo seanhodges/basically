@@ -79,8 +79,9 @@ test('guard: automated machine list matches the machine picker', async ({
  *    at all: the firmware reads BASIC-G out of a ROM module through an I/O port
  *    and copies it down before a program can run, so "the ROM loaded" and "the
  *    machine can run a program" are two different facts here and only a boot
- *    proves the second. The Altair is the other 8080 machine and cannot boot -
- *    its image does not ship.
+ *    proves the second. The Altair rides on this one: it is the other 8080
+ *    machine through the same layer, and its interpreter is likewise copied
+ *    into RAM rather than mapped.
  *
  * A machine that arrives on a wiring none of these covers wants an entry here;
  * one that reuses an existing core does not.

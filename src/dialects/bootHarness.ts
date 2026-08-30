@@ -62,8 +62,8 @@ export function romPath(romUrl: string): string {
  * The committed ROM behind a dialect's `romUrl`, or an empty image.
  *
  * An absent file is not a failure: images with no redistribution grant are meant
- * to be removable, and the Altair's cannot ship at all (see
- * public/roms/ATTRIBUTION.md). Every machine here constructs without its ROM.
+ * to be removable (see public/roms/ATTRIBUTION.md). Every machine here
+ * constructs without its ROM.
  */
 export function romFor(romUrl: string | undefined): Uint8Array {
   if (!romUrl) return new Uint8Array(0);

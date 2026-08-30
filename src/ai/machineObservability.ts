@@ -48,12 +48,11 @@ export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   'atom',
   // The Altair's variable table is where `addresses.ts` says it is - VARTAB,
   // ARYTAB and STREND were all read off a booted machine - but the *encoding*
-  // of what is in it was not, and could not be: 8K BASIC is Microsoft copyright
-  // and does not ship here, so there is no image to check a 4-byte float layout
-  // or an array header against. A watcher built on a plausible guess would show
-  // confident wrong numbers, which is worse than showing none, so this machine
-  // deliberately has no `readVariables` - the ZX80 and Atom precedent. Supply
-  // an image, derive the layout from it, and the id comes out of this set.
+  // of what is in it has not been: neither the 4-byte float layout nor the
+  // array header was derived from the image. A watcher built on a plausible
+  // guess would show confident wrong numbers, which is worse than showing none,
+  // so this machine has no `readVariables` - the ZX80 and Atom precedent.
+  // Derive the layout and the id comes out of this set.
   'altair8800',
 ]);
 

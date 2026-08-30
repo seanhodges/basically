@@ -86,17 +86,18 @@ const READY_PROMPT = 'OK';
 
 /**
  * Shown on the terminal when the machine is constructed without a BASIC image.
- * That is a designed state rather than a failure: the 8K BASIC tape is
- * Microsoft copyright with no redistribution grant, so the user supplies their
- * own. (The emulator pane has its own version of this message, where it can be
- * acted on; this one is what the machine itself can say.)
+ * That is a designed state rather than a failure: the bundled tape is
+ * deletable, like every other image under `public/roms/`, and a machine with
+ * nothing to run has to say so somewhere. (The emulator pane has its own
+ * version of this message, where it can be acted on; this one is what the
+ * machine itself can say.)
  */
 const NO_IMAGE_NOTICE = [
   'NO BASIC IMAGE.',
   '',
   'The Altair had no firmware: it loaded BASIC from paper tape, and',
-  'Altair 8K BASIC is still under copyright, so no image ships here.',
-  'Supply your own at public/roms/altair8800.rom to start the machine.',
+  'this build has no tape to load - public/roms/altair8800.rom is',
+  'missing. Restore it, or supply your own image, to start the machine.',
 ];
 
 /**
@@ -112,12 +113,12 @@ const NO_IMAGE_NOTICE = [
  * are never corrected by editing the vendored core, which six shipped Z80
  * machines share.
  *
- * **The ROM that isn't.** `opts.rom` carries the Altair 8K BASIC image, which
- * this project does not and cannot ship: it is Microsoft copyright with no
- * redistribution grant (their 2025 open-source release was the *6502* BASIC).
- * The user supplies their own at `public/roms/altair8800.rom`. The machine
- * therefore stays constructible with an empty image and says so on its terminal
- * rather than throwing.
+ * **The ROM that isn't.** `opts.rom` carries the Altair 8K BASIC object tape,
+ * which the machine copies into RAM at 0x0000 rather than mapping: the base
+ * Altair had no firmware, and BASIC arrived on paper tape. The image ships at
+ * `public/roms/altair8800.rom`, but like every image there it may be deleted or
+ * replaced, so the machine stays constructible on an empty one and says so on
+ * its terminal rather than throwing.
  */
 export class Altair8800Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
@@ -370,12 +371,12 @@ export class Altair8800Machine implements MachineEmulator {
   // interpreter: the encoding of the variable table VARTAB points at (a 4-byte
   // float layout and an array header), and the workspace cell holding the line
   // being executed. `addresses.ts` says how everything else here was derived -
-  // statically from the 8K BASIC image, or by booting it - and neither of those
-  // can be derived that way here, because the image is Microsoft copyright and
-  // does not ship. A watcher or a debugger built on a plausible guess would be
-  // confidently wrong rather than absent, so they are absent: the same call the
-  // ZX80 and the Atom make. `machineObservability.ts` records the variable half
-  // of that decision, and its crosscheck keeps the two in step.
+  // statically from the 8K BASIC image, or by booting it - and neither of these
+  // two has been derived that way. A watcher or a debugger built on a plausible
+  // guess would be confidently wrong rather than absent, so they are absent:
+  // the same call the ZX80 and the Atom make. `machineObservability.ts` records
+  // the variable half of that decision, and its crosscheck keeps the two in
+  // step.
 
   setMemoryActivityRecording(enabled: boolean): void {
     this.memory.activity.enabled = enabled;

@@ -28,10 +28,10 @@ import type { MachineLoop } from '../../../emulator/machineLoop';
  * as the interpreter is, and that lets the bus, the 2SIO, the terminal and the
  * 8080 flag corrections be tested without a copyright image.
  *
- * The second half boots the real thing. `public/roms/altair8800.rom` is
- * user-supplied Microsoft-copyright code that does not ship (see
- * `public/roms/ATTRIBUTION.md`), so those cases skip cleanly when it is absent
- * and a clean checkout still runs green.
+ * The second half boots the real thing. `public/roms/altair8800.rom` ships, but
+ * like every image there it is deletable (see `public/roms/ATTRIBUTION.md`), so
+ * those cases skip cleanly when it is absent rather than failing a checkout
+ * that has taken it out.
  */
 const ROM_PATH = path.resolve(
   __dirname,

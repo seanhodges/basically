@@ -23,27 +23,12 @@
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import {
-  bootMachine,
-  hasRom,
-  installNodeRomLoading,
-  romFor,
-} from './bootHarness';
+import { bootMachine, installNodeRomLoading } from './bootHarness';
 import { LOOP_SPEED_PROBES } from './loopSpeedProbes';
 import type { Dialect, MachineEmulator } from './types';
 
 /** Booting the real ROMs dominates every case here (see c64Machine.test.ts). */
 const BOOT_TIMEOUT_MS = 120_000;
-
-/**
- * Machines that cannot be booted here, and why - the same exact-set discipline
- * loopSpeed.test.ts keeps: a machine that stops booting fails rather than
- * silently losing its coverage, and a checkout where the user has dropped an
- * image in locally is held to the contract after all.
- */
-const NO_ROM: Record<string, string> = {
-  altair8800: 'no redistributable ROM ships, so the machine cannot boot here',
-};
 
 /** Frames a terminating program is given to start, run and end. */
 const MAX_FRAMES = 4000;
@@ -103,21 +88,6 @@ describe('every registered machine reports whether a program is running', () => 
   afterAll(() => restoreRomLoading());
 
   for (const dialect of dialects) {
-    const reason = NO_ROM[dialect.id];
-    if (reason && !hasRom(dialect)) {
-      it(`${dialect.id} cannot be run here: ${reason}`, () => {
-        // Still held to the seam: the member is required of every machine, and
-        // this one's absence of a ROM says nothing about whether it has it.
-        const machine = dialect.createEmulator({
-          rom: romFor(dialect.romUrl),
-          ramKb: 16,
-        });
-        expect(typeof machine.isProgramRunning).toBe('function');
-        machine.dispose();
-      });
-      continue;
-    }
-
     it(
       `${dialect.id} reports a program running and then stopped`,
       async () => {

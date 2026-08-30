@@ -3011,10 +3011,13 @@ describe('delaysForProgram', () => {
   });
 
   it('reports nothing where either machine has no measured speed', () => {
-    const altair = machine('altair8800');
-    expect(altair.loopSpeed).toBeUndefined();
-    expect(delaysForProgram(zx81, altair, withDelays(4))).toBeNull();
-    expect(delaysForProgram(altair, zx81, withDelays(4))).toBeNull();
+    // Every registered machine states one - `loopSpeed.test.ts` measures them
+    // all - so the machine without a figure is built rather than found. The
+    // field stays optional for the next machine that cannot be benchmarked,
+    // and this is the branch that would carry it.
+    const unmeasured: PortingFacts = { ...atom, loopSpeed: undefined };
+    expect(delaysForProgram(zx81, unmeasured, withDelays(4))).toBeNull();
+    expect(delaysForProgram(unmeasured, zx81, withDelays(4))).toBeNull();
   });
 });
 

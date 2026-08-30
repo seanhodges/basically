@@ -64,7 +64,7 @@ const DEBUG_SLICES = 20;
  */
 const NO_LINE_COSTS: Record<string, string> = {
   atom: 'no readable "line being executed" cell',
-  altair8800: 'the 8K BASIC image does not ship, so nothing can be derived',
+  altair8800: 'no derived "line being executed" cell',
   trs80:
     'the interpreter executes statements, so there are no cycles to charge',
 };

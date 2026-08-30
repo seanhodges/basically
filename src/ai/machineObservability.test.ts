@@ -51,7 +51,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-/** As screenReadable.test.ts: a ROM that cannot ship leaves an empty image. */
+/** As screenReadable.test.ts: a ROM a checkout deleted leaves an empty image. */
 function romFor(romUrl: string | undefined): Uint8Array {
   if (!romUrl) return new Uint8Array(0);
   const rel = romUrl.slice(romUrl.indexOf('roms/'));

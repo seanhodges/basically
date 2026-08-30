@@ -71,8 +71,8 @@ export class Altair8800Memory {
   /** Copy the Altair BASIC image into RAM at its load origin. */
   loadInterpreter(image: Uint8Array): void {
     this.bytes.fill(0);
-    // An empty image is the designed ROM-absent state rather than an error -
-    // the 8K BASIC tape is Microsoft copyright and does not ship here.
+    // An empty image is a designed state rather than an error: the bundled
+    // tape is deletable, like every other image under public/roms/.
     this.bytes.set(image.subarray(0, this.bytes.length), 0);
   }
 

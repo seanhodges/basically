@@ -116,10 +116,9 @@ test('describing a program needs the assistant configured first', async ({
  * and the row labels come from one pure function
  * (src/components/machinePicker.test.ts pins the order and every row), and which
  * machines are offered at all is decided by machineIsRunnable
- * (src/app/machineAvailability.test.ts covers the Altair - shipped with no ROM,
- * so a picker row would be a dead end - case by case, and
- * e2e/persistence/custom-rom.spec.ts still watches a supplied ROM put a machine
- * back in the list in a real browser).
+ * (src/app/machineAvailability.test.ts covers case by case what a deleted image
+ * hides, and e2e/persistence/custom-rom.spec.ts watches a ROM being supplied
+ * for a machine other than the one in use, in a real browser).
  *
  * What is browser work is the nesting: two modals, one on top of the other.
  */
