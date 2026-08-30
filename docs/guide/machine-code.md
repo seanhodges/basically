@@ -143,6 +143,25 @@ file together — so **Open project** and reload keep the whole thing intact. To
 download just the BASIC listing as a `.bas`, right-click the **BASIC** editor tab
 and choose **Download .bas** (each block tab offers its own `.asm`/`.bin`).
 
+## Taking it to another machine
+
+Switching the target machine while your own program is open asks what should
+happen to it. **Keep my code** keeps the blocks along with the BASIC: each one
+arrives with its name, its bytes, its assembly and **the address it already
+had** — nothing is moved, re-assembled or translated for the new machine. If
+that address is not somewhere the new machine allows a block, you are told which
+block and why, and the program will not run until you move it; the same is true
+of a routine written for one processor landing on a machine with another. Fixing
+it beats losing it, which is why the blocks come. **Start new** leaves them
+behind with the program they belonged to.
+
+Two machines have to hold blocks the same way for them to travel. The ZX81 and
+ZX80 keep machine code inside the BASIC listing, everything else keeps it at a
+fixed address, and a switch between those two arrangements carries no blocks —
+though on the ZX81 and ZX80 the code is inside the listing you are keeping, so
+it comes across as part of your program's text. The switch tells you before it
+happens, and **Cancel** is always there.
+
 ## Sharing it
 
 [Publish to Web](./publishing) carries a program's blocks with it. The short

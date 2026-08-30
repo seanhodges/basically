@@ -1,5 +1,5 @@
 // Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
-import { test, expect, type Page } from '../fixtures';
+import { chooseTargetMachine, test, expect, type Page } from '../fixtures';
 import { addMemoryBlock, playAndWaitRunning } from '../helpers';
 
 /**
@@ -215,4 +215,44 @@ test('the BASIC tab context menu downloads the .bas listing', async ({
   const download = await downloadPromise;
   // Named after the document (blocks.bas -> blocks.bas), .bas extension.
   expect(download.suggestedFilename()).toBe('blocks.bas');
+});
+
+test('keeping the program on a new machine keeps its blocks and buffers', async ({
+  page,
+}) => {
+  // Browser-only: that the workbench really is still on the strip after the
+  // machine is torn down and rebuilt, and that the question said so first. The
+  // per-machine retention rule is pinned in src/app/blockRetention.test.ts.
+  await openSpectrum(page);
+  const tablist = page.getByRole('tablist', { name: 'Editor content' });
+  await addMemoryBlock(page);
+  await tablist.getByRole('button', { name: 'Add a tab' }).click();
+  await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  await expect(tablist.getByRole('tab')).toHaveText([
+    'BASIC',
+    'block1',
+    'Scratch 1',
+  ]);
+
+  // Amstrad CPC: another fixed-address machine, so the blocks travel.
+  await chooseTargetMachine(page, 'cpc464');
+  await expect(page.getByText(/memory blocks come with it/)).toBeVisible();
+  await expect(page.getByText(/scratch buffers come too/)).toBeVisible();
+  await page.getByRole('button', { name: 'Keep my code', exact: true }).click();
+
+  await expect(page.locator('.cm-content').first()).toBeVisible();
+  await expect(tablist.getByRole('tab')).toHaveText([
+    'BASIC',
+    'block1',
+    'Scratch 1',
+  ]);
+  await page.getByRole('tab', { name: 'block1' }).click();
+  await expect(asmContent(page)).toContainText('RET');
+
+  // Onto the ZX81, whose blocks live inside the listing instead: the question
+  // says they cannot come, and afterwards the block tab has gone.
+  await chooseTargetMachine(page, 'zx81');
+  await expect(page.getByText(/memory blocks are dropped/)).toBeVisible();
+  await page.getByRole('button', { name: 'Keep my code', exact: true }).click();
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'Scratch 1']);
 });
