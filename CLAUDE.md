@@ -49,9 +49,10 @@ npm install            # install dependencies
 npm run dev            # Vite dev server serving IDE at http://localhost:5173
 npm run docs:dev       # Vite dev server serving docs at http://localhost:5173/docs/
 
-npm test               # run all unit tests once (vitest run)
+npm test               # run all unit tests once (vitest run) — CI does this; rarely needed locally
 npm run test:watch     # vitest in watch mode
 npx vitest run src/dialects/zx81/tokenizer.test.ts   # run a single test file
+npx vitest run src/dialects/zx81/                    # run one folder's tests
 
 npm run e2e            # Playwright end-to-end / visual tests, full browser matrix (specs in e2e/)
 npm run e2e:chromium -- e2e/<capability>   # e2e for one capability, Chromium only (agent default)
@@ -67,8 +68,18 @@ npm run format:check   # Prettier check (used in CI)
 npm run build          # tsc -b && vite build → dist/
 ```
 
-**Before finishing a change**, run `npm run typecheck`, `npm test`,
-`npm run lint`, and `npm run format:check` (or `npm run format` to auto-fix).
+**Before finishing a change**, run `npm run typecheck`, `npm run lint`, and
+`npm run format:check` (or `npm run format` to auto-fix), plus the unit tests
+covering what you touched — the colocated `*.test.ts` files and the
+registry-driven suites that assert facts about every dialect. Pass paths to
+vitest to scope the run (`npx vitest run src/dialects/zx81/`); the whole
+`npm test` suite is CI's job, not a local gate. GitHub runs the full sharded
+unit suite on every push and PR, so a green targeted run plus CI is the
+verification — re-running everything locally only duplicates it. Run the full
+suite locally only when a change is genuinely cross-cutting (the `Dialect`
+seam, the store, shared editor/emulator plumbing) and you can't name which
+tests it reaches.
+
 For tokenizer / emulator / charset changes, add or update the colocated
 `*.test.ts` rather than only checking by hand. For app-visible changes, also
 run the e2e folder(s) for the affected capabilities, Chromium-only:
