@@ -3,7 +3,12 @@
 
 import type { Apple2BasicSupport } from '../../emulator/apple2/apple2Machine';
 import type { Apple2Memory } from '../../emulator/apple2/memory';
-import type { MachineMemoryStats } from '../types';
+import type {
+  MachineMemoryStats,
+  MachineReport,
+  MachineScreenText,
+  MachineVariable,
+} from '../types';
 import {
   BASIC_COLD_ENTRY,
   BASIC_COMMAND_LOOP,
@@ -18,6 +23,8 @@ import {
   PV,
 } from './addresses';
 import { parseBasicImage } from './basicImage';
+import { readApple2Report } from './reports';
+import { readApple2Variables } from './vars';
 
 /**
  * What the shared Apple II emulator needs to know about Integer BASIC.
@@ -93,5 +100,19 @@ export const integerBasicSupport: Apple2BasicSupport = {
     if (himem <= lomem) return null;
     if (!(lomem <= pv && pv <= pp && pp <= himem)) return null;
     return { used: himem - lomem - (pp - pv), free: pp - pv };
+  },
+
+  /**
+   * The variable table, read straight out of the RAM array rather than through
+   * `peek`: the watcher polls every frame while a program runs, and going via
+   * the bus would stamp the memory-activity overlay with the IDE's own reads.
+   */
+  readVariables(mem: Apple2Memory): MachineVariable[] {
+    return readApple2Variables(mem.mem);
+  },
+
+  /** What the interpreter printed, there being nowhere else it records it. */
+  readReport(screen: MachineScreenText | null): MachineReport | null {
+    return readApple2Report(screen);
   },
 };
