@@ -107,7 +107,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
-| 1     | Language core                      | ⬜     |
+| 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ⬜     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
@@ -117,7 +117,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change.
 
@@ -142,44 +142,44 @@ ROM rather than inheriting the Apple I's:** the Apple I accepts one letter and a
 most one digit, and this interpreter is widely documented as accepting long
 names. Whatever it turns out to be decides the `variableLint` wrapper.
 
-- [ ] `addresses.ts` — the zero-page workspace (`LOMEM`, `HIMEM`, the program
-      pointer, `PLINE`), the ROM window and its two halves, and the display
-      bases. Read off the image and the monitor, not from memory
-- [ ] `keywords.ts` — `KeywordInfo[]` with the token byte, `kind`, signature and
+- [x] `addresses.ts` — the zero-page workspace (`LOMEM` `$4A`, `HIMEM` `$4C`,
+      `PP` `$CA`, `PV` `$CC`, `PLINE` `$DC`), the ROM window and its sockets, and
+      the display bases. Read off the booted image, including the entry-buffer
+      ceiling, which is on the typed length **plus** the stored length
+- [x] `keywords.ts` — `KeywordInfo[]` with the token byte, `kind`, signature and
       doc for each keyword, plus the position-dependent token constants the
       parser needs. Derived from the syntax table by walking it the way `LIST`
       does, then confirmed a second way by typing each construct
-- [ ] `charset.ts` — `CharsetMapping` over the 2513's 64 glyphs (`$20`–`$5F`).
-      This file is **shared with the sibling**, so write it as the machine's
-      charset and not as Integer BASIC's. It must also carry the display
-      encoding the Apple I has no equivalent of: a byte's top two bits pick
-      normal (`$80`–`$FF`), flashing (`$40`–`$7F`) or inverse (`$00`–`$3F`)
-      video for the same glyph. Decide how the editor writes inverse and
-      flashing — a `{…}` escape in the braced style the Apple I already uses is
-      the obvious answer — and keep the mapping total and injective over all 256
-      bytes
-- [ ] `language.ts` — `languageSupport()` + `completionSource`. No hex literal
-      (`PEEK`/`POKE` take signed decimal, so an I/O address is written
-      `PEEK(-16384)`), no binary literal, `$` as the only suffix char, and
-      `crunched: true` if this interpreter strips spaces the way the Apple I's
-      does — check, do not assume
-- [ ] `APPLE2_CONSTRUCTS` in `src/editor/constructs.ts` — `language.ts` reads it
+- [x] `charset.ts` — `CharsetMapping` over the 2513's 64 glyphs, shared with the
+      sibling, with `{INV<c>}` / `{FLASH<c>}` escapes for the two video modes and
+      `{0xNN}` for the normal-video duplicates the machine never writes; total
+      and injective over all 256 bytes
+- [x] `language.ts` — `languageSupport()` + `completionSource`. No hex literal,
+      no binary literal, `$` the only suffix char, and `crunched: true`: the
+      entry parser strips spaces, so `PR INT 1` stores as `PRINT 1`
+- [x] `APPLE2_CONSTRUCTS` in `src/editor/constructs.ts` — `language.ts` reads it
       for block autocomplete
-- [ ] `apple2VariableErrors` in `src/editor/variableLint.ts`, over whichever
-      helper the ROM's real name rule calls for
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never throw.
+- [x] `apple2VariableErrors` in `src/editor/variableLint.ts`. The ROM's rule is
+      narrower than the Microsoft family's: only `AND`, `AT`, `MOD`, `OR`,
+      `STEP`, `THEN` and `TO` end a name, and only from its second character on
+- [x] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never throw.
       `detokenizeWithReport` for the import-fidelity warnings
-- [ ] `basicImage.ts` — tokenized bytes → the loadable image, and back. The
-      program lives at the **top** of the workspace and grows down, as on the
-      Apple I, so the image is built around it rather than from a base address;
-      `src/dialects/apple1/basicImage.ts` is the shape to follow
-- [ ] `lint` wired through `tokenize`
-- [ ] tests: tokenizer round-trip over every construct, charset totality and
-      injectivity (including the inverse/flash ranges), image-builder pointer
-      consistency
+- [x] `directLine.ts` — the unnumbered prompt lines a listing carries, and the
+      `LOMEM:`/`HIMEM:` workspace they declare
+- [x] `basicImage.ts` — the length-prefixed record `SAVE` writes and `LOAD`
+      reads, disassembled out of the interpreter at `$F140`/`$F0DF`
+- [x] `lint` wired through `tokenize`
+- [x] tests: every construct against the bytes the booted ROM stores for it,
+      the detokenizer round trip, charset totality and injectivity (including
+      the inverse/flash ranges), and the image header
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
+
+`public/roms/apple2.rom` and its `ATTRIBUTION.md` block landed with this stage
+rather than with the emulator, because the token table is read off the image and
+a table nobody can re-derive from the repository is not a measurement. Stage 2's
+ROM item is therefore already done.
 
 ## Stage 2 — Emulator core ⬜
 
@@ -231,11 +231,10 @@ so the machine fixes its own size and ignores the argument, as the Apple I does.
 - [ ] `currentLine` / `debugStep`, and `debuggable: true` on the dialect —
       Integer BASIC keeps the executing line in `PLINE`, exactly as the Apple I's
       does
-- [ ] `public/roms/apple2.rom` **+ an attribution block in
-      `public/roms/ATTRIBUTION.md`** under the existing `# Apple ROM attribution`
-      heading, with the SHA-256 of the file and of each ROM half, and the source
-      each half was taken from and checked against. Follow `apple1.rom`'s block
-      exactly — it is the precedent this ROM ships on
+- [x] `public/roms/apple2.rom` **+ an attribution block in
+      `public/roms/ATTRIBUTION.md`** — landed with Stage 1, which needs the image
+      to derive the token table. The original (non-Autostart) monitor, reset
+      vector `$FF59`; SHA-256 of the file and of each socket are in the block
 - [ ] `displaySize: { width: 280, height: 192 }` on the dialect
 - [ ] tests: boot the ROM to the `>` prompt; type a program in and read it back
       out of the program area; assert on the text page for a known `PRINT`, on
@@ -430,8 +429,9 @@ disappears with the registry line.
 - [ ] the remaining per-dialect tables the batteries pin: `glyphSources` (the
       2513 entry can follow the Apple I's, but this machine's inverse and
       flashing ranges are extra codes to account for), `charsetProbes`,
-      `keywordSpellings` (`?` for `PRINT` is a real abbreviation here, unlike on
-      the Apple I), `loopSpeedProbes`, `operatorProbes` (Integer BASIC is its own
+      `keywordSpellings` (empty, like the Apple I's: `?1` at the `>` prompt
+      answers `*** SYNTAX ERR`, so `?` for `PRINT` is Applesoft's and not this
+      machine's), `loopSpeedProbes`, `operatorProbes` (Integer BASIC is its own
       family — the Apple I's entry explains why it shares none of the Microsoft
       battery's answers, and most of that reasoning carries over),
       `semigraphicsAudit` (`[]`), `machineArtIds` + `machineArt`, and

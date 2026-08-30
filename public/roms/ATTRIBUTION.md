@@ -212,6 +212,51 @@ for this machine is the full 4352 bytes, both parts.)
 If you are the rights holder and want this file removed, please open an issue and
 it will be taken out.
 
+`apple2.rom` is the Apple II firmware, copyright © 1977–1978 Apple Computer, Inc.
+It is the whole `$D000`–`$FFFF` window as one 12288-byte image, in address order,
+and holds four sockets:
+
+    Programmer's Aid #1  $D000-$D7FF  2048 bytes
+    empty socket         $D800-$DFFF  2048 bytes ($FF fill)
+    Integer BASIC        $E000-$F7FF  6144 bytes
+    Monitor              $F800-$FFFF  2048 bytes
+
+The monitor half is the **original** one, not the Autostart ROM the Apple II Plus
+shipped with: its reset vector is `$FF59`, so RESET drops into the monitor's `*`
+prompt rather than restarting a program. That is the machine this dialect is, and
+it is the one thing to check if the file is ever replaced.
+
+Steve Wozniak's Integer BASIC and monitor, and Apple's own Programmer's Aid. As
+with the Apple I image above there is no formal permission from the rights
+holder, and the same de-facto tolerance applies: this image ships with the Apple
+II emulators (AppleWin, apple2js, MAME, microM8 and others) and is published
+alongside the machine's documentation by the Apple II Documentation Project. It is
+included here, unmodified, solely for use with the bundled emulator.
+
+The file is an unmodified copy of the image distributed with
+[AppleWin](https://github.com/AppleWin/AppleWin) (`resource/Apple2.rom`), checked
+socket by socket against the independent copy in
+[apple2js](https://github.com/whscullin/apple2js) (`js/roms/system/original.ts`):
+Programmer's Aid #1, Integer BASIC and the Monitor are byte-identical between the
+two, and the `$D800` socket - unpopulated on a machine with Programmer's Aid #1
+fitted, since that ROM is 2K - is the only place they differ, where this copy
+reads as the `$FF` a floating bus settles to. For anyone rebuilding the file, the
+SHA-256 of each part is
+
+    Programmer's Aid #1  2048 bytes  e35d2e96d7b395dd3c035726e76c417b05813ae9675ca7108d5988dc980110a3
+    empty socket         2048 bytes  d0ff1b294b5288d1ae1421eadf5b2d38a8752b76d472ff30bed9028e25b1c5b8
+    Integer BASIC        6144 bytes  189c95ff289a186108580d3e416f3ec3d8c636246a9aeed9814e769257eb8a19
+    Monitor              2048 bytes  882db0fbe15c7cfe395fe41451c759c4a21c09ff8fa161473c549fbce7733964
+    file                12288 bytes  f34e573b9de203203ac4a8c6cab7ab0f974facf13c40bf6e362fbb92197199f9
+
+(The IDE also supports supplying your own ROM image at runtime, from Settings ▸
+Emulator, so the bundled copy can be removed without disabling the feature. A
+replacement image may be any size; it is fitted to the machine's ROM area, which
+for this machine is the full 12288 bytes.)
+
+If you are the rights holder and want this file removed, please open an issue and
+it will be taken out.
+
 # MITS Altair 8800 — the image that is missing
 
 `altair8800.rom` is **not here, and will not be**. This section exists so its
