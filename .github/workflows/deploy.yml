@@ -12,8 +12,9 @@ permissions:
 
 jobs:
   checks:
-    name: Checks (typecheck, lint, format, test)
+    name: Checks (typecheck, lint, format, docs)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,8 +25,34 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
-      - run: npm test
       - run: npm run docs:build
+
+  # The unit suite is the long pole of the gate - one runner spent about five
+  # and a half of the seven minutes `checks` used to take - and it splits
+  # cleanly, so it runs beside the static checks rather than after them.
+  #
+  # Three ways is deliberate. Vitest assigns files to shards by hashing the
+  # file path, not by what they cost, and the cost here is nowhere near even:
+  # the top twenty files are about 72% of the runtime and the remaining four
+  # hundred are under 2%. So the split is only ever roughly balanced, and the
+  # single slowest file is a floor no shard count can go below - past three
+  # ways the shards mostly wait on that one file.
+  test:
+    name: Unit tests (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
 
   # Non-blocking: surfaces e2e staleness on every push/PR without gating the
   # deploy. Failures upload the Playwright report as an artifact.
@@ -50,8 +77,9 @@ jobs:
           path: playwright-report/
 
   build:
-    needs: checks
+    needs: [checks, test]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
