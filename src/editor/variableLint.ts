@@ -325,6 +325,47 @@ export function apple1VariableErrors(
 }
 
 /**
+ * Apple II Integer BASIC keeps a name in full - `LONGVARIABLENAME=1` stores all
+ * sixteen characters - so there is no truncation to warn about. What is left is
+ * the crunch hazard, and it is a narrower one than the Microsoft family's.
+ *
+ * The entry parser tries seven words at every character of a name after the
+ * first, because those seven are the ones that may follow a complete
+ * expression: AND, AT, MOD, OR, STEP, THEN and TO. Finding one ends the name
+ * there, and whatever follows fails to parse - which is why `SCORE=1` (`SC OR
+ * E`) and `ATOM=1` (`A TO M`) are `*** SYNTAX ERR` on the machine while
+ * `BTAB=1`, `XPEEK=1` and `ANEW=1` are ordinary variables. Every other keyword
+ * passes through a name untouched, so the shared scanner's `embedsKeyword` is
+ * too wide a net here and this filters it down to the seven.
+ *
+ * The scanner runs in crunched mode all the same, so a name in *expression*
+ * position is split silently rather than flagged: `A=BANDY` really is `B AND Y`
+ * on the machine and runs.
+ *
+ * The lexis is written out rather than read from `lexisFor`, because that table
+ * names the registered machines and no others.
+ */
+export function apple2VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules({ suffixChars: '$', crunched: true }, keywords);
+  const breakers = new Set(['AND', 'AT', 'MOD', 'OR', 'STEP', 'THEN', 'TO']);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const kw = [...breakers].find((w) => occ.name.toUpperCase().indexOf(w) > 0);
+    if (!kw) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: `Apple II variable name '${occ.name}' ends at the reserved word '${kw}', which the parser matches first.`,
+    });
+  });
+  return errors;
+}
+
+/**
  * BASIC-G inherits both rules from the same place the Altair's come from -
  * two significant characters, and `$` as the only type suffix - and departs
  * from it on case, which its lexis carries from the machine's declared facts.

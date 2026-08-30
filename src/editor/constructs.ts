@@ -152,6 +152,8 @@ const FN_DETAIL: Record<string, string> = {
   PTRIG: 'paddle trigger',
   STRIG: 'joystick trigger',
   TEST: 'ink at a graphics point',
+  PDL: 'paddle position',
+  SCRN: 'colour of a lo-res block',
 };
 
 /**
@@ -433,6 +435,48 @@ export const APPLE1_CONSTRUCTS: ConstructTemplate[] = [
     ['LEN', 's'],
     ['PEEK', 'n'],
     ['RND', 'n'],
+    ['SGN', 'n'],
+  ]),
+];
+
+/**
+ * Apple II Integer BASIC's blocks: the Apple I's short set, plus the lo-res
+ * drawing statements the hardware brought - which are most of what an Integer
+ * BASIC program does on screen. Still no ELSE, no WHILE and no multi-line IF.
+ */
+export const APPLE2_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  {
+    label: 'GR',
+    lines: ['GR', 'COLOR=${1:colour}'],
+    detail: 'open the lo-res screen',
+  },
+  {
+    label: 'PLOT',
+    lines: ['PLOT ${1:x},${2:y}'],
+    detail: 'light one lo-res block',
+  },
+  {
+    label: 'HLIN',
+    lines: ['HLIN ${1:x1},${2:x2} AT ${3:y}'],
+    detail: 'draw a lo-res row',
+  },
+  {
+    label: 'VLIN',
+    lines: ['VLIN ${1:y1},${2:y2} AT ${3:x}'],
+    detail: 'draw a lo-res column',
+  },
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['LEN', 's'],
+    ['PDL', 'n'],
+    ['PEEK', 'n'],
+    ['RND', 'n'],
+    ['SCRN', 'nn'],
     ['SGN', 'n'],
   ]),
 ];
