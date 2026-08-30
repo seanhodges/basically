@@ -115,7 +115,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
-| 3     | Wire-up: keyboard + samples        | ⬜     |
+| 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
@@ -252,13 +252,13 @@ so the machine fixes its own size and ignores the argument, as the Apple I does.
 **Verify:** the boot test passes, and `machineLoop`'s slice/frame equivalence
 holds by construction.
 
-## Stage 3 — Wire-up: keyboard + samples ⬜
+## Stage 3 — Wire-up: keyboard + samples ✅
 
 No registry change here: the machine is finished and driven headlessly, and is
 offered to the user in Stage 7. Verify it by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
-- [ ] `keyboardLayout.ts` — the machine's own keyboard, **shared with the
+- [x] `keyboardLayout.ts` — the machine's own keyboard, **shared with the
       sibling**. Tokens match the emulator's `setKey`; geometry comes from
       `src/keyboard/templateRows.ts` (`gridColumns: GRID_COLUMNS`, every key
       `KEY_SPAN`, `ROW_KEYS` to a band, `centerRow`/`bottomRow`) — never author a
@@ -268,10 +268,12 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       waits for Stage 7. **No `graphicsPalette`** — the Apple II's colour comes
       from `COLOR=` and memory, not from characters, so this dialect must not
       join `e2e/paletteMachines.ts` either
-- [ ] `graphics.ts` — **not needed.** The character generator holds 64 ASCII
+- [x] `graphics.ts` — **not needed.** The character generator holds 64 ASCII
       glyphs and no pictures, so there is no `GraphicEntry[]` to derive and
-      `SEMIGRAPHIC_CODES.apple2` is `[]`, as `apple1`'s is
-- [ ] `samples/` + `samples.ts` via `standardSamples` — all five canonical
+      `SEMIGRAPHIC_CODES.apple2` is `[]`, as `apple1`'s is. The table entry
+      itself waits for Stage 7: `semigraphicsAudit.test.ts` refuses a name it
+      cannot find in the registry
+- [x] `samples/` + `samples.ts` via `standardSamples` — all five canonical
       programs: `hello`, `circles`, `breakout`, `maze`, `kaleido`. **All five,
       including `breakout`:** the Apple I drops it because any keypress stops a
       running program there, and that is not true here — `PEEK(-16384)` reads the
@@ -280,7 +282,7 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       `PLOT`, `HLIN` and `VLIN` gives `circles`, `breakout` and `kaleido` real
       graphics to draw with; Integer BASIC reaches hi-res only through `CALL`, so
       do not plan on `HGR` here — that is the sibling's
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport`, and `loadProgram` writing the
+- [x] `memoryBlocks.ts` — `MemoryBlocksSupport`, and `loadProgram` writing the
       blocks it is handed if Stage 2 did not already. `kaleido.bas` carries its
       routine as a memory block and `src/app/sampleBlocks.ts` refuses to assemble
       one for a dialect without this, so the sample cannot load without it. What
@@ -290,15 +292,15 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       is the traditional answer on this machine and is what the Apple I uses;
       confirm against the monitor's zero-page and `$0200`-line-buffer usage
       before committing to it. Stage 5 rechecks the figures against the map
-- [ ] every sample **run on the machine** and fixed until its screen is right
+- [x] every sample **run on the machine** and fixed until its screen is right
       (`authoring-dialect-samples`; tokenizing clean proves nothing)
-- [ ] finalize `aiProfile.ts` — the system prompt teaching this BASIC. Integer
+- [x] finalize `aiProfile.ts` — the system prompt teaching this BASIC. Integer
       BASIC's traps are worth spelling out: integers only, no `ELSE`, strings are
       fixed `DIM`ed buffers with substring syntax rather than `MID$`, and no
       floating point at all
-- [ ] `index.ts` — assemble the full `Dialect` (placeholder picker identity until
+- [x] `index.ts` — assemble the full `Dialect` (placeholder picker identity until
       Stage 7, which writes it for real)
-- [ ] tests: keyboard matrix (every token reachable by keycap or host key),
+- [x] tests: keyboard matrix (every token reachable by keycap or host key),
       samples tokenize cleanly **and run**. The template geometry is pinned
       against the registry by `src/keyboard/layoutGeometry.test.ts`, which picks
       the dialect up in Stage 7 — no geometry test of its own
@@ -307,6 +309,24 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
 because the kaleidoscope sample cannot load without one.
 **Verify:** `npm run typecheck` + `npm test` (the app and e2e cannot see the
 machine yet — that is Stage 7's verify).
+
+What the machine decided, once each sample was run on it:
+
+- The block window is page 3 alone, `$0300`–`$03FF`. Everything from `$0800` up
+  is the cold start's workspace and everything below is zero page, the stack,
+  the line buffer and text page 1, so there is no window above the program the
+  way there is on a machine that grows its program upwards. `$03F8`–`$03FF` is
+  reserved rather than excluded: the monitor's CTRL-Y jump, the NMI vector and
+  the interrupt vector are read there and never written.
+- A string holds 255 characters, so the shared 21×39 maze map (819) cannot be
+  one. `maze.bas` prints the map and then treats the screen as the map, which
+  needs the text page's interleave in the program.
+- The strip carries `RESET` and `ESC` — the two keys that drive the machine but
+  type nothing — and `REPT` is a lockable modifier rather than a keycap, being
+  the one key whose whole effect is to be held.
+- `joystickModes: ['native']` and `joystickFireButtons: 2` landed here rather
+  than in Stage 2, where the paddle hardware was written but the dialect flags
+  were not.
 
 ## Stage 4 — Transfer & tape I/O ⬜
 
