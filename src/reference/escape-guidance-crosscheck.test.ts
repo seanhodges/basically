@@ -71,56 +71,75 @@ describe('escape guidance: structural validity', () => {
   });
 });
 
-describe.each(IDS)('escape guidance for %s', (to) => {
-  const losable = losableClasses(to);
-
+describe('escape guidance covers every target', () => {
   it('has a cell for every class a source can lose into it', () => {
-    for (const cls of losable) {
-      expect(
-        cellsByKey.get(`${to}:${cls}`)?.instead,
-        `${to} has no advice for ${cls} control codes, which some source loses into it`,
-      ).toBeTruthy();
+    for (const to of IDS) {
+      for (const cls of losableClasses(to)) {
+        expect(
+          cellsByKey.get(`${to}:${cls}`)?.instead,
+          `${to} has no advice for ${cls} control codes, which some source loses into it`,
+        ).toBeTruthy();
+      }
     }
   });
 
   it('carries no dead cell — every cell answers a question some pair asks', () => {
-    for (const cls of ESCAPE_CLASSES) {
-      if (!cellsByKey.has(`${to}:${cls}`)) continue;
-      expect(
-        losable.has(cls),
-        `${to}/${cls} carries advice but no source loses a ${cls} code into it`,
-      ).toBe(true);
+    for (const to of IDS) {
+      const losable = losableClasses(to);
+      for (const cls of ESCAPE_CLASSES) {
+        if (!cellsByKey.has(`${to}:${cls}`)) continue;
+        expect(
+          losable.has(cls),
+          `${to}/${cls} carries advice but no source loses a ${cls} code into it`,
+        ).toBe(true);
+      }
     }
   });
 });
 
-describe.each(escapeGuidance.map((g) => [`${g.to}/${g.class}`, g] as const))(
-  'escape guidance cell: %s',
-  (_key, g) => {
-    it('reports support honestly', () => {
-      // A page that files one of its own categories under this class plainly
-      // has some way to express it, so "nothing like it" would be a lie. The
-      // converse does not hold and is not checked: the CPC's mosaics and the
-      // Spectrum's {INK n} are real support filed under another class.
+describe('every escape guidance cell', () => {
+  it('reports support honestly', () => {
+    // A page that files one of its own categories under this class plainly
+    // has some way to express it, so "nothing like it" would be a lie. The
+    // converse does not hold and is not checked: the CPC's mosaics and the
+    // Spectrum's {INK n} are real support filed under another class.
+    for (const g of escapeGuidance) {
       if (g.support === 'none') {
         expect(
           classesOnPage(g.to),
           `${g.to} claims no ${g.class} support but files a category of its own under that class`,
         ).not.toContain(g.class);
       }
-    });
+    }
+  });
 
-    it('stays within the reading budget', () => {
-      expect(g.instead.length).toBeGreaterThan(0);
+  it('stays within the reading budget', () => {
+    for (const g of escapeGuidance) {
+      expect(
+        g.instead.length,
+        `${g.to}/${g.class} has no advice at all`,
+      ).toBeGreaterThan(0);
       expect(
         g.instead.length,
         `too long to scan: "${g.instead}"`,
       ).toBeLessThanOrEqual(MAX_INSTEAD_CHARS);
       if (g.example) {
-        expect(g.example.caption.length).toBeGreaterThan(0);
-        expect(g.example.caption.length).toBeLessThanOrEqual(MAX_CAPTION_CHARS);
-        expect(g.example.code.length).toBeGreaterThan(0);
-        expect(g.example.code.length).toBeLessThanOrEqual(MAX_EXAMPLE_LINES);
+        expect(
+          g.example.caption.length,
+          `${g.to}/${g.class} has an empty caption`,
+        ).toBeGreaterThan(0);
+        expect(
+          g.example.caption.length,
+          `${g.to}/${g.class} caption too long`,
+        ).toBeLessThanOrEqual(MAX_CAPTION_CHARS);
+        expect(
+          g.example.code.length,
+          `${g.to}/${g.class} has an empty example`,
+        ).toBeGreaterThan(0);
+        expect(
+          g.example.code.length,
+          `${g.to}/${g.class} example runs over ${MAX_EXAMPLE_LINES} lines`,
+        ).toBeLessThanOrEqual(MAX_EXAMPLE_LINES);
         for (const line of g.example.code) {
           expect(
             line.length,
@@ -128,6 +147,6 @@ describe.each(escapeGuidance.map((g) => [`${g.to}/${g.class}`, g] as const))(
           ).toBeLessThanOrEqual(MAX_EXAMPLE_LINE_CHARS);
         }
       }
-    });
-  },
-);
+    }
+  });
+});
