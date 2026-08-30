@@ -27,10 +27,19 @@ import {
   DISPLAY_WIDTH,
   FIRMWARE_BYTES,
 } from './addresses';
-import { apple2UnnumberedLineKey } from './directLine';
+import {
+  apple2UnnumberedLineKey,
+  declaredWorkspace,
+  workspacePreamble,
+} from './directLine';
 import { buildBasicImage, parseBasicImage } from './basicImage';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { apple2VariableErrors } from '../../editor/variableLint';
 import { Apple2Machine } from '../../emulator/apple2/apple2Machine';
 import { integerBasicSupport } from './machineSupport';
@@ -40,9 +49,9 @@ import { integerBasicSupport } from './machineSupport';
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
- * once. The build targets and the memory map below are empty stubs until each
- * is written; everything else - the language layer, the emulator, the keyboard
- * and the samples - is real and driven headlessly by the tests alongside.
+ * once. The memory map below is an empty stub until it is written; everything
+ * else - the language layer, the emulator, the keyboard, the samples and the
+ * transfer targets - is real and driven headlessly by the tests alongside.
  *
  * The picker identity and the RAM figure are placeholders that satisfy the
  * contract; each is written for real when the dialect is registered.
@@ -162,6 +171,62 @@ export const apple2: Dialect = {
   keyboardLayout: apple2KeyboardLayout,
   samples: apple2Samples,
   buildTargets: apple2BuildTargets,
+  binaryImports: [{ extension: '.bin', label: 'Import cassette record…' }],
+
+  /**
+   * Cassette, which is the only route into an unexpanded Apple II and the one
+   * Integer BASIC has commands for. `LOAD` and `SAVE` do the whole job, so the
+   * instructions below are a command rather than the monitor incantation the
+   * Apple I needs.
+   */
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, _programName, robust) =>
+      buildCassetteSamples(source, robust),
+
+    /**
+     * The workspace has to be typed *before* `LOAD`, because the tape does not
+     * carry it: `LOAD` puts the program at the top of whatever workspace the
+     * machine already has. A program that moved its own bounds therefore names
+     * them here, from the same unnumbered preamble the listing carries.
+     */
+    loadInstructions: (source: string) => {
+      const { lomem, himem } = declaredWorkspace(source);
+      const preamble = workspacePreamble(lomem, himem);
+      const bounds =
+        preamble.length > 0
+          ? `First type ${preamble.join(' and ')} - this program moved its own workspace and the tape does not carry the bounds. Then start `
+          : 'Start ';
+      return (
+        `${bounds}playback, then type LOAD at the > prompt and press Return - ` +
+        'the machine spends about four seconds letting the tape settle before ' +
+        'it starts listening, so there is no need to wait for the leader tone ' +
+        'to finish. It beeps once for the length record and once for the ' +
+        'program; LIST or RUN it when the second beep comes. ERR before a beep ' +
+        'means the checksum failed - rewind and try again with the volume a ' +
+        'little lower.'
+      );
+    },
+
+    decodeSamples: (samples, sampleRate) => {
+      const { programName, data, warnings } = decodeCassette(
+        samples,
+        sampleRate,
+      );
+      const report = detokenizeProgramWithReport(parseBasicImage(data).program);
+      return {
+        programName,
+        source: report.source,
+        warnings: [...warnings, ...report.warnings],
+      };
+    },
+
+    saveInstructions:
+      'Start the recorder, then type SAVE at the > prompt and press Return. ' +
+      'The machine writes ten seconds of leader, the two-byte length record, ' +
+      'four more seconds of leader and then the program, and beeps when it is ' +
+      'done. Feed that into this device, then start listening.',
+  },
 
   aiProfile: apple2AiProfile,
 };
