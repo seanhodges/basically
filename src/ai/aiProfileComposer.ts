@@ -37,13 +37,13 @@ export const LINE_NUMBER_RULES = {
   /** The Atom, whose tokeniser rejects the line rather than mis-reading it. */
   atom: 'Write each line flush-left: the line number is the FIRST character of the line (column 0), no leading or aligning spaces, then a single space and the statement. Do NOT indent or zero-pad - the tokeniser needs a digit as the first character or it rejects the line.',
   /**
-   * The Apple I, the one machine here with lines that carry no number.
+   * The Integer BASIC machines, whose listings carry unnumbered prompt lines.
    *
    * The shared wording asserts the tokeniser needs a digit as the first
-   * character of every line, which is not true here - and a rule a model can
+   * character of every line, which is not true there - and a rule a model can
    * see is false is a rule it discounts.
    */
-  apple1:
+  integerBasic:
     'Write each program line flush-left: the line number is the FIRST character of the line (column 0), then a single space, then the statement. Do NOT indent or zero-pad line numbers, and use steps of 10. Only the prompt commands may have no number: keep any the user has where they are, and do not add them.',
   /** The BBCs, where LIST/LISTO is the listing format being imitated. */
   bbc: 'Write each line flush-left: the line number is the FIRST character of the line (column 0), with no leading or aligning spaces, followed by a single space then the statement. Do NOT right-align or zero-pad the numbers like a LIST/LISTO listing (e.g. "   10", "  100"), and do NOT indent nested loops/procedures - the editor\'s tokeniser needs a digit as the first character of the line or it rejects the line as having no line number.',

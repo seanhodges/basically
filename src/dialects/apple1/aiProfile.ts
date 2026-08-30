@@ -58,7 +58,7 @@ export const apple1AiProfile: AiProfile = composeAiProfile({
       ],
     },
   ],
-  lineNumberRule: 'apple1',
+  lineNumberRule: 'integerBasic',
   outputFormat: [
     'After the code, add at most 3 short sentences: controls and anything to verify.',
   ],

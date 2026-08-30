@@ -40,8 +40,9 @@ import { integerBasicSupport } from './machineSupport';
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
- * once. The keyboard, the samples and the build targets below are empty stubs
- * until each is written; the language layer and the emulator are real.
+ * once. The build targets and the memory map below are empty stubs until each
+ * is written; everything else - the language layer, the emulator, the keyboard
+ * and the samples - is real and driven headlessly by the tests alongside.
  *
  * The picker identity and the RAM figure are placeholders that satisfy the
  * contract; each is written for real when the dialect is registered.
@@ -140,6 +141,11 @@ export const apple2: Dialect = {
   // The interpreter keeps a pointer to the line it is executing, so the machine
   // can name a line and be stepped a line at a time.
   debuggable: true,
+
+  // The game port's two paddles, each with its own button, which is what the
+  // machine has instead of a joystick - and what `PDL(` reads.
+  joystickModes: ['native'],
+  joystickFireButtons: 2,
 
   memoryMap: apple2MemoryMap,
   memoryBlocks: apple2MemoryBlocks,
