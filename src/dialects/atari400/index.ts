@@ -52,6 +52,7 @@ export const atari400: Dialect = {
   manufacturer: 'Atari',
   year: 1979,
   blurb: 'The budget model, with a membrane keyboard. Runs Atari BASIC.',
+  basicDialect: 'Atari BASIC',
   docsReference: 'atari',
 
   // The one thing a BASIC program can tell the two machines apart by.

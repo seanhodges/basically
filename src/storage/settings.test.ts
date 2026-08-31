@@ -22,8 +22,13 @@ import {
   setDialectId,
   getLastShare,
   setLastShare,
+  getMachinePickerQuery,
+  setMachinePickerQuery,
+  getMachinePickerSort,
+  setMachinePickerSort,
   type PersistedMessage,
 } from './settings';
+import { MACHINE_SORTS } from '../components/machinePicker';
 import type { Block, TapeFile } from '../dialects/types';
 
 const KEY = 'mbide.autosave.ai';
@@ -593,6 +598,37 @@ describe('AI provider settings', () => {
     setProviderApiKey('openai', '');
     expect(getProviderApiKey('openai')).toBe('');
     expect(getProviderApiKey('gemini')).toBe('AIza');
+  });
+});
+
+describe('machine picker preferences', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  it('opens on every machine, arranged by manufacturer, until told otherwise', () => {
+    expect(getMachinePickerQuery()).toBe('');
+    expect(getMachinePickerSort()).toBe('manufacturer');
+  });
+
+  it('round-trips what the list was narrowed by', () => {
+    setMachinePickerQuery('locomotive');
+    expect(localStorage.getItem('mbide.machinePickerQuery')).toBe('locomotive');
+    expect(getMachinePickerQuery()).toBe('locomotive');
+  });
+
+  it('round-trips every arrangement it offers', () => {
+    for (const { id } of MACHINE_SORTS) {
+      setMachinePickerSort(id);
+      expect(getMachinePickerSort()).toBe(id);
+    }
+  });
+
+  it('falls back to manufacturer for an arrangement it does not know', () => {
+    // An older build's value, or a hand-edited one. Leaving the list with no
+    // order is the failure this guards.
+    localStorage.setItem('mbide.machinePickerSort', 'bogus');
+    expect(getMachinePickerSort()).toBe('manufacturer');
   });
 });
 

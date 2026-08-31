@@ -58,10 +58,30 @@ third option and the worst: the convention that a description ends with the
 BASIC's name is prose, enforced by nothing, and an arrangement that silently
 regroups when someone rewords a sentence is not an arrangement.
 
-Once the seam declares it, the guide reads it there, and the crosscheck inverts:
-instead of pinning the guide's copy to the description, one registry-driven test
-asserts every machine's description names the BASIC the machine declares. Same
-guarantee, one copy of the fact.
+Once the seam declares it, the crosscheck inverts. Today the guide's copy is
+pinned to a *substring of the machine's description*; instead it is pinned to the
+machine's own declaration, by equality, and a separate registry-driven test
+asserts every machine's description names the BASIC that machine declares. Both
+are strictly stronger than what they replace.
+
+**The guide keeps its own copy of the name; the assistant's descriptions do
+not.** The obvious follow-on - delete the field from the porting facts entirely -
+does not survive contact with its readers. The comparison table's rows are a
+list of accessors typed `(f: PortingFacts) => string`, so deleting the field
+there means widening a pure-data accessor to carry one string it has no other
+use for. And the porting facts are precisely the dataset that restates registry
+facts on purpose, because the documentation runtime must never import the
+registry - the machine list beside it restates the name, maker, year and
+description on the same terms. So the field stays, restated and pinned, and the
+guide is no worse off than it is for every other fact it holds.
+
+The two places that compose a machine's description for the assistant are the
+opposite case: both already hold the machine itself, and one of them looks the
+facts up by id with a defensive branch for a machine that has no entry. Reading
+the declaration makes that function total and deletes the branch. Their output
+has to stay byte-identical for prompt prefix caching, which it does - the
+strings are the same strings - and the inverted crosscheck is what now
+guarantees it.
 
 **Grouping and filtering stay pure functions in the picker's own module.** That
 module is deliberately import-free so the guard has something clean to assert,

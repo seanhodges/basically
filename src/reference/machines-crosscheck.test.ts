@@ -43,6 +43,7 @@ describe('machine list', () => {
       expect(choice!.manufacturer).toBe(dialect.manufacturer);
       expect(choice!.year).toBe(dialect.year);
       expect(choice!.blurb).toBe(dialect.blurb);
+      expect(choice!.basicDialect).toBe(dialect.basicDialect);
     },
   );
 });
@@ -58,7 +59,7 @@ describe('what the picker asks of a machine', () => {
     // guide shows is ordered exactly as the IDE's is.
     for (const group of groupMachinesByManufacturer(asMachines)) {
       for (const machine of group.machines) {
-        expect(machine.manufacturer).toBe(group.manufacturer);
+        expect(machine.manufacturer).toBe(group.heading);
       }
     }
   });

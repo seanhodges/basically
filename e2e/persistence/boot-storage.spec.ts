@@ -1,5 +1,5 @@
 // Capability: persistence — openspec/specs/persistence/spec.md
-import { test, expect, targetMachine } from '../fixtures';
+import { test, expect, openMachinePicker, targetMachine } from '../fixtures';
 import {
   EDITOR,
   collectErrors,
@@ -104,6 +104,36 @@ test('selected target machine is restored after a reload', async ({ page }) => {
     'data-target-machine',
     'bbcmicro',
   );
+});
+
+/**
+ * The machine list reopens as it was left.
+ *
+ * A real reload against real local storage is the browser-only half; that the
+ * stored arrangement is validated on the way out, and that an unknown one falls
+ * back, is `src/storage/settings.test.ts`. The state is driven through the UI
+ * and read back off the DOM, like the machine test above.
+ */
+test('the machine list is restored narrowed and arranged after a reload', async ({
+  page,
+}) => {
+  await openApp(page);
+  let picker = await openMachinePicker(page, page);
+  await picker.getByLabel('Search machines').fill('sinclair');
+  await picker.getByLabel('Sort machines by').selectOption('year');
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+
+  await page.reload();
+  await expect(page.locator(EDITOR)).toBeVisible();
+
+  picker = await openMachinePicker(page, page);
+  await expect(picker.getByLabel('Search machines')).toHaveValue('sinclair');
+  await expect(picker.getByLabel('Sort machines by')).toHaveValue('year');
+  // Narrowed and arranged, not merely remembered as text: every row showing is
+  // a Sinclair, under a year heading.
+  await expect(picker.locator('button[data-machine]').first()).toBeVisible();
+  await expect(picker.locator('h3').first()).toHaveText(/^\d{4}$/);
 });
 
 test('tabs keep independent programs and machines (sessionStorage isolation)', async ({

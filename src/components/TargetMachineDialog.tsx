@@ -26,12 +26,22 @@ export function TargetMachineDialog() {
   // Minus any machine whose ROM is not there to run - plus the current one,
   // whatever its state. See `useRunnableMachines`.
   const machines = useRunnableMachines(activeId);
+  // Shared with the New-project dialog's picker, and persisted: one machine
+  // list, narrowed and arranged one way.
+  const query = useIdeStore((s) => s.machinePickerQuery);
+  const sort = useIdeStore((s) => s.machinePickerSort);
+  const setQuery = useIdeStore((s) => s.setMachinePickerQuery);
+  const setSort = useIdeStore((s) => s.setMachinePickerSort);
 
   return (
     <MachinePickerDialog
       open={open}
       machines={machines}
       selectedId={activeId}
+      query={query}
+      sort={sort}
+      onQueryChange={setQuery}
+      onSortChange={setSort}
       onChoose={(id) => {
         setOpen(false);
         setDialect(id);

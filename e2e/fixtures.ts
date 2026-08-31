@@ -60,6 +60,23 @@ export function machinePicker(page: Page) {
 }
 
 /**
+ * Open the shared picker and leave it open. `scope` holds the collapsed trigger
+ * - the New-project dialog, or the page itself for the toolbar's.
+ *
+ * `chooseMachine` below always closes it again, so a test about the list itself
+ * (what it shows, how it is arranged) needs this instead.
+ */
+export async function openMachinePicker(
+  page: Page,
+  scope: Page | ReturnType<Page['getByRole']>,
+) {
+  await scope.locator('button[data-target-machine]').first().click();
+  const picker = machinePicker(page);
+  await expectPw(picker).toBeVisible();
+  return picker;
+}
+
+/**
  * Choose a machine through the shared picker. `scope` holds the collapsed
  * trigger - the New-project dialog, or the page itself for the toolbar's.
  *

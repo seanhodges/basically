@@ -19,7 +19,10 @@
 
 import { MachinePickerDialog } from '../../../../src/components/MachinePickerDialog';
 import { MachineTrigger } from '../../../../src/components/MachineTrigger';
-import type { MachineLike } from '../../../../src/components/machinePicker';
+import type {
+  MachineLike,
+  MachineSort,
+} from '../../../../src/components/machinePicker';
 
 export interface MachineFieldProps {
   machines: readonly MachineLike[];
@@ -28,6 +31,16 @@ export interface MachineFieldProps {
   /** What this machine is to the reader, e.g. `'Porting from'`. */
   role: string;
   open: boolean;
+  /**
+   * How the list is narrowed and arranged. Owned by the wrapper, like `open`:
+   * the guide has two fields showing one list, so both read the same. The IDE
+   * persists its pair; the guide does not, because a documentation page the
+   * reader lands on should show every machine.
+   */
+  query: string;
+  sort: MachineSort;
+  onQueryChange: (query: string) => void;
+  onSortChange: (sort: MachineSort) => void;
   onOpen: () => void;
   onDismiss: () => void;
   onChoose: (id: string) => void;
@@ -38,6 +51,10 @@ export function MachineField({
   selectedId,
   role,
   open,
+  query,
+  sort,
+  onQueryChange,
+  onSortChange,
   onOpen,
   onDismiss,
   onChoose,
@@ -61,6 +78,10 @@ export function MachineField({
         open={open}
         machines={machines}
         selectedId={machine.id}
+        query={query}
+        sort={sort}
+        onQueryChange={onQueryChange}
+        onSortChange={onSortChange}
         onChoose={onChoose}
         onDismiss={onDismiss}
       />

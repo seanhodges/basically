@@ -48,6 +48,7 @@ export const vic20: Dialect = {
   manufacturer: 'Commodore',
   year: 1981,
   blurb: 'The first computer to sell a million. Commodore BASIC V2.',
+  basicDialect: 'Commodore BASIC V2',
   // VIC-20 BASIC V2 is token-identical to the C64's, so the keyword reference
   // (what the docs button deep-links) is the same page - reuse it rather than
   // duplicate it, as bbcmaster reuses 'bbc' and zxspectrum128 reuses 'zxspectrum'.

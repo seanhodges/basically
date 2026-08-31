@@ -56,6 +56,7 @@ export const apple2plus: Dialect = {
   manufacturer: 'Apple',
   year: 1979,
   blurb: 'Applesoft in ROM at last. Runs Applesoft BASIC.',
+  basicDialect: 'Applesoft BASIC',
   docsReference: 'applesoft',
 
   programRamBytes: COLD_START_BYTES_FREE,

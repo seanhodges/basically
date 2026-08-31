@@ -116,6 +116,17 @@ describe('dialect registry', () => {
         `${d.id} blurb should fit a picker row on a phone`,
       ).toBeLessThanOrEqual(72);
       expect(d.blurb, `${d.id} blurb should be one line`).not.toContain('\n');
+      // The picker groups and searches on `basicDialect`, and shows `blurb`.
+      // A machine whose description names a different BASIC from the one it
+      // declares would sort into one group and read as another.
+      expect(
+        d.basicDialect.trim(),
+        `${d.id} needs the name of the BASIC it runs`,
+      ).not.toBe('');
+      expect(
+        d.blurb,
+        `${d.id} blurb should name ${d.basicDialect}, the BASIC it declares`,
+      ).toContain(d.basicDialect);
     }
   });
 

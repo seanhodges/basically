@@ -182,9 +182,10 @@ test('the pair can be chosen without a pointer', async ({ page }) => {
   const list = picker(page);
   await expect(list).toBeVisible();
 
-  // The list opens on the machine already chosen, so the keyboard starts where
-  // the eye does.
-  await expect(list.locator(`button[data-machine="${before}"]`)).toBeFocused();
+  // The list opens on the field you narrow it with, so the keyboard starts
+  // where the typing does - the machine already chosen may not even be listed,
+  // once the list remembers what it was last narrowed by.
+  await expect(list.getByLabel('Search machines')).toBeFocused();
 
   // Escape leaves the selection as it was.
   await page.keyboard.press('Escape');

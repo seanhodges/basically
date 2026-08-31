@@ -42,6 +42,7 @@ export const atari800: Dialect = {
   manufacturer: 'Atari',
   year: 1979,
   blurb: 'Two cartridge slots and 48K. Runs Atari BASIC.',
+  basicDialect: 'Atari BASIC',
   docsReference: 'atari',
 
   // With the BASIC cartridge fitted nothing can reach the RAM behind $A000, so

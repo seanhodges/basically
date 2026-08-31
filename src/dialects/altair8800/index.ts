@@ -54,6 +54,7 @@ export const altair8800: Dialect = {
   manufacturer: 'MITS',
   year: 1975,
   blurb: 'The microcomputer that started it all. Runs Altair 8K BASIC.',
+  basicDialect: 'Altair 8K BASIC',
 
   // 8K BASIC's own "BYTES FREE" banner on the modelled RAM configuration
   // (48K fitted, transcendental functions retained - see addresses.ts).

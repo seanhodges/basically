@@ -30,7 +30,7 @@ import type {
 /**
  * Who the machine is, as the app already knows it. Taken as an argument rather
  * than looked up, so this module never needs the dialect registry - the caller
- * has a `Dialect` in hand and these are four of its existing fields plus the
+ * has a `Dialect` in hand and these are five of its existing fields plus the
  * docs page it reads from.
  */
 export interface MachineIdentity {
@@ -39,6 +39,8 @@ export interface MachineIdentity {
   name: string;
   manufacturer: string;
   year: number;
+  /** The BASIC it runs, as `Dialect.basicDialect` names it. */
+  basicDialect: string;
   /** Reference page slug, as `referencePageOf` in src/dialects/ derives it. */
   page: string;
 }
@@ -77,7 +79,7 @@ function describeIdentity(
   facts: PortingFacts,
 ): string {
   const lines = [
-    `- ${machine.manufacturer} ${machine.name} (${machine.year}), running ${facts.basicDialect}.`,
+    `- ${machine.manufacturer} ${machine.name} (${machine.year}), running ${machine.basicDialect}.`,
     `- ${groupDigits(facts.freeRamBytes)} bytes free for BASIC.`,
   ];
   if (facts.programStart !== undefined) {

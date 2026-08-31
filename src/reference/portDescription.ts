@@ -118,13 +118,7 @@ export interface PortSide extends MachineIdentity {
 
 /** `- Commodore C64 (1982), running Commodore BASIC V2.`, less the bullet. */
 function nameMachine(side: PortSide): string {
-  const facts = portingFacts.find((f) => f.id === side.id);
-  // Composed on a click, unlike the crosscheck-guarded machine description: a
-  // machine with no facts entry is named without its BASIC rather than throwing
-  // and losing the whole report. facts-crosscheck.test.ts makes this
-  // unreachable today.
-  const basic = facts !== undefined ? `, running ${facts.basicDialect}` : '';
-  return `${side.manufacturer} ${side.name} (${side.year})${basic}`;
+  return `${side.manufacturer} ${side.name} (${side.year}), running ${side.basicDialect}`;
 }
 
 /**

@@ -76,6 +76,7 @@ export const apple1: Dialect = {
   manufacturer: 'Apple',
   year: 1976,
   blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
+  basicDialect: 'Apple 1 Integer BASIC',
 
   // Stock LOMEM/HIMEM leave 2048 bytes, shared between program and variables.
   programRamBytes: COLD_START_BYTES_FREE,

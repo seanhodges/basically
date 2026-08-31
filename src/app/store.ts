@@ -98,6 +98,10 @@ import {
   setFullCodeCompletion as persistFullCodeCompletion,
   setStrictCharacters as persistStrictCharacters,
   setCrtEffect as persistCrtEffect,
+  getMachinePickerQuery,
+  setMachinePickerQuery as persistMachinePickerQuery,
+  getMachinePickerSort,
+  setMachinePickerSort as persistMachinePickerSort,
   setRunGateLint as persistRunGateLint,
   setEmulatorSpeed as persistEmulatorSpeed,
   setKeyboardAutoShow as persistKeyboardAutoShow,
@@ -109,6 +113,10 @@ import {
   setEmulatorMuted as persistEmulatorMuted,
   UNTITLED_FILE_NAME,
 } from '../storage/settings';
+import {
+  DEFAULT_MACHINE_SORT,
+  type MachineSort,
+} from '../components/machinePicker';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { blockNameFromFileName } from './blockEdit';
 import { selectDataBlocks } from './dataBlocks';
@@ -723,6 +731,14 @@ interface IdeState {
    */
   machinePickerOpen: boolean;
   /**
+   * How the machine list was last narrowed and arranged. Held here, rather than
+   * per dialog, because the toolbar's picker and the New-project dialog's show
+   * one list: narrowing it in one is narrowing it in the other. Persisted, so a
+   * reload reopens it as the user left it.
+   */
+  machinePickerQuery: string;
+  machinePickerSort: MachineSort;
+  /**
    * Transient notice shown in the status bar (e.g. a failed `?open=` shared
    * program load). Null when there is nothing to report. Not persisted.
    */
@@ -1138,6 +1154,8 @@ interface IdeState {
   dismissWelcome(): void;
   setNewProjectOpen(open: boolean): void;
   setMachinePickerOpen(open: boolean): void;
+  setMachinePickerQuery(query: string): void;
+  setMachinePickerSort(sort: MachineSort): void;
   setStatusNotice(text: string | null): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
   openDocs(topic?: string): void;
@@ -1792,6 +1810,12 @@ export const useIdeStore = create<IdeState>((set) => ({
   welcomeOpen: false,
   newProjectOpen: false,
   machinePickerOpen: false,
+  machinePickerQuery:
+    typeof localStorage !== 'undefined' ? getMachinePickerQuery() : '',
+  machinePickerSort:
+    typeof localStorage !== 'undefined'
+      ? getMachinePickerSort()
+      : DEFAULT_MACHINE_SORT,
   statusNotice: null,
   docsDrawerOpen: false,
   docsTopic: null,
@@ -2677,6 +2701,14 @@ export const useIdeStore = create<IdeState>((set) => ({
   },
   setNewProjectOpen: (open) => set({ newProjectOpen: open }),
   setMachinePickerOpen: (open) => set({ machinePickerOpen: open }),
+  setMachinePickerQuery: (query) => {
+    persistMachinePickerQuery(query);
+    set({ machinePickerQuery: query });
+  },
+  setMachinePickerSort: (sort) => {
+    persistMachinePickerSort(sort);
+    set({ machinePickerSort: sort });
+  },
   setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),
   closeDocs: () => set({ docsDrawerOpen: false }),
