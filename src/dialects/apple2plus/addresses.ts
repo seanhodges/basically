@@ -99,6 +99,17 @@ export const MEMSIZ = 0x0073;
 export const CURLIN = 0x0075;
 
 /**
+ * The bit Applesoft ORs into a character before COUT masks it with INVFLG,
+ * which is what `FLASH` sets and `NORMAL`/`INVERSE` clear.
+ *
+ * It is the whole difference between the two machines' flashing text. An AND
+ * cannot raise a bit, so the sibling's `POKE 50,127` flashes letters and turns
+ * space, punctuation and digits inverse; ORing `$40` in first lifts every code
+ * into the flashing band, so a star or a space flashes here and cannot there.
+ */
+export const FLASH_BIT = 0x00f3;
+
+/**
  * Where the program starts, and where it always starts: unlike the sibling's
  * interpreter, which grows its program down from whatever `HIMEM:` it is given,
  * Applesoft grows up from this fixed base. That is why a program here does not

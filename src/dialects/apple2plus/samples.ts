@@ -30,9 +30,26 @@ export const APPLE2PLUS_KALEIDO_BLOCK = {
  *  - **Hi-res is what this machine is remembered for, and Applesoft is what
  *    reaches it.** `HGR` opens 280 by 160 with four text lines under it,
  *    `HCOLOR=` picks one of eight colours and `HPLOT x,y TO x2,y2` draws a
- *    line, so `hello`, `circles` and `kaleido` all work there. The sibling's
- *    Integer BASIC has none of those words and can only `CALL` into hi-res, so
- *    its versions of the same three are lo-res programs.
+ *    line, so `circles` and `kaleido` both work there. The sibling's Integer
+ *    BASIC has none of those words and can only `CALL` into hi-res, so its
+ *    versions of those two are lo-res programs.
+ *  - **`circles` draws in white, and has to.** Hi-res colour is a choice of
+ *    *which* dot columns a byte may light: green and violet reach one half of
+ *    them and orange and blue the other, so a coloured line is drawn at half
+ *    density and a coloured ring comes out dashed - measurably so, a 31 degree
+ *    hole in the innermost. Only white lights every column. The sibling keeps
+ *    three coloured rings because its lo-res page has sixteen real ones; this
+ *    machine trades the colour for a ring that is actually closed.
+ *  - **`hello` does not draw at all, on either screen.** The text page has no
+ *    colour - the generator holds 64 shapes and the top two bits of a byte
+ *    pick a video mode - and neither graphics mode can carry full-screen text,
+ *    since both are mixed displays with a four-line text window. So the
+ *    cascade shows the display off by cycling `NORMAL`, `FLASH` and `INVERSE`
+ *    rather than painting a picture it would have to wipe to print over.
+ *    `FLASH` is Applesoft's own twice over: it sets INVFLG *and* the bit COUT
+ *    ORs in first, which is what lets a space or a star flash. An AND cannot
+ *    raise a bit, so the sibling has no uniform flash and cascades in two
+ *    modes where this one uses three.
  *  - **Lo-res is still the right screen for `breakout`.** `SCRN(` reads a cell
  *    back, so the wall the ball is knocking down *is* the screen and the game
  *    needs no brick array. That is the one place this set and the sibling's
