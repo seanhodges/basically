@@ -47,6 +47,10 @@ import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
 import { pmd85Keywords, PMD85_ALIASES } from './pmd85/keywords';
 import { apple1Keywords } from './apple1/keywords';
 import { apple2Keywords } from './apple2/keywords';
+import {
+  apple2plusKeywords,
+  apple2plusKeywordAliases,
+} from './apple2plus/keywords';
 import { atariKeywords, atariStatements } from './atari800/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
@@ -103,6 +107,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   pmd85: [...pmd85Keywords, ...PMD85_ALIASES],
   apple1: apple1Keywords,
   apple2: apple2Keywords,
+  apple2plus: [...apple2plusKeywords, ...apple2plusKeywordAliases],
   atari800: atariKeywords,
   atari400: atariKeywords,
 };

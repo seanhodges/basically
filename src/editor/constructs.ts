@@ -710,6 +710,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   pmd85: PMD85,
   apple1: APPLE1_CONSTRUCTS,
   apple2: APPLE2_CONSTRUCTS,
+  apple2plus: APPLE2PLUS_CONSTRUCTS,
   cpc464: CPC,
   // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 664's and the
   // 6128's blocks are the 464's.

@@ -31,6 +31,7 @@ export const BOOT_MACHINES = [
   { id: 'pmd85', label: 'PMD 85-2' },
   { id: 'apple1', label: 'Apple I' },
   { id: 'apple2', label: 'Apple II' },
+  { id: 'apple2plus', label: 'Apple II Plus' },
   { id: 'atari800', label: 'Atari 800' },
   { id: 'atari400', label: 'Atari 400' },
 ];

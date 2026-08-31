@@ -71,6 +71,7 @@ const RESTATED: Record<string, string> = {
     'lower case always; keywords upper case only; names are case-sensitive; encoding preserves; dialect is lenient',
   apple1: 'no lower case; keyword case folds; names fold; encoding folds',
   apple2: 'no lower case; keyword case folds; names fold; encoding folds',
+  apple2plus: 'no lower case; keyword case folds; names fold; encoding folds',
   atari800:
     'lower case always; keywords upper case only; names fold; encoding preserves; dialect is lenient',
   atari400:

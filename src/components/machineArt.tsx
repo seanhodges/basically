@@ -680,6 +680,48 @@ function Apple2Art({ size }: ArtProps) {
   );
 }
 
+/**
+ * Apple II Plus: the same moulded case, because that is what it was - the II
+ * with Applesoft in its ROM sockets rather than a new machine. The portrait
+ * repeats the II's silhouette for that reason, and separates the two
+ * thumbnails with the nameplate on the front skirt, which this one carries and
+ * the II's leaves bare.
+ */
+function Apple2PlusArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 25h42v4H3z" fill={BASE.apple2} />
+      <path d="M3 8h42v8H3z" fill={APPLE2_LID} />
+      <path d="M3 16h42v9H3z" fill={APPLE2_CASE} />
+      {APPLE2_STRIPES.map((stripe, i) => (
+        <rect
+          key={stripe}
+          x="37.5"
+          y={9.4 + i * 0.9}
+          width="5"
+          height="0.9"
+          fill={stripe}
+        />
+      ))}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 13 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={5.5 + c * 2.7}
+            y={17 + r * 2.3}
+            width="2.1"
+            height="1.7"
+            fill={APPLE2_KEY}
+          />
+        )),
+      )}
+      <rect x="14" y="23.9" width="16" height="1.4" fill={APPLE2_KEY} />
+      {/* The nameplate on the skirt below the keyboard. */}
+      <rect x="5.5" y="26" width="9" height="2" fill={APPLE2_LID} />
+    </svg>
+  );
+}
+
 /* ---------------------------------------------------------------------------
    Atari */
 
@@ -756,6 +798,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   pmd85: Pmd85Art,
   apple1: Apple1Art,
   apple2: Apple2Art,
+  apple2plus: Apple2PlusArt,
   atari800: Atari800Art,
   atari400: Atari400Art,
 };

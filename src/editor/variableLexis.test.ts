@@ -101,6 +101,12 @@ const ROM_NAME_FACTS: Record<
   // keyboard cannot type it and the parser will not take it - and this
   // interpreter has no DATA keyword any more than the Apple I's does.
   apple2: { significant: 'all', case: 'folded', dataItems: 'none' },
+  // Applesoft is a Microsoft BASIC where the sibling's is not, so on the same
+  // board the name rules change: two significant characters again, and a DATA
+  // statement to read items from - the II Plus is the only Apple here with one.
+  // Case still folds, because the charset folds it before the interpreter sees
+  // it.
+  apple2plus: { significant: 2, case: 'folded', dataItems: 'verbatim' },
   // A name is kept in full - there is no truncation - and DATA/REM keep their
   // text verbatim. Lower case is refused outright at the ROM's own line
   // parser (booted and typed: `2 b=6` and `a=2` both come back `ERROR-`), so

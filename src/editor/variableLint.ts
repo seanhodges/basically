@@ -372,9 +372,6 @@ export function apple2VariableErrors(
  * as `L`, the AT token and `CH`, and `CATALOG` as `C`, AT, `A`, LOG. The
  * tokenizer reproduces both rather than smoothing them over, so this is where
  * the reader finds out.
- *
- * The lexis is written out rather than read from `lexisFor`, as the sibling's
- * is, because that table names the registered machines and no others.
  */
 export function apple2plusVariableErrors(
   source: string,
@@ -382,12 +379,7 @@ export function apple2plusVariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'Applesoft',
-    lexis: {
-      suffixChars: '$%',
-      crunched: true,
-      significantChars: 2,
-      dataIsVerbatim: true,
-    },
+    lexis: lexisFor('apple2plus'),
   });
 }
 

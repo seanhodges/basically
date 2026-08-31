@@ -151,6 +151,10 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // codes and not the shapes, and its block graphics are a display mode of
   // their own - the lo-res page GR switches to - rather than characters.
   apple2: [],
+  // Empty for the third time on this chip, and for the same reason: the II Plus
+  // is the II's board, so it draws the II's 64 glyphs. `HGR` and `GR` are
+  // display modes rather than characters here as well.
+  apple2plus: [],
   // The character generator's block and line-graphics range, drawn from the
   // keyboard as CTRL + a key; see the `GRAPHICS` table in `atari800/atascii.ts`.
   // Both machines share one ROM font.

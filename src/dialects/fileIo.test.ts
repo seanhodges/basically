@@ -90,6 +90,10 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // whole program over the cassette port, which this IDE serves as a WAV the
   // user plays in rather than as a trap a running program can write through.
   apple2: 'no file statements; LOAD/SAVE move programs, not files',
+  // Applesoft has none either. A II Plus reaches a file through DOS 3.3, which
+  // answers `PRINT CHR$(4);"OPEN"` from a disk controller this machine does not
+  // have; the language in ROM knows only LOAD and SAVE over the cassette port.
+  apple2plus: 'no file statements; LOAD/SAVE move programs, not files',
   // A hardware limitation, not outstanding work: 8K BASIC has no data-file
   // statement at all. CSAVE and CLOAD move whole programs over the 88-ACR, and
   // the paper tape is a listing; neither is a file a running program writes.

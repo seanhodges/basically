@@ -56,7 +56,7 @@ const FAMILIES: Record<string, string[]> = {
    */
   pmd85: ['pmd85', 'altair8800'],
   /** Its own bus over the shared cpu6502 core, one board shared by the pair. */
-  apple1: ['apple1', 'apple2'],
+  apple1: ['apple1', 'apple2', 'apple2plus'],
   /** ANTIC's own bus over the shared cpu6502 core. */
   atari800: ['atari800', 'atari400'],
 };

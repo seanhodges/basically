@@ -740,6 +740,121 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'hex',
   },
   {
+    id: 'apple2plus',
+    basicDialect: 'Applesoft BASIC',
+    portingNotes: [
+      {
+        text: 'A Microsoft BASIC on Apple hardware, so neither family’s habits port whole: it has floating point, DEF FN and the string functions its sibling lacks, and none of that sibling’s Integer BASIC keywords.',
+        topics: ['numbers', 'strings'],
+      },
+      {
+        text: 'Only the first two characters of a name are kept, and a name containing a reserved word is refused outright: SCORE is fine, but LATCH stores as L, the AT token and CH, and CATALOG as C, AT, A, LOG.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'AND, OR and NOT reduce their operands to true or false rather than combining bits — 5 AND 3 and 5 OR 3 are both 1 — and a true comparison is 1, not the -1 every other Microsoft BASIC here answers.',
+        topics: ['operators'],
+      },
+      {
+        text: 'The program grows up from 2049 and the strings down from HIMEM:, and hi-res page 1 is ordinary workspace at 8192: HGR erases whatever the program grew into it unless HIMEM: 8192 came first.',
+        topics: ['memory', 'graphics'],
+      },
+      {
+        text: 'FRE(0) is signed, so it answers about -18500 on an empty program and the true figure is FRE(0)+65536. PEEK and POKE take signed decimal too, there being no hex literal: the keyboard is PEEK(-16384).',
+        topics: ['memory'],
+      },
+      {
+        text: 'GOSUB nests 24 deep and the 25th answers ?OUT OF MEMORY ERROR. PRINT’s comma steps a 16-column zone; TAB( only ever moves forward, and HTAB is the one that moves either way.',
+        topics: ['control-flow', 'text-screen'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: write a second IF, or invert the test and jump.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'GET waits for a key rather than answering at once. To poll, PEEK(-16384) — bit 7 set means a key waits — then POKE -16368,0 to clear the strobe.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound statement: the speaker is one bit, flipped by touching $C030, so a note is PEEK(-16336) in a counting loop or a CALLed machine-code one.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'HOME clears the text window and puts the cursor at the top left; GR, HGR and HGR2 each clear their own page as they switch to it.',
+      },
+      {
+        keyword: 'CIRCLE',
+        note: 'No curve command: a circle is a run of HPLOTs, and a filled region a run of lines. There is no FILL and no reading a hi-res dot back.',
+      },
+      {
+        keyword: 'MODE',
+        note: 'No MODE: TEXT, GR, HGR and HGR2 each select a screen outright, and the raster is 280x192 in all of them.',
+      },
+    ],
+    lineNumberRange: '0–63999',
+    lineNumbers: { min: 0, max: 63999 },
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    // `?` is not a token here and never lists back: the parser tests for it
+    // before it scans the table, so the stored bytes are PRINT's either way and
+    // the spelling saves nothing. The sibling does not have even this.
+    abbreviatedEntry: {
+      style: 'none',
+      symbols: [{ spelling: '?', keyword: 'PRINT' }],
+      shrinksProgram: false,
+    },
+    variableNaming:
+      'Only the first two characters are significant; $ suffix = string, % = integer. A name containing a reserved word is a syntax error — the AT inside CATALOG, the TO inside HISTORY.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$%',
+      caseSensitive: false,
+    },
+    numberHandling: 'Floating point, with an integer type marked by %.',
+    numbers: { fractions: true },
+    exponentOperator: '^',
+    // Not the family's answers: measured on the running ROM by
+    // `dialects/operatorBattery.test.ts`, this is the one Microsoft BASIC here
+    // whose AND/OR/NOT are logical and whose true is 1.
+    logicalOperators: 'logical',
+    comparisonTrue: 1,
+    // The sibling's character generator, so the same five marks have no shape.
+    unsupportedCharacters: ['`', '{', '|', '}', '~'],
+    screen:
+      '40×24 text, upper case only, a 40×48 lo-res page of 16 colours, and 280×192 hi-res.',
+    textScreen: { columns: 40, rows: 24 },
+    // The board has a 1MHz clock and nothing that counts it, and Applesoft's
+    // WAIT polls an address rather than pausing - so an empty loop is all there
+    // is here too.
+    waitIdiom: {
+      text: 'an empty FOR loop: the machine has no timer and no delay statement',
+      keywords: [],
+    },
+    // Measured on the emulator by `dialects/loopSpeed.test.ts`, which pins it.
+    // Faster than the sibling's 749 on the same board, which is the opposite of
+    // what a floating-point BASIC replacing an integer one suggests: Applesoft
+    // keeps its FOR state in the workspace where Integer BASIC pushes it on the
+    // 6502's own stack, and the loop this measures does nothing else.
+    loopSpeed: 832,
+    screenBase: '$0400',
+    // The workspace region starts at $0800, whose zero byte RUN scans from;
+    // BASIC text begins the byte after it and never moves.
+    programStart: '$0801',
+    freeRamBytes: 47103,
+    colour:
+      'Sixteen colours on the lo-res page, set with COLOR=, and eight in hi-res with HCOLOR=. Text has none.',
+    sound:
+      'A one-bit speaker: touching $C030 (PEEK(-16336)) moves the cone once, so a tone is a counting loop.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'hex',
+  },
+  {
     id: 'atom',
     basicDialect: 'Atom BASIC',
     portingNotes: [

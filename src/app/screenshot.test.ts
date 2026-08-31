@@ -44,6 +44,7 @@ const EXPECTED_WIDTHS: Record<string, number> = {
   pmd85: 1152, // 288 x4
   apple1: 1120, // 280 x4
   apple2: 1120, // 280 x4
+  apple2plus: 1120, // 280 x4
   atari800: 1152, // 384 x3
   atari400: 1152, // 384 x3
 };

@@ -194,6 +194,9 @@ const NO_CURSOR_KEYS: Record<string, string> = {
   // re-typing the one under the cursor. There is no cursor mode for this
   // battery to read, and both cells are pinned in apple2/keyboardLayout.test.ts.
   apple2: 'the arrows are base-layer keys, not a CURSOR legend',
+  // The same two keys on the same keyboard: Applesoft edits a line through the
+  // ROM's own screen editor exactly as Integer BASIC does.
+  apple2plus: 'the arrows are base-layer keys, not a CURSOR legend',
 };
 
 describe('every registered machine is covered by a cursor-key claim', () => {
