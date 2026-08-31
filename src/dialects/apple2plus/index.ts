@@ -13,6 +13,7 @@ import {
 // interpreter decides is this dialect's own. Listed member by member rather
 // than spread over the sibling, as `atari400` lists them over `atari800`: what
 // a sibling inherits and what it owns should be visible here.
+import { Apple2Machine } from '../../emulator/apple2/apple2Machine';
 import { apple2Charset } from '../apple2/charset';
 import { apple2plusAiProfile } from './aiProfile';
 import { apple2plusKeyboardLayout } from './keyboardLayout';
@@ -22,6 +23,7 @@ import {
   apple2plusCrunched,
   apple2plusLanguageSupport,
 } from './language';
+import { applesoftSupport } from './machineSupport';
 import { apple2plusMemoryBlocks } from './memoryBlocks';
 import { apple2plusMemoryMap } from './memoryMap';
 import { apple2plusSamples } from './samples';
@@ -38,10 +40,10 @@ import { apple2plusVariableErrors } from '../../editor/variableLint';
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
- * once. The language layer below is real and driven headlessly by the tests
- * alongside; the emulator, the samples and the transfer targets are still
- * throwing stubs, and the picker identity is a placeholder that satisfies the
- * contract until the dialect is registered.
+ * once. The language layer, the machine and the samples below are real and
+ * driven headlessly by the tests alongside; the memory map and the transfer
+ * targets are still empty, and the picker identity is a placeholder that
+ * satisfies the contract until the dialect is registered.
  */
 export const apple2plus: Dialect = {
   id: 'apple2plus',
@@ -112,8 +114,13 @@ export const apple2plus: Dialect = {
   memoryMap: apple2plusMemoryMap,
   memoryBlocks: apple2plusMemoryBlocks,
 
-  createEmulator(): MachineEmulator {
-    throw new Error('apple2plus: not implemented');
+  /**
+   * The board is shared with the Apple II, which is the same hardware with the
+   * other BASIC in its ROM sockets, so what makes this a II Plus rather than a
+   * II is the support object rather than the machine.
+   */
+  createEmulator(opts): MachineEmulator {
+    return new Apple2Machine({ rom: opts.rom, basic: applesoftSupport });
   },
 
   keyboardLayout: apple2plusKeyboardLayout,

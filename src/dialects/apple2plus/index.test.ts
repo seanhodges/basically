@@ -4,7 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { apple2plus } from './index';
 import { apple2Charset } from '../apple2/charset';
-import { COLD_START_BYTES_FREE } from './addresses';
+import { apple2KeyboardLayout } from '../apple2/keyboardLayout';
+import { Apple2Machine } from '../../emulator/apple2/apple2Machine';
+import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
+import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from '../apple2/addresses';
+import { romFor } from '../bootHarness';
 
 describe('apple2plus dialect', () => {
   it('shares the sibling’s charset rather than copying it', () => {
@@ -27,6 +31,31 @@ describe('apple2plus dialect', () => {
     // this is where the reader is told.
     const errors = apple2plus.lint('10 LATCH=1\n');
     expect(errors.some((e) => /LATCH/.test(e.message))).toBe(true);
+  });
+
+  it('shares the sibling’s keyboard under its own identity', () => {
+    // Same keys, same encoder: what is this dialect's is the id and the theme.
+    expect(apple2plus.keyboardLayout!.rows).toBe(apple2KeyboardLayout.rows);
+    expect(apple2plus.keyboardLayout!.id).toBe('apple2plus');
+  });
+
+  it('builds the shared Apple II machine on its own ROM', () => {
+    // The board is the sibling's; the interpreter in its sockets is not, and
+    // that is the whole of the difference between the two `createEmulator`s.
+    const machine = apple2plus.createEmulator({
+      rom: romFor(apple2plus.romUrl),
+      ramKb: 16,
+    });
+    try {
+      expect(machine).toBeInstanceOf(Apple2Machine);
+      expect(machine.displayWidth).toBe(DISPLAY_WIDTH);
+      expect(machine.displayHeight).toBe(DISPLAY_HEIGHT);
+      // The whole $D000-$FFFF window, Applesoft and the Autostart Monitor.
+      expect(apple2plus.romBytes).toBe(FIRMWARE_BYTES);
+      expect(apple2plus.debuggable).toBe(true);
+    } finally {
+      machine.dispose?.();
+    }
   });
 
   it('declares the workspace the machine reports', () => {

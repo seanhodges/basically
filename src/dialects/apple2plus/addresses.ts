@@ -31,8 +31,29 @@ export const MONITOR_BASE = 0xf800;
  */
 export const BASIC_COLD_ENTRY = 0xe000;
 
-/** The prompt that says Applesoft is up. */
+/**
+ * The prompt that says Applesoft is up, printed at the left margin.
+ *
+ * Looked for at the margin and nowhere else, because the Autostart Monitor's
+ * sign-on banner is `APPLE ][` - which carries this character in the middle of
+ * a line, some way before the interpreter has a workspace.
+ */
 export const BASIC_PROMPT = ']';
+
+/**
+ * The head of the interpreter's command loop, and the one address every way of
+ * finishing with a program arrives at.
+ *
+ * `JSR $DAFB` (print a carriage return), then `LDX #$DD` - `]` with bit 7 set -
+ * and into the routine that stores it as the prompt character and calls the
+ * monitor's `GETLN`. `END` and `STOP` reach it through the `JMP $D43C` at
+ * `$D893`, falling off the end of the program reaches the same jump, and every
+ * `?... ERROR` report reaches it from the error handler's tail at `$DB02`. The
+ * warm start at `$E003` is a `JMP` here and nothing else, which is the clearest
+ * statement in the ROM that this is where the interpreter lives between
+ * programs.
+ */
+export const BASIC_COMMAND_LOOP = 0xd43c;
 
 /**
  * The keyword table: ASCII with bit 7 set on each keyword's last character,
@@ -76,7 +97,12 @@ export const PROGRAM_BASE = 0x0801;
 /**
  * The high byte {@link CURLIN} holds in direct mode, read off the machine at
  * its prompt (`CURLIN` = `$FF00` there). A line number never reaches `$FF00`,
- * so the high byte alone answers "is a program running".
+ * so the high byte alone tells a stored line from a typed one.
+ *
+ * **It is not the answer to "is a program running".** The ROM stamps the mark
+ * when a line is *entered*, not when a program stops, so between a program
+ * ending and the next thing being typed `CURLIN` still names the line it
+ * stopped on - which is what `CONT` resumes from.
  */
 export const DIRECT_MODE_MARK = 0xff;
 

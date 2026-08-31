@@ -35,6 +35,8 @@ import { readApple2Variables } from './vars';
  * flag inside the machine.
  */
 export const integerBasicSupport: Apple2BasicSupport = {
+  machineName: 'Apple II',
+  romPath: 'public/roms/apple2.rom',
   coldEntry: BASIC_COLD_ENTRY,
   commandLoop: BASIC_COMMAND_LOOP,
   prompt: BASIC_PROMPT,
