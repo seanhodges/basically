@@ -167,7 +167,7 @@ test('the picker narrows as you type and rearranges on demand', async ({
 }) => {
   await open(page);
   const dialog = await openNewProjectDialog(page);
-  const picker = await openMachinePicker(page, dialog);
+  let picker = await openMachinePicker(page, dialog);
 
   const rows = picker.locator('button[data-machine]');
   const headings = picker.locator('h3');
@@ -195,6 +195,20 @@ test('the picker narrows as you type and rearranges on demand', async ({
   await picker.getByLabel('Sort machines by').selectOption('model');
   await expect(headings).toHaveCount(0);
   await expect(rows).toHaveCount(everyMachine);
+
+  // A search left behind that hides the machine you are on is dropped when the
+  // list next opens - otherwise it opens without your own machine in it. The
+  // rule itself is pinned in machinePicker.test.ts; what a browser adds is that
+  // the correction reaches the rendered list.
+  await search.fill('locomotive');
+  await expect(rows).toHaveCount(3);
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  picker = await openMachinePicker(page, dialog);
+  await expect(picker.getByLabel('Search machines')).toHaveValue('');
+  await expect(picker.locator('button[data-machine]')).toHaveCount(
+    everyMachine,
+  );
 
   // A row is still a live choice after all of that.
   await picker.locator('button[data-machine="bbcmicro"]').click();

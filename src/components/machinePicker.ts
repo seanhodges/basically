@@ -104,6 +104,26 @@ export function filterMachines(
 }
 
 /**
+ * Whether `query` would hide the machine `id` names.
+ *
+ * Asked when the list opens, because the text is remembered: a search left
+ * behind that does not match the machine you are on would open the list without
+ * your own machine in it, or on the no-matches state, which is a list that
+ * cannot answer the question you opened it to ask. The caller drops the text.
+ *
+ * False for a machine the list is not offering at all - clearing the text would
+ * not bring that machine back, and would throw away a good search for nothing.
+ */
+export function queryHidesMachine(
+  machines: readonly MachineLike[],
+  query: string,
+  id: string,
+): boolean {
+  if (!machines.some((m) => m.id === id)) return false;
+  return !filterMachines(machines, query).some((m) => m.id === id);
+}
+
+/**
  * Group the machines under `keyOf`, ordering the headings by `compareHeadings`
  * and every group's machines by name.
  *

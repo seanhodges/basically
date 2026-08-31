@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useDismiss } from '../app/useDismiss';
 import { MachineArt } from './machineArt';
 import {
@@ -9,6 +9,7 @@ import {
   filterMachines,
   groupMachines,
   machineChoiceLabel,
+  queryHidesMachine,
   type MachineLike,
   type MachineSort,
 } from './machinePicker';
@@ -62,16 +63,41 @@ export function MachinePickerDialog({
   );
   const matched = groups.reduce((n, g) => n + g.machines.length, 0);
 
+  /**
+   * Whether this opening of the list has had its remembered search checked.
+   * The effect below re-runs on every keystroke, and the check belongs to the
+   * opening alone - typing a search that excludes the current machine is
+   * deliberate, and clearing it under the user would make the field unusable.
+   */
+  const searchChecked = useRef(false);
+
   // Open on the search field rather than on the current machine: the text is
   // remembered, so the current machine may not be listed at all and there would
   // be no row to land on. The row is scrolled to instead, where it survived.
-  useEffect(() => {
-    if (!open) return;
+  //
+  // A layout effect, not an effect: the dialog renders nothing while closed, so
+  // an effect running after paint would show the remembered narrowing for a
+  // frame before correcting it below.
+  useLayoutEffect(() => {
+    if (!open) {
+      searchChecked.current = false;
+      return;
+    }
+    // A remembered search that hides the machine you are on opens the list
+    // without your own machine in it, or on the no-matches state. Drop it, and
+    // let the re-render that causes come back here to focus and scroll.
+    if (!searchChecked.current) {
+      searchChecked.current = true;
+      if (queryHidesMachine(machines, query, selectedId)) {
+        onQueryChange('');
+        return;
+      }
+    }
     searchRef.current?.focus();
     listRef.current
       ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
       ?.scrollIntoView({ block: 'nearest' });
-  }, [open, query, sort]);
+  }, [open, query, sort, machines, selectedId, onQueryChange]);
 
   if (!open) return null;
 

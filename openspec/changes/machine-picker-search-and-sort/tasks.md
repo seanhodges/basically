@@ -123,7 +123,7 @@
 - [x] 7.3 `npm test` - the seam gains a field, so the registry-driven suites that
       assert facts about every dialect are all in reach of this change.
 - [x] 7.4 `npm run e2e:chromium -- e2e/project-setup e2e/persistence
-    e2e/porting-guidance e2e/shell-navigation`. 59 pass at one worker, the
+  e2e/porting-guidance e2e/shell-navigation`. 59 pass at one worker, the
       number CI runs. The new coverage went into the two folders that own it
       rather than one: narrowing and rearranging the rendered list is a new test
       in `e2e/project-setup/`, and reopening the list as it was left after a
@@ -142,3 +142,27 @@
 
 - [x] 7.5 `npm run docs:build` - the porting guide renders the changed dialog.
 - [x] 7.6 `npx openspec validate --specs`
+
+## 8. A remembered search must not hide the machine in use
+
+- [x] 8.1 A pure rule beside the filter: whether a given search would hide a
+      given machine. True only for a machine the list is offering but the search
+      drops - a machine that is not offered at all cannot be brought back by
+      dropping the search.
+- [x] 8.2 The dialog applies it as the list opens: drop the search and show
+      every machine. Only as it opens - the effect re-runs on every keystroke,
+      and text the user types must narrow as typed. Applied before the browser
+      paints, so the narrowing it undoes is never shown.
+- [x] 8.3 Tests for the rule, registry-driven: a search the machine matches, a
+      search other machines match instead of it, a search nothing matches, no
+      search at all, a machine the list is not offering, and that the rule
+      agrees machine-for-machine with the filter it is asked about.
+- [x] 8.4 The browser half, in the narrowing journey that already exists: a
+      search left behind that hides the current machine is gone when the list
+      next opens, and every machine is back. The reload test in the persistence
+      folder is the other half and needs no change - it searches for the maker
+      of the machine it is on, so the search survives, which is what proves this
+      rule did not swallow the remembering it qualifies.
+- [x] 8.5 `npx vitest run src/components/ src/storage/`, `npm run typecheck`,
+      `npm run lint`, `npm run format:check`, and `npm run e2e:chromium --
+    e2e/project-setup e2e/persistence e2e/porting-guidance` at one worker.

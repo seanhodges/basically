@@ -7,6 +7,7 @@ import {
   groupMachinesByManufacturer,
   machineChoiceLabel,
   machineSummary,
+  queryHidesMachine,
   machineTriggerLabel,
   targetMachineLabel,
   type MachineLike,
@@ -203,6 +204,48 @@ describe('narrowing the machine list', () => {
       const groups = groupMachines(filterMachines(machines, 'sinclair'), sort);
       for (const g of groups) expect(g.machines.length).toBeGreaterThan(0);
       expect(groups.flatMap((g) => g.machines).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('a remembered search that hides the machine you are on', () => {
+  it('does not report a machine the search matches', () => {
+    // The ZX81 is a Sinclair, so this search is one the list may keep.
+    expect(queryHidesMachine(machines, 'sinclair', 'zx81')).toBe(false);
+  });
+
+  it('reports a machine the search matches other machines instead of', () => {
+    expect(queryHidesMachine(machines, 'locomotive', 'zx81')).toBe(true);
+  });
+
+  it('reports it when the search matches nothing at all', () => {
+    // Otherwise the list opens on the no-matches state, which is the worst of
+    // the cases this rule exists for.
+    expect(queryHidesMachine(machines, 'dragon 32', 'zx81')).toBe(true);
+  });
+
+  it('reports nothing when there is no search', () => {
+    expect(queryHidesMachine(machines, '', 'zx81')).toBe(false);
+    expect(queryHidesMachine(machines, '  ', 'zx81')).toBe(false);
+  });
+
+  it('reports nothing for a machine the list is not offering', () => {
+    // The picker hides a machine whose ROM is absent. Clearing the search would
+    // not bring it back, so a good search must not be thrown away for it.
+    const offered = machines.filter((m) => m.id !== 'bbcmicro');
+    expect(queryHidesMachine(offered, 'sinclair', 'bbcmicro')).toBe(false);
+  });
+
+  it('agrees with the filter it is asked about', () => {
+    // The rule must not restate the match: every machine the filter drops is
+    // hidden, and every machine it keeps is not.
+    const query = 'commodore';
+    const kept = new Set(filterMachines(machines, query).map((m) => m.id));
+    for (const m of machines) {
+      expect(
+        queryHidesMachine(machines, query, m.id),
+        `${m.id} should ${kept.has(m.id) ? 'not ' : ''}be hidden by "${query}"`,
+      ).toBe(!kept.has(m.id));
     }
   });
 });

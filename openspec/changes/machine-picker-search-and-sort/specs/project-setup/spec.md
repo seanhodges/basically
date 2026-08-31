@@ -35,6 +35,12 @@ The typed text and the chosen arrangement SHALL be remembered, so that the list
 opens as the user last left it — both later in the same session, wherever a
 machine is chosen, and after the IDE is reloaded.
 
+Remembered text SHALL NOT be allowed to hide the machine currently chosen: where
+the list would open without that machine among those it shows, the text SHALL be
+dropped and every machine shown. This applies only as the list opens; text the
+user types SHALL narrow the list as typed, whether or not the chosen machine
+survives it.
+
 Each machine's description SHALL name the dialect of BASIC that machine runs,
 and SHALL add one distinguishing fact about the machine where that also fits. It
 SHALL be brief enough to be read in full on a phone-width screen rather than
@@ -83,6 +89,13 @@ anonymous.
 - **WHEN** the user narrows and rearranges the machine list, then reloads the
   IDE and opens the list again
 - **THEN** the same text and the same arrangement are in effect
+
+#### Scenario: What was remembered would hide the machine in use
+
+- **WHEN** the user opens the machine list while the remembered text matches no
+  machine, or matches machines but not the one currently chosen
+- **THEN** the text is dropped and every machine is shown, so the list never
+  opens without the machine the user is on
 
 #### Scenario: Reading the descriptions on a phone
 

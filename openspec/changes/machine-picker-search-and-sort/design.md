@@ -59,7 +59,7 @@ BASIC's name is prose, enforced by nothing, and an arrangement that silently
 regroups when someone rewords a sentence is not an arrangement.
 
 Once the seam declares it, the crosscheck inverts. Today the guide's copy is
-pinned to a *substring of the machine's description*; instead it is pinned to the
+pinned to a _substring of the machine's description_; instead it is pinned to the
 machine's own declaration, by equality, and a separate registry-driven test
 asserts every machine's description names the BASIC that machine declares. Both
 are strictly stronger than what they replace.
@@ -104,7 +104,7 @@ because a collator per comparison is the expensive way to do this.
 
 This changes the manufacturer arrangement's within-group order from oldest-first
 to alphabetical, which is a visible change to today's behaviour, taken
-deliberately: with four arrangements available, one of them is *the* year
+deliberately: with four arrangements available, one of them is _the_ year
 arrangement, and the other three answering "where is it in the alphabet" the
 same way is what makes them predictable.
 
@@ -130,6 +130,19 @@ stops working the moment a remembered narrowing can hide the chosen machine —
 there may be no row to focus. The field is the one element always present, and
 it is where a keyboard user wants to start in a list they can type into. The
 chosen machine is scrolled into view instead, when it survives the narrowing.
+
+**A remembered narrowing that hides the current machine is dropped as the list
+opens.** Persisting the text buys the case where you come back to the search you
+were in the middle of; it also creates one where the list opens without your own
+machine in it, or on the no-matches state - a list that cannot answer the
+question you opened it to ask. Only the opening is corrected: text typed while
+the list is up narrows as typed, because that is a deliberate act and clearing
+it under the user would make the field unusable. The correction is applied
+before the browser paints, so the narrowing it undoes is never shown.
+
+The test is "offered but filtered out", not "absent from the list". A machine
+the picker is not offering at all cannot be brought back by dropping the text,
+and dropping it then would throw away a good search for nothing.
 
 **Enter in the narrowing field does nothing.** In the New-project dialog the
 picker deliberately renders inside the form whose submit creates the project, so
