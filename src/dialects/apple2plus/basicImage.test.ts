@@ -23,10 +23,9 @@ describe('apple2plus image builder', () => {
 
   it('builds pointers that agree with the program', () => {
     const pointers = basicImagePointers(buildBasicImage(program));
-    // One past the zero link, as the machine's own insertion code leaves it -
-    // measured over the tokenizer's whole corpus, where VARTAB came back as
-    // $0801 + length + 1 every time.
-    const end = PROGRAM_BASE + program.length + 1;
+    // The byte after the zero link, which is where the machine's own insertion
+    // code leaves VARTAB: $0801 + length, the length counting the link.
+    const end = PROGRAM_BASE + program.length;
     expect(programEnd(program)).toBe(end);
     expect(pointers).toEqual([
       { address: VARTAB, value: end },

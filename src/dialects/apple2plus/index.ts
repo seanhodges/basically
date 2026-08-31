@@ -31,8 +31,13 @@ import { apple2plusBuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from '../apple2/addresses';
 import { buildBasicImage, parseBasicImage } from './basicImage';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+  decodeCassette,
+} from './audio/cassette';
 import { apple2plusVariableErrors } from '../../editor/variableLint';
 
 /**
@@ -41,9 +46,9 @@ import { apple2plusVariableErrors } from '../../editor/variableLint';
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
  * once. The language layer, the machine and the samples below are real and
- * driven headlessly by the tests alongside; the memory map and the transfer
- * targets are still empty, and the picker identity is a placeholder that
- * satisfies the contract until the dialect is registered.
+ * driven headlessly by the tests alongside, as are the tape and the file
+ * exports; the memory map is still empty, and the picker identity is a
+ * placeholder that satisfies the contract until the dialect is registered.
  */
 export const apple2plus: Dialect = {
   id: 'apple2plus',
@@ -94,6 +99,10 @@ export const apple2plus: Dialect = {
     return detokenizeProgram(parseBasicImage(image).program);
   },
 
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(parseBasicImage(image).program);
+  },
+
   lint(source: string): TokenizeError[] {
     return this.tokenize(source).errors;
   },
@@ -126,6 +135,47 @@ export const apple2plus: Dialect = {
   keyboardLayout: apple2plusKeyboardLayout,
   samples: apple2plusSamples,
   buildTargets: apple2plusBuildTargets,
+  binaryImports: [{ extension: '.bin', label: 'Import cassette record…' }],
+
+  /**
+   * Cassette, which is the only route into an unexpanded Apple II Plus and the
+   * one Applesoft has commands for. `LOAD` and `SAVE` do the whole job and the
+   * program's address is fixed, so - unlike the sibling, whose tape does not
+   * carry the workspace its listing was written under - there is nothing for
+   * the user to type first.
+   */
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, _programName, robust) =>
+      buildCassetteSamples(source, robust),
+
+    loadInstructions:
+      'Start playback, then type LOAD at the ] prompt and press Return - the ' +
+      'machine spends about four seconds letting the tape settle before it ' +
+      'starts listening, so there is no need to wait for the leader tone to ' +
+      'finish. It beeps once for the header record and once for the program; ' +
+      'LIST or RUN it when the second beep comes. ERR before a beep means the ' +
+      'checksum failed - rewind and try again with the volume a little lower.',
+
+    decodeSamples: (samples, sampleRate) => {
+      const { programName, data, warnings } = decodeCassette(
+        samples,
+        sampleRate,
+      );
+      const report = detokenizeProgramWithReport(parseBasicImage(data).program);
+      return {
+        programName,
+        source: report.source,
+        warnings: [...warnings, ...report.warnings],
+      };
+    },
+
+    saveInstructions:
+      'Start the recorder, then type SAVE at the ] prompt and press Return. ' +
+      'The machine writes ten seconds of leader and the three-byte header ' +
+      'record, then ten more seconds of leader and the program, beeping after ' +
+      'each. Feed that into this device, then start listening.',
+  },
 
   aiProfile: apple2plusAiProfile,
 };
