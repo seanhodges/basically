@@ -55,8 +55,8 @@ const FAMILIES: Record<string, string[]> = {
    * Microsoft 8K BASIC copied into RAM.
    */
   pmd85: ['pmd85', 'altair8800'],
-  /** Its own bus over the shared cpu6502 core. */
-  apple1: ['apple1'],
+  /** Its own bus over the shared cpu6502 core, one board shared by the pair. */
+  apple1: ['apple1', 'apple2'],
   /** ANTIC's own bus over the shared cpu6502 core. */
   atari800: ['atari800', 'atari400'],
 };

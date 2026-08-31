@@ -52,16 +52,16 @@ export { referencePageOf } from '../dialects/referencePage';
  * A target system's reference set is written before its dialects are
  * registered, because registering turns every registry-driven battery on at
  * once and the reference set is one of the things they demand. Until the switch
- * is thrown, the page below is real - its data is checked by every battery that
+ * is thrown such a page is real - its data is checked by every battery that
  * reads this map by page - but no registered machine reads from it, so the two
  * assertions that would otherwise call it dead consult this list instead.
  *
  * Naming a page here is a promise to delete the name in the change that
  * registers its machines, and pages.test.ts fails on an entry that is not a
  * page or whose machines have arrived - so the exemption cannot outlive the
- * staging it exists for.
+ * staging it exists for. Empty is the ordinary state.
  */
-export const PENDING_PAGE_IDS: readonly string[] = ['apple2'];
+export const PENDING_PAGE_IDS: readonly string[] = [];
 
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {

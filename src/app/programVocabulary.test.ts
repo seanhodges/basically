@@ -715,6 +715,7 @@ describe('programVocabulary - screen modes', () => {
 describe('programVocabulary - print positions', () => {
   const trs80 = getDialect('trs80');
   const cpc = getDialect('cpc464');
+  const apple2 = getDialect('apple2');
 
   it('collects a whole position in the machine’s own argument order', () => {
     // Row first on the Sinclairs, column first on a CPC, and both mean the same
@@ -724,6 +725,7 @@ describe('programVocabulary - print positions', () => {
     ).toEqual({
       cells: [{ row: 5, column: 3 }],
       columns: [],
+      rows: [],
       offsets: [],
       origin: 0,
       computed: false,
@@ -731,6 +733,7 @@ describe('programVocabulary - print positions', () => {
     expect(programVocabulary('10 LOCATE 3,5', cpc).positions).toEqual({
       cells: [{ row: 5, column: 3 }],
       columns: [],
+      rows: [],
       offsets: [],
       origin: 1,
       computed: false,
@@ -752,6 +755,7 @@ describe('programVocabulary - print positions', () => {
     expect(programVocabulary('10 PRINT TAB(35,4);"X"', bbc).positions).toEqual({
       cells: [{ row: 4, column: 35 }],
       columns: [],
+      rows: [],
       offsets: [],
       origin: 0,
       computed: false,
@@ -762,8 +766,25 @@ describe('programVocabulary - print positions', () => {
     expect(programVocabulary('10 PRINT TAB(35);"X"', bbc).positions).toEqual({
       cells: [],
       columns: [35],
+      rows: [],
       offsets: [],
       origin: 0,
+      computed: false,
+    });
+  });
+
+  it('collects a bare row apart from a bare column', () => {
+    // The Apple II addresses the two halves separately - TAB is the column and
+    // VTAB the row - so a listing states half a position at a time and the two
+    // halves are checked against different dimensions.
+    expect(
+      programVocabulary('10 VTAB 20\n20 TAB 12\n', apple2).positions,
+    ).toEqual({
+      cells: [],
+      columns: [12],
+      rows: [20],
+      offsets: [],
+      origin: 1,
       computed: false,
     });
   });
@@ -772,6 +793,7 @@ describe('programVocabulary - print positions', () => {
     expect(programVocabulary('10 PRINT @ 540,"X"', trs80).positions).toEqual({
       cells: [],
       columns: [],
+      rows: [],
       offsets: [540],
       origin: 0,
       computed: false,
@@ -786,6 +808,7 @@ describe('programVocabulary - print positions', () => {
     ).toEqual({
       cells: [{ row: 5, column: 30 }],
       columns: [],
+      rows: [],
       offsets: [],
       origin: 0,
       computed: false,
@@ -800,6 +823,7 @@ describe('programVocabulary - print positions', () => {
     expect(v.positions).toEqual({
       cells: [],
       columns: [],
+      rows: [],
       offsets: [],
       origin: 0,
       computed: false,
@@ -826,6 +850,7 @@ describe('programVocabulary - print positions', () => {
     expect(v.positions).toEqual({
       cells: [{ row: 2, column: 4 }],
       columns: [],
+      rows: [],
       offsets: [],
       origin: 0,
       computed: true,

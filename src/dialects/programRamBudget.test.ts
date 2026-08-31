@@ -52,6 +52,12 @@ const UNMEASURABLE: Record<string, string> = {
   // instead against the pointers the cold start lays down, in
   // src/emulator/apple1/apple1Machine.test.ts.
   apple1: 'the machine boots to its monitor, with no interpreter running',
+  // The II's case exactly, and for the same reason: with no autostart ROM it
+  // comes up in the monitor at `*`, and Integer BASIC's LOMEM/HIMEM pair does
+  // not exist until `loadProgram` cold-starts it. Its 47104 is pinned instead
+  // against the pointers that cold start lays down, in
+  // src/emulator/apple2/apple2Machine.test.ts.
+  apple2: 'the machine boots to its monitor, with no interpreter running',
   // The Altair's counterpart of the Apple I's case. 8K BASIC stops at
   // `MEMORY SIZE?` and waits for three answers before it lays TXTTAB down, and
   // answering them is `loadProgram`'s job rather than the harness's, so a

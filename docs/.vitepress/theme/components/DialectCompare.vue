@@ -1598,6 +1598,7 @@ function onVocabularyMessage(e: MessageEvent) {
             columns: Array.isArray(data.positions.columns)
               ? data.positions.columns
               : [],
+            rows: Array.isArray(data.positions.rows) ? data.positions.rows : [],
             offsets: Array.isArray(data.positions.offsets)
               ? data.positions.offsets
               : [],
@@ -2779,6 +2780,11 @@ watch(to, requestVocabulary);
         <p v-if="positionCheck.columns.length" class="cmp-hint">
           Columns beyond its width:
           <code>{{ positionCheck.columns.join(', ') }}</code
+          >.
+        </p>
+        <p v-if="positionCheck.rows.length" class="cmp-hint">
+          Rows beyond its height:
+          <code>{{ positionCheck.rows.join(', ') }}</code
           >.
         </p>
         <p v-if="positionCheck.offsets.length" class="cmp-hint">

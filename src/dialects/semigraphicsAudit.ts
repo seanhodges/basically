@@ -146,6 +146,11 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // the machine has no graphics hardware for a mosaic to reach even if the chip
   // held one.
   apple1: [],
+  // Empty again, and it is the same chip: 64 glyphs and no sixty-fifth. The
+  // Apple II draws each of them in three video modes, which multiplies the
+  // codes and not the shapes, and its block graphics are a display mode of
+  // their own - the lo-res page GR switches to - rather than characters.
+  apple2: [],
   // The character generator's block and line-graphics range, drawn from the
   // keyboard as CTRL + a key; see the `GRAPHICS` table in `atari800/atascii.ts`.
   // Both machines share one ROM font.

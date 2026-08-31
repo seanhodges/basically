@@ -2800,6 +2800,7 @@ describe('positionsForProgram', () => {
   const at = (cells: { row: number; column: number }[]) => ({
     cells,
     columns: [],
+    rows: [],
     offsets: [],
     origin: 0 as const,
     computed: false,
@@ -2823,12 +2824,32 @@ describe('positionsForProgram', () => {
       positions: {
         cells: [],
         columns: [12, 30],
+        rows: [],
         offsets: [],
         origin: 0,
         computed: false,
       },
     });
     expect(check?.columns).toEqual([30]);
+  });
+
+  it('names a row beyond the target’s height', () => {
+    // The half a machine that addresses rows separately (the Apple II's VTAB)
+    // states on its own, checked against the target's height rather than its
+    // width - 30 fits neither, and a check that only looked at columns would
+    // pass it.
+    const check = positionsForProgram(spectrum, vic20, {
+      ...laidOut(at([])),
+      positions: {
+        cells: [],
+        columns: [],
+        rows: [12, 30],
+        offsets: [],
+        origin: 0,
+        computed: false,
+      },
+    });
+    expect(check?.rows).toEqual([30]);
   });
 
   it('reports nothing where every position fits', () => {
@@ -2850,6 +2871,7 @@ describe('positionsForProgram', () => {
         positions: {
           cells,
           columns: [],
+          rows: [],
           offsets: [],
           origin: 1,
           computed: false,
@@ -2870,6 +2892,7 @@ describe('positionsForProgram', () => {
       positions: {
         cells: [],
         columns: [],
+        rows: [],
         offsets: [],
         origin: 0,
         computed: true,
@@ -2886,6 +2909,7 @@ describe('positionsForProgram', () => {
         positions: {
           cells: [],
           columns: [],
+          rows: [],
           offsets: values,
           origin: 0,
           computed: false,
@@ -2904,6 +2928,7 @@ describe('positionsForProgram', () => {
         positions: {
           cells: [],
           columns: [],
+          rows: [],
           offsets: [1000],
           origin: 0,
           computed: false,
@@ -2924,6 +2949,7 @@ describe('positionsForProgram', () => {
           positions: {
             cells: [],
             columns: [],
+            rows: [],
             offsets: [100],
             origin: 0,
             computed: false,

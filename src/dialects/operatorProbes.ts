@@ -389,6 +389,46 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
     },
   },
   {
+    id: 'apple2',
+    machines: ['Apple II'],
+    dialects: ['apple2'],
+    // Integer BASIC again, one revision on from the Apple I's: the same
+    // truncating `/`, the same logical AND/OR/NOT (`NOT 5` is 0, not -6), the
+    // same 1 for a true comparison and the same absence of string
+    // concatenation. What this revision adds is `^`, which the Apple I has no
+    // spelling for at all. `MOD` is still the remainder word, and there is
+    // still no `EOR`.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2^3',
+      '30 PRINT "ASSC";2^3^2',
+      '40 PRINT "UNMI";0-2^2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "REMD";7 MOD 2',
+      '110 PRINT "REL";(1<=2)',
+      '120 PRINT "ZZEND"',
+      '130 END',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '1',
+      NOTV: '0',
+      TRU: '1',
+      DIVV: '3',
+      REMD: '1',
+      REL: '1',
+    },
+  },
+  {
     id: 'atari',
     machines: ['Atari 800', 'Atari 400'],
     dialects: ['atari800', 'atari400'],

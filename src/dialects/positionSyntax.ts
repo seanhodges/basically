@@ -39,6 +39,8 @@ export type PositionKind =
   | 'column-row'
   /** One argument: a column. */
   | 'column'
+  /** One argument: a row. */
+  | 'row'
   /** One argument: cells from the start of the screen. */
   | 'offset';
 
@@ -129,6 +131,18 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
   apple1: {
     origin: 1,
     commands: [{ keyword: 'TAB', kind: 'column' }],
+    escapes: [],
+  },
+  // The II gives Woz's TAB a vertical half, and both count from one: TAB 1 is
+  // the leftmost column, VTAB 1 the top row, and either outside its range stops
+  // the program with *** RANGE ERR. Still statements rather than print
+  // formatters - the TAB( inside a PRINT is Applesoft's.
+  apple2: {
+    origin: 1,
+    commands: [
+      { keyword: 'TAB', kind: 'column' },
+      { keyword: 'VTAB', kind: 'row' },
+    ],
     escapes: [],
   },
   zx81: { origin: 0, commands: SINCLAIR_COMMANDS, escapes: [] },

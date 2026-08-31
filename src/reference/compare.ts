@@ -868,14 +868,15 @@ export interface ProgramVocabulary {
  * What a program's text says about where it prints. The app-side twin is
  * `ProgramPositions` in `src/app/programVocabulary.ts`.
  *
- * Three collections because the three forms are checked differently: a whole
- * position against both of the target's dimensions, a bare column against its
- * width, and an offset against the whole screen and against the width it
- * silently encodes.
+ * Four collections because each form is checked differently: a whole position
+ * against both of the target's dimensions, a bare column against its width, a
+ * bare row against its height, and an offset against the whole screen and
+ * against the width it silently encodes.
  */
 export interface ProgramPositions {
   cells: { row: number; column: number }[];
   columns: number[];
+  rows: number[];
   offsets: number[];
   /**
    * Which cell the machine calls the first one: 0 on the Sinclairs and the
@@ -1933,6 +1934,8 @@ export interface PositionCheck {
   cells: { row: number; column: number }[];
   /** Columns beyond the target's width, ascending. */
   columns: number[];
+  /** Rows beyond the target's height, ascending. */
+  rows: number[];
   /** Offsets the target's screen does not contain, ascending. */
   offsets: number[];
   /**
@@ -2012,6 +2015,7 @@ export function positionsForProgram(
     (cell) => beyond(cell.column, to.columns) || beyond(cell.row, to.rows),
   );
   const columns = positions.columns.filter((c) => beyond(c, to.columns));
+  const rows = positions.rows.filter((r) => beyond(r, to.rows));
   const offsets = positions.offsets.filter((o) =>
     beyond(o, to.columns * to.rows),
   );
@@ -2021,6 +2025,7 @@ export function positionsForProgram(
   if (
     cells.length === 0 &&
     columns.length === 0 &&
+    rows.length === 0 &&
     offsets.length === 0 &&
     !widthEncoded
   ) {
@@ -2031,6 +2036,7 @@ export function positionsForProgram(
     to,
     cells,
     columns,
+    rows,
     offsets,
     widthEncoded,
     otherModes: selectsOtherModes(fromFacts, vocabulary),

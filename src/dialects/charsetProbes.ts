@@ -33,6 +33,10 @@ import {
   parseChar as apple1ParseChar,
   decodeSpan as apple1DecodeSpan,
 } from './apple1/charset';
+import {
+  parseChar as apple2ParseChar,
+  decodeSpan as apple2DecodeSpan,
+} from './apple2/charset';
 import { atariCharset } from './atari800/charset';
 import { parseAtariChar } from './atari800/atascii';
 
@@ -291,6 +295,24 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     dialects: ['apple1'],
     decode: (b) => apple1DecodeSpan(Uint8Array.of(b), 0, 1).text,
     ...parseAll(apple1ParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
+  },
+  {
+    // The same 64 shapes of the 2513 as the Apple I, and not 7-bit either, but
+    // for a different reason: here the top two bits of a screen byte pick the
+    // video mode rather than another shape, so the glyphs repeat four times
+    // over the byte range. 0xA0-0xDF is the normal run plain text decodes to;
+    // the inverse and flashing halves are escapes, and so is the second normal
+    // run, which would otherwise break the round trip.
+    id: 'apple2',
+    varName: 'apple2Escapes',
+    title: 'Apple II escape codes',
+    machines: ['Apple II'],
+    dialects: ['apple2'],
+    decode: (b) => apple2DecodeSpan(Uint8Array.of(b), 0, 1).text,
+    ...parseAll(apple2ParseChar),
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',

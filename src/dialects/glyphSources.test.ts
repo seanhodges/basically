@@ -280,9 +280,11 @@ const WITHOUT_GLYPHS = new Set(['altair8800']);
 /**
  * The code that means "A" on a dialect with no ROM anchor above and no ASCII
  * `A` either. The Apple I's display and keyboard both carry bit 7 as part of
- * the code, so its letters sit at 0xC1-0xDA.
+ * the code, so its letters sit at 0xC1-0xDA; on the Apple II bit 7 selects
+ * normal video rather than another shape, and the plain letters land at the
+ * same codes.
  */
-const LETTER_A: Record<string, number> = { apple1: 0xc1 };
+const LETTER_A: Record<string, number> = { apple1: 0xc1, apple2: 0xc1 };
 
 /**
  * The same claim again for lower case, on the machines that have any.

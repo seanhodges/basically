@@ -75,7 +75,8 @@ describe('apple2 keyboard layout', () => {
   it('types the same character it sends, on both layers', () => {
     // The crosscheck that matters: a legend copied from a modern keyboard would
     // insert one character into the editor while the machine received another.
-    // SHIFT-2 is `"` here, not `@`, and `@` is SHIFT-P.
+    // SHIFT-2 is `"` here, not `@`, and `@` is SHIFT-P - both of which the SYM
+    // pages below reach, since a typing band carries the base character alone.
     let pairsChecked = 0;
     for (const key of driving) {
       if (key.modifier) continue;
@@ -104,9 +105,10 @@ describe('apple2 keyboard layout', () => {
         pairsChecked++;
       }
     }
-    // Thirty-eight printing keycaps, and the fourteen second characters the
-    // caps carry: nine digits and five letters.
-    expect(pairsChecked).toBe(38 + 14);
+    // Thirty-eight printing keycaps, each claiming one character. Nothing on
+    // the SHIFT layer: the shifted faces are reached through the SYM pages,
+    // which are checked below.
+    expect(pairsChecked).toBe(38);
 
     // The SYM cells make the same claim, so they are held to the same check:
     // the byte their combination sends is the character they insert.

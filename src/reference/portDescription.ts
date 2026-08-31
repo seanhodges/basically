@@ -460,6 +460,9 @@ function describePositions(
   if (check.columns.length > 0) {
     lines.push(`- Columns beyond its width: ${check.columns.join(', ')}.`);
   }
+  if (check.rows.length > 0) {
+    lines.push(`- Rows beyond its height: ${check.rows.join(', ')}.`);
+  }
   if (check.offsets.length > 0) {
     lines.push(`- Offsets beyond its screen: ${check.offsets.join(', ')}.`);
   }

@@ -269,6 +269,17 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'maps both cases onto the one code, so a lower-case letter is stored as ' +
       'the capital and a lower-case keyword is the keyword.',
   },
+  apple2: {
+    lowerCase: 'none',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'folded',
+    note:
+      'The same Signetics 2513 as the Apple I, 64 shapes with no lower case, ' +
+      'read here at 0xA0-0xDF of the text page. The keyboard cannot type a ' +
+      'lower-case letter either, so the charset folds one onto its capital ' +
+      'and a lower-case keyword is simply the keyword.',
+  },
   atari800: {
     lowerCase: 'always',
     keywordScan: 'upper-only',

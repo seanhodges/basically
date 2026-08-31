@@ -65,6 +65,14 @@ export const machines: MachineChoice[] = [
     blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
   },
   {
+    id: 'apple2',
+    page: 'apple2',
+    name: 'Apple II',
+    manufacturer: 'Apple',
+    year: 1977,
+    blurb: 'Colour graphics off the shelf. Runs Apple II Integer BASIC.',
+  },
+  {
     id: 'atari800',
     page: 'atari',
     name: 'Atari 800',
