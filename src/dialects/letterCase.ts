@@ -280,6 +280,19 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'lower-case letter either, so the charset folds one onto its capital ' +
       'and a lower-case keyword is simply the keyword.',
   },
+  apple2plus: {
+    lowerCase: 'none',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'folded',
+    note:
+      'The board is the II\u2019s, so the character generator and the keyboard ' +
+      'are the II\u2019s: the same 64 shapes with no lower case, and no way to ' +
+      'type one. Applesoft would compare names byte for byte like the other ' +
+      'Microsoft BASICs here, but the charset folds a lower-case letter onto ' +
+      'its capital before the interpreter ever sees it, so `A` and `a` cannot ' +
+      'be two variables on this machine.',
+  },
   atari800: {
     lowerCase: 'always',
     keywordScan: 'upper-only',

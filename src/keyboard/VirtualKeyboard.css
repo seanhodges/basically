@@ -1213,6 +1213,35 @@
   color: #f7f0df;
 }
 
+/* Apple II Plus: the II's case, so the II's values - the same beige behind the
+   modifier flanks, the same tan on the board keys and the same faded ink for
+   the SHIFT layer. Written out rather than shared with the block above because
+   a theme is named per machine, as the two CPC blocks with identical values
+   are. Activated by the layout's `theme: 'vk-theme-apple2plus'`. */
+.vk-theme-apple2plus .vk-layer-shift {
+  color: #9a8d76;
+}
+
+.vk-theme-apple2plus .vk-layer-shift.vk-active {
+  color: #f0e6d0;
+}
+
+.vk-theme-apple2plus .vk-style-shift .vk-keycap {
+  background: linear-gradient(#6d6150, #524839);
+}
+
+.vk-theme-apple2plus .vk-style-shift .vk-label {
+  color: #f2e9d5;
+}
+
+.vk-theme-apple2plus .vk-style-fn .vk-keycap {
+  background: linear-gradient(#8a7a5e, #675943);
+}
+
+.vk-theme-apple2plus .vk-style-fn .vk-label {
+  color: #f7f0df;
+}
+
 /* ---------------------------------------------------------------------------
    Atari 400/800 keyboard theme: the console strip's rust-brown plastic
    (ESC, TAB, the inverse-video key, BREAK, START, SELECT, OPTION) against a

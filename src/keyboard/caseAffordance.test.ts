@@ -107,12 +107,13 @@ describe('what stays reachable', () => {
   );
 
   it('has machines that draw a control key as a shift', () => {
-    // The Altair and the Apple I, where CTRL-C is the only way to interrupt a
+    // The Altair and the Apples, where CTRL-C is the only way to interrupt a
     // running program. A rule keyed on how a key is drawn would take it away.
     expect(styledLikeShift.map((d) => d.id)).toEqual([
       'altair8800',
       'apple1',
       'apple2',
+      'apple2plus',
     ]);
   });
 

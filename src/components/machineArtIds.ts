@@ -30,6 +30,7 @@ export const MACHINE_ART_IDS = [
   'pmd85',
   'apple1',
   'apple2',
+  'apple2plus',
   'atari800',
   'atari400',
 ] as const;

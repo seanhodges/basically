@@ -151,6 +151,19 @@ const RAW_HEX_BRACE = /^\{0x[0-9A-F]{2}\}$/;
 // produces.
 const RAW_HEX_DOLLAR_BRACE = /^\{\$[0-9a-f]{2}\}$/;
 
+/**
+ * Everything about the Apple II's character generator, shared by the two
+ * machines that carry it: the II and the II Plus differ in their ROM sockets,
+ * not in their video.
+ */
+const APPLE2_CHARSET = {
+  decode: (b: number) => apple2DecodeSpan(Uint8Array.of(b), 0, 1).text,
+  ...parseAll(apple2ParseChar),
+  isEscapeForm: BRACED_ESCAPE_FORM,
+  rawPattern: RAW_HEX_BRACE,
+  rawSpelling: '{0xNN}',
+};
+
 export const CHARSET_PROBES: CharsetProbe[] = [
   {
     id: 'zx81',
@@ -306,16 +319,25 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     // over the byte range. 0xA0-0xDF is the normal run plain text decodes to;
     // the inverse and flashing halves are escapes, and so is the second normal
     // run, which would otherwise break the round trip.
+    ...APPLE2_CHARSET,
     id: 'apple2',
     varName: 'apple2Escapes',
     title: 'Apple II escape codes',
     machines: ['Apple II'],
     dialects: ['apple2'],
-    decode: (b) => apple2DecodeSpan(Uint8Array.of(b), 0, 1).text,
-    ...parseAll(apple2ParseChar),
-    isEscapeForm: BRACED_ESCAPE_FORM,
-    rawPattern: RAW_HEX_BRACE,
-    rawSpelling: '{0xNN}',
+  },
+  {
+    // The II Plus is that same board with another BASIC in its ROM sockets, and
+    // `apple2plus/index.ts` imports the sibling's charset outright - so this is
+    // the entry above with the page header changed, not a second reading of one
+    // character generator. The pair takes a reference page each because the two
+    // BASICs share no tokens, which is the only reason there are two entries.
+    ...APPLE2_CHARSET,
+    id: 'applesoft',
+    varName: 'applesoftEscapes',
+    title: 'Applesoft BASIC escape codes',
+    machines: ['Apple II Plus'],
+    dialects: ['apple2plus'],
   },
   {
     id: 'atari',

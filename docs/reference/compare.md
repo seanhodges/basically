@@ -6,6 +6,7 @@ title: Porting guide
 import { altair8800Reference } from '../../src/reference/altair8800';
 import { apple1Reference } from '../../src/reference/apple1';
 import { apple2Reference } from '../../src/reference/apple2';
+import { applesoftReference } from '../../src/reference/applesoft';
 import { atariReference } from '../../src/reference/atari';
 import { atomReference } from '../../src/reference/atom';
 import { bbcReference } from '../../src/reference/bbc';
@@ -20,6 +21,7 @@ import { zx81Reference } from '../../src/reference/zx81';
 import { altair8800Escapes } from '../../src/reference/escapes/altair8800';
 import { apple1Escapes } from '../../src/reference/escapes/apple1';
 import { apple2Escapes } from '../../src/reference/escapes/apple2';
+import { applesoftEscapes } from '../../src/reference/escapes/applesoft';
 import { atariEscapes } from '../../src/reference/escapes/atari';
 import { atomEscapes } from '../../src/reference/escapes/atom';
 import { bbcEscapes } from '../../src/reference/escapes/bbc';
@@ -34,6 +36,7 @@ import { zx81Escapes } from '../../src/reference/escapes/zx81';
 import { altair8800MemoryMap } from '../../src/dialects/altair8800/memoryMap';
 import { apple1MemoryMap } from '../../src/dialects/apple1/memoryMap';
 import { apple2MemoryMap } from '../../src/dialects/apple2/memoryMap';
+import { apple2plusMemoryMap } from '../../src/dialects/apple2plus/memoryMap';
 import { atari800MemoryMap } from '../../src/dialects/atari800/memoryMap';
 import { atari400MemoryMap } from '../../src/dialects/atari400/memoryMap';
 import { atomMemoryMap } from '../../src/dialects/atom/memoryMap';
@@ -62,6 +65,7 @@ const referenceByPage = {
   altair8800: altair8800Reference,
   apple1: apple1Reference,
   apple2: apple2Reference,
+  applesoft: applesoftReference,
   atari: atariReference,
   atom: atomReference,
   bbc: bbcReference,
@@ -77,6 +81,7 @@ const escapesByPage = {
   altair8800: altair8800Escapes,
   apple1: apple1Escapes,
   apple2: apple2Escapes,
+  applesoft: applesoftEscapes,
   atari: atariEscapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
@@ -100,6 +105,7 @@ const memoryMapById = {
   altair8800: altair8800MemoryMap,
   apple1: apple1MemoryMap,
   apple2: apple2MemoryMap,
+  apple2plus: apple2plusMemoryMap,
   atari800: atari800MemoryMap,
   atari400: atari400MemoryMap,
   atom: atomMemoryMap,

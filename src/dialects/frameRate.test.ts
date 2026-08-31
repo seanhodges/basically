@@ -83,6 +83,9 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // cycles, one of them stretched by two master clocks to keep the colour
   // burst in step, which lands the field rate just under 60.
   apple2: 59.92,
+  // The same video section, so the same field: what the II Plus changed is in
+  // the ROM sockets, and the scanline count is not there.
+  apple2plus: 59.92,
   // PAL: 312 scanlines of 114 cycles each at the machine's 1.79MHz clock.
   atari800: 49.86,
   atari400: 49.86,

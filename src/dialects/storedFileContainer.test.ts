@@ -44,6 +44,7 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   altair8800: 'no file-I/O trap, so nothing reaches the store',
   apple1: 'no file-I/O trap, so nothing reaches the store',
   apple2: 'no file-I/O trap, so nothing reaches the store',
+  apple2plus: 'no file-I/O trap, so nothing reaches the store',
   atari800: 'no file-I/O trap, so nothing reaches the store',
   atari400: 'no file-I/O trap, so nothing reaches the store',
 };

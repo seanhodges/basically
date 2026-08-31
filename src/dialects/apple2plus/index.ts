@@ -55,7 +55,7 @@ export const apple2plus: Dialect = {
   name: 'Apple II Plus',
   manufacturer: 'Apple',
   year: 1979,
-  blurb: 'Runs Applesoft BASIC.',
+  blurb: 'Applesoft in ROM at last. Runs Applesoft BASIC.',
   docsReference: 'applesoft',
 
   programRamBytes: COLD_START_BYTES_FREE,
@@ -119,6 +119,12 @@ export const apple2plus: Dialect = {
   // CURLIN names the executing line, so the machine can be stepped a line at a
   // time.
   debuggable: true,
+
+  // The same game port on the same board: two paddles, each with its own
+  // button, which is what the machine has instead of a joystick - and what
+  // `PDL(` reads.
+  joystickModes: ['native'],
+  joystickFireButtons: 2,
 
   memoryMap: apple2plusMemoryMap,
   memoryBlocks: apple2plusMemoryBlocks,

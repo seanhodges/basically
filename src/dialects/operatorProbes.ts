@@ -429,6 +429,32 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
     },
   },
   {
+    id: 'apple2plus',
+    machines: ['Apple II Plus'],
+    dialects: ['apple2plus'],
+    // The Microsoft program, and not the Microsoft answers. Applesoft spells the
+    // power operator `^` as the Altair and the PMD 85 do, folds it left, and
+    // divides to a fraction - but its AND/OR/NOT read their operands as
+    // true-or-false rather than bit by bit (`5 OR 3` is 1, not 7, and `NOT 5`
+    // is 0, not -6) and a true comparison answers 1 rather than -1. Read off
+    // the running ROM: this is the one Microsoft BASIC here that answers the
+    // Integer BASIC and Atari way, so it cannot join the family's expectations.
+    program: microsoftProgram('^'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '1',
+      NOTV: '0',
+      TRU: '1',
+      DIVV: '3.5',
+      REL: '1',
+      CAT: 'AB',
+    },
+  },
+  {
     id: 'atari',
     machines: ['Atari 800', 'Atari 400'],
     dialects: ['atari800', 'atari400'],

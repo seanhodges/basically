@@ -45,7 +45,8 @@ describe('controller bindings resolve for every dialect', () => {
  * Only machines with two independent hardware fire lines should advertise
  * `joystickFireButtons: 2` - the BBC analogue port's PB4/PB5, the Amstrad CPC's
  * joystick row (matrix line 9, fire 1 and fire 2 on distinct bits), and the
- * Apple II game port, whose two paddles carry a button each on PB0 and PB1.
+ * Apple II game port, whose two paddles carry a button each on PB0 and PB1 (a
+ * port the II Plus has too, that machine being the same board).
  * Everywhere else the field is omitted (defaults to one fire line) so a 2-button
  * layout wires only the primary button in a joystick mode.
  */
@@ -56,6 +57,7 @@ const TWO_FIRE_DIALECTS = [
   'cpc664',
   'cpc6128',
   'apple2',
+  'apple2plus',
 ];
 
 describe('joystickFireButtons capability', () => {

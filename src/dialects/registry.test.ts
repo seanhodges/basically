@@ -37,6 +37,7 @@ describe('dialect registry', () => {
     pmd85: 'hex',
     apple1: 'hex',
     apple2: 'hex',
+    apple2plus: 'hex',
     atari800: 'dec',
     atari400: 'dec',
   };
@@ -77,6 +78,9 @@ describe('dialect registry', () => {
     // Integer BASIC and the Monitor in it. A short replacement fills from
     // $D000 up, so the BASIC half alone still leaves a machine that resets.
     'apple2',
+    // The same window on the same board, with Applesoft and the Autostart
+    // Monitor in it rather than Integer BASIC and the old one.
+    'apple2plus',
     // Same shape again: the OS leads so a BASIC-only replacement still boots
     // to the Memo Pad rather than a machine that cannot reset.
     'atari800',

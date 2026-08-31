@@ -158,6 +158,9 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // `$` runs through its manuals, its monitor prompt and this project's own
   // Apple II memory map.
   apple2: '$',
+  // Applesoft has no hex literal either - `PEEK`/`POKE` take signed decimal on
+  // this machine too - and it is the same house `$` on the same board.
+  apple2plus: '$',
   // Atari BASIC's PEEK/POKE take decimal too - there is no hex literal - and
   // this project's own memory map and reference pages already write its
   // addresses `$D800`/`$E000` in the same house `$` this file uses for every
@@ -318,6 +321,32 @@ const atariFont = (): RomGlyphSource => ({
     'to CHBASE $E000). Indexed by screen code, not ATASCII - ' +
     'atasciiToScreenCode() does the swap the OS editor does on the way to ' +
     'screen memory.',
+});
+
+/**
+ * The Apple II's text glyphs, drawn by both machines that carry that video
+ * section: the II and the II Plus.
+ */
+const apple2Font = (): ChipGlyphSource => ({
+  kind: 'chip',
+  chip: '2513',
+  // Every byte in the text page draws something: the top two bits pick the
+  // video mode, they do not pick a shape, so all 256 codes land on one of the
+  // chip's 64 glyphs.
+  codes: range(0x00, 0xff),
+  cell: { w: 7, h: 8 },
+  // The screen byte's low six bits *are* the chip's address lines on this
+  // machine, so the index is the masked code rather than an offset from the
+  // plain-text base: 0x00 is `@`, 0x20 is space, and `A` is 0x01 whichever of
+  // its four codes was stored.
+  indexOf: (code) => code & 0x3f,
+  note:
+    'No character ROM is shipped: src/emulator/apple2/video.ts draws text ' +
+    'with the host font deliberately, to avoid bundling a second ' +
+    'copyrighted asset. The real shapes are 5x7 bitmaps in the Signetics ' +
+    '2513 the Apple I uses as well, which the CPU cannot address - the ' +
+    'video section reads the text page itself and feeds the low six bits ' +
+    'of each byte straight to the chip.',
 });
 
 /**
@@ -584,29 +613,11 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     },
   ],
 
-  apple2: [
-    {
-      kind: 'chip',
-      chip: '2513',
-      // Every byte in the text page draws something: the top two bits pick the
-      // video mode, they do not pick a shape, so all 256 codes land on one of
-      // the chip's 64 glyphs.
-      codes: range(0x00, 0xff),
-      cell: { w: 7, h: 8 },
-      // The screen byte's low six bits *are* the chip's address lines on this
-      // machine, so the index is the masked code rather than an offset from the
-      // plain-text base: 0x00 is `@`, 0x20 is space, and `A` is 0x01 whichever
-      // of its four codes was stored.
-      indexOf: (code) => code & 0x3f,
-      note:
-        'No character ROM is shipped: src/emulator/apple2/video.ts draws text ' +
-        'with the host font deliberately, to avoid bundling a second ' +
-        'copyrighted asset. The real shapes are 5x7 bitmaps in the Signetics ' +
-        '2513 the Apple I uses as well, which the CPU cannot address - the ' +
-        'video section reads the text page itself and feeds the low six bits ' +
-        'of each byte straight to the chip.',
-    },
-  ],
+  apple2: [apple2Font()],
+  // One video section, shared gate for gate - see apple2Font()'s own note. What
+  // the II Plus changed is in the ROM sockets, and the character generator is
+  // not one of them.
+  apple2plus: [apple2Font()],
 
   atari800: [atariFont()],
   // One OS image, shared byte for byte - see atariFont()'s own note.

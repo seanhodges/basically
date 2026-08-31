@@ -53,6 +53,7 @@ reported as such rather than guessed at.
 | PMD 85-2 | — | _none_ | — | — | — | — | — |
 | Apple I | — | _none_ | — | — | — | — | — |
 | Apple II | — | _none_ | — | — | — | — | — |
+| Apple II Plus | — | _none_ | — | — | — | — | — |
 | Atari 800 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 | Atari 400 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 
@@ -224,6 +225,14 @@ entry in src/dialects/semigraphicsAudit.ts for how that was
 established.
 
 ### Apple II
+
+This machine has no block graphics at all - not a range nobody has
+read off it yet, but a character set with no mosaic in it. Every byte
+it can display is an ordinary character; see the citation beside its
+entry in src/dialects/semigraphicsAudit.ts for how that was
+established.
+
+### Apple II Plus
 
 This machine has no block graphics at all - not a range nobody has
 read off it yet, but a character set with no mosaic in it. Every byte

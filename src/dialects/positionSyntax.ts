@@ -145,6 +145,19 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
     ],
     escapes: [],
   },
+  // Applesoft states a position the same way on the same screen, and counts
+  // from one as the sibling does - but through different commands: HTAB moves
+  // either way where the sibling's TAB only ever moves forward, and TAB( is a
+  // print formatter inside a PRINT rather than a statement of its own.
+  apple2plus: {
+    origin: 1,
+    commands: [
+      { keyword: 'HTAB', kind: 'column' },
+      { keyword: 'VTAB', kind: 'row' },
+      { keyword: 'TAB', kind: 'column' },
+    ],
+    escapes: [],
+  },
   zx81: { origin: 0, commands: SINCLAIR_COMMANDS, escapes: [] },
   zxspectrum: SPECTRUM,
   zxspectrum128: SPECTRUM,

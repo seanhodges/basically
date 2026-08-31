@@ -126,6 +126,7 @@ const EXCUSED: Record<string, string> = {
   zxspectrum128: 'reuses the zxspectrum layout',
   bbcmaster: 'reuses the bbcmicro layout',
   atari400: 'reuses the atari800 layout',
+  apple2plus: 'reuses the apple2 layout',
 };
 
 describe('every registered machine is covered', () => {

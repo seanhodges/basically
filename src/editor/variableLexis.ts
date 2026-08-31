@@ -167,6 +167,15 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   // character - so nothing truncates. `$` is the only marker, there being no
   // second numeric type, and the entry parser skips spaces outside a string.
   apple2: { suffixChars: '$', crunched: true },
+  // Applesoft is a Microsoft BASIC, so a name is two significant characters and
+  // `%` marks an integer beside `$` for a string. Spaces are crunched out and
+  // DATA keeps its items verbatim, both as on the rest of the family.
+  apple2plus: {
+    suffixChars: '$%',
+    crunched: true,
+    significantChars: 2,
+    dataIsVerbatim: true,
+  },
   // Names are fully significant and the ROM ignores spaces everywhere outside
   // a string literal (`atariCrunched` in `dialects/atari800/language.ts`);
   // `$` is the only type marker, there being no `%` integer suffix. REM and

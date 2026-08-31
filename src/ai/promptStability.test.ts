@@ -63,6 +63,7 @@ const PROMPT_CEILINGS: Record<string, number> = {
   pmd85: 39_000,
   apple1: 30_000,
   apple2: 40_000,
+  apple2plus: 49_000,
   atari800: 42_000,
   atari400: 42_500,
 };
@@ -84,21 +85,31 @@ const SECTION_CEILINGS: Record<string, number> = {
   'CHARACTERS THIS MACHINE DOES NOT HAVE': 600,
   'SCREEN, COLOUR AND SOUND': 800,
   'TIMING AND WAITING': 800,
-  // The two machines that name their hardware region by region. The Atari's own
-  // map runs to about 3.8K - ANTIC, GTIA, POKEY and the PIA each get a
-  // 256-byte region with its own note - and the Apple II's to about 4.9K,
-  // because its soft switches are eight banks of sixteen addresses and each
-  // bank does something different. Both are on top of the OS/BASIC buffers
+  // The machines that name their hardware region by region. The Atari's own map
+  // runs to about 3.8K - ANTIC, GTIA, POKEY and the PIA each get a 256-byte
+  // region with its own note - and the two Apple IIs' to about 4.9K and 5.4K,
+  // because their soft switches are eight banks of sixteen addresses and each
+  // bank does something different. The II Plus is the longer of the pair for a
+  // reason on top of that: Applesoft keeps its interpreter state in the zero
+  // page, so the workspace pointers are named regions here where Integer
+  // BASIC's are a handful of words. All of it is on top of the OS/BASIC buffers
   // every other machine here also lists.
-  'WHERE THINGS ARE IN MEMORY': 5_000,
+  'WHERE THINGS ARE IN MEMORY': 5_500,
   'EVERY COMMAND, FUNCTION AND OPERATOR THIS MACHINE HAS': 24_000,
   'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 3_000,
   'WHERE THIS MACHINE IS SHORT': 5_000,
 };
 
-/** The same, for the parts the prompt builder composes around the reference. */
+/**
+ * The same, for the parts the prompt builder composes around the reference.
+ *
+ * The machine notes are the widest of these, and the II Plus sets the figure:
+ * it is the one machine here with two graphics modes, real strings and a
+ * crunching trap that breaks ordinary variable names, and each of those is a
+ * paragraph a model gets wrong without.
+ */
 const PART_CEILINGS: Record<string, number> = {
-  'the machine notes': 5_000,
+  'the machine notes': 5_400,
   'the code rules': 1_200,
   'the checking rules': 4_500,
   'the driving rules': 2_600,

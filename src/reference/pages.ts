@@ -63,7 +63,7 @@ export { referencePageOf } from '../dialects/referencePage';
  * page or whose machines have arrived - so the exemption cannot outlive the
  * staging it exists for. Empty is the ordinary state.
  */
-export const PENDING_PAGE_IDS: readonly string[] = ['applesoft'];
+export const PENDING_PAGE_IDS: readonly string[] = [];
 
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {

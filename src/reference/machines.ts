@@ -73,6 +73,14 @@ export const machines: MachineChoice[] = [
     blurb: 'Colour graphics off the shelf. Runs Apple II Integer BASIC.',
   },
   {
+    id: 'apple2plus',
+    page: 'applesoft',
+    name: 'Apple II Plus',
+    manufacturer: 'Apple',
+    year: 1979,
+    blurb: 'Applesoft in ROM at last. Runs Applesoft BASIC.',
+  },
+  {
     id: 'atari800',
     page: 'atari',
     name: 'Atari 800',

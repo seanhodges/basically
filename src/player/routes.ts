@@ -34,6 +34,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'plot', dialectId: 'pmd85' }, // PLOT - BASIC-G's draw-to-here command
   { verb: 'auto', dialectId: 'apple1' }, // AUTO - Integer BASIC's automatic line numbering
   { verb: 'gr', dialectId: 'apple2' }, // GR - Integer BASIC's lo-res graphics mode
+  { verb: 'hgr', dialectId: 'apple2plus' }, // HGR - Applesoft's hi-res graphics mode
   { verb: 'drawto', dialectId: 'atari800' }, // DRAWTO - Atari BASIC's line-draw command
   { verb: 'setcolor', dialectId: 'atari400' }, // SETCOLOR - Atari BASIC's palette command
 ];
