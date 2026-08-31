@@ -257,6 +257,54 @@ for this machine is the full 12288 bytes.)
 If you are the rights holder and want this file removed, please open an issue and
 it will be taken out.
 
+`apple2plus.rom` is the Apple II Plus firmware, copyright © 1978–1979 Apple
+Computer, Inc. It is the same `$D000`–`$FFFF` window as `apple2.rom` above, as
+one 12288-byte image in address order, and holds two parts rather than four:
+
+    Applesoft II  $D000-$F7FF  10240 bytes
+    Autostart Monitor  $F800-$FFFF  2048 bytes
+
+Applesoft fills five 2K sockets contiguously, which is why there is no
+Programmer's Aid and no empty socket here. The monitor is the **Autostart** one
+rather than the original: its reset vector is `$FA62`, so RESET restarts BASIC
+instead of dropping into the monitor's `*` prompt, and the machine signs on in
+Applesoft with no command typed at it. That is the difference between this image
+and `apple2.rom`, and it is the one thing to check if the file is ever replaced.
+
+**Applesoft II is Microsoft's code, not Apple's.** Apple licensed the interpreter
+from Microsoft in 1977 and Apple's copyright notice is what the machine prints,
+but the floating-point BASIC underneath is the same 6502 interpreter Microsoft
+sold to Commodore and others — unlike the Apple I and Apple II images above,
+which are Wozniak's own work throughout. Both rights holders are therefore named
+here. As with those images there is no formal permission from either, and the
+same de-facto tolerance applies: this image ships with the Apple II emulators
+(AppleWin, apple2js, MAME, microM8 and others) and is published alongside the
+machine's documentation by the Apple II Documentation Project. It is included
+here, unmodified, solely for use with the bundled emulator.
+
+The file is an unmodified copy of the image distributed with
+[AppleWin](https://github.com/AppleWin/AppleWin) (`resource/Apple2_Plus.rom`),
+and every byte of it is confirmed against an independent copy in
+[apple2js](https://github.com/whscullin/apple2js): the Applesoft half is
+byte-identical to that project's `js/roms/system/apple2j.ts` (the Japanese
+II J-Plus, which fits the same interpreter behind a localised monitor), and the
+monitor half to its `js/roms/system/intbasic.ts` (a II Plus with the Integer
+BASIC firmware card fitted, which keeps the Autostart monitor). Between the two
+there is no byte here taken on trust. For anyone rebuilding the file, the
+SHA-256 of each part is
+
+    Applesoft II       10240 bytes  ed8d83176bb9445b3eaa815e07956777bdfaa9e4892a8d7f5019dead62434c4c
+    Autostart Monitor   2048 bytes  29465303e7844fa56a8c846d0565e45f5ee082f98f2ccf1b261de4a7e902201b
+    file               12288 bytes  fc3e9d41e9428534a883df5aa10eb55b73ea53d2fcbb3ee4f39bed1b07a82905
+
+(The IDE also supports supplying your own ROM image at runtime, from Settings ▸
+Emulator, so the bundled copy can be removed without disabling the feature. A
+replacement image may be any size; it is fitted to the machine's ROM area, which
+for this machine is the full 12288 bytes.)
+
+If you are the rights holder and want this file removed, please open an issue and
+it will be taken out.
+
 # MITS ROM attribution
 
 `altair8800.rom` is Altair 8K BASIC 4.0 — Microsoft's first product, written by

@@ -366,6 +366,35 @@ export function apple2VariableErrors(
 }
 
 /**
+ * Applesoft is a Microsoft BASIC and takes the family's rules whole: two
+ * significant characters, `$` and `%` as type suffixes, and a name embedding a
+ * reserved word being a real `?SYNTAX ERROR`.
+ *
+ * That last one bites harder here than anywhere else in the family, because
+ * this ROM's table puts `AT` at `$C5` where `ATN` is at `$E1`: `LATCH` stores
+ * as `L`, the AT token and `CH`, and `CATALOG` as `C`, AT, `A`, LOG. The
+ * tokenizer reproduces both rather than smoothing them over, so this is where
+ * the reader finds out.
+ *
+ * The lexis is written out rather than read from `lexisFor`, as the sibling's
+ * is, because that table names the registered machines and no others.
+ */
+export function apple2plusVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'Applesoft',
+    lexis: {
+      suffixChars: '$%',
+      crunched: true,
+      significantChars: 2,
+      dataIsVerbatim: true,
+    },
+  });
+}
+
+/**
  * BASIC-G inherits both rules from the same place the Altair's come from -
  * two significant characters, and `$` as the only type suffix - and departs
  * from it on case, which its lexis carries from the machine's declared facts.

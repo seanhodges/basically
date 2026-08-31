@@ -621,6 +621,77 @@ const ATARI_CONSTRUCTS: ConstructTemplate[] = [
   ]),
 ];
 
+/**
+ * Applesoft. Shares the machine with {@link APPLE2_CONSTRUCTS} and almost none
+ * of its statement shapes: this interpreter has hi-res, error trapping, defined
+ * functions and a blocking `GET`, and the lo-res `HLIN`/`VLIN … AT` pair is the
+ * only place the two sets meet.
+ */
+export const APPLE2PLUS_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  {
+    label: 'HGR',
+    lines: ['HGR', 'HCOLOR= ${1:colour}'],
+    detail: 'open the hi-res screen',
+  },
+  {
+    label: 'HPLOT',
+    lines: ['HPLOT ${1:x1},${2:y1} TO ${3:x2},${4:y2}'],
+    detail: 'draw a hi-res line',
+  },
+  {
+    label: 'GR',
+    lines: ['GR', 'COLOR= ${1:colour}'],
+    detail: 'open the lo-res screen',
+  },
+  {
+    label: 'PLOT',
+    lines: ['PLOT ${1:x},${2:y}'],
+    detail: 'light one lo-res block',
+  },
+  {
+    label: 'HLIN',
+    lines: ['HLIN ${1:x1},${2:x2} AT ${3:y}'],
+    detail: 'draw a lo-res row',
+  },
+  {
+    label: 'VLIN',
+    lines: ['VLIN ${1:y1},${2:y2} AT ${3:x}'],
+    detail: 'draw a lo-res column',
+  },
+  {
+    label: 'ONERR',
+    lines: ['ONERR GOTO ${1:line}'],
+    detail: 'trap errors to a handler',
+  },
+  {
+    label: 'DEF FN',
+    lines: ['DEF FN ${1:name}(${2:x}) = ${3:expr}'],
+    detail: 'define a function',
+  },
+  { label: 'GET', lines: ['GET ${1:A$}'], detail: 'wait for one keypress' },
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 's,n'],
+    ['LEN', 's'],
+    ['MID$', 's,i,n'],
+    ['PDL', 'n'],
+    ['PEEK', 'n'],
+    ['RIGHT$', 's,n'],
+    ['RND', 'n'],
+    ['SCRN', 'x,y'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   zx81: ZX81,
   zx80: ZX80,
