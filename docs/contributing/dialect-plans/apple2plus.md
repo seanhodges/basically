@@ -163,7 +163,7 @@ Stage 4's.
 
 | Stage | Title                                        | Status |
 | ----- | -------------------------------------------- | ------ |
-| 1     | Language core                                | ⬜     |
+| 1     | Language core                                | ✅     |
 | 2     | ROM, interpreter support, keyboard & samples | ⬜     |
 | 3     | Transfer & tape I/O                          | ⬜     |
 | 4     | Memory map & runtime introspection           | ⬜     |
@@ -172,21 +172,21 @@ Stage 4's.
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no registry change.
 
-- [ ] `addresses.ts` — the zero-page workspace words above, the ROM window and
+- [x] `addresses.ts` — the zero-page workspace words above, the ROM window and
       its two halves, `$0801`, and this interpreter's own limits. Read off the
       image, not from memory. **The board's addresses are not restated here** —
       the RAM top, the I/O page, the display bases and the display size all come
       from `apple2/addresses.ts`, and only what the interpreter decides is this
       file's. `MAX_LINE` is one of the interpreter's: the sibling's 32767 is
       Integer BASIC's answer and not this one's
-- [ ] `keywords.ts` — `KeywordInfo[]` for the `$80`–`$EA` table, in the ROM's own
+- [x] `keywords.ts` — `KeywordInfo[]` for the `$80`–`$EA` table, in the ROM's own
       order, with `kind`, signature and doc for each. Confirmed by typing each
       keyword at the `]` prompt and reading the stored byte back
-- [ ] `language.ts` — `languageSupport()` + `completionSource`. `$` and `%` are
+- [x] `language.ts` — `languageSupport()` + `completionSource`. `$` and `%` are
       both suffix chars here (there is a second numeric type to tell apart,
       unlike on the sibling); no hex literal; `crunched` per what the ROM
       actually does with spaces. Wire `keywordSpellingsFor('apple2plus')` from
@@ -194,30 +194,73 @@ Text ↔ tokenized program bytes; no registry change.
       `apple2/language.ts` already calls it the same way, and `?` for `PRINT` is
       **this** machine's abbreviation, which is precisely why the sibling's entry
       is empty
-- [ ] `APPLE2PLUS_CONSTRUCTS` in `src/editor/constructs.ts` — Applesoft has
+- [x] `APPLE2PLUS_CONSTRUCTS` in `src/editor/constructs.ts` — Applesoft has
       `ONERR GOTO`, `DEF FN` and `GET` that the sibling's list does not, so this
       is its own array rather than a reuse of `APPLE2_CONSTRUCTS`
-- [ ] `apple2plusVariableErrors` in `src/editor/variableLint.ts` over the
+- [x] `apple2plusVariableErrors` in `src/editor/variableLint.ts` over the
       Microsoft-family helper — Applesoft takes long names but is significant in
       only the first two characters, and a name containing a keyword is a syntax
       error, which is exactly what that helper exists to catch. `c64VariableErrors`,
       `trs80VariableErrors` and `altair8800VariableErrors` are the family
       neighbours to model it on; `apple2VariableErrors` shows how the sibling
       narrowed the rule when its ROM turned out to be stricter
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never throw;
+- [x] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never throw;
       `detokenizeWithReport` for import-fidelity warnings
-- [ ] `basicImage.ts` — tokenized bytes → the loadable image and back, plus the
+- [x] `basicImage.ts` — tokenized bytes → the loadable image and back, plus the
       `basicImagePointers()` that `microsoftBasicLoad.ts` takes as its `pointers`
-- [ ] `lint` wired through `tokenize`
-- [ ] delete `charset.test.ts` — there is no charset of this dialect's to test
+- [x] `lint` wired through `tokenize`
+- [x] delete `charset.test.ts` — there is no charset of this dialect's to test
       (see _What the sibling already built_)
-- [ ] tests: tokenizer round-trip over every keyword, link-field consistency
+- [x] tests: tokenizer round-trip over every keyword, link-field consistency
       after a re-tokenize, image-builder pointer consistency. The bar is
       `apple2/tokenizer.test.ts` — every construct checked against the bytes the
       booted ROM actually stores for it, not against the table that produced them
 
 **Depends on:** the `Dialect` contract, and `apple2/charset.ts`.
 **Verify:** `npx vitest run src/dialects/apple2plus/` + `npm run typecheck`.
+
+`public/roms/apple2plus.rom` and its `ATTRIBUTION.md` block landed with this
+stage rather than with Stage 2, for the reason the sibling's plan records: the
+token table is read off the image, and a table nobody can re-derive from the
+repository is not a measurement. Stage 2's ROM item is therefore already done.
+
+What the machine answered, once each construct was typed at its `]` prompt:
+
+- **Applesoft crunches, and the plan's `crunched: false` stub was wrong.** Every
+  space outside a string, a REM body and a DATA statement is discarded -
+  `10 PRINT   1` and `10 PRINT 1` are the same seven bytes - and the scan steps
+  over spaces while matching a keyword too, so `PR INT 1` is PRINT and
+  `FORI=1TO10` is a loop. LIST putting its own spacing back around every token
+  is the tell: it has none of the original to put back.
+- **The table is scanned in token order and the first match wins**, not the
+  longest. That is what the sibling's Commodore-style longest-first matcher
+  would have got wrong, and it is why `HGR2` reads before `HGR`, `PR#` before
+  `PRINT` and `STORE` before `STOP`.
+- **AT, ATN and TO are one decision, and it is the machine's famous trap.**
+  `AT` sits at `$C5` and `ATN` at `$E1`, so AT matches first every time and the
+  ROM patches it up by reading the _next raw character_ - no space skipping:
+  `N` makes ATN, `O` makes a literal `A` followed by TO (which is what rescues
+  `FOR I=A TO B`), anything else leaves AT. So `A TO B` is `A`,TO,`B` while
+  `A T O B` is AT,`O`,`B`; `LATCH=1` stores as `L`,AT,`CH`; `CATALOG` as
+  `C`,AT,`A`,LOG; and **`IF A THEN 20` is broken on this machine** - it stores
+  as IF,AT,`HEN20`. All of that is reproduced rather than smoothed over, and
+  `variableLint.ts` is where the reader is warned. It is also a hard constraint
+  on Stage 2's samples: no variable may contain a keyword, and `IF A THEN` has
+  to be written `IF A<>0 THEN`.
+- **VARTAB sits one byte past the zero link**, not at it. Typing a program in
+  and reading the pointer back gives `$0801 + length + 1` over the whole
+  113-program corpus. An image loaded with VARTAB at the end of its own bytes
+  would put the first variable on the program's last byte, so
+  `basicImagePointers()` carries the `+ 1` and `basicImage.test.ts` pins it.
+- The measured figures: `MAX_LINE` is 63999 (`64000 END` answers
+  `?SYNTAX ERROR`), a typed line keeps its first 239 characters and drops the
+  rest, `CURLIN` reads `$FF00` in direct mode, and the cold start leaves
+  `MEMSIZ` at `$C000` - so 47103 bytes for the program and its variables, which
+  is two more than the `FRE(0)` the machine prints, the empty program having
+  already spent its zero link.
+- The tokenizer is checked against the machine rather than against itself: 113
+  programs were typed at the `]` prompt, the program area read back, and the
+  bytes frozen into `tokenizer.test.ts`. All 113 match.
 
 ## Stage 2 — ROM, interpreter support, keyboard & samples ⬜
 

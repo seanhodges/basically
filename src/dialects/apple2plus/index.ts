@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type {
-  Dialect,
-  MachineEmulator,
-  TokenizeError,
-  TokenizeResult,
+import {
+  hasFatalErrors,
+  type Dialect,
+  type MachineEmulator,
+  type TokenizeError,
+  type TokenizeResult,
 } from '../types';
 // The II and the II Plus are one design with a different BASIC in ROM, so the
 // charset and the keyboard are imported from the sibling and everything the
@@ -27,13 +28,19 @@ import { apple2plusSamples } from './samples';
 import { apple2plusBuildTargets } from './targets';
 import { COLD_START_BYTES_FREE, FIRMWARE_BYTES } from './addresses';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from '../apple2/addresses';
+import { buildBasicImage, parseBasicImage } from './basicImage';
+import { detokenizeProgram } from './detokenizer';
+import { tokenizeProgram } from './tokenizer';
+import { apple2plusVariableErrors } from '../../editor/variableLint';
 
 /**
  * The Apple II Plus (Applesoft BASIC).
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
- * selectable. The members below are throwing stubs until each is written, and
- * the picker identity and the RAM figure are placeholders satisfying the
+ * selectable, and registering one turns every registry-driven battery on at
+ * once. The language layer below is real and driven headlessly by the tests
+ * alongside; the emulator, the samples and the transfer targets are still
+ * throwing stubs, and the picker identity is a placeholder that satisfies the
  * contract until the dialect is registered.
  */
 export const apple2plus: Dialect = {
@@ -54,16 +61,39 @@ export const apple2plus: Dialect = {
   completionSource: apple2plusCompletionSource,
   crunched: apple2plusCrunched,
 
-  tokenize(_source: string): TokenizeResult {
-    throw new Error('apple2plus: not implemented');
+  /**
+   * The image is the program: Applesoft's linked list from `$0801` is what the
+   * tokenizer already emits, so there is no container to wrap it in. A fatal
+   * error still yields an empty image rather than a half-built one.
+   */
+  tokenize(source: string): TokenizeResult {
+    const { program, errors } = tokenizeProgram(source);
+    const all = [
+      ...errors,
+      ...apple2plusVariableErrors(source, apple2plusKeywords),
+    ];
+    if (program.length > COLD_START_BYTES_FREE) {
+      all.push({
+        line: 1,
+        column: 0,
+        message: `Program is ${program.length} bytes; the stock workspace holds ${COLD_START_BYTES_FREE}, shared with its variables`,
+      });
+    }
+    const runnable = hasFatalErrors(all) ? new Uint8Array(0) : program;
+    return {
+      programBytes: runnable,
+      image: buildBasicImage(runnable),
+      errors: all,
+      byteSize: program.length,
+    };
   },
 
-  detokenize(_image: Uint8Array): string {
-    throw new Error('apple2plus: not implemented');
+  detokenize(image: Uint8Array): string {
+    return detokenizeProgram(parseBasicImage(image).program);
   },
 
-  lint(_source: string): TokenizeError[] {
-    throw new Error('apple2plus: not implemented');
+  lint(source: string): TokenizeError[] {
+    return this.tokenize(source).errors;
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/apple2plus.rom`,
