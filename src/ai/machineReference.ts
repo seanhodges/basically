@@ -22,6 +22,7 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
   altair8800: () =>
     import('../reference/altair8800').then((m) => m.altair8800Reference),
   apple1: () => import('../reference/apple1').then((m) => m.apple1Reference),
+  apple2: () => import('../reference/apple2').then((m) => m.apple2Reference),
   atari: () => import('../reference/atari').then((m) => m.atariReference),
   atom: () => import('../reference/atom').then((m) => m.atomReference),
   bbc: () => import('../reference/bbc').then((m) => m.bbcReference),
@@ -48,6 +49,8 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
     import('../reference/escapes/altair8800').then((m) => m.altair8800Escapes),
   apple1: () =>
     import('../reference/escapes/apple1').then((m) => m.apple1Escapes),
+  apple2: () =>
+    import('../reference/escapes/apple2').then((m) => m.apple2Escapes),
   atari: () => import('../reference/escapes/atari').then((m) => m.atariEscapes),
   atom: () => import('../reference/escapes/atom').then((m) => m.atomEscapes),
   bbc: () => import('../reference/escapes/bbc').then((m) => m.bbcEscapes),

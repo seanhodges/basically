@@ -316,6 +316,13 @@ export const escapeGuidance: EscapeGuidance[] = [
   },
   {
     to: 'bbc',
+    class: 'screen-effect',
+    support: 'full',
+    instead:
+      'MODE 7 carries the effect as a code of its own: {FLASH} starts flashing text and {STEADY} ends it. In the other modes flashing is a palette pairing set with VDU 19.',
+  },
+  {
+    to: 'bbc',
     class: 'function-keys',
     support: 'none',
     instead:
@@ -1166,6 +1173,128 @@ export const escapeGuidance: EscapeGuidance[] = [
   },
   {
     to: 'apple1',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
+  },
+
+  // --------------------------------------------------------------- apple2 --
+  // Two named escapes and a raw byte. The character generator holds 64 shapes
+  // and the top two bits of a screen byte pick the video mode rather than
+  // another shape, so inverse and flashing are the only codes with names -
+  // and both are screen bytes to POKE, not codes PRINT acts on.
+  {
+    to: 'apple2',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour in the character stream: colour belongs to the lo-res page. Draw the coloured part with COLOR= and PLOT, and leave the text alone.',
+    example: {
+      caption: 'Colour a block, not a string',
+      code: ['10 GR', '20 COLOR=9', '30 PLOT 0,0'],
+    },
+  },
+  {
+    to: 'apple2',
+    class: 'cursor',
+    support: 'none',
+    instead:
+      'The cursor moves by statement rather than by code: VTAB picks the row, 1 to 24, and TAB the column, 1 to 40. CALL -936 clears the screen and homes it.',
+    example: {
+      caption: 'Position with VTAB and TAB',
+      code: ['10 VTAB 5', '20 TAB 10', '30 PRINT "SCORE"'],
+    },
+  },
+  {
+    to: 'apple2',
+    class: 'editing',
+    support: 'partial',
+    instead:
+      'Only backspace, {0x88}, is acted on inside a string. Clear the screen with CALL -936, and overwrite a field by printing spaces over it rather than deleting.',
+  },
+  {
+    to: 'apple2',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'The display mode is a statement, not a code: GR switches the lo-res screen on and TEXT switches it back. There is no second character set to select.',
+  },
+  {
+    to: 'apple2',
+    class: 'screen-effect',
+    support: 'partial',
+    instead:
+      'Flashing is a byte range, not a code: POKE a byte 0x40-0x7F into the text page, or set the monitor output mask with POKE 50,127 and everything printed flashes until POKE 50,255.',
+    example: {
+      caption: 'Flash what is printed, with the output mask',
+      code: ['10 POKE 50,127', '20 PRINT "ALERT"', '30 POKE 50,255'],
+    },
+  },
+  {
+    to: 'apple2',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No function keys on this keyboard. Poll the latch with PEEK(-16384) and branch on the letter, which is what a program uses for its controls anyway.',
+  },
+  {
+    to: 'apple2',
+    class: 'block-graphics',
+    support: 'none',
+    instead:
+      'No graphics characters: the 64 shapes are ASCII 0x20-0x5F and nothing more. Draw the picture on the lo-res page with PLOT, HLIN and VLIN instead.',
+    example: {
+      caption: 'A bar as lo-res blocks',
+      code: ['10 GR', '20 COLOR=15', '30 HLIN 0,9 AT 0'],
+    },
+  },
+  {
+    to: 'apple2',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'No redefinable characters: the shapes live in a character generator the CPU cannot address. Build the shape from lo-res blocks, or from several ordinary characters.',
+  },
+  {
+    to: 'apple2',
+    class: 'inverse-video',
+    support: 'partial',
+    instead:
+      'Inverse is a byte range, not a code: POKE a byte 0x00-0x3F into the text page, or POKE 50,63 to print inverse until POKE 50,255. A program line cannot hold one: below 0x80 a byte is a token.',
+    example: {
+      caption: 'An inverse A at the top left',
+      code: ['10 POKE 1024,1'],
+    },
+  },
+  {
+    to: 'apple2',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces, or skip to the column with TAB, which moves the cursor without writing anything on the way.',
+  },
+  {
+    to: 'apple2',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'apple2',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'Type the character itself where the machine has it. There is no backslash, backtick, brace, bar or tilde, and no lower case - a lower-case letter folds to its capital.',
+  },
+  {
+    to: 'apple2',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'A string holds only codes with bit 7 set, and three of them do anything: {0x8D} carriage return, {0x88} backspace and {0x87} the bell. Drop the rest.',
+  },
+  {
+    to: 'apple2',
     class: 'raw-byte',
     support: 'full',
     instead: RESPELL_HEX,

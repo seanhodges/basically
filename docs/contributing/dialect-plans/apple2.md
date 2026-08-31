@@ -118,7 +118,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ✅     |
-| 6     | Reference docs                     | ⬜     |
+| 6     | Reference docs                     | ✅     |
 | 7     | Register & ship                    | ⬜     |
 
 ---
@@ -449,7 +449,7 @@ ERR` above it, so the reader returns the line with `isError: false` rather
   the firmware's three vectors at `$03F8`–`$03FF`, which is exactly the reserved
   range the linter already declared.
 
-## Stage 6 — Reference docs ⬜
+## Stage 6 — Reference docs ✅
 
 Everything here is keyed by **docs page**, so it lands and is checked before the
 machine registers. The machine-keyed half of the reference bundle —
@@ -469,16 +469,16 @@ distinguishes them.
 `sidebar` config in `docs/.vitepress/config.ts` alongside the other machines.
 `docsNavigation.test.ts` fails without it.
 
-- [ ] `src/reference/apple2.ts` + `src/reference/escapes/apple2.ts` — scaffold
+- [x] `src/reference/apple2.ts` + `src/reference/escapes/apple2.ts` — scaffold
       with `npm run gen:reference` / `npm run gen:escapes`, then hand-enrich
-- [ ] `docs/reference/apple2.md` + `docs/reference/apple2/{hardware,escapes,formats}.md`,
+- [x] `docs/reference/apple2.md` + `docs/reference/apple2/{hardware,escapes,formats}.md`,
       plus a row and a link in the cross-machine `docs/reference/file-formats.md`
-- [ ] `pages.ts`, the index bullet, the sidebar entry, the 6502 assembly page's
+- [x] `pages.ts`, the index bullet, the sidebar entry, the 6502 assembly page's
       machine lists, and `src/ai/machineReference.ts`'s lazy loaders
-- [ ] add `'apple2'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` — without
+- [x] add `'apple2'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` — without
       it `pages.test.ts` and `keyword-crosscheck.test.ts` both reject the page as
       one no registered machine reads from
-- [ ] the `porting.ts` equivalence groups and false friends, and the
+- [x] the `porting.ts` equivalence groups and false friends, and the
       `domain-guidance.ts` / `escape-guidance.ts` cells for the new page. Author
       these from the crosschecks' own failures: they name the exact domains and
       control-code classes some source can lose into this machine, which is
