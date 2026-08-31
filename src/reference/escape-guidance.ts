@@ -1300,6 +1300,128 @@ export const escapeGuidance: EscapeGuidance[] = [
     instead: RESPELL_HEX,
   },
 
+  // ------------------------------------------------------------ applesoft --
+  {
+    to: 'applesoft',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour in the character stream: colour belongs to the graphics pages. Draw the coloured part with COLOR= and PLOT, or with HCOLOR= and HPLOT, and leave the text alone.',
+    example: {
+      caption: 'Colour a block, not a string',
+      code: ['10 GR', '20 COLOR=9', '30 PLOT 0,0'],
+    },
+  },
+  {
+    to: 'applesoft',
+    class: 'cursor',
+    support: 'none',
+    instead:
+      'The cursor moves by statement rather than by code: VTAB picks the row, 1 to 24, and HTAB the column, 1 to 40. HOME clears the text window and homes the cursor in it.',
+    example: {
+      caption: 'Position with VTAB and HTAB',
+      code: ['10 HOME', '20 VTAB 5:HTAB 10', '30 PRINT "SCORE"'],
+    },
+  },
+  {
+    to: 'applesoft',
+    class: 'editing',
+    support: 'partial',
+    instead:
+      'Only backspace, {0x88}, is acted on inside a string. Clear the screen with HOME, and overwrite a field by printing spaces over it rather than by deleting what is there.',
+  },
+  {
+    to: 'applesoft',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'The display mode is a statement, not a code: GR opens the lo-res screen, HGR and HGR2 the hi-res pages, and TEXT switches back. There is no second character set to select.',
+  },
+  {
+    to: 'applesoft',
+    class: 'screen-effect',
+    support: 'partial',
+    instead:
+      'Flashing is a statement here rather than a code: FLASH makes everything printed afterwards flash and NORMAL puts it back. The bytes 0x40-0x7F still flash when POKEd into the text page.',
+    example: {
+      caption: 'Flash what is printed',
+      code: ['10 FLASH', '20 PRINT "ALERT"', '30 NORMAL'],
+    },
+  },
+  {
+    to: 'applesoft',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No function keys on this keyboard. Poll the latch with PEEK(-16384) and branch on the letter, which is what a program uses for its controls anyway.',
+  },
+  {
+    to: 'applesoft',
+    class: 'block-graphics',
+    support: 'none',
+    instead:
+      'No graphics characters: the 64 shapes are ASCII 0x20-0x5F and nothing more. Draw the picture on the lo-res page with PLOT, HLIN and VLIN, or in hi-res with HPLOT.',
+    example: {
+      caption: 'A bar as lo-res blocks',
+      code: ['10 GR', '20 COLOR=15', '30 HLIN 0,9 AT 0'],
+    },
+  },
+  {
+    to: 'applesoft',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'No redefinable characters — but there is a shape table: DRAW and XDRAW put a shape anywhere on the hi-res page, at any SCALE= and ROT=, which is what a redefined character was for.',
+    example: {
+      caption: 'A shape instead of a redefined character',
+      code: ['10 HGR:HCOLOR=3', '20 SCALE=2:ROT=0', '30 DRAW 1 AT 100,80'],
+    },
+  },
+  {
+    to: 'applesoft',
+    class: 'inverse-video',
+    support: 'partial',
+    instead:
+      'Inverse is a statement here rather than a code: INVERSE prints inverse until NORMAL. The bytes 0x00-0x3F still work POKEd into the text page; a program line cannot carry one, being tokens below 0x80.',
+    example: {
+      caption: 'Print inverse, then back to normal',
+      code: ['10 INVERSE', '20 PRINT "ALERT"', '30 NORMAL'],
+    },
+  },
+  {
+    to: 'applesoft',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces with SPC(, or skip to the column with TAB(, which moves the cursor forward without writing anything on the way.',
+  },
+  {
+    to: 'applesoft',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'applesoft',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'Type the character itself where the machine has it. There is no backslash, backtick, brace, bar or tilde, and no lower case — a lower-case letter folds to its capital.',
+  },
+  {
+    to: 'applesoft',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'A string holds only codes with bit 7 set, and three of them do anything: {0x8D} carriage return, {0x88} backspace and {0x87} the bell. Drop the rest.',
+  },
+  {
+    to: 'applesoft',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
+  },
+
   // ---------------------------------------------------------------- atari --
   // ATASCII carries its graphics as ordinary characters rather than as escapes,
   // and everything the screen editor acts on is a cursor or an editing code, so

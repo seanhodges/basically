@@ -2027,6 +2027,222 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
 
+  // ------------------------------------------------------------ applesoft --
+  {
+    to: 'applesoft',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF…THEN, FOR…NEXT with a fractional STEP, GOSUB/RETURN with POP, ON…GOTO and ON…GOSUB, and DEF FN.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. Write the condition as a comparison — IF A THEN reads as IF, AT and HEN.',
+    example: {
+      caption: 'No ELSE, and a comparison rather than a bare name',
+      code: [
+        '10 IF X<>0 THEN 40',
+        '20 PRINT "ZERO"',
+        '30 GOTO 50',
+        '40 PRINT "NONZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'DIM for arrays of any shape and either type, DATA/READ/RESTORE for constants, LET to assign and CLEAR to discard.',
+    instead:
+      'No ERASE and no DEFINT: an array lives until CLEAR, and a variable’s type is its name — a % suffix makes it a whole number and a $ makes it a string.',
+    example: {
+      caption: 'Constants in DATA, read into an array',
+      code: [
+        '10 DIM T(3)',
+        '20 FOR I=0 TO 3:READ T(I):NEXT I',
+        '30 DATA 5,9,2,7',
+      ],
+    },
+    reachFor: ['DIM', 'DATA', 'READ', 'LET'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Floating point to nine digits, with SQR, LOG, EXP, the trig functions, ^, and RND giving a fraction below 1.',
+    instead:
+      'AND, OR and NOT are logical rather than bitwise: 5 AND 3 is 1. There is no MOD, DIV or XOR — take a remainder with INT, and do bit work by arithmetic.',
+    example: {
+      caption: 'A remainder without MOD',
+      code: ['10 R=A-INT(A/B)*B', '20 PRINT R'],
+    },
+    reachFor: ['SQR', 'RND', 'INT', 'ABS'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEFT$, RIGHT$ and MID$ slice, + joins, and LEN, ASC, CHR$, STR$ and VAL convert. A string holds up to 255 characters.',
+    instead:
+      'No INSTR, UPPER$ or HEX$: search with a MID$ loop. Nothing assigns into the middle of a string either — rebuild it by joining the parts on both sides of the change.',
+    example: {
+      caption: 'Search without INSTR',
+      code: [
+        '10 FOR I=1 TO LEN(A$)',
+        '20 IF MID$(A$,I,1)="X" THEN 40',
+        '30 NEXT I',
+        '40 PRINT I',
+      ],
+    },
+    reachFor: ['MID$', 'LEN', 'CHR$', 'VAL'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT with TAB( and SPC(, HTAB and VTAB to reach any cell of the 40 by 24 screen, and HOME to clear it.',
+    instead:
+      'No PRINT USING, WINDOW or LOCATE: pad with SPC( to line a column up, and place text with HTAB and VTAB. The text window is narrowed by poking locations 32 to 35.',
+    example: {
+      caption: 'Place text with HTAB and VTAB',
+      code: ['10 HOME', '20 VTAB 5:HTAB 10', '30 PRINT "SCORE"'],
+    },
+    reachFor: ['PRINT', 'HTAB', 'VTAB', 'HOME'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'Lo-res blocks with GR, PLOT, HLIN, VLIN and SCRN(, and 280 by 192 hi-res with HGR, HPLOT and the shape table.',
+    instead:
+      'No CIRCLE, FILL or MODE: draw a curve as a run of HPLOTs and fill a region with HPLOT lines. A hi-res dot cannot be read back either — SCRN( is lo-res only.',
+    example: {
+      caption: 'A circle as a run of HPLOTs',
+      code: [
+        '10 HGR:HCOLOR=3',
+        '20 FOR A=0 TO 6.3 STEP .05',
+        '30 HPLOT 140+40*COS(A),80+40*SIN(A)',
+        '40 NEXT A',
+      ],
+    },
+    reachFor: ['HGR', 'HPLOT', 'PLOT', 'SCRN('],
+  },
+  {
+    to: 'applesoft',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'COLOR= picks one of sixteen colours for the lo-res page, and HCOLOR= one of eight for hi-res.',
+    instead:
+      'Colour belongs to the graphics pages and never to text: no ink, paper or border, and nothing PRINT writes can be coloured. INVERSE and FLASH are all the text screen has.',
+    example: {
+      caption: 'Colour a block, not a string',
+      code: ['10 GR', '20 COLOR=9', '30 PLOT 0,0'],
+    },
+    reachFor: ['COLOR=', 'HCOLOR='],
+  },
+  {
+    to: 'applesoft',
+    domain: 'sound',
+    support: 'none',
+    summary:
+      'None: the speaker is one bit, and Applesoft has no keyword that reaches it.',
+    instead:
+      'No sound keywords at all. Touching address -16336 moves the speaker cone once, so a note is that PEEK in a loop and the loop’s period is what sets the pitch.',
+    example: {
+      caption: 'A click train, in place of a note',
+      code: ['10 FOR I=1 TO 50', '20 X=PEEK(-16336)', '30 NEXT I'],
+    },
+  },
+  {
+    to: 'applesoft',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a whole typed line, GET waits for one key, and PDL( reads a paddle, 0 to 255.',
+    instead:
+      'GET blocks until a key comes, so a loop that must keep moving polls the latch instead: PEEK(-16384) over 127 means a key is waiting, and POKE -16368,0 clears the strobe.',
+    example: {
+      caption: 'Poll the keyboard without stopping',
+      code: [
+        '10 K=PEEK(-16384)',
+        '20 IF K<128 THEN 10',
+        '30 POKE -16368,0',
+        '40 K=K-128',
+      ],
+    },
+    reachFor: ['INPUT', 'GET', 'PDL'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'LOAD and SAVE move the program on cassette; STORE and RECALL move an array, and SHLOAD a shape table.',
+    instead:
+      'Cassette and nothing else: no OPEN, no PRINT# and no disk, and nothing is wired to the tape port while a program runs. Keep data in DATA statements, or in a memory block beside the program.',
+    example: {
+      caption: 'Data in the listing, not in a file',
+      code: [
+        '10 DIM T(3)',
+        '20 FOR I=0 TO 3:READ T(I):NEXT I',
+        '30 DATA 5,9,2,7',
+      ],
+    },
+    reachFor: ['LOAD', 'SAVE', 'STORE', 'RECALL'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE, CALL and USR reach memory and machine code; HIMEM: and LOMEM: move the ends of the workspace.',
+    instead:
+      'No hex literals and no port I/O: the hardware is memory-mapped, and an address above 32767 is written negative — so the keyboard latch is read as PEEK(-16384).',
+    example: {
+      caption: 'An I/O address, written negative',
+      code: ['10 PRINT PEEK(-16384)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM:'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'LIST, DEL, NEW and CONT edit and restart, and TRACE prints each line number as the program reaches it.',
+    instead:
+      'No RENUM, AUTO or EDIT: retype a line to change it, and leave gaps in the numbering. LIST puts its own spacing back, the interpreter having thrown the typed spacing away.',
+    example: {
+      caption: 'Watch a run with TRACE',
+      code: ['10 TRACE', '20 GOSUB 100', '30 NOTRACE'],
+    },
+    reachFor: ['LIST', 'DEL', 'TRACE', 'NEW'],
+  },
+  {
+    to: 'applesoft',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ONERR GOTO traps every error, and RESUME goes back to the statement that raised it.',
+    instead:
+      'No ERR or ERL keyword: the code of the error is in location 222 and its line in 218 and 219, so a handler PEEKs them. RESUME retries the statement, so fix the cause or it loops.',
+    example: {
+      caption: 'Read the error code with PEEK',
+      code: [
+        '10 ONERR GOTO 100',
+        '20 READ X:GOTO 20',
+        '100 PRINT "ERR";PEEK(222)',
+      ],
+    },
+    reachFor: ['ONERR', 'RESUME'],
+  },
+
   // ---------------------------------------------------------------- atari --
   {
     to: 'atari',

@@ -27,6 +27,10 @@ import {
   apple2Operators,
 } from '../src/dialects/apple2/keywords';
 import {
+  apple2plusKeywords,
+  apple2plusOperators,
+} from '../src/dialects/apple2plus/keywords';
+import {
   atariKeywords,
   atariOperators,
 } from '../src/dialects/atari800/keywords';
@@ -215,6 +219,34 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     },
   },
   {
+    // The page slug, not the dialect id: the II Plus cannot share the II's
+    // page, the two BASICs sharing more than a dozen spellings with different
+    // meanings and reference-data.test.ts banning duplicate names on a page.
+    id: 'applesoft',
+    varName: 'applesoftReference',
+    data: {
+      title: 'Applesoft BASIC',
+      machines: ['Apple II Plus'],
+      // As the Apple II above: the symbolic operators are declared on the
+      // dialect rather than held in the keyword table, and the reference page
+      // lists both. Here the two overlap - Applesoft tokenizes `+`, `<` and the
+      // rest - so `dedupe` keeps the keyword row and only the two-token
+      // comparisons (`<=`, `<>` and their reversed spellings) come from the
+      // operator list.
+      entries: dedupe([
+        ...apple2plusKeywords.map((k) => toEntry(k)),
+        ...apple2plusOperators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
     id: 'atari',
     varName: 'atariReference',
     data: {
@@ -264,6 +296,7 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
         'Acorn Atom',
         'Apple I',
         'Apple II',
+        'Apple II Plus',
         'Atari 800',
         'Atari 400',
       ],

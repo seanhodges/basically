@@ -104,6 +104,7 @@ reference page:
 | Tesla PMD 85       | `.ptp`, `.pmd`         | `.ptp`, `.pmd`         | header + body tape blocks; `.ptp` puts a length in front of each           |
 | Apple I            | `.bin`                 | `.bin`                 | cassette dump: the zero-page housekeeping block, then the workspace        |
 | Apple II           | `.bin`                 | `.bin`                 | cassette record: the two-byte program length, then the program text        |
+| Apple II Plus      | `.bin`                 | `.bin`                 | tokenized program from $0801; the tape puts a header record in front of it |
 | Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records |
 
 All of these are built by the IDE when you export; the ones that can also be
@@ -126,6 +127,7 @@ full on its own page:
 - [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
 - [Apple I file formats](./apple1/formats) — `.bin` cassette dump
 - [Apple II file formats](./apple2/formats) — `.bin` cassette record
+- [Applesoft file formats](./applesoft/formats) — `.bin` program, Apple II Plus
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 
 ## Machine code & data blocks
@@ -233,3 +235,7 @@ its format page:
 - [Apple II](./apple2/formats#cassette-audio) — the same square wave from the
   ROM rather than a card, with a checksum byte closing each record: the program
   goes out as two records, its length and then its text.
+- [Apple II Plus](./applesoft/formats#cassette-audio) — the same ROM routine
+  again, byte for byte, and two records again; what differs is that Applesoft
+  gives both of them the long leader rather than only the first, and that its
+  header record is three bytes rather than two.
