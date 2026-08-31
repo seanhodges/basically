@@ -5,6 +5,10 @@
   as each stage lands. Add a cross-link to this file from docs/contributing/dialect-roadmap.md.
   For a delegation target (sibling of a shipped machine), collapse stages 1/3/4
   into "import from the base dialect" and keep only the owned pieces.
+  For a pair (one design, two ROMs), the base plan carries the shared hardware
+  and is still deleted the day its own machine ships — the sibling plan is
+  written to stand alone and absorbs whatever it still needs. See the skill's
+  "Planning a pair".
 -->
 
 # <Machine name> dialect — implementation plan
@@ -59,7 +63,9 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 - [ ] `language.ts` — `languageSupport()` + `completionSource` (set
       `BasicLanguageOptions` for quirks: `hexPrefix`/`binaryPrefix`/`suffixChars`/…)
 - [ ] `constructsByDialect.<id>` entry in `src/editor/constructs.ts` (siblings
-      may reuse another id's array) — `language.ts` reads it for block autocomplete
+      may reuse another id's array) — `language.ts` reads it for block
+      autocomplete. **The array and the map entry, not just the array**: nothing
+      fails until registration, so a written-but-unwired list survives six stages
 - [ ] `<id>VariableErrors` wrapper in `src/editor/variableLint.ts` (over
       `singleLetterVariableErrors` or the Microsoft-family helper)
 - [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, don't throw
@@ -101,6 +107,13 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       author a width. The function-key strip is one row of keycaps that scrolls
       past ten, so design for ten. The layout **names** its `vk-theme-<id>`; the
       stylesheet block itself waits for Stage 7
+- [ ] read `src/keyboard/layoutGeometry.test.ts` while writing the layout: it
+      only picks this dialect up at Stage 7, and what it holds is this stage's
+      work. Symbols are reached **only through the SYM pages** — a typing band
+      carries its base character alone, and the machine's real shifted key faces
+      go in the header comment rather than on the SHIFT layer; the SYM pages sit
+      at the canonical positions; and cursor keys are a CURSOR mode or a named
+      exception in that battery's `NO_CURSOR_KEYS`
 - [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
       `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
       (degrade gracefully; `hello` is the starter)
@@ -114,7 +127,11 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       machine code in a `#BIN` REM.)
 - [ ] every sample **run on the machine** and fixed until its screen is right
       (`authoring-dialect-samples`; tokenizing clean proves nothing)
-- [ ] finalize `aiProfile.ts` (system prompt teaching the dialect)
+- [ ] finalize `aiProfile.ts` (system prompt teaching the dialect), **under
+      5000 characters composed** — `ai/promptStability.test.ts` caps it there and
+      only says so at Stage 7. A profile running long is usually restating the
+      keyword table and the `facts.ts` substitutions the same prompt already
+      carries
 - [ ] `index.ts` — assemble the full `Dialect` (placeholder picker identity
       until Stage 7, which writes it for real)
 - [ ] tests: keyboard matrix (every token reachable by keycap or host key),
@@ -207,12 +224,25 @@ disappears with the registry line.
 - [ ] delete `'<page>'` from `PENDING_PAGE_IDS` in `src/reference/pages.ts` in
       this same change — `pages.test.ts` fails on an entry whose machine has
       arrived, so the list empties itself rather than being remembered
-- [ ] the remaining per-dialect tables the batteries pin: `glyphSources`,
+- [ ] **then register, run the whole unit suite, and work the failure list.**
+      That is the method, not a list: about twenty tables want an entry and half
+      of them want a _reason for an exception_ about this machine, which no list
+      written earlier can supply. Expect at least `glyphSources`,
       `charsetProbes`, `keywordSpellings`, `loopSpeedProbes`, `operatorProbes`,
-      `semigraphicsAudit`, `machineArtIds` + `machineArt`, `e2e/bootMachines`
-      (and `e2e/paletteMachines` where the machine has a graphics palette)
+      `semigraphicsAudit`, `machineArtIds` + `machineArt`, `variableLexis`,
+      `letterCase`, `positionSyntax`, `cursorKeys`, `symbolKeys`, `fileIo`,
+      `storedFileContainer`, `profileTransparency`, `lineProfiling`,
+      `programRamBudget`, `frameRate`, `screenshot`, `controllerLayouts`,
+      `caseAffordance`, `layoutGeometry`, `registry.test.ts`'s notation and
+      replaceable-ROM sets, and `e2e/bootMachines` (plus `e2e/paletteMachines`
+      where the machine has a graphics palette)
+- [ ] regenerate the two generated docs pages, which no battery writes for you:
+      `npm run gen:semigraphics` and `npm run gen:glyphs`
 - [ ] the measured figures the batteries ask for: the `loopSpeed` above, the
-      prompt-size ceiling, the frame rate
+      frame rate, the screenshot scale, and all three prompt ceilings — the
+      machine's own, and the section and part ceilings if this machine's
+      reference or profile pushes past them (say why in the comment beside the
+      number, as the Atari's memory-map ceiling does)
 - [ ] optional `.virtual-keyboard.vk-theme-<id>` block in
       `src/keyboard/VirtualKeyboard.css` (colour and label position only — a
       theme never overrides a width). **In this change, not earlier:**
@@ -220,11 +250,17 @@ disappears with the registry line.
       names, so the stylesheet cannot precede the registry line
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`, and whatever
       polish the audit listed — `joystickModes`, emulator sound (`readAudio`),
-      dialect quirks, the AI-profile accuracy pass
+      dialect quirks, and the AI-profile accuracy pass: settle every "there is
+      no X" in `aiProfile.ts` against `keywords.ts` and this machine's entry in
+      `operatorProbes.ts`, rather than re-reading the prose
 - [ ] delete this plan file and its roadmap cross-link (see
-      `dialect-plans/README.md`)
+      `dialect-plans/README.md`) — including where a sibling plan cross-links
+      it, which is fixed by moving what the sibling needs into that plan rather
+      than by holding this one open
 
 **Depends on:** Stages 1–6.
 **Verify:** `npm run typecheck` + full `npm test` + `npm run lint` +
 `npm run format:check`, then `npm run dev` smoke and
-`npm run e2e:chromium -- e2e/project-setup e2e/program-execution`.
+`npm run e2e:chromium -- e2e/project-setup e2e/program-execution e2e/porting-guidance`
+— the porting guide is pointed at this machine for the first time in this
+stage, and its data crosses a postMessage boundary no unit test spans.

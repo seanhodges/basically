@@ -357,7 +357,12 @@ up the dialect around it. Verify by booting the real ROM through
       The traps worth teaching are the ones that catch someone who knows the
       other Apple II BASIC: `RND(1)` returns a fraction here and an integer
       there, `HIMEM:` moves a different pointer, and Applesoft is markedly slower
-      at integer arithmetic than Integer BASIC despite the name
+      at integer arithmetic than Integer BASIC despite the name. **Under 5000
+      characters composed** — `ai/promptStability.test.ts` caps it there and only
+      says so at Stage 6, which is where the sibling's had to be cut back a
+      bullet at a time. Restating the keyword table or the `facts.ts`
+      substitutions is what makes one run long; the same prompt already carries
+      both
 - [ ] `index.ts` — assemble the full `Dialect`, importing the sibling's charset,
       keyboard and machine member by member (placeholder picker identity until
       Stage 6)
@@ -510,21 +515,33 @@ loaders go.
       in the porting notes), and the `referenceByPage`, `escapesByPage` and
       `memoryMapById` maps in `docs/reference/compare.md`
 - [ ] delete `'applesoft'` from `PENDING_PAGE_IDS` in the same change
-- [ ] the remaining per-dialect tables: `glyphSources`, `charsetProbes`,
-      `keywordSpellings` (`?` for `PRINT` — the pair's only entry, the sibling's
-      being empty because `?1` at its `>` prompt answers `*** SYNTAX ERR`),
-      `loopSpeedProbes` (the Microsoft-family programs, not the sibling's
-      `integerBasicPrograms` helper), `operatorProbes` (this one **joins the
-      Microsoft battery** rather than needing its own answers, unlike the
-      sibling), `semigraphicsAudit` (`[]`), `machineArtIds` + `machineArt`, and
-      `e2e/bootMachines.ts`. **Not** `e2e/paletteMachines.ts`
+- [ ] **then register, run the whole unit suite, and work the failure list.**
+      That is the method rather than a list: registering the sibling turned up
+      some twenty tables wanting an entry against the eight its plan had named,
+      and half of them want a reason about the machine rather than data. Most of
+      the rest can copy the sibling's reasoning, the board being the same one —
+      it is the language-side entries (`variableLexis`, `letterCase`,
+      `positionSyntax`, `fileIo`, `lineProfiling`'s string-churn probe) that
+      differ, because Applesoft has real strings and Integer BASIC has none
+- [ ] the per-dialect tables this plan can name in advance: `glyphSources`,
+      `charsetProbes`, `keywordSpellings` (`?` for `PRINT` — the pair's only
+      entry, the sibling's being empty because `?1` at its `>` prompt answers
+      `*** SYNTAX ERR`), `loopSpeedProbes` (the Microsoft-family programs, not
+      the sibling's `integerBasicPrograms` helper), `operatorProbes` (this one
+      **joins the Microsoft battery** rather than needing its own answers, unlike
+      the sibling), `semigraphicsAudit` (`[]`), `machineArtIds` + `machineArt`,
+      and `e2e/bootMachines.ts`. **Not** `e2e/paletteMachines.ts`
 - [ ] **no new e2e spec.** This machine is the same `cpu6502` wiring family as
       the sibling, and one representative per family is the rule; the
       `e2e/bootMachines.ts` row (pinned by `src/e2eBootMachines.test.ts`) is the
       whole browser-side obligation
-- [ ] the measured figures: `loopSpeed`, the prompt-size ceiling
-      (`ai/promptStability.test.ts`), the frame rate (`dialects/frameRate.test.ts`)
-      and the `programRamBytes` the stub `addresses.ts` still has as zero
+- [ ] regenerate the two generated docs pages, which no battery writes for you:
+      `npm run gen:semigraphics` and `npm run gen:glyphs`
+- [ ] the measured figures: `loopSpeed`, the frame rate
+      (`dialects/frameRate.test.ts`), the screenshot scale, the prompt ceilings
+      (`ai/promptStability.test.ts` — the machine's own, and the section and part
+      ceilings if this machine pushes past them) and the `programRamBytes` the
+      stub `addresses.ts` still has as zero
 - [ ] `.virtual-keyboard.vk-theme-apple2plus` in
       `src/keyboard/VirtualKeyboard.css`. **In this change, not earlier:**
       `keyboardTheme.test.ts` fails on a theme block no _registered_ layout names
@@ -537,4 +554,6 @@ loaders go.
 **Depends on:** Stages 1–5.
 **Verify:** `npm run typecheck` + full `npm test` + `npm run lint` +
 `npm run format:check`, then `npm run dev` smoke and
-`npm run e2e:chromium -- e2e/project-setup e2e/program-execution`.
+`npm run e2e:chromium -- e2e/project-setup e2e/program-execution e2e/porting-guidance`
+— the porting guide is pointed at this machine for the first time in this stage,
+and its data crosses a postMessage boundary no unit test spans.
