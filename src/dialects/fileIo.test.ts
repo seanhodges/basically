@@ -49,7 +49,6 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
 import {
   bootMachine,
-  hasRom,
   installNodeRomLoading,
   runUntil,
   screenText,
@@ -87,9 +86,10 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // Integer BASIC on a machine whose only mass storage is the cassette port,
   // which is not modelled; there is no file statement to serve.
   apple1: 'no file statements and no modelled cassette port',
-  // The 8K BASIC image is Microsoft copyright and does not ship, so there is no
-  // BASIC here to perform file I/O in the first place.
-  altair8800: 'the 8K BASIC image does not ship',
+  // A hardware limitation, not outstanding work: 8K BASIC has no data-file
+  // statement at all. CSAVE and CLOAD move whole programs over the 88-ACR, and
+  // the paper tape is a listing; neither is a file a running program writes.
+  altair8800: 'no data-file statements; CSAVE/CLOAD move programs, not files',
   // OPEN/PUT/CLOSE reach the disk drive over SIO, which answers only the
   // boot-time status poll and decodes no other command - there is no disk to
   // write a file to.
@@ -312,14 +312,5 @@ describe('every machine that claims to capture a program files does', () => {
           'be asked to read a file back on a later run',
       ).toBeTruthy();
     }
-  });
-
-  // The Altair is excused by name above rather than by hasRom() because its
-  // BASIC image is what does not ship: with no interpreter there is no file
-  // statement to serve, so an image dropped into the checkout would not change
-  // the answer the way it changes the loop-speed and operator batteries.
-  it('the ROM-less machine is excused for its BASIC, not its ROM', () => {
-    const altair = dialects.find((d) => d.id === 'altair8800');
-    expect(altair && !hasRom(altair)).toBe(true);
   });
 });

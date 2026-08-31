@@ -77,9 +77,9 @@ describe('romBytes matches the committed image', () => {
   }
 
   it('every dialect declaring romBytes also declares romUrl', () => {
-    // Not a law of the seam - a machine whose image cannot ship would declare
-    // romBytes with no romUrl, which is exactly the Altair's situation. Relax
-    // this the day such a machine is registered.
+    // Not a law of the seam - a machine whose image could not ship would
+    // declare romBytes with no romUrl. Relax this the day such a machine is
+    // registered.
     for (const dialect of withRomBytes) {
       expect(
         dialect.romUrl,

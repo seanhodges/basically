@@ -71,14 +71,27 @@ export class Altair8800Memory {
   /** Copy the Altair BASIC image into RAM at its load origin. */
   loadInterpreter(image: Uint8Array): void {
     this.bytes.fill(0);
-    // An empty image is the designed ROM-absent state rather than an error -
-    // the 8K BASIC tape is Microsoft copyright and does not ship here.
+    // An empty image is a designed state rather than an error: the bundled
+    // tape is deletable, like every other image under public/roms/.
     this.bytes.set(image.subarray(0, this.bytes.length), 0);
   }
 
   read = (address: number): number => {
+    if (this.activity.enabled) this.activity.hits[address & 0xffff] |= READ_BIT;
+    return this.peek(address);
+  };
+
+  /**
+   * Read a byte without recording the access.
+   *
+   * Everything the *host* reads goes through here rather than through
+   * {@link read}: the variable watcher, the memory figures, the line the
+   * profiler samples and the run-state latch all poll this bus while the
+   * program runs, and stamping their reads would paint the overlay with
+   * activity the program never performed.
+   */
+  peek = (address: number): number => {
     const addr = address & 0xffff;
-    if (this.activity.enabled) this.activity.hits[addr] |= READ_BIT;
     return addr <= this.ramTop ? this.bytes[addr]! : OPEN_BUS;
   };
 
@@ -91,6 +104,11 @@ export class Altair8800Memory {
 
   readWord(addr: number): number {
     return this.read(addr) | (this.read(addr + 1) << 8);
+  }
+
+  /** {@link readWord} through {@link peek}: no access is recorded. */
+  rawReadWord(addr: number): number {
+    return this.peek(addr) | (this.peek(addr + 1) << 8);
   }
 
   writeWord(addr: number, value: number): void {

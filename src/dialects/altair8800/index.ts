@@ -38,11 +38,13 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/terminal';
  *    not a memory-mapped screen (`emulator/terminal.ts`).
  *  - **No graphics characters.** Plain ASCII, so no `graphics.ts`, no graphics
  *    palette, and `SEMIGRAPHIC_CODES` records `[]` for it.
- *  - **No ROM, in two senses.** The machine had no firmware - BASIC loaded into
- *    RAM from paper tape - and the 8K BASIC image is Microsoft copyright with
- *    no redistribution grant, so it is user-supplied and does not ship here.
- *    That is what `romBundled: false` below says, and what turns the missing
- *    file into an offer to supply one rather than a fetch error.
+ *  - **No ROM, in the machine's own sense.** The Altair had no firmware at all:
+ *    BASIC was loaded into RAM from paper tape, so what `romUrl` points at is
+ *    an 8192-byte object tape copied to 0x0000, not a mapped ROM region. It
+ *    ships (`public/roms/ATTRIBUTION.md` gives the basis) and, like every other
+ *    bundled image here, may be deleted by a self-hoster or replaced by the
+ *    user - which is why the machine stays constructible on an empty image and
+ *    says so on its terminal rather than throwing.
  */
 export const altair8800: Dialect = {
   id: 'altair8800',
@@ -92,21 +94,19 @@ export const altair8800: Dialect = {
   },
 
   /**
-   * The user-supplied Altair 8K BASIC image. This file intentionally does NOT
-   * ship - see the note above - so its absence is a designed state, carried by
-   * `romBundled: false` below into a "supply your own image" message rather
-   * than a raw `Failed to fetch ROM (404)` in the emulator pane.
+   * The Altair 8K BASIC 4.0 object tape, loaded at 0x0000. `addresses.ts` names
+   * the exact image every address in this dialect was read off, and is the file
+   * to check against if this one is ever replaced.
    */
   romUrl: `${import.meta.env.BASE_URL}roms/altair8800.rom`,
 
   /**
-   * The machine runs whatever image it is handed, and nothing is handed to it
-   * by default: `romBundled: false` is what turns the missing file from a 404
-   * into the "supply your own image" offer in Settings ▸ Emulator. The size is
-   * the ROM area a supplied image is fitted to, not one it has to match.
+   * The machine runs whatever image it is handed, so the user may replace it.
+   * The size is the area a supplied image is fitted to, not one it has to
+   * match: another Altair BASIC version boots, it is simply not the one the
+   * addresses were derived against.
    */
   romBytes: BASIC_IMAGE_SIZE,
-  romBundled: false,
 
   // An 80x24 terminal at an 8x16 cell, rather than the classic 256x192.
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
@@ -118,6 +118,13 @@ export const altair8800: Dialect = {
   // PEEK reads a byte; USR is absent, because its argument is data passed to
   // whatever the USR vector points at rather than an address to call.
   memoryReads: { forms: ['peek'] },
+
+  /**
+   * The interpreter keeps its current line where the Microsoft family always
+   * does, immediately below TXTTAB (`addresses.ts`'s `CURLIN`), so the machine
+   * can say which line it is on and the stepper follows from that.
+   */
+  debuggable: true,
 
   memoryMap: altair8800MemoryMap,
 

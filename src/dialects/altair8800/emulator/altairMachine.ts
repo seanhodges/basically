@@ -5,14 +5,20 @@ import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import { Intel8080 } from '../../../emulator/i8080';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
+  LineCost,
   MachineEmulator,
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  MachineVariable,
   Block,
 } from '../../types';
 import {
   BASIC_FREE_TOP,
+  CURLIN,
+  MAX_LINE_NUMBER,
   PROGRAM_BASE,
   SENSE_SWITCHES_2SIO,
   SENSE_SWITCH_PORT,
@@ -21,12 +27,18 @@ import {
   STREND,
   TXTTAB,
 } from '../addresses';
-import { isAtOkPrompt, readAltair8800Report } from '../reports';
+import { readAltair8800Report } from '../reports';
+import { readAltair8800Variables } from '../vars';
 import { basicImagePointers } from '../basicImage';
 import { Altair8800Keyboard } from './keyboard';
 import { Altair8800Memory } from './memory';
 import { Altair8800Serial } from './serial';
 import { createMachineLoop } from '../../../emulator/machineLoop';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { plainChar } from '../charset';
 import {
   Altair8800Terminal,
@@ -86,17 +98,18 @@ const READY_PROMPT = 'OK';
 
 /**
  * Shown on the terminal when the machine is constructed without a BASIC image.
- * That is a designed state rather than a failure: the 8K BASIC tape is
- * Microsoft copyright with no redistribution grant, so the user supplies their
- * own. (The emulator pane has its own version of this message, where it can be
- * acted on; this one is what the machine itself can say.)
+ * That is a designed state rather than a failure: the bundled tape is
+ * deletable, like every other image under `public/roms/`, and a machine with
+ * nothing to run has to say so somewhere. (The emulator pane has its own
+ * version of this message, where it can be acted on; this one is what the
+ * machine itself can say.)
  */
 const NO_IMAGE_NOTICE = [
   'NO BASIC IMAGE.',
   '',
   'The Altair had no firmware: it loaded BASIC from paper tape, and',
-  'Altair 8K BASIC is still under copyright, so no image ships here.',
-  'Supply your own at public/roms/altair8800.rom to start the machine.',
+  'this build has no tape to load - public/roms/altair8800.rom is',
+  'missing. Restore it, or supply your own image, to start the machine.',
 ];
 
 /**
@@ -112,12 +125,12 @@ const NO_IMAGE_NOTICE = [
  * are never corrected by editing the vendored core, which six shipped Z80
  * machines share.
  *
- * **The ROM that isn't.** `opts.rom` carries the Altair 8K BASIC image, which
- * this project does not and cannot ship: it is Microsoft copyright with no
- * redistribution grant (their 2025 open-source release was the *6502* BASIC).
- * The user supplies their own at `public/roms/altair8800.rom`. The machine
- * therefore stays constructible with an empty image and says so on its terminal
- * rather than throwing.
+ * **The ROM that isn't.** `opts.rom` carries the Altair 8K BASIC object tape,
+ * which the machine copies into RAM at 0x0000 rather than mapping: the base
+ * Altair had no firmware, and BASIC arrived on paper tape. The image ships at
+ * `public/roms/altair8800.rom`, but like every image there it may be deleted or
+ * replaced, so the machine stays constructible on an empty one and says so on
+ * its terminal rather than throwing.
  */
 export class Altair8800Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
@@ -132,13 +145,25 @@ export class Altair8800Machine implements MachineEmulator {
   private readonly cpu: Z80Core;
   /** The CPU driven with 8080 rather than Z80 flag semantics. */
   private readonly i8080: Intel8080;
+  /** Run state, latched from 8K BASIC's own current-line word ({@link CURLIN}). */
+  private readonly runLatch = new ProgramEndLatch();
+  /** Whether the interpreter has been seen executing a line of the loaded program. */
+  private runStarted = false;
   /**
-   * The frame walk. No `currentLine` and so no `debugStep`: the interpreter
-   * keeps no line pointer this adapter can read, so the Altair offers no
-   * debugger and the loop is here only for the budget and the cycle debt. The
-   * overrun is carried into the next frame - an instruction cannot be cut in
-   * half at a frame boundary, so a frame always ends a few cycles late, and
-   * discarding that gains time every frame.
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the host
+   * arms it for a whole run, and the CPU step charges the cycles it consumes to
+   * whichever line {@link currentLine} names at the time. Memory is charged the
+   * same way, from the interpreter's own in-use figure at each change of line.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+  /**
+   * The frame walk, and the debug slice: the same walk, stopping early on a
+   * line. The overrun is carried into the next frame - an instruction cannot be
+   * cut in half at a frame boundary, so a frame always ends a few cycles late,
+   * and discarding that gains time every frame.
    */
   private readonly loop = createMachineLoop({
     cyclesPerFrame: CYCLES_PER_FRAME,
@@ -148,7 +173,8 @@ export class Altair8800Machine implements MachineEmulator {
     idleEndsSlice: true,
     ready: () => this.hasInterpreter,
     step: () =>
-      this.cpu.isHalted() ? { cycles: 0, idle: true } : this.i8080.step(),
+      this.cpu.isHalted() ? { cycles: 0, idle: true } : this.stepInstruction(),
+    currentLine: () => this.currentLine(),
   });
   private disposed = false;
 
@@ -157,7 +183,14 @@ export class Altair8800Machine implements MachineEmulator {
     this.memory = new Altair8800Memory();
     this.cpu = Z80({
       mem_read: this.memory.read,
-      mem_write: this.memory.write,
+      mem_write: (address: number, value: number) => {
+        this.memory.write(address, value);
+        // Watch the interpreter's current-line word as it is written rather
+        // than sampling it per frame: a program short enough to start and
+        // finish inside one frame would otherwise never be seen running at all.
+        const a = address & 0xffff;
+        if (a === CURLIN || a === CURLIN + 1) this.noteRunState();
+      },
       io_read: (port: number) => this.readPort(port & 0xff),
       io_write: (port: number, value: number) =>
         this.writePort(port & 0xff, value),
@@ -176,12 +209,27 @@ export class Altair8800Machine implements MachineEmulator {
     this.terminal.clear();
     this.serial.clearInput();
     this.keyboard.releaseAll();
+    this.runStarted = false;
+    this.runLatch.clear();
+    this.profile.clear();
     this.cpu.reset();
     if (!this.hasInterpreter) this.showMissingImageNotice();
   }
 
   runFrame(): void {
     this.loop.runFrame();
+  }
+
+  /**
+   * Run one debug slice: a frame's worth of cycles, stopping early when the
+   * interpreter reaches a line the caller wants to pause on.
+   *
+   * A frame is the unit rather than an instruction because pausing is defined
+   * in BASIC lines, not 8080 instructions - stepping stops the moment
+   * {@link currentLine} changes, whatever that took.
+   */
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    return this.loop.debugStep(opts);
   }
 
   /**
@@ -200,6 +248,11 @@ export class Altair8800Machine implements MachineEmulator {
       pointers: basicImagePointers(image),
       blocks: opts?.blocks,
       typeRun: () => {
+        // Armed before the keystrokes rather than after the run: a program
+        // short enough to finish inside the frames those keystrokes pump would
+        // otherwise end before anything was watching for it.
+        this.runStarted = false;
+        this.runLatch.arm();
         this.serial.clearInput();
         this.serial.queueText('RUN\r');
       },
@@ -315,25 +368,57 @@ export class Altair8800Machine implements MachineEmulator {
   }
 
   /**
-   * Whether a BASIC program is executing, as far as the terminal shows.
+   * Whether a BASIC program is executing, latched from {@link CURLIN}.
    *
-   * Null rather than false while the machine has no image, has been disposed,
-   * or still has console input queued: `loadProgram` types `RUN` rather than
-   * jumping into the program, so between the load and BASIC reading that line
-   * the machine is genuinely still at its prompt, and answering "finished"
-   * there would end a post-run check before the program had started.
-   *
-   * Everything else follows the prompt: BASIC prints `OK` and waits, so an `OK`
-   * as the last thing on the terminal means nothing is running. This is the one
-   * introspection here that no other machine has to do by looking at its own
-   * output, and it is inherently coarser than a ROM flag - a program stopped at
-   * an `INPUT` prompt reads as running (it is), and a program whose final
-   * printed line is exactly `OK` reads as finished a moment early.
+   * The interpreter's own answer rather than a reading of the terminal, which
+   * is what this used to be: an `OK` as the last thing printed meant "not
+   * running", so a program whose final output happened to be `OK` read as
+   * finished a moment early, and the gap between the `RUN` keystrokes and BASIC
+   * acting on them had to be papered over with the input queue. The line word
+   * has neither problem - it is written on the way into every line and put back
+   * on every route to the prompt.
    */
   isProgramRunning(): boolean | null {
     if (!this.hasInterpreter || this.disposed) return null;
-    if (this.serial.pendingInput > 0) return null;
-    return !isAtOkPrompt(this.terminalRows());
+    return this.runLatch.read(this.runStarted);
+  }
+
+  /**
+   * Called on every write to {@link CURLIN}: a line number going in means the
+   * program is executing, and the direct-mode marker going back means this run
+   * is over. Only a run that was seen to start can end, so the keystrokes that
+   * type RUN - during which the interpreter is legitimately in direct mode -
+   * are not mistaken for the program finishing before it began.
+   */
+  private noteRunState(): void {
+    if (this.currentLine() !== null) this.runStarted = true;
+    else if (this.runStarted) this.runLatch.stopped();
+  }
+
+  /**
+   * The BASIC line 8K BASIC is executing, or null when it is not executing one.
+   *
+   * {@link CURLIN} is the interpreter's own answer - the Microsoft convention,
+   * written as it moves from line to line - so this is a read rather than a
+   * derivation. Anything above {@link MAX_LINE_NUMBER} means "not in a
+   * program": the direct-mode marker 0xFFFF at the prompt, and 0xFFFE in the untouched
+   * tape image, so a machine that has not been booted reads as not running
+   * rather than as executing some line near the top of the range.
+   *
+   * **Zero is a line here**, unlike on the machines whose BASIC numbers from 1:
+   * 8K BASIC accepts `0 GOTO 0` and CURLIN reads 0 while it runs, so the test
+   * is against the ceiling alone and every caller compares against `null`
+   * rather than truthiness. That is also why the workspace has to be checked
+   * before the word is believed - the same TXTTAB guard `readMemoryStats` and
+   * `readVariables` keep, and load-bearing here rather than merely tidy: CURLIN
+   * is plain RAM, so an image that is not 8K BASIC at all leaves it reading a
+   * zero this would otherwise report as line 0.
+   */
+  currentLine(): number | null {
+    if (!this.hasInterpreter || this.disposed) return null;
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return null;
+    const line = this.memory.rawReadWord(CURLIN);
+    return line <= MAX_LINE_NUMBER ? line : null;
   }
 
   /**
@@ -357,25 +442,27 @@ export class Altair8800Machine implements MachineEmulator {
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.hasInterpreter || this.disposed) return null;
-    if (this.memory.readWord(TXTTAB) !== PROGRAM_BASE) return null;
-    const strend = this.memory.readWord(STREND);
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return null;
+    const strend = this.memory.rawReadWord(STREND);
     const used = strend - PROGRAM_BASE;
     const free = BASIC_FREE_TOP - strend;
     if (used < 0 || free < 0) return null;
     return { used, free };
   }
 
-  // No readVariables(), currentLine() or debugStep(), and so no `debuggable`
-  // on the dialect. Both would need facts that can only be read off the
-  // interpreter: the encoding of the variable table VARTAB points at (a 4-byte
-  // float layout and an array header), and the workspace cell holding the line
-  // being executed. `addresses.ts` says how everything else here was derived -
-  // statically from the 8K BASIC image, or by booting it - and neither of those
-  // can be derived that way here, because the image is Microsoft copyright and
-  // does not ship. A watcher or a debugger built on a plausible guess would be
-  // confidently wrong rather than absent, so they are absent: the same call the
-  // ZX80 and the Atom make. `machineObservability.ts` records the variable half
-  // of that decision, and its crosscheck keeps the two in step.
+  /**
+   * The 8K BASIC variables, decoded from the interpreter's own table
+   * (`../vars.ts`, over the walk shared with the PMD 85).
+   *
+   * Empty rather than wrong until the cold-start dialogue has been answered:
+   * the pointers are ordinary workspace RAM holding whatever the tape was
+   * loaded with until then, which is the same guard `readMemoryStats` keeps.
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.hasInterpreter || this.disposed) return [];
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return [];
+    return readAltair8800Variables(this.memory);
+  }
 
   setMemoryActivityRecording(enabled: boolean): void {
     this.memory.activity.enabled = enabled;
@@ -387,6 +474,33 @@ export class Altair8800Machine implements MachineEmulator {
   drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
     if (!this.memory.activity.enabled) return null;
     return this.memory.activity.drain(recycle);
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
+  }
+
+  /**
+   * One 8080 instruction, with its cycles charged to the line being executed
+   * when the profiler is armed.
+   *
+   * The sample is taken every {@link PROFILE_SLICE_CYCLES} rather than every
+   * instruction: reading {@link CURLIN} costs two bus reads, and on a machine
+   * whose instructions are four to seventeen cycles that would be a large
+   * fraction of the work of running them.
+   */
+  private stepInstruction(): number {
+    const cycles = this.i8080.step();
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += cycles;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return cycles;
   }
 
   /** The terminal grid as lines, trailing blanks trimmed. */

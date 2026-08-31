@@ -46,7 +46,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-/** A ROM that cannot ship (the Altair's) leaves an empty image. */
+/** A ROM a checkout has deleted leaves an empty image rather than failing. */
 function romFor(romUrl: string | undefined): Uint8Array {
   if (!romUrl) return new Uint8Array(0);
   const rel = romUrl.slice(romUrl.indexOf('roms/'));
@@ -62,13 +62,10 @@ function romFor(romUrl: string | undefined): Uint8Array {
  * crosscheck below is what keeps it honest either way.
  */
 const NOT_DEBUGGABLE: Record<string, string> = {
-  // Both are the same call: the line being executed can only be read out of a
-  // workspace cell whose meaning was never derived. The Atom's BASIC keeps no
-  // such cell the IDE can point at, and the Altair's 8K BASIC image is
-  // Microsoft copyright and does not ship, so there is nothing to derive it
-  // from. A stepper built on a guess would pause on confidently wrong lines.
+  // The line being executed can only be read out of a workspace cell, and Atom
+  // BASIC keeps none the IDE can point at. A stepper built on a guess would
+  // pause on confidently wrong lines.
   atom: 'no readable "line being executed" cell',
-  altair8800: 'the 8K BASIC image does not ship, so nothing can be derived',
 };
 
 describe('the debuggable flag matches the machines', () => {

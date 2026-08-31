@@ -55,16 +55,15 @@ const DEBUG_SLICES = 20;
 /**
  * Machines that cannot report per-line costs, and why.
  *
- * Two of them for the reason `debugCapability.test.ts` records for the
- * step-through debugger - a cost can only be charged to a line the machine can
- * name, and neither of these can name one. The third for the other half of the
- * same question: a cost is charged in CPU cycles, and a backend that interprets
- * statements rather than executing a CPU has none to charge. Written down so
- * each absence reads as a decision; the crosscheck below keeps it honest.
+ * One for the reason `debugCapability.test.ts` records for the step-through
+ * debugger - a cost can only be charged to a line the machine can name, and
+ * Atom BASIC names none. The other for the other half of the same question: a
+ * cost is charged in CPU cycles, and a backend that interprets statements
+ * rather than executing a CPU has none to charge. Written down so each absence
+ * reads as a decision; the crosscheck below keeps it honest.
  */
 const NO_LINE_COSTS: Record<string, string> = {
   atom: 'no readable "line being executed" cell',
-  altair8800: 'the 8K BASIC image does not ship, so nothing can be derived',
   trs80:
     'the interpreter executes statements, so there are no cycles to charge',
 };
@@ -157,6 +156,12 @@ const NO_CHURN_IN_FIGURE: Record<string, string> = {
   cpc464: 'string churn happens above the ceiling its figure counts up to',
   cpc664: 'string churn happens above the ceiling its figure counts up to',
   cpc6128: 'string churn happens above the ceiling its figure counts up to',
+  // The Amstrads' case, with a reason worth naming precisely: 8K BASIC fills
+  // string space *downwards* from the top of memory rather than upwards above
+  // the arrays, so it is outside TXTTAB..STREND and outside the BYTES FREE the
+  // machine itself prints. Counting it would put the IDE's figure at odds with
+  // the interpreter's own banner, which is where `programRamBytes` comes from.
+  altair8800: 'string space is filled downwards from the top of memory',
   zx80: 'the ROM has no string concatenation, so the probe cannot churn',
   apple1:
     'a string is a fixed buffer allocated at DIM, so no loop grows the heap',

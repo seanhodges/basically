@@ -1,5 +1,5 @@
 // Capability: persistence — openspec/specs/persistence/spec.md
-import { test, expect, machinePicker } from '../fixtures';
+import { test, expect } from '../fixtures';
 import {
   canvasPainted,
   forceFallbackFilePickers,
@@ -128,47 +128,30 @@ test('a machine that loads its own ROM set offers no replacement', async ({
   ).toHaveCount(0);
 });
 
-test('a ROM can be supplied for a machine the picker does not offer', async ({
+test('a ROM can be supplied for a machine other than the one in use', async ({
   page,
 }) => {
-  // The loop this closes: the Altair's 8K BASIC ships with nobody, so the
-  // picker hides the machine (see src/app/machineAvailability.ts) - and with the
-  // ROM settings tied to the machine you were on, there was no way to install
-  // the image that would reveal it. The dropdown is the way in.
+  // The dropdown is what makes the ROM settings reachable for a machine you are
+  // not currently programming - including one the picker has hidden because its
+  // image is missing, which is the only way that machine comes back. Nothing
+  // here boots: the install and the readout are the whole claim.
   await forceFallbackFilePickers(page); // init script: must precede openApp
   await openApp(page);
 
-  // Absent to begin with, on a machine that is not the Altair.
-  await page.locator('button[data-target-machine]').first().click();
-  await expect(
-    machinePicker(page).locator('button[data-machine]').first(),
-  ).toBeVisible();
-  await expect(
-    machinePicker(page).locator('button[data-machine="altair8800"]'),
-  ).toHaveCount(0);
-  await page.keyboard.press('Escape');
-
   await openRomSettings(page);
+  // The section opens on the machine the IDE is on...
   await expect(page.locator('select[data-rom-machine]')).toHaveValue('zx81');
   await page.locator('select[data-rom-machine]').selectOption('altair8800');
   await expect(
-    page.getByText(/No Altair 8800 ROM ships with this IDE/),
+    page.getByText('Using the bundled Altair 8800 ROM (8,192 bytes).'),
   ).toBeVisible();
-  await expect(
-    page.getByText(/the Altair 8800 is not offered in the machine picker/),
-  ).toBeVisible();
-  // Nothing bundled means nothing to restore, so that button is not offered.
-  await expect(
-    page.getByRole('button', { name: 'Restore bundled ROM' }),
-  ).toHaveCount(0);
 
   await uploadRom(page, 'altair.rom', Buffer.alloc(8192));
   await expect(page.getByText('Using your own ROM: altair.rom')).toBeVisible();
-  await closeSettings(page);
 
-  // …and the machine is now offered.
-  await page.locator('button[data-target-machine]').first().click();
+  // ...and the machine the IDE is actually on is untouched by any of it.
+  await page.locator('select[data-rom-machine]').selectOption('zx81');
   await expect(
-    machinePicker(page).locator('button[data-machine="altair8800"]'),
+    page.getByText(/Using the bundled ZX81 ROM \(8,192 bytes\)/),
   ).toBeVisible();
 });

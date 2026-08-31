@@ -147,14 +147,10 @@ function describeMachineError(e: unknown, dialect: Dialect): string {
     return `The ${dialect.name} didn't start on your own ROM (${custom.name}) - "${raw}". Restore the bundled ROM in Settings ▸ Emulator if that image isn't a working ${dialect.name} ROM.`;
   }
   if (dialect.romBytes && /Failed to fetch ROM/.test(raw)) {
-    // Two machines reach here for different reasons. Most have a bundled image
-    // that could not be fetched (offline, or a checkout with a removable ROM
-    // deleted); the Altair never had one to fetch, because its interpreter is
-    // copyright and cannot ship - so it says that outright rather than implying
-    // something went wrong.
-    return dialect.romBundled === false
-      ? `No ${dialect.name} ROM ships with this IDE - its BASIC is still under copyright. Supply your own image in Settings → Emulator to start the machine.`
-      : `The ${dialect.name} ROM image isn't available. You can supply your own ROM in Settings → Emulator.`;
+    // A bundled image that could not be fetched: offline, or a checkout with a
+    // removable ROM deleted. Either way the recovery is the same, so the
+    // message offers it rather than implying something went wrong.
+    return `The ${dialect.name} ROM image isn't available. You can supply your own ROM in Settings → Emulator.`;
   }
   return raw;
 }

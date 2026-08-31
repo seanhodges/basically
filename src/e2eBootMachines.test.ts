@@ -31,9 +31,8 @@ function listed(): { id: string; label: string }[] {
 }
 
 /**
- * What the picker offers a stock build before any ROM probe lands: every
- * machine but the ones that say their image does not ship. That is the same
- * decision `runnableMachines` makes on first paint, so the spec's list is
+ * What the picker offers a stock build before any ROM probe lands. That is the
+ * same decision `runnableMachines` makes on first paint, so the spec's list is
  * pinned to the rule rather than to a second copy of its outcome.
  */
 const offered = dialects

@@ -13,35 +13,23 @@
  * expectations in that file are claims about the machine; where the two
  * disagree, the machine is right and the claim is the bug.
  *
- * Two machines cannot be booted honestly, and both are held to the family they
- * belong to instead (see the agreement checks at the foot of this file): the
- * Altair, whose 8K BASIC carries no redistribution grant so no ROM ships, and
+ * One machine cannot be booted on a vendor ROM at all and is held to the family
+ * it belongs to instead (see the agreement checks at the foot of this file):
  * the TRS-80, whose default backend is this project's own statement interpreter
- * rather than a Model I ROM. For the TRS-80 that agreement is the whole point -
- * it is the only machine here where a wrong answer is our defect and not a
+ * rather than a Model I ROM. That agreement is the whole point there - it is
+ * the only machine here where a wrong answer is our defect and not a
  * documentation error.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
 import {
   bootMachine,
-  hasRom,
   installNodeRomLoading,
   runUntil,
   screenText,
 } from './bootHarness';
 import { OPERATOR_PROBES, type OperatorProbe } from './operatorProbes';
 import type { Dialect } from './types';
-
-/**
- * Machines with no ROM to boot, and why. An exact set rather than a silent skip:
- * a machine that stops booting should fail here and have the reason written
- * down. A checkout where the user has dropped an image in locally runs the full
- * battery instead - {@link hasRom} decides, not this list.
- */
-const NO_ROM: Record<string, string> = {
-  altair8800: 'no redistributable ROM ships, so the machine cannot boot here',
-};
 
 /** The label every probe program ends with, so a finished run is recognisable. */
 const SENTINEL = 'ZZEND';
@@ -114,12 +102,6 @@ const answers = new Map<string, Record<string, string>>();
 describe('operators, as the machine computes them', () => {
   for (const dialect of dialects) {
     const probe = probeFor(dialect.id);
-    const reason = NO_ROM[dialect.id];
-
-    if (reason && !hasRom(dialect)) {
-      it.skip(`${dialect.id} cannot be booted here: ${reason}`, () => {});
-      continue;
-    }
 
     it(`${dialect.id} computes what its probe expects`, async () => {
       const { values, screen } = await runProbe(dialect, probe);
@@ -142,11 +124,16 @@ describe('operators, as the machine computes them', () => {
  * Machines that must agree with a machine that boots a real ROM.
  *
  * The TRS-80's default backend is this project's own statement interpreter, so
- * its answers are our code rather than Tandy's, and the Altair cannot boot here
- * at all. Both run the same Microsoft BASIC the Commodores do, so the Commodore
- * ROM is the oracle: an interpreter that quietly disagrees with it about what an
- * operator means fails here, which is how `2↑3↑2` was found folding right when
- * Microsoft folds left.
+ * its answers are our code rather than Tandy's; it runs the same Microsoft
+ * BASIC the Commodores do, so the Commodore ROM is the oracle. An interpreter
+ * that quietly disagrees with it about what an operator means fails here, which
+ * is how `2↑3↑2` was found folding right when Microsoft folds left.
+ *
+ * The other machines held to an oracle boot vendor ROMs of their own, so their
+ * agreement is a claim about the family rather than about this project's code:
+ * the Altair's 8K BASIC is the *ancestor* of the Commodore's, and a divergence
+ * between them would be a real difference between two Microsoft BASICs worth
+ * knowing about rather than a bug in either emulator.
  *
  * A machine absent from the run (no ROM in this checkout) is skipped rather than
  * failed - the same removable-image contract the rest of the suite keeps.

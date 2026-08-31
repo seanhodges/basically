@@ -62,8 +62,8 @@ describe('dialect registry', () => {
     'cpc464',
     'cpc664',
     'cpc6128',
-    // The one machine whose image does not ship at all: supplying it is the
-    // only way to start the Altair (see `romBundled` on the dialect).
+    // Not a ROM at all on the real machine: an 8K BASIC object tape the
+    // emulator copies to 0x0000, and a replacement is fitted the same way.
     'altair8800',
     // Ships its ROM pair concatenated in one image, and takes a replacement
     // the same way - Monitor 2 first, then the BASIC-G module.

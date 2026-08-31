@@ -45,10 +45,6 @@ const UNMEASURABLE: Record<string, string> = {
   // BASIC workspace pointers to read; its 15572 is Level II's own PRINT MEM on
   // a 16K Model I.
   trs80: 'the interpreter backend has no ROM pointers to read',
-  // Altair 8K BASIC carries no redistribution grant, so no ROM ships to boot
-  // (see public/roms/ATTRIBUTION.md). Its figure is pinned instead against the
-  // machine's own "BYTES FREE" banner in altairMachine.test.ts.
-  altair8800: 'no redistributable ROM ships, so the machine cannot boot here',
   // This machine has no Ready prompt to read at. Left alone it boots to WozMon
   // and stops, exactly as the real one does, and Integer BASIC's pointers do
   // not exist until somebody types E000R at it - which is what `loadProgram`
@@ -56,6 +52,14 @@ const UNMEASURABLE: Record<string, string> = {
   // instead against the pointers the cold start lays down, in
   // src/emulator/apple1/apple1Machine.test.ts.
   apple1: 'the machine boots to its monitor, with no interpreter running',
+  // The Altair's counterpart of the Apple I's case. 8K BASIC stops at
+  // `MEMORY SIZE?` and waits for three answers before it lays TXTTAB down, and
+  // answering them is `loadProgram`'s job rather than the harness's, so a
+  // plain boot leaves the workspace holding whatever the tape was loaded with.
+  // Its 42628 is pinned instead against the machine's own "BYTES FREE" banner,
+  // in src/dialects/altair8800/emulator/altairMachine.test.ts.
+  altair8800:
+    'the cold-start dialogue is unanswered, so BASIC has no workspace',
 };
 
 /** How far above the reading a budget may sit: the empty program's end marker. */

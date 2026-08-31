@@ -20,11 +20,9 @@
  * booted to its prompt here.
  *
  * The hooks are demanded of every machine; only *exercising* them needs a ROM.
- * The Altair's 8K BASIC image carries no redistribution grant and does not
- * ship, so it runs no CPU in this checkout and has nothing to stamp - the same
- * split the loop-speed and operator batteries make, and it decides itself from
- * {@link hasRom} rather than from a list, so a checkout where the user has
- * dropped an image in is measured after all.
+ * A checkout that has deleted a removable image (see
+ * public/roms/ATTRIBUTION.md) runs no CPU for that machine and has nothing to
+ * stamp, so the split is decided from {@link hasRom} rather than from a list.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';

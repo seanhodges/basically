@@ -15,11 +15,12 @@
  *     COPYRIGHT 1976 BY MITS INC.
  *
  * (md5 97eead711723295e9ce4f52b300002cf, the image the SIMH AltairZ80 software
- * collection distributes as `8kbas.bin`). That is the image a user has to supply
- * at `public/roms/altair8800.rom`; it is Microsoft copyright and does not ship
- * here - see the note in `index.ts`. Offsets below are into that image, which
- * loads at 0x0000, so an image offset and a run-time address are the same number
- * and either can be checked with a hex editor.
+ * collection distributes as `8kbas.bin`). That is the image bundled at
+ * `public/roms/altair8800.rom`, and the md5 above is what to check a
+ * replacement against: another Altair BASIC boots, but nothing below is
+ * promised of it. Offsets are into that image, which loads at 0x0000, so an
+ * image offset and a run-time address are the same number and either can be
+ * checked with a hex editor.
  *
  * Note the machine's unusual shape: Altair BASIC is **not** a ROM. The base
  * Altair had no firmware at all, and BASIC was loaded into RAM from paper tape
@@ -45,6 +46,35 @@ export const BASIC_IMAGE_SIZE = 0x2000;
 export const RESERVED_WORDS_BASE = 0x0073;
 /** The 0x80 end marker just past the last reserved word (MID$). */
 export const RESERVED_WORDS_END = 0x015a;
+
+/**
+ * CURLIN: the number of the BASIC line the interpreter is executing, and
+ * {@link DIRECT_MODE} when it is not executing one at all.
+ *
+ * The Microsoft convention - written as the interpreter moves from line to
+ * line, and put back to the direct-mode marker on every route to the prompt,
+ * whether the program ran off its end, hit END or STOP, raised an error, or was
+ * broken into with CTRL-C. It sits immediately below {@link TXTTAB}, which is
+ * where the family keeps it.
+ *
+ * Read off a running machine rather than out of the image: with
+ * `10 FOR I=1 TO 30000 / 20 NEXT I` looping, this is the only word in the
+ * workspace holding 20 that turns to 0xFFFF the moment the run ends. (Several
+ * others hold 10 throughout - they are the line the FOR was entered on, and
+ * they do not track.)
+ */
+export const CURLIN = 0x01d4;
+
+/** The line number {@link CURLIN} holds when BASIC is at its prompt. */
+export const DIRECT_MODE = 0xffff;
+
+/**
+ * Highest line number 8K BASIC accepts. Checked at the console: `65529 END` is
+ * stored, `65530 END` answers `?SN ERROR`. The tokenizer enforces it, and
+ * {@link CURLIN} is read against it - a word outside the range is the
+ * interpreter not executing a line rather than a line number to believe.
+ */
+export const MAX_LINE_NUMBER = 65529;
 
 /**
  * TXTTAB: pointer to the first byte of the tokenized program. Confirmed by

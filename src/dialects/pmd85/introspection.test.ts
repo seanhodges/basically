@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import { splitRomImage } from './romImage';
 import { tokenizeProgram } from './tokenizer';
 import { Pmd85Machine } from './emulator/pmd85Machine';
-import { decodePmd85Float } from './vars';
 import {
   FRETOP,
   PROGRAM_BASE,
@@ -33,19 +32,9 @@ function run(source: string): Pmd85Machine {
   return pmd;
 }
 
-describe('pmd85 float decoding', () => {
-  it('reads the interpreter’s own four-byte format', () => {
-    // Mantissa low, mid, high, then the excess-129 exponent - the byte order
-    // the variable table actually holds, which is the reverse of the Commodore
-    // five-byte float this project also decodes.
-    expect(decodePmd85Float([0x00, 0x00, 0x00, 0x81])).toBe(1);
-    expect(decodePmd85Float([0x00, 0x00, 0x20, 0x82])).toBe(2.5);
-    expect(decodePmd85Float([0x00, 0x00, 0x10, 0x84])).toBe(9);
-    expect(decodePmd85Float([0x00, 0x00, 0x80, 0x81])).toBe(-1);
-    expect(decodePmd85Float([0x00, 0x00, 0x00, 0x00])).toBe(0);
-  });
-});
-
+// The four-byte float itself is pinned in `emulator/microsoftBasicVars.test.ts`,
+// with the decoder both 8080 machines share. What is left here is this
+// machine's own readback: its pointers, its table, its charset.
 describe('pmd85 variable readback', () => {
   it('reads scalars, strings and arrays off a run', () => {
     const pmd = run(

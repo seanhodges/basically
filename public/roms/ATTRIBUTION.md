@@ -257,40 +257,55 @@ for this machine is the full 12288 bytes.)
 If you are the rights holder and want this file removed, please open an issue and
 it will be taken out.
 
-# MITS Altair 8800 — the image that is missing
+# MITS ROM attribution
 
-`altair8800.rom` is **not here, and will not be**. This section exists so its
-absence reads as a decision rather than an oversight.
+`altair8800.rom` is Altair 8K BASIC 4.0 — Microsoft's first product, written by
+Bill Gates, Paul Allen and Monte Davidoff, copyright © 1975–1976 Microsoft and
+licensed to MITS, whose own copyright notice the image prints on sign-on. It is
+not a ROM: the base Altair had no firmware at all, only an empty S-100
+backplane, and you either toggled a bootstrap in on the front panel or loaded
+BASIC from paper tape into RAM at 0x0000. This file is that object tape, and the
+emulator copies it to 0x0000 the way the tape reader would have.
 
-The Altair had no firmware at all: the base machine shipped with an empty
-S-100 backplane, and you either toggled a bootstrap in on the front panel or
-loaded BASIC itself from paper tape into RAM at 0x0000. The tape everyone
-loaded was Altair 8K BASIC — Microsoft's first product, copyright © 1975–1976
-Microsoft (as MITS's licensee), and still under copyright with no
-redistribution grant. Microsoft's 2025 open-source release was the **6502**
-BASIC under the MIT licence, a different interpreter for a different processor;
-it does not cover the 8080 Altair BASIC this machine runs. Unlike the Sinclair
-and Amstrad ROMs above there is no permission to lean on, and unlike the
-Commodore and Acorn ones there is no decades-old de-facto tolerance either, so
-nothing ships.
-
-To use the Altair 8800 dialect, supply your own image at
-`public/roms/altair8800.rom`. What the emulator expects is the 8192-byte 8K
-BASIC 4.0 object tape that signs on as
+It is the 8192-byte image that signs on as
 
     ALTAIR BASIC REV. 4.0
     [EIGHT-K VERSION]
     COPYRIGHT 1976 BY MITS INC.
 
-(md5 `97eead711723295e9ce4f52b300002cf` — the image the SIMH AltairZ80 software
-collection distributes as `8kbas.bin`). The addresses, the keyword tokens and
-the console port numbers this dialect is built on were all read off that image,
-so a different Altair BASIC version may boot but is not what it was derived
-against.
+an unmodified copy of the one the SIMH AltairZ80 software collection distributes
+as `8kbas.bin` (https://schorn.ch/altair.html, `altsw.zip`). The addresses, the
+keyword tokens and the console port numbers this dialect is built on were all
+read off this exact image, so another Altair BASIC version may boot but is not
+what the dialect was derived against. For anyone replacing the file:
 
-Without the file the machine still constructs and the test suite still passes:
-the emulator opens with a message explaining what to supply, and the tests that
-need the interpreter skip rather than fail.
+    md5     97eead711723295e9ce4f52b300002cf
+    sha256  dfe4b1576c6ac9fe1a47e9ba0fe697f098209ef8eab61cd54cffc626a84152d3
+
+The licensing is worth stating precisely, because it is the thinnest basis of
+anything here. There is no permission to lean on, as there is for the Sinclair
+and Amstrad images: Microsoft has granted none, the rights holder is very much
+extant, and Microsoft's 2025 open-source release was the **6502** BASIC under
+the MIT licence — a different interpreter for a different processor, which does
+not cover the 8080 Altair BASIC this machine runs. What this ships on is the
+same de-facto tolerance as the Apple, Acorn and Commodore images above: the tape
+has been distributed with the Altair emulators for decades — SIMH's AltairZ80
+collection, z80pack, MAME and the Altair Clone's own downloads among them — and
+is published alongside the machine's documentation by the Altair preservation
+sites. The machine it runs on was discontinued in 1978 and the interpreter has
+had no commercial life since. The image is included here unmodified, with its
+copyright notice intact, solely for use with the bundled emulator.
+
+That is a weaker basis than a grant, and it is recorded as such rather than
+dressed up. If you are a rights holder and want this file removed, please open
+an issue and it will be taken out.
+
+(The IDE also supports supplying your own image at runtime, from Settings ▸
+Emulator, so the bundled copy can be deleted without disabling the feature. A
+replacement may be any size; it is fitted to the 8192 bytes the interpreter
+occupies. Without the file the machine still constructs, the emulator opens with
+a message saying what is missing, and the tests that need the interpreter skip
+rather than fail.)
 
 # Tesla ROM attribution
 

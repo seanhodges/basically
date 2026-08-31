@@ -15,9 +15,9 @@ import { fetchRom } from './romImage';
  * emulator fetches its own ROM set and ignores the one the seam hands it. The
  * exception is a machine that runs a *replaceable* image (`romBytes` declared),
  * because that image is allowed to be absent - `public/roms/ATTRIBUTION.md`
- * documents which ROMs a self-hoster may delete, and the Altair's cannot ship at
- * all (`romBundled: false`). Offering a machine that cannot start is offering a
- * dead end: the user picks it, waits, and gets an error instead of a computer.
+ * documents which ROMs a self-hoster may delete, and deleting one leaves a
+ * machine that cannot start. Offering it anyway is offering a dead end: the
+ * user picks it, waits, and gets an error instead of a computer.
  *
  * So availability is decided at runtime from two facts, in this order:
  *
@@ -29,10 +29,10 @@ import { fetchRom } from './romImage';
  *    per page through the shared {@link fetchRom} cache - which means the probe
  *    *is* the emulator pane's later download rather than a second one.
  *
- * Until the probe lands, a machine that declares `romBundled: false` is treated
- * as unavailable and every other machine as available. That is what each of them
- * says about itself, so a stock build never flickers; a self-hoster who has
- * dropped an image in sees that machine appear once the probe resolves.
+ * Until the probe lands every machine is treated as available, because a stock
+ * build ships every image and must not flicker a machine out of the picker and
+ * back. A self-hoster who has deleted one sees it disappear once the probe
+ * resolves.
  */
 
 /** Machines that run the image the seam hands them, and so can lack one. */
@@ -91,10 +91,9 @@ export function machineIsRunnable(
 ): boolean {
   if (!takesSuppliedRom(dialect)) return true;
   if (hasUserRom(dialect, opts.customRoms)) return true;
-  // Before the probe: believe what the dialect says about its own build. Only
-  // `romBundled: false` claims nothing ships, and only that claim can hide a
-  // machine without evidence - because it *is* the evidence.
-  if (opts.bundled === null) return dialect.romBundled !== false;
+  // Before the probe there is no evidence a machine cannot start, and a stock
+  // build ships every image, so nothing is hidden on suspicion.
+  if (opts.bundled === null) return true;
   return opts.bundled.has(dialect.id);
 }
 

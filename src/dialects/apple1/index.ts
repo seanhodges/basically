@@ -145,11 +145,7 @@ export const apple1: Dialect = {
     ];
   },
 
-  /**
-   * The monitor and Integer BASIC as one image. `romBundled` is left at its
-   * default: the file ships, so a missing one really is a fetch failure rather
-   * than a state to explain.
-   */
+  /** The monitor and Integer BASIC as one image. */
   romUrl: `${import.meta.env.BASE_URL}roms/apple1.rom`,
   romBytes: FIRMWARE_BYTES,
 

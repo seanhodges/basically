@@ -1048,6 +1048,11 @@ const entries: PortingFactsEntry[] = [
       text: 'nothing: the machine has no timer, and WAIT spins on an input port rather than a clock',
       keywords: [],
     },
+    // Measured: `loopSpeed.test.ts` counts the frames a 5000-iteration empty
+    // FOR/NEXT loop takes on the booted interpreter. Slow for a 2 MHz 8080 -
+    // 8K BASIC does the whole loop in interpreted floating point, having no
+    // integer type to fall back on.
+    loopSpeed: 610,
     freeRamBytes: 42628,
     // No screenBase to give: there is no display memory on this machine. The
     // program area starts at TXTTAB, written with the `$` the other decimal

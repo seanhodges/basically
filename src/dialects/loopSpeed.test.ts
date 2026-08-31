@@ -16,12 +16,7 @@
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import {
-  bootMachine,
-  hasRom,
-  installNodeRomLoading,
-  screenText,
-} from './bootHarness';
+import { bootMachine, installNodeRomLoading, screenText } from './bootHarness';
 import {
   LOOP_END,
   LOOP_SPEED_PROBES,
@@ -30,16 +25,6 @@ import {
 } from './loopSpeedProbes';
 import { portingFacts } from '../reference/facts';
 import type { Dialect } from './types';
-
-/**
- * Machines that cannot be benchmarked here, and why. The same exact-set
- * discipline the operator battery keeps: a machine that stops booting fails
- * rather than silently losing its figure, and a checkout where the user has
- * dropped an image in locally measures it after all.
- */
-const NO_ROM: Record<string, string> = {
-  altair8800: 'no redistributable ROM ships, so the machine cannot boot here',
-};
 
 /** How long the loop is given before the run is called stalled. */
 const MAX_FRAMES = 4000;
@@ -122,18 +107,7 @@ async function measure(
 describe('BASIC speed, as the emulator runs it', () => {
   for (const dialect of dialects) {
     const probe = probeFor(dialect.id);
-    const reason = NO_ROM[dialect.id];
     const facts = portingFacts.find((f) => f.id === dialect.id);
-
-    if (reason && !hasRom(dialect)) {
-      it(`${dialect.id} cannot be benchmarked here: ${reason}`, () => {
-        expect(
-          facts?.loopSpeed,
-          `${dialect.id} cannot be measured, so it must claim no speed`,
-        ).toBeUndefined();
-      });
-      continue;
-    }
 
     it(`${dialect.id} runs its loop at the speed the facts state`, async () => {
       const { speed, frames } = await measure(dialect, probe);
