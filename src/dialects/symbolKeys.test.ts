@@ -92,11 +92,17 @@ function echoForms(dialect: Dialect, insert: string): string[] {
 /**
  * Machines with a bootable ROM in this checkout and their RAM fit, `null`
  * where the machine has no choice to make and ignores the size (the Apple I's
- * 4K is soldered on the board). The TRS-80's default backend interprets BASIC
- * without a key matrix and the Altair ships no ROM, so their tables (once they
- * have one) are pinned by their own keyboardLayout tests instead.
+ * 4K is soldered on the board; the Altair's memory is whatever S-100 boards
+ * the dialect commits to). The TRS-80's default backend interprets BASIC
+ * without a key matrix, so its table is pinned by its own keyboardLayout test
+ * instead.
+ *
+ * The Altair earns its place here despite having no key matrix at all: its
+ * layout maps a token straight to a serial byte, so this is the only check that
+ * follows one the whole way to a character on the terminal.
  */
 const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
+  ['altair8800', null],
   ['zx80', 16],
   ['zx81', 16],
   ['zxspectrum', 48],
@@ -113,7 +119,6 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
 /** Machines whose tables are proved elsewhere, and by what. */
 const EXCUSED: Record<string, string> = {
   trs80: 'no key matrix - the input adapter is exercised in its layout test',
-  altair8800: 'no ROM in this checkout - tokenToByte is checked in its test',
   vic20: 'reuses the commodore64 layout',
   cpc664: 'reuses the cpc464 layout',
   cpc6128: 'reuses the cpc464 layout',

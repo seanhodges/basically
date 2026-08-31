@@ -124,11 +124,16 @@ describe('operators, as the machine computes them', () => {
  * Machines that must agree with a machine that boots a real ROM.
  *
  * The TRS-80's default backend is this project's own statement interpreter, so
- * its answers are our code rather than Tandy's, and the Altair cannot boot here
- * at all. Both run the same Microsoft BASIC the Commodores do, so the Commodore
- * ROM is the oracle: an interpreter that quietly disagrees with it about what an
- * operator means fails here, which is how `2↑3↑2` was found folding right when
- * Microsoft folds left.
+ * its answers are our code rather than Tandy's; it runs the same Microsoft
+ * BASIC the Commodores do, so the Commodore ROM is the oracle. An interpreter
+ * that quietly disagrees with it about what an operator means fails here, which
+ * is how `2↑3↑2` was found folding right when Microsoft folds left.
+ *
+ * The other machines held to an oracle boot vendor ROMs of their own, so their
+ * agreement is a claim about the family rather than about this project's code:
+ * the Altair's 8K BASIC is the *ancestor* of the Commodore's, and a divergence
+ * between them would be a real difference between two Microsoft BASICs worth
+ * knowing about rather than a bug in either emulator.
  *
  * A machine absent from the run (no ROM in this checkout) is skipped rather than
  * failed - the same removable-image contract the rest of the suite keeps.

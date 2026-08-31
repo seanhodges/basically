@@ -48,8 +48,13 @@ const FAMILIES: Record<string, string[]> = {
   bbcmicro: ['bbcmicro', 'bbcmaster'],
   /** The CPC's own Z80 run loop. */
   cpc464: ['cpc464', 'cpc664', 'cpc6128'],
-  /** 8080 object code through the shared i8080 layer. */
-  pmd85: ['pmd85'],
+  /**
+   * 8080 object code through the shared i8080 layer. Two machines, one
+   * representative: the Altair's run loop and profiler charge are wired the
+   * same way, over the same layer, and the interpreter each drives is a
+   * Microsoft 8K BASIC copied into RAM.
+   */
+  pmd85: ['pmd85', 'altair8800'],
   /** Its own bus over the shared cpu6502 core. */
   apple1: ['apple1'],
   /** ANTIC's own bus over the shared cpu6502 core. */
@@ -58,10 +63,6 @@ const FAMILIES: Record<string, string[]> = {
 
 /** Machines with no profiled run to compare, and why. */
 const NOT_PROFILED: Record<string, string> = {
-  // Charges no line costs, because 8K BASIC keeps no readable "line being
-  // executed" cell (see lineProfiling.test.ts), so there is no measurement to
-  // arm and nothing an armed run could perturb.
-  altair8800: 'charges no line costs, so no run is ever measured',
   // The default backend interprets BASIC statements rather than executing a CPU
   // over a RAM image, so there is no run loop to fold a profiler onto (see
   // memoryActivity.test.ts).

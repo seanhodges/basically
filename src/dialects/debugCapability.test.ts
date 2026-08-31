@@ -62,13 +62,10 @@ function romFor(romUrl: string | undefined): Uint8Array {
  * crosscheck below is what keeps it honest either way.
  */
 const NOT_DEBUGGABLE: Record<string, string> = {
-  // Both are the same call: the line being executed can only be read out of a
-  // workspace cell whose meaning was never derived. The Atom's BASIC keeps no
-  // such cell the IDE can point at; 8K BASIC's workspace has not been read far
-  // enough to find one. A stepper built on a guess would pause on confidently
-  // wrong lines.
+  // The line being executed can only be read out of a workspace cell, and Atom
+  // BASIC keeps none the IDE can point at. A stepper built on a guess would
+  // pause on confidently wrong lines.
   atom: 'no readable "line being executed" cell',
-  altair8800: 'no derived "line being executed" cell',
 };
 
 describe('the debuggable flag matches the machines', () => {

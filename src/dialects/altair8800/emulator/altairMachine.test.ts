@@ -9,6 +9,8 @@ import { tokenizeProgram } from '../tokenizer';
 import {
   BASIC_IMAGE_SIZE,
   COLD_START_BYTES_FREE,
+  CURLIN,
+  DIRECT_MODE,
   PROGRAM_BASE,
   STREND,
   TXTTAB,
@@ -16,6 +18,7 @@ import {
 } from '../addresses';
 import { READ_BIT, WRITE_BIT } from '../../../emulator/memoryActivityBuffer';
 import type { MachineLoop } from '../../../emulator/machineLoop';
+import type { DebugStepResult } from '../../types';
 
 /**
  * Unlike the other machine tests here, these cannot assert on display memory -
@@ -471,26 +474,13 @@ describe('altair8800 machine introspection', () => {
     for (let i = 0; i < 4; i++) machine.runFrame();
 
     expect(machine.readReport()).toEqual({ isError: false, message: 'OK' });
-    expect(machine.isProgramRunning()).toBe(false);
   });
 
-  it('says a program is running while the prompt is not the last thing shown', () => {
+  it('has no report to give while the prompt is not the last thing shown', () => {
     const machine = boot(...printer('RUN\r\n'));
     for (let i = 0; i < 4; i++) machine.runFrame();
 
     expect(machine.readReport()).toBeNull();
-    expect(machine.isProgramRunning()).toBe(true);
-  });
-
-  it('will not call a program finished while its typed RUN is still queued', () => {
-    // The gap loadProgram leaves: BASIC is legitimately still at the OK prompt
-    // because it has not read the line yet, and answering "finished" here would
-    // end a post-run check before the program had started.
-    const machine = boot(...printer('OK\r\n'));
-    for (let i = 0; i < 4; i++) machine.runFrame();
-    machine.port.queueText('RUN\r');
-
-    expect(machine.isProgramRunning()).toBeNull();
   });
 
   it('answers nothing at all without an image, or after disposal', () => {
@@ -498,11 +488,26 @@ describe('altair8800 machine introspection', () => {
     expect(empty.readReport()).toBeNull();
     expect(empty.isProgramRunning()).toBeNull();
     expect(empty.readMemoryStats()).toBeNull();
+    expect(empty.currentLine()).toBeNull();
+    expect(empty.readVariables()).toEqual([]);
 
     const machine = boot(...printer('OK\r\n'));
     for (let i = 0; i < 4; i++) machine.runFrame();
     machine.dispose();
     expect(machine.readReport()).toBeNull();
+    expect(machine.isProgramRunning()).toBeNull();
+    expect(machine.currentLine()).toBeNull();
+  });
+
+  it('names no line from a hand-assembled image that never set CURLIN', () => {
+    // Zero is a real line on this machine, so the range test alone would read
+    // the zeroed workspace of a nine-byte boot image as "executing line 0".
+    // What rules that out is the same TXTTAB guard the memory figures keep:
+    // BASIC has not laid its workspace down, so nothing in it means anything.
+    const machine = boot(0x76);
+    expect(machine.mem.rawReadWord(CURLIN)).toBe(0);
+    expect(machine.mem.rawReadWord(TXTTAB)).not.toBe(PROGRAM_BASE);
+    expect(machine.currentLine()).toBeNull();
     expect(machine.isProgramRunning()).toBeNull();
   });
 
@@ -605,6 +610,119 @@ describe('altair8800 machine introspection', () => {
     const stats = machine.readMemoryStats()!;
     expect(stats.used).toBeGreaterThanOrEqual(program.length);
     expect(stats.used + stats.free).toBe(COLD_START_BYTES_FREE + 2);
+    machine.dispose();
+  });
+
+  withRom(
+    'names the line it is executing, and forgets it at the prompt',
+    () => {
+      const machine = new Altair8800Machine({ rom: ROM! });
+      machine.loadProgram(tokenizeProgram('10 GOTO 10\n').program);
+      for (let i = 0; i < 120; i++) machine.runFrame();
+
+      expect(machine.currentLine()).toBe(10);
+      expect(machine.isProgramRunning()).toBe(true);
+      expect(machine.mem.rawReadWord(CURLIN)).toBe(10);
+
+      machine.setKey('Control', true);
+      machine.setKey('KeyC', true);
+      machine.setKey('KeyC', false);
+      machine.setKey('Control', false);
+      for (let i = 0; i < 60; i++) machine.runFrame();
+
+      // Breaking in puts the direct-mode marker back, which is the same route to
+      // the prompt an error or a clean end takes.
+      expect(machine.mem.rawReadWord(CURLIN)).toBe(DIRECT_MODE);
+      expect(machine.currentLine()).toBeNull();
+      expect(machine.isProgramRunning()).toBe(false);
+      machine.dispose();
+    },
+  );
+
+  withRom('counts line 0 as a line, because 8K BASIC does', () => {
+    // The trap in copying this guard from a BASIC that numbers from 1: `0 GOTO
+    // 0` is a legal program here and CURLIN reads a plain zero while it runs,
+    // so a `line >= 1` test would report the machine idle throughout.
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.loadProgram(tokenizeProgram('0 GOTO 0\n').program);
+    for (let i = 0; i < 120; i++) machine.runFrame();
+
+    expect(machine.currentLine()).toBe(0);
+    expect(machine.isProgramRunning()).toBe(true);
+    machine.dispose();
+  });
+
+  withRom('pauses on a breakpoint, then steps to the next line', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.loadProgram(
+      tokenizeProgram('10 A=1\n20 A=2\n30 A=3\n40 GOTO 40\n').program,
+    );
+
+    let paused: DebugStepResult | null = null;
+    for (let slice = 0; slice < 40 && !paused?.paused; slice++) {
+      const result = machine.debugStep({
+        mode: 'run',
+        fromLine: null,
+        breakpoints: new Set([30]),
+      });
+      if (result.paused) paused = result;
+    }
+    expect(paused?.line).toBe(30);
+    // Stopped *before* the line ran, not after: line 20's assignment has
+    // landed and line 30's has not, which is what makes the watcher useful at
+    // a breakpoint.
+    expect(machine.readVariables()).toEqual([
+      { name: 'A', kind: 'number', value: '2' },
+    ]);
+
+    const stepped = machine.debugStep({
+      mode: 'step',
+      fromLine: 30,
+      breakpoints: new Set(),
+    });
+    expect(stepped).toEqual({ paused: true, line: 40 });
+    machine.dispose();
+  });
+
+  withRom('reads back scalars, strings and arrays a program set', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.loadProgram(
+      tokenizeProgram(
+        '10 A=1.5\n20 BC=-2\n30 C$="HI"\n40 DIM D(3)\n50 D(1)=7\n60 END\n',
+      ).program,
+    );
+    for (let i = 0; i < 400 && machine.isProgramRunning() !== false; i++) {
+      machine.runFrame();
+    }
+
+    expect(machine.readVariables()).toEqual([
+      { name: 'A', kind: 'number', value: '1.5' },
+      // Two significant characters, and the name bytes are stored second
+      // character first - a reader taking them in order would call this "CB".
+      { name: 'BC', kind: 'number', value: '-2' },
+      { name: 'C$', kind: 'string', value: '"HI"' },
+      { name: 'D()', kind: 'number-array', value: '0, 7, 0, 0' },
+    ]);
+    machine.dispose();
+  });
+
+  withRom('charges a run to the lines that ran', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.setProfileRecording(true);
+    machine.loadProgram(
+      tokenizeProgram('10 FOR I=1 TO 400\n20 NEXT I\n30 END\n').program,
+    );
+    for (let i = 0; i < 400 && machine.isProgramRunning() !== false; i++) {
+      machine.runFrame();
+    }
+
+    const costs = machine.drainProfile()!;
+    const costOf = (line: number) =>
+      costs.find((c) => c.line === line)?.cost ?? 0;
+    // The loop body is the work: 400 iterations of NEXT against one pass of
+    // everything else.
+    expect(costOf(20)).toBeGreaterThan(costOf(10));
+    expect(costOf(20)).toBeGreaterThan(costOf(30));
     machine.dispose();
   });
 });

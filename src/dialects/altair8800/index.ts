@@ -119,6 +119,13 @@ export const altair8800: Dialect = {
   // whatever the USR vector points at rather than an address to call.
   memoryReads: { forms: ['peek'] },
 
+  /**
+   * The interpreter keeps its current line where the Microsoft family always
+   * does, immediately below TXTTAB (`addresses.ts`'s `CURLIN`), so the machine
+   * can say which line it is on and the stepper follows from that.
+   */
+  debuggable: true,
+
   memoryMap: altair8800MemoryMap,
 
   /**

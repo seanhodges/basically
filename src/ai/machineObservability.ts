@@ -46,14 +46,6 @@ export function driveKeyNames(dialect: Dialect): string[] {
 export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
-  // The Altair's variable table is where `addresses.ts` says it is - VARTAB,
-  // ARYTAB and STREND were all read off a booted machine - but the *encoding*
-  // of what is in it has not been: neither the 4-byte float layout nor the
-  // array header was derived from the image. A watcher built on a plausible
-  // guess would show confident wrong numbers, which is worse than showing none,
-  // so this machine has no `readVariables` - the ZX80 and Atom precedent.
-  // Derive the layout and the id comes out of this set.
-  'altair8800',
 ]);
 
 /** Whether this dialect's machine can be asked for its BASIC variables. */
@@ -96,8 +88,8 @@ export function canCheckByRunning(dialectId: string): boolean {
  * them about what the machine can actually account for:
  *
  * Charging a run's time to a BASIC line needs the machine to say which line it
- * is executing, and the Atom and the Altair cannot - the same two machines, for
- * the same reasons, that have no step-through debugger.
+ * is executing, and Atom BASIC cannot - the same machine, for the same reason,
+ * that has no step-through debugger.
  *
  * Charging it at all needs a clock to charge in, and the TRS-80's backend has
  * none: it interprets BASIC statements rather than executing a CPU over a RAM
@@ -113,7 +105,6 @@ export function canCheckByRunning(dialectId: string): boolean {
  */
 export const DIALECTS_WITHOUT_PROFILE: ReadonlySet<string> = new Set([
   'atom',
-  'altair8800',
   'trs80',
 ]);
 
