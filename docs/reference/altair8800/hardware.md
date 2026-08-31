@@ -39,11 +39,15 @@ The Altair has no graphics hardware and Altair 8K BASIC has no graphics
 keywords: no `PLOT`, no `SET`, no block-graphics characters, and no
 user-definable characters. Its whole output alphabet is 7-bit ASCII.
 
-A picture is therefore built as characters and printed. The bundled Circles and
-Kaleidoscope samples show the shape that works: fill a numeric array with the
-character codes for the grid, then print it a row at a time. Because a terminal
-cell is twice as tall as it is wide, halve the vertical axis to keep a circle
-round.
+A picture is therefore built as characters and printed. The bundled Circles
+sample shows the shape that works: fill a numeric array, then print it a row at
+a time. Because a terminal cell is twice as tall as it is wide, halve the
+vertical axis to keep a circle round.
+
+Printing a whole picture from BASIC is slow, and nothing appears until the last
+of it has been worked out. Where that wait matters, do the drawing in machine
+code and send the characters to the terminal directly — the bundled
+Kaleidoscope sample does exactly that, and BASIC only asks for the parameters.
 
 ### Sound
 
