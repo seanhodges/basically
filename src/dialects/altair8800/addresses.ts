@@ -48,6 +48,38 @@ export const RESERVED_WORDS_BASE = 0x0073;
 export const RESERVED_WORDS_END = 0x015a;
 
 /**
+ * The word `USR(x)` calls through - the "USR vector" a program POKEs before it
+ * can reach machine code at all. Decimal 73 and 74, which is how the MITS
+ * manual asks for it, and how `samples/kaleido.bas` writes it.
+ *
+ * There is no `CALL` in 8K BASIC, and `USR`'s own argument is data rather than
+ * an address, so this word is the machine's only route from BASIC into a
+ * routine of its own. It is not a hand-written `JMP` in the workspace: it is
+ * `USR`'s slot in the interpreter's *function dispatch table*, which is plain
+ * RAM here like everything else below {@link PROGRAM_BASE}, so poking it
+ * re-points the function itself.
+ *
+ * Derived from the image rather than assumed, three ways that agree:
+ *
+ *  1. The table starts at 0x0043 and holds one word per function token in
+ *     token order - 24 of them, {@link import('./keywords').altair8800Keywords}'
+ *     0xAE (SGN) through 0xC5 (MID$) - ending at 0x0071, immediately below
+ *     {@link RESERVED_WORDS_BASE}. `USR` is the fourth (0xB1), so its word is
+ *     0x0043 + 6.
+ *  2. The COS/SIN/TAN/ATN entries in that table read 0x1876/0x187C/0x18D9/
+ *     0x18EE - the routines {@link PROGRAM_BASE_NO_TRIG} says the program text
+ *     starts on top of when the cold-start dialogue declines them.
+ *  3. The word ships as 0x074D, which is `LD E,8 / JP 0x02D1` - the error
+ *     raiser with the code for FC. So `USR` before this is poked answers
+ *     `?FC ERROR`, which is what the manual promises and what the machine does.
+ *
+ * Confirmed at the console: poke this at a routine that writes a character to
+ * {@link SIO_DATA_PORT}, call `USR(0)`, and the character appears and BASIC
+ * carries on to the next statement.
+ */
+export const USR_VECTOR = 0x0049;
+
+/**
  * CURLIN: the number of the BASIC line the interpreter is executing, and
  * {@link DIRECT_MODE} when it is not executing one at all.
  *

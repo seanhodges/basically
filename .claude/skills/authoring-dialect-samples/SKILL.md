@@ -118,8 +118,11 @@ comment** — it is the only record of why this machine differs, and the
 per-dialect doc comments are where a reviewer checks. Precedents:
 
 - `zx80/` and `atom/` omit `breakout` — no non-blocking key read for a real-time paddle.
+- `apple1/` and `altair8800/` omit it too, for that _and_ no cursor addressing:
+  every frame would be a whole map reprinted, scrolling the last one away.
 - `atom/` adds `files.bas` (Data files) in breakout's slot to exercise its filesystem.
-- `trs80/` and `zxspectrum128/` ship no `kaleido.asm` (no machine-code block).
+- `trs80/` ships no `kaleido` at all (no machine-code block); `zxspectrum128/`
+  has no `kaleido.asm` of its own because it imports the 48K machine's block.
 
 ## Registering the set (`samples.ts`)
 

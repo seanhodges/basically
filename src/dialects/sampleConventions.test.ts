@@ -112,9 +112,10 @@ describe('breakout keeps the same scoreboard on every machine', () => {
 
 describe('kaleido asks for the same three parameters on every machine', () => {
   /**
-   * The Altair's kaleidoscope is the exception the rules below skip: with no
-   * machine-code block it computes the pattern in BASIC and takes no
-   * parameters at all, so there is nothing to prompt for.
+   * The rules below are about the parameters a machine-code routine is handed,
+   * so they apply to the dialects that carry one - as a block, or as the
+   * Sinclairs' `#BIN` REM. A dialect that ships no kaleidoscope at all (the
+   * TRS-80) is out of scope for the same reason.
    */
   const parameterised = shipping('kaleido.bas').filter(
     ([dialect, sample]) =>
