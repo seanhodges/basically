@@ -57,11 +57,13 @@ import { BASIC_BASE, BASIC_TOP, MONITOR_BASE } from './addresses';
  * the same way as the hi-res pages and for the same reason, with the program
  * sitting in the middle of it from `$0801`.
  *
- * The workspace begins at `$0800` rather than at `TXTTAB`, which is the byte
- * below the program holding the zero link the interpreter reads a line record
- * behind - the same arrangement as the Commodore ROMs, and the reason
- * `src/dialects/memoryMap.test.ts` grants this machine the same one-byte
- * offset between the region and the program base.
+ * The workspace begins at `$0800` rather than at `TXTTAB`, because the byte
+ * below the program is the interpreter's too: the cold start leaves a zero
+ * there and `RUN` scans from it, so a non-zero byte is read as part of a line
+ * record and the program fails on a line number no listing holds (`LIST`,
+ * which starts at `TXTTAB`, is unaffected). That is the same arrangement as the
+ * Commodore ROMs, and the reason `src/dialects/memoryMap.test.ts` grants this
+ * machine the same one-byte offset between the region and the program base.
  *
  * Regions are contiguous, ascending and cover the whole space, which
  * `memoryMap.test.ts` alongside enforces. No `udgBase` - the character
@@ -124,7 +126,7 @@ export const apple2plusMemoryMap: MemoryMap = {
       label: 'Program and variables',
       kind: 'program',
       group: 'BASIC workspace',
-      note: 'The tokenized program starts at 2049/$0801 and never moves, with a zero link byte below it at $0800; the scalars follow it at VARTAB, then the arrays at ARYTAB. Text page 2 is the first kilobyte of this - selectable with POKE -16299,0, and on a stock machine a picture of the program itself.',
+      note: 'The tokenized program starts at 2049/$0801 and never moves; the scalars follow it at VARTAB, then the arrays at ARYTAB. The zero the cold start leaves at $0800 belongs to it - RUN scans from there, and a non-zero byte is read as part of a line record - which is why the workspace begins a byte below TXTTAB. Text page 2 is the first kilobyte of this, selectable with POKE -16299,0 and on a stock machine a picture of the program itself.',
     },
     {
       start: HIRES_PAGE1,
@@ -172,7 +174,7 @@ export const apple2plusMemoryMap: MemoryMap = {
       label: 'Cassette output',
       kind: 'buffer',
       group: 'I/O',
-      note: 'Toggles the tape output flip-flop. Driven a cycle at a time by the monitor and by SAVE; not modelled by this emulator.',
+      note: "Toggles the tape output flip-flop. SAVE drives it a cycle at a time through the monitor's WRITE at $FECD; the emulator has nothing on the other end of it, and the IDE's cassette export is built from the ROM's own timings instead.",
     },
     {
       start: 0xc030,

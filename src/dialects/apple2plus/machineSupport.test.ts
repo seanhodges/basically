@@ -19,6 +19,7 @@ import {
   BASIC_COMMAND_LOOP,
   CURLIN,
   DEFAULT_MEMSIZ,
+  MAX_LINE,
   MEMSIZ,
   PROGRAM_BASE,
   STREND,
@@ -239,6 +240,41 @@ describeOnRom('the Apple II Plus on its own firmware', () => {
         900,
       );
       expect(ran, 'the listing did not survive RESET').toBe(true);
+    } finally {
+      machine.dispose();
+    }
+  });
+
+  it('reads the byte below the program, which is why the workspace starts there', async () => {
+    const machine = await bootMachine(apple2plus);
+    try {
+      machine.loadProgram(apple2plus.tokenize('10 PRINT "HI"\n20 END\n').image);
+      await runUntil(machine, () => machine.isProgramRunning() === false, 900);
+      // The cold start lays a zero at $0800 and the memory map's workspace
+      // begins there rather than at TXTTAB because of it.
+      const mem = (machine as unknown as { mem: { mem: Uint8Array } }).mem;
+      expect(mem.mem[PROGRAM_BASE - 1]).toBe(0);
+
+      // RUN scans from that byte, so a non-zero one is read as part of a line
+      // record and the interpreter reports a line number no listing holds.
+      // LIST is unaffected - it starts at TXTTAB - which is why this is a fact
+      // about the map's lower bound and not about the listing.
+      mem.mem[PROGRAM_BASE - 1] = 0x41;
+      await type(machine, 'RUN\r');
+      // Waited out to the line rather than to the first `?`: the report is
+      // printed a character at a time, so a poll can catch `?SYNTAX ERROR`
+      // several fields before the ` IN <line>` behind it.
+      const failed = await runUntil(
+        machine,
+        () => machine.readReport()?.line !== undefined,
+        600,
+      );
+      expect(failed, 'a dirty $0800 ran anyway').toBe(true);
+      const report = machine.readReport()!;
+      expect(report.isError).toBe(true);
+      // A line number no listing can hold: the byte is being read as a line
+      // record, not as a line.
+      expect(report.line).toBeGreaterThan(MAX_LINE);
     } finally {
       machine.dispose();
     }

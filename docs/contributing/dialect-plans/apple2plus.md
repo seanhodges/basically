@@ -552,15 +552,19 @@ What the machine answered, once the readers were pointed at it:
   what `HIMEM: 8192` before `HGR` is for. Colouring those pages `screen` would
   claim for the display memory a stock program is using and would say the
   collision cannot happen. The trap is in the region's note instead.
-- **The workspace starts at `$0800`, one byte below `TXTTAB`.** Applesoft keeps
-  a zero link byte there exactly as the Commodore ROMs do — read back as `0`
-  both after a cold boot and after a load — so the map's program region and
-  `memoryBlocks.programArea()` are legitimately one byte apart. That is the case
-  `LINK_BYTE_OFFSET` in `src/dialects/memoryMap.test.ts` already covered for the
-  three Commodores; `apple2plus` is in it now, and its comment says Microsoft
-  6502 rather than Commodore. Text page 2 is inside the same region, with the
-  program sitting in the middle of it: a listing that switches the page in is
-  looking at a picture of itself.
+- **The workspace starts at `$0800`, one byte below `TXTTAB`, and the byte is
+  load-bearing.** The cold start leaves a zero there, exactly as the Commodore
+  ROMs do. Poking anything else in and typing `RUN` answers `?SYNTAX ERROR IN
+65054` — a line number no listing can hold, because `RUN` scans from `$0800`
+  and reads the byte as part of a line record; `LIST`, which starts at `TXTTAB`,
+  lists the program back unbothered. So the byte is the interpreter's and the
+  map's program region is legitimately one byte below
+  `memoryBlocks.programArea()`. That is the case `LINK_BYTE_OFFSET` in
+  `src/dialects/memoryMap.test.ts` already covered for the three Commodores;
+  `apple2plus` is in it now, and its comment says Microsoft 6502 rather than
+  Commodore. Text page 2 is inside the same region, with the program sitting in
+  the middle of it: a listing that switches the page in is looking at a picture
+  of itself.
 - **`readMemoryStats()` needed nothing.** Stage 2's reading is `MEMSIZ - TXTTAB`
   less the `FRETOP - STREND` gap, which is every pool by construction — the
   program, the scalars and the arrays growing up, and the string space growing
