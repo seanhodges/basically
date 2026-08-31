@@ -18,6 +18,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       altair8800: 'GOTO',
       apple1: 'GOTO',
+      apple2: 'GOTO',
       atom: 'GOTO',
       bbc: 'GOTO',
       commodore: 'GOTO',
@@ -34,6 +35,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       altair8800: 'GOSUB',
       apple1: 'GOSUB',
+      apple2: 'GOSUB',
       atari: 'GOSUB',
       atom: 'GOSUB',
       bbc: 'GOSUB',
@@ -50,6 +52,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     concept: 'resume-after-break',
     spellings: {
       altair8800: 'CONT',
+      apple2: 'CON',
       atari: 'CONT',
       commodore: 'CONT',
       cpc: 'CONT',
@@ -67,6 +70,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       altair8800: 'CLEAR',
       apple1: 'CLR',
+      apple2: 'CLR',
       atari: 'CLR',
       bbc: 'CLEAR',
       commodore: 'CLR',
@@ -86,6 +90,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     concept: 'run-machine-code',
     spellings: {
       apple1: 'CALL',
+      apple2: 'CALL',
       atom: 'LINK',
       bbc: 'CALL',
       commodore: 'SYS',
@@ -117,6 +122,8 @@ export const falseFriends: FalseFriend[] = [
       altair8800: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       apple1:
         'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
+      apple2:
+        'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
       atari:
         'Neither bits nor values, but truth: 5 AND 3 is 1, because both operands are reduced to true or false first. There is no bitwise operator at all here.',
       atom: 'Bitwise on integers: 5 AND 3 is 1. The & operator is the same thing.',
@@ -136,6 +143,8 @@ export const falseFriends: FalseFriend[] = [
     meanings: {
       altair8800: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       apple1:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      apple2:
         'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
       atari:
         'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',

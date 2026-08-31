@@ -1831,6 +1831,202 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
 
+  // --------------------------------------------------------------- apple2 --
+  // The Apple 1's interpreter with graphics, a cursor and a tape behind it.
+  // Most of what a reader expects of "Apple II BASIC" is Applesoft, which is
+  // the other ROM: no floating point, no hi-res, no string functions but two.
+  {
+    to: 'apple2',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN with POP, and a GOTO whose target may be an expression.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. POP drops a return address where a subroutine must not return to its caller.',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'GOTO'],
+  },
+  {
+    to: 'apple2',
+    domain: 'data',
+    support: 'partial',
+    summary: 'DIM for arrays and strings, LET for assignment, CLR to discard.',
+    instead:
+      'No DATA, READ or RESTORE: fill a table in a loop, or hold it in a string and read a position at a time. Arrays are numeric, one-dimensional and indexed from 0.',
+    example: {
+      caption: 'A table without DATA',
+      code: ['10 DIM T(4)', '20 FOR I=0 TO 4', '30 T(I)=I*I', '40 NEXT I'],
+    },
+    reachFor: ['DIM', 'LET', 'CLR'],
+  },
+  {
+    to: 'apple2',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'ABS, SGN, RND and MOD over 16-bit signed integers, -32767 to 32767, and ^ raises to a power.',
+    instead:
+      'No fractions and no maths library: no SQR, LOG, EXP, trig or INT. Rescale to whole units - work in tenths and divide at the end - and write SQR as a search.',
+    example: {
+      caption: 'Rescale instead of using fractions',
+      code: [
+        '10 REM 3.75 AS HUNDREDTHS',
+        '20 T=375',
+        '30 PRINT T/100;".";T MOD 100',
+      ],
+    },
+    reachFor: ['ABS', 'RND', 'SGN', 'MOD'],
+  },
+  {
+    to: 'apple2',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN and ASC, and A$(first,last) to read a substring of a DIMed string.',
+    instead:
+      'No CHR$, MID$, STR$ or VAL, and no concatenation: append by assigning past the end. ASC( answers with bit 7 set, which is how this machine stores a character.',
+    example: {
+      caption: 'Append by assigning past the end',
+      code: ['10 DIM A$(8)', '20 A$="AB"', '30 A$(LEN(A$)+1)="CD"'],
+    },
+    reachFor: ['LEN', 'ASC'],
+  },
+  {
+    to: 'apple2',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT, with TAB and VTAB putting the cursor anywhere on the 40 by 24 screen.',
+    instead:
+      'No CLS or HOME statement: CALL -936 is the monitor call that clears the screen. TAB and VTAB are statements of their own rather than print formatters.',
+    example: {
+      caption: 'Clear, then write in place',
+      code: ['10 CALL -936', '20 VTAB 5', '30 TAB 10', '40 PRINT "SCORE"'],
+    },
+    reachFor: ['PRINT', 'TAB', 'VTAB'],
+  },
+  {
+    to: 'apple2',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'GR gives a 40 by 40 grid of coloured blocks; PLOT, HLIN and VLIN draw, and SCRN( reads one back.',
+    instead:
+      "No hi-res from BASIC - HGR, HPLOT and DRAW are Applesoft's, and the 280 by 192 page is reachable only by CALL. Redraw the shape in lo-res blocks instead.",
+    example: {
+      caption: 'Draw in lo-res blocks',
+      code: ['10 GR', '20 COLOR=13', '30 PLOT 20,20', '40 HLIN 0,39 AT 39'],
+    },
+    reachFor: ['GR', 'PLOT', 'HLIN', 'SCRN'],
+  },
+  {
+    to: 'apple2',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'COLOR= picks one of sixteen colours for the lo-res page, and SCRN( reads a block back.',
+    instead:
+      'Colour belongs to the lo-res page and never to text: there is no ink, paper or border, and nothing PRINT writes can be coloured. Draw the coloured part as blocks.',
+    example: {
+      caption: 'Colour a block, not a string',
+      code: ['10 GR', '20 COLOR=9', '30 PLOT 0,0'],
+    },
+    reachFor: ['COLOR='],
+  },
+  {
+    to: 'apple2',
+    domain: 'sound',
+    support: 'none',
+    summary: 'None: the speaker is one bit, and no keyword reaches it.',
+    instead:
+      'No sound keywords at all. Touching address -16336 moves the speaker cone once, so a tone is that PEEK in a loop and the loop is what sets the pitch.',
+    example: {
+      caption: 'A click train, in place of a note',
+      code: ['10 FOR I=1 TO 50', '20 X=PEEK(-16336)', '30 NEXT I'],
+    },
+  },
+  {
+    to: 'apple2',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a whole typed line, and PDL( reads a paddle, 0 to 255.',
+    instead:
+      'No GET or INKEY$, but the keyboard can be polled without stopping: PEEK(-16384) is the latch, over 127 means a key is waiting, and POKE -16368,0 clears the strobe.',
+    example: {
+      caption: 'Poll the keyboard without stopping',
+      code: ['10 K=PEEK(-16384)', '20 IF K<128 THEN 10', '30 POKE -16368,0'],
+    },
+    reachFor: ['INPUT', 'PDL'],
+  },
+  {
+    to: 'apple2',
+    domain: 'storage',
+    support: 'partial',
+    summary: 'LOAD and SAVE, which read and write the program on cassette.',
+    instead:
+      'The tape carries the program and nothing else: no data files, no OPEN or PRINT#, and no disk. Keep the data in the listing, or in a memory block beside it.',
+    example: {
+      caption: 'Data in the listing, not in a file',
+      code: ['10 DIM T(3)', '20 T(0)=5', '30 T(1)=9'],
+    },
+    reachFor: ['LOAD', 'SAVE'],
+  },
+  {
+    to: 'apple2',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE and CALL, with HIMEM: and LOMEM: moving the ends of the workspace.',
+    instead:
+      'No hex literals anywhere: every address is signed decimal, so anything above 32767 is written negative. The hardware is memory-mapped and there is no port I/O.',
+    example: {
+      caption: 'An I/O address, written negative',
+      code: ['10 PRINT PEEK(-16384)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM:'],
+  },
+  {
+    to: 'apple2',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'LIST, DEL, AUTO with MAN, NEW and CON, plus TRACE and DSP for watching a run.',
+    instead:
+      'All of these but LIST are prompt commands: inside a numbered line each answers *** SYNTAX ERR. LIST is the exception, so a program really can list itself.',
+    example: {
+      caption: 'LIST is the one a program may run',
+      code: ['10 LIST 10', '20 END'],
+    },
+    reachFor: ['LIST', 'DEL', 'TRACE', 'DSP'],
+  },
+  {
+    to: 'apple2',
+    domain: 'error-handling',
+    support: 'none',
+    summary: 'None: an error stops the program and prints its own report.',
+    instead:
+      'No ON ERROR and nothing a program can resume with - CON works only at the prompt. Test for the condition first and jump past the statement that would fail.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF D=0 THEN 40',
+        '20 PRINT N/D',
+        '30 GOTO 50',
+        '40 PRINT "NO"',
+      ],
+    },
+  },
+
   // ---------------------------------------------------------------- atari --
   {
     to: 'atari',

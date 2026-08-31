@@ -128,6 +128,16 @@ export default withPwa(
               ],
             },
             {
+              text: 'Apple II Integer BASIC',
+              link: '/reference/apple2',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/apple2/hardware' },
+                { text: 'Escape codes', link: '/reference/apple2/escapes' },
+                { text: 'File formats', link: '/reference/apple2/formats' },
+              ],
+            },
+            {
               text: 'Atari BASIC',
               link: '/reference/atari',
               collapsed: true,

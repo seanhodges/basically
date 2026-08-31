@@ -103,6 +103,7 @@ reference page:
 | MITS Altair 8800   | `.bin`                 | `.bin`                 | `CSAVE` image: three `0xD3` markers, a one-character name, program         |
 | Tesla PMD 85       | `.ptp`, `.pmd`         | `.ptp`, `.pmd`         | header + body tape blocks; `.ptp` puts a length in front of each           |
 | Apple I            | `.bin`                 | `.bin`                 | cassette dump: the zero-page housekeeping block, then the workspace        |
+| Apple II           | `.bin`                 | `.bin`                 | cassette record: the two-byte program length, then the program text        |
 | Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records |
 
 All of these are built by the IDE when you export; the ones that can also be
@@ -124,6 +125,7 @@ full on its own page:
 - [Altair 8800 file formats](./altair8800/formats) — `.bin`, paper tape `.txt`
 - [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
 - [Apple I file formats](./apple1/formats) — `.bin` cassette dump
+- [Apple II file formats](./apple2/formats) — `.bin` cassette record
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 
 ## Machine code & data blocks
@@ -184,9 +186,9 @@ as inline assembly in the `.bbc`), the Commodore in a
 [`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
 machine code inside the listing as `#BIN` REM records. The rest — the Amstrad
-CPC, the Altair, the PMD 85 and the Apple I — export the BASIC program only, and
-the Transfer dialog says which blocks would be left behind before it writes the
-file.
+CPC, the Altair, the PMD 85 and the two Apples — export the BASIC program only,
+and the Transfer dialog says which blocks would be left behind before it writes
+the file.
 
 ## Cassette audio
 
@@ -228,3 +230,6 @@ its format page:
 - [Apple I](./apple1/formats#cassette-audio) — the cassette card's square wave,
   where a bit's duration is its value: a 2 kHz cycle for a zero, 1 kHz for a
   one, behind ten seconds of leader per memory range.
+- [Apple II](./apple2/formats#cassette-audio) — the same square wave from the
+  ROM rather than a card, with a checksum byte closing each record: the program
+  goes out as two records, its length and then its text.

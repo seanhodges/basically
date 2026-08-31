@@ -23,6 +23,10 @@ import { locoKeywordTable } from '../src/dialects/cpc464/keywords';
 import { altair8800Keywords } from '../src/dialects/altair8800/keywords';
 import { apple1Keywords } from '../src/dialects/apple1/keywords';
 import {
+  apple2Keywords,
+  apple2Operators,
+} from '../src/dialects/apple2/keywords';
+import {
   atariKeywords,
   atariOperators,
 } from '../src/dialects/atari800/keywords';
@@ -189,6 +193,28 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     },
   },
   {
+    id: 'apple2',
+    varName: 'apple2Reference',
+    data: {
+      title: 'Apple II Integer BASIC',
+      machines: ['Apple II'],
+      // The symbolic operators are declared on the dialect rather than held in
+      // the keyword table, and the reference page lists both (see
+      // src/dialects/operators.ts), so seed a row for each of them too.
+      entries: dedupe([
+        ...apple2Keywords.map((k) => toEntry(k)),
+        ...apple2Operators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
     id: 'atari',
     varName: 'atariReference',
     data: {
@@ -237,6 +263,7 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
         'BBC Master',
         'Acorn Atom',
         'Apple I',
+        'Apple II',
         'Atari 800',
         'Atari 400',
       ],
