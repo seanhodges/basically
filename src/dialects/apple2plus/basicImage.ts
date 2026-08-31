@@ -34,15 +34,14 @@ export function parseBasicImage(image: Uint8Array): { program: Uint8Array } {
 /**
  * Where the program ends, as the interpreter records it.
  *
- * **One past the zero link, not at it.** Typing a program in at the `]` prompt
- * and reading `VARTAB` back gives `$0801 + length + 1` every time, over every
- * program in the tokenizer's corpus - the insertion code leaves the pointer a
- * byte beyond the two-byte link it just wrote. An image loaded with `VARTAB`
- * set to the end of its own bytes is one byte short of what the machine would
- * have, and the first variable then lands on the program's last byte.
+ * **The byte after the zero link, and no further.** Typing a program in at the
+ * `]` prompt and reading `VARTAB` back gives `$0801 + length` exactly, the
+ * length counting the two-byte zero link the tokenizer already emits. The
+ * figure is also what `SAVE` puts on tape as its length field, so a pointer a
+ * byte out here writes a record a byte longer than the machine's.
  */
 export function programEnd(image: Uint8Array): number {
-  return PROGRAM_BASE + image.length + 1;
+  return PROGRAM_BASE + image.length;
 }
 
 /**

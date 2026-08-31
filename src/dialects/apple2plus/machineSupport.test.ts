@@ -120,9 +120,9 @@ describeOnRom('the Apple II Plus on its own firmware', () => {
       for (const line of ['HI 1', 'HI 2', 'HI 3', 'DONE'])
         expect(screen, `missing ${line}`).toContain(line);
 
-      // The pointers a load owes: VARTAB one byte past the program's zero link,
-      // and the scalars and arrays starting with it.
-      expect(word(machine, VARTAB)).toBe(PROGRAM_BASE + image.length + 1);
+      // The pointers a load owes: VARTAB on the byte after the program's zero
+      // link, and the scalars and arrays starting with it.
+      expect(word(machine, VARTAB)).toBe(PROGRAM_BASE + image.length);
       expect(word(machine, STREND)).toBeGreaterThanOrEqual(
         word(machine, VARTAB),
       );

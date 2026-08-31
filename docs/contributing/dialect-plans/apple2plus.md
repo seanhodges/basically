@@ -195,7 +195,7 @@ fourth, which nobody predicted, is recorded under it; the last is Stage 4's.
 | ----- | -------------------------------------------- | ------ |
 | 1     | Language core                                | ✅     |
 | 2     | ROM, interpreter support, keyboard & samples | ✅     |
-| 3     | Transfer & tape I/O                          | ⬜     |
+| 3     | Transfer & tape I/O                          | ✅     |
 | 4     | Memory map & runtime introspection           | ⬜     |
 | 5     | Reference docs                               | ⬜     |
 | 6     | Register & ship                              | ⬜     |
@@ -277,11 +277,16 @@ What the machine answered, once each construct was typed at its `]` prompt:
   `variableLint.ts` is where the reader is warned. It is also a hard constraint
   on Stage 2's samples: no variable may contain a keyword, and `IF A THEN` has
   to be written `IF A<>0 THEN`.
-- **VARTAB sits one byte past the zero link**, not at it. Typing a program in
-  and reading the pointer back gives `$0801 + length + 1` over the whole
-  113-program corpus. An image loaded with VARTAB at the end of its own bytes
-  would put the first variable on the program's last byte, so
-  `basicImagePointers()` carries the `+ 1` and `basicImage.test.ts` pins it.
+- **VARTAB sits on the byte after the zero link.** Typing a program in and
+  reading the pointer back gives `$0801 + length`, the length counting the
+  two-byte link the tokenizer already emits. _This stage first recorded a `+ 1`
+  on top of that and shipped it; Stage 3 measured it against the machine again -
+  reading `VARTAB` off the ROM after typing programs in at the prompt - and it
+  is not there. Corrected in `basicImage.ts`, and now pinned against the machine
+  rather than against itself: `audio/cassetteRom.test.ts` reads the pointer off
+  a machine that has been typed a program, because the length `SAVE` writes on
+  tape is `PRGEND - TXTTAB` and a pointer a byte out writes a record a byte
+  long._
 - The measured figures: `MAX_LINE` is 63999 (`64000 END` answers
   `?SYNTAX ERROR`), a typed line keeps its first 239 characters and drops the
   rest, `CURLIN` reads `$FF00` in direct mode, and the cold start leaves
@@ -420,37 +425,74 @@ What the machine answered, once it was booted and driven:
   131 by 134 pixels; one `kaleido` pass takes 1.2 s and its mirror is exact over
   all 6400 bytes; one `maze` move repaints two cells and no more.
 
-## Stage 3 — Transfer & tape I/O ⬜
+## Stage 3 — Transfer & tape I/O ✅
 
 Most of this stage is already in the tree, one folder over.
 
-- [ ] `audio/` — import `encodeApple2Tape`, `decodeApple2Tape`, `tapeChecksum`
+- [x] `audio/` — import `encodeApple2Tape`, `decodeApple2Tape`, `tapeChecksum`
       and `tapePhaseCycles` from `apple2/audio/`. They are the monitor's `WRITE`
       at `$FECD` and `READ` at `$FEFD`, which **both** interpreters call, so the
       modulation, the sync bit, the `$FF`-seeded XOR checksum and the whole
       measurement front end are already derived from a ROM in this tree and
       re-derived on every test run
-- [ ] what is genuinely this dialect's: which records Applesoft's `SAVE` writes
+- [x] what is genuinely this dialect's: which records Applesoft's `SAVE` writes
       and how long each leader is. Measure them the way
       `apple2/audio/cassetteRom.test.ts` did — run this ROM's own `SAVE` on the
       vendored 6502 core and time its accesses to the cassette flip-flop at
       `$C020` — and pin the result. Expect it to come out closer to the sibling's
       than this plan first assumed; do not assert that it matches
-- [ ] `targets.ts` — the cassette record as `.bin`, the modulated audio as
+- [x] `targets.ts` — the cassette record as `.bin`, the modulated audio as
       `.wav` through `cassetteWavTarget`, the listing as `.bas`, mirroring
       `apple2/targets.ts`. No target carries the document's memory blocks
-- [ ] `loadInstructions` / `saveInstructions` — `LOAD` and `SAVE` at the `]`
+- [x] `loadInstructions` / `saveInstructions` — `LOAD` and `SAVE` at the `]`
       prompt, with no workspace bounds to type first (Stage 2's `directLine`
       decision) and the recorder cued to the leader tone
-- [ ] `binaryImports` — the `.bin` record, read back by `detokenize`. Unlike the
+- [x] `binaryImports` — the `.bin` record, read back by `detokenize`. Unlike the
       sibling's, this image's body is the same bytes the program occupies in
       memory, so `basicImage.ts` is both the file format and the load format
-- [ ] tests: cassette encode → decode round-trip, including a bad checksum
+- [x] tests: cassette encode → decode round-trip, including a bad checksum
       surfacing as a warning rather than a throw
 
 **Depends on:** Stage 1.
 **Verify:** `npx vitest run src/dialects/apple2plus/` + import/export in the app
 once the dialect registers.
+
+What the machine answered, once `SAVE` was run on it:
+
+- **The framing measurement did not need the tape.** `SAVE` at `$D8B0` is run on
+  the vendored 6502 core over the memory of a machine that has actually been
+  typed a program, and each call it makes to the monitor's `WRITE` is caught
+  with the range and the leader count it was handed; `WRITE` itself is then
+  turned into an immediate `RTS`. Letting it run would emit twenty-one seconds
+  of leader a phase at a time to answer a question that is settled the moment
+  the call is made — and the phases it would emit are the sibling's file to
+  pin, not this one's.
+- **Both leaders are the long one.** `SAVE` enters `WRITE` at `$FECD` — in
+  front of its own `LDA #$40` — for _both_ records, where the sibling's enters
+  at `$FECF` with `$1A` in A the second time. So this machine spends about ten
+  and a half seconds on tone before the header and the same again before the
+  program: twenty-one seconds of leader on a tape that may carry fifteen bytes.
+  The plan expected the two dialects to come out close, and on the modulation
+  they are identical; this is the one place they are not.
+- **The header record is three bytes, not two.** `SAVE` hands `WRITE` the range
+  `$0050`–`$0052` _inclusive_: the length as `PRGEND - TXTTAB`, then the byte at
+  `$52`. `LOAD` reads the length into `VARTAB` and stores that third byte into
+  `$D6` — and with its top bit set, skips the relink it otherwise does on a
+  loaded program and leaves `PRGEND` describing the program before it. `$52` is
+  the pointer to the next free string temporary, which rests at `$55` at the
+  `]` prompt, so a real machine's tapes have that bit clear. The encoder writes
+  `$55` for the same reason.
+- **The program record is one byte longer than the program.** The range is
+  `TXTTAB` through `VARTAB` inclusive, and `VARTAB` is already the byte after
+  the zero link. `READ` reads the same range back, so a record trimmed to the
+  program alone leaves a real machine hunting for a byte that is not there and
+  answering `ERR`. The byte goes out zeroed: on the machine it is whatever
+  `VARTAB` points at, and `LOAD` overwrites it before anything reads it.
+- **And it caught a Stage 1 error.** The length on tape is `PRGEND - TXTTAB`, so
+  the framing is only right if `basicImage.ts`'s idea of where the program ends
+  is — and it was a byte too high (see the correction under Stage 1). Reading
+  `VARTAB` off the machine is now part of the framing test rather than a fact
+  the image builder asserts about itself.
 
 ## Stage 4 — Memory map & runtime introspection ⬜
 
