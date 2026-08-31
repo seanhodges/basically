@@ -5,7 +5,12 @@ import type { Apple2BasicSupport } from '../../emulator/apple2/apple2Machine';
 import type { Apple2Memory } from '../../emulator/apple2/memory';
 import type { WritableMemory } from '../../emulator/microsoftBasicLoad';
 import { loadMicrosoftBasicProgram } from '../../emulator/microsoftBasicLoad';
-import type { MachineMemoryStats } from '../types';
+import type {
+  MachineMemoryStats,
+  MachineReport,
+  MachineScreenText,
+  MachineVariable,
+} from '../types';
 import {
   BASIC_COLD_ENTRY,
   BASIC_COMMAND_LOOP,
@@ -21,6 +26,8 @@ import {
   TXTTAB,
 } from './addresses';
 import { basicImagePointers, parseBasicImage } from './basicImage';
+import { readApple2plusReport } from './reports';
+import { readApple2plusVariables } from './vars';
 
 /**
  * What the shared Apple II emulator needs to know about Applesoft.
@@ -110,6 +117,21 @@ export const applesoftSupport: Apple2BasicSupport = {
       used: memsiz - txttab - (fretop - strend),
       free: fretop - strend,
     };
+  },
+
+  /**
+   * The variable table, read straight out of RAM through `peek` rather than
+   * through the bus: the watcher polls every frame while a program runs, and
+   * going via the recording path would stamp the memory-activity overlay with
+   * the IDE's own reads.
+   */
+  readVariables(mem: Apple2Memory): MachineVariable[] {
+    return readApple2plusVariables(mem);
+  },
+
+  /** What the interpreter printed, there being nowhere else it records it. */
+  readReport(screen: MachineScreenText | null): MachineReport | null {
+    return readApple2plusReport(screen);
   },
 };
 

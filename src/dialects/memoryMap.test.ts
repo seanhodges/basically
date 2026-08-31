@@ -29,14 +29,16 @@ const blocked = dialects.filter((d) => d.memoryBlocks);
 
 /**
  * Machines whose BASIC text pointer sits one byte above the start of the map's
- * program region. The Commodore ROMs store a zero link byte at the foot of BASIC
- * RAM and begin the first line record after it, so the region legitimately
- * starts one byte below TXTTAB. Any other dialect must match exactly.
+ * program region. The Microsoft 6502 ROMs store a zero link byte at the foot of
+ * BASIC RAM and begin the first line record after it, so the region legitimately
+ * starts one byte below TXTTAB - the three Commodores each at their own base,
+ * and Applesoft at $0800/$0801. Any other dialect must match exactly.
  */
 const LINK_BYTE_OFFSET: Record<string, number> = {
   commodore64: 1,
   pet: 1,
   vic20: 1,
+  apple2plus: 1,
 };
 
 /**

@@ -244,6 +244,32 @@ describeOnRom('the Apple II Plus on its own firmware', () => {
     }
   });
 
+  it('reads its own workspace without stamping the memory-map overlay', async () => {
+    const machine = await bootMachine(apple2plus);
+    try {
+      machine.loadProgram(
+        apple2plus.tokenize('10 A$ = "X" + "Y"\n20 B = 1\n30 END\n').image,
+      );
+      await runUntil(machine, () => machine.isProgramRunning() === false, 900);
+
+      // Armed and drained, so what follows starts from a clean buffer. The
+      // three readers then poll the machine the way the watcher, the status bar
+      // and the post-run check do - and every one of them must go through
+      // `peek`, or the overlay would report the IDE's own reads as the
+      // program's.
+      machine.setMemoryActivityRecording!(true);
+      machine.drainMemoryActivity!();
+      expect(machine.readVariables().length).toBeGreaterThan(0);
+      expect(machine.readMemoryStats()).not.toBeNull();
+      expect(machine.readReport()).not.toBeNull();
+      expect(machine.drainMemoryActivity!()!.every((bit) => bit === 0)).toBe(
+        true,
+      );
+    } finally {
+      machine.dispose();
+    }
+  });
+
   it('says so with this machine’s own ROM path when the image is empty', async () => {
     const machine = await bootMachine(apple2plus, { rom: new Uint8Array(0) });
     try {

@@ -45,9 +45,9 @@ import { apple2plusVariableErrors } from '../../editor/variableLint';
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
- * once. The language layer, the machine and the samples below are real and
- * driven headlessly by the tests alongside, as are the tape and the file
- * exports; the memory map is still empty, and the picker identity is a
+ * once. The language layer, the machine, the samples, the tape and file
+ * exports, the memory map and the runtime introspection below are all real and
+ * driven headlessly by the tests alongside; the picker identity is a
  * placeholder that satisfies the contract until the dialect is registered.
  */
 export const apple2plus: Dialect = {
