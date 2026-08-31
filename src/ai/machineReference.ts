@@ -136,6 +136,7 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
       name: dialect.name,
       manufacturer: dialect.manufacturer,
       year: dialect.year,
+      basicDialect: dialect.basicDialect,
       page,
     },
     table,

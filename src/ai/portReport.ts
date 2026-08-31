@@ -76,6 +76,7 @@ async function sideFor(dialect: Dialect): Promise<PortSide | null> {
     name: dialect.name,
     manufacturer: dialect.manufacturer,
     year: dialect.year,
+    basicDialect: dialect.basicDialect,
     page,
     table,
     escapes,

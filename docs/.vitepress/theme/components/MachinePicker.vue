@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import type { MachineLike } from '../../../../src/components/machinePicker';
+import type {
+  MachineLike,
+  MachineSort,
+} from '../../../../src/components/machinePicker';
+import { DEFAULT_MACHINE_SORT } from '../../../../src/components/machinePicker';
 
 /**
  * The porting guide's two machine fields: the IDE's machine picker, mounted in
@@ -33,6 +37,11 @@ const emit = defineEmits<{
 type Field = 'from' | 'to';
 
 const openField = ref<Field | null>(null);
+// How the list is narrowed and arranged, here rather than in either field for
+// the same reason `openField` is: the two fields show one list. Not persisted -
+// a reader arriving at the guide should be shown every machine.
+const query = ref('');
+const sort = ref<MachineSort>(DEFAULT_MACHINE_SORT);
 const fromHost = ref<HTMLElement | null>(null);
 const toHost = ref<HTMLElement | null>(null);
 /** True once React has taken over, which is when the placeholders come down. */
@@ -77,6 +86,14 @@ onMounted(async () => {
         // stay as short as they were; only the accessible name is this full.
         role: field === 'from' ? 'Porting from' : 'Porting to',
         open: openField.value === field,
+        query: query.value,
+        sort: sort.value,
+        onQueryChange: (next: string) => {
+          query.value = next;
+        },
+        onSortChange: (next: MachineSort) => {
+          sort.value = next;
+        },
         onOpen: () => {
           openField.value = field;
         },
@@ -99,7 +116,15 @@ onMounted(async () => {
 // A React root does not re-render itself when Vue's state moves, so everything
 // the island reads is pushed back into it here.
 watch(
-  () => [props.from, props.to, props.machines, openField.value] as const,
+  () =>
+    [
+      props.from,
+      props.to,
+      props.machines,
+      openField.value,
+      query.value,
+      sort.value,
+    ] as const,
   () => {
     renderField?.('from');
     renderField?.('to');
@@ -251,5 +276,24 @@ onUnmounted(() => {
 
 .mp-slot [role='dialog'] button:not([data-machine]):hover {
   border-color: var(--accent);
+}
+
+/* The search field and the arrangement control. `.vp-doc` styles neither, so
+   these restate what the browser defaults and src/styles.css give them in the
+   app - the field's own module sizes and colours it, so only the typography and
+   the select's chrome are left. */
+.mp-slot [role='dialog'] input,
+.mp-slot [role='dialog'] select {
+  font-family: inherit;
+  line-height: normal;
+}
+
+.mp-slot [role='dialog'] select {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
 }
 </style>

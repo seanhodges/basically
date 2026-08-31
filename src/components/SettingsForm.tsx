@@ -330,7 +330,7 @@ export function SettingsForm() {
               }}
             >
               {romMachineGroups.map((group) => (
-                <optgroup key={group.manufacturer} label={group.manufacturer}>
+                <optgroup key={group.heading} label={group.heading ?? ''}>
                   {group.machines.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}

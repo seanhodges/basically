@@ -13,11 +13,16 @@ This guide walks through running your first program, then generating one with AI
 
    ![The Start a new project dialog: the chosen machine with its description, a name field, and Blank program / Sample / Describe it as starting points](/new-project-dialog.png)
 
-3. Press the machine to open the picker and pick one. They're grouped by the
-   company that made them, with the year and a line naming the BASIC each one
-   runs - every machine has its own dialect and its own emulator.
+3. Press the machine to open the picker and pick one. Every machine has its own
+   dialect and its own emulator, so each is shown with the year it came out and
+   a line naming the BASIC it runs.
 
-   ![The Choose a machine picker, listing every machine grouped under Acorn, Amstrad, Commodore, Sinclair and Tandy, each with its illustration, release year and a one-line description naming its BASIC](/machine-picker.png)
+   Type in the search box to narrow the list by machine, maker or BASIC, and use
+   **Sort by** to arrange it: by manufacturer (how it opens), by model name, by
+   year, or by the BASIC each machine runs - which is the one that puts machines
+   sharing a dialect together. The picker reopens the way you left it.
+
+   ![The Choose a machine picker: a search box and a Sort by control above the machine list, each machine shown with its illustration, release year and a one-line description naming its BASIC](/machine-picker.png)
 
 4. Under **Start from**, choose **Sample** and pick **Breakout**, then press
    **Create project**.

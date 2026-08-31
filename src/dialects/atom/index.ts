@@ -34,6 +34,7 @@ export const atom: Dialect = {
   manufacturer: 'Acorn',
   year: 1980,
   blurb: 'Acorn’s forerunner to the BBC Micro. Runs Atom BASIC.',
+  basicDialect: 'Atom BASIC',
   // A fully expanded 12K Atom holds 5K of internal RAM at #2800; the
   // floating-point ROM takes the first page, leaving #2900-#3BFF for BASIC.
   programRamBytes: TEXT_TOP - TEXT_START,

@@ -56,6 +56,7 @@ export const zxspectrum128: Dialect = {
   manufacturer: 'Sinclair',
   year: 1985,
   blurb: 'The Spectrum with AY sound. Runs 128 Sinclair BASIC.',
+  basicDialect: '128 Sinclair BASIC',
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
   memoryMap: spectrum128MemoryMap,

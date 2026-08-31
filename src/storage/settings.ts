@@ -19,6 +19,11 @@ import {
   parseTapeFiles,
 } from './projectFile';
 import { bytesToBase64, base64ToBytes } from './vfs/base64';
+import {
+  DEFAULT_MACHINE_SORT,
+  MACHINE_SORTS,
+  type MachineSort,
+} from '../components/machinePicker';
 
 /** Ordinal-keyed listing-block overrides (see `parseListingBlockMeta`). */
 type ListingBlockMetaMap = Record<
@@ -125,6 +130,8 @@ const KEYS = {
   controllerFireButtons: 'mbide.controllerFireButtons',
   gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
+  machinePickerQuery: 'mbide.machinePickerQuery',
+  machinePickerSort: 'mbide.machinePickerSort',
   lastShare: 'mbide.lastShare',
   tabId: 'mbide.tabId',
   tabRegistry: 'mbide.tabs',
@@ -445,6 +452,34 @@ export function getFullCodeCompletion(): boolean {
 
 export function setFullCodeCompletion(on: boolean): void {
   localStorage.setItem(KEYS.fullCodeCompletion, on ? 'true' : 'false');
+}
+
+/**
+ * What the machine list was last narrowed by, and how it was last arranged, so
+ * it opens as the user left it. Shared by every picker in the IDE rather than
+ * held per dialog: the machine list is one list wherever it is shown.
+ */
+export function getMachinePickerQuery(): string {
+  return localStorage.getItem(KEYS.machinePickerQuery) ?? '';
+}
+
+export function setMachinePickerQuery(query: string): void {
+  localStorage.setItem(KEYS.machinePickerQuery, query);
+}
+
+/**
+ * Validated on the way out rather than on the way in: a value stored by an
+ * older build, or edited by hand, must not leave the list with no order.
+ */
+export function getMachinePickerSort(): MachineSort {
+  const stored = localStorage.getItem(KEYS.machinePickerSort);
+  return MACHINE_SORTS.some((s) => s.id === stored)
+    ? (stored as MachineSort)
+    : DEFAULT_MACHINE_SORT;
+}
+
+export function setMachinePickerSort(sort: MachineSort): void {
+  localStorage.setItem(KEYS.machinePickerSort, sort);
 }
 
 export function getCrtEffect(): boolean {

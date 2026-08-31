@@ -1181,9 +1181,22 @@ export interface Dialect {
    */
   year: number;
   /**
+   * The BASIC this machine runs, named as its own documentation names it -
+   * `Commodore BASIC V2`, `BBC BASIC IV`, `Locomotive BASIC 1.1`.
+   *
+   * Per machine, not per reference page: the two BBCs share a page and run
+   * different versions, which is exactly the difference a reader of
+   * "BBC BASIC (Micro & Master)" cannot see. The machine picker groups and
+   * searches on this, so it is the machine's own declaration rather than a
+   * phrase read back out of `blurb` - which names the same BASIC in prose that
+   * nothing enforces the shape of. A test holds the two together.
+   */
+  basicDialect: string;
+  /**
    * One line describing the machine, shown against it in the machine picker.
    * Two short sentences: one distinguishing fact about the machine, then the
-   * name of the BASIC it runs (`Runs BBC BASIC II.`). Aim for 60 characters
+   * name of the BASIC it runs (`Runs BBC BASIC II.`), which must be the name
+   * `basicDialect` gives. Aim for 60 characters
    * and never exceed 72 — the picker row clamps to two lines, so a longer one
    * is simply cut off on a phone. When only one of the two fits, the BASIC
    * wins; it is what the user is actually choosing.

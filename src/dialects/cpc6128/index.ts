@@ -52,6 +52,7 @@ export const cpc6128: Dialect = {
   // this build runs it tape-only, and the picker should not sell a feature the
   // IDE does not have.
   blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
+  basicDialect: 'Locomotive BASIC 1.1',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',

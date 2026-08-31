@@ -5,6 +5,7 @@ import {
   chooseMachine,
   createProjectWithSample,
   machinePicker,
+  openMachinePicker,
   openNewProjectDialog,
   targetMachine,
   type Page,
@@ -146,6 +147,72 @@ test('the picker opens over the new-project dialog and closes without it', async
   // ...and so does choosing a machine, which is the point of the nesting.
   await chooseMachine(page, dialog, 'bbcmicro');
   await expect(dialog).toBeVisible();
+  await expect(dialog.locator('button[data-target-machine]')).toContainText(
+    'BBC Micro',
+  );
+});
+
+/**
+ * Narrowing and arranging the list.
+ *
+ * Which machines match a search, and what order each arrangement puts them in,
+ * are pure functions pinned by `src/components/machinePicker.test.ts` over the
+ * real registry - not browser work, and not repeated here. What is browser work
+ * is that the controls are wired to the rendered list at all: that typing
+ * removes rows from the DOM, that the arrangement control replaces the headings,
+ * and that a row is still a live choice afterwards.
+ */
+test('the picker narrows as you type and rearranges on demand', async ({
+  page,
+}) => {
+  await open(page);
+  const dialog = await openNewProjectDialog(page);
+  let picker = await openMachinePicker(page, dialog);
+
+  const rows = picker.locator('button[data-machine]');
+  const headings = picker.locator('h3');
+  const everyMachine = await rows.count();
+  expect(everyMachine).toBeGreaterThan(1);
+
+  // Typing narrows the list, and matches the BASIC as well as the name -
+  // "Locomotive" is in no machine's name and no manufacturer.
+  const search = picker.getByLabel('Search machines');
+  await search.fill('locomotive');
+  await expect(rows).toHaveCount(3);
+  await expect(picker.locator('button[data-machine="cpc464"]')).toBeVisible();
+
+  // A search nothing matches says so rather than showing an empty panel, and
+  // offers the way back.
+  await search.fill('dragon 32');
+  await expect(rows).toHaveCount(0);
+  await picker.getByRole('button', { name: 'Show every machine' }).click();
+  await expect(rows).toHaveCount(everyMachine);
+
+  // The arrangement control replaces the headings with the new ones.
+  await expect(headings).toContainText(['Acorn']);
+  await picker.getByLabel('Sort machines by').selectOption('year');
+  await expect(headings.first()).toHaveText(/^\d{4}$/);
+  await picker.getByLabel('Sort machines by').selectOption('model');
+  await expect(headings).toHaveCount(0);
+  await expect(rows).toHaveCount(everyMachine);
+
+  // A search left behind that hides the machine you are on is dropped when the
+  // list next opens - otherwise it opens without your own machine in it. The
+  // rule itself is pinned in machinePicker.test.ts; what a browser adds is that
+  // the correction reaches the rendered list.
+  await search.fill('locomotive');
+  await expect(rows).toHaveCount(3);
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  picker = await openMachinePicker(page, dialog);
+  await expect(picker.getByLabel('Search machines')).toHaveValue('');
+  await expect(picker.locator('button[data-machine]')).toHaveCount(
+    everyMachine,
+  );
+
+  // A row is still a live choice after all of that.
+  await picker.locator('button[data-machine="bbcmicro"]').click();
+  await expect(picker).toBeHidden();
   await expect(dialog.locator('button[data-target-machine]')).toContainText(
     'BBC Micro',
   );

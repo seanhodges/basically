@@ -310,8 +310,8 @@ describe('the shape of the report', () => {
   it('says so when the comparison found nothing, rather than trailing off', () => {
     // A machine the porting data says nothing about, ported to itself: no
     // diff, no guidance, no facts. The one case where "no findings" is the
-    // finding - and, incidentally, that a machine with no facts entry is named
-    // without its BASIC rather than throwing.
+    // finding - and, incidentally, that a machine is still named with the BASIC
+    // it declares, which is its own rather than looked up in the porting data.
     const table: ReferenceTableData = {
       title: 't',
       machines: ['m'],
@@ -330,6 +330,7 @@ describe('the shape of the report', () => {
       name: 'One',
       manufacturer: 'Nobody',
       year: 1979,
+      basicDialect: 'Nowhere BASIC',
       page: 'nowhere-one',
       table,
     };
@@ -337,8 +338,8 @@ describe('the shape of the report', () => {
     const report = describePort(from, to, vocabulary('nowhere-one', ['PRINT']));
     expect(report).toBe(
       'PORTING THIS PROGRAM\n' +
-        '- From: Nobody One (1979).\n' +
-        '- To: Nobody Two (1979).\n' +
+        '- From: Nobody One (1979), running Nowhere BASIC.\n' +
+        '- To: Nobody Two (1979), running Nowhere BASIC.\n' +
         "- What follows is this project's own reference data for these two machines, narrowed to the commands and control codes this program actually uses. Prefer it to your recollection of either machine.\n" +
         '\n' +
         'Nothing this program uses is missing from the Two, spelled differently there, or treated differently there.',

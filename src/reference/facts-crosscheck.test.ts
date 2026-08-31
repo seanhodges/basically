@@ -401,14 +401,14 @@ describe('variable-name significance is the one each lint enforces', () => {
 });
 
 describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
-  // The one name a machine's own registration already gives: every dialect's
-  // blurb names the BASIC it runs ("Runs BBC BASIC IV", "Locomotive BASIC
-  // 1.1"), so the guide's name for it is pinned to that rather than authored
-  // twice. A machine whose blurb is reworded away from its BASIC fails here,
-  // which is the point - the picker and the comparison must not disagree about
-  // what a machine runs.
-  it('basicDialect is the BASIC the dialect blurb names', () => {
-    expect(dialect.blurb).toContain(facts.basicDialect);
+  // The one name a machine's own registration already gives. The guide restates
+  // it, as it restates the machine's name and year, because the docs runtime
+  // cannot import the registry - so it is pinned to the declaration rather than
+  // authored twice. A guide entry that drifts from what the machine says it
+  // runs fails here, which is the point: the picker groups on the declaration
+  // and the comparison prints the restatement, and the two must not disagree.
+  it('basicDialect is the BASIC the dialect declares', () => {
+    expect(facts.basicDialect).toBe(dialect.basicDialect);
   });
 
   it('freeRamBytes matches the dialect program RAM budget', () => {

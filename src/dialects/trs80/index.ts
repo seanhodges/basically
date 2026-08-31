@@ -35,6 +35,7 @@ export const trs80: Dialect = {
   manufacturer: 'Tandy',
   year: 1977,
   blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
+  basicDialect: 'Level II BASIC',
   programRamBytes: 15572,
   memoryBlocks: trs80MemoryBlocks,
   fileExtensions: ['.txt', '.bas'],

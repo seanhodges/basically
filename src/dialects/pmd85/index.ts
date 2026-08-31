@@ -60,6 +60,7 @@ export const pmd85: Dialect = {
   manufacturer: 'Tesla',
   year: 1986,
   blurb: 'Czechoslovakia’s school computer. Runs BASIC-G.',
+  basicDialect: 'BASIC-G',
 
   /**
    * What BASIC-G leaves a program is not derivable from "48K fitted, 16K of it

@@ -31,38 +31,178 @@ export interface MachineLike {
   name: string;
   year: number;
   manufacturer: string;
+  /** The BASIC it runs, e.g. 'Locomotive BASIC 1.1'. Grouped and searched on. */
+  basicDialect: string;
   blurb: string;
 }
 
-/** One manufacturer's machines, as shown in the picker. */
+/** How the reader has asked for the list to be arranged. */
+export type MachineSort = 'manufacturer' | 'model' | 'year' | 'basic';
+
+/**
+ * The arrangements, in the order the control offers them, each with the label
+ * it is offered under. One list, read by the control, by the stored-value
+ * validator and by the tests, so none of them can drift from the others.
+ */
+export const MACHINE_SORTS: readonly { id: MachineSort; label: string }[] = [
+  { id: 'manufacturer', label: 'Manufacturer' },
+  { id: 'model', label: 'Model' },
+  { id: 'year', label: 'Year' },
+  { id: 'basic', label: 'BASIC dialect' },
+];
+
+/** What a reader who has never chosen an arrangement gets. */
+export const DEFAULT_MACHINE_SORT: MachineSort = 'manufacturer';
+
+/**
+ * One heading's machines, as shown in the picker. A null heading is the
+ * ungrouped arrangement, which the dialog renders as rows with nothing above
+ * them - so every arrangement is one loop rather than a branch per mode.
+ */
 export interface MachineGroup {
-  manufacturer: string;
+  heading: string | null;
   machines: MachineLike[];
 }
 
 /**
+ * The one name comparator. `numeric` is the whole point: a plain string compare
+ * puts CPC 6128 before CPC 664, because it reaches the second digit before it
+ * has any idea it is reading a number. Built once at module level - a collator
+ * constructed inside a sort callback is built once per comparison.
+ */
+const byName = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base',
+});
+
+/** Alphabetical by name, reading a model number as a number. */
+export function compareMachineNames(a: MachineLike, b: MachineLike): number {
+  return byName.compare(a.name, b.name);
+}
+
+/**
+ * The machines matching what the reader typed: a case-insensitive substring of
+ * the machine's name, its maker, or the BASIC it runs. Empty text matches
+ * everything, so the caller never has to special-case an untouched field.
+ *
+ * Deliberately not the blurb: a description mentioning "games" would pull in
+ * machines the reader was not asking about, and the three fields here are the
+ * ones a row is identified by.
+ */
+export function filterMachines(
+  machines: readonly MachineLike[],
+  query: string,
+): MachineLike[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...machines];
+  return machines.filter(
+    (m) =>
+      m.name.toLowerCase().includes(q) ||
+      m.manufacturer.toLowerCase().includes(q) ||
+      m.basicDialect.toLowerCase().includes(q),
+  );
+}
+
+/**
+ * Whether `query` would hide the machine `id` names.
+ *
+ * Asked when the list opens, because the text is remembered: a search left
+ * behind that does not match the machine you are on would open the list without
+ * your own machine in it, or on the no-matches state, which is a list that
+ * cannot answer the question you opened it to ask. The caller drops the text.
+ *
+ * False for a machine the list is not offering at all - clearing the text would
+ * not bring that machine back, and would throw away a good search for nothing.
+ */
+export function queryHidesMachine(
+  machines: readonly MachineLike[],
+  query: string,
+  id: string,
+): boolean {
+  if (!machines.some((m) => m.id === id)) return false;
+  return !filterMachines(machines, query).some((m) => m.id === id);
+}
+
+/**
+ * Group the machines under `keyOf`, ordering the headings by `compareHeadings`
+ * and every group's machines by name.
+ *
+ * Headings come from the machines in hand and never from a fixed list of years,
+ * makers or BASICs. That is what makes "no empty heading" a property rather
+ * than a rule to enforce: a year no machine was released in produces no key,
+ * and a search that removes a group's last machine removes the group with it.
+ */
+function groupBy(
+  machines: readonly MachineLike[],
+  keyOf: (m: MachineLike) => string,
+  compareHeadings: (a: string, b: string) => number,
+): MachineGroup[] {
+  const byHeading = new Map<string, MachineLike[]>();
+  for (const m of machines) {
+    const group = byHeading.get(keyOf(m));
+    if (group) group.push(m);
+    else byHeading.set(keyOf(m), [m]);
+  }
+  return [...byHeading.entries()]
+    .sort(([a], [b]) => compareHeadings(a, b))
+    .map(([heading, group]) => ({
+      heading,
+      machines: group.sort(compareMachineNames),
+    }));
+}
+
+/**
  * Machines grouped under their manufacturer, since that is how people think
- * about these computers. Manufacturers are ordered alphabetically and each
- * one's machines oldest-first, so the picker's order is stable and does not
- * shift as dialects are registered.
+ * about these computers. Manufacturers alphabetical, each one's machines by
+ * name, so the picker's order is stable and does not shift as dialects are
+ * registered.
  */
 export function groupMachinesByManufacturer(
   machines: readonly MachineLike[],
 ): MachineGroup[] {
-  const byMaker = new Map<string, MachineLike[]>();
-  for (const d of machines) {
-    const group = byMaker.get(d.manufacturer);
-    if (group) group.push(d);
-    else byMaker.set(d.manufacturer, [d]);
+  return groupBy(
+    machines,
+    (m) => m.manufacturer,
+    (a, b) => a.localeCompare(b),
+  );
+}
+
+/**
+ * The machines as the chosen arrangement shows them.
+ *
+ * Every arrangement but `year` orders its rows by name; `year` heads each
+ * distinct release year, oldest at the top, and orders by name inside a year
+ * because every machine under that heading shares it.
+ */
+export function groupMachines(
+  machines: readonly MachineLike[],
+  sort: MachineSort,
+): MachineGroup[] {
+  switch (sort) {
+    case 'model':
+      return machines.length === 0
+        ? []
+        : [
+            {
+              heading: null,
+              machines: [...machines].sort(compareMachineNames),
+            },
+          ];
+    case 'year':
+      return groupBy(
+        machines,
+        (m) => String(m.year),
+        (a, b) => Number(a) - Number(b),
+      );
+    case 'basic':
+      return groupBy(
+        machines,
+        (m) => m.basicDialect,
+        (a, b) => a.localeCompare(b),
+      );
+    case 'manufacturer':
+      return groupMachinesByManufacturer(machines);
   }
-  return [...byMaker.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([manufacturer, group]) => ({
-      manufacturer,
-      machines: group.sort(
-        (a, b) => a.year - b.year || a.name.localeCompare(b.name),
-      ),
-    }));
 }
 
 /**

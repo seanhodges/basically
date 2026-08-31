@@ -40,12 +40,18 @@ export interface MachineChoice {
   year: number;
   /** One-line description, matching `Dialect.blurb`. Shown on a picker row. */
   blurb: string;
+  /**
+   * The BASIC this machine runs, matching `Dialect.basicDialect`. The picker
+   * groups and searches on it.
+   */
+  basicDialect: string;
 }
 
 /**
  * Every supported machine, ordered by manufacturer then by age within it - the
- * order the reference sidebar and the machine picker both use, so a reader
- * moving between them is not re-sorting in their head.
+ * order the reference sidebar reads in. The picker orders the same machines for
+ * itself, by whichever arrangement the reader has chosen, so this file's order
+ * is the sidebar's rather than a shared one.
  */
 export const machines: MachineChoice[] = [
   {
@@ -55,6 +61,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'MITS',
     year: 1975,
     blurb: 'The microcomputer that started it all. Runs Altair 8K BASIC.',
+    basicDialect: 'Altair 8K BASIC',
   },
   {
     id: 'apple1',
@@ -63,6 +70,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Apple',
     year: 1976,
     blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
+    basicDialect: 'Apple 1 Integer BASIC',
   },
   {
     id: 'apple2',
@@ -71,6 +79,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Apple',
     year: 1977,
     blurb: 'Colour graphics off the shelf. Runs Apple II Integer BASIC.',
+    basicDialect: 'Apple II Integer BASIC',
   },
   {
     id: 'apple2plus',
@@ -79,6 +88,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Apple',
     year: 1979,
     blurb: 'Applesoft in ROM at last. Runs Applesoft BASIC.',
+    basicDialect: 'Applesoft BASIC',
   },
   {
     id: 'atari800',
@@ -87,6 +97,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Atari',
     year: 1979,
     blurb: 'Two cartridge slots and 48K. Runs Atari BASIC.',
+    basicDialect: 'Atari BASIC',
   },
   {
     id: 'atari400',
@@ -95,6 +106,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Atari',
     year: 1979,
     blurb: 'The budget model, with a membrane keyboard. Runs Atari BASIC.',
+    basicDialect: 'Atari BASIC',
   },
   {
     id: 'atom',
@@ -103,6 +115,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Acorn',
     year: 1980,
     blurb: 'Acorn’s forerunner to the BBC Micro. Runs Atom BASIC.',
+    basicDialect: 'Atom BASIC',
   },
   {
     id: 'bbcmicro',
@@ -111,6 +124,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Acorn',
     year: 1981,
     blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
+    basicDialect: 'BBC BASIC II',
   },
   {
     id: 'bbcmaster',
@@ -119,6 +133,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Acorn',
     year: 1986,
     blurb: 'The BBC Micro, upgraded. Runs BBC BASIC IV.',
+    basicDialect: 'BBC BASIC IV',
   },
   {
     id: 'pet',
@@ -127,6 +142,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Commodore',
     year: 1977,
     blurb: 'Commodore’s all-in-one original. Runs Commodore BASIC 4.0.',
+    basicDialect: 'Commodore BASIC 4.0',
   },
   {
     id: 'vic20',
@@ -135,6 +151,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Commodore',
     year: 1981,
     blurb: 'The first computer to sell a million. Commodore BASIC V2.',
+    basicDialect: 'Commodore BASIC V2',
   },
   {
     id: 'commodore64',
@@ -143,6 +160,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Commodore',
     year: 1982,
     blurb: 'The best-selling desktop computer ever. Commodore BASIC V2.',
+    basicDialect: 'Commodore BASIC V2',
   },
   {
     id: 'cpc464',
@@ -151,6 +169,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Amstrad',
     year: 1984,
     blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
+    basicDialect: 'Locomotive BASIC 1.0',
   },
   {
     id: 'cpc664',
@@ -159,6 +178,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Amstrad',
     year: 1985,
     blurb: 'The CPC between the 464 and the 6128. Locomotive BASIC 1.1.',
+    basicDialect: 'Locomotive BASIC 1.1',
   },
   {
     id: 'cpc6128',
@@ -167,6 +187,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Amstrad',
     year: 1985,
     blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
+    basicDialect: 'Locomotive BASIC 1.1',
   },
   {
     id: 'trs80',
@@ -175,6 +196,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Tandy',
     year: 1977,
     blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
+    basicDialect: 'Level II BASIC',
   },
   {
     id: 'pmd85',
@@ -183,6 +205,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Tesla',
     year: 1986,
     blurb: 'Czechoslovakia’s school computer. Runs BASIC-G.',
+    basicDialect: 'BASIC-G',
   },
   {
     id: 'zx80',
@@ -191,6 +214,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Sinclair',
     year: 1980,
     blurb: 'Sinclair’s first home computer. Runs ZX80 BASIC.',
+    basicDialect: 'ZX80 BASIC',
   },
   {
     id: 'zx81',
@@ -199,6 +223,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Sinclair',
     year: 1981,
     blurb: 'Sinclair’s million-selling breakthrough. ZX81 BASIC.',
+    basicDialect: 'ZX81 BASIC',
   },
   {
     id: 'zxspectrum',
@@ -207,6 +232,7 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Sinclair',
     year: 1982,
     blurb: 'Britain’s best-selling computer. 48K Sinclair BASIC.',
+    basicDialect: '48K Sinclair BASIC',
   },
   {
     id: 'zxspectrum128',
@@ -215,5 +241,6 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Sinclair',
     year: 1985,
     blurb: 'The Spectrum with AY sound. Runs 128 Sinclair BASIC.',
+    basicDialect: '128 Sinclair BASIC',
   },
 ];

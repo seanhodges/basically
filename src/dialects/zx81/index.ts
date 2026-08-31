@@ -37,6 +37,7 @@ export const zx81: Dialect = {
   manufacturer: 'Sinclair',
   year: 1981,
   blurb: 'Sinclair’s million-selling breakthrough. ZX81 BASIC.',
+  basicDialect: 'ZX81 BASIC',
   programRamBytes: 15360,
   memoryMap: zx81MemoryMap,
   memoryBlocks: zx81MemoryBlocks,

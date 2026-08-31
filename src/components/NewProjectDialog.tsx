@@ -55,6 +55,12 @@ function NewProjectForm() {
   );
   const [request, setRequest] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The narrowing and the arrangement are the store's, not this dialog's: the
+  // toolbar's picker shows the same list, and both survive a reload.
+  const pickerQuery = useIdeStore((s) => s.machinePickerQuery);
+  const pickerSort = useIdeStore((s) => s.machinePickerSort);
+  const setPickerQuery = useIdeStore((s) => s.setMachinePickerQuery);
+  const setPickerSort = useIdeStore((s) => s.setMachinePickerSort);
 
   // The assistant cannot be configured while this modal is up, so key presence
   // is settled for the dialog's lifetime - read it when it opens.
@@ -245,6 +251,10 @@ function NewProjectForm() {
           open={pickerOpen}
           machines={machines}
           selectedId={machineId}
+          query={pickerQuery}
+          sort={pickerSort}
+          onQueryChange={setPickerQuery}
+          onSortChange={setPickerSort}
           onChoose={chooseMachine}
           onDismiss={closePicker}
         />

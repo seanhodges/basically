@@ -48,6 +48,7 @@ export const commodore64: Dialect = {
   manufacturer: 'Commodore',
   year: 1982,
   blurb: 'The best-selling desktop computer ever. Commodore BASIC V2.',
+  basicDialect: 'Commodore BASIC V2',
   // The docs button deep-links to the shared 'commodore' reference page, which
   // covers C64/VIC-20 (BASIC V2) and PET (BASIC 4.0) together.
   docsReference: 'commodore',
