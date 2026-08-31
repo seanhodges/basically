@@ -36,6 +36,7 @@ describe('dialect registry', () => {
     altair8800: 'dec',
     pmd85: 'hex',
     apple1: 'hex',
+    apple2: 'hex',
     atari800: 'dec',
     atari400: 'dec',
   };
@@ -72,6 +73,10 @@ describe('dialect registry', () => {
     // monitor leads so that a short replacement - the monitor alone - still
     // boots, the seam padding the rest with 0xFF.
     'apple1',
+    // One image again, but a window rather than a pair: $D000-$FFFF, with
+    // Integer BASIC and the Monitor in it. A short replacement fills from
+    // $D000 up, so the BASIC half alone still leaves a machine that resets.
+    'apple2',
     // Same shape again: the OS leads so a BASIC-only replacement still boots
     // to the Memo Pad rather than a machine that cannot reset.
     'atari800',

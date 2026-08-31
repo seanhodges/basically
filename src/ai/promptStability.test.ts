@@ -62,6 +62,7 @@ const PROMPT_CEILINGS: Record<string, number> = {
   altair8800: 30_000,
   pmd85: 39_000,
   apple1: 30_000,
+  apple2: 40_000,
   atari800: 42_000,
   atari400: 42_500,
 };
@@ -83,10 +84,13 @@ const SECTION_CEILINGS: Record<string, number> = {
   'CHARACTERS THIS MACHINE DOES NOT HAVE': 600,
   'SCREEN, COLOUR AND SOUND': 800,
   'TIMING AND WAITING': 800,
-  // The Atari's own map runs to about 3.8K: ANTIC, GTIA, POKEY and the PIA
-  // each get their own 256-byte hardware region with its own note, on top of
-  // the OS/BASIC buffers every other machine here also lists.
-  'WHERE THINGS ARE IN MEMORY': 4_200,
+  // The two machines that name their hardware region by region. The Atari's own
+  // map runs to about 3.8K - ANTIC, GTIA, POKEY and the PIA each get a
+  // 256-byte region with its own note - and the Apple II's to about 4.9K,
+  // because its soft switches are eight banks of sixteen addresses and each
+  // bank does something different. Both are on top of the OS/BASIC buffers
+  // every other machine here also lists.
+  'WHERE THINGS ARE IN MEMORY': 5_000,
   'EVERY COMMAND, FUNCTION AND OPERATOR THIS MACHINE HAS': 24_000,
   'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 3_000,
   'WHERE THIS MACHINE IS SHORT': 5_000,

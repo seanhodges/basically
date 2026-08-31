@@ -306,6 +306,11 @@ const NO_NAME_RULE: Record<string, string> = {
   // a different shape from anything `UNSTORABLE` exercises.
   atari800: 'names are fully significant',
   atari400: 'names are fully significant',
+  // The Apple II's Integer BASIC keeps a long name in full, unlike the Apple
+  // I's one letter and a digit; its own restriction - a name that ends at one
+  // of the seven words that may follow an expression - needs a name written
+  // for it rather than `UNSTORABLE`.
+  apple2: 'names are fully significant',
 };
 
 /**

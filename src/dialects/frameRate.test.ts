@@ -79,6 +79,10 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // video field, so a field is both the frame budget and the character time,
   // and the field rate is the American 60Hz rather than PAL's 50.
   apple1: 60.0,
+  // The II counts a real NTSC field rather than rounding: 262 scanlines of 65
+  // cycles, one of them stretched by two master clocks to keep the colour
+  // burst in step, which lands the field rate just under 60.
+  apple2: 59.92,
   // PAL: 312 scanlines of 114 cycles each at the machine's 1.79MHz clock.
   atari800: 49.86,
   atari400: 49.86,

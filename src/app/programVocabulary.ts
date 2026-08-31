@@ -269,16 +269,23 @@ export interface ProgramVocabulary {
 /**
  * What a program's text says about where it prints.
  *
- * Three collections rather than one, because the three forms are checked
- * differently: a row-and-column pair against both of the target's dimensions, a
- * bare column against its width, and an offset against the whole screen *and*
- * against the width it silently encodes.
+ * Four collections rather than one, because each form is checked differently: a
+ * row-and-column pair against both of the target's dimensions, a bare column
+ * against its width, a bare row against its height, and an offset against the
+ * whole screen *and* against the width it silently encodes.
  */
 export interface ProgramPositions {
   /** Whole positions the program states, distinct and in reading order. */
   cells: { row: number; column: number }[];
   /** Columns it states alone (TAB), ascending and distinct. */
   columns: number[];
+  /**
+   * Rows it states alone (the Apple II's VTAB), ascending and distinct. A
+   * machine that addresses the two halves separately states half a position at
+   * a time, and the half that is a row is checked against the target's height
+   * the way a bare column is checked against its width.
+   */
+  rows: number[];
   /** Offsets from the start of the screen, ascending and distinct. */
   offsets: number[];
   /**
@@ -963,7 +970,11 @@ function positionArgumentsAt(
   const close = bracketed ? ')' : null;
   const first = constantAt(code, j, close);
   if (first === null) return { values: [], computed: true };
-  if (command.kind === 'column' || command.kind === 'offset') {
+  if (
+    command.kind === 'column' ||
+    command.kind === 'row' ||
+    command.kind === 'offset'
+  ) {
     return { values: [first.value], computed: false };
   }
   if (code[first.end] !== ',') {
@@ -982,6 +993,7 @@ function positionArgumentsAt(
 interface PositionCollector {
   cells: { row: number; column: number }[];
   columns: Set<number>;
+  rows: Set<number>;
   offsets: Set<number>;
   computed: boolean;
 }
@@ -999,6 +1011,10 @@ function collectPosition(
   const [a, b] = args.values as [number, number | undefined];
   if (command.kind === 'offset') {
     into.offsets.add(a);
+    return;
+  }
+  if (command.kind === 'row') {
+    into.rows.add(a);
     return;
   }
   if (b === undefined) {
@@ -1048,6 +1064,7 @@ function positionsIn(
   const into: PositionCollector = {
     cells: [],
     columns: new Set(),
+    rows: new Set(),
     offsets: new Set(),
     computed: false,
   };
@@ -1104,6 +1121,7 @@ function positionsIn(
   return {
     cells: into.cells,
     columns: [...into.columns].sort((a, b) => a - b),
+    rows: [...into.rows].sort((a, b) => a - b),
     offsets: [...into.offsets].sort((a, b) => a - b),
     origin: syntax.origin,
     computed: into.computed,

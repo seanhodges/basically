@@ -113,6 +113,7 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
   ['pet', 32],
   ['pmd85', 64],
   ['apple1', null],
+  ['apple2', null],
   ['atari800', null],
 ];
 

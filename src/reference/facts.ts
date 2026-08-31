@@ -623,6 +623,123 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'hex',
   },
   {
+    id: 'apple2',
+    basicDialect: 'Apple II Integer BASIC',
+    portingNotes: [
+      {
+        text: 'Integer BASIC, not Applesoft: no floating point, no HGR, no CHR$, MID$, LEFT$ or RIGHT$, and no DEF FN. A program written for an Apple II Plus is a port, not a paste.',
+        topics: ['numbers', 'strings', 'graphics'],
+      },
+      {
+        text: 'The program grows down from HIMEM: and the variables up from LOMEM:, sharing one workspace; when they meet, *** MEM FULL ERR. Both take a colon, not the Apple 1’s =, and neither may sit inside a numbered line.',
+        topics: ['memory', 'statement-layout'],
+      },
+      {
+        text: 'A string is a fixed buffer DIMed before use and never grown; assigning at a position truncates it, so A$(5)="X" leaves five characters. There is no concatenation and the only string functions are LEN( and ASC(.',
+        topics: ['strings'],
+      },
+      {
+        text: 'A variable name ending at AND, AT, MOD, OR, STEP, THEN or TO is a syntax error, because the parser matches those seven first: SCORE is SC OR E and ATOM is A TO M. Every other name is kept in full.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'RND(N) is a whole number from 0 to N-1, AND, OR and NOT are logical rather than bitwise, and a true comparison is 1. PEEK and POKE take signed decimal, so an address above 32767 is negative: the keyboard is PEEK(-16384).',
+        topics: ['numbers', 'operators'],
+      },
+      {
+        text: 'TAB and VTAB are statements rather than print formatters, both counting from 1: TAB 1, VTAB 1 is the top left cell. Outside 1–40 and 1–24 the program stops with *** RANGE ERR.',
+        topics: ['text-screen'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: write a second IF, or invert the test and jump.',
+      },
+      {
+        keyword: 'CHR$',
+        note: 'No CHR$: a character can only be written as a literal, or POKEd into the text page as a byte. ASC( goes the other way and answers with bit 7 set.',
+      },
+      {
+        keyword: 'MID$',
+        note: 'A substring is A$(first,last), read only — there is no MID$, LEFT$ or RIGHT$, and no way to concatenate.',
+      },
+      {
+        keyword: 'DATA',
+        note: 'No DATA and no READ: assign the values a position at a time, or POKE a table into page 3.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'No INKEY$ and no GET: PEEK(-16384) reads the keyboard without stopping the program, bit 7 set meaning a key waits, and POKE -16368,0 clears the strobe.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound statement: the speaker is one bit, toggled by reading it, so a note is a machine-code loop CALLed from BASIC. PEEK(-16336) clicks it once.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'CALL -936 clears the text screen; TEXT and GR each clear their own page as they switch to it.',
+      },
+      {
+        keyword: 'SQR',
+        note: 'No mathematical functions at all — no SQR, SIN, COS, ATN, LOG or EXP. ABS, SGN, LEN, ASC, PDL, PEEK, RND and SCRN are the whole set.',
+      },
+    ],
+    lineNumberRange: '0–32767',
+    lineNumbers: { min: 0, max: 32767 },
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
+    variableNaming:
+      'A name is kept in full: letters and digits after a first letter, and LONGVARIABLENAME is one variable. The catch is the seven words the parser matches inside one — AND, AT, MOD, OR, STEP, THEN and TO — which end the name there and fail the line.',
+    // Nothing truncates, so both are null: `AB` and `ABC` really are two
+    // variables. The rule this machine does have is a different shape - a name
+    // ending at one of seven reserved words - and it is the prose above that
+    // carries it, the way the Apple I's one-letter rule is carried there.
+    variableSignificance: {
+      plain: null,
+      marked: null,
+      markerDistinguishes: true,
+      markers: '$',
+      caseSensitive: false,
+    },
+    numberHandling: 'Integer only, -32767 to 32767.',
+    numbers: { fractions: false, range: { min: -32767, max: 32767 } },
+    exponentOperator: '^',
+    remainderOperator: 'MOD',
+    logicalOperators: 'logical',
+    comparisonTrue: 1,
+    // The 64 glyphs of the character generator are ASCII 0x20-0x5F, so the
+    // backtick, the braces, the bar and the tilde have no shape on this machine.
+    unsupportedCharacters: ['`', '{', '|', '}', '~'],
+    screen:
+      '40×24 text, upper case only, and a 40×48 lo-res page of 16 colours.',
+    textScreen: { columns: 40, rows: 24 },
+    // The empty list is the fact: there is no timer, no clock and no delay
+    // statement in this BASIC either. The machine has a 1MHz clock and nothing
+    // that counts it.
+    waitIdiom: {
+      text: 'an empty FOR loop: the machine has no timer and no delay statement',
+      keywords: [],
+    },
+    // Measured on the emulator by `dialects/loopSpeed.test.ts`, which pins it.
+    // Close to the Apple I's 816, as two machines running the same interpreter
+    // on a 1MHz 6502 should be.
+    loopSpeed: 749,
+    screenBase: '$0400',
+    // The cold start's LOMEM:2048, which is where the workspace begins; the
+    // program itself is at the other end, growing down from HIMEM:.
+    programStart: '$0800',
+    freeRamBytes: 47104,
+    colour:
+      '16 colours in the lo-res page, set with COLOR= and drawn with PLOT, HLIN and VLIN.',
+    sound:
+      'A one-bit speaker: reading $C030 (PEEK(-16336)) moves the cone once, so a tone is a CALLed loop.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'hex',
+  },
+  {
     id: 'atom',
     basicDialect: 'Atom BASIC',
     portingNotes: [

@@ -16,6 +16,7 @@ import { cpc6128 } from './cpc6128';
 import { altair8800 } from './altair8800';
 import { pmd85 } from './pmd85';
 import { apple1 } from './apple1';
+import { apple2 } from './apple2';
 import { atari800 } from './atari800';
 import { atari400 } from './atari400';
 
@@ -37,6 +38,7 @@ export const dialects: Dialect[] = [
   altair8800,
   pmd85,
   apple1,
+  apple2,
   atari800,
   atari400,
 ];

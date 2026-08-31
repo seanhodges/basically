@@ -163,6 +163,10 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   cpc6128: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   pmd85: PMD85_LEXIS,
   apple1: APPLE1_LEXIS,
+  // The Apple II keeps a name in full - `LONGVARIABLENAME=1` stores every
+  // character - so nothing truncates. `$` is the only marker, there being no
+  // second numeric type, and the entry parser skips spaces outside a string.
+  apple2: { suffixChars: '$', crunched: true },
   // Names are fully significant and the ROM ignores spaces everywhere outside
   // a string literal (`atariCrunched` in `dialects/atari800/language.ts`);
   // `$` is the only type marker, there being no `%` integer suffix. REM and

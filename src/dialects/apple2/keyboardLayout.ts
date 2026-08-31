@@ -39,28 +39,29 @@ import {
  *   delete flank; right sends `$15` and re-types the character under the
  *   cursor, so it is a caret move in the editor.
  *
- * The key faces below are the machine's own: the digits carry `!` to `)`, and
- * `P`, `K`, `L`, `M` and `N` carry `@`, `[`, `\`, `]` and `^`. The keys the
- * template has no slot for - `: ; , - . /` and their shifted `* + < = > ?` -
- * are reached through the SYM pages, and every SYM cell is checked against
- * `tokenToByte` by `keyboardLayout.test.ts`.
+ * The real keycaps carry a shifted face - the digits `!` to `)`, and `P`, `K`,
+ * `L`, `M` and `N` the `@`, `[`, `\`, `]` and `^` - but those are key-face
+ * facts rather than legends, as on the Apple I: every symbol on this machine is
+ * reached through the SYM pages, so a typing band carries the base character
+ * alone and there is one route to a symbol rather than two. `APPLE2_SYMBOLS`
+ * below is that route, and every cell in it is checked against `tokenToByte` by
+ * `keyboardLayout.test.ts`.
  */
 
-/** A printing key: one machine token, its base legend, and its shifted one. */
-const key = (token: string, main: string, shifted?: string): KeyDef =>
-  kitKey(token, [main, shifted ?? null]);
+/** A printing key: one machine token and its base legend. */
+const key = (token: string, main: string): KeyDef =>
+  kitKey(token, [main, null]);
 
 const numberRow: KeyDef[] = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
-  // The only digit with nothing on its shift: the encoder sends `0` either way.
+  key('Digit1', '1'),
+  key('Digit2', '2'),
+  key('Digit3', '3'),
+  key('Digit4', '4'),
+  key('Digit5', '5'),
+  key('Digit6', '6'),
+  key('Digit7', '7'),
+  key('Digit8', '8'),
+  key('Digit9', '9'),
   key('Digit0', '0'),
 ];
 
@@ -74,7 +75,7 @@ const qwertyRow: KeyDef[] = [
   key('KeyU', 'U'),
   key('KeyI', 'I'),
   key('KeyO', 'O'),
-  key('KeyP', 'P', '@'),
+  key('KeyP', 'P'),
 ];
 
 const homeRow: KeyDef[] = centerRow([
@@ -85,8 +86,8 @@ const homeRow: KeyDef[] = centerRow([
   key('KeyG', 'G'),
   key('KeyH', 'H'),
   key('KeyJ', 'J'),
-  key('KeyK', 'K', '['),
-  key('KeyL', 'L', '\\'),
+  key('KeyK', 'K'),
+  key('KeyL', 'L'),
 ]);
 
 const ctrlKey: KeyDef = {
@@ -151,8 +152,8 @@ const letterRow3: KeyDef[] = flankedRow(
     key('KeyC', 'C'),
     key('KeyV', 'V'),
     key('KeyB', 'B'),
-    key('KeyN', 'N', '^'),
-    key('KeyM', 'M', ']'),
+    key('KeyN', 'N'),
+    key('KeyM', 'M'),
   ],
   leftArrowKey,
 );
@@ -174,7 +175,7 @@ const rows: KeyDef[][] = [
 
 /**
  * How this keyboard reaches each canonical SYM symbol - the six punctuation
- * keys the template has no slot for, plus the shifted faces above.
+ * keys the template has no slot for, plus every shifted key face.
  *
  * `£` is absent because the encoder has no code for it, and `_` because this
  * keyboard has no key that sends `$5F` at all: the Apple I's `SHIFT`-`O` is not

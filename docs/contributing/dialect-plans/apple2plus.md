@@ -8,7 +8,7 @@
 > registry-driven batteries all at once — the memory map, the run measurements
 > and the whole reference-docs set among them.
 
-This is the sibling of [the Apple II](./apple2.md): the same hardware with
+This is the sibling of the shipped `apple2` machine: the same hardware with
 Applesoft in ROM instead of Integer BASIC. It is _not_ a delegation sibling in
 the `bbcmaster` / `atari400` sense — those import a sibling's whole language
 layer because they run the same BASIC, and these two do not run the same BASIC
@@ -16,14 +16,12 @@ at all. What is inherited here is the machine: the emulator, the charset and the
 keyboard. What is written fresh is a complete Microsoft-family language layer and
 a second set of samples.
 
-**Where the sibling has got to.** Stages 1–6 of `apple2.md` have shipped: the
-whole of `src/emulator/apple2/`, the whole of `src/dialects/apple2/` through its
-memory map and runtime introspection, the cassette codec, and the `apple2`
-reference page. Only that plan's Stage 7 — the registry line, the share verb and
-the machine-keyed half of the reference bundle — is outstanding, and **nothing in
-Stages 1–5 below depends on it**. The two Stage-final changes are independent;
-whichever registers second deletes both plan files, since `apple2.md` is held
-open only for this plan's emulator dependency (see `README.md`).
+**The sibling has shipped whole**, and its plan is gone with it: the machine is
+registered and playable, so `src/emulator/apple2/`, `src/dialects/apple2/`, the
+cassette codec, the memory map, the runtime introspection and the `apple2`
+reference set are all in the tree and are the worked example for every stage
+below. The shipped code is the reference now, not a plan — where this one names
+a seam, it names the file.
 
 ## Target summary
 
@@ -52,6 +50,38 @@ open only for this plan's emulator dependency (see `README.md`).
 - **Reuse:** see _What the sibling already built_ below — it is most of the
   machine and a good deal of the transfer layer.
 - **License note:** none beyond the ROM.
+
+## What is inherited, and what this dialect owns
+
+One design, two BASICs in ROM. The hardware half is settled and shipped; what
+is left is the language half, and none of it is shared.
+
+| Piece                                                           | Where it comes from                                                                                                                                                                           |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/emulator/apple2/` — bus, video, keyboard, speaker, paddles | Inherited whole. It takes an `Apple2BasicSupport` object rather than a variant string, so no interpreter knowledge belongs in it.                                                             |
+| Charset                                                         | Inherited: re-export `apple2/charset.ts`. The 2513 font and the inverse/flash encoding are the machine's, not the BASIC's, so re-deriving would only let the two drift.                       |
+| Keyboard layout                                                 | Inherited: import `apple2/keyboardLayout.ts` member by member, as `atari400/index.ts` imports `atari800`'s. The II Plus's one real change — autostart, and what RESET does — is not a keycap. |
+| ROM                                                             | Its own: `apple2plus.rom`, the same `$D000`–`$FFFF` window with different contents.                                                                                                           |
+| Language layer (keywords, tokenizer, image builder, memory map) | Its own, all of it. Woz's syntax-table interpreter and Microsoft's token table have no common ground, and the zero-page workspace differs completely.                                         |
+| Samples                                                         | Its own: the same five programs written a second time, in the other BASIC.                                                                                                                    |
+| Reference page                                                  | Its own (`applesoft`). `reference-data.test.ts` bans duplicate names in a page, and both BASICs spell `PRINT`, `PEEK`, `GR` and `PLOT` the same way while meaning different things.           |
+
+## Deliberately out of scope
+
+The same three decisions the shipped sibling made, for the same reasons. Say so
+in this dialect's own comments too, so each reads as a decision:
+
+- **No Disk II.** The controller card, its 6-and-2 nibble encoding and DOS 3.3
+  are a project of their own, and nothing in the IDE's transfer model wants a
+  disk image here. Cassette is the machine's other native route and it is the
+  one this dialect takes.
+- **No 80-column card, no language card, no lower case.** All are aftermarket on
+  this machine; the character generator holds 64 glyphs and the keyboard cannot
+  type more.
+- **No colour-artefact hi-res fringing** beyond what the renderer already does.
+  Applesoft is the BASIC that reaches hi-res from a program, so this is the plan
+  that finds out whether the sibling's renderer is faithful enough — check it
+  against real `HGR` output and write down whatever is decided.
 
 ## Why the language layer cannot be shared
 
@@ -265,8 +295,8 @@ What the machine answered, once each construct was typed at its `]` prompt:
 ## Stage 2 — ROM, interpreter support, keyboard & samples ⬜
 
 There is no emulator to write, and no machine variant either: what this stage
-does is fit this interpreter into the one `apple2.md` built, then wire up the
-dialect around it. Verify by booting the real ROM through
+does is fit this interpreter into the one in `src/emulator/apple2/`, then wire
+up the dialect around it. Verify by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
 - [ ] `public/roms/apple2plus.rom` **+ an attribution block in
@@ -327,7 +357,12 @@ dialect around it. Verify by booting the real ROM through
       The traps worth teaching are the ones that catch someone who knows the
       other Apple II BASIC: `RND(1)` returns a fraction here and an integer
       there, `HIMEM:` moves a different pointer, and Applesoft is markedly slower
-      at integer arithmetic than Integer BASIC despite the name
+      at integer arithmetic than Integer BASIC despite the name. **Under 5000
+      characters composed** — `ai/promptStability.test.ts` caps it there and only
+      says so at Stage 6, which is where the sibling's had to be cut back a
+      bullet at a time. Restating the keyword table or the `facts.ts`
+      substitutions is what makes one run long; the same prompt already carries
+      both
 - [ ] `index.ts` — assemble the full `Dialect`, importing the sibling's charset,
       keyboard and machine member by member (placeholder picker identity until
       Stage 6)
@@ -336,7 +371,7 @@ dialect around it. Verify by booting the real ROM through
       keyboard matrix; samples tokenize cleanly **and run**; and the one-line
       charset identity assertion in `index.test.ts`
 
-**Depends on:** Stage 1, and `apple2.md`'s Stages 1–3.
+**Depends on:** Stage 1.
 **Verify:** `npm run typecheck` + `npx vitest run src/dialects/apple2plus/ src/emulator/apple2/`
 (the app and e2e cannot see the machine yet — that is Stage 6's verify).
 
@@ -368,7 +403,7 @@ Most of this stage is already in the tree, one folder over.
 - [ ] tests: cassette encode → decode round-trip, including a bad checksum
       surfacing as a warning rather than a throw
 
-**Depends on:** Stage 1, and `apple2.md`'s Stage 4.
+**Depends on:** Stage 1.
 **Verify:** `npx vitest run src/dialects/apple2plus/` + import/export in the app
 once the dialect registers.
 
@@ -480,21 +515,33 @@ loaders go.
       in the porting notes), and the `referenceByPage`, `escapesByPage` and
       `memoryMapById` maps in `docs/reference/compare.md`
 - [ ] delete `'applesoft'` from `PENDING_PAGE_IDS` in the same change
-- [ ] the remaining per-dialect tables: `glyphSources`, `charsetProbes`,
-      `keywordSpellings` (`?` for `PRINT` — the pair's only entry, the sibling's
-      being empty because `?1` at its `>` prompt answers `*** SYNTAX ERR`),
-      `loopSpeedProbes` (the Microsoft-family programs, not the sibling's
-      `integerBasicPrograms` helper), `operatorProbes` (this one **joins the
-      Microsoft battery** rather than needing its own answers, unlike the
-      sibling), `semigraphicsAudit` (`[]`), `machineArtIds` + `machineArt`, and
-      `e2e/bootMachines.ts`. **Not** `e2e/paletteMachines.ts`
+- [ ] **then register, run the whole unit suite, and work the failure list.**
+      That is the method rather than a list: registering the sibling turned up
+      some twenty tables wanting an entry against the eight its plan had named,
+      and half of them want a reason about the machine rather than data. Most of
+      the rest can copy the sibling's reasoning, the board being the same one —
+      it is the language-side entries (`variableLexis`, `letterCase`,
+      `positionSyntax`, `fileIo`, `lineProfiling`'s string-churn probe) that
+      differ, because Applesoft has real strings and Integer BASIC has none
+- [ ] the per-dialect tables this plan can name in advance: `glyphSources`,
+      `charsetProbes`, `keywordSpellings` (`?` for `PRINT` — the pair's only
+      entry, the sibling's being empty because `?1` at its `>` prompt answers
+      `*** SYNTAX ERR`), `loopSpeedProbes` (the Microsoft-family programs, not
+      the sibling's `integerBasicPrograms` helper), `operatorProbes` (this one
+      **joins the Microsoft battery** rather than needing its own answers, unlike
+      the sibling), `semigraphicsAudit` (`[]`), `machineArtIds` + `machineArt`,
+      and `e2e/bootMachines.ts`. **Not** `e2e/paletteMachines.ts`
 - [ ] **no new e2e spec.** This machine is the same `cpu6502` wiring family as
       the sibling, and one representative per family is the rule; the
       `e2e/bootMachines.ts` row (pinned by `src/e2eBootMachines.test.ts`) is the
       whole browser-side obligation
-- [ ] the measured figures: `loopSpeed`, the prompt-size ceiling
-      (`ai/promptStability.test.ts`), the frame rate (`dialects/frameRate.test.ts`)
-      and the `programRamBytes` the stub `addresses.ts` still has as zero
+- [ ] regenerate the two generated docs pages, which no battery writes for you:
+      `npm run gen:semigraphics` and `npm run gen:glyphs`
+- [ ] the measured figures: `loopSpeed`, the frame rate
+      (`dialects/frameRate.test.ts`), the screenshot scale, the prompt ceilings
+      (`ai/promptStability.test.ts` — the machine's own, and the section and part
+      ceilings if this machine pushes past them) and the `programRamBytes` the
+      stub `addresses.ts` still has as zero
 - [ ] `.virtual-keyboard.vk-theme-apple2plus` in
       `src/keyboard/VirtualKeyboard.css`. **In this change, not earlier:**
       `keyboardTheme.test.ts` fails on a theme block no _registered_ layout names
@@ -502,11 +549,11 @@ loaders go.
       the AI-profile accuracy pass. The paddles and the speaker are already in the
       shared machine, so `readAudio` needs nothing but the dialect's flags
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`
-- [ ] delete this plan file and its roadmap cross-link, and — if `apple2` has
-      registered by then — `apple2.md` and its cross-link too, since that plan is
-      held open for this one's emulator dependency
+- [ ] delete this plan file and its roadmap cross-link
 
-**Depends on:** Stages 1–5, and `apple2.md`'s Stages 1–6.
+**Depends on:** Stages 1–5.
 **Verify:** `npm run typecheck` + full `npm test` + `npm run lint` +
 `npm run format:check`, then `npm run dev` smoke and
-`npm run e2e:chromium -- e2e/project-setup e2e/program-execution`.
+`npm run e2e:chromium -- e2e/project-setup e2e/program-execution e2e/porting-guidance`
+— the porting guide is pointed at this machine for the first time in this stage,
+and its data crosses a postMessage boundary no unit test spans.

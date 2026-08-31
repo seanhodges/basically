@@ -95,6 +95,17 @@ const APPLE_BOARD_DIM = '#27593e';
 const APPLE_CHIP = '#1b1d21';
 const APPLE_GOLD = '#c9a227';
 const APPLE_WOOD = '#8c5a34'; // the Byte Shop's koa tray, not a factory case
+const APPLE2_CASE = '#d5c7a9'; // the moulded beige the II arrived in
+const APPLE2_LID = '#c6b795'; // the lid over the slots, a shade down from the front
+const APPLE2_KEY = '#b8aa8b';
+const APPLE2_STRIPES = [
+  '#4fae55',
+  '#f2c12e',
+  '#f0862a',
+  '#d0342c',
+  '#8b4fa8',
+  '#2f7fd0',
+];
 const SCREEN_BLACK = '#0b0d0a';
 const ATARI_CASE = '#d7cbae';
 const ATARI_DECK = '#e6ddc7';
@@ -119,6 +130,7 @@ const BASE = {
   altair: '#20262f',
   pmd: '#3f4247',
   apple: '#5e3b21',
+  apple2: '#9a8c6f',
   atari: '#a89878',
 };
 
@@ -625,6 +637,49 @@ function Apple1Art({ size }: ArtProps) {
   );
 }
 
+/**
+ * Apple II: the first Apple that came in a case, and the silhouette is that
+ * case - a beige wedge with the keyboard moulded into its front and the lid
+ * over the eight expansion slots behind, stepped up a shade. The badge on the
+ * lid is the six-stripe logo the machine was sold under, which is the one mark
+ * that tells this portrait from any other beige box at thumbnail size.
+ */
+function Apple2Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 25h42v4H3z" fill={BASE.apple2} />
+      {/* The lid sits behind and above the keyboard deck. */}
+      <path d="M3 8h42v8H3z" fill={APPLE2_LID} />
+      <path d="M3 16h42v9H3z" fill={APPLE2_CASE} />
+      {/* The badge: six stripes, top to bottom as the logo carries them. */}
+      {APPLE2_STRIPES.map((stripe, i) => (
+        <rect
+          key={stripe}
+          x="37.5"
+          y={9.4 + i * 0.9}
+          width="5"
+          height="0.9"
+          fill={stripe}
+        />
+      ))}
+      {/* Three rows of keycaps and the space bar, in the moulded front. */}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 13 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={5.5 + c * 2.7}
+            y={17 + r * 2.3}
+            width="2.1"
+            height="1.7"
+            fill={APPLE2_KEY}
+          />
+        )),
+      )}
+      <rect x="14" y="23.9" width="16" height="1.4" fill={APPLE2_KEY} />
+    </svg>
+  );
+}
+
 /* ---------------------------------------------------------------------------
    Atari */
 
@@ -700,6 +755,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   altair8800: Altair8800Art,
   pmd85: Pmd85Art,
   apple1: Apple1Art,
+  apple2: Apple2Art,
   atari800: Atari800Art,
   atari400: Atari400Art,
 };

@@ -331,11 +331,16 @@ describe('every function key is a function key', () => {
 });
 
 /**
- * Machines whose keyboards carry no cursor keys, so their layouts must not
+ * Machines whose keyboards carry no cursor cluster, so their layouts must not
  * pretend otherwise. Listed rather than derived, because "does this machine
  * have arrow keys" is a fact about the hardware that only a person can answer.
+ *
+ * The Apple II is here with two arrows rather than none: left and right are
+ * keys of its own grid - a rub-out and a re-type - and there is no up or down
+ * for a CURSOR legend to name, so both sit on the base layer and its own
+ * keyboardLayout test pins them.
  */
-const NO_CURSOR_KEYS = new Set(['altair8800', 'apple1']);
+const NO_CURSOR_KEYS = new Set(['altair8800', 'apple1', 'apple2']);
 
 /** Direction → the arrow a CURSOR legend prints for it. */
 const ARROWS = { up: '↑', down: '↓', left: '←', right: '→' } as const;

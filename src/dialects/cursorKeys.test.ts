@@ -189,6 +189,11 @@ const NO_CURSOR_KEYS: Record<string, string> = {
   // cursor addressing to move to: the monitor and Integer BASIC both edit a
   // line by rubbing the last character out, so there is no arrow to press.
   apple1: 'no cursor keys on the machine, and nothing on screen to move',
+  // Two arrows, and neither is a CURSOR legend: they are keys of the machine's
+  // own grid on the base layer, left rubbing a character out and right
+  // re-typing the one under the cursor. There is no cursor mode for this
+  // battery to read, and both cells are pinned in apple2/keyboardLayout.test.ts.
+  apple2: 'the arrows are base-layer keys, not a CURSOR legend',
 };
 
 describe('every registered machine is covered by a cursor-key claim', () => {

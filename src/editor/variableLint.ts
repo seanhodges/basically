@@ -341,15 +341,12 @@ export function apple1VariableErrors(
  * The scanner runs in crunched mode all the same, so a name in *expression*
  * position is split silently rather than flagged: `A=BANDY` really is `B AND Y`
  * on the machine and runs.
- *
- * The lexis is written out rather than read from `lexisFor`, because that table
- * names the registered machines and no others.
  */
 export function apple2VariableErrors(
   source: string,
   keywords: EditorKeyword[],
 ): TokenizeError[] {
-  const rules = variableRules({ suffixChars: '$', crunched: true }, keywords);
+  const rules = variableRules(lexisFor('apple2'), keywords);
   const breakers = new Set(['AND', 'AT', 'MOD', 'OR', 'STEP', 'THEN', 'TO']);
   const errors: TokenizeError[] = [];
   eachOccurrence(source, rules, (occ) => {

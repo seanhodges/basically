@@ -93,7 +93,7 @@ function programs(iterations: number): { base: string; loop: string } {
   };
 }
 
-/** The same pair on an Apple I, which reports falling off the end as an error. */
+/** The same pair in Integer BASIC, which reports falling off the end as an error. */
 function integerBasicPrograms(iterations: number): {
   base: string;
   loop: string;
@@ -169,11 +169,12 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
     ...atomPrograms(5000),
   },
   {
-    // Integer BASIC's own pair. It needs the END that `programs` leaves off:
-    // falling off the last line is `*** END ERR` on this machine, and the
-    // report would land on screen beside the marker.
-    id: 'apple1',
-    dialects: ['apple1'],
+    // Integer BASIC's own pair, shared by the two machines that run it. It
+    // needs the END that `programs` leaves off: falling off the last line is an
+    // error on both - `*** END ERR` on the Apple I and `*** NO END ERR` on the
+    // II - and the report would land on screen beside the marker.
+    id: 'integer',
+    dialects: ['apple1', 'apple2'],
     iterations: 2000,
     ...integerBasicPrograms(2000),
   },

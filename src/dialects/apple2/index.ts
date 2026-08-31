@@ -47,21 +47,17 @@ import { integerBasicSupport } from './machineSupport';
 /**
  * The Apple II (Apple II Integer BASIC).
  *
- * Not in `src/dialects/registry.ts`: an unfinished machine must not be
- * selectable, and registering one turns every registry-driven battery on at
- * once. Everything below is real and driven headlessly by the tests
- * alongside: the language layer, the emulator, the keyboard, the samples, the
- * transfer targets, the memory map and the runtime introspection behind it.
- *
- * The picker identity and the RAM figure are placeholders that satisfy the
- * contract; each is written for real when the dialect is registered.
+ * The board is emulated in `src/emulator/apple2/` and shared with the Apple II
+ * Plus, which is the same hardware with Applesoft in its ROM sockets. What is
+ * this dialect's own is the language layer, the ROM image and the workspace
+ * knowledge the machine is handed as a support object.
  */
 export const apple2: Dialect = {
   id: 'apple2',
   name: 'Apple II',
   manufacturer: 'Apple',
   year: 1977,
-  blurb: 'Runs Apple II Integer BASIC.',
+  blurb: 'Colour graphics off the shelf. Runs Apple II Integer BASIC.',
 
   // Cold-start LOMEM/HIMEM leave 47104 bytes, shared between program and
   // variables.

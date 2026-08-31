@@ -1203,6 +1203,7 @@ describe('where the program prints', () => {
           { row: 9, column: 28 },
         ],
         columns: [],
+        rows: [],
         offsets: [],
         origin: 0,
         computed: false,
@@ -1226,6 +1227,7 @@ describe('where the program prints', () => {
       laidOut('trs80', {
         cells: [],
         columns: [],
+        rows: [],
         offsets: [200],
         origin: 0,
         computed: false,
@@ -1245,6 +1247,7 @@ describe('where the program prints', () => {
         {
           cells: [{ row: 5, column: 30 }],
           columns: [],
+          rows: [],
           offsets: [],
           origin: 0,
           computed: false,
@@ -1262,6 +1265,7 @@ describe('where the program prints', () => {
       laidOut('zxspectrum', {
         cells: [{ row: 5, column: 3 }],
         columns: [],
+        rows: [],
         offsets: [],
         origin: 0,
         computed: false,
