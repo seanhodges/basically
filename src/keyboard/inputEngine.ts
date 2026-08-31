@@ -30,6 +30,17 @@ export type EngineTarget =
 
 const DEFAULT_MIN_HOLD_FRAMES = 3;
 
+/**
+ * Frames a case-lock pulse is held (see {@link ModifierDef.caseLock}).
+ *
+ * Longer than {@link DEFAULT_MIN_HOLD_FRAMES}, which is a floor for a press a
+ * hand is already holding down: a lock is tapped by the engine itself, so its
+ * whole life is this number. Five is the hold every case lock here is proved
+ * at on the booted ROMs (`src/dialects/caseKeys.test.ts`), which is what the
+ * ROM keyboard scans have to see.
+ */
+const CASE_LOCK_HOLD_FRAMES = 5;
+
 interface ActivePress {
   keyId: string;
   tokens: string[];
@@ -74,8 +85,9 @@ export class KeyboardInputEngine {
   private readonly usedWhileHeld = new Set<string>();
   /**
    * Whether a case-lock press has flipped the machine away from its power-on
-   * case. Not a modifier state: the key is tapped, not held, and what it
-   * changes is latched inside the ROM (see {@link KeyDef.caseLock}).
+   * case. Not a modifier state of its own: the lock is tapped, not held, and
+   * what it changes is latched inside the ROM (see
+   * {@link ModifierDef.caseLock}).
    *
    * On the editor target this latch is authoritative - there is no machine to
    * disagree with it. On a running machine it is a display mirror only: the
@@ -167,8 +179,12 @@ export class KeyboardInputEngine {
     this.presses.clear();
     this.pendingReleases.length = 0;
     this.tokenCounts.clear();
-    for (const id of this.modifierStates.keys())
-      this.modifierStates.set(id, 'off');
+    for (const [id, state] of this.modifierStates) {
+      // A latched case lock holds no matrix cell, so there is nothing here to
+      // release; clearing it would draw an unlocked shift over a machine that
+      // is still in the other case.
+      if (!this.caseLatched(id, state)) this.modifierStates.set(id, 'off');
+    }
     this.usedWhileHeld.clear();
     // Only when we were holding something. `releaseAllKeys` resets every key
     // state the machine has, and this engine is built and torn down whenever
@@ -227,7 +243,7 @@ export class KeyboardInputEngine {
 
   getActiveLayer(): LayerDef {
     const active = [...this.modifierStates.entries()]
-      .filter(([, s]) => s !== 'off')
+      .filter(([id, s]) => s !== 'off' && !this.caseLatched(id, s))
       .map(([id]) => id);
     return (
       this.layout.layers.find(
@@ -248,10 +264,6 @@ export class KeyboardInputEngine {
   // ---- internals ----------------------------------------------------------
 
   private keyDown(key: KeyDef, pointerId: number): void {
-    // Flipped before the callback, so the press that locks the case does not
-    // also type in the case it just left. The key still presses its own
-    // matrix cell below - this is the machine's own case key, not a UI toggle.
-    if (key.caseLock) this.caseFlipped = !this.caseFlipped;
     // The editor callback sees the layer before sticky consumption below.
     if (this.target.kind === 'editor')
       this.target.onKeyPress(key, this.getActiveLayer(), this.getLetterCase());
@@ -311,10 +323,29 @@ export class KeyboardInputEngine {
         }
         break;
       case 'sticky':
-        if (mod.lockable) this.modifierStates.set(id, 'locked');
-        else this.setModifierOff(id, mod.emits, press.pressedAtFrame);
+        // The second tap. On a machine whose case lock rides this modifier it
+        // latches the case instead of pinning the modifier down: the held cell
+        // comes back up and the machine's own case key is tapped in its place.
+        if (mod.caseLock) {
+          this.modifierStates.set(id, 'locked');
+          this.scheduleTokenRelease(mod.emits, press.pressedAtFrame, []);
+          this.tapCaseLock(mod.caseLock.emits);
+        } else if (mod.lockable) {
+          this.modifierStates.set(id, 'locked');
+        } else {
+          this.setModifierOff(id, mod.emits, press.pressedAtFrame);
+        }
         break;
       case 'locked':
+        // Nothing is held while a case lock is latched, so there is nothing to
+        // release - only the press that latches it back.
+        if (mod.caseLock) {
+          this.modifierStates.set(id, 'off');
+          this.tapCaseLock(mod.caseLock.releaseEmits ?? mod.caseLock.emits);
+          break;
+        }
+        this.setModifierOff(id, mod.emits, press.pressedAtFrame);
+        break;
       case 'held':
         this.setModifierOff(id, mod.emits, press.pressedAtFrame);
         break;
@@ -330,6 +361,22 @@ export class KeyboardInputEngine {
       this.setModifierOff(id, mod?.emits ?? [], press.pressedAtFrame);
     }
     this.usedWhileHeld.delete(id);
+  }
+
+  /**
+   * Press the machine's case key and flip the latch with it.
+   *
+   * The case is flipped first, so the press that latches it reports the case
+   * it has just switched to rather than the one it left.
+   */
+  private tapCaseLock(tokens: string[]): void {
+    this.caseFlipped = !this.caseFlipped;
+    for (const token of tokens) this.pressToken(token);
+    // A pulse the engine itself times, so it holds for a whole ROM scan. The
+    // editor target counts no frames at all (nothing there ticks onFrame), so
+    // the pulse ends where it began.
+    const hold = this.target.kind === 'editor' ? 0 : CASE_LOCK_HOLD_FRAMES;
+    this.scheduleTokenRelease(tokens, this.frame, [], hold);
   }
 
   private setModifierOff(
@@ -354,8 +401,9 @@ export class KeyboardInputEngine {
     tokens: string[],
     pressedAtFrame: number,
     consumesModifiers: string[],
+    holdFrames: number = this.minHoldFrames,
   ): void {
-    const releaseAtFrame = pressedAtFrame + this.minHoldFrames;
+    const releaseAtFrame = pressedAtFrame + holdFrames;
     if (this.frame >= releaseAtFrame)
       this.finishRelease(tokens, consumesModifiers);
     else
@@ -372,6 +420,15 @@ export class KeyboardInputEngine {
       this.modifierStates.set(id, 'off');
       for (const token of mod?.emits ?? []) this.releaseToken(token);
     }
+  }
+
+  /**
+   * Whether `id` is latched as a case lock rather than engaged as a modifier -
+   * the state that presses nothing and pins no layer.
+   */
+  private caseLatched(id: string, state: ModifierState): boolean {
+    if (state !== 'locked') return false;
+    return this.layout.modifiers.find((m) => m.id === id)?.caseLock != null;
   }
 
   private pressToken(token: string): void {

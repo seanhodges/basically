@@ -125,23 +125,6 @@ const zxcvRow = flankedRow(
   deleteKey,
 );
 
-/**
- * CAPS LOCK, beside Escape in the bottom-left machine region.
- *
- * The BBC's only route to lower case, and the reason this keycap is here: the
- * machine powers up caps-locked and its SHIFT gives upper case in either lock
- * state (`src/dialects/caseKeys.test.ts`), so nothing on the board reaches
- * lower case without it. A tap, not a held modifier - the lock lives in the
- * ROM.
- */
-const capsKey: KeyDef = {
-  id: 'CapsLock',
-  spanX: 6,
-  emits: ['CapsLock'],
-  caseLock: true,
-  labels: [{ text: 'CAPS', editor: null }, null, null],
-};
-
 /** Escape, in the bottom-left machine region; no editor insert. */
 const escKey: KeyDef = {
   id: 'Escape',
@@ -171,7 +154,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([escKey, capsKey], spaceKey, [quoteKey, enterKey]),
+  bottomRow([escKey], spaceKey, [quoteKey, enterKey]),
 ];
 
 const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
@@ -229,8 +212,8 @@ export const bbcKeyboardLayout: KeyboardLayout = withSymbolMode(
     name: 'BBC Micro',
     theme: 'vk-theme-bbc',
     gridColumns: 40,
-    // Caps-locked at power-on, so the base legends are the capitals - see
-    // `capsKey` above.
+    // Caps-locked at power-on, so the base legends are the capitals - see the
+    // shift modifier's case lock below.
     powerOnCase: 'upper',
     layers: [
       {
@@ -263,7 +246,17 @@ export const bbcKeyboardLayout: KeyboardLayout = withSymbolMode(
       { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
     ],
     modifiers: [
-      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+      // CAPS LOCK, latched by locking the shift key. The BBC's only route to
+      // lower case: the machine powers up caps-locked and its SHIFT gives
+      // upper case in either lock state (`src/dialects/caseKeys.test.ts`), so
+      // nothing else on the board reaches lower case.
+      {
+        id: 'shift',
+        emits: ['Shift'],
+        sticky: true,
+        lockable: true,
+        caseLock: { emits: ['CapsLock'] },
+      },
     ],
     rows,
     graphicsPalette: {

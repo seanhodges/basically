@@ -143,7 +143,7 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
 
   // A machine with a case lock: the BBC, whose keycaps are the capitals it
   // powers up in. The keycap *redrawing* in the other case is the browser-only
-  // fact here - that a case-lock press repaints twenty-six laid-out keycaps -
+  // fact here - that locking the shift repaints twenty-six laid-out keycaps -
   // and it is the one the per-machine matrix in Vitest cannot show. Which
   // machine reaches its other case which way stays there
   // (src/dialects/caseKeys.test.ts, src/keyboard/layoutGeometry.test.ts).
@@ -159,7 +159,12 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   await bbcA.click();
   await expect(page.locator(EDITOR)).toContainText('A');
 
-  await page.locator('[data-keyid="CapsLock"]').click();
+  // No keycap of its own: the lock is the shift key's second tap, as a phone
+  // keyboard's is.
+  await expect(page.locator('[data-keyid="CapsLock"]')).toHaveCount(0);
+  const bbcShift = page.locator('[data-keyid="Shift"]');
+  await bbcShift.click();
+  await bbcShift.click();
   // Every letter keycap follows the lock, not just the one that was pressed.
   await expect(legend).toHaveText('a');
   await expect(page.locator('[data-keyid="KeyZ"] .vk-pos-center')).toHaveText(
@@ -168,9 +173,8 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   await bbcA.click();
   await expect(page.locator(EDITOR)).toContainText('Aa');
 
-  // SHIFT still gives the capital, as it does on the machine in either lock
-  // state - so the pair on the keycap is honest about both halves.
-  await page.locator('[data-keyid="Shift"]').click();
+  // A further tap releases the lock, and the capitals come back.
+  await bbcShift.click();
   await expect(legend).toHaveText('A');
   await bbcA.click();
   await expect(page.locator(EDITOR)).toContainText('AaA');

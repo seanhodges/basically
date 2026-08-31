@@ -41,7 +41,7 @@ import type { KeyboardLayout } from '../../keyboard/layoutSchema';
  * layout directly.
  */
 
-/** Every token any keycap, legend, modifier or strip key can press. */
+/** Every token any keycap, legend, modifier, case lock or strip key can press. */
 function emittedTokens(layout: KeyboardLayout): Set<string> {
   const tokens = new Set<string>();
   const keys = [
@@ -57,6 +57,11 @@ function emittedTokens(layout: KeyboardLayout): Set<string> {
   }
   for (const modifier of layout.modifiers) {
     for (const token of modifier.emits) tokens.add(token);
+    // The case lock is pressed by locking the modifier, so its tokens are the
+    // layout's too - CAPS is on this machine's matrix by no other route.
+    for (const token of modifier.caseLock?.emits ?? []) tokens.add(token);
+    for (const token of modifier.caseLock?.releaseEmits ?? [])
+      tokens.add(token);
   }
   return tokens;
 }
@@ -227,7 +232,7 @@ describe('what the keycaps say, on the booted ROM', () => {
       await clearScreen(machine);
 
       // The case lock: capitals at power-on, lower case behind CAPS, and back
-      // with SHIFT+CAPS - the pair the keycap's shifted legend presses.
+      // with SHIFT+CAPS - the pair the shift key's lock presses to release.
       expect(await echo(machine, ['A'])).toBe('A');
       await tap(machine, ['CapsLock']);
       expect(await echo(machine, ['B'])).toBe('b');

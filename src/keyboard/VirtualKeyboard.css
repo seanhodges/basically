@@ -408,11 +408,14 @@
   color: #bdbdbd;
 }
 
-/* Wide-legend keys (SHIFT, NEW LINE) centre a smaller main label. These span
-   one and a half to two keycaps and wrap their word, so they take a fixed size
-   rather than the letter keys' container-relative one, which would overshoot. */
+/* Word legends (SHIFT, NEW LINE, CTRL, Esc, the SYM page toggle) centre a
+   smaller main label. A character legend is sized from the keycap it sits on,
+   which would draw a wide key's word half again bigger than a letter and
+   overshoot the cap, so a word takes one fixed size on every key that carries
+   one. */
 .vk-style-shift .vk-pos-center,
-.vk-style-small-main .vk-pos-center {
+.vk-style-small-main .vk-pos-center,
+.vk-pos-center.vk-word {
   inset: 0 0 12px;
   display: flex;
   align-items: center;
@@ -487,9 +490,10 @@
   opacity: 0.4;
 }
 
-/* Wide keys (SHIFT / NEW LINE) keep their smaller centred word. */
+/* Word legends keep their smaller centred size here too. */
 .vk-single .vk-style-shift .vk-single-label,
-.vk-single .vk-style-small-main .vk-single-label {
+.vk-single .vk-style-small-main .vk-single-label,
+.vk-single .vk-single-label.vk-word {
   font-size: 9px;
 }
 
@@ -545,7 +549,8 @@
   }
 
   .vk-style-shift .vk-pos-center,
-  .vk-style-small-main .vk-pos-center {
+  .vk-style-small-main .vk-pos-center,
+  .vk-pos-center.vk-word {
     inset: 0 0 6px;
     font-size: 8px;
   }

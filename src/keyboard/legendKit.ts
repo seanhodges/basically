@@ -95,6 +95,19 @@ export function inLetterCase(text: string, letterCase: LetterCase): string {
   return letterCase === 'upper' ? text.toUpperCase() : text.toLowerCase();
 }
 
+/**
+ * Whether a legend is a word rather than a character - `CTRL` and `C=` rather
+ * than `A`, `␣` or `↵`.
+ *
+ * What it decides is the size the legend is drawn at: a keycap's character
+ * legend is sized from the keycap, so a wide key draws it larger, while a word
+ * takes one fixed size on every key that carries one. Counting code points
+ * rather than UTF-16 units, so an astral glyph legend stays one character.
+ */
+export function isWordLegend(text: string): boolean {
+  return [...text].length > 1;
+}
+
 /** Expand one legend into the {@link KeyLabel} the layout schema carries. */
 export const lbl = (legend: Legend): KeyLabel | null =>
   legend === null

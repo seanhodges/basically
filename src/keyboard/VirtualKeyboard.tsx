@@ -15,7 +15,7 @@ import {
   modePinnedLayerId,
   resolveEditorAction,
 } from './editorActions';
-import { inLetterCase } from './legendKit';
+import { inLetterCase, isWordLegend } from './legendKit';
 import { pickableKeys } from './controllerConfig';
 import { pinsModeOnlyLayer, rowsWithoutCaseKey } from './caseAffordance';
 import { GlyphSvg } from './GlyphSvg';
@@ -689,16 +689,17 @@ export function VirtualKeyboard({
   };
   // Drive every key's font size from the longest legend visible in the active
   // mode so all keys render at one uniform size (short words don't grow back to
-  // the cap while long words shrink). Wide keys (SHIFT/SPACE/NEW LINE) keep
-  // their own fixed fonts, so they're excluded.
+  // the cap while long words shrink). Word legends are excluded: they take the
+  // fixed word size wherever they appear, so one CTRL keycap must not shrink
+  // every letter on the board.
   const maxSingleLen =
     keyDisplay === 'compact'
       ? displayRows.reduce(
           (max, row) =>
             row.reduce((m, def) => {
-              if (def.style === 'shift' || def.style === 'small-main') return m;
               const label = resolveSingleLabel(def);
               if (!label || label.glyph || !label.text) return m;
+              if (isWordLegend(label.text)) return m;
               return Math.max(m, label.text.length);
             }, max),
           1,
@@ -716,6 +717,7 @@ export function VirtualKeyboard({
     ];
     if (isFallback) cls.push('vk-single-fallback');
     else cls.push('vk-active');
+    if (!label.glyph && isWordLegend(label.text ?? '')) cls.push('vk-word');
     return (
       <span className={cls.join(' ')}>
         {label.glyph ? (
@@ -774,9 +776,11 @@ export function VirtualKeyboard({
     if (!label) return null;
     // The key's only legend, so it sits centred whatever corner the layer
     // uses when its legends share a keycap (the cursor overlays' 'br').
+    const word =
+      !label.glyph && isWordLegend(label.text ?? '') ? ' vk-word' : '';
     return (
       <span
-        className={`vk-label vk-pos-center vk-layer-${highlightLayerId} vk-active`}
+        className={`vk-label vk-pos-center vk-layer-${highlightLayerId} vk-active${word}`}
       >
         {label.glyph ? (
           <GlyphSvg glyph={layout.glyphs[label.glyph]} />
@@ -864,6 +868,10 @@ export function VirtualKeyboard({
                                 : pair.off
                               : inLetterCase(label.text ?? '', letterCase)
                             : label.text;
+                        // A word takes one fixed size wherever it is printed;
+                        // a character is sized from the keycap it sits on.
+                        if (!label.glyph && isWordLegend(text ?? ''))
+                          cls.push('vk-word');
                         return (
                           <span key={layer.id} className={cls.join(' ')}>
                             {label.glyph ? (
