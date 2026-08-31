@@ -306,6 +306,8 @@ describe('Apple2Machine', () => {
     for (let ask = 0; ask < 50; ask++) {
       m.readMemoryStats();
       m.readScreenText();
+      m.readVariables();
+      m.readReport();
       m.currentLine();
     }
     expect(m.drainMemoryActivity()?.every((bit) => bit === 0)).toBe(true);

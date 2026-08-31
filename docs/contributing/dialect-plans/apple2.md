@@ -117,7 +117,7 @@ Say so in the dialect's own comments too, so each reads as a decision:
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
-| 5     | Memory map & runtime introspection | ⬜     |
+| 5     | Memory map & runtime introspection | ✅     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
 
@@ -391,32 +391,63 @@ What the machine decided, once the ROM's own routines were run:
   now. Hoisting them into one module is a refactor across nine dialects and no
   part of this stage.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection ✅
 
-- [ ] `memoryMap.ts` — regions tiling the whole address space: RAM, the text and
+- [x] `memoryMap.ts` — regions tiling the whole address space: RAM, the text and
       hi-res pages inside it, the `$C000` I/O page switch by switch, the ROM
       window's three parts, and the `$FFFA`–`$FFFF` vectors
-- [ ] re-check the `memoryBlocks.ts` ranges Stage 3 wrote against the map they
+- [x] re-check the `memoryBlocks.ts` ranges Stage 3 wrote against the map they
       now have to agree with — `memoryMapDetail.test.ts` pins the program region
       to `memoryBlocks.programArea`
-- [ ] `vars.ts` → `readVariables()`. Integer BASIC's variable table grows up from
+- [x] `vars.ts` → `readVariables()`. Integer BASIC's variable table grows up from
       `LOMEM:` towards the program; `src/dialects/apple1/vars.ts` is the same
       layout and the file to read first
-- [ ] `reports.ts` → `readReport()`. `*** SYNTAX ERR`, `*** >32767 ERR`,
+- [x] `reports.ts` → `readReport()`. `*** SYNTAX ERR`, `*** >32767 ERR`,
       `*** MEM FULL ERR`, `*** RANGE ERR`, `BREAK`/`STOPPED AT` — read off the
       screen the way `apple1/reports.ts` does, and confirmed by provoking each
-- [ ] `readMemoryStats()` — **every pool a program spends**, not just the program
+- [x] `readMemoryStats()` — **every pool a program spends**, not just the program
       area. On this interpreter the program grows down from `HIMEM:` and the
       variables and string buffers grow up from `LOMEM:`, and a figure covering
       only one of them reads as a program that allocates nothing, which nothing
-      downstream can distinguish from a real measurement
-- [ ] memory-activity hooks (`setMemoryActivityRecording` /
-      `drainMemoryActivity`) for the memory-map overlay
-- [ ] tests: memory-map layout, block round-trip, a live variable read back off a
+      downstream can distinguish from a real measurement. Landed with Stage 2,
+      which needed the workspace figure to charge the profiler with
+- [x] memory-activity hooks (`setMemoryActivityRecording` /
+      `drainMemoryActivity`) for the memory-map overlay — also landed with
+      Stage 2; what this stage added was holding the two new readers to the
+      same rule, that host introspection never stamps the overlay
+- [x] tests: memory-map layout, block round-trip, a live variable read back off a
       running program
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; the watcher shows live vars.
+
+What the machine answered, once each figure was read off it:
+
+- **The variable table is not the Apple I's**, despite the same interpreter
+  design. Names are spelled out one byte a character with bit 7 set, closed by a
+  `$00` and preceded by a `$40` where the name ends in `$`; the Apple I packs one
+  letter and at most one digit into a fixed four-byte header with the letter
+  shifted left a bit. `LONGNAME` is eight bytes here. A reader ported across
+  would have named every variable something else.
+- **Arrays are zero-based and `DIM` does not clear them.** `DIM D(4)` reserves
+  five elements, `D(0)` is a real one, and `A=1` followed by `DIM A(3)` grows the
+  one entry rather than raising `*** DIM ERR`, so `A` and `A(0)` are the same
+  cell. An element never assigned reads back as whatever the workspace held.
+- **The error table is this ROM's.** Sixteen-deep FOR and GOSUB stacks, spelled
+  `16 FORS` and `16 GOSUBS`, where the Apple I has eight and says `>8`; and
+  running past the last line answers `NO END` where the Apple I answers `END`.
+- **CTRL-C is a report of its own.** It prints `STOPPED AT n` with no `*** ...
+ERR` above it, so the reader returns the line with `isError: false` rather
+  than reading the break as a failure.
+- **The display pages are `program`, not `screen`.** Only text page 1 gets the
+  screen colour. Everything from `$0800` up is inside the stock workspace, and
+  this interpreter has no `HGR` — hi-res is reachable only through `CALL` — so
+  both hi-res pages and text page 2 are the program's memory until a listing
+  lowers `HIMEM:` to clear them. Colouring them `screen` would also split the
+  workspace into bands the viewer draws as unrelated.
+- The block window and the map agree without moving: `$0300`–`$03F7` free with
+  the firmware's three vectors at `$03F8`–`$03FF`, which is exactly the reserved
+  range the linter already declared.
 
 ## Stage 6 — Reference docs ⬜
 

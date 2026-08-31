@@ -49,9 +49,9 @@ import { integerBasicSupport } from './machineSupport';
  *
  * Not in `src/dialects/registry.ts`: an unfinished machine must not be
  * selectable, and registering one turns every registry-driven battery on at
- * once. The memory map below is an empty stub until it is written; everything
- * else - the language layer, the emulator, the keyboard, the samples and the
- * transfer targets - is real and driven headlessly by the tests alongside.
+ * once. Everything below is real and driven headlessly by the tests
+ * alongside: the language layer, the emulator, the keyboard, the samples, the
+ * transfer targets, the memory map and the runtime introspection behind it.
  *
  * The picker identity and the RAM figure are placeholders that satisfy the
  * contract; each is written for real when the dialect is registered.
