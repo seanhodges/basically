@@ -70,6 +70,15 @@ export const TEXT_PAGE2 = 0x0800;
 export const HIRES_PAGE1 = 0x2000;
 export const HIRES_PAGE2 = 0x4000;
 
+/**
+ * The mask COUT ANDs every character with before storing it, which is the
+ * text screen's whole attribute model: 0xff leaves a character in the normal
+ * band, 0x3f drops it into the inverse one. 0x7f flashes the letters but
+ * lands space, punctuation and digits in the inverse band instead, because an
+ * AND cannot raise a bit - Applesoft carries a separate flash bit for that.
+ */
+export const INVFLG = 0x0032;
+
 /** The hi-res raster the text and lo-res pages are also drawn into. */
 export const DISPLAY_WIDTH = 280;
 export const DISPLAY_HEIGHT = 192;

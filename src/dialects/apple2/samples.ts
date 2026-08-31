@@ -47,9 +47,25 @@ export const APPLE2_KALEIDO_BLOCK = {
  *    the keyboard latch and the text page both hold, so `IF K=ASC("W")` needs
  *    no arithmetic between the three.
  *
+ *  - **The text page has no colour, so `hello` draws nothing.** Neither
+ *    graphics mode can carry a full-screen cascade - both are mixed displays
+ *    with a four-line text window, and here the lo-res page *is* text page 1 -
+ *    so the greeting shows the display off with the only per-character
+ *    attribute the hardware has: INVFLG at 50, which COUT ANDs into every
+ *    character. 255 leaves it normal and 63 makes it inverse. **127 is not a
+ *    third mode on this machine.** An AND cannot raise a bit, so it flashes
+ *    the letters but drops space, punctuation and digits into the inverse
+ *    band; uniform flashing needs the separate flash bit Applesoft added, and
+ *    this ROM has none. Hence two modes in the cascade where the II Plus has
+ *    three, and an inverse banner rather than a flashing one.
+ *
  * `CALL -936` is the monitor's HOME. It appears wherever a program needs the
  * screen cleared, because Integer BASIC has no statement for it: `GR` clears
  * the graphics half and `TEXT` clears nothing at all.
+ *
+ * `hello` prints its banner with a trailing `;`. Without it the carriage
+ * return drops the cursor past the last line, the screen scrolls, and the
+ * cascade loses its top row and gains a mangled one.
  *
  * `src/dialects/roundTrip.test.ts` tokenizes every entry here, so a sample that
  * does not tokenize cleanly fails the build; `samples.test.ts` alongside runs

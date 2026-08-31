@@ -7,7 +7,9 @@ import { apple2 } from './index';
 import { apple2Keywords } from './keywords';
 import { apple2KeyboardLayout } from './keyboardLayout';
 import { apple2MemoryBlocks } from './memoryBlocks';
-import { COLD_START_BYTES_FREE, TEXT_PAGE1 } from './addresses';
+import { COLD_START_BYTES_FREE, INVFLG, TEXT_PAGE1 } from './addresses';
+import { screenGlyph, videoMode } from './charset';
+import { worstAngularGap } from '../ringGap';
 import { materializeSampleBlocks } from '../../app/sampleBlocks';
 import { textRowAddress } from '../../emulator/apple2/display';
 import {
@@ -42,6 +44,30 @@ function loresGrid(m: MachineEmulator): number[][] {
       return (row & 1 ? byte >> 4 : byte) & 0x0f;
     });
   });
+}
+
+/**
+ * The video mode of a text row, taken from its first character that is not a
+ * space. A space carries a mode too, but a blank cell left by the screen clear
+ * is normal video whatever the program last asked for.
+ */
+function rowMode(m: MachineEmulator, row: number): string | null {
+  const start = textRowAddress(TEXT_PAGE1, row);
+  const cell = [...ram(m).subarray(start, start + 40)].find(
+    (b) => screenGlyph(b) !== ' ',
+  );
+  return cell === undefined ? null : videoMode(cell);
+}
+
+/** The twenty cascade rows' video modes, top to bottom. */
+function greetingModes(m: MachineEmulator): (string | null)[] {
+  return Array.from({ length: 20 }, (_, r) => rowMode(m, r));
+}
+
+/** The banner's thirteen cells, as video modes. `VTAB 23` is row 22. */
+function bannerModes(m: MachineEmulator): string[] {
+  const start = textRowAddress(TEXT_PAGE1, 22) + 13;
+  return [...ram(m).subarray(start, start + 13)].map(videoMode);
 }
 
 describe('apple2 sample programs', () => {
@@ -275,18 +301,9 @@ describeOnRom('what each sample actually does', () => {
       .find((l) => /^\*\*\* .*ERR/.test(l));
   }
 
-  it('hello sweeps colour over the lo-res page, then signs off in text', async () => {
+  it('hello cascades in alternating video, then signs off in inverse', async () => {
     const machine = await play('hello.bas');
     try {
-      // Caught mid-cascade: the colour is the first thing the program does and
-      // TEXT wipes it, so a run read only at the end would never see it.
-      await runFrames(machine, 40);
-      const colours = new Set(loresGrid(machine).flat());
-      expect(
-        colours.size,
-        'the lo-res page never got its colour',
-      ).toBeGreaterThan(4);
-
       await finish(machine, 1200);
       expect(machine.isProgramRunning()).toBe(false);
       expect(report(machine)).toBeUndefined();
@@ -294,12 +311,31 @@ describeOnRom('what each sample actually does', () => {
       const lines = screen
         .split('\n')
         .filter((l) => l.includes('HELLO FROM THE APPLE II'));
-      expect(lines.length).toBeGreaterThan(15);
+      // All twenty, undamaged. A banner printed without its trailing `;`
+      // drops the cursor past the last line, and the scroll that follows
+      // costs the top of the cascade and mangles a row on the way.
+      expect(lines.length).toBe(20);
       // The staircase is the point: a static splash would print every copy at
       // the same indent.
       const indents = new Set(lines.map((l) => l.indexOf('H')));
       expect(indents.size).toBeGreaterThan(4);
       expect(screen).toContain('* BASICALLY *');
+
+      // The cascade *is* this machine's display: with no colour on the text
+      // page, alternating video is what makes it more than a splash. Row I-1
+      // carries odd I inverse, even I normal - all-normal here would mean the
+      // POKEs never reached INVFLG.
+      expect(greetingModes(machine)).toEqual(
+        Array.from({ length: 20 }, (_, r) =>
+          r % 2 === 0 ? 'inverse' : 'normal',
+        ),
+      );
+      // Only two modes, and this is why: COUT masks with an AND, which cannot
+      // raise a bit, so 127 flashes the letters but leaves space, punctuation
+      // and digits inverse. Uniform flashing needs Applesoft's flash bit.
+      expect(bannerModes(machine)).toEqual(Array(13).fill('inverse'));
+      // Normal video handed back, or the prompt is drawn in the last mode set.
+      expect(ram(machine)[INVFLG], 'INVFLG left non-normal').toBe(0xff);
     } finally {
       machine.dispose();
     }
@@ -337,6 +373,19 @@ describeOnRom('what each sample actually does', () => {
       // pair of cells rather than a solid run.
       expect(inked[0]!.cols.length).toBeGreaterThan(3);
       expect(inked.at(-1)!.cols.length).toBeGreaterThan(3);
+      // And every ring in full, not just the outer one the bounding box sees.
+      // Each is an ellipse in cell space - 6*K rows against 6*K*4/7 columns,
+      // which is the same circle once the 7-by-4 cell is accounted for.
+      for (const k of [1, 2, 3]) {
+        const colour = k * 3 + 3;
+        const gap = worstAngularGap(
+          (x, y) => grid[y]?.[x] === colour,
+          { x: 20, y: 20 },
+          { x: (6 * k * 4) / 7, y: 6 * k },
+          1.5,
+        );
+        expect(gap, `ring ${k} is broken over ${gap} degrees`).toBeLessThan(6);
+      }
     } finally {
       machine.dispose();
     }

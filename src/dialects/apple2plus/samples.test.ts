@@ -7,8 +7,10 @@ import { apple2plus } from './index';
 import { apple2plusKeywords } from './keywords';
 import { apple2plusKeyboardLayout } from './keyboardLayout';
 import { apple2plusMemoryBlocks } from './memoryBlocks';
-import { COLD_START_BYTES_FREE } from './addresses';
-import { TEXT_PAGE1 } from '../apple2/addresses';
+import { COLD_START_BYTES_FREE, FLASH_BIT } from './addresses';
+import { INVFLG, TEXT_PAGE1 } from '../apple2/addresses';
+import { screenGlyph, videoMode } from '../apple2/charset';
+import { worstAngularGap } from '../ringGap';
 import { materializeSampleBlocks } from '../../app/sampleBlocks';
 import {
   hiresBase,
@@ -40,13 +42,28 @@ function hiresRow(m: MachineEmulator, y: number): number[] {
   return [...ram(m).subarray(start, start + ROW_BYTES)];
 }
 
-/** Dots lit on hi-res page 1, bit 7 being the palette bit rather than a dot. */
-function hiresDots(m: MachineEmulator): number {
-  let dots = 0;
+/** Every lit dot on hi-res page 1, keyed `x,y`. Bit 7 is the palette bit. */
+function hiresDotSet(m: MachineEmulator): Set<string> {
+  const on = new Set<string>();
   for (let y = 0; y < HIRES_ROWS; y++)
-    for (const byte of hiresRow(m, y))
-      for (let bit = 0; bit < 7; bit++) if (byte & (1 << bit)) dots++;
-  return dots;
+    hiresRow(m, y).forEach((byte, col) => {
+      for (let bit = 0; bit < 7; bit++)
+        if (byte & (1 << bit)) on.add(`${col * 7 + bit},${y}`);
+    });
+  return on;
+}
+
+/**
+ * The video mode of a text row, taken from its first character that is not a
+ * space. A space carries a mode too, but a blank cell left by `HOME` is normal
+ * video whatever the program last asked for.
+ */
+function rowMode(m: MachineEmulator, row: number): string | null {
+  const start = textRowAddress(TEXT_PAGE1, row);
+  const cell = [...ram(m).subarray(start, start + 40)].find(
+    (b) => screenGlyph(b) !== ' ',
+  );
+  return cell === undefined ? null : videoMode(cell);
 }
 
 /** The lo-res page as 40 rows of 40 colour numbers. */
@@ -311,19 +328,9 @@ describeOnRom('what each sample actually does', () => {
       .find((l) => /^\?.*ERROR/.test(l));
   }
 
-  it('hello draws a hi-res fan, then cascades the greeting and signs off', async () => {
+  it('hello cascades through all three video modes and signs off flashing', async () => {
     const machine = await play('hello.bas');
     try {
-      // The fan first, because TEXT wipes the screen it was drawn on and a run
-      // read only at the end would never see it. It fills the page: the sibling
-      // cannot draw here at all, and this is what makes the two hellos
-      // different programs.
-      await runUntil(machine, () => (machine.currentLine() ?? 0) >= 90, 1200);
-      expect(
-        hiresDots(machine),
-        'the hi-res page stayed empty',
-      ).toBeGreaterThan(2000);
-
       await runUntil(machine, () => machine.isProgramRunning() === false, 1200);
       expect(machine.isProgramRunning()).toBe(false);
       expect(report(machine)).toBeUndefined();
@@ -331,16 +338,35 @@ describeOnRom('what each sample actually does', () => {
       const lines = screen
         .split('\n')
         .filter((l) => l.includes('HELLO FROM THE APPLE II PLUS'));
-      expect(lines.length).toBeGreaterThan(15);
+      // All twenty, undamaged. A banner printed without its trailing `;` drops
+      // the cursor past the last line, and the scroll that follows costs the
+      // top of the cascade and mangles a row on the way.
+      expect(lines.length).toBe(20);
       // The staircase is the point: a static splash would print every copy at
       // the same indent.
       expect(new Set(lines.map((l) => l.indexOf('H'))).size).toBeGreaterThan(8);
       expect(screen).toContain('* BASICALLY *');
-      // FLASH, which is Applesoft's and not Integer BASIC's: the banner's
-      // characters are stored in the $40-$7F band the generator blinks.
-      const banner = textRowAddress(TEXT_PAGE1, 22);
-      const row = [...ram(machine).subarray(banner, banner + 40)];
-      expect(row.some((b) => b >= 0x40 && b < 0x80)).toBe(true);
+
+      // The cascade *is* this machine's display: the text page has no colour,
+      // so the three video modes are what make it more than a splash. Row I-1
+      // carries I MOD 3 - all-normal would mean none of them took.
+      const cycle = ['normal', 'flashing', 'inverse'] as const;
+      expect(Array.from({ length: 20 }, (_, r) => rowMode(machine, r))).toEqual(
+        Array.from({ length: 20 }, (_, r) => cycle[(r + 1) % 3]),
+      );
+
+      // FLASH is Applesoft's and not Integer BASIC's, and the stars are how
+      // you can tell: it ORs the flash bit in before COUT masks, so a star and
+      // a space flash too. The sibling's POKE can only AND, which leaves both
+      // of them inverse - so every cell here, not merely one, must flash.
+      const banner = textRowAddress(TEXT_PAGE1, 22) + 13;
+      const cells = [...ram(machine).subarray(banner, banner + 13)];
+      expect(cells.map(screenGlyph).join('')).toBe('* BASICALLY *');
+      expect(cells.map(videoMode)).toEqual(Array(13).fill('flashing'));
+      // Normal video handed back. NORMAL clears the flash bit as well as
+      // INVFLG, and only the pair proves it ran rather than a bare POKE.
+      expect(ram(machine)[INVFLG], 'INVFLG left non-normal').toBe(0xff);
+      expect(ram(machine)[FLASH_BIT], 'flash bit left set').toBe(0x00);
     } finally {
       machine.dispose();
     }
@@ -374,7 +400,11 @@ describeOnRom('what each sample actually does', () => {
           }
         });
       }
-      expect(dots).toBeGreaterThan(400);
+      // Three solid rings light about a thousand dots. Drawn in the artifact
+      // colours instead, two of the three come out at a third of their density
+      // and the total lands near 700 - so this floor is what stands between
+      // the sample and a dashed picture.
+      expect(dots).toBeGreaterThan(900);
       const width = maxX - minX + 1;
       const height = maxY - minY + 1;
       expect(
@@ -384,13 +414,24 @@ describeOnRom('what each sample actually does', () => {
       expect(width / height).toBeLessThan(1.1);
       // The outer ring is the K=3 one, radius 66 about (140,80).
       expect(width).toBeGreaterThan(120);
-      // Closed, not an arc: every quadrant of the outer ring has ink in it.
+
+      // Every ring whole, which the bounding box above cannot see: it is the
+      // outer ring's alone, so an inner ring could be missing entirely and
+      // still leave it - and a coloured ring is dashed rather than absent.
+      // HCOLOR= 1 or 5 reaches only half the dot columns, which put a 31
+      // degree hole in the innermost ring before this check was written.
       const cx = 140;
       const cy = 80;
-      expect(minX).toBeLessThan(cx - 60);
-      expect(maxX).toBeGreaterThan(cx + 60);
-      expect(minY).toBeLessThan(cy - 60);
-      expect(maxY).toBeGreaterThan(cy + 60);
+      const on = hiresDotSet(machine);
+      for (const k of [1, 2, 3]) {
+        const gap = worstAngularGap(
+          (x, y) => on.has(`${x},${y}`),
+          { x: cx, y: cy },
+          { x: k * 22, y: k * 22 },
+          2,
+        );
+        expect(gap, `ring ${k} is broken over ${gap} degrees`).toBeLessThan(6);
+      }
     } finally {
       machine.dispose();
     }
