@@ -65,14 +65,28 @@ import { CYCLES_PER_FIELD, FIELD_HZ } from './timing';
  * machine lays them down itself.
  */
 export interface Apple2BasicSupport {
+  /** The machine this interpreter makes, for anything the user is shown. */
+  readonly machineName: string;
+  /** Where its firmware image lives, named at a user whose copy is wrong. */
+  readonly romPath: string;
   /** The interpreter's cold start, typed at the monitor as `<addr>G`. */
   readonly coldEntry: number;
+  /**
+   * Whether the monitor starts the interpreter out of reset.
+   *
+   * The Autostart Monitor the II Plus shipped with does; the original one the
+   * II shipped with stops at its own `*` prompt and has to be told. An
+   * autostart machine must not be typed at: it is already at the interpreter's
+   * prompt on the first field, so {@link coldEntry} would be found there and
+   * the `<addr>G` left sitting in the keyboard for whatever reads next.
+   */
+  readonly autostart?: boolean;
   /**
    * The one address every way of finishing with a program arrives at, watched
    * to know a run is over.
    */
   readonly commandLoop: number;
-  /** The prompt that says the interpreter is up. */
+  /** The prompt the interpreter prints at the left margin when it is up. */
   readonly prompt: string;
   /**
    * Write a built image into the interpreter's workspace and fix the pointers
@@ -97,11 +111,13 @@ export interface Apple2BasicSupport {
 const MAX_BOOT_FIELDS = 600;
 
 /** Shown when the supplied image carries no firmware to start from. */
-const NO_FIRMWARE_NOTICE = [
-  'NO FIRMWARE.',
-  'THE SUPPLIED IMAGE CARRIES NO MONITOR.',
-  'REPLACE IT AT PUBLIC/ROMS/APPLE2.ROM.',
-];
+function noFirmwareNotice(romPath: string): string[] {
+  return [
+    'NO FIRMWARE.',
+    'THE SUPPLIED IMAGE CARRIES NO MONITOR.',
+    `REPLACE IT AT ${romPath.toUpperCase()}.`,
+  ];
+}
 
 /** A blank text cell, as the machine stores it: space with bit 7 set. */
 const BLANK = 0xa0;
@@ -127,11 +143,11 @@ const BLANK = 0xa0;
  *
  * The authentic route is cassette, and this is not it. {@link loadProgram}
  * boots the interpreter the way an owner would - `E000G` typed at the monitor's
- * `*` prompt, which really is how Integer BASIC starts on a machine whose RESET
- * lands in the monitor - and then writes the program straight into the
- * workspace and fixes the pointers that describe it, which is exactly the state
- * a completed `LOAD` leaves behind. Typing a listing in instead would cost a
- * field per character.
+ * `*` prompt on the machine whose RESET lands there, and nothing at all on the
+ * one whose Autostart Monitor has already done it - and then writes the program
+ * straight into the workspace and fixes the pointers that describe it, which is
+ * exactly the state a completed `LOAD` leaves behind. Typing a listing in
+ * instead would cost a field per character.
  *
  * ### 48K, whatever it is asked for
  *
@@ -261,15 +277,18 @@ export class Apple2Machine implements MachineEmulator {
     this.runLatch.clear();
     this.loop.reset();
     this.cpu.reset();
-    if (!this.hasFirmware) this.printNotice(NO_FIRMWARE_NOTICE);
+    if (!this.hasFirmware)
+      this.printNotice(noFirmwareNotice(this.basic.romPath));
   }
 
   /**
    * The RESET key. Unlike {@link reset} it is not a power cycle: it pulses the
    * CPU's reset line and nothing else, so RAM - the program in it included -
-   * survives. With the original monitor fitted that lands at the `*` prompt
-   * rather than restarting anything, which is how an owner escaped a runaway
-   * program and typed `E2B3G` to get back to BASIC with their listing intact.
+   * survives. Where it lands is the monitor's decision, not this method's: with
+   * the original monitor fitted it stops at the `*` prompt, which is how an
+   * owner escaped a runaway program and typed `E2B3G` to get back to BASIC with
+   * their listing intact, while the Autostart Monitor re-enters the interpreter
+   * itself and comes straight back to `]` with the listing still there.
    */
   pressReset(): void {
     this.keyboard.clearInput();
@@ -315,21 +334,30 @@ export class Apple2Machine implements MachineEmulator {
   }
 
   /**
-   * Answer the monitor's `*` with the interpreter's entry point and run on to
-   * its prompt, from a freshly reset machine.
+   * Run a freshly reset machine on to the interpreter's prompt, answering the
+   * monitor's `*` with the entry point first where the monitor waits to be
+   * asked.
    *
    * Public because starting BASIC is not automatic on a machine with the
    * original monitor: left alone it stops at `*`, which is the authentic thing
    * to do and lets the user drive the monitor by hand, but anything that wants
    * the interpreter *up* has to type the entry point at it as an owner would.
+   * An {@link Apple2BasicSupport.autostart} machine is not typed at at all -
+   * its monitor has already run the cold start, so the prompt is on the screen
+   * within a field or two and a queued `<addr>G` would only be read by whatever
+   * ran next.
    */
   bootToBasic(): void {
     if (!this.hasFirmware) return;
     this.keyboard.clearInput();
-    this.keyboard.type(`${this.basic.coldEntry.toString(16).toUpperCase()}G\r`);
+    if (!this.basic.autostart) {
+      this.keyboard.type(
+        `${this.basic.coldEntry.toString(16).toUpperCase()}G\r`,
+      );
+    }
     for (let field = 0; field < MAX_BOOT_FIELDS; field++) {
       this.loop.runFrame();
-      if (this.screenContains(this.basic.prompt)) {
+      if (this.atBasicPrompt()) {
         // These fields ran without the host reading a sample off them, so the
         // beep the monitor's reset makes is a sound nobody was listening to.
         // Left on the timeline it would replay, all at once, into the first
@@ -339,8 +367,8 @@ export class Apple2Machine implements MachineEmulator {
       }
     }
     throw new Error(
-      'Apple II: BASIC did not reach its prompt - the image at ' +
-        'public/roms/apple2.rom is not the firmware this dialect expects',
+      `${this.basic.machineName}: BASIC did not reach its prompt - the image ` +
+        `at ${this.basic.romPath} is not the firmware this dialect expects`,
     );
   }
 
@@ -562,10 +590,20 @@ export class Apple2Machine implements MachineEmulator {
     };
   }
 
-  /** True when `needle` appears on any single row of the visible text. */
-  private screenContains(needle: string): boolean {
+  /**
+   * True when the interpreter's prompt is sitting at the left margin.
+   *
+   * At the *margin*, not anywhere on the row, because the Autostart Monitor's
+   * sign-on banner is `APPLE ][` - which contains Applesoft's `]` prompt, and a
+   * contains-check therefore reads the banner as an interpreter that is up. It
+   * is not: the cold start prints the banner first and lays its zero-page
+   * workspace down after, so a load that believed the banner would write a
+   * program into a machine that then walks over it. Both interpreters print
+   * their prompt at column 0 and print nothing else there.
+   */
+  private atBasicPrompt(): boolean {
     return (this.readScreenText()?.lines ?? []).some((line) =>
-      line.includes(needle),
+      line.startsWith(this.basic.prompt),
     );
   }
 

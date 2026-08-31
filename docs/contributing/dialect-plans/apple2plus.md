@@ -160,10 +160,10 @@ wrong version is the intuitive one:
 
 The machine is genuinely shared, and parts of it were written with one
 interpreter in view. Widen them rather than working around them; the sibling's
-own tests are the regression net. The first three are Stage 2's; the last is
-Stage 4's.
+own tests are the regression net. The first three shipped with Stage 2 — and a
+fourth, which nobody predicted, is recorded under it; the last is Stage 4's.
 
-- **Autostart boot.** `Apple2Machine.bootToBasic()` types
+- **Autostart boot.** ✅ `Apple2Machine.bootToBasic()` types
   `<coldEntry>G\r` at the monitor's `*` prompt and then polls for `basic.prompt`.
   The II Plus's Autostart Monitor runs Applesoft's cold start itself, so this
   machine arrives at `]` having been asked nothing. Check what the existing loop
@@ -172,11 +172,11 @@ Stage 4's.
   keyboard, which only `loadProgram`'s later `clearInput()` saves. Give
   `Apple2BasicSupport` an explicit member instead: an `autostart` flag, or an
   optional `bootToPrompt` hook the machine calls in place of typing.
-- **Machine naming.** `NO_FIRMWARE_NOTICE` and `bootToBasic`'s throw both
+- **Machine naming.** ✅ `NO_FIRMWARE_NOTICE` and `bootToBasic`'s throw both
   hardcode `Apple II` and `public/roms/apple2.rom`, so a II Plus with a missing
   or wrong image names the wrong file at the user. Put the machine's name and its
   ROM path on the support object and thread both through.
-- **`pressReset()`'s comment** describes the original monitor's landing at `*`.
+- **`pressReset()`'s comment** ✅ describes the original monitor's landing at `*`.
   The behaviour — pulse the reset line, keep RAM — is right for both machines;
   the comment has to cover the Autostart path back to `]` with the listing
   intact, which is what a II Plus owner sees.
@@ -194,7 +194,7 @@ Stage 4's.
 | Stage | Title                                        | Status |
 | ----- | -------------------------------------------- | ------ |
 | 1     | Language core                                | ✅     |
-| 2     | ROM, interpreter support, keyboard & samples | ⬜     |
+| 2     | ROM, interpreter support, keyboard & samples | ✅     |
 | 3     | Transfer & tape I/O                          | ⬜     |
 | 4     | Memory map & runtime introspection           | ⬜     |
 | 5     | Reference docs                               | ⬜     |
@@ -292,47 +292,47 @@ What the machine answered, once each construct was typed at its `]` prompt:
   programs were typed at the `]` prompt, the program area read back, and the
   bytes frozen into `tokenizer.test.ts`. All 113 match.
 
-## Stage 2 — ROM, interpreter support, keyboard & samples ⬜
+## Stage 2 — ROM, interpreter support, keyboard & samples ✅
 
 There is no emulator to write, and no machine variant either: what this stage
 does is fit this interpreter into the one in `src/emulator/apple2/`, then wire
 up the dialect around it. Verify by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
-- [ ] `public/roms/apple2plus.rom` **+ an attribution block in
+- [x] `public/roms/apple2plus.rom` **+ an attribution block in
       `public/roms/ATTRIBUTION.md`**, naming Microsoft's authorship of Applesoft
       alongside Apple's copyright, with the SHA-256 of the file and the source it
       was taken from and checked against
-- [ ] `machineSupport.ts` exporting an `applesoftSupport: Apple2BasicSupport` —
+- [x] `machineSupport.ts` exporting an `applesoftSupport: Apple2BasicSupport` —
       named as the sibling names its own, `apple2/machineSupport.ts` being the
       file to read first
-- [ ] `loadProgram` through `loadMicrosoftBasicProgram`: write the image at
+- [x] `loadProgram` through `loadMicrosoftBasicProgram`: write the image at
       `TXTTAB`, then fix the workspace pointers. **Two of that helper's four
       steps do not apply here**, because `Apple2Machine.loadProgram` already pokes
       the document's blocks and types `RUN\r` itself — so pass no `blocks` and a
       no-op `typeRun`, or the program is run twice. It also needs a small
       `WritableMemory` adapter: the helper spells its writes `write`/`writeWord`
       and `Apple2Memory` spells them `poke`/`pokeWord`
-- [ ] `currentLine` off `CURLIN`. Expect it to hold the line **number** rather
+- [x] `currentLine` off `CURLIN`. Expect it to hold the line **number** rather
       than a pointer, unlike the sibling's `PLINE`, and read the direct-mode
       marker off the ROM instead of assuming one
-- [ ] the three seam changes under _Seams to widen in the shared code_ — the
+- [x] the three seam changes under _Seams to widen in the shared code_ — the
       autostart boot, the machine naming, and `pressReset()`'s comment. The
       sibling's `apple2Machine.test.ts` is the regression net for all three
-- [ ] `createEmulator` on the dialect, handing `Apple2Machine` this ROM and this
+- [x] `createEmulator` on the dialect, handing `Apple2Machine` this ROM and this
       support object
-- [ ] `debuggable: true` — `CURLIN` names the executing line
-- [ ] `keyboardLayout.ts` is already written: the sibling's layout under this
+- [x] `debuggable: true` — `CURLIN` names the executing line
+- [x] `keyboardLayout.ts` is already written: the sibling's layout under this
       dialect's `id`/`name`/`theme`. What is left is the matrix test and knowing
       that `src/keyboard/layoutGeometry.test.ts` picks the layout up when the
       dialect registers. The `vk-theme-apple2plus` stylesheet block waits for
       Stage 6. No `graphicsPalette`, and not in `e2e/paletteMachines.ts`
-- [ ] **no `directLine.ts`** — a decision, not an omission. The sibling needs one
+- [x] **no `directLine.ts`** — a decision, not an omission. The sibling needs one
       because its tape does not carry the `LOMEM:`/`HIMEM:` bounds a program was
       written under, so its listing has to. Applesoft's program is always at
       `$0801` and its image describes itself, so there is no unnumbered preamble
       to parse and Stage 3's `loadInstructions` is correspondingly simpler
-- [ ] `samples/` + `samples.ts` via `standardSamples` — all five canonical
+- [x] `samples/` + `samples.ts` via `standardSamples` — all five canonical
       programs, written for Applesoft. They are **not** ports of the sibling's:
       floating point, `HGR`/`HCOLOR=`/`HPLOT` and real string functions make
       these different programs, and `circles` and `kaleido` in particular should
@@ -344,16 +344,16 @@ up the dialect around it. Verify by booting the real ROM through
       variables and string space behind it, so what `HGR` clears is whatever a
       long enough program has grown into. Check each hi-res sample's headroom on
       the machine rather than on the listing
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport` for `kaleido.bas`'s routine.
+- [x] `memoryBlocks.ts` — `MemoryBlocksSupport` for `kaleido.bas`'s routine.
       `$0300` again, and now with an answer to check against: the sibling settled
       on `$0300`–`$03FF` valid with `$03F8`–`$03FF` reserved for the monitor's
       CTRL-Y, NMI and IRQ vectors. **Expect the reserved range to grow here** —
       the Autostart Monitor keeps a soft-entry vector and its checksum below
       those three and validates them on RESET, which the original monitor does
       not. Confirm against this ROM. Stage 4 rechecks the figures against the map
-- [ ] every sample **run on the machine** and fixed until its screen is right
+- [x] every sample **run on the machine** and fixed until its screen is right
       (`authoring-dialect-samples`; tokenizing clean proves nothing)
-- [ ] finalize `aiProfile.ts` — and make it earn its place next to the sibling's.
+- [x] finalize `aiProfile.ts` — and make it earn its place next to the sibling's.
       The traps worth teaching are the ones that catch someone who knows the
       other Apple II BASIC: `RND(1)` returns a fraction here and an integer
       there, `HIMEM:` moves a different pointer, and Applesoft is markedly slower
@@ -363,10 +363,10 @@ up the dialect around it. Verify by booting the real ROM through
       bullet at a time. Restating the keyword table or the `facts.ts`
       substitutions is what makes one run long; the same prompt already carries
       both
-- [ ] `index.ts` — assemble the full `Dialect`, importing the sibling's charset,
+- [x] `index.ts` — assemble the full `Dialect`, importing the sibling's charset,
       keyboard and machine member by member (placeholder picker identity until
       Stage 6)
-- [ ] tests: boot this ROM to the `]` prompt, inject a program, `RUN` it and read
+- [x] tests: boot this ROM to the `]` prompt, inject a program, `RUN` it and read
       the screen back; a re-`LIST` after injection matching the source; the
       keyboard matrix; samples tokenize cleanly **and run**; and the one-line
       charset identity assertion in `index.test.ts`
@@ -374,6 +374,51 @@ up the dialect around it. Verify by booting the real ROM through
 **Depends on:** Stage 1.
 **Verify:** `npm run typecheck` + `npx vitest run src/dialects/apple2plus/ src/emulator/apple2/`
 (the app and e2e cannot see the machine yet — that is Stage 6's verify).
+
+What the machine answered, once it was booted and driven:
+
+- **A fourth seam, and the one that would have lost programs silently.** The
+  boot loop looked for the interpreter's prompt _anywhere_ on a row, and the
+  Autostart Monitor's sign-on banner is `APPLE ][` — which carries Applesoft's
+  `]`. So the machine reported itself up on the banner, several fields before
+  the cold start had laid down its zero-page workspace, and a load at that
+  moment would have been walked over. The prompt is now looked for at the left
+  margin, where both interpreters print theirs and nothing else prints at all.
+- **The command loop is `$D43C`**, reached by `END`, by falling off the end
+  (both through the `JMP $D43C` at `$D890`) and by every `?… ERROR` report
+  (from the error handler's tail at `$DB02`). `$E003`, the warm start, is a
+  `JMP` there and nothing else. Found by tracing every instruction boundary of
+  three runs to their common suffix, not by reading a manual.
+- **`CURLIN` keeps the line a program stopped on.** The direct-mode `$FF` goes
+  in when a line is _typed_, not when a program ends — the `LDX #$FF / STX $76`
+  is in the command loop after `GETLN` returns — which is how `CONT` knows where
+  to resume. So `currentLine()` names the line the interpreter is on, and the
+  run latch is what answers "still running".
+- **Page 3's reserved range is `$03F0`–`$03FF`, twice the sibling's.** A page
+  filled with a marker and booted through shows the firmware writing exactly
+  five bytes, and only on RESET: `$03F0`–`$03F1` the BRK vector, `$03F2`–`$03F3`
+  SOFTEV (`$E003`, Applesoft's warm start) and `$03F4` PWREDUP (SOFTEV's high
+  byte EOR `$A5`). The Autostart Monitor checks that pair on every RESET and
+  cold-starts when they disagree, so a block across `$03F2` turns RESET from
+  "come back to the listing" into "lose it". Applesoft's `&` vector at
+  `$03F5`–`$03F7` is never initialised but is still a vector, so the warning
+  covers the whole sixteen bytes.
+- **Applesoft does not copy a string it can point at.** `A$(I) = "0123456789"`
+  leaves the descriptor pointing into the program text and moves no memory
+  figure at all; only a concatenation or a computed string reaches the string
+  space. That is what the memory-stats test had to be written around.
+- **Hi-res colour is half-resolution, and this renderer is monochrome.**
+  `HCOLOR=` 1, 2, 5 and 6 light every other column, which on a mono raster reads
+  as a dotted line rather than as colour. `circles` therefore draws in the
+  full-resolution colours, and `kaleido`'s routine writes solid or empty bytes
+  instead of using the mix value as seven dots — a value written raw makes cells
+  that differ by one look nothing alike and the mirror disappears into speckle.
+  The sibling's lo-res version can write the value itself because there it is a
+  colour, and that is the whole reason the two routines differ.
+- The measured runs: `hello`'s fan fills the page in 2.1 s and the whole program
+  takes 2.5 s; `circles` closes all three rings in 10.6 s with an ink box of
+  131 by 134 pixels; one `kaleido` pass takes 1.2 s and its mirror is exact over
+  all 6400 bytes; one `maze` move repaints two cells and no more.
 
 ## Stage 3 — Transfer & tape I/O ⬜
 
