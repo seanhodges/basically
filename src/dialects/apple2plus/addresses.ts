@@ -62,6 +62,18 @@ export const BASIC_COMMAND_LOOP = 0xd43c;
  */
 export const TOKEN_TABLE = 0xd0d0;
 
+/**
+ * The error message table, spelled the same way as the keyword table: ASCII
+ * with bit 7 set on each message's last character, one after another with no
+ * separator and no count.
+ *
+ * What closes it is the ` ERROR` the interpreter prints *after* the message,
+ * which is the next entry along - so a walk that wants the names alone stops
+ * there rather than at a terminator. `reports.ts` names each one, and
+ * `reports.test.ts` re-walks the table to check that none has been missed.
+ */
+export const ERROR_TABLE = 0xd260;
+
 // --------------------------------------------------------------------------
 // The zero-page workspace
 // --------------------------------------------------------------------------

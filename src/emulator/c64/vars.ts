@@ -40,6 +40,18 @@ export interface CbmVarsLayout {
   arytab: number;
   /** Zero-page pointer to the end of array variables. */
   strend: number;
+  /**
+   * The machine's own decoder for one byte of string content, where PETSCII is
+   * not what the string space holds. Absent on every Commodore, which is what
+   * the default below is.
+   *
+   * The table layout is Microsoft 6502 BASIC's and is shared beyond the
+   * Commodores - Applesoft is the same five-byte float and the same seven-byte
+   * scalar - but the character set behind a string descriptor is the machine's,
+   * not the interpreter's. A byte that returns undefined is shown as a dot, as
+   * an unprintable PETSCII code is.
+   */
+  plainChar?(code: number): string | undefined;
 }
 
 /** BASIC V2 pointers, shared by the C64 and the VIC-20. */
@@ -97,14 +109,23 @@ const PETSCII_SPECIAL: Record<number, string> = {
  * the four C64-specific glyphs, everything else a dot. Mirrors the BBC decoder's
  * printable-or-dot policy and stays free of any dialect import.
  */
-function decodeString(mem: C64MemPort, addr: number, len: number): string {
+function petsciiChar(code: number): string {
+  const special = PETSCII_SPECIAL[code];
+  if (special !== undefined) return special;
+  return code >= 0x20 && code <= 0x5d ? String.fromCharCode(code) : '.';
+}
+
+/** A string's characters, through whichever charset the layout names. */
+function decodeString(
+  mem: C64MemPort,
+  layout: CbmVarsLayout,
+  addr: number,
+  len: number,
+): string {
   let s = '';
   for (let i = 0; i < len; i++) {
     const c = mem.read((addr + i) & 0xffff);
-    const special = PETSCII_SPECIAL[c];
-    if (special !== undefined) s += special;
-    else if (c >= 0x20 && c <= 0x5d) s += String.fromCharCode(c);
-    else s += '.';
+    s += layout.plainChar ? (layout.plainChar(c) ?? '.') : petsciiChar(c);
   }
   return s;
 }
@@ -174,7 +195,7 @@ export function readC64Variables(
         out.push({
           name: base + '$',
           kind: 'string',
-          value: '"' + decodeString(mem, ptr, len) + '"',
+          value: '"' + decodeString(mem, layout, ptr, len) + '"',
           ref: { addr: vp, layout: 'string' },
         });
         break;

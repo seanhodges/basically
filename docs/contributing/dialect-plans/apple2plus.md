@@ -180,12 +180,12 @@ fourth, which nobody predicted, is recorded under it; the last is Stage 4's.
   The behaviour — pulse the reset line, keep RAM — is right for both machines;
   the comment has to cover the Autostart path back to `]` with the listing
   intact, which is what a II Plus owner sees.
-- **`CbmVarsLayout` needs a `plainChar`** (Stage 4). `readC64Variables` decodes
-  string contents through a hardcoded PETSCII table. Add an optional
-  `plainChar(code): string | undefined` to the layout — `MsBasicVarsLayout` in
-  `microsoftBasicVars.ts` already carries exactly that member, so the precedent
-  and the signature both exist — defaulting to today's behaviour so the C64, PET
-  and VIC-20 call sites do not move.
+- **`CbmVarsLayout` needs a `plainChar`.** ✅ `readC64Variables` decoded string
+  contents through a hardcoded PETSCII table. The layout now takes an optional
+  `plainChar(code): string | undefined` — the member `MsBasicVarsLayout` in
+  `microsoftBasicVars.ts` already carried, so the precedent and the signature
+  both existed — defaulting to today's behaviour, and the C64, PET and VIC-20
+  call sites did not move.
 
 ## Status legend
 
@@ -196,7 +196,7 @@ fourth, which nobody predicted, is recorded under it; the last is Stage 4's.
 | 1     | Language core                                | ✅     |
 | 2     | ROM, interpreter support, keyboard & samples | ✅     |
 | 3     | Transfer & tape I/O                          | ✅     |
-| 4     | Memory map & runtime introspection           | ⬜     |
+| 4     | Memory map & runtime introspection           | ✅     |
 | 5     | Reference docs                               | ⬜     |
 | 6     | Register & ship                              | ⬜     |
 
@@ -494,9 +494,9 @@ What the machine answered, once `SAVE` was run on it:
   `VARTAB` off the machine is now part of the framing test rather than a fact
   the image builder asserts about itself.
 
-## Stage 4 — Memory map & runtime introspection ⬜
+## Stage 4 — Memory map & runtime introspection ✅
 
-- [ ] `memoryMap.ts` — the same hardware regions as the sibling's, with this
+- [x] `memoryMap.ts` — the same hardware regions as the sibling's, with this
       machine's ROM window and zero-page workspace. Written rather than imported:
       the interpreter half genuinely differs, and a shared map would have to lie
       about one of the two machines. **Take the board's bounds from
@@ -504,40 +504,104 @@ What the machine answered, once `SAVE` was run on it:
       while disagreeing correctly about the firmware. The ROM window splits
       differently here — Applesoft `$D000`–`$F7FF`, Autostart Monitor
       `$F800`–`$FFFF`, and no Programmer's Aid socket
-- [ ] decide the display pages deliberately. The sibling colours both hi-res
+- [x] decide the display pages deliberately. The sibling colours both hi-res
       pages and text page 2 `program`, because Integer BASIC reaches hi-res only
       through `CALL` and everything above `$0800` is its workspace. This
       interpreter has `HGR`, so hi-res page 1 is real screen memory here. Whatever
       the answer, write the reason down — the two maps differing without an
       explanation reads as one of them being wrong
-- [ ] re-check `memoryBlocks.ts` against the map — `memoryMapDetail.test.ts` pins
+- [x] re-check `memoryBlocks.ts` against the map — `memoryMapDetail.test.ts` pins
       the program region to `memoryBlocks.programArea`
-- [ ] `vars.ts` → `readVariables()` over `readC64Variables` with a
+- [x] `vars.ts` → `readVariables()` over `readC64Variables` with a
       `CbmVarsLayout` of `{ vartab: 0x69, arytab: 0x6b, strend: 0x6d }` and the
       `plainChar` seam from _Seams to widen in the shared code_. **Not
       `microsoftBasicVars.ts`**, whose 4-byte float and 6-byte scalar entries are
       the 8080 8K BASIC's and would misread every entry in this table — see
       correction 2 above
-- [ ] `reports.ts` → `readReport()`. `?SYNTAX ERROR`, `?OUT OF DATA ERROR`,
+- [x] `reports.ts` → `readReport()`. `?SYNTAX ERROR`, `?OUT OF DATA ERROR`,
       `?TYPE MISMATCH ERROR`, `?OUT OF MEMORY ERROR`, `BREAK IN <line>` — read
       off the screen the way `apple2/reports.ts` does, with the message table
       read out of **this** ROM and each report then provoked at the machine. The
       shape differs from the sibling's: a `?` prefix, an ` ERROR` suffix and an
       ` IN <line>` tail where that one prints `*** … ERR` and nothing else, so
       the reader is not ported across
-- [ ] `readMemoryStats()` — **every pool**: the program, the variables, the
+- [x] `readMemoryStats()` — **every pool**: the program, the variables, the
       arrays, and the string space growing down from `MEMSIZ`. String churn is
       most of what a BASIC program does with memory, and a figure that counts
       only the program area moves for none of it. The strings themselves are
       reached through three-byte descriptors (length, address low, address high),
       which is the pool the sibling's stats shape has no equivalent of
-- [ ] memory-activity hooks for the memory-map overlay, held to the same rule the
+- [x] memory-activity hooks for the memory-map overlay, held to the same rule the
       sibling's readers are: host introspection never stamps the overlay
-- [ ] tests: memory-map layout, block round-trip, a live variable read back off a
+- [x] tests: memory-map layout, block round-trip, a live variable read back off a
       running program
 
 **Depends on:** Stages 1–2.
 **Verify:** memory-map + blocks tests; the watcher shows live vars.
+
+What the machine answered, once the readers were pointed at it:
+
+- **The hi-res pages stay `program`, and not for the sibling's reason.** `HGR`
+  and `HGR2` really do draw at `$2000` and `$4000` here, so the first draft
+  coloured page 1 `screen`. It cannot be: the viewer takes the program's base
+  from the _first_ `program` region and needs that run uninterrupted, and it
+  allows one screen region per machine — which is text page 1, the one page
+  whose purpose is fixed. The honest reading agrees with the constraint. The
+  cold start reserves nothing between `$0801` and `MEMSIZ`, so a program of six
+  kilobytes has already grown into the page `HGR` is about to clear, which is
+  what `HIMEM: 8192` before `HGR` is for. Colouring those pages `screen` would
+  claim for the display memory a stock program is using and would say the
+  collision cannot happen. The trap is in the region's note instead.
+- **The workspace starts at `$0800`, one byte below `TXTTAB`, and the byte is
+  load-bearing.** The cold start leaves a zero there, exactly as the Commodore
+  ROMs do. Poking anything else in and typing `RUN` answers `?SYNTAX ERROR IN
+65054` — a line number no listing can hold, because `RUN` scans from `$0800`
+  and reads the byte as part of a line record; `LIST`, which starts at `TXTTAB`,
+  lists the program back unbothered. So the byte is the interpreter's and the
+  map's program region is legitimately one byte below
+  `memoryBlocks.programArea()`. That is the case `LINK_BYTE_OFFSET` in
+  `src/dialects/memoryMap.test.ts` already covered for the three Commodores;
+  `apple2plus` is in it now, and its comment says Microsoft 6502 rather than
+  Commodore. Text page 2 is inside the same region, with the program sitting in
+  the middle of it: a listing that switches the page in is looking at a picture
+  of itself.
+- **`readMemoryStats()` needed nothing.** Stage 2's reading is `MEMSIZ - TXTTAB`
+  less the `FRETOP - STREND` gap, which is every pool by construction — the
+  program, the scalars and the arrays growing up, and the string space growing
+  down — and it is what `FRE(0)` answers. Dead strings above `FRETOP` count as
+  used until a collection, which is also what the machine says.
+- **`PEEK(222)` is not the report.** The ROM's one store to `$DE` is on the
+  `ONERR` path at `$F2E9`, beside the line it copies out of `CURLIN`, so a
+  program with no handler armed leaves the cell holding the last _handled_
+  error. The screen is the only source, as it is on the sibling.
+- **The printed shape is one line, not two.** `?<NAME> ERROR IN <line>`, with
+  the `?` and the ` ERROR` the interpreter's own and the line on the _same_ row
+  — where Integer BASIC prints `*** <NAME> ERR` and puts `STOPPED AT <line>`
+  underneath. Nothing of that reader ported across. The longest report a
+  63999-line program can print is 36 characters, so nothing wraps. `BREAK IN
+<line>` for CTRL-C carries neither the `?` nor the ` ERROR` and needs its own
+  pattern, and running off the last line is not a report at all here: the
+  sibling's `*** NO END ERR` has no counterpart, and the program simply returns
+  to the prompt.
+- **The message table is at `$D260` and holds seventeen names**, bit-7
+  terminated like the keyword table — but the ` ERROR` suffix that follows them
+  is `$00`-terminated instead, so a walk looking for a bit-7 byte runs off the
+  end of the names and into the monitor. Thirteen of the seventeen can be
+  provoked from a `RUN`; `ILLEGAL DIRECT` and `CAN'T CONTINUE` need a line typed
+  at the prompt and `FORMULA TOO COMPLEX` an expression the tokenizer will not
+  build, so the table itself is walked out of the ROM to check that no name went
+  unnamed.
+- **Applesoft stores string content with bit 7 clear**, where the screen stores
+  the same characters with it set — measured at the descriptors: `"HI" + "!"`
+  lands in the string space as `48 49 21`, and a literal the interpreter can
+  point at is described in place, in the program text, in the same encoding.
+  Setting bit 7 in the layout's `plainChar` is what the interpreter itself does
+  on the way to `COUT`, so both encodings decode to the one glyph the machine
+  draws and `CHR$(200)` reads back as `H`.
+- **The `DEF FN` dummy argument is a real variable.** The definition itself is
+  skipped, carrying bit 7 on its first name byte only; the `X` in
+  `DEF FN F(X) = X + 1` is created on the `DEF` and stays in the table, so the
+  watcher shows a variable the listing never assigns.
 
 ## Stage 5 — Reference docs ⬜
 
