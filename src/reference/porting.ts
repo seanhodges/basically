@@ -19,6 +19,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       altair8800: 'GOTO',
       apple1: 'GOTO',
       apple2: 'GOTO',
+      applesoft: 'GOTO',
       atom: 'GOTO',
       bbc: 'GOTO',
       commodore: 'GOTO',
@@ -36,6 +37,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       altair8800: 'GOSUB',
       apple1: 'GOSUB',
       apple2: 'GOSUB',
+      applesoft: 'GOSUB',
       atari: 'GOSUB',
       atom: 'GOSUB',
       bbc: 'GOSUB',
@@ -53,6 +55,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       altair8800: 'CONT',
       apple2: 'CON',
+      applesoft: 'CONT',
       atari: 'CONT',
       commodore: 'CONT',
       cpc: 'CONT',
@@ -71,6 +74,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       altair8800: 'CLEAR',
       apple1: 'CLR',
       apple2: 'CLR',
+      applesoft: 'CLEAR',
       atari: 'CLR',
       bbc: 'CLEAR',
       commodore: 'CLR',
@@ -91,6 +95,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     spellings: {
       apple1: 'CALL',
       apple2: 'CALL',
+      applesoft: 'CALL',
       atom: 'LINK',
       bbc: 'CALL',
       commodore: 'SYS',
@@ -124,6 +129,8 @@ export const falseFriends: FalseFriend[] = [
         'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
       apple2:
         'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
+      applesoft:
+        'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
       atari:
         'Neither bits nor values, but truth: 5 AND 3 is 1, because both operands are reduced to true or false first. There is no bitwise operator at all here.',
       atom: 'Bitwise on integers: 5 AND 3 is 1. The & operator is the same thing.',
@@ -146,6 +153,8 @@ export const falseFriends: FalseFriend[] = [
         'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
       apple2:
         'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      applesoft:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
       atari:
         'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
       atom: 'Bitwise on integers: 5 OR 3 is 7. There is no symbolic spelling.',
@@ -164,6 +173,7 @@ export const falseFriends: FalseFriend[] = [
     keyword: 'LOG',
     meanings: {
       altair8800: 'Natural (base-e) logarithm. There is no LN.',
+      applesoft: 'Natural (base-e) logarithm. There is no LN.',
       atari: 'Natural (base-e) logarithm; CLOG gives the base-10 one.',
       atom: 'Base-10 logarithm; LN gives the natural logarithm.',
       bbc: 'Base-10 logarithm; LN gives the natural logarithm.',
@@ -181,6 +191,7 @@ export const falseFriends: FalseFriend[] = [
     keyword: 'CLEAR',
     meanings: {
       altair8800: 'Discards all variables, leaving the program intact.',
+      applesoft: 'Discards all variables, leaving the program intact.',
       atom: 'Selects a screen mode and clears it — CLEAR 0 is the text screen.',
       bbc: 'Discards all variables, leaving the program intact.',
       cpc: 'Discards all variables, leaving the program intact.',
@@ -200,6 +211,8 @@ export const falseFriends: FalseFriend[] = [
     // read at all.
     keyword: 'GET',
     meanings: {
+      applesoft:
+        'Waits for one key press and stores it, without echoing it and without a cursor. A loop that must keep moving reads the keyboard latch with PEEK(-16384) instead.',
       atari:
         'Waits for one byte on an I/O channel: a key press when the channel is open on "K:", a byte of a file otherwise. PEEK(764) is the non-blocking key read.',
       atom: 'Reads a value from a hardware I/O port.',
@@ -238,6 +251,8 @@ export const falseFriends: FalseFriend[] = [
     // whatever the vector happens to hold and passes it 32768.
     keyword: 'USR',
     meanings: {
+      applesoft:
+        'The argument is data: it calls the routine jumped to from location 10, hands the argument over in the floating-point accumulator, and returns whatever the routine leaves there.',
       altair8800:
         'The argument is data: it calls the routine whose address is held in the USR vector, and returns that routine’s result.',
       atari:

@@ -138,6 +138,16 @@ export default withPwa(
               ],
             },
             {
+              text: 'Applesoft BASIC',
+              link: '/reference/applesoft',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/applesoft/hardware' },
+                { text: 'Escape codes', link: '/reference/applesoft/escapes' },
+                { text: 'File formats', link: '/reference/applesoft/formats' },
+              ],
+            },
+            {
               text: 'Atari BASIC',
               link: '/reference/atari',
               collapsed: true,

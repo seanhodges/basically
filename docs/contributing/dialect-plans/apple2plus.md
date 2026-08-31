@@ -197,7 +197,7 @@ fourth, which nobody predicted, is recorded under it; the last is Stage 4's.
 | 2     | ROM, interpreter support, keyboard & samples | ✅     |
 | 3     | Transfer & tape I/O                          | ✅     |
 | 4     | Memory map & runtime introspection           | ✅     |
-| 5     | Reference docs                               | ⬜     |
+| 5     | Reference docs                               | ✅     |
 | 6     | Register & ship                              | ⬜     |
 
 ---
@@ -578,11 +578,11 @@ What the machine answered, once the readers were pointed at it:
   the `?` and the ` ERROR` the interpreter's own and the line on the _same_ row
   — where Integer BASIC prints `*** <NAME> ERR` and puts `STOPPED AT <line>`
   underneath. Nothing of that reader ported across. The longest report a
-  63999-line program can print is 36 characters, so nothing wraps. `BREAK IN
-<line>` for CTRL-C carries neither the `?` nor the ` ERROR` and needs its own
-  pattern, and running off the last line is not a report at all here: the
-  sibling's `*** NO END ERR` has no counterpart, and the program simply returns
-  to the prompt.
+  63999-line program can print is 36 characters, so nothing wraps.
+  `BREAK IN <line>` for CTRL-C carries neither the `?` nor the ` ERROR` and
+  needs its own pattern, and running off the last line is not a report at all
+  here: the sibling's `*** NO END ERR` has no counterpart, and the program
+  simply returns to the prompt.
 - **The message table is at `$D260` and holds seventeen names**, bit-7
   terminated like the keyword table — but the ` ERROR` suffix that follows them
   is `$00`-terminated instead, so a walk looking for a bit-7 byte runs off the
@@ -603,7 +603,7 @@ What the machine answered, once the readers were pointed at it:
   `DEF FN F(X) = X + 1` is created on the `DEF` and stays in the table, so the
   watcher shows a variable the listing never assigns.
 
-## Stage 5 — Reference docs ⬜
+## Stage 5 — Reference docs ✅
 
 Page-keyed, so it lands before the machine registers. Run the
 **`dialect-reference-docs`** sub-skill. This dialect's page slug is `applesoft`
@@ -620,24 +620,24 @@ loaders go.
 **The sidebar entry is approved** — add `docs/reference/applesoft.md` to the
 `sidebar` config in `docs/.vitepress/config.ts`.
 
-- [ ] `src/reference/applesoft.ts` + `src/reference/escapes/applesoft.ts` —
+- [x] `src/reference/applesoft.ts` + `src/reference/escapes/applesoft.ts` —
       scaffold with `npm run gen:reference` / `npm run gen:escapes`, then
       hand-enrich. The escape set is generated from a charset this dialect shares
       with the sibling, so it should come out equal to `apple2`'s: derive it, do
       not retype it, and let the crosschecks say so
-- [ ] `docs/reference/applesoft.md` +
+- [x] `docs/reference/applesoft.md` +
       `docs/reference/applesoft/{hardware,escapes,formats}.md`, plus a row and a
       link in `docs/reference/file-formats.md`
-- [ ] `pages.ts`, the index bullet, the sidebar entry, the 6502 assembly page's
+- [x] `pages.ts`, the index bullet, the sidebar entry, the 6502 assembly page's
       machine lists, and `src/ai/machineReference.ts`'s lazy loaders
-- [ ] add `'applesoft'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts`
-- [ ] the `porting.ts` equivalence groups and false friends, and the
+- [x] add `'applesoft'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts`
+- [x] the `porting.ts` equivalence groups and false friends, and the
       `domain-guidance.ts` / `escape-guidance.ts` cells. **Read what is already
       there first**: `porting.ts` carries `apple2` entries and `domain-guidance.ts`
       about nine `to: 'apple2'` cells, several written specifically as the Integer
       / Applesoft false friends. Much of the pairing is already stated from the
       other side, and the rest is best authored from the crosschecks' own failures
-- [ ] the hardware page will restate the sibling's soft switches and video
+- [x] the hardware page will restate the sibling's soft switches and video
       formulae. That is correct rather than duplication: a reader on this page is
       reading about this machine. Keep the two pages' figures consistent by
       deriving both from `memoryMap.ts`, which
@@ -645,6 +645,39 @@ loaders go.
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run docs:build` + the reference crosschecks.
+
+What the machine answered, once each row had been provoked on the firmware:
+
+- **`FRE(0)` comes back negative.** The count is signed 16-bit, so an empty
+  program answers about -18500 and the true figure is `FRE(0)+65536`. That is on
+  the page as a caveat rather than as a curiosity: it is the first thing a
+  reader measuring free memory will hit.
+- **A true comparison is 1, not -1.** Applesoft is a Microsoft BASIC and answers
+  the other way from every other Microsoft BASIC in the tree, so `=` carries the
+  note and the porting table's `AND`/`OR` cells say the operators are logical
+  rather than bitwise here (`5 AND 3` is 1, `5 OR 3` is 1).
+- **`ASC(` answers plain ASCII**, unlike the sibling's, which sets bit 7. A key
+  read from the latch is therefore compared against `ASC("A")+128`, which is what
+  the samples already do and what the reference row now says.
+- `GOSUB` nests **twenty-four** deep and the twenty-fifth answers
+  `?OUT OF MEMORY ERROR` — the processor stack running out, not the workspace.
+  `PRINT`'s comma steps to a **16**-column zone; `TAB(` only ever moves forward
+  while `HTAB` moves either way; `INT(-1.5)` is -2; `GOTO A` is not a computed
+  jump but a jump to line 0; `ON -1 GOTO` is `?ILLEGAL QUANTITY ERROR`; and `&`
+  with nothing vectored at `$03F5` drops the machine into the monitor.
+
+The escape table is `apple2Escapes` with a new header rather than a second copy
+of it, as the stage asked: the two machines share a charset outright, so
+retyping the three rows would have produced a second measurement free to drift.
+
+The four pages take their facts from the three stages below them rather than
+restating them: the hardware page's Memory section reads Stage 4's map region by
+region, and the formats page's two records and its leader arithmetic are Stage
+3's framing measurement. Where a page had to say something neither stage had
+written down, it was measured — the twenty-one seconds of leader tone is
+`leaderPhases(0x40)` twice over at the map's own `CPU_HZ`, and the `HGR`
+collision the hardware page warns about is the trap Stage 4 put in the hi-res
+region's note.
 
 ## Stage 6 — Register & ship ⬜
 

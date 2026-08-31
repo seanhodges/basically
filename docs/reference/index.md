@@ -39,6 +39,7 @@ Each dialect powers one or more of the emulated machines:
 - [Altair 8K BASIC](./altair8800) — MITS Altair 8800
 - [Apple 1 Integer BASIC](./apple1) — Apple I
 - [Apple II Integer BASIC](./apple2) — Apple II
+- [Applesoft BASIC](./applesoft) — Apple II Plus
 - [Atari BASIC](./atari) — Atari 800, Atari 400
 - [Atom BASIC](./atom) — Acorn Atom
 - [BASIC-G](./pmd85) — Tesla PMD 85-2
