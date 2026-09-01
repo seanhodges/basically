@@ -8,6 +8,7 @@ import {
   atomVariableErrors,
   pmd85VariableErrors,
   samcoupeVariableErrors,
+  ge235VariableErrors,
 } from './variableLint';
 import { dialects, getDialect } from '../dialects/registry';
 import { zx81Keywords } from '../dialects/zx81/keywords';
@@ -18,6 +19,7 @@ import { trs80Keywords } from '../dialects/trs80/keywords';
 import { atomKeywords } from '../dialects/atom/keywords';
 import { pmd85Keywords } from '../dialects/pmd85/keywords';
 import { samcoupeKeywords } from '../dialects/samcoupe/keywords';
+import { ge235Keywords } from '../dialects/ge235/keywords';
 
 const zx81 = (src: string) => zx81VariableErrors(src, zx81Keywords);
 const c64 = (src: string) => c64VariableErrors(src, c64Keywords);
@@ -27,6 +29,7 @@ const trs80 = (src: string) => trs80VariableErrors(src, trs80Keywords);
 const atom = (src: string) => atomVariableErrors(src, atomKeywords);
 const pmd85 = (src: string) => pmd85VariableErrors(src, pmd85Keywords);
 const samcoupe = (src: string) => samcoupeVariableErrors(src, samcoupeKeywords);
+const ge235 = (src: string) => ge235VariableErrors(src, ge235Keywords);
 
 describe('zx81VariableErrors', () => {
   it('flags a multi-letter string variable at its exact columns', () => {
@@ -344,6 +347,34 @@ describe('samcoupeVariableErrors (two name-length ceilings, one per type)', () =
 
   it('reads a name the way the ROM does, so keywords are not names', () => {
     expect(samcoupe('10 PRINT LEN a$: LET b=PEEK &8000')).toEqual([]);
+  });
+});
+
+describe('ge235VariableErrors (a letter, and at most one digit after it)', () => {
+  it('allows a letter and a letter-digit pair, and nothing longer', () => {
+    expect(ge235('10 LET A=1\n20 LET A1=2')).toEqual([]);
+    expect(ge235('10 LET AB=1')[0]!.message).toMatch(
+      /single letter, optionally followed by one digit/,
+    );
+    expect(ge235('10 LET A12=1')[0]!.message).toMatch(
+      /single letter, optionally followed by one digit/,
+    );
+  });
+
+  it('flags a subscripted name that carries a digit', () => {
+    // `var` reads the subscript bracket straight after the letter, so an array
+    // name has no room for the digit a scalar may have.
+    expect(ge235('10 DIM A1(5)')[0]!.message).toMatch(
+      /array names must be a single letter/,
+    );
+    expect(ge235('10 DIM A(5)')).toEqual([]);
+  });
+
+  it('reads a name the way the compiler does, so keywords are not names', () => {
+    expect(ge235('10 FOR I=1 TO 9\n20 PRINT SQR(I)\n30 NEXT I')).toEqual([]);
+    // Blanks are deleted before anything looks at the line, so a crunched loop
+    // is FOR/TO and a control variable, not one long name.
+    expect(ge235('10 FORI=1TO9')).toEqual([]);
   });
 });
 

@@ -157,6 +157,13 @@ const FN_DETAIL: Record<string, string> = {
   TEST: 'ink at a graphics point',
   PDL: 'paddle position',
   SCRN: 'colour of a lo-res block',
+  SIN: 'sine of an angle in radians',
+  COS: 'cosine of an angle in radians',
+  TAN: 'tangent of an angle in radians',
+  ATN: 'arctangent, in radians',
+  EXP: 'e raised to a power',
+  LOG: 'natural logarithm',
+  SQR: 'square root',
 };
 
 /**
@@ -796,6 +803,44 @@ export const SAMCOUPE_CONSTRUCTS: ConstructTemplate[] = [
     ['INSTR', 'ss'],
     ['STRING$', 'ns'],
     ['LENGTH', 'ns'],
+  ]),
+];
+
+/**
+ * Dartmouth BASIC, February 1965 - the smallest block set here, because the
+ * language is the smallest. `THEN` takes a line number and nothing else, so the
+ * IF template ends in one rather than in a statement; `LET` earns a template of
+ * its own, since this BASIC has no bare assignment to fall back on; and the
+ * functions are the ten in the library, none of which touches a string.
+ *
+ * Not in {@link constructsByDialect}: that map names exactly the registered
+ * machines, so the dialect's own `language.ts` reads this export by name.
+ */
+export const GE235_CONSTRUCTS: ConstructTemplate[] = [
+  {
+    label: 'IF',
+    lines: ['IF ${1:condition} THEN ${0:line}'],
+    detail: 'IF \u2026 THEN line',
+  },
+  forNext(),
+  gosub('GOSUB'),
+  {
+    label: 'LET',
+    lines: ['LET ${1:A}=${0}'],
+    detail: 'assign a value',
+  },
+  stringCmd('PRINT', 'print a string'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ATN', 'n'],
+    ['COS', 'n'],
+    ['EXP', 'n'],
+    ['INT', 'n'],
+    ['LOG', 'n'],
+    ['RND', 'n'],
+    ['SIN', 'n'],
+    ['SQR', 'n'],
+    ['TAN', 'n'],
   ]),
 ];
 
