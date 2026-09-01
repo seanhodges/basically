@@ -437,3 +437,55 @@ anyone rebuilding the file, the SHA-256 of each part is
 Emulator, so the bundled copy can be replaced with a genuine Atari OS and
 BASIC pair. A replacement image may be any size; it is fitted to the machine's
 ROM area, which for this machine is the full 18432 bytes, both parts.)
+
+# Sony ROM attribution
+
+`msx/hb10p.rom` is the 32K Sony HB-10P system ROM: the 16K MSX BIOS at `0x0000`
+followed by the 16K MSX BASIC 1.0 at `0x4000`, as one image in one chip exactly
+as the machine carries it. The BIOS half is copyright © 1985–1986 ASCII
+Corporation and Sony Corporation, the BASIC half copyright © 1983 Microsoft,
+whose notice the image prints on sign-on:
+
+    MSX BASIC version 1.0
+    Copyright 1983 by Microsoft
+
+It is the image openMSX names `hb-10p_basic-bios1.rom` in its
+`Sony_HB-10P.xml` machine configuration. The addresses, the workspace pointers,
+the key matrix and the keyboard's own character table this dialect is built on
+were all read off this exact image, so another MSX1 BIOS may boot but is not
+what the machine was derived against. For anyone replacing the file:
+
+    md5     1d89c2d66e18538b1065d1c37cb83e4d
+    sha1    5e7c8eab238712d1e18b0219c0f4d4dae180420d
+    sha256  88eff516d7d706b8a4e5a512697444bd5a851e403c82006bcbfc537be3c47976
+
+The licensing is the thinnest basis of anything here, alongside the Altair
+image, and for the same reason: **there is no permission to lean on**. Neither
+ASCII nor Microsoft nor Sony has granted one, all three rights holders are
+extant, and Microsoft's 2025 open-source release was the **6502** BASIC under
+the MIT licence — a different interpreter for a different processor, which does
+not cover the Z80 MSX BASIC here. What this ships on is the same de-facto
+tolerance as the Acorn, Commodore and MITS images above: MSX system ROMs have
+been distributed with the emulators for decades — blueMSX, fMSX, MAME and the
+MSX preservation archives among them — and openMSX identifies this one by
+checksum in its own shipped configuration. The machine was discontinued in the
+late 1980s and the interpreter has had no commercial life since. The image is
+included here unmodified, with its copyright notice intact, solely for use with
+the bundled emulator.
+
+That openMSX itself ships **C-BIOS** rather than this file is worth stating
+plainly, because it is the strongest evidence that the basis is thin: C-BIOS is
+a clean-room MSX BIOS written precisely so that a distribution needs no
+permission. It is not an alternative here, because it has no BASIC in it at all
+and BASIC is the whole of what this IDE runs.
+
+That is a weaker basis than a grant, and it is recorded as such rather than
+dressed up. If you are a rights holder and want this file removed, please open
+an issue and it will be taken out.
+
+(The IDE also supports supplying your own image at runtime, from Settings ▸
+Emulator, so the bundled copy can be deleted without disabling the feature. A
+replacement may be any size; it is fitted to the machine's ROM area, which for
+this machine is the full 32768 bytes. Without the file the machine still
+constructs, the emulator opens with a message saying what is missing, and the
+tests that need the ROM skip rather than fail.)
