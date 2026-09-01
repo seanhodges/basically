@@ -52,7 +52,7 @@ const COMPILE_SCALE_LINES = 240;
  * How many `DATA` constants a program may carry. The run-time's data region is
  * 256 words and a number is two of them.
  */
-const MAX_DATA_CONSTANTS = 128;
+export const MAX_DATA_CONSTANTS = 128;
 
 /**
  * How deep `FOR` loops may nest. The compiler builds its loop table three words
@@ -65,7 +65,7 @@ const MAX_LOOP_DEPTH = 13;
  * end of its working storage and the start of the generated constants, one word
  * to a return.
  */
-const MAX_GOSUB_DEPTH = 162;
+export const MAX_GOSUB_DEPTH = 162;
 
 /** The width of a `PRINT` comma zone, and how many of them fit on a line. */
 const ZONE_WIDTH = 15;

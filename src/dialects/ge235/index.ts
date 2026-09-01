@@ -14,6 +14,7 @@ import { ge235BuildTargets } from './targets';
 import { ge235KeyboardLayout } from './keyboardLayout';
 import { ge235Samples } from './samples';
 import { Ge235InterpreterMachine } from './interpreter/machine';
+import { ge235MemoryMap } from './memoryMap';
 
 /**
  * The GE-235 running Dartmouth BASIC as of February 1965 - the ancestor of
@@ -42,8 +43,9 @@ export const ge235: Dialect = {
   blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
   basicDialect: 'Dartmouth BASIC',
 
-  // The machine had 8192 twenty-bit words of core; the figure this field wants
-  // is the space a program actually gets, which the interpreter decides.
+  // The figure this field wants is the space a program actually gets, and the
+  // machine measures that in twenty-bit words rather than bytes - `memoryMap.ts`
+  // holds the layout. The interpreter decides what a program may hold.
   programRamBytes: 0,
 
   fileExtensions: ['.txt', '.bas'],
@@ -85,9 +87,20 @@ export const ge235: Dialect = {
   // A 72-column teletype window, not the classic 256x192.
   displaySize: { width: 576, height: 384 },
 
-  // No addressNotation: the field is 'hex' | 'dec', and this machine is octal
-  // throughout - every address in its manuals and in its own listings. Widening
-  // that union touches every consumer of the field, so the choice is open.
+  /**
+   * The machine's core store, in twenty-bit words rather than bytes - the one
+   * map here that is not byte-addressed.
+   */
+  memoryMap: ge235MemoryMap,
+
+  /**
+   * The viewer opens on plain word numbers. The machine's own listings are
+   * octal throughout, but nothing in this BASIC takes an address - there is no
+   * PEEK, no POKE and no USR - so the notation is a reading aid for the map
+   * rather than something a program has to be written in, and the map's notes
+   * carry the octal where it is worth having.
+   */
+  addressNotation: 'dec',
 
   // Dartmouth BASIC put one statement on a line, so there is no separator to
   // name. The compiler source is what settles this.
