@@ -1,13 +1,10 @@
+import type { GraphicEntry } from '../../keyboard/layoutSchema';
+
 /**
- * The machine's block graphics, read by both the keyboard palette and the
- * charset so the legends and the byte mapping cannot drift apart.
+ * The machine's block graphics and user-defined graphics, read by both the
+ * keyboard palette and the charset so the legends and the byte mapping cannot
+ * drift apart.
  */
-export interface SamcoupeGraphic {
-  code: number;
-  char: string;
-  /** Absent where the SAM printed no graphic on the keycap. */
-  key?: string;
-}
 
 /**
  * Codes 0x80-0x8F draw a 2x2 block, and which quadrant each bit lights is
@@ -66,14 +63,24 @@ function blockElement(nibble: number): string {
   return BLOCK_ELEMENTS[key]!;
 }
 
-export const samcoupeGraphics: readonly SamcoupeGraphic[] = Array.from(
+/**
+ * The sixteen block graphics, 0x80-0x8F.
+ *
+ * No cell carries a `key`. The SAM prints its keyword faces on the keycaps, not
+ * its graphics: typed at the machine, SYMBOL + 1-8 gives 0x81-0x87 and 0x80 and
+ * CONTROL + SYMBOL + 1-8 the complementary eight, but only inside a string -
+ * outside one the same bytes are keyword tokens, so the keycap shows the
+ * keyword. The cell's own label is therefore the character code, which is what
+ * `CHR$` takes.
+ */
+export const SAMCOUPE_BLOCK_GRAPHICS: GraphicEntry[] = Array.from(
   { length: BLOCK_LAST - BLOCK_FIRST + 1 },
   (_, n) => ({ code: BLOCK_FIRST + n, char: blockElement(n) }),
 );
 
 /** Code -> block element, the form the charset indexes. */
 export const BLOCK_GRAPHIC_UNICODE: Record<number, string> = Object.fromEntries(
-  samcoupeGraphics.map((g) => [g.code, g.char]),
+  SAMCOUPE_BLOCK_GRAPHICS.map((g) => [g.code, g.char]),
 );
 
 /**
@@ -88,12 +95,17 @@ export const BLOCK_GRAPHIC_UNICODE: Record<number, string> = Object.fromEntries(
 export const UDG_FIRST = 0x90;
 export const UDG_LAST = 0xa8;
 
-export const UDG_UNICODE: Record<number, string> = Object.fromEntries(
-  Array.from({ length: UDG_LAST - UDG_FIRST + 1 }, (_, i) => [
-    UDG_FIRST + i,
+export const SAMCOUPE_UDG_GRAPHICS: GraphicEntry[] = Array.from(
+  { length: UDG_LAST - UDG_FIRST + 1 },
+  (_, i) => ({
+    code: UDG_FIRST + i,
     // U+1F130 SQUARED LATIN CAPITAL LETTER A, through U+1F148 for Y.
-    String.fromCodePoint(0x1f130 + i),
-  ]),
+    char: String.fromCodePoint(0x1f130 + i),
+  }),
+);
+
+export const UDG_UNICODE: Record<number, string> = Object.fromEntries(
+  SAMCOUPE_UDG_GRAPHICS.map((g) => [g.code, g.char]),
 );
 
 /** The letter a UDG code is named for, e.g. 0x90 -> 'A'. */
