@@ -182,17 +182,18 @@ test('the pair can be chosen without a pointer', async ({ page }) => {
   const list = picker(page);
   await expect(list).toBeVisible();
 
-  // The list opens on the field you narrow it with, so the keyboard starts
-  // where the typing does - the machine already chosen may not even be listed,
-  // once the list remembers what it was last narrowed by.
-  await expect(list.getByLabel('Search machines')).toBeFocused();
+  // The list opens on the machine already chosen, so the keyboard starts where
+  // the eye does. Not on the search field: focusing a text field is what raises
+  // a phone's on-screen keyboard over the list the reader just asked to see.
+  await expect(list.locator(`button[data-machine="${before}"]`)).toBeFocused();
 
   // Escape leaves the selection as it was.
   await page.keyboard.press('Escape');
   await expect(list).toBeHidden();
   await expect(from).toHaveAttribute('data-target-machine', before!);
 
-  // Every machine is reachable by tabbing, and choosing one takes.
+  // Every machine is reachable by tabbing on from the one in use, and choosing
+  // one takes.
   await from.focus();
   await page.keyboard.press('Enter');
   await expect(list).toBeVisible();

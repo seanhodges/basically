@@ -6,6 +6,7 @@ import { useDismiss } from '../app/useDismiss';
 import { MachineArt } from './machineArt';
 import {
   MACHINE_SORTS,
+  centredScrollTop,
   filterMachines,
   groupMachines,
   machineChoiceLabel,
@@ -56,7 +57,6 @@ export function MachinePickerDialog({
 }) {
   const ref = useDismiss<HTMLDivElement>(open, onDismiss);
   const listRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const groups = useMemo(
     () => groupMachines(filterMachines(machines, query), sort),
     [machines, query, sort],
@@ -71,16 +71,29 @@ export function MachinePickerDialog({
    */
   const searchChecked = useRef(false);
 
-  // Open on the search field rather than on the current machine: the text is
-  // remembered, so the current machine may not be listed at all and there would
-  // be no row to land on. The row is scrolled to instead, where it survived.
+  /**
+   * Whether this opening still owes the list its focus and its scroll. Also the
+   * opening's alone: re-centring the list under someone narrowing it would move
+   * the rows out from under them as they typed. Starts true, so a dialog whose
+   * first render is already open - the toolbar's, restored from history - is
+   * settled like any other.
+   */
+  const settlePending = useRef(true);
+
+  // Open on the machine already chosen, not on the search field. A text field
+  // taking focus raises the on-screen keyboard over the list the user just
+  // asked to see, and the row it lands on instead is reliable - a remembered
+  // search that would hide that machine is dropped just below, and the list
+  // always offers the machine the document is on.
   //
   // A layout effect, not an effect: the dialog renders nothing while closed, so
   // an effect running after paint would show the remembered narrowing for a
-  // frame before correcting it below.
+  // frame before correcting it below, and would scroll the list after the
+  // browser had already drawn it unscrolled.
   useLayoutEffect(() => {
     if (!open) {
       searchChecked.current = false;
+      settlePending.current = true;
       return;
     }
     // A remembered search that hides the machine you are on opens the list
@@ -93,10 +106,21 @@ export function MachinePickerDialog({
         return;
       }
     }
-    searchRef.current?.focus();
-    listRef.current
-      ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
-      ?.scrollIntoView({ block: 'nearest' });
+    if (!settlePending.current) return;
+    settlePending.current = false;
+
+    const list = listRef.current;
+    const row = list?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    // `preventScroll`, because focusing an element scrolls it just into view -
+    // which is the placement being replaced here.
+    if (row) row.focus({ preventScroll: true });
+    else list?.focus({ preventScroll: true });
+    if (list && row) {
+      list.scrollTop = centredScrollTop(
+        { top: row.offsetTop, height: row.offsetHeight },
+        { height: list.clientHeight, scrollHeight: list.scrollHeight },
+      );
+    }
   }, [open, query, sort, machines, selectedId, onQueryChange]);
 
   if (!open) return null;
@@ -113,7 +137,6 @@ export function MachinePickerDialog({
 
         <div className={styles.controls}>
           <input
-            ref={searchRef}
             type="search"
             className={styles.search}
             value={query}
@@ -145,7 +168,14 @@ export function MachinePickerDialog({
           </label>
         </div>
 
-        <div ref={listRef} id="machine-picker-list" className={styles.groups}>
+        <div
+          ref={listRef}
+          id="machine-picker-list"
+          className={styles.groups}
+          // Focusable only as somewhere for the keyboard to land when no row is
+          // selected; a focused scrollport also answers the arrow keys.
+          tabIndex={-1}
+        >
           {groups.map((group) => (
             <div key={group.heading ?? 'all'} className={styles.group}>
               {group.heading !== null && (
@@ -189,7 +219,7 @@ export function MachinePickerDialog({
           )}
         </div>
 
-        <div className={dialog.modalActions}>
+        <div className={`${dialog.modalActions} ${styles.actions}`}>
           <button type="button" onClick={onDismiss}>
             Cancel
           </button>
