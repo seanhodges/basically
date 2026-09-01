@@ -46,6 +46,7 @@ each of them runs:
 - [Integer BASIC](./integer-basic) — Apple I, Apple II
 - [Locomotive BASIC](./cpc) — Amstrad CPC 464 (1.0), CPC 664 and CPC 6128 (1.1)
 - [Microsoft BASIC](./altair8800) — MITS Altair 8800, running Altair 8K BASIC
+- [MSX BASIC](./msx) — Sony HB-10P, running MSX BASIC 1.0
 - [Sinclair BASIC](./sinclair) — ZX81, ZX Spectrum 48K, ZX Spectrum 128K
 - [TRS-80 Level II BASIC](./trs80) — TRS-80
 - [ZX80 BASIC](./zx80) — ZX80
@@ -57,5 +58,5 @@ treatment for every instruction and directive the built-in assembler
 understands. The instruction set is per-CPU, not per-machine, so there is one
 reference for each processor — cross-linked from every dialect that uses it:
 
-- [Z80 assembly](./z80-assembly) — ZX81, ZX80, ZX Spectrum, TRS-80, Amstrad CPC, Altair 8800 (8080), PMD 85 (8080)
+- [Z80 assembly](./z80-assembly) — ZX81, ZX80, ZX Spectrum, TRS-80, Amstrad CPC, Sony HB-10P, Altair 8800 (8080), PMD 85 (8080)
 - [6502 assembly](./6502-assembly) — Commodore 64/VIC-20/PET, BBC Micro/Master, Acorn Atom, Apple I, Apple II, Atari 800/400

@@ -125,7 +125,7 @@ delegation rather than a fork.
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ✅     |
-| 6     | Reference docs                     | ⬜     |
+| 6     | Reference docs                     | ✅     |
 | 7     | Register & ship                    | ⬜     |
 
 ---
@@ -460,7 +460,7 @@ program area — the PMD 85's case exactly, and it wants the same kind of
 shortfall allowance with the same reason. `lineProfiling.test.ts` needs no
 exception: the churn probe moves this figure.
 
-## Stage 6 — Reference docs ⬜
+## Stage 6 — Reference docs ✅
 
 Everything here is keyed by **docs page**, so it lands and is checked before the
 machine registers. The page slug is **`msx`**, not `hb10p` — it is written to be
@@ -472,26 +472,33 @@ Stage 7.
 Run the **`dialect-reference-docs`** sub-skill, which owns the scaffold
 commands, the four page templates and the crosscheck wiring.
 
-- [ ] **Ask about the sidebar first.** `CLAUDE.md` forbids adding an entry to
+- [x] **Ask about the sidebar first.** `CLAUDE.md` forbids adding an entry to
       `docs/.vitepress/config.ts` without the user's explicit say-so, and
       `docsNavigation.test.ts` fails without one — so the question is asked
       before this stage starts, not found in the middle of it
-- [ ] `src/reference/msx.ts` + `escapes/msx.ts` — scaffold with
-      `npm run gen:reference` / `npm run gen:escapes`, then hand-enrich
-- [ ] `docs/reference/msx.md` + `msx/{hardware,escapes,formats}.md`, plus a row
+- [x] `src/reference/msx.ts` + `escapes/msx.ts`. The keyword table scaffolds as
+      the plan says; the escape table does **not**, because the scaffolder is
+      driven by `CHARSET_PROBES`, which refuses an unregistered dialect. It is
+      hand-authored instead, and the three assertions
+      `escape-crosscheck.test.ts` will make at Stage 7 were run against the
+      charset once by hand before it landed
+- [x] `docs/reference/msx.md` + `msx/{hardware,escapes,formats}.md`, plus a row
       and a link in the cross-machine `docs/reference/file-formats.md` for
       `.bas` and `.cas`
-- [ ] `pages.ts`, the index bullet, the CPU assembly page's Z80 machine lists,
+- [x] `pages.ts`, the index bullet, the CPU assembly page's Z80 machine lists,
       and `ai/machineReference.ts`'s lazy loaders
-- [ ] add `'msx'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` — without it
+- [x] add `'msx'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` — without it
       `pages.test.ts` and `keyword-crosscheck.test.ts` both reject the page as
       one no registered machine reads from
 - [ ] the `porting.ts` equivalence groups and false friends, and the
-      `domain-guidance.ts` / `escape-guidance.ts` cells. Author these from the
-      crosschecks' own failures rather than guessing at the set. The interesting
-      false friend to get right is `SCREEN`: MSX's picks a display mode, the
-      CPC's does nothing of the sort, and the Commodore machines have no such
-      keyword at all
+      `domain-guidance.ts` / `escape-guidance.ts` cells.
+      **Moved to Stage 7:** all three are keyed by _registered machine id_
+      rather than by page, and each crosscheck rejects an id the registry does
+      not carry (`expect(MACHINE_IDS).toContain(id)`), so an `hb10p` entry
+      cannot land before the registry line — the same reason the block
+      templates and the variable lexis waited. The interesting false friend to
+      get right is `SCREEN`: MSX's picks a display mode, the CPC's does nothing
+      of the sort, and the Commodore machines have no such keyword at all
 
 **Depends on:** Stages 1–3 (keywords, charset, memory map, samples).
 **Verify:** `npm run docs:build` (it fails on dead links) + the reference
@@ -524,6 +531,11 @@ disappears with the registry line.
       entry
 - [ ] delete `'msx'` from `PENDING_PAGE_IDS` in the same change —
       `pages.test.ts` fails on an entry whose machine has arrived
+- [ ] the machine-keyed porting data Stage 6 could not reach: the `porting.ts`
+      equivalence groups and false friends, and the `domain-guidance.ts` /
+      `escape-guidance.ts` cells. Author them from the crosschecks' own
+      failures, which name the exact groups, domains and control-code classes
+      that are missing
 - [ ] **then register, run the whole unit suite, and work the failure list.**
       That is the method, not a list: about twenty tables want an entry and half
       of them want a _reason for an exception_ about this machine, which no list

@@ -223,6 +223,18 @@ export default withPwa(
               ],
             },
             {
+              // Titled by the standard rather than by the machine: MSX BASIC is
+              // one BASIC in the ROM of every MSX, whoever built it.
+              text: 'MSX BASIC',
+              link: '/reference/msx',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/msx/hardware' },
+                { text: 'Escape codes', link: '/reference/msx/escapes' },
+                { text: 'File formats', link: '/reference/msx/formats' },
+              ],
+            },
+            {
               // One page covers the ZX81 and both Spectrums; each machine's own
               // rows are tagged on the shared table.
               text: 'Sinclair BASIC',
