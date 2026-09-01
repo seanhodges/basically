@@ -23,14 +23,19 @@
  */
 
 import { TEXT_START } from '../addresses';
+import { KcsTape, type KcsFraming } from '../../audio/kansasCity';
 import { samplesToWav } from '../../../transfer/wav';
 import { tokenizeProgram } from '../tokenizer';
 import { fatalErrors } from '../../types';
 
-const BIT_MICROS = 1e6 / 300; // one start/data/stop bit at 300 baud
 const CYCLE_2400_MICROS = 1e6 / 2400;
-const HALF_2400_MICROS = CYCLE_2400_MICROS / 2; // 2400 Hz half-cycle
-const HALF_1200_MICROS = 1e6 / 1200 / 2; // 1200 Hz half-cycle
+
+/** 300 baud, 8N1: four times the cycles per bit the 1200 baud machines use. */
+export const ATOM_FRAMING: KcsFraming = {
+  zeroCycles: 4,
+  oneCycles: 8,
+  stopBits: 1,
+};
 
 const SYNC = 0x2a; // '*'
 const SYNC_COUNT = 4;
@@ -115,72 +120,20 @@ export function encodeAtomTape(
   opts: AtomTapeOptions = {},
 ): Float32Array {
   const sampleRate = opts.sampleRate ?? CASSETTE_SAMPLE_RATE;
-  const amplitude = opts.amplitude ?? 0.85;
-  const leaderMicros = (opts.leaderMs ?? 2000) * 1000;
-  const interBlockMicros = (opts.interBlockMs ?? 1500) * 1000;
-  const trailerMicros = (opts.trailerMs ?? 500) * 1000;
+  const cycles = (ms: number) => Math.round((ms * 1000) / CYCLE_2400_MICROS);
+  const leaderCycles = cycles(opts.leaderMs ?? 2000);
+  const interCycles = cycles(opts.interBlockMs ?? 1500);
+  const trailerCycles = cycles(opts.trailerMs ?? 500);
 
-  const blocks = buildAtomBlocks(programBytes, name);
-  const samplesPerMicro = sampleRate / 1e6;
-
-  // Pre-compute the total length so we allocate exactly once. Each carrier tone
-  // is whole 2400 Hz cycles; each framed byte is 10 bits of BIT_MICROS.
-  const leaderCycles = Math.round(leaderMicros / CYCLE_2400_MICROS);
-  const interCycles = Math.round(interBlockMicros / CYCLE_2400_MICROS);
-  const trailerCycles = Math.round(trailerMicros / CYCLE_2400_MICROS);
-  let totalMicros =
-    (leaderCycles + trailerCycles + interCycles * (blocks.length - 1)) *
-    CYCLE_2400_MICROS;
-  for (const block of blocks) totalMicros += block.length * 10 * BIT_MICROS;
-
-  const out = new Float32Array(Math.ceil(totalMicros * samplesPerMicro) + 1);
-
-  // Sample-accurate accumulation: positions tracked in exact micros, rounded at
-  // emission so no per-half-cycle drift builds up.
-  let micros = 0;
-  let level = amplitude;
-  const writeHalf = (durMicros: number) => {
-    const start = micros;
-    const end = start + durMicros;
-    out.fill(
-      level,
-      Math.round(start * samplesPerMicro),
-      Math.round(end * samplesPerMicro),
-    );
-    micros = end;
-    level = -level;
-  };
-  const writeCycle2400 = () => {
-    writeHalf(HALF_2400_MICROS);
-    writeHalf(HALF_2400_MICROS);
-  };
-  const writeBit = (bit: number) => {
-    if (bit) {
-      for (let i = 0; i < 8; i++) writeCycle2400(); // '1' = eight 2400 Hz cycles
-    } else {
-      for (let i = 0; i < 4; i++) {
-        writeHalf(HALF_1200_MICROS);
-        writeHalf(HALF_1200_MICROS); // '0' = four 1200 Hz cycles
-      }
-    }
-  };
-  const writeTone = (cycles: number) => {
-    for (let i = 0; i < cycles; i++) writeCycle2400();
-  };
-  const writeByte = (b: number) => {
-    writeBit(0); // start bit
-    for (let i = 0; i < 8; i++) writeBit((b >> i) & 1); // LSB first
-    writeBit(1); // stop bit
-  };
-
-  writeTone(leaderCycles);
-  blocks.forEach((block, i) => {
-    if (i > 0) writeTone(interCycles);
-    for (const b of block) writeByte(b);
+  const tape = new KcsTape(ATOM_FRAMING);
+  tape.tone(leaderCycles);
+  buildAtomBlocks(programBytes, name).forEach((block, i) => {
+    if (i > 0) tape.tone(interCycles);
+    tape.bytes(block);
   });
-  writeTone(trailerCycles);
+  tape.tone(trailerCycles);
 
-  return out;
+  return tape.render(sampleRate, opts.amplitude ?? 0.85);
 }
 
 /**
