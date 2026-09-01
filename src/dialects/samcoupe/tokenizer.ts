@@ -49,6 +49,13 @@ interface Matcher {
   bytes: number[];
   /** True for the entries that may open a statement. */
   command: boolean;
+  /**
+   * True for the three spellings made of punctuation - `<>`, `<=` and `>=`.
+   * They are the exception to both rules the word keywords are matched by: a
+   * name character on either side neither rules them out nor extends them, so
+   * `A<>B` is a comparison and not the name `A` followed by two characters.
+   */
+  symbolic: boolean;
 }
 
 /**
@@ -63,10 +70,12 @@ const matchers: Matcher[] = (() => {
   const byWord = new Map(samcoupeKeywords.map((k) => [k.word, k]));
   const tokenBytes = (token: number): number[] =>
     token < COMMAND_FIRST ? [FUNCTION_LEADER, token] : [token];
+  const symbolic = (word: string): boolean => !/[A-Za-z]/.test(word);
   const list: Matcher[] = samcoupeKeywords.map((k) => ({
     word: k.word,
     bytes: tokenBytes(k.token),
     command: k.kind === 'command',
+    symbolic: symbolic(k.word),
   }));
   for (const [alias, canonical] of Object.entries(keywordAliases)) {
     const target = byWord.get(canonical)!;
@@ -74,6 +83,7 @@ const matchers: Matcher[] = (() => {
       word: alias,
       bytes: tokenBytes(target.token),
       command: target.kind === 'command',
+      symbolic: symbolic(alias),
     });
   }
   return list;
@@ -271,15 +281,19 @@ function tokenizeBody(
       continue;
     }
 
-    // Keywords. A name character before this position rules one out, the way
-    // the ROM's scan skips the rest of a word it could not match.
+    // Keywords. A name character before this position rules a word keyword out,
+    // the way the ROM's scan skips the rest of a word it could not match; the
+    // three symbolic spellings are matched wherever they appear.
     let matched = false;
-    if (!NAME_CHAR.test(prevSignificant)) {
+    {
+      const afterName = NAME_CHAR.test(prevSignificant);
       for (const kw of matchers) {
+        if (afterName && !kw.symbolic) continue;
         const consumed = matchKeywordAt(upper, i, kw.word);
         if (consumed < 0) continue;
         const next = body[i + consumed];
-        if (next !== undefined && AFTER_KEYWORD.test(next)) continue;
+        if (!kw.symbolic && next !== undefined && AFTER_KEYWORD.test(next))
+          continue;
 
         if (statementStart && !kw.command)
           flagStatement(i, i + consumed, kw.word);

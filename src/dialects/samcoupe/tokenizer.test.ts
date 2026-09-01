@@ -72,6 +72,30 @@ describe('samcoupe tokenizer', () => {
     expect(bodyOf('10 INK 2').slice(0, 1)).toEqual([0xa1]);
   });
 
+  it('tokenizes the three symbolic operators between names', () => {
+    // `<>`, `<=` and `>=` are the exception to both rules the word keywords
+    // are matched by: a name character on either side neither rules them out
+    // nor extends them. Stored as characters instead, the ROM answers the line
+    // with "Not understood" - which is how this was found, and the bytes below
+    // are what the machine's own tokenizer writes for the same text.
+    expect(bodyOf('10 IF a<>b THEN CLS').slice(0, 4)).toEqual([
+      0xd8, 0x61, 0xff, 0x81,
+    ]);
+    expect(bodyOf('10 IF a<=b THEN CLS').slice(2, 4)).toEqual([0xff, 0x82]);
+    expect(bodyOf('10 IF a>=b THEN CLS').slice(2, 4)).toEqual([0xff, 0x83]);
+    // Spaces round one are swallowed like any other keyword's, so the two
+    // spellings store the same bytes and list back as the tighter one.
+    expect(bodyOf('10 IF a <> b THEN CLS')).toEqual(
+      bodyOf('10 IF a<>b THEN CLS'),
+    );
+    // A single `<` or `>` is still a character, and a word keyword still
+    // needs the space before it.
+    expect(bodyOf('10 IF a<b THEN CLS').slice(2, 3)).toEqual([0x3c]);
+    expect(bodyOf('10 LET amod=1').slice(0, 5)).toEqual([
+      0x9c, 0x61, 0x6d, 0x6f, 0x64,
+    ]);
+  });
+
   it('rewrites IF and ELSE when THEN makes the statement single-line', () => {
     // The ROM tokenizes IF as 0xD7 because it comes first in the list, then
     // its syntax pass forces 0xD8 once a THEN turns up - and an ELSE after a

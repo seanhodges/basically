@@ -41,6 +41,18 @@ export const samcoupe: Dialect = {
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
 
   statementSeparator: ':',
+  // POKE and DPOKE for the writes, and `LOAD "name" CODE` for a block that
+  // arrives from tape; `&` opens a hex literal in any of their addresses.
+  memoryWrites: { forms: ['poke', 'load-code'], hexPrefix: '&' },
+  // Both call forms take the address itself, unlike the Microsoft `USR(x)`.
+  memoryReads: { forms: ['peek'], calls: ['CALL', 'USR'] },
+  // SAM BASIC's own documentation writes PEEK and POKE addresses in decimal,
+  // and so do the samples; the viewer's toggle reaches the `&` spelling.
+  addressNotation: 'dec',
+  debuggable: true,
+  // The SAM's 9-pin port is read as keys 6-9 and 0 on the matrix - the machine's
+  // only joystick, and the one SAM BASIC's own key tests see.
+  joystickModes: ['native'],
   fileExtensions: ['.txt', '.bas'],
   keywords: samcoupeKeywords,
   operators: samcoupeOperators,

@@ -113,7 +113,7 @@ that turned up in the audit:
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
-| 3     | Wire-up: keyboard + samples        | ⬜     |
+| 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
@@ -250,64 +250,69 @@ in `src/dialects/samcoupe/emulator/`.
 > address space it declares; whatever it picks, the write here has to reach it,
 > so expect to revisit this loop rather than only the declaration.
 
-## Stage 3 — Wire-up: keyboard + samples ⬜
+## Stage 3 — Wire-up: keyboard + samples ✅
 
 No registry change: the machine is finished and driven headlessly, and is
-offered to the user in Stage 7. Verify by booting the real ROM through
+offered to the user in Stage 7. Verified by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
-- [ ] `keyboardLayout.ts` — the SAM's 72 keys, tokens matching the emulator's
-      `setKey`, geometry from `templateRows` (`gridColumns: GRID_COLUMNS`, every
-      ordinary key `KEY_SPAN`, `ROW_KEYS` to a band, `centerRow` / `bottomRow`).
-      **Never author a width.** The machine has ten programmable function keys,
-      which is exactly what the strip is designed for — one row, ten keycaps,
-      each `style: 'fn'` with `editor: null` so it presses the matrix and does
-      not type its own label
-- [ ] read `src/keyboard/layoutGeometry.test.ts` while writing the layout: it
-      only picks this dialect up at Stage 7, and what it holds is this stage's
-      work. Symbols are reached **only through the SYM pages** — a typing band
-      carries its base character alone, and the real shifted key faces go in the
-      layout's header comment, not on a SHIFT layer; the SYM pages sit at the
-      canonical positions; the SAM has a cursor cluster, so it gets a CURSOR mode
-      rather than an entry in `NO_CURSOR_KEYS`
-- [ ] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard palette
-      and the charset, so the legends and the byte mapping cannot drift. Derive
-      the shapes from the ROM font; where the SAM printed no graphic on the
-      keycap, omit `key` and let the cell be labelled by character code. Wire the
-      `palette: 'graphics'` editor mode and `graphicsPalette` on the layout
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport` (`cpu: 'z80'`), and
-      `loadProgram` writing the blocks it is handed if Stage 2 did not.
-      **`kaleido.bas` carries its routine as a memory block** and
-      `src/app/sampleBlocks.ts` will not assemble one without this, so the sample
-      cannot load, let alone run, until it exists. Only what the sample needs
-      here — a `defaultAddress` in RAM that neither the ROM nor BASIC touches,
-      and `validRanges` wide enough to hold the routine there. Stage 5 checks the
-      figures against the map. The SAM does _not_ take the Sinclair `#BIN` REM
-      route: leave `supportsBinaryLines` unset
-- [ ] `samples/` + `samples.ts` — the canonical five in order (`hello`,
-      `circles`, `breakout`, `maze`, `kaleido`), ported to SAM BASIC. Use the
-      **`authoring-dialect-samples`** sub-skill: it owns the house vocabulary,
-      the per-sample intent, the accuracy gotchas and the registration shape.
-      This machine can afford to show itself off — `MODE 4`, `PALETTE`, and a
-      6MHz Z80 that will actually run a game loop — so degrade nothing
-- [ ] every sample **run on the machine** and fixed until its screen is right.
-      Tokenizing clean proves nothing
-- [ ] `aiProfile.ts` — **under 5000 characters composed.**
-      `ai/promptStability.test.ts` caps it there and only says so at Stage 7.
-      What this machine's profile owes: the four modes and what each costs, that
-      `PALETTE` is a CLUT rather than a fixed set, that MODE 1 has Spectrum
-      attribute clash and MODE 4 has none, and that structured keywords
-      (`DO`/`LOOP`, `DEF PROC`) exist and are the idiomatic way to write here.
-      What it must not do is restate the keyword table the same prompt already
-      carries
-- [ ] `index.ts` — assemble the full `Dialect` (placeholder picker identity until
-      Stage 7, which writes it for real). `statementSeparator`,
-      `addressNotation`, `memoryWrites` / `memoryReads`, `debuggable: true`,
-      `joystickModes`, `capturesDataFiles` all get their real values here
-- [ ] tests: keyboard matrix (every token reachable by keycap or host key),
-      samples tokenize **and run**. The template geometry is pinned against the
-      registry by `layoutGeometry.test.ts` at Stage 7 — no geometry test of its
-      own
+- [x] `keyboardLayout.ts` — the board on the shared template, geometry from
+      `templateRows` and no authored width, with the ten function keys in the
+      top strip. TAB and CONTROL are the two matrix keys with no on-screen
+      route; the layout test names them and says why
+- [x] the geometry `layoutGeometry.test.ts` will check at Stage 7 was run
+      against this layout while it was written, and passes: symbols only
+      through the SYM pages, the pages at the canonical positions, a CURSOR
+      mode on W/A/S/D pressing the real cluster, and the case lock on the
+      SHIFT key rather than a case pair on the digits
+- [x] **every SYM chord read back off the booted ROM** rather than off a
+      picture of the keyboard - typed at the emulated keys and the character
+      `CODE` asked of the machine. Three of them are not what a Spectrum would
+      predict: SHIFT and not SYMBOL gives the digit-row symbols, `<` and `>`
+      sit on the comma and full-stop keys under SYMBOL, and `\` is
+      SHIFT+SYMBOL+INV, the one three-key chord on the board
+- [x] `graphics.ts` — `GraphicEntry[]` read by both the charset and the
+      keyboard palette. No cell carries a `key`: the SAM prints its keyword
+      faces on those keycaps, and the block graphics only come out of
+      SYMBOL+1-8 (CONTROL+SYMBOL for the complementary eight) inside a string,
+      which the palette's section note says instead
+- [x] `memoryBlocks.ts` — section B, 0x4000-0x7FFF. That is the half of the
+      window HMPR does not move, which is what lets a routine page the screen
+      in and keep running; the ROM's stack is down there too, so LMPR is the
+      one register a block's code must leave alone. `loadProgram` already wrote
+      the blocks it is handed
+- [x] `samples/` + `samples.ts` — the canonical five, each run on the machine
+      until its screen was right. `maze` and `circles` take MODE 3 (the only
+      mode with the 64 columns the shared 39-column map needs, and the only one
+      whose pixels are square on the 512x192 raster the IDE draws, so the rings
+      come out round); `hello` and `breakout` take MODE 4 for the sixteen
+      colours. The kaleidoscope's routine pages the 24K MODE 4 screen into
+      sections C and D and puts BASIC's pages back
+- [x] `aiProfile.ts` — 4994 characters composed
+- [x] `index.ts` — `memoryWrites` / `memoryReads`, `addressNotation`,
+      `debuggable`, `joystickModes`. `capturesDataFiles` stays unset: the
+      machine takes no file store
+- [x] tests: the keyboard matrix, the memory-block window, and the samples -
+      which tokenize, lint, assemble their block, and **run**, with the house
+      text read back off the screen, the rings' aspect measured on the raster,
+      the bat driven from `controller.bindings`, the maze walked to its exit
+      and the kaleidoscope's mirror checked over the whole picture
+
+> **Two bugs this stage's verification found, both fixed here.**
+>
+> The vendored Z80 core wrote `OUTI`/`OUTD` with B on the address bus _before_
+> decrementing it, and read `INI`/`IND` _after_ - both the wrong way round. It
+> is invisible on every other machine in the tree and not on this one: the SAM
+> selects a CLUT register from the port's high byte, so the ROM's own palette
+> fill landed one slot along and the machine booted with black and white
+> swapped and `PALETTE n` colouring pen n+1. Fixed upstream-style in
+> `z80core.js` and pinned by `src/emulator/z80BlockIo.test.ts`.
+>
+> The tokenizer stored `<>`, `<=` and `>=` as their characters rather than as
+> tokens, because a name character before a keyword ruled it out - which is
+> right for a word and wrong for these three. A line carrying one came back
+> "Not understood" from the ROM. The bytes the fix writes were diffed against
+> the machine's own tokenization of the same line.
 
 **Depends on:** Stages 1–2. Owns the memory-block declaration despite its name,
 because the kaleidoscope sample cannot load without one.
