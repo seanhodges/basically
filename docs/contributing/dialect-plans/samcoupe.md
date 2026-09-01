@@ -112,7 +112,7 @@ that turned up in the audit:
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
-| 2     | Emulator core                      | ⬜     |
+| 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
@@ -187,59 +187,68 @@ either disagree, they win.
 > emulated keyboard, let SAM BASIC tokenize it, and diff the machine's own bytes
 > against `tokenize()`. Stage 1's green tests are not the last word on the table.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
 The largest stage, and the one the roadmap calls the blocker. Everything lives
 in `src/dialects/samcoupe/emulator/`.
 
-- [ ] `public/roms/samcoupe.rom` (32768 B, v3.0) **+ an attribution block in
-      `public/roms/ATTRIBUTION.md`** quoting Dr Andy Wright's permission
-      verbatim and naming both the archive and `simonowen/samrom`, with the
-      GPL-2.0/GPL-3.0 note from the target summary
-- [ ] `memory.ts` — the paged bus. This is the piece with no precedent in the
-      tree: 256K (or 512K) of RAM in 16K pages, four page slots, and a 32K ROM
-      that pages _out_ so BASIC can use the space beneath it. Export `ROM_BYTES`
-      and let `index.ts` read `romBytes` from it, so the constant and the memory
-      map cannot disagree
-- [ ] `asic.ts` — the video half of the 10,000-gate ASIC: the four screen modes,
-      the 16-entry CLUT over the 128-colour palette, the border, the line
-      interrupt and the status port
-- [ ] `display.ts` — one raster for all four modes, 512×192, with the 256-wide
-      modes doubled across
-- [ ] `saa1099.ts` — the Philips sound chip behind `readAudio` /
-      `audioSampleRate`: six tone channels, two noise generators, two envelope
-      generators, stereo amplitude per channel. Read `src/emulator/ay/ay.ts` for
-      the shape of a chip model driven from the machine loop; the register model
-      is its own. Leave it in the dialect folder — it moves to
-      `src/emulator/saa1099/` if and when a second machine wants it, which is
-      how `src/emulator/ay/` came to exist
-- [ ] `keyboard.ts` — the key matrix, plus the Atari-standard 9-pin joystick
-      port behind `setJoystick` (`joystickModes: ['native']`)
-- [ ] `samMachine.ts` — `MachineEmulator`: `reset` / `loadProgram` / `runFrame` /
-      `renderTo` / `keyEvent` / `setKey` / `releaseAllKeys` / `dispose`,
-      `frameHz`, `displayWidth` / `displayHeight`
-- [ ] **`currentLine` / `debugStep` and the profile charge in this stage, via
-      `createMachineLoop`** — not bolted on later. A debug session opens on any
-      press of Play for every `debuggable` dialect, so `debugStep` is how this
-      machine is usually run: supply the contract (`cyclesPerFrame`, `step()`,
-      `currentLine()`, `onSliceStart`/`onSliceEnd`) and let the loop hand back
-      both paths. Anything owed once per slice — the profiler's charge, the
-      cycle counter the tape and the SAA1099 read themselves against, the frame
-      counter behind flashing attributes — goes in the hooks. Writing `runFrame`
-      first and adding the stepper afterwards is what produced three shipped bugs
-      on other machines
-- [ ] `screenText.ts` — read the screen back as characters via
-      `src/emulator/fontMatcher.ts`. Stages 3–5 are verified headlessly and this
-      is what they assert on, so it is not optional polish
-- [ ] tests: boot the real ROM to the SAM BASIC prompt, inject a program, assert
-      on the screen; the ROM-tokenization crosscheck against Stage 1's table
+- [x] `public/roms/samcoupe.rom` (32768 B, v3.0 — CRC32 e535c25d) **+ an
+      attribution block in `public/roms/ATTRIBUTION.md`** quoting Dr Andy
+      Wright's permission verbatim and naming both the archive and
+      `simonowen/samrom`, with the GPL-2.0/GPL-3.0 note from the target summary
+- [x] `memory.ts` — the paged bus: sixteen 16K pages of RAM behind four page
+      slots that address thirty-two, and a 32K ROM in two halves that page _out_
+      independently. The unfitted upper half of the page space is load-bearing:
+      reading 0xFF and discarding writes is how `MNINIT` sizes the machine
+- [x] `asic.ts` — the CLUT (indexed off the port's high byte), the palette
+      decoded from the index bits rather than tabulated, VMPR's mode and page,
+      the split border colour, and the two interrupt sources held independently
+- [x] `display.ts` — one raster for all four modes, 512×192, with the 256-wide
+      modes doubled across. MODE 3's colours come from the CLUT group HMPR bits
+      5-6 select, with the middle two swapped, as the hardware orders them
+- [x] `saa1099.ts` — six tone channels off a clock/256 base step, two noise
+      generators, two envelope generators, per-channel stereo amplitude summed
+      to the mono stream `readAudio` returns
+- [x] `keyboard.ts` — the nine-row matrix, its top three bits read through the
+      status port, and the joystick wired onto the row 4 keys the SAM reads it as
+- [x] `samMachine.ts` — the whole `MachineEmulator`, including `readAudio`,
+      `setJoystick`, the memory-activity tap and the profiler
+- [x] **`currentLine` / `debugStep` and the profile charge in this stage, via
+      `createMachineLoop`** — the frame interrupt, the line interrupt, the FLASH
+      counter and the picture are all slice hooks, so a slice that stops early
+      owes what a frame owes
+- [x] `screenText.ts` — the screen as characters, matched against the font
+      `UPACK` unpacks into RAM. The grid is the ROM's own: `CSIZE` is nine
+      scanlines by eight columns and the lower window is pushed down by `LSOFF`,
+      so the default screen is 32×21 rather than the 32×24 an 8×8 cell implies
+- [x] tests: boot the real ROM to the prompt and answer a direct command, load
+      and run a program, measure a line on the plain run path, and the
+      ROM-tokenization crosscheck — which types a listing at the emulated
+      keyboard and diffs the machine's own bytes against `tokenize()`
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes.
 
+> Two things the crosscheck and the first real load turned up, both now fixed in
+> `samfile.ts`. A stored program ends with a 0xFF where a line number's high
+> byte would be, and that byte is part of the program area and counted in every
+> length the header carries. And the header's three length fields are not all
+> the program length: they are `NVARS`, `NUMEND` and `SAVARS` measured from
+> `PROG`, and the loader deletes everything from `PROG` to the edit line and
+> rebuilds it to them - so a tape that claims no variable areas leaves a machine
+> with none, and the next `RUN` or `CLEAR` walks off into memory that is no
+> longer there. `loadProgram` saves the machine's own two areas into the tape it
+> queues, which is what a real SAVE writes.
+
 > `createEmulator`'s `ramKb` option is typed `16 | 32 | 64` and means nothing
 > here — the SAM sizes its own 256K, as the CPCs and the Commodores size theirs.
 > Ignore it; do not widen the union for this machine.
+
+> `loadProgram` writes any memory blocks it is handed straight through the CPU's
+> window, in the paging the editor prompt leaves — which is section B and
+> section C both on page 0, BASIC's own. Stage 3 owns `memoryBlocks.ts` and the
+> address space it declares; whatever it picks, the write here has to reach it,
+> so expect to revisit this loop rather than only the declaration.
 
 ## Stage 3 — Wire-up: keyboard + samples ⬜
 

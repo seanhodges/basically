@@ -489,3 +489,34 @@ replacement may be any size; it is fitted to the machine's ROM area, which for
 this machine is the full 32768 bytes. Without the file the machine still
 constructs, the emulator opens with a message saying what is missing, and the
 tests that need the ROM skip rather than fail.)
+
+# MGT ROM attribution
+
+`samcoupe.rom` is the 32K SAM Coupé ROM version 3.0, copyright © 1989-1990
+Dr Andrew J. A. Wright (CRC32 e535c25d, SHA-256
+14d52ffc635a2ece0244aa3fd327bab5ee796f92570361aade0d6df3eba41d9f).
+
+This one rests on an explicit grant from its author rather than on tolerance -
+footing shared here only by the Sinclair images and the Altirra pair. The ROM
+archive in Simon Owen's `samrom` repository
+(https://github.com/simonowen/samrom), where this copy comes from, states it in
+its ReadMe:
+
+> Also included are many versions of the ROM binaries, released with kind
+> permission from the ROM author, Dr Andy Wright.
+
+The World of SAM ROM archive (https://www.worldofsam.org) distributes the same
+images on the same permission, and SimCoupe credits the same grant.
+
+The permission covers the binary. It is **not** the `samrom` repository's own
+licence, and the distinction matters here: that repository is GPL-2.0, while
+this project is GPL-3.0-or-later, and the two are incompatible for linked code.
+Nothing is linked — `samcoupe.rom` ships as a data asset under `public/roms/`,
+loaded at runtime by the emulator, and it travels on Dr Wright's permission
+alone. The ROM's own assembly source is published in that repository for
+anyone who wants to read what the machine is executing.
+
+If you are the rights holder and want this file removed, please open an
+issue — the IDE also supports supplying your own ROM image at runtime, from
+Settings ▸ Emulator. A replacement image may be any size; it is fitted to the
+machine's ROM area.
