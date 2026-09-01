@@ -47,6 +47,8 @@ const HB10P_MODEL: MsxModel = {
   region: 'pal',
   vdp: 't6950',
   keyboardId: 'international',
+  // Page 3 of slot 0 answers with the main RAM on this machine; see MsxModel.
+  slot0Page3: 'ram-mirror',
 };
 
 export const hb10p: Dialect = {
@@ -64,8 +66,10 @@ export const hb10p: Dialect = {
   memoryBlocks: hb10pMemoryBlocks,
   memoryWrites: { forms: ['poke'], hexPrefix: '&H' },
   memoryReads: { forms: ['peek'] },
-  // Provisional: the machine's own sign-on figure replaces this once it boots.
-  programRamBytes: 0,
+  // The machine's own sign-on figure, which is also what settles the long-
+  // running question of how much RAM an HB-10P has: 28815 is the 64 KB
+  // machine's answer, and a 16 KB one would print 12431.
+  programRamBytes: 28815,
   romUrl: `${import.meta.env.BASE_URL}roms/msx/hb10p.rom`,
   romBytes: 32 * 1024,
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
@@ -112,6 +116,7 @@ export const hb10p: Dialect = {
     return new MsxMachine({
       rom: opts.rom,
       model: HB10P_MODEL,
+      charset: hb10pCharset,
       files: opts.files,
     });
   },

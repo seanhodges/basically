@@ -18,10 +18,10 @@
   parameterised by an `MsxModel` config object — MSX is a standard, not a
   machine, so every later MSX1 is a delegation sibling of this one rather than
   a second bus. See _The family seam_ below.
-- **Display size:** `{ width: 320, height: 240 }` — 256×192 active plus the
-  border the VDP draws around it. Confirm against the PAL VDP's real active
-  window in Stage 2 and export the constants from
-  `src/emulator/msx/display.ts` rather than typing them into `index.ts`.
+- **Display size:** `{ width: 320, height: 240 }` — 256×192 active plus a
+  32×24 border, exported from `src/emulator/msx/display.ts`. The border is a
+  crop, not a measurement: a PAL frame off this part is 313 lines of 342 pixels
+  and the true border is far wider than any screen wants.
 - **Image / tape format:** `.bas` (MSX tokenized: a `0xFF` marker byte then the
   link-word line records) for the document image; `.cas` for tape images; WAV
   for real cassette audio.
@@ -70,31 +70,26 @@ is written down:
 | Chipset      | Yamaha S3527 MSX-Engine (PPI + PSG integrated)                                      | So the 8255 and the YM2149F are one part, not two                            |
 | VDP          | Toshiba T6950, a TMS9918A-compatible clone                                          | PAL timing; the T6950 does **not** implement the undocumented mixed modes    |
 | VRAM         | 16 KB                                                                               | Separate from CPU RAM; SCREEN 2 needs all of it                              |
-| RAM          | **contested — settle in Stage 2**                                                   | See below                                                                    |
+| RAM          | 64 KB in slot 3                                                                     | Settled by the booted ROM; see below                                         |
 | Keyboard     | International QWERTY (Dutch model has `£`); the Spanish model has `ñ` and no `£`    | Plan the international layout; the Spanish variant is not a separate dialect |
 | Media        | Cartridge slots + the MSX Data Recorder connector (1200/2400 baud FSK, Kansas City) | The tape port is mandatory in the MSX standard through MSX2+                 |
 
-**The RAM size is contested and matters.** The MSX Wiki reads that only the
-Japanese HB-10 has 16 KB (in slot 0) and that every other HB-10 model has 64 KB
-in slot 3; generation-msx describes all four HB-10 models as 16 KB machines. Do
-not pick one from a web page — the booted ROM settles it in one line, because
-MSX BASIC prints its free memory on sign-on and the two answers are nowhere
-near each other:
+**The RAM size was contested, and the booted ROM settled it: 64 KB in slot 3.**
+The MSX Wiki read that only the Japanese HB-10 has 16 KB and every other model
+64 KB; generation-msx described all four models as 16 KB machines. MSX BASIC
+prints its free memory on sign-on and the two answers are nowhere near each
+other — 16 KB says `12431 Bytes free`, 64 KB says `28815 Bytes free` — and this
+ROM says **28815**, which `msxMachine.test.ts` now pins. openMSX's own
+`Sony_HB-10P.xml` agrees. So `programRamBytes` is the 64 KB figure and the
+samples have the whole program area to work in.
 
-- **16 KB** → `12431 Bytes free`
-- **64 KB** → `28815 Bytes free`
-
-Whichever it is becomes `programRamBytes`, and it also decides how much of the
-slot machinery Stage 2 has to get right: a 16 KB machine has RAM only in page 3
-(`0xC000`–`0xFFFF`) and barely exercises the primary slot register, while a
-64 KB machine keeps RAM in slot 3 across the whole address space and switches
-pages under BASIC constantly. **Build the slot register properly either way** —
-a cartridge-shaped future needs it, and retrofitting it into a flat memory
-model is a rewrite.
-
-If it turns out to be 16 KB, note it as a real constraint on Stage 3: the five
-canonical samples have to fit in about 12 KB with their variables, which is
-comfortable for four of them and worth checking for `breakout`.
+One consequence is load-bearing for anything that touches memory. Page 3 of
+slot 0 answers with the main RAM's page 3 on this machine — the "weird memory
+mirroring glitch" openMSX records, shared with early HB-20Ps — and the BIOS
+finds it during its slot search, so the booted machine runs its stack and its
+whole system variable area through slot 0 while its program area is in slot 3.
+The `MsxModel` carries it as `slot0Page3: 'ram-mirror'`; a sibling MSX will
+almost certainly want `'empty'`.
 
 ### The family seam
 
@@ -105,10 +100,11 @@ takes a **support object**, not a variant string — the shape
 
 ```ts
 interface MsxModel {
-  ramKb: number; // and which slot it sits in
+  ramKb: number; // and ramSlot, the primary slot it answers in
   region: 'pal' | 'ntsc'; // VDP line count and therefore frameHz
   vdp: 'tms9918a' | 't6950'; // the undocumented modes the part does or doesn't have
   keyboardId: string; // which international layout the BIOS scans
+  slot0Page3: 'empty' | 'ram-mirror'; // this machine's decoding shortcut
 }
 ```
 
@@ -125,7 +121,7 @@ delegation rather than a fork.
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
-| 2     | Emulator core (Z80 + VDP + slots)  | ⬜     |
+| 2     | Emulator core (Z80 + VDP + slots)  | ✅     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
@@ -214,7 +210,7 @@ format that a Commodore- or Tandy-shaped implementation walks straight into.
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core (Z80 + VDP + slots) ⬜
+## Stage 2 — Emulator core (Z80 + VDP + slots) ✅
 
 The gating stage, and the reason MSX has sat in Tier 4: the CPU is free, the
 sound chip is already in the tree, and the **VDP is the whole job**. Nothing of
@@ -226,12 +222,12 @@ wait states; the constraint is the ~29 µs the software must leave between VRAM
 accesses, which is the program's problem, not the bus's. That makes this bus
 markedly simpler than `src/emulator/cpc/` even though the video chip is harder.
 
-- [ ] `slots.ts` — the primary slot select register (PPI port A, `0xA8`; two
+- [x] `slots.ts` — the primary slot select register (PPI port A, `0xA8`; two
       bits per 16 KB page). BIOS at `0x0000`–`0x3FFF` and MSX BASIC at
       `0x4000`–`0x7FFF` in slot 0; RAM in the slot the Stage-2 RAM finding says.
       Leave room for secondary slots (`0xFFFF`) without implementing them — the
       HB-10P is unexpanded
-- [ ] `vdp.ts` — the TMS9918A/T6950: SCREEN 0 (40×24 text), SCREEN 1 (32×24,
+- [x] `vdp.ts` — the TMS9918A/T6950: SCREEN 0 (40×24 text), SCREEN 1 (32×24,
       colour in groups of eight patterns), SCREEN 2 (256×192 with per-eight-row
       colour), SCREEN 3 (64×48 multicolour), 32 sprites in the four sprite
       modes, the 16-colour fixed palette, the status register's collision and
@@ -239,22 +235,22 @@ markedly simpler than `src/emulator/cpc/` even though the video chip is harder.
       (VRAM data, auto-incrementing) and `0x99` (register write / status read).
       The T6950 lacks the undocumented mixed modes — model the part, and say so
       in the file's header comment rather than silently implementing more
-- [ ] `display.ts` — render the active window plus border into one canvas;
+- [x] `display.ts` — render the active window plus border into one canvas;
       export `DISPLAY_WIDTH`/`DISPLAY_HEIGHT` for `index.ts` to read
-- [ ] `ppi.ts` — the 8255 as MSX wires it: port A slot select, port B keyboard
+- [x] `ppi.ts` — the 8255 as MSX wires it: port A slot select, port B keyboard
       row read, port C row select (bits 0–3), cassette motor (bit 4), cassette
       write (bit 5), CAPS LED (bit 6), key click (bit 7), control at `0xAB`.
       **Do not reuse `src/emulator/cpc/ppi.ts`** — same chip, entirely different
       wiring (on the CPC the keyboard is read _through_ the AY; on MSX the PSG's
       I/O ports are the joysticks and the keyboard is the PPI's own). Read that
       file for how the chip is modelled, not for what it is connected to
-- [ ] `psg.ts` — thin wiring of the shared `src/emulator/ay/` chip onto ports
+- [x] `psg.ts` — thin wiring of the shared `src/emulator/ay/` chip onto ports
       `0xA0` (address latch) / `0xA1` (write) / `0xA2` (read), clocked at
       1.7897725 MHz. Feed `readAudio` / `audioSampleRate` from it
-- [ ] `keyboard.ts` — the MSX key matrix (11 rows × 8 columns on an
+- [x] `keyboard.ts` — the MSX key matrix (11 rows × 8 columns on an
       international machine), with `setKey` tokens the layout will name in
       Stage 3
-- [ ] `msxMachine.ts` — `MachineEmulator` over all of the above, IM 1 with the
+- [x] `msxMachine.ts` — `MachineEmulator` over all of the above, IM 1 with the
       VDP interrupt on `RST 38h`. **Build the run loop with
       `createMachineLoop(contract)` from `src/emulator/machineLoop.ts`** rather
       than hand-writing `runFrame` and adding `debugStep` afterwards: on this
@@ -262,18 +258,18 @@ markedly simpler than `src/emulator/cpc/` even though the video chip is harder.
       `debugStep` that skips the profile charge, the PSG catch-up or the frame
       counter produces exactly the three shipped bugs the skill records. Supply
       `cyclesPerFrame`, `step()`, `currentLine()` and the slice hooks
-- [ ] `currentLine()` — MSX BASIC keeps the current line in its workspace
+- [x] `currentLine()` — MSX BASIC keeps the current line in its workspace
       (`CURLIN`); read it there rather than latching a ROM address, and let
       `isProgramRunning()` follow from it. Confirm the address against the ROM
-- [ ] `screenText.ts` — `readScreenText()` straight off the VRAM name table.
+- [x] `screenText.ts` — `readScreenText()` straight off the VRAM name table.
       SCREEN 0 and SCREEN 1 hold real character codes, so unlike the Spectrum
       and the CPC this needs no font matching; decode through the dialect's own
       charset so a screen read and a listing agree
-- [ ] ROM into `public/roms/msx/hb10p.rom` **+ the attribution block in
+- [x] ROM into `public/roms/msx/hb10p.rom` **+ the attribution block in
       `public/roms/ATTRIBUTION.md`**, written to the Altair standard described
       in the target summary
-- [ ] `displaySize` on the dialect, from the display constants
-- [ ] tests: boot the ROM to the MSX BASIC sign-on and assert the banner and the
+- [x] `displaySize` on the dialect, from the display constants
+- [x] tests: boot the ROM to the MSX BASIC sign-on and assert the banner and the
       free-memory figure (which settles the RAM question); VDP unit tests per
       screen mode against known VRAM contents; a sprite collision test; PPI
       row-select round trip

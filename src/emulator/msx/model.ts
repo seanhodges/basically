@@ -23,4 +23,16 @@ export interface MsxModel {
   vdp: 'tms9918a' | 't6950';
   /** Which international key matrix the BIOS scans. */
   keyboardId: string;
+  /**
+   * What answers in page 3 (0xC000-0xFFFF) of slot 0, above the 32KB of ROM
+   * the standard puts in pages 0 and 1.
+   *
+   * `'empty'` is the ordinary MSX, where nothing is fitted there and the bus
+   * floats high. `'ram-mirror'` is a Sony decoding shortcut - the HB-10P and
+   * early HB-20P answer that page with the main RAM's own page 3 whichever
+   * slot is selected - and it is load-bearing rather than cosmetic: the BIOS
+   * finds RAM in slot 0 during its slot search and the machine then runs with
+   * page 3 pointing at a slot that on any other MSX holds nothing.
+   */
+  slot0Page3: 'empty' | 'ram-mirror';
 }
