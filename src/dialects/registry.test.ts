@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { dialects, getDialect } from './registry';
+import { basicFamilyOf, referencePageOf } from './referencePage';
 
 describe('dialect registry', () => {
   it('every dialect declares a positive program RAM estimate', () => {
@@ -127,6 +128,36 @@ describe('dialect registry', () => {
         d.blurb,
         `${d.id} blurb should name ${d.basicDialect}, the BASIC it declares`,
       ).toContain(d.basicDialect);
+    }
+  });
+
+  // The picker's by-BASIC arrangement heads each group with the family, so a
+  // machine without one has no heading to read under.
+  it('every dialect resolves to a family of BASIC', () => {
+    for (const d of dialects) {
+      expect(
+        basicFamilyOf(d).trim(),
+        `${d.id} needs the family of BASIC it runs`,
+      ).not.toBe('');
+    }
+  });
+
+  // The reference carries one page per family, so two machines sharing a page
+  // and declaring different families would title that page after one of them.
+  it('machines sharing a reference page share a family', () => {
+    const familyByPage = new Map<string, { id: string; family: string }>();
+    for (const d of dialects) {
+      const page = referencePageOf(d);
+      const family = basicFamilyOf(d);
+      const first = familyByPage.get(page);
+      if (!first) {
+        familyByPage.set(page, { id: d.id, family });
+        continue;
+      }
+      expect(
+        family,
+        `${d.id} and ${first.id} share the ${page} reference page, so they must share a family`,
+      ).toBe(first.family);
     }
   });
 

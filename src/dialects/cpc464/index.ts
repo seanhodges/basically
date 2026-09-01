@@ -43,6 +43,7 @@ export const cpc464: Dialect = {
   year: 1984,
   blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
   basicDialect: 'Locomotive BASIC 1.0',
+  basicFamily: 'Locomotive BASIC',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',

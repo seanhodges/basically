@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
-import { referencePageOf } from '../dialects/referencePage';
+import { basicFamilyOf, referencePageOf } from '../dialects/referencePage';
 import {
   groupMachinesByManufacturer,
   type MachineLike,
@@ -44,6 +44,7 @@ describe('machine list', () => {
       expect(choice!.year).toBe(dialect.year);
       expect(choice!.blurb).toBe(dialect.blurb);
       expect(choice!.basicDialect).toBe(dialect.basicDialect);
+      expect(choice!.basicFamily).toBe(basicFamilyOf(dialect));
     },
   );
 });
@@ -95,5 +96,17 @@ describe('selection namespace', () => {
     expect(machines.find((m) => m.id === 'zxspectrum128')?.page).toBe(
       'zxspectrum',
     );
+  });
+
+  // A page covers one family and no more, which is what would let it be titled
+  // after one. The reference is still a page per machine variant, so this reads
+  // as a property the pages already have rather than one they were given.
+  it('gives each page a single family', () => {
+    const familyByPage = new Map<string, string>();
+    for (const m of machines) {
+      const seen = familyByPage.get(m.page);
+      if (seen === undefined) familyByPage.set(m.page, m.basicFamily);
+      else expect(m.basicFamily, `${m.id} on the ${m.page} page`).toBe(seen);
+    }
   });
 });

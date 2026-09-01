@@ -56,6 +56,7 @@ export const cpc664: Dialect = {
   // in a picker that now offers three CPCs.
   blurb: 'The CPC between the 464 and the 6128. Locomotive BASIC 1.1.',
   basicDialect: 'Locomotive BASIC 1.1',
+  basicFamily: 'Locomotive BASIC',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',

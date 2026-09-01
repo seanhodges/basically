@@ -57,6 +57,7 @@ export const bbcmaster: Dialect = {
   year: 1986,
   blurb: 'The BBC Micro, upgraded. Runs BBC BASIC IV.',
   basicDialect: 'BBC BASIC IV',
+  basicFamily: 'BBC BASIC',
   docsReference: 'bbc',
   // PAGE (0x0E00 - the Master's filing systems keep their workspace in private
   // RAM, so nothing displaces it) up to HIMEM in MODE 7. The extra 64K of

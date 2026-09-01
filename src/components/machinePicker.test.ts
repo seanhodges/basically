@@ -15,8 +15,9 @@ import {
   type MachineSort,
 } from './machinePicker';
 import { dialects, getDialect } from '../dialects/registry';
+import { basicFamilyOf } from '../dialects/referencePage';
 
-// The picker asks a machine for six fields, and both surfaces that render it
+// The picker asks a machine for a fixed few fields, and both surfaces that render it
 // supply them from their own list: the IDE from the registry, the porting guide
 // from `src/reference/machines.ts`. The registry-driven cases below pass
 // dialects *as* `MachineLike`, which is the structural claim the docs rely on.
@@ -140,7 +141,7 @@ describe('arranging machines for the picker', () => {
     });
   });
 
-  describe('by BASIC dialect', () => {
+  describe('by BASIC family', () => {
     const groups = groupMachines(machines, 'basic');
 
     it('heads the BASICs alphabetically', () => {
@@ -150,17 +151,51 @@ describe('arranging machines for the picker', () => {
       );
     });
 
-    it('puts every machine under the BASIC it declares', () => {
+    it('puts every machine under the family it declares', () => {
       for (const g of groups) {
-        for (const m of g.machines) expect(m.basicDialect).toBe(g.heading);
+        for (const m of g.machines) expect(basicFamilyOf(m)).toBe(g.heading);
       }
     });
 
     it('groups the machines that share a BASIC', () => {
-      // Two CPCs run Locomotive BASIC 1.1, and the manufacturer arrangement is
+      // Three CPCs run Locomotive BASIC, and the manufacturer arrangement is
       // the one that cannot show it: this is the arrangement's whole point.
-      const shared = groups.find((g) => g.heading === 'Locomotive BASIC 1.1')!;
-      expect(shared.machines.map((m) => m.id)).toEqual(['cpc664', 'cpc6128']);
+      const shared = groups.find((g) => g.heading === 'Locomotive BASIC')!;
+      expect(shared.machines.map((m) => m.id)).toEqual([
+        'cpc464',
+        'cpc664',
+        'cpc6128',
+      ]);
+    });
+
+    it('heads two machines running different versions of one BASIC together', () => {
+      // The two BBCs run BASIC II and BASIC IV. Heading them apart was the
+      // long list of near-singletons this arrangement grouped its way out of.
+      const bbc = groups.find((g) => g.heading === 'BBC BASIC')!;
+      expect(bbc.machines.map((m) => m.id)).toEqual(['bbcmaster', 'bbcmicro']);
+    });
+
+    it('still names the version each machine runs on its own row', () => {
+      const bbc = groups.find((g) => g.heading === 'BBC BASIC')!;
+      expect(bbc.machines.map((m) => m.basicDialect)).toEqual([
+        'BBC BASIC IV',
+        'BBC BASIC II',
+      ]);
+    });
+
+    it('keeps machines whose BASICs are not versions of one another apart', () => {
+      // Both Apples, one page apart in age; the II Plus runs Applesoft, which
+      // is not a version of Integer BASIC however much else the two share.
+      expect(
+        groups
+          .find((g) => g.heading === 'Integer BASIC')!
+          .machines.map((m) => m.id),
+      ).toEqual(['apple1', 'apple2']);
+      expect(
+        groups
+          .find((g) => g.heading === 'Applesoft BASIC')!
+          .machines.map((m) => m.id),
+      ).toEqual(['apple2plus']);
     });
   });
 });
@@ -188,6 +223,22 @@ describe('narrowing the machine list', () => {
     // only have come from the BASIC.
     const ids = filterMachines(machines, 'locomotive').map((m) => m.id);
     expect(ids).toEqual(['cpc464', 'cpc664', 'cpc6128']);
+  });
+
+  it('matches a machine by the family of BASIC it runs', () => {
+    // The ZX81 runs "ZX81 BASIC", so only the family it declares can put it
+    // among the machines a reader who typed "Sinclair BASIC" is shown - and the
+    // ZX80, whose BASIC is a family of its own, must stay out.
+    const ids = filterMachines(machines, 'sinclair basic').map((m) => m.id);
+    expect(ids).toEqual(['zx81', 'zxspectrum', 'zxspectrum128']);
+  });
+
+  it('matches a machine by the version rather than the family', () => {
+    // "BASIC IV" is on no heading the list shows: the Master's own version is
+    // the only thing it can have matched.
+    expect(filterMachines(machines, 'basic iv').map((m) => m.id)).toEqual([
+      'bbcmaster',
+    ]);
   });
 
   it('ignores letter case, and surrounding space', () => {

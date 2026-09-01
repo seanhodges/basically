@@ -429,7 +429,7 @@ writing than to retrofit:
 ### Picker identity (the registration stage)
 
 Registering the dialect puts the machine in the machine picker — which is where
-someone who has never used any of these computers chooses one. Four fields on
+someone who has never used any of these computers chooses one. Six fields on
 the `Dialect` in `src/dialects/<id>/index.ts` are written for that reader rather
 than for a spec sheet, and none of them may be written from memory:
 
@@ -439,6 +439,36 @@ than for a spec sheet, and none of them may be written from memory:
 | `manufacturer` | The short familiar form (`Acorn`, `Amstrad`, `Commodore`, `Sinclair`, `Tandy`). It is the grouping heading, so it must match its sibling machines' spelling exactly. | existing `manufacturer` values in `src/dialects/*/index.ts` — a new spelling splits the group |
 | `year`         | The machine's release year.                                                                                                                                          | a primary source, verified (`registry.test.ts` bounds it to 1975–1995)                        |
 | `blurb`        | Two short sentences: one distinguishing fact about the machine, then the BASIC it runs — `Sinclair's first home computer. Runs ZX80 BASIC.`                          | BASIC name from `docs/reference/<page>.md`; machine fact verified against a primary source    |
+| `basicDialect` | The _version_ this machine runs, as its own documentation names it (`BBC BASIC IV`, `Locomotive BASIC 1.1`). The blurb must name the same string.                    | the machine's own manual or ROM banner, not a sibling's                                       |
+| `basicFamily`  | The _family_ that version belongs to (see below). Omitted where the version string is already the family name.                                                       | the families the registered machines already declare                                          |
+
+The family is what the picker's by-BASIC arrangement heads its groups with, and
+the version is what the porting comparison names, so a machine declares both and
+neither substitutes for the other. Twelve families cover the registered
+machines:
+
+| Family           | Machines                         |
+| ---------------- | -------------------------------- |
+| Applesoft BASIC  | Apple II Plus                    |
+| Atari BASIC      | Atari 400, Atari 800             |
+| Atom BASIC       | Acorn Atom                       |
+| BASIC-G          | PMD 85                           |
+| BBC BASIC        | BBC Micro, BBC Master            |
+| Commodore BASIC  | PET, VIC-20, Commodore 64        |
+| Integer BASIC    | Apple I, Apple II                |
+| Level II BASIC   | TRS-80                           |
+| Locomotive BASIC | CPC 464, CPC 664, CPC 6128       |
+| Microsoft BASIC  | Altair 8800                      |
+| Sinclair BASIC   | ZX81, Spectrum 48K, Spectrum 128 |
+| ZX80 BASIC       | ZX80                             |
+
+Join an existing family wherever the new machine runs a version of a BASIC one
+of these already covers; mint a new one only for a BASIC that is nobody else's.
+The line is the name on the machine, not the ancestry: Commodore BASIC,
+Applesoft and Level II BASIC are all licensed Microsoft BASIC and still keep
+their vendor names, because those are what a reader searches for. Machines
+sharing a `docsReference` must share a family — `registry.test.ts` fails
+otherwise.
 
 The blurb has a hard budget: **aim for 60 characters, never exceed 72**
 (`registry.test.ts` fails above it). The picker clamps each row's description to

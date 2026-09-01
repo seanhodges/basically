@@ -21,3 +21,20 @@ export function referencePageOf(machine: {
 }): string {
   return machine.docsReference ?? machine.id;
 }
+
+/**
+ * The family of BASIC a machine runs, which is what groups it: `Sinclair BASIC`
+ * covers the ZX81 and both Spectrums, `BBC BASIC` the Micro and the Master.
+ * Falls back to the version string, correct for every machine that is the only
+ * one of its kind, so a dialect only declares a family when it shares one.
+ *
+ * Takes a shape and imports nothing for the same reason `referencePageOf` does:
+ * the machine picker and the docs runtime both read it, and neither may reach
+ * the other's module graph.
+ */
+export function basicFamilyOf(machine: {
+  basicDialect: string;
+  basicFamily?: string;
+}): string {
+  return machine.basicFamily ?? machine.basicDialect;
+}
