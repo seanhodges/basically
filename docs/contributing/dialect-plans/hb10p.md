@@ -124,7 +124,7 @@ delegation rather than a fork.
 
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
-| 1     | Language core                      | ⬜     |
+| 1     | Language core                      | ✅     |
 | 2     | Emulator core (Z80 + VDP + slots)  | ⬜     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
@@ -134,7 +134,7 @@ delegation rather than a fork.
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change.
 
@@ -161,38 +161,55 @@ rather than from a web page: the BASIC ROM carries the keyword strings and the
 detokenizer's own table, and the crosscheck at Stage 6 will compare what you
 wrote against what the machine prints anyway.
 
-- [ ] `keywords.ts` — `KeywordInfo[]` (token bytes incl. the `0xFF` two-byte
-      function tokens, `kind`, signatures, docs)
-- [ ] `charset.ts` — `CharsetMapping` over the **MSX International** character
-      set, derived from the character generator in the BIOS ROM. Give each block
-      graphic its exact Unicode character where one exists (Block Elements
-      first, then Symbols for Legacy Computing) and fall back to an escape only
-      where injectivity or Unicode forces it. The graphic characters typed with
-      the GRAPH key are reached in a string as `0x01` followed by the character
-      plus `0x40` — that two-byte "graphic header" is a charset fact, not a
-      keyboard one, and both directions have to round-trip it
+- [x] `keywords.ts` — `KeywordInfo[]` (token bytes incl. the `0xFF` two-byte
+      function tokens, `kind`, signatures, docs). `token` holds the whole
+      token, so a function reads as `0xFF81`. `ELSE` and `'` are stored behind
+      the hidden `0x3A` the family uses, and `?`/`'` are entry-only aliases
+- [x] `charset.ts` — `CharsetMapping` over the **MSX International** character
+      set, with the `0x01` graphic header round-tripping in both directions.
+      **Authored from the published character set, not from the ROM**, which is
+      not in the tree yet: the four cursor arrows are the only sub-0x20 shapes
+      citable today and the rest of that range spells as escapes. The Stage 6
+      crosscheck is what settles the block-graphics shapes
 - [ ] declare the machine's graphics byte range in `SEMIGRAPHIC_CODES`
       (`src/dialects/semigraphicsAudit.ts`), **cited to a primary source**, or
-      leave it `null` rather than guessing; join `IN_SCOPE` once it round-trips
-- [ ] `language.ts` — `languageSupport()` + `completionSource`.
-      `BasicLanguageOptions`: `hexPrefix: '&H'`, `binaryPrefix: '&B'`,
-      `suffixChars` for `%`/`!`/`#`/`$` (MSX BASIC has all four type suffixes,
-      unlike every Microsoft BASIC already shipped here), and `crunched: false`
-      — MSX BASIC needs its spaces, so `FORI=1TO10` is not `FOR I=1 TO 10`.
-      **Check that last claim on the machine before writing it down**
-- [ ] `constructsByDialect.hb10p` in `src/editor/constructs.ts` — **the array
-      and the map entry, not just the array**: nothing fails until registration,
-      so a written-but-unwired list survives six stages
-- [ ] `hb10pVariableErrors` wrapper in `src/editor/variableLint.ts` over the
-      Microsoft-family helper (MSX BASIC has long variable names, significant to
-      two characters — check which helper matches that before picking one)
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never throw
-- [ ] `basfile.ts` — the `.bas` container: a `0xFF` marker byte then the
-      tokenized program, loadable at `TXTTAB`; and the parse back
-- [ ] `lint` wired through `tokenize`
-- [ ] tests: tokenizer round-trip (every numeric prefix above, both function
+      leave it `null` rather than guessing; join `IN_SCOPE` once it round-trips.
+      **Moved to Stage 7:** `semigraphicsAudit.test.ts` fails on an entry whose
+      dialect is not registered, so the declaration cannot land before the
+      registry line. The range is 0xC0-0xDF on the evidence so far
+- [x] `language.ts` — `languageSupport()` + `completionSource`.
+      `BasicLanguageOptions`: `hexPrefix`, `binaryPrefix`, `suffixChars` for
+      `%`/`!`/`#`/`$` (MSX BASIC has all four type suffixes, unlike every
+      Microsoft BASIC already shipped here), and **`crunched: true`** — the
+      plan guessed otherwise, but this is Microsoft's tokenizer: it matches a
+      keyword wherever it appears, which is both why `FORI=1TO10` is a loop and
+      why a variable may not contain a reserved word. Read off the ROM at
+      Stage 6 rather than taken on the family's word
+- [x] the MSX block templates in `src/editor/constructs.ts`, as
+      `MSX_CONSTRUCTS`. **The map entry is Stage 7's**, not this stage's:
+      `constructs.test.ts` fails on a `constructsByDialect` key that is not a
+      registered dialect, so `language.ts` reads the array directly until then
+- [x] `hb10pVariableErrors` wrapper in `src/editor/variableLint.ts` over the
+      Microsoft-family helper — MSX BASIC's names are long and significant to
+      two characters, which is `microsoftVariableErrors` exactly. Its lexis is
+      `MSX_LEXIS` in `src/editor/variableLexis.ts`; **the `VARIABLE_LEXIS`
+      entry is Stage 7's** for the same reason as the block templates
+- [x] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, never
+      throw. The numeric constants are in `numbers.ts`, including the BCD
+      floats: MSX BASIC stores decimal digits rather than Microsoft binary
+      format, which is where its fourteen-digit double comes from
+- [x] `basfile.ts` — the `.bas` container: a `0xFF` marker byte then the
+      tokenized program, loadable at `TXTTAB`; and the parse back, which reads
+      an ASCII listing as text rather than as tokens
+- [x] `lint` wired through `tokenize`
+- [x] tests: tokenizer round-trip (every numeric prefix above, both function
       token forms), charset round-trip incl. the graphic header, `.bas`
       link-word pointer consistency
+
+**A line's extent is not findable by scanning for its `0x00`.** A BCD mantissa
+and a line reference's high byte are both routinely zero, so the detokenizer
+has to decode each constant to know where the line ends — the one trap in this
+format that a Commodore- or Tandy-shaped implementation walks straight into.
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
@@ -455,6 +472,10 @@ disappears with the registry line.
       **measured** by running the battery, never authored), and the
       `referenceByPage`, `escapesByPage` and `memoryMapById` maps in
       `docs/reference/compare.md`
+- [ ] the three tables Stage 1 could not reach, each pinned to the registry:
+      `constructsByDialect.hb10p = MSX_CONSTRUCTS` (and `language.ts` back onto
+      the map), `VARIABLE_LEXIS.hb10p = MSX_LEXIS`, and the `SEMIGRAPHIC_CODES`
+      entry
 - [ ] delete `'msx'` from `PENDING_PAGE_IDS` in the same change —
       `pages.test.ts` fails on an entry whose machine has arrived
 - [ ] **then register, run the whole unit suite, and work the failure list.**

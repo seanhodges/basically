@@ -102,6 +102,23 @@ const PMD85_LEXIS: VariableLexis = {
 const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
 
 /**
+ * MSX BASIC's lexis: the Microsoft family's, plus the `&`-radix literals whose
+ * digits must not be read as a variable name. One marker slot has to cover
+ * `&H`, `&O` and `&B` (and the bare `&` the machine reads as octal), so the
+ * prefix here is wider than the editor's two separate hex and binary patterns.
+ *
+ * Not yet in {@link VARIABLE_LEXIS}: the table is pinned to the registry, and
+ * this machine is not offered to the user yet.
+ */
+export const MSX_LEXIS: VariableLexis = {
+  suffixChars: '$%!#',
+  hexPrefix: '&[HhOoBb]?',
+  crunched: true,
+  significantChars: 2,
+  dataIsVerbatim: true,
+};
+
+/**
  * Dialect id → its name lexis. `{}` is a statement, not an omission: the
  * Sinclair machines take the defaults (`$` the only marker, no extra name
  * characters, no hex prefix, no crunching, and DATA items that are expressions).
