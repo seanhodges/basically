@@ -8,7 +8,7 @@
  * as the highlighter/completion (`forEachVariable` + `buildIdentifierRegexes`),
  * so keywords, numbers and PROC/FN calls are never mistaken for variables.
  *
- * Two families cover every dialect that has a real restriction:
+ * Three families cover every dialect that has a real restriction:
  *
  * - **Single-letter (Sinclair / Acorn Atom):** {@link singleLetterVariableErrors}.
  *   Sinclair machines (ZX81, ZX Spectrum 48K/128K) require string variables
@@ -25,7 +25,6 @@
  *   flagged - in expression position (`FORI=ATOB`) the split is silent, since
  *   it is indistinguishable from intentional crunch. The dialects differ only
  *   in their type-suffix characters (Altair `$`, C64 `$%`, TRS-80 `$%!#`).
- *
  * - **Name length (SAM Coupé):** {@link samcoupeVariableErrors}. SAM BASIC's
  *   names are fully significant, so nothing collides; what it has instead are
  *   two ceilings, and they differ by type.
@@ -37,8 +36,9 @@
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import { eachOccurrence, type Occurrence } from './variables';
 import {
-  SAMCOUPE_LEXIS,
   lexisFor,
+  MSX_LEXIS,
+  SAMCOUPE_LEXIS,
   variableRules,
   type VariableLexis,
 } from './variableLexis';
@@ -324,6 +324,20 @@ export function trs80VariableErrors(
   return microsoftVariableErrors(source, keywords, {
     label: 'TRS-80',
     lexis: lexisFor('trs80'),
+  });
+}
+
+/**
+ * MSX BASIC inherits the family's two rules and adds two more type suffixes to
+ * strip before counting: `A%`, `A!` and `A#` are the same name as `A$` is not.
+ */
+export function hb10pVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'MSX',
+    lexis: MSX_LEXIS,
   });
 }
 

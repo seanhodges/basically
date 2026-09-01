@@ -102,6 +102,23 @@ const PMD85_LEXIS: VariableLexis = {
 const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
 
 /**
+ * MSX BASIC's lexis: the Microsoft family's, plus the `&`-radix literals whose
+ * digits must not be read as a variable name. One marker slot has to cover
+ * `&H`, `&O` and `&B` (and the bare `&` the machine reads as octal), so the
+ * prefix here is wider than the editor's two separate hex and binary patterns.
+ *
+ * Not yet in {@link VARIABLE_LEXIS}: the table is pinned to the registry, and
+ * this machine is not offered to the user yet.
+ */
+export const MSX_LEXIS: VariableLexis = {
+  suffixChars: '$%!#',
+  hexPrefix: '&[HhOoBb]?',
+  crunched: true,
+  significantChars: 2,
+  dataIsVerbatim: true,
+};
+
+/**
  * SAM BASIC's lexis. `NAMTOBUF` in the ROM's lookvar.asm takes a first letter
  * then letters, digits and `_`, folds the name to lower case and skips spaces
  * inside it, so `hi score` and `hiscore` are one variable; `$` is the only type
@@ -110,8 +127,8 @@ const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
  * or array name longer than ten characters is rejected outright rather than
  * shortened, which is a lint rule and not a lexis one.
  *
- * Not in {@link VARIABLE_LEXIS}: that table names exactly the registered
- * machines, and this one is not registered yet.
+ * Not in {@link VARIABLE_LEXIS} for the same reason as MSX's: that table names
+ * exactly the registered machines, and this one is not registered yet.
  */
 export const SAMCOUPE_LEXIS: VariableLexis = {
   nameChars: '_',
