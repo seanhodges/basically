@@ -49,11 +49,11 @@
 
 ## 7. Quality gates
 
-- [ ] 7.1 `npx vitest run src/reference/ src/app/ src/dialects/registry.test.ts`
-- [ ] 7.2 `npm test` — the re-keying and the slug move both reach batteries outside `src/reference/`, and neither can name every test it touches
-- [ ] 7.3 `npm run typecheck && npm run lint && npm run format:check`
-- [ ] 7.4 `npm run docs:build` — the dead-link check is what catches anything left pointing at a moved slug
+- [x] 7.1 `npx vitest run src/reference/ src/app/ src/dialects/registry.test.ts`
+- [x] 7.2 `npm test` — the re-keying and the slug move both reach batteries outside `src/reference/`, and neither can name every test it touches
+- [x] 7.3 `npm run typecheck && npm run lint && npm run format:check`
+- [x] 7.4 `npm run docs:build` — the dead-link check is what catches anything left pointing at a moved slug
 - [ ] 7.5 `npm run e2e:chromium -- e2e/porting-guidance`
 - [ ] 7.6 `npm run e2e:chromium -- e2e/dialect-toolchain e2e/shell`
-- [ ] 7.7 `npx openspec validate --specs`
+- [x] 7.7 `npx openspec validate --specs`
 - [ ] 7.8 By hand in `npm run docs:dev`: the merged Sinclair page offers a ZX81 reader no Spectrum-only keyword, `/reference/zxspectrum` lands on `/reference/sinclair`, and the porting guide answers a ZX81 target in the ZX81's own spellings while still reporting 48K against 128 Sinclair BASIC as a difference between the two Spectrums
