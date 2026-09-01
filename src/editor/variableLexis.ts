@@ -102,6 +102,24 @@ const PMD85_LEXIS: VariableLexis = {
 const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
 
 /**
+ * SAM BASIC's lexis. `NAMTOBUF` in the ROM's lookvar.asm takes a first letter
+ * then letters, digits and `_`, folds the name to lower case and skips spaces
+ * inside it, so `hi score` and `hiscore` are one variable; `$` is the only type
+ * marker, there being no integer type; and `&FF` is a hex literal whose letters
+ * are not a name. Names are fully significant, so nothing truncates - a string
+ * or array name longer than ten characters is rejected outright rather than
+ * shortened, which is a lint rule and not a lexis one.
+ *
+ * Not in {@link VARIABLE_LEXIS}: that table names exactly the registered
+ * machines, and this one is not registered yet.
+ */
+export const SAMCOUPE_LEXIS: VariableLexis = {
+  nameChars: '_',
+  suffixChars: '$',
+  hexPrefix: '&',
+};
+
+/**
  * Dialect id → its name lexis. `{}` is a statement, not an omission: the
  * Sinclair machines take the defaults (`$` the only marker, no extra name
  * characters, no hex prefix, no crunching, and DATA items that are expressions).

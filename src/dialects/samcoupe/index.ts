@@ -1,10 +1,16 @@
-import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type DetokenizeResult,
+  type TokenizeResult,
+} from '../types';
 import { samcoupeCharset } from './charset';
 import { samcoupeKeywords, samcoupeOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
-import { buildSamFile, parseSamFile } from './samfile';
+import { detokenizeProgram, detokenizeWithWarnings } from './detokenizer';
+import { buildSamFile, parseSamFile, parseSamFileWithReport } from './samfile';
 import { samcoupeCompletionSource, samcoupeLanguageSupport } from './language';
+import { samcoupeVariableErrors } from '../../editor/variableLint';
 import { samcoupeAiProfile } from './aiProfile';
 import { samcoupeBuildTargets } from './targets';
 import { samcoupeKeyboardLayout } from './keyboardLayout';
@@ -42,11 +48,11 @@ export const samcoupe: Dialect = {
   languageSupport: samcoupeLanguageSupport,
   completionSource: samcoupeCompletionSource,
 
-  tokenize(source: string): TokenizeResult {
+  tokenize(source: string, opts): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
     const image =
       !hasFatalErrors(errors) && bytes.length > 0
-        ? buildSamFile(bytes, '')
+        ? buildSamFile(bytes, opts?.programName ?? 'program')
         : new Uint8Array(0);
     return { programBytes: bytes, image, errors, byteSize: bytes.length };
   },
@@ -55,8 +61,23 @@ export const samcoupe: Dialect = {
     return detokenizeProgram(parseSamFile(image).program);
   },
 
+  detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+    const { file, warnings } = parseSamFileWithReport(image);
+    const text = detokenizeWithWarnings(
+      file ? file.program : new Uint8Array(0),
+    );
+    return {
+      source: text.source,
+      warnings: [...warnings, ...text.warnings],
+      autoStart: file?.autoStart ?? null,
+    };
+  },
+
   lint(source: string) {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...samcoupeVariableErrors(source, samcoupeKeywords),
+    ];
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/samcoupe.rom`,

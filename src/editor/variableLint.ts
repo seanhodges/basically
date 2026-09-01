@@ -26,13 +26,22 @@
  *   it is indistinguishable from intentional crunch. The dialects differ only
  *   in their type-suffix characters (Altair `$`, C64 `$%`, TRS-80 `$%!#`).
  *
+ * - **Name length (SAM Coupé):** {@link samcoupeVariableErrors}. SAM BASIC's
+ *   names are fully significant, so nothing collides; what it has instead are
+ *   two ceilings, and they differ by type.
+ *
  * BBC BASIC has no such rule: its names are fully significant, and the only real
  * restriction (a name may not embed a non-`conditional` keyword) is already
  * enforced ROM-accurately inside its tokenizer.
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import { eachOccurrence, type Occurrence } from './variables';
-import { lexisFor, variableRules, type VariableLexis } from './variableLexis';
+import {
+  SAMCOUPE_LEXIS,
+  lexisFor,
+  variableRules,
+  type VariableLexis,
+} from './variableLexis';
 import { identityKey, nameKey } from './variableIdentity';
 
 /** The name without its trailing type-suffix character. */
@@ -138,6 +147,46 @@ export function atomVariableErrors(
     strict: true,
     options: lexisFor('atom'),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Name length (SAM Coupé)
+// ---------------------------------------------------------------------------
+
+/**
+ * How many characters SAM BASIC keeps of a name, by type.
+ *
+ * `NAMTOBUF` in the ROM's lookvar.asm counts a name down from 32 and stops with
+ * "Invalid variable name" if it runs out, so a numeric name may be 32
+ * characters. `STARYLK` next door masks the stored length to five bits and
+ * rejects anything from 11 up, so a string or array name may be 10 - and the
+ * `$` or `(` that says which it is does not count towards them.
+ */
+const SAMCOUPE_MAX_NAME = 32;
+const SAMCOUPE_MAX_STRING_NAME = 10;
+
+/** Editor diagnostics for SAM BASIC's two name-length ceilings. */
+export function samcoupeVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules(SAMCOUPE_LEXIS, keywords);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const bare = stripSuffix(occ.name, '$');
+    const isString = occ.name.endsWith('$') || occ.nextChar === '(';
+    const limit = isString ? SAMCOUPE_MAX_STRING_NAME : SAMCOUPE_MAX_NAME;
+    if (bare.length <= limit) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: isString
+        ? `SAM Coupé string and array names are at most ${SAMCOUPE_MAX_STRING_NAME} characters (excluding the $ or the bracket).`
+        : `SAM Coupé variable names are at most ${SAMCOUPE_MAX_NAME} characters.`,
+    });
+  });
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
