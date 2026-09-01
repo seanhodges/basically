@@ -34,6 +34,7 @@ import {
   atariKeywords,
   atariOperators,
 } from '../src/dialects/atari800/keywords';
+import { hb10pKeywords, hb10pOperators } from '../src/dialects/hb10p/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -258,6 +259,31 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       entries: dedupe([
         ...atariKeywords.map((k) => toEntry(k)),
         ...atariOperators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
+    // The page slug, not the dialect id: MSX is a standard, and every machine
+    // built to it runs this same BASIC, so the page is named for the standard
+    // the way `cpc` is named for Locomotive BASIC rather than for the 464.
+    id: 'msx',
+    varName: 'msxReference',
+    data: {
+      title: 'MSX BASIC',
+      machines: ['Sony HB-10P'],
+      // The relational spellings MSX BASIC accepts but stores as two tokens are
+      // declared on the dialect rather than held in the keyword table, and the
+      // reference page lists both (see src/dialects/operators.ts).
+      entries: dedupe([
+        ...hb10pKeywords.map((k) => toEntry(k)),
+        ...hb10pOperators.map(
           (word): ReferenceEntry => ({
             name: word,
             kind: 'operator',

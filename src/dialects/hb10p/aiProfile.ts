@@ -20,7 +20,7 @@ export const hb10pAiProfile: AiProfile = composeAiProfile({
       bullets: [
         'A Sony HitBit HB-10P: an MSX1 with a Z80A at 3.58MHz, 64K of RAM and a TMS9918A-family VDP. Programs auto-RUN in this IDE.',
         'SCREEN 0 is 40x24 text, SCREEN 1 32x24 text with colour, SCREEN 2 256x192 graphics and SCREEN 3 64x48 chunky colour. Only 0 and 1 can PRINT.',
-        'Neither text screen starts at its full width: SCREEN 0 opens at WIDTH 39 and SCREEN 1 at WIDTH 29, so follow the SCREEN statement with WIDTH 40 or WIDTH 32 when the program lays text out by column.',
+        'Neither text screen starts at its full width: SCREEN 0 opens at WIDTH 37 and SCREEN 1 at WIDTH 29, so follow the SCREEN statement with WIDTH 40 or WIDTH 32 when the program lays text out by column.',
         'The bottom screen row shows the function-key strip until KEY OFF, which every full-screen program needs.',
         'COLOR foreground,background,border picks from the fixed 16 colours (0 transparent, 1 black, 15 white). In SCREEN 1 one COLOR statement recolours ALL the text at once, so there are no per-line colours.',
         'LOCATE column,row is 0-based and takes the column first.',
@@ -58,7 +58,7 @@ export const hb10pAiProfile: AiProfile = composeAiProfile({
       heading: 'GAME INPUT',
       bullets: [
         'STICK(0) reads the CURSOR KEYS as a direction and STICK(1) the joystick in port 1; both give 0 for centred and 1-8 clockwise from up (1 up, 3 right, 5 down, 7 left, evens the diagonals). STRIG(0) is the SPACE BAR and STRIG(1) the port-1 trigger, each -1 while pressed.',
-        'The on-screen controller is wired to exactly those, so a game reading STICK(0) and STRIG(0) is pad-driven, and reads a real joystick by passing 1 instead of 0.',
+        'The on-screen controller drives joystick port 1, so a game reading STICK(1) and STRIG(1) is pad-driven here and reads a real stick on real hardware unchanged; offer STICK(0) and STRIG(0) as the keyboard alternative.',
         'INKEY$ reads one buffered character without waiting (empty string if none) and INPUT halts for a typed line. ON INTERVAL=n GOSUB runs a routine every n fiftieths of a second as an animation clock.',
       ],
     },

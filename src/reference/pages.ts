@@ -19,6 +19,7 @@ import type { BasicReferenceTableData, EscapeTableData } from './types';
 import { altair8800Reference } from './altair8800';
 import { applesoftReference } from './applesoft';
 import { integerBasicReference } from './integer-basic';
+import { msxReference } from './msx';
 import { atariReference } from './atari';
 import { atomReference } from './atom';
 import { bbcReference } from './bbc';
@@ -32,6 +33,7 @@ import { zx80Reference } from './zx80';
 import { altair8800Escapes } from './escapes/altair8800';
 import { applesoftEscapes } from './escapes/applesoft';
 import { integerBasicEscapes } from './escapes/integer-basic';
+import { msxEscapes } from './escapes/msx';
 import { atariEscapes } from './escapes/atari';
 import { atomEscapes } from './escapes/atom';
 import { bbcEscapes } from './escapes/bbc';
@@ -59,7 +61,7 @@ export { referencePageOf } from '../dialects/referencePage';
  * page or whose machines have arrived - so the exemption cannot outlive the
  * staging it exists for. Empty is the ordinary state.
  */
-export const PENDING_PAGE_IDS: readonly string[] = [];
+export const PENDING_PAGE_IDS: readonly string[] = ['msx'];
 
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {
@@ -71,6 +73,7 @@ export const referencePages: Record<string, BasicReferenceTableData> = {
   commodore: commodoreReference,
   cpc: cpcReference,
   'integer-basic': integerBasicReference,
+  msx: msxReference,
   pmd85: pmd85Reference,
   sinclair: sinclairReference,
   trs80: trs80Reference,
@@ -95,6 +98,7 @@ export const escapePages: Record<string, EscapeTableData> = {
   commodore: commodoreEscapes,
   cpc: cpcEscapes,
   'integer-basic': integerBasicEscapes,
+  msx: msxEscapes,
   pmd85: pmd85Escapes,
   sinclair: sinclairEscapes,
   trs80: trs80Escapes,

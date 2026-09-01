@@ -31,6 +31,7 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
   cpc: () => import('../reference/cpc').then((m) => m.cpcReference),
   'integer-basic': () =>
     import('../reference/integer-basic').then((m) => m.integerBasicReference),
+  msx: () => import('../reference/msx').then((m) => m.msxReference),
   pmd85: () => import('../reference/pmd85').then((m) => m.pmd85Reference),
   sinclair: () =>
     import('../reference/sinclair').then((m) => m.sinclairReference),
@@ -61,6 +62,7 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
     import('../reference/escapes/integer-basic').then(
       (m) => m.integerBasicEscapes,
     ),
+  msx: () => import('../reference/escapes/msx').then((m) => m.msxEscapes),
   pmd85: () => import('../reference/escapes/pmd85').then((m) => m.pmd85Escapes),
   sinclair: () =>
     import('../reference/escapes/sinclair').then((m) => m.sinclairEscapes),
