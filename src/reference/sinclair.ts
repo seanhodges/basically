@@ -13,10 +13,10 @@
 // machines fails rather than merely reading oddly.
 //
 // Where all three have a row and behave differently, the row says how rather
-// than answering for one of them: PLOT is a 64x44 block grid on the ZX81 and
-// 256x175 pixels on the Spectrums, THEN takes one statement on the ZX81 and the
-// rest of the line on the Spectrums, and CLEAR, INPUT, SAVE and USR each take
-// an argument on the Spectrums that the ZX81 has no form for.
+// than answering for one of them: PLOT is a 64 by 44 block grid on the ZX81 and
+// 256 by 176 pixels on the Spectrums, THEN takes one statement on the ZX81 and
+// the rest of the line on the Spectrums, and CLEAR, INPUT, SAVE and USR each
+// take an argument on the Spectrums that the ZX81 has no form for.
 import type { BasicReferenceTableData } from './types';
 import { withAbbreviations } from './abbreviations';
 
@@ -310,7 +310,7 @@ const sinclairTable: BasicReferenceTableData = {
       domain: 'numeric',
       syntax: '<number> AND <number>',
       description:
-        'Logical and: a AND b yields a when b is non-zero (true), otherwise 0 — or "" where a is a string, on the Spectrums, the ZX81 having no string operands here. So a AND b is true only when both operands are.',
+        'Logical and: a AND b yields a when b is non-zero (true), otherwise 0 — or "" where a is a string, on the Spectrums. So a AND b is true only when both operands are.',
     },
     {
       name: '<=',
@@ -352,7 +352,7 @@ const sinclairTable: BasicReferenceTableData = {
       domain: 'control-flow',
       syntax: 'IF <number> THEN <statement>',
       description:
-        'Introduces what runs when an IF condition is true, and the two machines differ in how much that is: the ZX81 allows one statement and has no multi-statement lines at all, while on the Spectrums everything after THEN on the line — including further ":"-separated statements — is conditional. Neither has ELSE.',
+        'Introduces what runs when an IF condition is true, and how much that is differs: the ZX81 allows one statement and has no multi-statement lines at all, while on the Spectrums everything after THEN on the line — including further ":"-separated statements — is conditional. Neither has ELSE.',
     },
     {
       name: 'TO',
@@ -743,7 +743,7 @@ const sinclairTable: BasicReferenceTableData = {
       domain: 'graphics',
       syntax: 'PLOT <x>, <y>',
       description:
-        'Sets a single point at x,y with the origin at the bottom-left. The grid is the machine’s: 64x44 character-block pixels on the ZX81, where UNPLOT clears one, and 256x175 real pixels on the Spectrums, where OVER 1 or INVERSE 1 clears one instead.',
+        'Sets a single point at x,y with the origin at the bottom-left. The grid is the machine’s: 64 by 44 character-block pixels on the ZX81, where UNPLOT clears one, and 256 by 176 real pixels on the Spectrums (x 0-255, y 0-175), where OVER 1 or INVERSE 1 clears one instead.',
     },
     {
       name: 'RUN',
