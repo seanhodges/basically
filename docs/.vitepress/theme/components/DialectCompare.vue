@@ -178,12 +178,13 @@ const fullKeywordDiff = computed(() => {
   const s = source.value;
   const t = target.value;
   if (!s || !t || !sourceTable.value || !targetTable.value) return null;
-  // `from`/`to` stay *page* slugs: the cross-dialect spelling data
-  // (equivalences, false friends, pair notes) is a property of the BASIC, which
-  // every machine on a page shares.
+  // `from`/`to` are machine ids: the cross-dialect spelling data
+  // (equivalences, false friends, pair notes) is a property of the machine, not
+  // of the page it reads from — the ZX81 and the Spectrums share a page and
+  // spell the jump two ways.
   return diffKeywords(sourceTable.value, targetTable.value, {
-    from: s.page,
-    to: t.page,
+    from: s.id,
+    to: t.id,
     equivalences: keywordEquivalences,
   });
 });
@@ -196,8 +197,8 @@ const fullKeywordDiff = computed(() => {
 // the fact table instead (see factRows), not as prose.
 const guidance = computed(() =>
   composeGuidance({
-    from: source.value?.page ?? from.value,
-    to: target.value?.page ?? to.value,
+    from: source.value?.id ?? from.value,
+    to: target.value?.id ?? to.value,
     targetFacts: target.value?.facts,
     pairNotes: pairPortingNotes,
     falseFriends,
@@ -920,7 +921,7 @@ const escReplaceSections = computed<EscapeSection[]>(() => {
         escapeDiff.value.mustReplace,
         s.escapes,
         escapeGuidance,
-        t?.page,
+        t?.id,
       )
     : [];
 });
@@ -999,8 +1000,7 @@ const capabilities = computed<CapabilitySection[]>(() => {
     targetTable.value ?? t.reference,
     DOMAIN_ORDER,
     domainGuidance,
-    // Page-keyed: domain guidance is written per BASIC, not per machine.
-    t.page,
+    t.id,
   );
 });
 

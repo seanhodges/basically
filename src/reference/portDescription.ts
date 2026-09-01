@@ -549,8 +549,7 @@ function describeLostCommands(
     targetTable,
     KEYWORD_DOMAINS,
     domainGuidance,
-    // Page-keyed: domain guidance is written per BASIC, not per machine.
-    to.page,
+    to.id,
   );
   if (sections.length === 0) return '';
   const decided = new Set(
@@ -686,7 +685,7 @@ function describeLostEscapes(
     entries,
     sourceEscapes,
     escapeGuidance,
-    to.page,
+    to.id,
   ).flatMap((s) =>
     s.entries.map((e) => `- ${e.escape} (${s.label}): ${e.description}`),
   );
@@ -903,15 +902,15 @@ export function describePort(
   // what keeps it made correctly.
   const diff = diffForProgram(
     diffKeywords(sourceTable, targetTable, {
-      from: from.page,
-      to: to.page,
+      from: from.id,
+      to: to.id,
       equivalences: keywordEquivalences,
     }),
     vocabulary,
   );
   const guidance = composeGuidance({
-    from: from.page,
-    to: to.page,
+    from: from.id,
+    to: to.id,
     targetFacts: portingFacts.find((f) => f.id === to.id),
     pairNotes: pairPortingNotes,
     falseFriends,

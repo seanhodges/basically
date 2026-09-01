@@ -182,11 +182,11 @@ export interface EscapeTableData {
 
 /**
  * One command that several dialects provide under different spellings, keyed by
- * page slug: `{ commodore: 'CLR', bbc: 'CLEAR' }`. The comparison reports these
- * as a rename to carry out rather than as a command lost plus an unrelated
- * command gained.
+ * machine id: `{ commodore64: 'CLR', bbcmicro: 'CLEAR' }`. The comparison
+ * reports these as a rename to carry out rather than as a command lost plus an
+ * unrelated command gained.
  *
- * Page-scoped on purpose. A spelling can mean something else entirely on a page
+ * Partial on purpose. A spelling can mean something else entirely on a machine
  * that is simply left out of the map: the Atom's `CLEAR` selects a screen mode,
  * so `atom` is absent from the clear-variables group and its `CLEAR` is left to
  * be reported as the {@link FalseFriend} it is.
@@ -194,13 +194,13 @@ export interface EscapeTableData {
 export interface KeywordEquivalence {
   /** Stable id for the shared command, e.g. "clear-variables". Not shown. */
   concept: string;
-  /** Page slug → the spelling that page uses. Two or more entries. */
+  /** Machine id → the spelling that machine uses. Two or more entries. */
   spellings: Record<string, string>;
 }
 
 /**
  * One spelling that several dialects provide with materially different
- * meanings, keyed by page slug. The exact dual of {@link KeywordEquivalence}:
+ * meanings, keyed by machine id. The exact dual of {@link KeywordEquivalence}:
  * that one is a concept with many spellings, this is a spelling with many
  * concepts.
  *
@@ -213,7 +213,7 @@ export interface KeywordEquivalence {
 export interface FalseFriend {
   /** The shared spelling, exactly as the reference tables write it. */
   keyword: string;
-  /** Page slug → what it means there. Two or more entries, not all equal. */
+  /** Machine id → what it means there. Two or more entries, not all equal. */
   meanings: Record<string, string>;
 }
 
@@ -263,14 +263,19 @@ export interface PairPortingNote {
  *
  * Directional on purpose: what one direction gains the other loses, so a pair
  * and its reverse are two distinct entries. Sparse: most pairs have none.
- * Pinned by porting-crosscheck.test.ts (real slugs, `from` ≠ `to`, no duplicate
- * ordered pair, notes within the same reading budget as the other prose).
+ * Pinned by porting-crosscheck.test.ts (real machine ids, no machine on both
+ * sides, no duplicate ordered pair, notes within the same reading budget as the
+ * other prose).
  */
 export interface PairPortingNotes {
-  /** Source page slug being ported *from*. */
-  from: string;
-  /** Target page slug being ported *to*. */
-  to: string;
+  /**
+   * The machine being ported *from*, or the machines this note reads the same
+   * for. Several machines are named where they share the note, never because
+   * they share a reference page.
+   */
+  from: string | readonly string[];
+  /** The machine being ported *to*, or the machines sharing the note. */
+  to: string | readonly string[];
   /** A few short notes specific to this ordered pair. */
   notes: PairPortingNote[];
 }

@@ -1,20 +1,20 @@
 ## 1. Key the porting spellings and notes by machine
 
-- [ ] 1.1 Add the shared machine lists (`COMMODORES`, `CPCS`, `BBCS`, `ATARIS`, `SPECTRUMS`) to `src/reference/porting.ts` as named constants, exported for `domain-guidance.ts` to reuse, each with a one-line comment saying what its members share
-- [ ] 1.2 Re-key `keywordEquivalences.spellings` and `falseFriends.meanings` in `src/reference/porting.ts` from page slug to machine id, spreading the shared lists so every machine reading a slug's value today reads the same text after, and keeping the deliberate absences (the Atom's `discard-variables`, the Sinclairs' machine-code command) with their comments
-- [ ] 1.3 Widen `pairPortingNotes.from` and `.to` to take a machine id or several, re-key the eighteen pairs to machine ids via the same constants, and confirm the `zx81 ↔ zxspectrum` pairs are machine pairs rather than page pairs
-- [ ] 1.4 Update `src/reference/compare.ts` to look equivalences, false friends and pair notes up by machine id, keeping `tableForMachine` narrowing for the rows themselves
-- [ ] 1.5 Extend `src/reference/porting-crosscheck.test.ts` to check spellings and meanings against each machine's own rows, and to require that every registered machine resolves to a spelling or is deliberately absent — a machine silently missing from a concept is the failure this replaces
+- [x] 1.1 Add the shared machine lists (`COMMODORES`, `CPCS`, `BBCS`, `ATARIS`, `SPECTRUMS`) to `src/reference/porting.ts` as named constants, exported for `domain-guidance.ts` to reuse, each with a one-line comment saying what its members share
+- [x] 1.2 Re-key `keywordEquivalences.spellings` and `falseFriends.meanings` in `src/reference/porting.ts` from page slug to machine id, spreading the shared lists so every machine reading a slug's value today reads the same text after, and keeping the deliberate absences (the Atom's `discard-variables`, the Sinclairs' machine-code command) with their comments
+- [x] 1.3 Widen `pairPortingNotes.from` and `.to` to take a machine id or several, re-key the eighteen pairs to machine ids via the same constants, and confirm the `zx81 ↔ zxspectrum` pairs are machine pairs rather than page pairs
+- [x] 1.4 Update `src/reference/compare.ts` to look equivalences, false friends and pair notes up by machine id, keeping `tableForMachine` narrowing for the rows themselves
+- [x] 1.5 Extend `src/reference/porting-crosscheck.test.ts` to check spellings and meanings against each machine's own rows, and to require that every registered machine resolves to a spelling or is deliberately absent — a machine silently missing from a concept is the failure this replaces
 
 ## 2. Key the domain guidance by machine
 
-- [ ] 2.1 Widen `domainGuidance.to` in `src/reference/domain-guidance.ts` to take a machine id or several, and re-key the cells so each machine reads the advice its page gives it today
-- [ ] 2.2 Update `src/reference/machineDescription.ts` and `portDescription.ts` to select guidance by machine id rather than by `page`
-- [ ] 2.3 Narrow `domain-guidance-crosscheck.test.ts` to the machine: `domainsOnTarget` and `losableDomains` read `tableForMachine(PAGES[pageOf(id)], id)`, and `reachFor` names are pinned to the target machine's own rows
-- [ ] 2.4 Memoise the narrowed table per machine alongside the existing losable-set memo, and check the file's runtime against the suite budget before moving on — the sweep grows from fourteen targets against thirteen sources to twenty-one against twenty
-- [ ] 2.5 Do the same narrowing in `escape-guidance-crosscheck.test.ts`
-- [ ] 2.6 Work the defects the narrowed crosschecks report, one commit each, grounded in the machine's own rows; where a cell is coarse rather than wrong, split it deliberately and say so in the commit rather than letting a crosscheck decide it
-- [ ] 2.7 `npx vitest run src/reference/` green, and `npm run typecheck && npm run lint` — the re-keying ships here, before any page moves
+- [x] 2.1 Widen `domainGuidance.to` in `src/reference/domain-guidance.ts` to take a machine id or several, and re-key the cells so each machine reads the advice its page gives it today
+- [x] 2.2 Update `src/reference/machineDescription.ts` and `portDescription.ts` to select guidance by machine id rather than by `page`
+- [x] 2.3 Narrow `domain-guidance-crosscheck.test.ts` to the machine: `domainsOnTarget` and `losableDomains` read `tableForMachine(PAGES[pageOf(id)], id)`, and `reachFor` names are pinned to the target machine's own rows
+- [x] 2.4 Memoise the narrowed table per machine alongside the existing losable-set memo, and check the file's runtime against the suite budget before moving on — the sweep grows from fourteen targets against thirteen sources to twenty-one against twenty
+- [x] 2.5 Do the same narrowing in `escape-guidance-crosscheck.test.ts`
+- [x] 2.6 Work the defects the narrowed crosschecks report, one commit each, grounded in the machine's own rows; where a cell is coarse rather than wrong, split it deliberately and say so in the commit rather than letting a crosscheck decide it
+- [x] 2.7 `npx vitest run src/reference/` green, and `npm run typecheck && npm run lint` — the re-keying ships here, before any page moves
 
 ## 3. Merge the Integer BASIC pages
 

@@ -196,7 +196,7 @@ describe('the narrowing holds', () => {
   const fullDiff = diffKeywords(
     tableForMachine(c64.table, c64.id),
     tableForMachine(spectrum.table, spectrum.id),
-    { from: c64.page, to: spectrum.page, equivalences: keywordEquivalences },
+    { from: c64.id, to: spectrum.id, equivalences: keywordEquivalences },
   );
 
   it('never names a lost command the program does not use', () => {
@@ -242,7 +242,7 @@ describe('what the port does not require stays out', () => {
     const diff = diffKeywords(
       tableForMachine(c64.table, c64.id),
       tableForMachine(spectrum.table, spectrum.id),
-      { from: c64.page, to: spectrum.page, equivalences: keywordEquivalences },
+      { from: c64.id, to: spectrum.id, equivalences: keywordEquivalences },
     );
     expect(diff.newlyAvailable.length).toBeGreaterThan(0);
     // Scanned over what the report *offers*, which is not the same as what it

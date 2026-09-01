@@ -7,13 +7,38 @@
  * ask, or these tests reject it as dead.
  */
 import { describe, expect, it } from 'vitest';
-import { diffEscapes } from './compare';
-import { escapePages as PAGES, REFERENCE_PAGE_IDS } from './pages';
+import { diffEscapes, escapeTableForMachine } from './compare';
+import { escapePages as PAGES } from './pages';
 import { escapeGuidance } from './escape-guidance';
 import { ESCAPE_CLASSES } from './escape-classes';
 import type { EscapeClass } from './escape-classes';
+import type { EscapeTableData } from './types';
+import { dialects } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
 
-const IDS = REFERENCE_PAGE_IDS;
+/**
+ * Every registered machine, which is what a guidance cell advises. Machines
+ * sharing a page need not share a charset - the Sinclair page carries the
+ * ZX81's block graphics and the Spectrum's colour directives both - so a claim
+ * checked against the page would pass on a relative's codes.
+ */
+const IDS = dialects.map((d) => d.id);
+
+/** Every cell's targets, expanded - a cell may name several machines. */
+const targetsOf = (cell: (typeof escapeGuidance)[number]): readonly string[] =>
+  typeof cell.to === 'string' ? [cell.to] : cell.to;
+
+/** The machine's own control codes: its page's escape table narrowed to it. */
+const tableCache = new Map<string, EscapeTableData>();
+function tableFor(id: string): EscapeTableData {
+  const cached = tableCache.get(id);
+  if (cached) return cached;
+  const dialect = dialects.find((d) => d.id === id);
+  if (!dialect) throw new Error(`unknown dialect: ${id}`);
+  const table = escapeTableForMachine(PAGES[referencePageOf(dialect)]!, id);
+  tableCache.set(id, table);
+  return table;
+}
 
 // The same reading budget the capability guidance is held to: this renders
 // inline against a group the reader is already scanning.
@@ -22,37 +47,60 @@ export const MAX_EXAMPLE_LINES = 5;
 export const MAX_EXAMPLE_LINE_CHARS = 40;
 export const MAX_CAPTION_CHARS = 60;
 
-/** Classes the page files at least one of its own categories under. */
-function classesOnPage(id: string): Set<EscapeClass> {
-  return new Set(PAGES[id]!.categories.map((c) => c.class));
+/**
+ * Classes the machine has at least one control code of its own under. A page
+ * declares its categories for all its machines, so the codes decide this, not
+ * the category list.
+ */
+function classesOnMachine(id: string): Set<EscapeClass> {
+  const table = tableFor(id);
+  const classOf = new Map(table.categories.map((c) => [c.id, c.class]));
+  const classes = new Set<EscapeClass>();
+  for (const entry of table.entries) {
+    const cls = classOf.get(entry.category);
+    if (cls) classes.add(cls);
+  }
+  return classes;
 }
 
-/** Classes some other source page can lose codes from when porting into this target. */
+/**
+ * Classes some other source machine can lose codes from when porting into this
+ * target. Memoised for the reason the capability sweep's twin is: it diffs
+ * every source machine against the target, once per cell that names it.
+ */
+const losableCache = new Map<string, Set<EscapeClass>>();
 function losableClasses(to: string): Set<EscapeClass> {
+  const cached = losableCache.get(to);
+  if (cached) return cached;
   const losable = new Set<EscapeClass>();
   for (const from of IDS) {
     if (from === to) continue;
     const classOf = new Map(
-      PAGES[from]!.categories.map((c) => [c.id, c.class]),
+      tableFor(from).categories.map((c) => [c.id, c.class]),
     );
-    for (const entry of diffEscapes(PAGES[from]!, PAGES[to]!).mustReplace) {
+    for (const entry of diffEscapes(tableFor(from), tableFor(to)).mustReplace) {
       const cls = classOf.get(entry.category);
       // A row whose category the page never declares is caught by
       // escapes/escape-data.test.ts; here it simply contributes nothing.
       if (cls) losable.add(cls);
     }
   }
+  losableCache.set(to, losable);
   return losable;
 }
 
 const cellsByKey = new Map(
-  escapeGuidance.map((g) => [`${g.to}:${g.class}`, g]),
+  escapeGuidance.flatMap((g) =>
+    targetsOf(g).map((to) => [`${to}:${g.class}`, g] as const),
+  ),
 );
 
 describe('escape guidance: structural validity', () => {
-  it('names only real target pages', () => {
+  it('names only real target machines', () => {
     for (const g of escapeGuidance) {
-      expect(IDS, `"${g.to}" is not a real escape page slug`).toContain(g.to);
+      for (const to of targetsOf(g)) {
+        expect(IDS, `"${to}" is not a registered machine`).toContain(to);
+      }
     }
   });
 
@@ -65,8 +113,12 @@ describe('escape guidance: structural validity', () => {
     }
   });
 
+  // Expanded to machines, so two cells naming overlapping lists cannot both
+  // claim one machine's class.
   it('has no duplicate (to, class) cell', () => {
-    const keys = escapeGuidance.map((g) => `${g.to}:${g.class}`);
+    const keys = escapeGuidance.flatMap((g) =>
+      targetsOf(g).map((to) => `${to}:${g.class}`),
+    );
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
@@ -99,16 +151,18 @@ describe('escape guidance covers every target', () => {
 
 describe('every escape guidance cell', () => {
   it('reports support honestly', () => {
-    // A page that files one of its own categories under this class plainly
-    // has some way to express it, so "nothing like it" would be a lie. The
+    // A machine with a control code of its own under this class plainly has
+    // some way to express it, so "nothing like it" would be a lie. The
     // converse does not hold and is not checked: the CPC's mosaics and the
     // Spectrum's {INK n} are real support filed under another class.
     for (const g of escapeGuidance) {
-      if (g.support === 'none') {
-        expect(
-          classesOnPage(g.to),
-          `${g.to} claims no ${g.class} support but files a category of its own under that class`,
-        ).not.toContain(g.class);
+      for (const to of targetsOf(g)) {
+        if (g.support === 'none') {
+          expect(
+            classesOnMachine(to),
+            `${to} claims no ${g.class} support but has a control code of its own under that class`,
+          ).not.toContain(g.class);
+        }
       }
     }
   });
