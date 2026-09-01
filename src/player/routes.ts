@@ -37,6 +37,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'hgr', dialectId: 'apple2plus' }, // HGR - Applesoft's hi-res graphics mode
   { verb: 'drawto', dialectId: 'atari800' }, // DRAWTO - Atari BASIC's line-draw command
   { verb: 'setcolor', dialectId: 'atari400' }, // SETCOLOR - Atari BASIC's palette command
+  { verb: 'vpoke', dialectId: 'hb10p' }, // VPOKE - MSX BASIC's write-to-video-RAM command
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).

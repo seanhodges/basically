@@ -34,4 +34,5 @@ export const BOOT_MACHINES = [
   { id: 'apple2plus', label: 'Apple II Plus' },
   { id: 'atari800', label: 'Atari 800' },
   { id: 'atari400', label: 'Atari 400' },
+  { id: 'hb10p', label: 'HB-10P' },
 ];

@@ -39,6 +39,10 @@ import {
 } from './apple2/charset';
 import { atariCharset } from './atari800/charset';
 import { parseAtariChar } from './atari800/atascii';
+import {
+  parseChar as msxParseChar,
+  decodeSpan as msxDecodeSpan,
+} from './hb10p/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -364,6 +368,20 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_DOLLAR_BRACE,
     rawSpelling: '{$NN}',
+  },
+  {
+    id: 'msx',
+    varName: 'msxEscapes',
+    title: 'MSX BASIC escape codes',
+    machines: ['Sony HB-10P'],
+    dialects: ['hb10p'],
+    decode: (b) => msxDecodeSpan(Uint8Array.of(b), 0, 1).text,
+    // Multi-byte in both directions: a graphic character (0x00-0x1F's shape) is
+    // one editor character and the two bytes 0x01 and code+0x40.
+    ...parseAllMulti(msxParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
   },
 ];
 

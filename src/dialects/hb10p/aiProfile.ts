@@ -27,6 +27,7 @@ export const hb10pAiProfile: AiProfile = composeAiProfile({
         'MSX BASIC crunches like the rest of the Microsoft family: FORI=1TO10 is a loop, and a variable may not contain a reserved word (SCORE contains OR). Only the first two characters of a name count.',
         'All four type suffixes are real: A% integer, A! single, A# double, A$ string. Values default to DOUBLE precision, which is slow - put DEFINT A-Z at the top of a game and DEFSNG A-Z at the top of a floating-point demo.',
         'Numbers may be written &Hxx hex, &Bxx binary or &Oxx octal. ? is short for PRINT and ’ for REM.',
+        'AND, OR, XOR, EQV and IMP combine bits rather than truth values (5 AND 3 is 1, 5 OR 3 is 7, NOT 5 is -6) and a true comparison is -1, so IF A AND B masks bits. \\ is integer division and MOD the remainder.',
         'String space starts at 200 BYTES, not the free-memory figure: a program holding an array of strings needs a CLEAR 1500 first or it stops with String space full.',
       ],
     },
@@ -67,7 +68,7 @@ export const hb10pAiProfile: AiProfile = composeAiProfile({
       bullets: [
         'CALL is for cartridge and disk extensions (CALL MEMINI), NOT for machine code. Run a routine with DEFUSR=&HE003 : A=USR(0), and protect the memory it sits in with CLEAR 200,&HDFFF first. This IDE injects code blocks a program can call that way.',
         'There is no WHILE/WEND: loop with FOR/NEXT, or with IF and GOTO.',
-        'The MSX2 screens (SCREEN 5 and above), SET PAGE and COPY are not on this machine.',
+        'The MSX2 screens (SCREEN 5 and above) are not on this machine. SET and COPY are here but mean disk operations - SET PASSWORD, COPY "A" TO "B" - not the MSX2 SET PAGE and screen-to-screen COPY.',
       ],
     },
   ],

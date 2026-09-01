@@ -319,6 +319,18 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
     lenient: true,
     note: "The 400 shares the 800's BASIC cartridge and OS font byte for byte.",
   },
+  hb10p: {
+    lowerCase: 'always',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'preserved',
+    note:
+      'The MSX International font draws both cases in one set - the machine ' +
+      'even boots in lower case - and the charset is ASCII across 0x20-0x7E, ' +
+      'so a listing keeps the case it was typed in. MSX BASIC folds like the ' +
+      'rest of the Microsoft family: `print` lists back as PRINT, and a name ' +
+      'is identified after folding.',
+  },
 };
 
 /** The declared facts for a registered machine, or undefined for an unknown id. */

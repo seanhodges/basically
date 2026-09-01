@@ -68,8 +68,8 @@ test('guard: automated machine list matches the machine picker', async ({
  * One machine per emulator wiring family - the seam a browser actually
  * exercises. Each stands for the machines that reach their core the same way:
  *
- *  - `zxspectrum` - the self-contained Z80 machines under src/dialects/<id>/
- *    (zx80, zx81, zxspectrum128, trs80, cpc464, cpc6128).
+ *  - `zxspectrum` - the self-contained Z80 machines (zx80, zx81,
+ *    zxspectrum128, trs80, cpc464, cpc6128, and the MSX in src/emulator/msx/).
  *  - `pet` - the shared cpu6502 core in src/emulator/ (vic20, atom).
  *  - `commodore64` - the vendored viciious core.
  *  - `bbcmicro` - the jsbeeb package (bbcmaster).

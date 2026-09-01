@@ -86,6 +86,7 @@ const MOVES: [string, 16 | 32 | 64, string, string][] = [
   ['cpc464', 64, 'A', 'B'],
   ['pmd85', 64, 'KeyA', 'KeyB'],
   ['atari800', 16, 'A', 'B'],
+  ['hb10p', 64, 'A', 'B'],
 ];
 
 describe("the on-screen cursor keys move the machine's own cursor", () => {
@@ -173,6 +174,9 @@ const CLAIMED: Record<string, string[]> = {
   /** ANTIC's own bus over the shared cpu6502 core - a family of its own, the
    *  way pmd85 is despite reusing the i8080 core. */
   atari800: ['atari800', 'atari400'],
+  /** The MSX bus in src/emulator/msx/ over the same vendored Z80 core: slots,
+   *  a VDP and a PPI-scanned matrix, none of which the machines above have. */
+  hb10p: ['hb10p'],
 };
 
 /** Machines neither battery can reach, and why. */

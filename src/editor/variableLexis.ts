@@ -106,9 +106,6 @@ const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
  * digits must not be read as a variable name. One marker slot has to cover
  * `&H`, `&O` and `&B` (and the bare `&` the machine reads as octal), so the
  * prefix here is wider than the editor's two separate hex and binary patterns.
- *
- * Not yet in {@link VARIABLE_LEXIS}: the table is pinned to the registry, and
- * this machine is not offered to the user yet.
  */
 export const MSX_LEXIS: VariableLexis = {
   suffixChars: '$%!#',
@@ -127,8 +124,8 @@ export const MSX_LEXIS: VariableLexis = {
  * or array name longer than ten characters is rejected outright rather than
  * shortened, which is a lint rule and not a lexis one.
  *
- * Not in {@link VARIABLE_LEXIS} for the same reason as MSX's: that table names
- * exactly the registered machines, and this one is not registered yet.
+ * Not in {@link VARIABLE_LEXIS}: that table names exactly the registered
+ * machines, and this one is not registered yet.
  */
 export const SAMCOUPE_LEXIS: VariableLexis = {
   nameChars: '_',
@@ -148,8 +145,8 @@ export const SAMCOUPE_LEXIS: VariableLexis = {
  * constants that are floated as they are compiled, never expressions, so a word
  * inside one is not a variable.
  *
- * Not in {@link VARIABLE_LEXIS} for the same reason as MSX's: that table names
- * exactly the registered machines, and this one is not registered yet.
+ * Not in {@link VARIABLE_LEXIS}: that table names exactly the registered
+ * machines, and this one is not registered yet.
  */
 export const GE235_LEXIS: VariableLexis = {
   suffixChars: '',
@@ -239,6 +236,7 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   // `ATARI_VERBATIM` and pinned against the ROM in `tokenizerRom.test.ts`.
   atari800: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
   atari400: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
+  hb10p: MSX_LEXIS,
 };
 
 /**

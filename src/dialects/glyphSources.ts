@@ -167,6 +167,10 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // other decimal-only machine.
   atari800: '$',
   atari400: '$',
+  // MSX BASIC writes a hex literal `&H1BBF`, so the sigil is the two characters
+  // `&H` rather than one; it mirrors memoryWrites.hexPrefix like the Acorn,
+  // Amstrad and PMD entries above.
+  hb10p: '&H',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -347,6 +351,35 @@ const apple2Font = (): ChipGlyphSource => ({
     '2513 the Apple I uses as well, which the CPU cannot address - the ' +
     'video section reads the text page itself and feeds the low six bits ' +
     'of each byte straight to the chip.',
+});
+
+/**
+ * The MSX character generator, the whole of it in the BIOS half of the system
+ * ROM.
+ *
+ * The address is not a constant of the standard - a machine's BIOS may put its
+ * font anywhere - so the number below is the one this ROM's own CGTABL pointer
+ * (the word at 0x0004, which the BIOS hands to any program that asks) resolves
+ * to. All 256 codes are stored, control codes included: a program reaches
+ * 0x00-0x1F's shapes by printing 0x01 followed by the code plus 0x40, and the
+ * pattern it draws is the one at this table's own index for the code.
+ */
+const msxFont = (): RomGlyphSource => ({
+  kind: 'rom',
+  file: 'msx/hb10p.rom',
+  base: 0x1bbf,
+  baseCode: 0x00,
+  fileOffset: 0x1bbf,
+  stride: 8,
+  // The pattern is 8x8. SCREEN 0 draws only the leftmost six columns of it,
+  // which is how 40 columns fit across 256 pixels; SCREEN 1 draws all eight.
+  cell: { w: 8, h: 8 },
+  codes: range(0x00, 0xff),
+  indexOf: linear(0x00, 0xff),
+  note:
+    'CGTABL in the HB-10P BIOS, at the address the pointer at 0x0004 gives. ' +
+    'The BIOS copies this table into VRAM at boot, so it is also what the ' +
+    'screen actually draws from.',
 });
 
 /**
@@ -622,6 +655,8 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   atari800: [atariFont()],
   // One OS image, shared byte for byte - see atariFont()'s own note.
   atari400: [atariFont()],
+
+  hb10p: [msxFont()],
 };
 
 /** What a dialect's glyph for `code` comes from, or undefined if nothing claims it. */

@@ -144,6 +144,23 @@ describe('the case a machine types', () => {
     await tap(machine, ['Shift', 'CapsLock']);
     expect(await echo(machine, ['D'])).toBe('D');
   }, 120000);
+
+  it('boots the MSX in lower case, with SHIFT and CAPS both reaching upper', async () => {
+    // Read off the ROM: CAPS is a lock over the letter keys, and SHIFT gives
+    // upper case in either lock state, so there is no shift route back to lower
+    // once CAPS is on - the BBC's arrangement rather than the CPC's.
+    const machine = await bootMachine(getDialect('hb10p'), { ramKb: 64 });
+    expect(
+      await runUntil(machine, () => screenText(machine).includes('Ok')),
+      'the machine never reached its prompt',
+    ).toBe(true);
+    expect(await echo(machine, ['A'])).toBe('a');
+    expect(await echo(machine, ['Shift', 'B'])).toBe('B');
+    // CAPS is a lock of its own on this keyboard, not SHIFT held down.
+    await tap(machine, ['CapsLock']);
+    expect(await echo(machine, ['C'])).toBe('C');
+    expect(await echo(machine, ['Shift', 'D'])).toBe('D');
+  }, 120000);
 });
 
 describe('every machine with a second case is covered', () => {
@@ -166,6 +183,7 @@ describe('every machine with a second case is covered', () => {
       'pmd85',
       'commodore64',
       'atari800',
+      'hb10p',
     ];
     const covered = new Set([...probed, ...Object.keys(EXCUSED)]);
     const withLowerCase = dialects

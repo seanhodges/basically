@@ -502,4 +502,47 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
       REL: '1',
     },
   },
+  {
+    id: 'msx',
+    machines: ['Sony HB-10P'],
+    dialects: ['hb10p'],
+    // MSX BASIC 1.0 is Microsoft BASIC with three operators the family's other
+    // machines do not have - `\\` for integer division, `MOD` and a spelled-out
+    // `XOR` - so it runs the Microsoft program with those three lines added
+    // rather than sharing MICROSOFT_EXPECT outright.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2^3',
+      '30 PRINT "ASSC";2^3^2',
+      '40 PRINT "UNMI";0-2^2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "IDIV";7\\2',
+      '110 PRINT "REMD";7 MOD 2',
+      '120 PRINT "XORV";5 XOR 3',
+      '130 PRINT "REL";(1<=2)',
+      '140 PRINT "CAT";"A"+"B"',
+      '150 PRINT "ZZEND"',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '7',
+      NOTV: '-6',
+      TRU: '-1',
+      DIVV: '3.5',
+      IDIV: '3',
+      REMD: '1',
+      XORV: '6',
+      REL: '-1',
+      CAT: 'AB',
+    },
+  },
 ];

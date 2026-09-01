@@ -46,7 +46,9 @@ describe('controller bindings resolve for every dialect', () => {
  * `joystickFireButtons: 2` - the BBC analogue port's PB4/PB5, the Amstrad CPC's
  * joystick row (matrix line 9, fire 1 and fire 2 on distinct bits), and the
  * Apple II game port, whose two paddles carry a button each on PB0 and PB1 (a
- * port the II Plus has too, that machine being the same board).
+ * port the II Plus has too, that machine being the same board), and the MSX
+ * general-purpose port, whose two triggers are separate bits of the PSG's own
+ * I/O register.
  * Everywhere else the field is omitted (defaults to one fire line) so a 2-button
  * layout wires only the primary button in a joystick mode.
  */
@@ -58,6 +60,7 @@ const TWO_FIRE_DIALECTS = [
   'cpc6128',
   'apple2',
   'apple2plus',
+  'hb10p',
 ];
 
 describe('joystickFireButtons capability', () => {

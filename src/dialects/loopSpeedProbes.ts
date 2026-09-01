@@ -160,6 +160,7 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
       'altair8800',
       'pmd85',
       'apple2plus',
+      'hb10p',
     ],
     iterations: 2000,
     ...programs(2000),

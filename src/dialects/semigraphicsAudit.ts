@@ -160,6 +160,13 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // Both machines share one ROM font.
   atari800: range(0x00, 0x1a),
   atari400: range(0x00, 0x1a),
+  // The international MSX set's block band, less the three codes inside it that
+  // are not blocks: 0xD8-0xDA are the Greek delta, the double dagger and omega,
+  // and the machine reaches them with CODE rather than GRAPH. The band and the
+  // three exceptions are both read off the BIOS's own GRAPH key-decoding
+  // tables - see `hb10p/graphics.ts`, whose transcription `keyboardLayout.test.ts`
+  // reads back out of the ROM.
+  hb10p: [...range(0xc0, 0xd7), ...range(0xdb, 0xdf)],
 };
 
 /** Classify one byte from its canonical text form. */

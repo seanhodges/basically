@@ -105,6 +105,11 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
     'the emulated disk drive answers status only; no command is decoded',
   atari400:
     'the emulated disk drive answers status only; no command is decoded',
+  // Handed the store and never reading it: the machine's CAS: and cassette
+  // traps are not wired, so a CSAVE/OPEN reaches the tape hardware and the
+  // program waits on a deck that is not there. Outstanding work rather than a
+  // limitation - the hardware has files.
+  hb10p: 'never reads the store; its cassette I/O is not trapped',
 };
 
 let restoreRomLoading: () => void;

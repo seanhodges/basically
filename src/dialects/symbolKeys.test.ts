@@ -115,6 +115,7 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
   ['apple1', null],
   ['apple2', null],
   ['atari800', null],
+  ['hb10p', 64],
 ];
 
 /** Machines whose tables are proved elsewhere, and by what. */

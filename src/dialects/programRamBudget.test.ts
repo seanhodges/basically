@@ -94,6 +94,12 @@ const SHORTFALL_ALLOWANCE_BYTES: Record<string, number> = {
   // program text can go there, so the budget is deliberately the program area
   // alone - PROGRAM_BASE to the stack top - and sits a whole pool below it.
   pmd85: 4096,
+  // The declared figure is the machine's own "28815 Bytes free" banner, which
+  // is MEMSIZ - STREND less the 200-byte string pool and the 14 bytes the ROM
+  // keeps below the stack. The reading here is FRETOP - STREND, and FRETOP is
+  // still at MEMSIZ before a program allocates a string, so it counts both of
+  // those as free - 214 bytes the banner does not offer.
+  hb10p: 256,
 };
 
 let restoreRomLoading: () => void;

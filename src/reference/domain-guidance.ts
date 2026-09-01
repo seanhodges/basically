@@ -2537,4 +2537,174 @@ export const domainGuidance: DomainGuidance[] = [
     },
     reachFor: ['TRAP'],
   },
+
+  // ---------------------------------------------------------------- hb10p --
+  {
+    to: 'hb10p',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF…THEN…ELSE, FOR…NEXT with STEP, GOSUB/RETURN and ON…GOTO, plus ON INTERVAL and ON KEY event traps.',
+    instead:
+      'No WHILE/WEND, REPEAT/UNTIL or named procedures in MSX BASIC 1.0: write the test as an IF at the foot of the loop and GOTO back, and number subroutines rather than naming them.',
+    example: {
+      caption: 'A WHILE loop as IF and GOTO',
+      code: ['10 I=1', '20 IF I>10 THEN 50', '30 PRINT I', '40 I=I+1:GOTO 20'],
+    },
+    reachFor: ['FOR', 'GOSUB', 'ELSE', 'ON'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'data',
+    support: 'full',
+    summary:
+      'DATA/READ/RESTORE, DIM for arrays, SWAP and ERASE, and DEFINT/DEFSNG/DEFDBL/DEFSTR to type a whole letter range.',
+    instead:
+      'No separate real type to declare: DEFSNG and DEFDBL are the two floating-point widths, and values are double precision until one of them says otherwise.',
+    reachFor: ['DATA', 'READ', 'DIM', 'DEFINT'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'numeric',
+    support: 'full',
+    summary:
+      'A full trig and log set, integer division with \\ and MOD, and the bitwise AND/OR/XOR/EQV/IMP family.',
+    instead:
+      'No PI, LN or degree mode: write 3.14159265358979 out, LOG is already the natural logarithm, and convert degrees by multiplying by PI/180 yourself.',
+    reachFor: ['SIN', 'LOG', 'MOD', 'RND'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'strings',
+    support: 'full',
+    summary:
+      'LEFT$/RIGHT$/MID$ with INSTR to search, STRING$ and SPACE$ to build, and HEX$/OCT$/BIN$ to convert.',
+    instead:
+      'No UPPER$ or LOWER$: fold a string with a loop over ASC and CHR$. String space is 200 bytes until a program says CLEAR n, so build long strings only after one.',
+    reachFor: ['MID$', 'INSTR', 'STRING$', 'CHR$'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'LOCATE positions the cursor by column and row from zero, WIDTH sets the line length, and PRINT USING formats a number.',
+    instead:
+      'No PRINT AT and no windows: LOCATE is a statement of its own before the PRINT, and it takes the column first. Neither text screen opens at its full width, so follow SCREEN with WIDTH.',
+    example: {
+      caption: 'LOCATE takes the column first',
+      code: ['10 SCREEN 0:WIDTH 40', '20 LOCATE 10,5', '30 PRINT "HERE"'],
+    },
+    reachFor: ['LOCATE', 'WIDTH', 'CLS', 'USING'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'PSET, LINE, CIRCLE, PAINT and DRAW on a 256×192 screen, with hardware sprites through SPRITE$ and PUT SPRITE.',
+    instead:
+      'No MOVE/PLOT pair and no graphics origin: LINE -(x,y) continues from the last point, and coordinates are always absolute with 0,0 at the top left.',
+    example: {
+      caption: 'Draw from the last point',
+      code: ['10 SCREEN 2', '20 PSET (10,10),15', '30 LINE -(100,80),15'],
+    },
+    reachFor: ['PSET', 'LINE', 'CIRCLE', 'PAINT'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'COLOR foreground,background,border picks from 16 fixed colours, one of which is transparent.',
+    instead:
+      'No INK, PAPER or palette command: the 16 colours cannot be redefined, and one COLOR statement recolours the whole SCREEN 1 text screen rather than the next thing printed.',
+    example: {
+      caption: 'Colour is set for the screen, not the line',
+      code: ['10 SCREEN 1', '20 COLOR 15,4,4', '30 PRINT "WHITE ON BLUE"'],
+    },
+    reachFor: ['COLOR'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP for a click, PLAY for music strings on three channels (which run in the background), SOUND to write the PSG directly.',
+    instead:
+      'No envelope commands: shape a note by writing the PSG volume registers with SOUND, or by putting a V level into the PLAY string.',
+    example: {
+      caption: 'A tune that plays while the program runs',
+      code: ['10 PLAY "V15O4CDEFG"', '20 PRINT "STILL RUNNING"'],
+    },
+    reachFor: ['PLAY', 'SOUND', 'BEEP'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INKEY$ polls without waiting, INPUT reads a line, and STICK/STRIG read the cursor keys or a joystick as a direction and a trigger.',
+    instead:
+      'No key-number test and no LINE INPUT: INKEY$ gives the character rather than the key, and a line with commas in it has to be read into one string and split with INSTR and MID$.',
+    example: {
+      caption: 'Poll the pad without stopping',
+      code: ['10 D=STICK(1)', '20 IF D=3 THEN X=X+1', '30 GOTO 10'],
+    },
+    reachFor: ['INKEY$', 'STICK', 'STRIG', 'INPUT'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'storage',
+    support: 'full',
+    summary:
+      'CSAVE and CLOAD for programs on tape, and OPEN/CLOSE with FIELD, GET and PUT for records in a file.',
+    instead:
+      'No CHAIN and no catalogue: MERGE reads a second program in from an ASCII save, and a program that must run another CLOADs it and RUNs it.',
+    reachFor: ['CSAVE', 'CLOAD', 'OPEN', 'MERGE'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK and POKE reach the Z80’s RAM, VPEEK and VPOKE the VDP’s separate 16K, and INP/OUT the I/O ports.',
+    instead:
+      'No SYS or CALL to an address: DEFUSR=&Hnnnn sets the entry and USR(0) runs it, with CLEAR n,&Hnnnn first to keep BASIC out of the memory it sits in. The screen is not POKEable at all - it is VPOKE.',
+    example: {
+      caption: 'Machine code goes through DEFUSR',
+      code: ['10 CLEAR 200,&HDFFF', '20 DEFUSR=&HE000', '30 A=USR(0)'],
+    },
+    reachFor: ['POKE', 'VPOKE', 'USR', 'PEEK'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'program-editing',
+    support: 'full',
+    summary:
+      'AUTO numbers lines as they are typed, RENUM renumbers a finished program, and TRON/TROFF trace it as it runs.',
+    instead:
+      'No full-screen EDIT command: LIST the line and type over it with the cursor keys, which is what the machine’s own screen editor is for.',
+    reachFor: ['AUTO', 'RENUM', 'TRON', 'LIST'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ON ERROR GOTO sends an error to a handler, ERR and ERL say what failed and where, and RESUME goes back.',
+    instead:
+      'No BREAK trap and no error message from a code: ERR is a number, so a handler that reports anything prints its own text. ON ERROR GOTO 0 hands the error back to BASIC.',
+    example: {
+      caption: 'Report the error and carry on',
+      code: [
+        '10 ON ERROR GOTO 100',
+        '20 X=VAL(A$)',
+        '30 END',
+        '100 PRINT "ERROR";ERR;"AT";ERL',
+        '110 RESUME NEXT',
+      ],
+    },
+    reachFor: ['ERROR', 'ERR', 'ERL', 'RESUME'],
+  },
 ];

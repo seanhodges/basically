@@ -63,6 +63,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(BBCS, 'GOTO'),
       ...sameFor(COMMODORES, 'GOTO'),
       ...sameFor(CPCS, 'GOTO'),
+      hb10p: 'GOTO',
       pmd85: 'GOTO',
       trs80: 'GOTO',
       zx80: 'GOTO',
@@ -82,6 +83,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(BBCS, 'GOSUB'),
       ...sameFor(COMMODORES, 'GOSUB'),
       ...sameFor(CPCS, 'GOSUB'),
+      hb10p: 'GOSUB',
       pmd85: 'GOSUB',
       trs80: 'GOSUB',
       zx80: 'GOSUB',
@@ -98,6 +100,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(ATARIS, 'CONT'),
       ...sameFor(COMMODORES, 'CONT'),
       ...sameFor(CPCS, 'CONT'),
+      hb10p: 'CONT',
       pmd85: 'CONT',
       trs80: 'CONT',
       zx81: 'CONT',
@@ -118,6 +121,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(BBCS, 'CLEAR'),
       ...sameFor(COMMODORES, 'CLR'),
       ...sameFor(CPCS, 'CLEAR'),
+      hb10p: 'CLEAR',
       pmd85: 'CLEAR',
       trs80: 'CLEAR',
       zx80: 'CLEAR',
@@ -178,6 +182,7 @@ export const falseFriends: FalseFriend[] = [
       ...sameFor(BBCS, 'Bitwise on integers: 5 AND 3 is 1.'),
       ...sameFor(COMMODORES, 'Bitwise on 16-bit integers: 5 AND 3 is 1.'),
       ...sameFor(CPCS, 'Bitwise on integers: 5 AND 3 is 1.'),
+      hb10p: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       pmd85: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       trs80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
       zx80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
@@ -206,6 +211,7 @@ export const falseFriends: FalseFriend[] = [
       ...sameFor(BBCS, 'Bitwise on integers: 5 OR 3 is 7.'),
       ...sameFor(COMMODORES, 'Bitwise on 16-bit integers: 5 OR 3 is 7.'),
       ...sameFor(CPCS, 'Bitwise on integers: 5 OR 3 is 7.'),
+      hb10p: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       pmd85: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       trs80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
       zx80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
@@ -229,6 +235,7 @@ export const falseFriends: FalseFriend[] = [
       ...sameFor(BBCS, 'Base-10 logarithm; LN gives the natural logarithm.'),
       ...sameFor(COMMODORES, 'Natural (base-e) logarithm. There is no LN.'),
       ...sameFor(CPCS, 'Natural (base-e) logarithm.'),
+      hb10p: 'Natural (base-e) logarithm. There is no LN.',
       pmd85: 'Natural (base-e) logarithm. There is no LN.',
       trs80: 'Natural (base-e) logarithm.',
     },
@@ -245,6 +252,8 @@ export const falseFriends: FalseFriend[] = [
       atom: 'Selects a screen mode and clears it — CLEAR 0 is the text screen.',
       ...sameFor(BBCS, 'Discards all variables, leaving the program intact.'),
       ...sameFor(CPCS, 'Discards all variables, leaving the program intact.'),
+      hb10p:
+        'Discards all variables and sets the string space with it: string space is 200 bytes until a program says CLEAR 1500, and a second argument moves the top of memory down to make room for machine code.',
       pmd85: 'Discards all variables, leaving the program intact.',
       trs80: 'Discards all variables, leaving the program intact.',
       zx80: 'Discards all variables, leaving the program intact.',
@@ -276,6 +285,8 @@ export const falseFriends: FalseFriend[] = [
         COMMODORES,
         'Reads a pending key without waiting; empty if none.',
       ),
+      hb10p:
+        'Nothing to do with the keyboard either: it reads a record from a random-access file into its field buffer. INKEY$ is the key read here.',
       trs80:
         'Nothing to do with the keyboard: it reads a record from a random-access file into its buffer (Disk BASIC).',
     },
@@ -331,6 +342,8 @@ export const falseFriends: FalseFriend[] = [
         COMMODORES,
         'The argument is data: it calls the routine whose address is held in the USR vector at $0311, and returns that routine’s result.',
       ),
+      hb10p:
+        'The argument is data: it calls the routine whose address DEFUSR set, and returns that routine’s result. CALL is not the machine-code command it looks like - that runs a cartridge or disk extension.',
       pmd85:
         'The argument is the address: it calls 8080 code there and returns what the routine leaves behind, so the routine must end in RET.',
       trs80:
@@ -350,6 +363,8 @@ export const falseFriends: FalseFriend[] = [
         COMMODORES,
         'Redirects PRINT output to an open file or device.',
       ),
+      hb10p:
+        'Hands a command to a cartridge or disk extension, and answers Syntax error on a machine with none fitted - it redirects nothing.',
       trs80: 'Passes a command to the disk operating system.',
     },
   },

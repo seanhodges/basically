@@ -393,9 +393,6 @@ const TRS80: ConstructTemplate[] = [
  * MSX BASIC 1.0. Microsoft's language with the MSX standard's hardware
  * statements bolted on, so the Level II set is here plus the screen, sprite,
  * sound and video-RAM words the machine adds.
- *
- * Not yet in {@link constructsByDialect}: the map is pinned to the registry,
- * and this machine is not offered to the user yet.
  */
 export const MSX_CONSTRUCTS: ConstructTemplate[] = [
   ifThen(),
@@ -871,6 +868,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   // The 400 and 800 share Atari BASIC exactly; the same blocks apply.
   atari800: ATARI_CONSTRUCTS,
   atari400: ATARI_CONSTRUCTS,
+  hb10p: MSX_CONSTRUCTS,
 };
 
 /**

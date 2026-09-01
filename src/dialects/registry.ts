@@ -20,6 +20,7 @@ import { apple2 } from './apple2';
 import { apple2plus } from './apple2plus';
 import { atari800 } from './atari800';
 import { atari400 } from './atari400';
+import { hb10p } from './hb10p';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -43,6 +44,7 @@ export const dialects: Dialect[] = [
   apple2plus,
   atari800,
   atari400,
+  hb10p,
 ];
 
 export function getDialect(id: string): Dialect {
