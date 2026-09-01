@@ -59,6 +59,7 @@ export const apple2: Dialect = {
   year: 1977,
   blurb: 'Colour graphics off the shelf. Runs Apple II Integer BASIC.',
   basicDialect: 'Apple II Integer BASIC',
+  basicFamily: 'Integer BASIC',
 
   // Cold-start LOMEM/HIMEM leave 47104 bytes, shared between program and
   // variables.

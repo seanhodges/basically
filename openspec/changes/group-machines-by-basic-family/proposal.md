@@ -23,24 +23,28 @@ than a coincidence of prose.
   three Commodores read under one heading and the two BBCs under another.
   Narrowing the list by typing matches the family name and the version name, so
   typing either still finds the machine.
-- The language reference is organised one page per family. Two pages merge:
-  ZX81 joins the Spectrums as **Sinclair BASIC**, and the Apple I joins the
-  Apple II as **Integer BASIC**. Rows that only some of the page's machines
-  provide are marked per machine, as shared pages already require.
-- The Altair's page is retitled **Microsoft BASIC**, naming Altair 8K BASIC as
-  the version it runs.
 - Machines whose BASIC is a licensed Microsoft BASIC under a vendor's own name —
   Commodore BASIC, Applesoft BASIC, TRS-80 Level II BASIC — keep those names as
   their families. The shared ancestry is prose on the pages, not a merge.
 - ZX80 BASIC, Atom BASIC, Atari BASIC and BASIC-G stay as they are: each is
   either the only machine in its family or already grouped.
-- **BREAKING (documentation URLs only):** two reference pages move —
-  `/reference/zxspectrum` → `/reference/sinclair` and `/reference/apple1` +
-  `/reference/apple2` → `/reference/integer-basic`. No application URL, share
-  link, saved project or dialect id changes.
+- The authoring guidance for a new target system gains the field and the family
+  list, so the next machine joins a family rather than minting one.
 
-The result is 12 families across the 21 registered machines, and 12 reference
-pages where there were 14.
+The result is 12 families across the 21 registered machines.
+
+**Deferred to a follow-up change: reorganising the language reference one page
+per family.** Merging the ZX81 into the Spectrums' page and the Apple I into the
+Apple II's is not the page-level edit it looks like. The porting data is keyed by
+page slug rather than by machine — `porting.ts` gives each slug its own keyword
+spellings and false-friend meanings (`GOTO` vs `GO TO`, `RAND` vs `RANDOMIZE`),
+`domain-guidance.ts` carries thirteen advice cells per slug, and
+`pairPortingNotes` holds explicit `zx81 → zxspectrum` and `zxspectrum → zx81`
+entries that a merge turns into self-pairs the comparison can never ask for. So
+merging the pages would silently offer a ZX81 reader the Spectrum's spellings
+and graphics advice, and drop the advice for one of the commonest ports there
+is. Untangling the porting key from the page slug is its own change, with its
+own design; no documentation URL moves until it lands.
 
 ## Non-goals
 
@@ -53,8 +57,8 @@ pages where there were 14.
 - **No emulator, tokenizer, charset or memory-map behaviour changes.**
 - **No change to how a project is stored, shared or opened.** Dialect ids are
   the key for saved projects, share links and player routes, and are untouched.
-- **No reference content is rewritten** beyond what merging two pairs of pages
-  and marking their rows per machine requires.
+- **No reference content is rewritten**, and no documentation URL moves — see
+  the deferral above.
 - Deciding families for machines that are not yet registered.
 
 ## Capabilities
@@ -67,8 +71,7 @@ machines they already cover.
 ### Modified Capabilities
 
 - `dialect-toolchain`: every registered dialect declares the family of BASIC its
-  machine runs as well as the version, and the language reference is organised
-  one page per family rather than per machine variant.
+  machine runs as well as the version.
 - `project-setup`: the machine list's by-BASIC arrangement groups by family, and
   narrowing the list by typing matches the family as well as the version.
 
@@ -86,21 +89,19 @@ are what the merged pages must satisfy, and they already say so.
   beside `src/dialects/referencePage.ts` to read it, subject to the same
   import-graph ban that helper already observes.
 - Every `src/dialects/<id>/index.ts` — declares its family.
-- `src/reference/machines.ts` — mirrors the family, and the moved page slugs.
-- `src/components/machinePicker.ts` — groups and searches on the family.
-- `src/reference/` keyword and escape tables — `zx81` + `zxspectrum` merge to
-  `sinclair`, `apple1` + `apple2` merge to `integer-basic`, and `pages.ts` maps
-  the new slugs.
-- Crosscheck batteries that pin the docs data to the registry
-  (`machines-crosscheck`, `facts-crosscheck`, `pages.test.ts`,
-  `keyword-crosscheck`) extend to the new field and slugs.
+- `src/reference/machines.ts` — mirrors the family.
+- `src/components/machinePicker.ts` — groups and searches on the family, and
+  the arrangement is relabelled "BASIC family" so it does not promise a heading
+  per version.
+- `machines-crosscheck` pins the new field to the registry, and
+  `registry.test.ts` holds every machine to a family and every shared page to
+  one family.
 
-**Documentation.** `docs/reference/` page and sub-page merges, the "BASIC
-dialects" list in `docs/reference/index.md`, and the Language reference section
-of the sidebar in `docs/.vitepress/config.ts` — the one sidebar edit this change
-is authorised to make, being the substance of the request rather than an
-incidental page addition.
+**Documentation.** None. The reference pages are unchanged, so the sidebar is
+untouched.
 
-**Authoring guidance.** `.claude/skills/dialect-reference-docs/SKILL.md` gains
-the family field and the revised page list, so the next target system joins an
-existing family rather than minting a new one.
+**Authoring guidance.** `.claude/skills/adding-a-target-system/SKILL.md` gains
+the two fields and the family list, `dialect-reference-docs/SKILL.md` the rule
+that a shared page is a shared family, and
+`docs/contributing/adding-a-dialect.md` both — so the next target system joins
+an existing family rather than minting a new one.

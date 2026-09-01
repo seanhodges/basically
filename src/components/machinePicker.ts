@@ -12,8 +12,10 @@
  * specific.
  */
 
+import { basicFamilyOf } from '../dialects/referencePage';
+
 /**
- * Everything the picker asks of a machine: five fields, no more. `Dialect`
+ * Everything the picker asks of a machine, and nothing else. `Dialect`
  * satisfies it structurally, and so does the porting guide's `MachineChoice` -
  * which is what lets one picker serve the IDE and the docs without an adapter
  * on either side.
@@ -24,15 +26,24 @@
  * picker that imported it would be safe to bundle into the docs only for as
  * long as every one of those imports stayed an erased `import type`. The
  * import-graph guard (`machinePickerBoundary.test.ts`) has something clean to
- * assert because of this.
+ * assert because of this. `referencePage.ts` is the one exception, and is safe
+ * for the same reason: it imports nothing at all, which is what it was split
+ * out to be.
  */
 export interface MachineLike {
   id: string;
   name: string;
   year: number;
   manufacturer: string;
-  /** The BASIC it runs, e.g. 'Locomotive BASIC 1.1'. Grouped and searched on. */
+  /** The version of BASIC it runs, e.g. 'Locomotive BASIC 1.1'. Searched on. */
   basicDialect: string;
+  /**
+   * The family that version belongs to, e.g. 'Locomotive BASIC'. Heads the
+   * by-BASIC groups and is searched on alongside the version. Optional, and
+   * read through `basicFamilyOf`: a machine that is the only one running its
+   * BASIC has nothing to add, and its version string is already the family.
+   */
+  basicFamily?: string;
   blurb: string;
 }
 
@@ -48,7 +59,11 @@ export const MACHINE_SORTS: readonly { id: MachineSort; label: string }[] = [
   { id: 'manufacturer', label: 'Manufacturer' },
   { id: 'model', label: 'Model' },
   { id: 'year', label: 'Year' },
-  { id: 'basic', label: 'BASIC dialect' },
+  // "family" rather than "dialect": this arrangement heads its groups with the
+  // family, while `basicDialect` and the comparison's own "BASIC dialect" row
+  // name the version one machine runs. One label for the two would promise the
+  // reader a heading per version.
+  { id: 'basic', label: 'BASIC family' },
 ];
 
 /** What a reader who has never chosen an arrangement gets. */
@@ -85,6 +100,10 @@ export function compareMachineNames(a: MachineLike, b: MachineLike): number {
  * the machine's name, its maker, or the BASIC it runs. Empty text matches
  * everything, so the caller never has to special-case an untouched field.
  *
+ * The BASIC is matched by family and by version alike: the list heads its
+ * groups with the family, so a reader who typed the version they know would
+ * otherwise be told nothing matched a BASIC the machine plainly runs.
+ *
  * Deliberately not the blurb: a description mentioning "games" would pull in
  * machines the reader was not asking about, and the three fields here are the
  * ones a row is identified by.
@@ -99,7 +118,8 @@ export function filterMachines(
     (m) =>
       m.name.toLowerCase().includes(q) ||
       m.manufacturer.toLowerCase().includes(q) ||
-      m.basicDialect.toLowerCase().includes(q),
+      m.basicDialect.toLowerCase().includes(q) ||
+      basicFamilyOf(m).toLowerCase().includes(q),
   );
 }
 
@@ -195,11 +215,7 @@ export function groupMachines(
         (a, b) => Number(a) - Number(b),
       );
     case 'basic':
-      return groupBy(
-        machines,
-        (m) => m.basicDialect,
-        (a, b) => a.localeCompare(b),
-      );
+      return groupBy(machines, basicFamilyOf, (a, b) => a.localeCompare(b));
     case 'manufacturer':
       return groupMachinesByManufacturer(machines);
   }

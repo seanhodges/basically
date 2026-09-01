@@ -46,6 +46,7 @@ export const bbcmicro: Dialect = {
   year: 1981,
   blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
   basicDialect: 'BBC BASIC II',
+  basicFamily: 'BBC BASIC',
   docsReference: 'bbc',
   // PAGE (0x1900 with the DFS workspace below it) up to HIMEM in MODE 7, the
   // mode that leaves the most room; a graphics mode drops HIMEM as far as

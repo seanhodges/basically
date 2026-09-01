@@ -22,6 +22,14 @@ Machines and docs pages are not 1:1: sibling dialects share a page via the
 `zxspectrum128` → `zxspectrum`, `vic20` → `commodore64`, `bbcmaster` → `bbc`).
 `<page>` below means that shared page id; `<id>` means one dialect folder.
 
+Machines sharing a page share a `basicFamily` — the family of BASIC they run,
+which the picker heads its by-BASIC groups with, as distinct from the
+`basicDialect` version each machine runs (`BBC BASIC` covers `BBC BASIC II` and
+`BBC BASIC IV`). A new machine joins the family of the page it joins rather than
+minting one of its own; `registry.test.ts` fails when two machines on a page
+disagree. The families the registered machines declare are listed in
+`.claude/skills/adding-a-target-system/SKILL.md` § Picker identity.
+
 | Artifact                                            | Content                                                                                                                                                                                                                                                          |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/reference/<page>.ts`                           | `ReferenceTableData` — every keyword, hand-enriched syntax + descriptions                                                                                                                                                                                        |

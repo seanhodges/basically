@@ -53,6 +53,7 @@ export const cpc6128: Dialect = {
   // IDE does not have.
   blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
   basicDialect: 'Locomotive BASIC 1.1',
+  basicFamily: 'Locomotive BASIC',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',

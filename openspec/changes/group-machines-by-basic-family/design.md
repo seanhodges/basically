@@ -108,7 +108,27 @@ rather than hiding it. And ZX80 BASIC stays its own family: the Spectrum ROM
 descends from the ZX81 ROM, so ZX81 and both Spectrums are one Sinclair BASIC,
 but the ZX80's integer-only 4K BASIC is a different language to write in.
 
-### The two page merges use the machinery that is already there
+### The reference merge is a separate change
+
+Merging the ZX81 into the Spectrums' page and the Apple I into the Apple II's
+turned out not to be a page-level edit. The porting data is keyed by *page slug*
+rather than by machine: `porting.ts` gives each slug its own keyword spellings
+and false-friend meanings (the ZX81's `GOTO`, `CONT` and `RAND` against the
+Spectrum's `GO TO`, `CONTINUE` and `RANDOMIZE`), `domain-guidance.ts` carries
+thirteen advice cells per slug, and `pairPortingNotes` holds `zx81 → zxspectrum`
+and `zxspectrum → zx81` entries outright. Collapsing two slugs into one would
+therefore offer a ZX81 reader the Spectrum's spellings and its PLOT/BEEP advice,
+and turn two of the commonest ports into self-pairs the comparison can never
+ask - a regression `porting-guidance` exists to prevent, and one no crosscheck
+here would catch, because each battery reads the merged page as the truth.
+
+Untangling the porting key from the page slug is the real work, and it wants its
+own design: either the porting modules take a key of their own that keeps
+today's fourteen buckets, or they go per machine as `facts.ts` already did. The
+family field and the grouping ship without it; no documentation URL moves until
+that change lands.
+
+### The two page merges, when they happen, use the machinery that is already there
 
 `onlyOn` plus `tag` on a row, and `machines` on the table. No new mechanism, and
 the two requirements that govern shared pages already exist and already say what
@@ -126,9 +146,10 @@ the ZX81 reader on a URL naming a machine they are not using.
 ## Risks / Trade-offs
 
 **Two public documentation URLs move** (`/reference/zxspectrum`,
-`/reference/apple1`, `/reference/apple2`) → Check for a redirect mechanism in
-the VitePress config during implementation; if there is none, this is a genuine
-break to state plainly in the change rather than to discover after publishing.
+`/reference/apple1`, `/reference/apple2`) → Deferred with the merge, so nothing
+moves here. The redirect question stays open for the follow-up change: check for
+a mechanism in the VitePress config, and if there is none, state the break
+plainly rather than discovering it after publishing.
 Nothing inside the app links by these slugs at runtime — the AI reference loader
 and the docs-topic router both go through `referencePageOf()` — so the exposure
 is external inbound links only.

@@ -1190,8 +1190,27 @@ export interface Dialect {
    * searches on this, so it is the machine's own declaration rather than a
    * phrase read back out of `blurb` - which names the same BASIC in prose that
    * nothing enforces the shape of. A test holds the two together.
+   *
+   * Coexists with {@link basicFamily} deliberately: this names the version, that
+   * names the language it is a version of, and neither supersedes the other.
+   * The porting comparison names the machine's own version; the picker's
+   * headings and the reference pages name the family.
    */
   basicDialect: string;
+  /**
+   * The family of BASIC {@link basicDialect} is a version of - `Sinclair BASIC`
+   * for the ZX81 and both Spectrums, `BBC BASIC` for the Micro and the Master.
+   * Omitted where the version string is already the family name, which is the
+   * case for every machine that is the only one of its kind; `basicFamilyOf()`
+   * in src/dialects/referencePage.ts falls back to `basicDialect` for those.
+   *
+   * Drawn at the line the machines' own manuals draw it: Commodore BASIC,
+   * Applesoft and Level II BASIC are licensed Microsoft BASIC, and still keep
+   * their vendor names, because those are what a reader searches for. Machines
+   * sharing a family share a reference page, so a new machine picks the family
+   * of the page it joins rather than minting one.
+   */
+  basicFamily?: string;
   /**
    * One line describing the machine, shown against it in the machine picker.
    * Two short sentences: one distinguishing fact about the machine, then the
