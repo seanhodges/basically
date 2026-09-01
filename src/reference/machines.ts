@@ -211,6 +211,16 @@ export const machines: MachineChoice[] = [
     basicFamily: 'Locomotive BASIC',
   },
   {
+    id: 'hb10p',
+    page: 'msx',
+    name: 'HB-10P',
+    manufacturer: 'Sony',
+    year: 1986,
+    blurb: 'Sony’s MSX HitBit. Runs MSX BASIC 1.0.',
+    basicDialect: 'MSX BASIC 1.0',
+    basicFamily: 'MSX BASIC 1.0',
+  },
+  {
     id: 'trs80',
     page: 'trs80',
     name: 'TRS-80',

@@ -1263,3 +1263,24 @@
 .vk-theme-atari .vk-layer-shifted.vk-active {
   color: #efe6d6;
 }
+
+/* ---------------------------------------------------------------------------
+   Sony HB-10P keyboard theme: the red f1-f5 strip along the top of the board
+   against the dark keycaps the rest of the machine wears, with the CURSOR
+   layer's arrows in the same red so the overlay reads as the cursor cluster it
+   stands in for. Activated by the layout's `theme: 'vk-theme-hb10p'`. */
+.vk-theme-hb10p .vk-style-fn .vk-keycap {
+  background: linear-gradient(#c2372f, #97281f);
+}
+
+.vk-theme-hb10p .vk-style-fn .vk-label {
+  color: #fbe8e5;
+}
+
+.vk-theme-hb10p .vk-layer-cursor {
+  color: #b8635c;
+}
+
+.vk-theme-hb10p .vk-layer-cursor.vk-active {
+  color: #ffd8d3;
+}

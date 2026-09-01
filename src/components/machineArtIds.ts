@@ -33,6 +33,7 @@ export const MACHINE_ART_IDS = [
   'apple2plus',
   'atari800',
   'atari400',
+  'hb10p',
 ] as const;
 
 export type MachineArtId = (typeof MACHINE_ART_IDS)[number];

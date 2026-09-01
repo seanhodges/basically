@@ -89,6 +89,10 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // PAL: 312 scanlines of 114 cycles each at the machine's 1.79MHz clock.
   atari800: 49.86,
   atari400: 49.86,
+  // 3.579545MHz / (228 T x 313 lines). The VDP's PAL field is a line longer
+  // than the 312 most PAL machines here count, so an MSX runs fractionally
+  // *above* 50 where they sit fractionally below it.
+  hb10p: 50.16,
 };
 
 describe('machine frame rates', () => {

@@ -11,6 +11,7 @@ import { atomReference } from '../../src/reference/atom';
 import { bbcReference } from '../../src/reference/bbc';
 import { commodoreReference } from '../../src/reference/commodore';
 import { cpcReference } from '../../src/reference/cpc';
+import { msxReference } from '../../src/reference/msx';
 import { pmd85Reference } from '../../src/reference/pmd85';
 import { trs80Reference } from '../../src/reference/trs80';
 import { zx80Reference } from '../../src/reference/zx80';
@@ -24,6 +25,7 @@ import { atomEscapes } from '../../src/reference/escapes/atom';
 import { bbcEscapes } from '../../src/reference/escapes/bbc';
 import { commodoreEscapes } from '../../src/reference/escapes/commodore';
 import { cpcEscapes } from '../../src/reference/escapes/cpc';
+import { msxEscapes } from '../../src/reference/escapes/msx';
 import { pmd85Escapes } from '../../src/reference/escapes/pmd85';
 import { trs80Escapes } from '../../src/reference/escapes/trs80';
 import { zx80Escapes } from '../../src/reference/escapes/zx80';
@@ -42,6 +44,7 @@ import { c64MemoryMap } from '../../src/dialects/commodore64/memoryMap';
 import { cpc464MemoryMap } from '../../src/dialects/cpc464/memoryMap';
 import { cpc664MemoryMap } from '../../src/dialects/cpc664/memoryMap';
 import { cpc6128MemoryMap } from '../../src/dialects/cpc6128/memoryMap';
+import { hb10pMemoryMap } from '../../src/dialects/hb10p/memoryMap';
 import { pmd85MemoryMap } from '../../src/dialects/pmd85/memoryMap';
 import { petMemoryMap } from '../../src/dialects/pet/memoryMap';
 import { vic20MemoryMap } from '../../src/dialects/vic20/memoryMap';
@@ -66,6 +69,7 @@ const referenceByPage = {
   commodore: commodoreReference,
   cpc: cpcReference,
   'integer-basic': integerBasicReference,
+  msx: msxReference,
   pmd85: pmd85Reference,
   trs80: trs80Reference,
   sinclair: sinclairReference,
@@ -80,6 +84,7 @@ const escapesByPage = {
   commodore: commodoreEscapes,
   cpc: cpcEscapes,
   'integer-basic': integerBasicEscapes,
+  msx: msxEscapes,
   pmd85: pmd85Escapes,
   trs80: trs80Escapes,
   sinclair: sinclairEscapes,
@@ -107,6 +112,7 @@ const memoryMapById = {
   cpc464: cpc464MemoryMap,
   cpc664: cpc664MemoryMap,
   cpc6128: cpc6128MemoryMap,
+  hb10p: hb10pMemoryMap,
   pet: petMemoryMap,
   pmd85: pmd85MemoryMap,
   vic20: vic20MemoryMap,

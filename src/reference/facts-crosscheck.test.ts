@@ -40,9 +40,17 @@ const regionStart = (
 ): number | undefined =>
   d.memoryMap?.regions.find((r) => r.kind === kind)?.start;
 
-/** Parse an authored address string ("$4000", "&C000", "'2401", "0x1900"). */
+/** Parse an authored address string ("$4000", "&C000", "&H8001", "'2401"). */
 const parseAddr = (s: string): number =>
-  parseInt(s.replace(/^0x/i, '').replace(/^[$&#']/, ''), 16);
+  // `&H` before the bare `&`: MSX BASIC's hex prefix is two characters, and
+  // stripping only the ampersand would leave an H in front of the digits.
+  parseInt(
+    s
+      .replace(/^0x/i, '')
+      .replace(/^&[Hh]/, '')
+      .replace(/^[$&#']/, ''),
+    16,
+  );
 
 /** Printable ASCII, the range `unsupportedCharacters` is defined over. */
 const PRINTABLE = Array.from({ length: 0x7f - 0x20 }, (_, i) =>

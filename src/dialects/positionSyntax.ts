@@ -196,6 +196,18 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
     commands: [{ keyword: 'POSITION', kind: 'column-row' }],
     escapes: [],
   },
+  // LOCATE takes the column first and counts from zero, unlike the Locomotive
+  // LOCATE it is spelled like: `LOCATE 0,0` is the top-left cell. TAB( is a
+  // print formatter inside a PRINT, as it is on the Apple II Plus. The cursor
+  // control codes carry no operand, so nothing is embedded in a string.
+  hb10p: {
+    origin: 0,
+    commands: [
+      { keyword: 'LOCATE', kind: 'column-row' },
+      { keyword: 'TAB', kind: 'column' },
+    ],
+    escapes: [],
+  },
 };
 
 /** How `dialectId` states print positions, or undefined where it states none. */

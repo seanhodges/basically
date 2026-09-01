@@ -71,6 +71,11 @@ const PROMPT_CEILINGS: Record<string, number> = {
   apple2plus: 49_000,
   atari800: 42_000,
   atari400: 42_500,
+  // The widest here by a distance, and the keyword table is why: MSX BASIC 1.0
+  // carries around two hundred rows - the whole Microsoft set plus the MSX
+  // standard's screen, sprite, sound, video-RAM and file words - where the next
+  // largest machine has half as many.
+  hb10p: 55_000,
 };
 
 /**
@@ -100,7 +105,11 @@ const SECTION_CEILINGS: Record<string, number> = {
   // BASIC's are a handful of words. All of it is on top of the OS/BASIC buffers
   // every other machine here also lists.
   'WHERE THINGS ARE IN MEMORY': 5_500,
-  'EVERY COMMAND, FUNCTION AND OPERATOR THIS MACHINE HAS': 24_000,
+  // The MSX sets this: its table is around two hundred rows, half as many
+  // again as any other machine here, because the MSX standard bolts a whole
+  // hardware vocabulary onto a Microsoft BASIC that already had one of the
+  // longer ones.
+  'EVERY COMMAND, FUNCTION AND OPERATOR THIS MACHINE HAS': 33_000,
   'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 3_000,
   'WHERE THIS MACHINE IS SHORT': 5_000,
 };

@@ -5,7 +5,7 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
-import { MSX_CONSTRUCTS } from '../../editor/constructs';
+import { constructsByDialect } from '../../editor/constructs';
 import { keywordSpellingsFor } from '../keywordSpellings';
 import { hb10pKeywords, hb10pOperators } from './keywords';
 
@@ -18,7 +18,7 @@ export const hb10pCrunched = true;
 
 export const hb10pCompletionSource: CompletionSource = buildCompletionSource(
   hb10pKeywords,
-  MSX_CONSTRUCTS,
+  constructsByDialect.hb10p!,
   { crunched: hb10pCrunched },
 );
 

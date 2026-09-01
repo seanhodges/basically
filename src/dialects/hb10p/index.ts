@@ -44,9 +44,6 @@ import type { MsxModel } from '../../emulator/msx/model';
  * the dialect's image. The machine lives in `src/emulator/msx/`, shared with
  * whatever MSX joins it later; everything that distinguishes one MSX from
  * another is in the {@link MsxModel} below rather than inside the machine.
- *
- * The picker identity here is provisional and is written for real when the
- * dialect is offered to the user.
  */
 const HB10P_MODEL: MsxModel = {
   ramKb: 64,
@@ -133,6 +130,10 @@ export const hb10p: Dialect = {
     });
   },
 
+  // The machine reports the line it is on and steps a line at a time, so the
+  // toolbar offers Step and Resume; `debugCapability.test.ts` pins the flag to
+  // what MsxMachine actually implements.
+  debuggable: true,
   keyboardLayout: hb10pKeyboardLayout,
   samples: hb10pSamples,
   buildTargets: hb10pBuildTargets,

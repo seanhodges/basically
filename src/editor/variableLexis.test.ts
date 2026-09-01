@@ -113,6 +113,11 @@ const ROM_NAME_FACTS: Record<
   // it folds case with the majority for the same reason the Atom does.
   atari800: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
   atari400: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  // A Microsoft BASIC on a machine that can type both cases: two significant
+  // characters and a verbatim DATA like the rest of the family, and case still
+  // folds - unlike the PMD 85, which is the other machine here whose charset
+  // preserves case, the MSX ROM folds the name before looking it up.
+  hb10p: { significant: 2, case: 'folded', dataItems: 'verbatim' },
 };
 
 describe('name facts are stated per machine', () => {

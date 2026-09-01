@@ -269,6 +269,22 @@ const ANCHORS: Record<
       '........',
     ],
   },
+  // The MSX pattern is left-aligned in an 8-bit row because SCREEN 0 shows
+  // only the leftmost six columns; its A is five wide and sits hard against
+  // the left edge, unlike every centred font above.
+  hb10p: {
+    code: 0x41,
+    rows: [
+      '..#.....',
+      '.#.#....',
+      '#...#...',
+      '#...#...',
+      '#####...',
+      '#...#...',
+      '#...#...',
+      '........',
+    ],
+  },
 };
 
 /**
@@ -403,6 +419,19 @@ const LOWER_ANCHORS: Record<
       '.#..#.',
       '..###.',
       '......',
+    ],
+  },
+  hb10p: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.###....',
+      '....#...',
+      '.####...',
+      '#...#...',
+      '.####...',
+      '........',
     ],
   },
   // ATASCII 'a' (0x61) is screen code 0x61 too - this is the one run where the

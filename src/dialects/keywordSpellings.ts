@@ -52,6 +52,7 @@ import {
   apple2plusKeywordAliases,
 } from './apple2plus/keywords';
 import { atariKeywords, atariStatements } from './atari800/keywords';
+import { hb10pKeywords, HB10P_ALIASES } from './hb10p/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -110,6 +111,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   apple2plus: [...apple2plusKeywords, ...apple2plusKeywordAliases],
   atari800: atariKeywords,
   atari400: atariKeywords,
+  hb10p: [...hb10pKeywords, ...HB10P_ALIASES],
 };
 
 /** The registered machines this module knows a keyword table for. */

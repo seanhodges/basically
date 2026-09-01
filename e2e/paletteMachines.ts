@@ -24,4 +24,5 @@ export const PALETTE_MACHINES = [
   'cpc6128',
   'atari800',
   'atari400',
+  'hb10p',
 ];

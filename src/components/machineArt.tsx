@@ -113,6 +113,11 @@ const ATARI_FN = '#8a4a3a'; // VirtualKeyboard.css .vk-theme-atari .vk-style-fn
 const ATARI_DOOR = '#3a352c';
 const ATARI_MEMBRANE = '#e8e0cc';
 const ATARI_MEMBRANE_KEY = '#cfc6ab';
+const HITBIT_CASE = '#e8e6e0'; // the HB-10P's pale one-piece wedge
+const HITBIT_DECK = '#d6d4cd';
+const HITBIT_KEYS = '#4a4c52'; // VirtualKeyboard.css .vk-theme-hb10p
+const HITBIT_RED = '#c2372f'; // VirtualKeyboard.css .vk-theme-hb10p .vk-style-fn
+const HITBIT_SLOT = '#2b2c30';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
 const BASE = {
@@ -132,6 +137,7 @@ const BASE = {
   apple: '#5e3b21',
   apple2: '#9a8c6f',
   atari: '#a89878',
+  hitbit: '#bab8b1',
 };
 
 /* ---------------------------------------------------------------------------
@@ -775,6 +781,52 @@ function Atari400Art({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Sony */
+
+/**
+ * Sony HB-10P: the pale one-piece MSX wedge, its dark keyboard, and the
+ * cartridge slot let into the right of the deck - the tell that this is a
+ * cartridge machine rather than one of the tape-only home computers beside it.
+ * The red bar is the HitBit badge on the skirt.
+ */
+function Hb10pArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.hitbit} />
+      <path d="M3 12h42v12H3z" fill={HITBIT_CASE} />
+      <path d="M5 8h38v4H5z" fill={HITBIT_DECK} />
+      {/* The cartridge slot, in the deck rather than behind a door. */}
+      <rect x="33" y="9" width="8" height="2.2" fill={HITBIT_SLOT} />
+      {/* Five function keys along the top of the keyboard. */}
+      {Array.from({ length: 5 }, (_, i) => (
+        <rect
+          key={`f${i}`}
+          x={6 + i * 3.2}
+          y="13.4"
+          width="2.6"
+          height="1.6"
+          fill={HITBIT_RED}
+        />
+      ))}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 12 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={6 + c * 2.9}
+            y={16 + r * 2.3}
+            width="2.3"
+            height="1.8"
+            fill={HITBIT_KEYS}
+          />
+        )),
+      )}
+      <rect x="14" y="22.9" width="17" height="1.5" fill={HITBIT_KEYS} />
+      <rect x="6" y="25.6" width="6" height="1.4" fill={HITBIT_RED} />
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -801,6 +853,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   apple2plus: Apple2PlusArt,
   atari800: Atari800Art,
   atari400: Atari400Art,
+  hb10p: Hb10pArt,
 };
 
 /** A machine's portrait, `size` px tall. */

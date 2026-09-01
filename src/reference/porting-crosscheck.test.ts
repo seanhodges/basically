@@ -138,6 +138,10 @@ const NOT_IN_GROUP: Record<string, string> = {
   // nothing to rename in either direction.
   'unconditional-jump:atari800': "it spells the jump both of the group's ways",
   'unconditional-jump:atari400': "it spells the jump both of the group's ways",
+  // MSX BASIC's CALL runs a cartridge or disk extension by name (CALL MEMINI),
+  // not machine code at an address: a routine there is reached through DEFUSR
+  // and USR, which is the false friend below rather than a rename.
+  'run-machine-code:hb10p': 'CALL means something else entirely there',
 };
 
 describe('porting data completeness', () => {

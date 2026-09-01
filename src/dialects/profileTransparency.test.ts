@@ -59,6 +59,9 @@ const FAMILIES: Record<string, string[]> = {
   apple1: ['apple1', 'apple2', 'apple2plus'],
   /** ANTIC's own bus over the shared cpu6502 core. */
   atari800: ['atari800', 'atari400'],
+  /** The MSX bus in src/emulator/msx/, over the same vendored Z80 core as the
+   *  Sinclairs but with its own slot decoding and its own run loop. */
+  hb10p: ['hb10p'],
 };
 
 /** Machines with no profiled run to compare, and why. */

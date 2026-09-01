@@ -1568,4 +1568,147 @@ export const escapeGuidance: EscapeGuidance[] = [
     instead:
       'Respell as {clr}, {del}, {inst} and {cr}. There are no tab-stop codes and no insert- or delete-line code: open a line by printing {inst} once per column, or redraw the screen.',
   },
+
+  // ---------------------------------------------------------------- hb10p --
+  // Six classes of its own - cursor, editing, screen effects, the graphic
+  // characters, the other control codes and the raw byte - and the rest are
+  // statements rather than characters in a string.
+  {
+    to: 'hb10p',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour code goes in a string: COLOR foreground,background,border is a statement, and in SCREEN 1 it recolours all the text at once rather than what follows it.',
+    example: {
+      caption: 'Colour is a statement here',
+      code: ['10 COLOR 15,4,4', '20 PRINT "WHITE ON BLUE"'],
+    },
+  },
+  {
+    to: 'hb10p',
+    class: 'cursor',
+    support: 'full',
+    instead:
+      'The same jobs, respelled: {0x1C} right, {0x1D} left, {0x1E} up, {0x1F} down, {0x0B} home and {0x0D} carriage return. LOCATE column,row is the readable way to reach a cell.',
+    example: {
+      caption: 'Position with LOCATE, not with codes',
+      code: ['10 LOCATE 10,5', '20 PRINT "SCORE"'],
+    },
+  },
+  {
+    to: 'hb10p',
+    class: 'editing',
+    support: 'partial',
+    instead:
+      'Only {0x7F} rubs a character out, and {0x0C} clears the screen (CLS is the readable form). Anything finer - delete line, insert - is done by printing the line again.',
+  },
+  {
+    to: 'hb10p',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'No mode code in a string: SCREEN 0-3 picks the mode and WIDTH the line length, and both are statements. Neither text screen opens at its full width, so follow SCREEN with WIDTH.',
+    example: {
+      caption: 'The mode is a statement',
+      code: ['10 SCREEN 1:WIDTH 32'],
+    },
+  },
+  {
+    to: 'hb10p',
+    class: 'screen-effect',
+    support: 'partial',
+    instead:
+      'Only {0x0C}, which clears the screen. There is no flash, bright or over-print code: mark the text out by position or by colour, both of which are statements here.',
+  },
+  {
+    to: 'hb10p',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No token stands for a function key in a string. KEY n,"text" sets what f1-f10 type and KEY OFF hides the strip at the foot of the screen, which a full-screen program wants anyway.',
+    example: {
+      caption: 'Set the key rather than print a token',
+      code: ['10 KEY 1,"RUN"+CHR$(13)', '20 KEY OFF'],
+    },
+  },
+  {
+    to: 'hb10p',
+    class: 'block-graphics',
+    support: 'partial',
+    instead:
+      'The blocks are ordinary characters at 0xC0-0xDF, typed with GRAPH from the palette rather than escaped. Where the shape has no MSX equivalent, draw it: SCREEN 2 has PSET and LINE.',
+    example: {
+      caption: 'Blocks are characters, not escapes',
+      code: ['10 PRINT "▄▄▄▄"'],
+    },
+  },
+  {
+    to: 'hb10p',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'No redefinable character in a string, but the pattern table is writable: VPOKE the eight bytes of a code’s shape into it, or use a sprite, which is what the machine has instead.',
+    example: {
+      caption: 'Redefine a character in the pattern table',
+      code: [
+        '10 SCREEN 1',
+        '20 FOR I=0 TO 7',
+        '30 VPOKE 65*8+I,255',
+        '40 NEXT',
+      ],
+    },
+  },
+  {
+    to: 'hb10p',
+    class: 'inverse-video',
+    support: 'none',
+    instead:
+      'No inverse code and no inverse half of the character set. Swap the two colours with COLOR where inverse marked text out, or bracket the text with punctuation.',
+  },
+  {
+    to: 'hb10p',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space-compression codes: a run of spaces is stored as spaces. SPACE$(n) writes them from a count where the source packed them into one byte.',
+  },
+  {
+    to: 'hb10p',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'hb10p',
+    class: 'literal',
+    support: 'none',
+    instead: PLAIN_LITERAL,
+  },
+  {
+    to: 'hb10p',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Two of its own: {0x07} sounds the beeper and {0x01} is the graphic header, which prints the shape of the byte after it less 0x40. Anything else is a statement rather than a code.',
+  },
+  {
+    to: 'hb10p',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
+  },
+  // The MSX carries cursor codes the Commodore KERNAL has no answer for - it
+  // moves the cursor with its own {up}/{left} pair and has nothing for tab,
+  // line feed or a carriage return that does not also move down a row.
+  {
+    to: COMMODORES,
+    class: 'cursor',
+    support: 'partial',
+    instead:
+      'The four moves are respelled {up}, {down}, {left}, {right} and {home}. There is no tab or bare carriage return: PRINT TAB(n) reaches a column, and a trailing semicolon holds the line.',
+    example: {
+      caption: 'Reach a column with TAB(',
+      code: ['10 PRINT "{home}";', '20 PRINT TAB(10);"SCORE"'],
+    },
+  },
 ];

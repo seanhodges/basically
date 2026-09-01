@@ -1598,6 +1598,115 @@ const entries: PortingFactsEntry[] = [
     screenBase: '$3C40',
     freeRamBytes: 13344,
   },
+  {
+    id: 'hb10p',
+    basicDialect: 'MSX BASIC 1.0',
+    portingNotes: [
+      {
+        text: 'The picture lives in 16K of video RAM the Z80 cannot address: PEEK and POKE cannot reach the screen, and VPOKE address,byte and VPEEK(address) are what a program uses instead.',
+        topics: ['memory', 'graphics', 'text-screen'],
+      },
+      {
+        text: 'Neither text screen opens at its full width - SCREEN 0 starts at WIDTH 37 and SCREEN 1 at WIDTH 29 - so a program that lays text out by column follows the SCREEN statement with WIDTH 40 or WIDTH 32.',
+        topics: ['text-screen'],
+      },
+      {
+        text: 'PRINT draws nothing at all in the graphics screens (SCREEN 2 and 3) and does not error; text there goes through the GRP: device, which is slow enough to watch.',
+        topics: ['graphics'],
+      },
+      {
+        text: 'String space is 200 bytes until a program says CLEAR n, so one holding an array of strings stops with String space full without it.',
+        topics: ['strings'],
+      },
+      {
+        text: 'Numbers are double precision unless the program says otherwise, which is slow: put DEFINT A-Z at the top of a game.',
+        topics: ['numbers'],
+      },
+      {
+        text: 'CALL is for cartridge and disk extensions rather than machine code - a routine is reached with DEFUSR=&Hnnnn and USR(0), and the memory it sits in is protected with CLEAR n,&Hnnnn first.',
+        topics: ['storage'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'WHILE',
+        note: 'No WHILE/WEND in MSX BASIC 1.0: loop with FOR/NEXT, or with IF and GOTO.',
+      },
+      {
+        keyword: 'REPEAT',
+        note: 'No REPEAT/UNTIL: put the test in an IF at the foot of the loop and GOTO back.',
+      },
+      {
+        keyword: 'PLOT',
+        note: 'PSET (x,y),colour draws the pixel and PRESET clears it; both want SCREEN 2 or 3 first.',
+      },
+      {
+        keyword: 'INK',
+        note: 'COLOR foreground,background,border sets all three at once, from the fixed 16 colours.',
+      },
+      {
+        keyword: 'AT',
+        note: 'LOCATE column,row, counted from zero and column first - not row first as PRINT AT is.',
+      },
+    ],
+    lineNumberRange: '0–65529',
+    lineNumbers: { min: 0, max: 65529 },
+    statementSeparator: ':',
+    elseSupported: true,
+    letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'none',
+      symbols: [
+        { spelling: '?', keyword: 'PRINT' },
+        { spelling: "'", keyword: 'REM' },
+      ],
+      shrinksProgram: false,
+    },
+    variableNaming:
+      'Only the first two characters are significant; all four type suffixes are real - $ string, % integer, ! single, # double.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$%!#',
+      caseSensitive: false,
+    },
+    numberHandling: 'Floating point, double precision unless DEFINT or DEFSNG.',
+    numbers: { fractions: true },
+    exponentOperator: '^',
+    integerDivisionOperator: '\\',
+    remainderOperator: 'MOD',
+    xorOperator: 'XOR',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
+    // The international MSX set is ASCII exactly across 0x20-0x7E.
+    unsupportedCharacters: [],
+    screen:
+      '40×24 text at boot (SCREEN 0); SCREEN 1 is 32×24 with colour, SCREEN 2 256×192 graphics and SCREEN 3 64×48 chunky colour.',
+    textScreen: { columns: 40, rows: 24 },
+    // TIME is the machine's own fiftieth-of-a-second counter and the thing a
+    // wait is written against. INTERVAL, which traps on the same clock, is a
+    // clause of ON rather than a keyword of its own, so it is not named here.
+    waitIdiom: {
+      text: 'TIME, the counter the interrupt advances fifty times a second: T=TIME:IF TIME-T<25 THEN GOTO waits half a second',
+      keywords: ['TIME'],
+    },
+    // Measured: `loopSpeed.test.ts` counts the frames a 2000-iteration empty
+    // FOR/NEXT loop takes on the booted ROM. Slow for a 3.58MHz Z80 because the
+    // loop counter is double precision until a program says otherwise.
+    loopSpeed: 673,
+    freeRamBytes: 28815,
+    // No screenBase: the picture is in the VDP's own 16K, which is not in the
+    // Z80's address space and so is not a region of the memory map.
+    programStart: '&H8001',
+    colour:
+      '16 fixed colours, one of them transparent. In SCREEN 1 one COLOR statement recolours all the text at once.',
+    sound:
+      'A three-channel AY-3-8910: BEEP, PLAY for music strings (which run in the background) and SOUND to write the chip directly.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'hex',
+    hexPrefix: '&H',
+  },
 ];
 
 /** Machine facts with every `extends` folded in; see {@link resolvePortingFacts}. */

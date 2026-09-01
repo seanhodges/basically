@@ -41,6 +41,7 @@ describe('dialect registry', () => {
     apple2plus: 'hex',
     atari800: 'dec',
     atari400: 'dec',
+    hb10p: 'hex',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -86,6 +87,10 @@ describe('dialect registry', () => {
     // to the Memo Pad rather than a machine that cannot reset.
     'atari800',
     'atari400',
+    // A single 32K image, BIOS first then BASIC, mapped as the machine's slot 0
+    // cartridge - a short replacement fills from 0x0000 up, so a BIOS-only
+    // image still boots to a machine that resets.
+    'hb10p',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {
