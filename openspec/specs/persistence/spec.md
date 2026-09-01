@@ -59,10 +59,20 @@ and per-provider keys) SHALL persist in the browser across sessions, and
 SHALL never leave the browser except where the setting's purpose is to be
 sent (an API key to its own provider).
 
+How the user last left the machine list — the text it was narrowed by and the
+arrangement it was in — SHALL persist on the same terms, so that reopening the
+list after a reload shows what reopening it before the reload showed.
+
 #### Scenario: Preferences survive reload
 
 - **WHEN** the user changes settings and reloads the IDE
 - **THEN** the same settings are in effect
+
+#### Scenario: The machine list is remembered as it was left
+
+- **WHEN** the user narrows and rearranges the machine list, then reloads the
+  IDE
+- **THEN** the list opens narrowed and arranged the same way
 
 ### Requirement: Programs can save and load their own files
 
@@ -291,9 +301,14 @@ Scratch buffers SHALL be discarded whenever the document is replaced: creating a
 new project, opening a project or a plain source file, loading a sample, or
 importing a file. Applying assistant-generated code to the open program SHALL
 leave them untouched, since that edits the program rather than replacing the
-document. They SHALL also be discarded when the user switches target machine,
-where they hold code in a dialect the new machine does not speak, and a share
-link SHALL NOT carry them.
+document. A share link SHALL NOT carry them.
+
+Switching the target machine SHALL follow the answer the user gives about their
+program: buffers SHALL be kept when the user keeps their code, since they are the
+workbench of the program that is moving, and SHALL be discarded when the user
+starts a new program on the new machine. A switch that keeps the code without
+asking — because the new machine takes the program as it stands — SHALL keep them
+too.
 
 Because replacing a document now destroys scratch work, the warning that protects
 unsaved changes SHALL also be given when scratch buffers exist, and declining it
@@ -345,10 +360,18 @@ breakpoints, which last only as long as the session that set them.
   buffers exist, and declines the warning
 - **THEN** the current document and its scratch buffers are left as they were
 
-#### Scenario: Switching machine discards scratch buffers
+#### Scenario: Keeping the program on a new machine keeps the buffers
 
-- **WHEN** the user switches to a different target machine
-- **THEN** the scratch buffers are discarded
+- **WHEN** the user switches to a different target machine while scratch buffers
+  exist, and chooses to keep their code
+- **THEN** every buffer is still open on the new machine, under its name and with
+  its contents
+
+#### Scenario: Starting new on a new machine discards the buffers
+
+- **WHEN** the user switches to a different target machine while scratch buffers
+  exist, and chooses to start a new program
+- **THEN** the buffers are discarded with the program they belonged to
 
 #### Scenario: A restored buffer carries no breakpoints
 
