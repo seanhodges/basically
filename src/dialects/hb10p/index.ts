@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type {
-  Dialect,
-  MachineEmulator,
-  TokenizeError,
-  TokenizeResult,
+import {
+  hasFatalErrors,
+  type DetokenizeResult,
+  type Dialect,
+  type MachineEmulator,
+  type TokenizeError,
+  type TokenizeResult,
 } from '../types';
-import { hb10pKeywords } from './keywords';
+import { hb10pKeywords, hb10pOperators } from './keywords';
 import { hb10pCharset } from './charset';
-import { hb10pCompletionSource, hb10pLanguageSupport } from './language';
+import {
+  hb10pCompletionSource,
+  hb10pCrunched,
+  hb10pLanguageSupport,
+} from './language';
 import { hb10pKeyboardLayout } from './keyboardLayout';
 import { hb10pSamples } from './samples';
 import { hb10pBuildTargets } from './targets';
@@ -17,7 +23,8 @@ import { hb10pAiProfile } from './aiProfile';
 import { hb10pMemoryMap } from './memoryMap';
 import { hb10pMemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
-import { importBasFile } from './basfile';
+import { buildBasFile, importBasFile } from './basfile';
+import { hb10pVariableErrors } from '../../editor/variableLint';
 import { MsxMachine } from '../../emulator/msx/msxMachine';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from '../../emulator/msx/display';
 import type { MsxModel } from '../../emulator/msx/model';
@@ -64,15 +71,23 @@ export const hb10p: Dialect = {
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
   fileExtensions: ['.txt', '.bas'],
   keywords: hb10pKeywords,
+  operators: hb10pOperators,
   charset: hb10pCharset,
+  crunched: hb10pCrunched,
   languageSupport: hb10pLanguageSupport,
   completionSource: hb10pCompletionSource,
 
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
+    // A non-empty image is the tokenized marker plus a program with at least
+    // one line (more than the bare 0x0000 end link).
+    const image =
+      !hasFatalErrors(errors) && bytes.length > 2
+        ? buildBasFile(bytes)
+        : new Uint8Array(0);
     return {
       programBytes: bytes,
-      image: bytes,
+      image,
       errors,
       byteSize: bytes.length,
     };
@@ -82,8 +97,15 @@ export const hb10p: Dialect = {
     return importBasFile(image).source;
   },
 
+  detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+    return importBasFile(image);
+  },
+
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...hb10pVariableErrors(source, hb10pKeywords),
+    ];
   },
 
   createEmulator(opts): MachineEmulator {

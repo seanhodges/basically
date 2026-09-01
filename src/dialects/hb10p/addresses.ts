@@ -10,8 +10,13 @@
  * trusted and wrong often enough to cost a day.
  */
 
-/** Not implemented yet: the interpreter's program-start pointer (TXTTAB). */
-export const TXTTAB = 0;
+/**
+ * Where the program area starts on an unexpanded 64 KB machine: the link word
+ * of the first line, with the zero byte the interpreter wants before it at
+ * 0x8000. The tokenizer needs it because a line's link is an absolute address,
+ * so the whole program is written for one base and relinked on import.
+ */
+export const TXTTAB = 0x8001;
 /** Not implemented yet: scalar variables (VARTAB). */
 export const VARTAB = 0;
 /** Not implemented yet: arrays (ARYTAB). */

@@ -32,7 +32,12 @@
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import { eachOccurrence, type Occurrence } from './variables';
-import { lexisFor, variableRules, type VariableLexis } from './variableLexis';
+import {
+  lexisFor,
+  MSX_LEXIS,
+  variableRules,
+  type VariableLexis,
+} from './variableLexis';
 import { identityKey, nameKey } from './variableIdentity';
 
 /** The name without its trailing type-suffix character. */
@@ -275,6 +280,20 @@ export function trs80VariableErrors(
   return microsoftVariableErrors(source, keywords, {
     label: 'TRS-80',
     lexis: lexisFor('trs80'),
+  });
+}
+
+/**
+ * MSX BASIC inherits the family's two rules and adds two more type suffixes to
+ * strip before counting: `A%`, `A!` and `A#` are the same name as `A$` is not.
+ */
+export function hb10pVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'MSX',
+    lexis: MSX_LEXIS,
   });
 }
 
