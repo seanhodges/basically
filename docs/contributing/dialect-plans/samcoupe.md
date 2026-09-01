@@ -20,8 +20,10 @@
   **Not a delegation sibling of `zxspectrum`.** The temptation is real — MODE 1
   is a Spectrum-layout screen and the tape scheme is the Spectrum's — but the
   compatibility is at the _hardware_ level. SAM BASIC is a Beta BASIC
-  derivative with its own keyword table, its own line format, its own 61439-line
-  ceiling and a paged 256K address space; a Spectrum BASIC program has to be run
+  derivative with its own keyword table, its own line format, its own
+  65279-line ceiling (`LD HL,&FEFF ;LAST LEGAL LINE NUMBER` in the ROM's
+  miscx1.asm — the 61439 this plan first carried was wrong) and a paged 256K
+  address space; a Spectrum BASIC program has to be run
   through MGT's own `BTRANS` utility to become a SAM BASIC one. Reuse the
   Spectrum's _shapes_ (`spectrumMachine.ts`'s bus, the cassette codecs, the
   screen-text reader) by reading them; do not import them.
@@ -109,7 +111,7 @@ that turned up in the audit:
 
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
-| 1     | Language core                      | ⬜     |
+| 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ⬜     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
@@ -119,7 +121,7 @@ that turned up in the audit:
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change.
 
@@ -132,45 +134,50 @@ statement separator, the character codes — comes off that source. Where the
 source and the Technical Manual disagree, the source wins; where this plan and
 either disagree, they win.
 
-- [ ] `keywords.ts` — `KeywordInfo[]` (token byte, `kind`, signature, one-line
-      doc) plus `samcoupeOperators` for the spellings the machine stores as
-      characters rather than tokens. SAM BASIC is a _large_ BASIC: the
-      structured keywords (`DO`/`LOOP`/`UNTIL`/`WHILE`/`EXIT IF`,
-      `DEF PROC`/`END PROC`/`LOCAL`), the graphics set (`MODE`, `PALETTE`,
-      `CSIZE`, `PEN`, `BLITZ`, `GRAB`/`PUT`, `ROLL`, `SCROLL`, `FILL`), the long
-      integer pokes (`DPOKE`, `LPOKE`, `DPEEK`, `LPEEK`) and the disk commands
-      all want entries. Budget for the size — this table is several times the
-      ZX81's
-- [ ] `charset.ts` — `CharsetMapping` over the full 256 codes. Give each block
-      graphic its exact Unicode where one exists (Block Elements, then Symbols
-      for Legacy Computing) and fall back to an escape only where injectivity or
-      Unicode forces it. **Establish the graphics range from the ROM font before
-      writing it**, then declare it in `SEMIGRAPHIC_CODES` in
-      `src/dialects/semigraphicsAudit.ts` with the citation — or leave it `null`
-      rather than guessing. `IN_SCOPE` is earned later, when the round trip is
-      proven, not now
-- [ ] `language.ts` — `languageSupport()` + `completionSource`, with
-      `BasicLanguageOptions` set for this BASIC's quirks (`nameChars`,
-      `suffixChars`, `hexPrefix`, `binaryPrefix`, and whether the ROM crunches
-      spaces — set `crunched` on the dialect to match what the ROM actually does)
-- [ ] `SAMCOUPE_CONSTRUCTS` in `src/editor/constructs.ts` **and its
-      `constructsByDialect.samcoupe` entry**, read by `language.ts` for block
-      autocomplete. The array and the map entry, not just the array: nothing
-      fails until registration, so a written-but-unwired list survives six
-      stages. `DO`/`LOOP` and `DEF PROC`/`END PROC` are the constructs that earn
-      their place here; pure-maths functions never are
-- [ ] `samcoupeVariableErrors` wrapper in `src/editor/variableLint.ts`. SAM
-      BASIC takes long variable names, so this is neither the single-letter
-      Sinclair helper nor the Microsoft-family one unmodified — settle what the
-      ROM accepts before choosing
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]` (1-based
-      line, 0-based column), never throw; `detokenizeWithReport` for import
-      fidelity
-- [ ] `samfile.ts` — the image builder: tokenized bytes → the SAM tape container
-      the emulator's loader consumes, and parse it back
-- [ ] `lint` wired through `tokenize`
-- [ ] tests: tokenizer round-trip, charset injectivity, image-builder pointer
-      consistency
+- [x] `keywords.ts` — the whole table transcribed from the ROM's own token list
+      in `text.asm`, in its order (the matcher takes the first entry that fits,
+      so LOOP IF before LOOP and ON ERROR before ON), plus `samcoupeOperators`.
+      Two things the plan expected are not in the v3.0 ROM and so are not here:
+      `LPEEK`/`LPOKE` (the ROM has `DPEEK`/`DPOKE` and `DVAR`/`SVAR`; the long
+      pokes are a later add-on) and a `BXOR` spelling (the operation has a
+      priority-table slot but no keyword)
+- [x] `charset.ts` — the 256 codes. 0x5E ↑, 0x60 £ and 0x7F © come from
+      unpacking `CHARSRC` rather than from a manual; 0x80-0x8F are the block
+      graphics and 0x90-0xA8 the twenty-five UDGs
+- [x] `graphics.ts` — the block-graphic table the charset reads, with the
+      quadrant bit order derived from `POUDG`/`QUADBITS`. **It is not the
+      Sinclair order**: bit 1 is the top left and bit 0 the top right, bit 3 the
+      bottom left and bit 2 the bottom right. The keycap half of this file is
+      still Stage 3's
+- [x] `language.ts` — `languageSupport()` + `completionSource`, over
+      `SAMCOUPE_LEXIS` (`_` in names, `$` the only marker, `&` a hex literal).
+      Not crunched: the ROM matches whole words, so `PRINTER` is a name
+- [x] `SAMCOUPE_CONSTRUCTS` in `src/editor/constructs.ts`, read by `language.ts`
+      **by name**. Its `constructsByDialect` entry could not land yet -
+      `constructs.test.ts` rejects a map entry for an unregistered machine - so
+      the array is wired directly instead of being left unwired, and the map
+      entry goes with the registry line
+- [x] `samcoupeVariableErrors` in `src/editor/variableLint.ts` — the ROM's two
+      ceilings rather than either existing family: 32 characters for a numeric
+      name (`NAMTOBUF`), 10 for a string or array name excluding its `$` or `(`
+      (`STARYLK`)
+- [x] `tokenizer.ts` / `detokenizer.ts` — `TokenizeError[]`, never a throw, and
+      `detokenizeWithReport` on the dialect. The tokenizer reproduces the ROM's
+      own IF/ELSE rewrite (a typed IF stores 0xD7 and becomes 0xD8 when THEN
+      follows; an ELSE after a short IF becomes 0xDA) and the hidden six-byte
+      slots `MAKESIX` opens after each DEF FN parameter
+- [x] `samfile.ts` — the tape container: length-prefixed blocks carrying an
+      80-byte SAM header (type 0x01) and the program (type 0xFF), each with the
+      XOR parity byte `SABLK` appends
+- [x] `lint` wired through `tokenize`, with the variable-name rule beside it
+- [x] tests: tokenizer bytes and line framing, listing spacing and round trip,
+      charset injectivity over all 256 codes, header layout and parity
+
+> `SEMIGRAPHIC_CODES` in `src/dialects/semigraphicsAudit.ts` is the other
+> declaration that could not land early: its test rejects an unregistered id
+> too, so it joins the registry line. The range and its citation are settled -
+> 0x80-0x8F and 0x90-0xA8, from `POUDG` and the ROM's own note about the 328
+> bytes of UDG RAM - and `charset.test.ts` already pins the shapes.
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
@@ -401,6 +408,13 @@ with the registry line.
 - [ ] **register in `src/dialects/registry.ts` and add the `palette` entry to
       `SHARE_VERBS` in `src/player/routes.ts` in the same change** —
       `routes.test.ts` enforces a strict bijection with the registry
+- [ ] the three declarations that could not land with the code they belong to,
+      because each of their tests rejects an unregistered id: the
+      `constructsByDialect.samcoupe` entry (the array is already read by name
+      from `language.ts`), `VARIABLE_LEXIS.samcoupe` (likewise `SAMCOUPE_LEXIS`)
+      and `SEMIGRAPHIC_CODES.samcoupe`, which is
+      `[...range(0x80, 0x8f), ...range(0x90, 0xa8)]` from `POUDG` and the ROM's
+      note about the 328 bytes of UDG RAM
 - [ ] the machine-keyed half of the reference bundle, which can only land here:
       `src/reference/machines.ts`, the `facts.ts` porting entry (`loopSpeed`
       **measured** by running the battery, not authored), and the

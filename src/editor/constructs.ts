@@ -754,6 +754,51 @@ export const APPLE2PLUS_CONSTRUCTS: ConstructTemplate[] = [
   ]),
 ];
 
+/**
+ * SAM BASIC's blocks. Beta BASIC's structured keywords are the point of the
+ * machine's language, so DO/LOOP and DEF PROC/END PROC earn their place beside
+ * the IF and FOR every dialect has. The bracketed functions list with no space
+ * before the bracket - the ROM prints its immediate functions with neither a
+ * leading nor a trailing space - unlike the Spectrum's.
+ *
+ * Not in {@link constructsByDialect}: that map names exactly the registered
+ * machines, so the dialect's own `language.ts` reads this export by name.
+ */
+export const SAMCOUPE_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  {
+    label: 'DO',
+    lines: ['DO', '${0}', 'LOOP'],
+    detail: 'DO \u2026 LOOP loop',
+  },
+  gosub('GO SUB'),
+  {
+    label: 'DEF PROC',
+    lines: ['DEF PROC ${1:name}', '${0}', 'END PROC'],
+    detail: 'define a procedure',
+  },
+  {
+    label: 'DEF FN',
+    lines: ['DEF FN ${1:f}(${2:x})=${0}'],
+    detail: 'define a function',
+  },
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('MERGE', 'merge "filename"'),
+  stringCmd('VERIFY', 'verify "filename"'),
+  ...fns([
+    ['POINT', 'nn'],
+    ['SCREEN$', 'nn'],
+    ['ATTR', 'nn'],
+    ['INSTR', 'ss'],
+    ['STRING$', 'ns'],
+    ['LENGTH', 'ns'],
+  ]),
+];
+
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   zx81: ZX81,
   zx80: ZX80,

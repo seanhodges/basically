@@ -7,6 +7,7 @@ import {
   trs80VariableErrors,
   atomVariableErrors,
   pmd85VariableErrors,
+  samcoupeVariableErrors,
 } from './variableLint';
 import { dialects, getDialect } from '../dialects/registry';
 import { zx81Keywords } from '../dialects/zx81/keywords';
@@ -16,6 +17,7 @@ import { zx80EditorKeywords } from '../dialects/zx80/keywords';
 import { trs80Keywords } from '../dialects/trs80/keywords';
 import { atomKeywords } from '../dialects/atom/keywords';
 import { pmd85Keywords } from '../dialects/pmd85/keywords';
+import { samcoupeKeywords } from '../dialects/samcoupe/keywords';
 
 const zx81 = (src: string) => zx81VariableErrors(src, zx81Keywords);
 const c64 = (src: string) => c64VariableErrors(src, c64Keywords);
@@ -24,6 +26,7 @@ const zx80 = (src: string) => zx80VariableErrors(src, zx80EditorKeywords);
 const trs80 = (src: string) => trs80VariableErrors(src, trs80Keywords);
 const atom = (src: string) => atomVariableErrors(src, atomKeywords);
 const pmd85 = (src: string) => pmd85VariableErrors(src, pmd85Keywords);
+const samcoupe = (src: string) => samcoupeVariableErrors(src, samcoupeKeywords);
 
 describe('zx81VariableErrors', () => {
   it('flags a multi-letter string variable at its exact columns', () => {
@@ -321,6 +324,28 @@ const NO_NAME_RULE: Record<string, string> = {
  * name is one letter and at most one digit.
  */
 const UNSTORABLE = '10 LET ABCD$="X"\n20 LET ABCE$="Y"\n';
+
+describe('samcoupeVariableErrors (two name-length ceilings, one per type)', () => {
+  it('allows a long numeric name but not a long string or array one', () => {
+    expect(samcoupe('10 LET highest_score_this_session=1')).toEqual([]);
+    expect(samcoupe('10 LET playernames$="a"')[0]!.message).toMatch(
+      /string and array names are at most 10 characters/,
+    );
+    expect(samcoupe('10 DIM playerscores(10)')[0]!.message).toMatch(
+      /string and array names are at most 10 characters/,
+    );
+    // Ten is the limit, and the $ does not count towards it.
+    expect(samcoupe('10 LET playernam$="a"')).toEqual([]);
+    // Thirty-three characters is past what NAMTOBUF will count.
+    expect(samcoupe(`10 LET ${'a'.repeat(33)}=1`)[0]!.message).toMatch(
+      /at most 32 characters/,
+    );
+  });
+
+  it('reads a name the way the ROM does, so keywords are not names', () => {
+    expect(samcoupe('10 PRINT LEN a$: LET b=PEEK &8000')).toEqual([]);
+  });
+});
 
 describe('every registered machine lints the names its ROM cannot store', () => {
   it.each(dialects.map((d) => d.id))('%s', (id) => {
