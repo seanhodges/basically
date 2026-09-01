@@ -204,6 +204,22 @@ These popular machines can't reuse any bundled core or the effort is potentially
 | ⛔     | Commodore Amiga, Atari ST                              | 68000      | No 68000 core bundled                                                                                                                                                        |
 | ⬜     | Memotech MTX, Tatung Einstein, Sord M5, Camputers Lynx | Z80        | Niche; each a bespoke video implementation                                                                                                                                   |
 
+## Pre-microcomputer targets
+
+Outside the tier scheme, which is organised by which bundled CPU core can drive a
+machine: these predate the microcomputer and have no core to reuse, nor any
+prospect of one being vendored. They ship, if at all, as clean-room interpreters
+
+- the TRS-80's shape, arrived at for a different reason. Adding one also moves
+  the project's own era boundary, which `src/dialects/registry.test.ts` pins to
+  1975-1995, and the "microcomputer BASIC" framing in `README.md` and `CLAUDE.md`
+  along with it. That is a deliberate widening of what this project claims to be,
+  so it belongs in the plan rather than in a passing test edit.
+
+| Status | Machine                 | CPU             | BASIC                      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | ----------------------- | --------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⬜     | General Electric GE-235 | GE-235 (20-bit) | Dartmouth BASIC (Feb 1965) | Plan: [`dialect-plans/ge235.md`](./dialect-plans/ge235.md). The ancestor of every other BASIC in the registry, which is most of the reason to want it - the porting guide gains an origin to compare against. Ships as a clean-room interpreter: no GE-2xx core exists in JS or WASM, and the surviving compiler is a 1965 GE-235 memory image whose licensing is unstated. A teletype machine, so it follows the Altair for its scrolling paper roll and ASR-33 layout, and drops `breakout` and `kaleido` for want of a key read and of machine code. No assembly support, no cassette, no serial bridge. The 6-bit BCD charset and the runtime error text were recovered from the original binary. |
+
 ---
 
 ## How a machine gets promoted a tier
