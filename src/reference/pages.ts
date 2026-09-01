@@ -17,34 +17,30 @@
 import type { BasicReferenceTableData, EscapeTableData } from './types';
 
 import { altair8800Reference } from './altair8800';
-import { apple1Reference } from './apple1';
-import { apple2Reference } from './apple2';
 import { applesoftReference } from './applesoft';
+import { integerBasicReference } from './integer-basic';
 import { atariReference } from './atari';
 import { atomReference } from './atom';
 import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';
 import { cpcReference } from './cpc';
 import { pmd85Reference } from './pmd85';
+import { sinclairReference } from './sinclair';
 import { trs80Reference } from './trs80';
 import { zx80Reference } from './zx80';
-import { zx81Reference } from './zx81';
-import { zxspectrumReference } from './zxspectrum';
 
 import { altair8800Escapes } from './escapes/altair8800';
-import { apple1Escapes } from './escapes/apple1';
-import { apple2Escapes } from './escapes/apple2';
 import { applesoftEscapes } from './escapes/applesoft';
+import { integerBasicEscapes } from './escapes/integer-basic';
 import { atariEscapes } from './escapes/atari';
 import { atomEscapes } from './escapes/atom';
 import { bbcEscapes } from './escapes/bbc';
 import { commodoreEscapes } from './escapes/commodore';
 import { cpcEscapes } from './escapes/cpc';
 import { pmd85Escapes } from './escapes/pmd85';
+import { sinclairEscapes } from './escapes/sinclair';
 import { trs80Escapes } from './escapes/trs80';
 import { zx80Escapes } from './escapes/zx80';
-import { zx81Escapes } from './escapes/zx81';
-import { zxspectrumEscapes } from './escapes/zxspectrum';
 
 export { referencePageOf } from '../dialects/referencePage';
 
@@ -68,41 +64,41 @@ export const PENDING_PAGE_IDS: readonly string[] = [];
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {
   altair8800: altair8800Reference,
-  apple1: apple1Reference,
-  apple2: apple2Reference,
   applesoft: applesoftReference,
   atari: atariReference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,
   cpc: cpcReference,
+  'integer-basic': integerBasicReference,
   pmd85: pmd85Reference,
+  sinclair: sinclairReference,
   trs80: trs80Reference,
   zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
 };
 
 /**
- * Every control-code table, keyed by the same slug: a control code is a
- * property of the charset, and the machines sharing a reference page share
- * their charset too.
+ * Every control-code table, keyed by the same slug.
+ *
+ * Usually a control code is a property of the charset and the machines sharing
+ * a page share their charset outright. Where they do not - the Apple I and the
+ * Apple II share the Integer BASIC page with a character generator each - the
+ * rows are scoped with `onlyOn` and `CHARSET_PROBES` reads each family against
+ * its own.
  */
 export const escapePages: Record<string, EscapeTableData> = {
   altair8800: altair8800Escapes,
-  apple1: apple1Escapes,
-  apple2: apple2Escapes,
   applesoft: applesoftEscapes,
   atari: atariEscapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
   commodore: commodoreEscapes,
   cpc: cpcEscapes,
+  'integer-basic': integerBasicEscapes,
   pmd85: pmd85Escapes,
+  sinclair: sinclairEscapes,
   trs80: trs80Escapes,
   zx80: zx80Escapes,
-  zx81: zx81Escapes,
-  zxspectrum: zxspectrumEscapes,
 };
 
 /** The page slugs, in the order this file lists them. */

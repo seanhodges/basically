@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';
 import { cpcReference } from './cpc';
-import { zxspectrumReference } from './zxspectrum';
+import { sinclairReference } from './sinclair';
 import { portingFacts } from './facts';
 import { keywordEquivalences } from './porting';
 import { diffKeywords, tableForMachine } from './compare';
@@ -143,9 +143,9 @@ describe('BBC and Spectrum variants', () => {
 
   it('offers SPECTRUM and PLAY when porting from a 48K to a 128K', () => {
     const diff = diffBetween(
-      { page: zxspectrumReference, machine: 'zxspectrum' },
-      { page: zxspectrumReference, machine: 'zxspectrum128' },
-      { from: 'zxspectrum', to: 'zxspectrum' },
+      { page: sinclairReference, machine: 'zxspectrum' },
+      { page: sinclairReference, machine: 'zxspectrum128' },
+      { from: 'zxspectrum', to: 'zxspectrum128' },
     );
     expect(names(diff.newlyAvailable).sort()).toEqual(['PLAY', 'SPECTRUM']);
     expect(diff.mustReplace).toEqual([]);

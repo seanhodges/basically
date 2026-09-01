@@ -468,7 +468,19 @@ The line is the name on the machine, not the ancestry: Commodore BASIC,
 Applesoft and Level II BASIC are all licensed Microsoft BASIC and still keep
 their vendor names, because those are what a reader searches for. Machines
 sharing a `docsReference` must share a family — `registry.test.ts` fails
-otherwise.
+otherwise — and the reference carries one page per family, so joining a family
+means joining its page.
+
+**Joining a page inherits none of the porting guidance.** A machine's keyword
+spellings and false-friend meanings (`src/reference/porting.ts`), its pair
+notes, its per-capability advice (`domain-guidance.ts`) and its control-code
+advice (`escape-guidance.ts`) are all keyed by machine id, and are written for
+the new machine from its own reference rows — not taken from the relative whose
+page it joined. Where the answer is genuinely the same for several machines,
+name them together through the shared lists in `porting.ts` rather than letting
+one stand for the others; where it is not, the new machine gets its own entry.
+The crosschecks read every claim against that machine's own rows, so guidance
+reaching for a command it does not have fails rather than reading plausibly.
 
 The blurb has a hard budget: **aim for 60 characters, never exceed 72**
 (`registry.test.ts` fails above it). The picker clamps each row's description to

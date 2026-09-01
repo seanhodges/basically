@@ -19,6 +19,7 @@ import {
   diffEscapes,
   diffKeywords,
   escapeTableForMachine,
+  namesMachine,
   tableForMachine,
   type ProgramVocabulary,
 } from './compare';
@@ -279,7 +280,7 @@ describe('what the port does not require stays out', () => {
 
   it('repeats none of the worked examples the system prompt already carries', () => {
     const lines = domainGuidance
-      .filter((g) => g.to === spectrum.page)
+      .filter((g) => namesMachine(g.to, spectrum.id))
       .flatMap((g) => g.example?.code ?? []);
     expect(lines.length).toBeGreaterThan(0);
     expect(lines.filter((line) => report.includes(line))).toEqual([]);

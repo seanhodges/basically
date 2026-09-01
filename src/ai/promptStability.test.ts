@@ -43,12 +43,17 @@ const FLAGS: [canShowScreen: boolean, canDrive: boolean][] = [
  * section that grows says so here, in a failing test naming the machine,
  * instead of on a bill. A new machine has no entry and fails until one is
  * measured for it.
+ *
+ * The machines that share a reference page with a relative pay for it here: a
+ * row both machines have and read differently says how in its own description,
+ * so the Apples and the Sinclairs each carry a few hundred characters of
+ * attribution their single-machine pages never had.
  */
 const PROMPT_CEILINGS: Record<string, number> = {
   zx80: 23_000,
-  zx81: 28_000,
-  zxspectrum: 30_000,
-  zxspectrum128: 31_000,
+  zx81: 30_000,
+  zxspectrum: 33_000,
+  zxspectrum128: 34_000,
   bbcmicro: 39_000,
   bbcmaster: 40_000,
   commodore64: 32_000,
@@ -61,8 +66,8 @@ const PROMPT_CEILINGS: Record<string, number> = {
   cpc6128: 34_000,
   altair8800: 30_000,
   pmd85: 39_000,
-  apple1: 30_000,
-  apple2: 40_000,
+  apple1: 33_000,
+  apple2: 41_000,
   apple2plus: 49_000,
   atari800: 42_000,
   atari400: 42_500,

@@ -1,15 +1,16 @@
 ---
-title: Altair 8K BASIC reference
+title: Microsoft BASIC reference
 ---
 
 <script setup>
 import { altair8800Reference } from '../../src/reference/altair8800';
 </script>
 
-# Altair 8K BASIC reference
+# Microsoft BASIC reference
 
-Every command, function and operator in Altair 8K BASIC — the 1975–76 MITS
-interpreter that every later Microsoft BASIC descends from.
+Every command, function and operator in **Altair 8K BASIC**, the version of
+Microsoft BASIC the MITS Altair 8800 runs — the 1975–76 interpreter that every
+later Microsoft BASIC descends from.
 
 **In this reference:** [Hardware](./altair8800/hardware) · [Escape codes](./altair8800/escapes) · [File formats](./altair8800/formats) · [Argument notation](./#argument-notation)
 

@@ -22,7 +22,11 @@ import { machines } from '../../src/reference/machines';
 const here = dirname(fileURLToPath(import.meta.url));
 const markdown = readFileSync(resolve(here, 'compare.md'), 'utf8');
 
-/** The keys of one `const <name> = { … };` object literal in the page. */
+/**
+ * The keys of one `const <name> = { … };` object literal in the page. A slug
+ * that is not a bare identifier is quoted there (`'integer-basic'`), so both
+ * spellings count.
+ */
 function keysOf(name: string): string[] {
   const start = markdown.indexOf(`const ${name} = {`);
   expect(start, `${name} is not declared in compare.md`).toBeGreaterThanOrEqual(
@@ -30,7 +34,7 @@ function keysOf(name: string): string[] {
   );
   const stop = markdown.indexOf('\n};', start);
   expect(stop, `${name} is not closed`).toBeGreaterThan(start);
-  return [...markdown.slice(start, stop).matchAll(/^\s{2}(\w+):/gm)].map(
+  return [...markdown.slice(start, stop).matchAll(/^\s{2}'?([\w-]+)'?:/gm)].map(
     (m) => m[1]!,
   );
 }

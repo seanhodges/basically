@@ -17,10 +17,26 @@ One dialect's reference set is five artifacts plus wiring. Everything in it is
 **derived from the dialect's source, never from memory of the machine** — the
 crosscheck tests below make drift a test failure, not a doc-review problem.
 
-Machines and docs pages are not 1:1: sibling dialects share a page via the
-`docsReference` field on the `Dialect` (see `src/app/docsTopic.ts` — e.g.
-`zxspectrum128` → `zxspectrum`, `vic20` → `commodore64`, `bbcmaster` → `bbc`).
-`<page>` below means that shared page id; `<id>` means one dialect folder.
+**The reference is one page per family of BASIC, not one per machine.** A
+machine names its page with the `docsReference` field on the `Dialect` (see
+`src/app/docsTopic.ts`), and every machine running a version of one BASIC names
+the same page. `<page>` below means that family page id; `<id>` means one
+dialect folder. The twelve pages, and the machines each covers:
+
+| Page            | Title                 | Machines                          |
+| --------------- | --------------------- | --------------------------------- |
+| `altair8800`    | Microsoft BASIC       | Altair 8800                       |
+| `applesoft`     | Applesoft BASIC       | Apple II Plus                     |
+| `atari`         | Atari BASIC           | Atari 800, Atari 400              |
+| `atom`          | Atom BASIC            | Acorn Atom                        |
+| `bbc`           | BBC BASIC             | BBC Micro, BBC Master             |
+| `commodore`     | Commodore BASIC       | PET, VIC-20, Commodore 64         |
+| `cpc`           | Locomotive BASIC      | CPC 464, CPC 664, CPC 6128        |
+| `integer-basic` | Integer BASIC         | Apple I, Apple II                 |
+| `pmd85`         | BASIC-G               | PMD 85-2                          |
+| `sinclair`      | Sinclair BASIC        | ZX81, Spectrum 48K, Spectrum 128K |
+| `trs80`         | TRS-80 Level II BASIC | TRS-80                            |
+| `zx80`          | ZX80 BASIC            | ZX80                              |
 
 Machines sharing a page share a `basicFamily` — the family of BASIC they run,
 which the picker heads its by-BASIC groups with, as distinct from the
@@ -29,6 +45,25 @@ which the picker heads its by-BASIC groups with, as distinct from the
 minting one of its own; `registry.test.ts` fails when two machines on a page
 disagree. The families the registered machines declare are listed in
 `.claude/skills/adding-a-target-system/SKILL.md` § Picker identity.
+
+**A shared page attributes everything.** A row only some of the page's machines
+have carries `onlyOn` and a `tag` naming them; a row they all have but read
+differently says how, in the row's own description, rather than answering for
+one of them. Where the machines do not share a charset either — the two Apples
+on `integer-basic`, the ZX81 and the Spectrums on `sinclair` — the escape table
+carries both sets scoped the same way, and `CHARSET_PROBES` in
+`src/dialects/charsetProbes.ts` names the page each family's rows live on.
+Hardware, escapes and formats sub-pages give each machine a section of its own:
+a ZX81 and a Spectrum 128 share a BASIC and almost no board.
+
+**A machine's porting guidance is written for the machine, never inherited from
+the page it joins.** `porting.ts` (keyword spellings, false-friend meanings,
+pair notes), `domain-guidance.ts` and `escape-guidance.ts` are all keyed by
+machine id, with machines that genuinely share a value named together through
+the lists in `porting.ts`. Joining a relative's page grants a new machine none
+of that: its spellings, its capability advice and its `reachFor` commands are
+read off its own rows, and the crosschecks check them against its own rows —
+which is what stops a CPC 464 being offered BASIC 1.1's `FILL`.
 
 | Artifact                                            | Content                                                                                                                                                                                                                                                          |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +100,7 @@ has no sound hardware.").
    enrichment.
 2. **Enrich by hand.** Rewrite each row's `syntax` into the typed `<…>` style
    and each `description` into 1–3 sentences in the docs voice (see any mature
-   set, e.g. `src/reference/zx81.ts`). `tag` marks machine/version
+   set, e.g. `src/reference/sinclair.ts`). `tag` marks machine/version
    availability only ("128K only", "BASIC 1.1 only") — semantic notes belong in
    the description. Escape rows additionally need `category`, an
    `example: {source, bytes}` probe, and `codes` claims — the crosscheck suite

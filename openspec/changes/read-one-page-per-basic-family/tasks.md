@@ -18,34 +18,34 @@
 
 ## 3. Merge the Integer BASIC pages
 
-- [ ] 3.1 Merge `src/reference/apple1.ts` and `apple2.ts` into `integer-basic.ts`, listing both machines on the table and scoping the Apple II's additions with `onlyOn: ['apple2']` and a badge
-- [ ] 3.2 Merge `src/reference/escapes/apple1.ts` and `escapes/apple2.ts` into `escapes/integer-basic.ts` the same way
-- [ ] 3.3 Merge `docs/reference/apple1.md` and `apple2.md` into `docs/reference/integer-basic.md`, and their `hardware.md`, `escapes.md` and `formats.md` into `docs/reference/integer-basic/`, keeping each machine's hardware material in its own section
-- [ ] 3.4 Set `docsReference: 'integer-basic'` on the `apple1` and `apple2` dialects
+- [x] 3.1 Merge `src/reference/apple1.ts` and `apple2.ts` into `integer-basic.ts`, listing both machines on the table and scoping the Apple II's additions with `onlyOn: ['apple2']` and a badge
+- [x] 3.2 Merge `src/reference/escapes/apple1.ts` and `escapes/apple2.ts` into `escapes/integer-basic.ts` the same way
+- [x] 3.3 Merge `docs/reference/apple1.md` and `apple2.md` into `docs/reference/integer-basic.md`, and their `hardware.md`, `escapes.md` and `formats.md` into `docs/reference/integer-basic/`, keeping each machine's hardware material in its own section
+- [x] 3.4 Set `docsReference: 'integer-basic'` on the `apple1` and `apple2` dialects
 
 ## 4. Merge the Sinclair BASIC pages
 
-- [ ] 4.1 Merge `src/reference/zx81.ts` and `zxspectrum.ts` into `sinclair.ts`: list all three machines, scope Spectrum-only rows with `onlyOn: ['zxspectrum', 'zxspectrum128']`, scope ZX81-only rows to `['zx81']`, and carry the existing 128K-only tags through unchanged
-- [ ] 4.2 Note on any row the machines share but behave differently in what the difference is, rather than presenting one machine's behaviour as the page's
-- [ ] 4.3 Merge `src/reference/escapes/zx81.ts` and `escapes/zxspectrum.ts` into `escapes/sinclair.ts` with the same scoping
-- [ ] 4.4 Merge `docs/reference/zx81.md` and `zxspectrum.md` into `docs/reference/sinclair.md`, and their sub-pages into `docs/reference/sinclair/`, with a section per machine in `hardware.md` — a ZX81 and a Spectrum 128 share almost no hardware and must not be blended into one table
-- [ ] 4.5 Set `docsReference: 'sinclair'` on the `zx81`, `zxspectrum` and `zxspectrum128` dialects
-- [ ] 4.6 Run `npx vitest run src/reference/` and fix every row the crosscheck batteries report as scoped to the wrong machines, before polishing any prose
+- [x] 4.1 Merge `src/reference/zx81.ts` and `zxspectrum.ts` into `sinclair.ts`: list all three machines, scope Spectrum-only rows with `onlyOn: ['zxspectrum', 'zxspectrum128']`, scope ZX81-only rows to `['zx81']`, and carry the existing 128K-only tags through unchanged
+- [x] 4.2 Note on any row the machines share but behave differently in what the difference is, rather than presenting one machine's behaviour as the page's
+- [x] 4.3 Merge `src/reference/escapes/zx81.ts` and `escapes/zxspectrum.ts` into `escapes/sinclair.ts` with the same scoping
+- [x] 4.4 Merge `docs/reference/zx81.md` and `zxspectrum.md` into `docs/reference/sinclair.md`, and their sub-pages into `docs/reference/sinclair/`, with a section per machine in `hardware.md` — a ZX81 and a Spectrum 128 share almost no hardware and must not be blended into one table
+- [x] 4.5 Set `docsReference: 'sinclair'` on the `zx81`, `zxspectrum` and `zxspectrum128` dialects
+- [x] 4.6 Run `npx vitest run src/reference/` and fix every row the crosscheck batteries report as scoped to the wrong machines, before polishing any prose
 
 ## 5. Rewire the page registry and the docs shell
 
-- [ ] 5.1 Update the imports and both maps in `src/reference/pages.ts` to the new slugs, and confirm `pages.test.ts` and `src/app/docsTopic.test.ts` pass — they fail until every registered machine's page exists, which is the guard that steps 3 and 4 are complete
-- [ ] 5.2 Retitle the Altair page "Microsoft BASIC" in `docs/reference/altair8800.md`, naming Altair 8K BASIC as the version it runs in the opening prose
-- [ ] 5.3 Rewrite the "BASIC dialects" list in `docs/reference/index.md` to the twelve families, each naming the machines it covers
-- [ ] 5.4 Update the `Language reference` section of the sidebar in `docs/.vitepress/config.ts` from fourteen entries to twelve, retitled to family names — the one sidebar edit this change is authorised to make
-- [ ] 5.5 Add the three redirect stubs (`docs/reference/zxspectrum.md`, `apple1.md`, `apple2.md`): frontmatter `meta http-equiv="refresh"` to the new URL, a one-sentence body linking there, and no sidebar or index entry
-- [ ] 5.6 Fix cross-links to the moved slugs in `docs/reference/compare.md`, `z80-assembly.md`, `file-formats.md`, `porting-basics.md` and `docs/contributing/`, so nothing but a stub points at an old address
-- [ ] 5.7 Confirm `src/app/docsNavigation.test.ts` passes: every registered machine's page is in the sidebar and the index, and no stub is
+- [x] 5.1 Update the imports and both maps in `src/reference/pages.ts` to the new slugs, and confirm `pages.test.ts` and `src/app/docsTopic.test.ts` pass — they fail until every registered machine's page exists, which is the guard that steps 3 and 4 are complete
+- [x] 5.2 Retitle the Altair page "Microsoft BASIC" in `docs/reference/altair8800.md`, naming Altair 8K BASIC as the version it runs in the opening prose
+- [x] 5.3 Rewrite the "BASIC dialects" list in `docs/reference/index.md` to the twelve families, each naming the machines it covers
+- [x] 5.4 Update the `Language reference` section of the sidebar in `docs/.vitepress/config.ts` from fourteen entries to twelve, retitled to family names — the one sidebar edit this change is authorised to make
+- [x] 5.5 Add the three redirect stubs (`docs/reference/zxspectrum.md`, `apple1.md`, `apple2.md`): frontmatter `meta http-equiv="refresh"` to the new URL, a one-sentence body linking there, and no sidebar or index entry
+- [x] 5.6 Fix cross-links to the moved slugs in `docs/reference/compare.md`, `z80-assembly.md`, `file-formats.md`, `porting-basics.md` and `docs/contributing/`, so nothing but a stub points at an old address
+- [x] 5.7 Confirm `src/app/docsNavigation.test.ts` passes: every registered machine's page is in the sidebar and the index, and no stub is
 
 ## 6. Keep the authoring guidance current
 
-- [ ] 6.1 Update the page list and the shared-page rule in `.claude/skills/dialect-reference-docs/SKILL.md` to the twelve family pages
-- [ ] 6.2 Add to that skill and to `.claude/skills/adding-a-target-system/SKILL.md` that a new machine's porting guidance, spellings and pair notes are written for the machine, not inherited from the page it joins
+- [x] 6.1 Update the page list and the shared-page rule in `.claude/skills/dialect-reference-docs/SKILL.md` to the twelve family pages
+- [x] 6.2 Add to that skill and to `.claude/skills/adding-a-target-system/SKILL.md` that a new machine's porting guidance, spellings and pair notes are written for the machine, not inherited from the page it joins
 
 ## 7. Quality gates
 

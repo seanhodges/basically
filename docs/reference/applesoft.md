@@ -16,7 +16,7 @@ Plus where the original machine had Woz's Integer BASIC.
 
 ## Notes and caveats
 
-- **This is not Integer BASIC**, and the [Apple II](./apple2) next door is not
+- **This is not Integer BASIC**, and the [Apple II](./integer-basic) next door is not
   this. The two machines are one design with a different BASIC fitted, and they
   share more than a dozen spellings while agreeing about hardly any of them.
   Here there is floating point, so `7/2` is 3.5; `RND(1)` is a fraction below 1

@@ -26,7 +26,7 @@ length.
 
 Hidden machine-code lines (line number 0, duplicate numbers, large
 non-printable REM bodies) import as `#BIN <base64>` directives exactly as for
-the [ZX81 `.P`](../zx81/formats#zx81-p) format; the only difference is the record
+the [ZX81 `.P`](../sinclair/formats#zx81-p) format; the only difference is the record
 shape - ZX80 records are `u16 BE line number + body + 0x76` with no length
 field, so a body can never embed a stray `0x76`.
 

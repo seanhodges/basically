@@ -78,6 +78,7 @@ export const apple1: Dialect = {
   blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
   basicDialect: 'Apple 1 Integer BASIC',
   basicFamily: 'Integer BASIC',
+  docsReference: 'integer-basic',
 
   // Stock LOMEM/HIMEM leave 2048 bytes, shared between program and variables.
   programRamBytes: COLD_START_BYTES_FREE,

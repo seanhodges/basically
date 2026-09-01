@@ -108,36 +108,6 @@ export default withPwa(
           items: [
             { text: 'Overview', link: '/reference/' },
             {
-              text: 'Altair 8K BASIC',
-              link: '/reference/altair8800',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/altair8800/hardware' },
-                { text: 'Escape codes', link: '/reference/altair8800/escapes' },
-                { text: 'File formats', link: '/reference/altair8800/formats' },
-              ],
-            },
-            {
-              text: 'Apple 1 Integer BASIC',
-              link: '/reference/apple1',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/apple1/hardware' },
-                { text: 'Escape codes', link: '/reference/apple1/escapes' },
-                { text: 'File formats', link: '/reference/apple1/formats' },
-              ],
-            },
-            {
-              text: 'Apple II Integer BASIC',
-              link: '/reference/apple2',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/apple2/hardware' },
-                { text: 'Escape codes', link: '/reference/apple2/escapes' },
-                { text: 'File formats', link: '/reference/apple2/formats' },
-              ],
-            },
-            {
               text: 'Applesoft BASIC',
               link: '/reference/applesoft',
               collapsed: true,
@@ -209,6 +179,28 @@ export default withPwa(
               ],
             },
             {
+              // One page covers both revisions of Integer BASIC: the Apple 1's
+              // and the Apple II's, the later machine's additions tagged on the
+              // shared table.
+              text: 'Integer BASIC',
+              link: '/reference/integer-basic',
+              collapsed: true,
+              items: [
+                {
+                  text: 'Hardware',
+                  link: '/reference/integer-basic/hardware',
+                },
+                {
+                  text: 'Escape codes',
+                  link: '/reference/integer-basic/escapes',
+                },
+                {
+                  text: 'File formats',
+                  link: '/reference/integer-basic/formats',
+                },
+              ],
+            },
+            {
               text: 'Locomotive BASIC',
               link: '/reference/cpc',
               collapsed: true,
@@ -216,6 +208,30 @@ export default withPwa(
                 { text: 'Hardware', link: '/reference/cpc/hardware' },
                 { text: 'Escape codes', link: '/reference/cpc/escapes' },
                 { text: 'File formats', link: '/reference/cpc/formats' },
+              ],
+            },
+            {
+              // Titled by the family; the Altair runs Altair 8K BASIC, the
+              // version the page describes.
+              text: 'Microsoft BASIC',
+              link: '/reference/altair8800',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/altair8800/hardware' },
+                { text: 'Escape codes', link: '/reference/altair8800/escapes' },
+                { text: 'File formats', link: '/reference/altair8800/formats' },
+              ],
+            },
+            {
+              // One page covers the ZX81 and both Spectrums; each machine's own
+              // rows are tagged on the shared table.
+              text: 'Sinclair BASIC',
+              link: '/reference/sinclair',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/sinclair/hardware' },
+                { text: 'Escape codes', link: '/reference/sinclair/escapes' },
+                { text: 'File formats', link: '/reference/sinclair/formats' },
               ],
             },
             {
@@ -229,22 +245,6 @@ export default withPwa(
               ],
             },
             {
-              text: 'ZX Spectrum BASIC',
-              link: '/reference/zxspectrum',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/zxspectrum/hardware' },
-                {
-                  text: 'Escape codes',
-                  link: '/reference/zxspectrum/escapes',
-                },
-                {
-                  text: 'File formats',
-                  link: '/reference/zxspectrum/formats',
-                },
-              ],
-            },
-            {
               text: 'ZX80 BASIC',
               link: '/reference/zx80',
               collapsed: true,
@@ -252,16 +252,6 @@ export default withPwa(
                 { text: 'Hardware', link: '/reference/zx80/hardware' },
                 { text: 'Escape codes', link: '/reference/zx80/escapes' },
                 { text: 'File formats', link: '/reference/zx80/formats' },
-              ],
-            },
-            {
-              text: 'ZX81 BASIC',
-              link: '/reference/zx81',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/zx81/hardware' },
-                { text: 'Escape codes', link: '/reference/zx81/escapes' },
-                { text: 'File formats', link: '/reference/zx81/formats' },
               ],
             },
             {
