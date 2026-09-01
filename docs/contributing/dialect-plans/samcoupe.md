@@ -114,7 +114,7 @@ that turned up in the audit:
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
-| 4     | Transfer & tape I/O                | ⬜     |
+| 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
@@ -319,28 +319,52 @@ because the kaleidoscope sample cannot load without one.
 **Verify:** `npm run typecheck` + `npm test` (the app and e2e cannot see the
 machine yet — that is Stage 7's verify).
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-The SAM's tape is the Spectrum's pulse scheme at a different speed, so
-`src/dialects/zxspectrum/audio/cassetteEncoder.ts` and `cassetteDecoder.ts` are
-the model to read — pilot tone, two sync pulses, two pulses per bit — with three
-differences to get right, all of them from the Technical Manual:
+The SAM's tape is the Spectrum's pulse scheme — leader tone, two sync pulses,
+two pulses per bit, MSB first — carrying the SAM's own blocks: `0x01` opens a
+SAM header, `0xFF` a data block, `0x00` a Spectrum header the SAM also reads,
+and the SAM header is its own 80-byte structure rather than the Spectrum's 17.
 
-- the SAM writes at **2250 baud**, about 50% faster than the Spectrum's 1500,
-  and reads standard 1500-baud Spectrum tapes too;
-- the block's first byte is `0x01` for a SAM header, `0xFF` for data, `0x00` for
-  a Spectrum header;
-- the SAM header is its own structure, not the Spectrum's 17 bytes.
+**The 2250 baud this plan carried is not what the shipped ROM writes**, and the
+timings came off `SABLK` in `tapex.asm` instead. The speed is a register the
+user can set (`DEVICE T<n>`); `TSPEED`, the value the ROM boots with, is 112,
+which is the byte at 0x7C29 of the committed image. From it `SABLK` derives the
+long-pulse count `2*(112+1)+1 = 227` and spends `13*R + 33` T-states of a 6MHz
+Z80 per data pulse, `16*R + 51` per leader or sync pulse. That is 248µs and
+497µs for the two data pulses against the Spectrum's 244µs and 489µs — the
+default is Spectrum speed to within 2%, not half as fast again. `DEVICE T74` is
+the setting that gives the manual's 2250 baud.
 
-- [ ] `targets.ts` — `BuildTarget[]`: the tape container, the cassette `.wav`,
-      and a `.mgt` disk image if the Stage's budget allows one
-- [ ] `audio` — `buildSamples` + `decodeSamples`, `loadInstructions` /
-      `saveInstructions` written for what a user actually types on this machine
-- [ ] `binaryImports` — the formats `detokenize()` can read back. Tape first;
-      `.mgt` / `.sad` / `.dsk` disk images are the stretch, and each is a
-      directory walk before it is a program
-- [ ] tests: cassette encode → decode round-trip, and a Spectrum-speed tape
-      decoding on the slower path
+- [x] `targets.ts` — `BuildTarget[]`: the `.tap` container SimCoupe and
+      libspectrum read, and the cassette `.wav`. Neither carries memory blocks,
+      and `targets.ts` says why: a SAM CODE file's header names its destination
+      as a page number `SAMAIN` adds the saving machine's own LMPR to, which the
+      loader then shifts again by a page offset it keeps in a system variable,
+      so a CODE file's address only means anything beside the paging it was
+      written under
+- [x] `audio` — `buildSamples` + `decodeSamples` over
+      `audio/cassetteEncoder.ts` and `audio/cassetteDecoder.ts`, with
+      `loadInstructions` naming F7, which types `LOAD ""` for the user (`DKSRC`
+      in the ROM's text.asm, checked on the machine through F0/`LIST`), and
+      `saveInstructions` naming the "Start tape and then press a key" prompt
+      the ROM actually prints
+- [x] `binaryImports` — `.tap`, read back through `detokenizeWithReport`
+- [x] tests: the encoder's pulse lengths measured off the signal and pinned to
+      the ROM's arithmetic; encode → decode round trip through noise, gain, DC,
+      drift, a sample-rate mismatch and a simulated speaker→microphone channel;
+      a slower `DEVICE T200` tape; and a tape written at the Spectrum ROM's own
+      pulse timings, which is the slower path the SAM's loader shares with it.
+      The `.tap` the export writes is also loaded back through the emulated
+      ROM's own loader and run
+
+> **Disk images are not here.** `.mgt` / `.sad` / `.dsk` were the stretch, and
+> the stretch was not taken: the format is settled (819200 bytes, sides
+> alternating per track, four directory tracks of twenty 256-byte entries, a
+> sector chain in the last two bytes of each 512-byte sector, and a nine-byte
+> file header on the first one), but a filesystem walk written against a
+> structure definition and never run on a disk anyone made is not something to
+> put behind an Import button. It wants one real image to check against.
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
