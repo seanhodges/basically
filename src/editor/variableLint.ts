@@ -10,11 +10,14 @@
  *
  * Three families cover every dialect that has a real restriction:
  *
- * - **Single-letter (Sinclair / Acorn Atom):** {@link singleLetterVariableErrors}.
+ * - **Single-letter (Sinclair / Acorn Atom / GE-235):**
+ *   {@link singleLetterVariableErrors}.
  *   Sinclair machines (ZX81, ZX Spectrum 48K/128K) require string variables
  *   (`A$`), arrays (`A(`) and FOR/NEXT control variables to be a single letter,
  *   while multi-letter *numeric* names (`BX`) are legal. The ZX80 and Acorn Atom
- *   are stricter - *every* variable is a single letter - selected with `strict`.
+ *   are stricter - *every* variable is a single letter - selected with `strict`,
+ *   and Dartmouth BASIC allows one digit after the letter and nothing more,
+ *   selected with `digitSuffix`.
  * - **Microsoft (Altair / C64 / TRS-80):** {@link microsoftVariableErrors}. Only the
  *   first two characters are significant, so two different long names that
  *   collapse to the same two chars clash; and a name embedding a reserved word
@@ -36,6 +39,7 @@
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import { eachOccurrence, type Occurrence } from './variables';
 import {
+  GE235_LEXIS,
   lexisFor,
   MSX_LEXIS,
   SAMCOUPE_LEXIS,
@@ -62,6 +66,12 @@ interface SingleLetterOptions {
   options?: VariableLexis;
   /** When true every variable must be a single letter (ZX80, Atom). */
   strict?: boolean;
+  /**
+   * When true a single digit may follow the letter, and nothing else may
+   * (GE-235: `A` and `A1`, never `AB` or `A12`). An array name is still the
+   * bare letter there, so `A1(3)` is flagged where `A1` is not.
+   */
+  digitSuffix?: boolean;
 }
 
 /** The single-letter-name violation for one occurrence, or null. */
@@ -70,8 +80,21 @@ function singleLetterViolation(
   label: string,
   suffixChars: string,
   strict: boolean,
+  digitSuffix = false,
 ): string | null {
-  if (stripSuffix(occ.name, suffixChars).length === 1) return null;
+  const bare = stripSuffix(occ.name, suffixChars);
+  if (digitSuffix) {
+    if (/^[A-Za-z]$/.test(bare)) return null;
+    if (!/^[A-Za-z][0-9]$/.test(bare)) {
+      return `${label} variable names are a single letter, optionally followed by one digit.`;
+    }
+    // A letter and a digit is a variable but never an array: the compiler
+    // reads the subscript bracket straight after the letter.
+    return occ.nextChar === '('
+      ? `${label} array names must be a single letter.`
+      : null;
+  }
+  if (bare.length === 1) return null;
   if (strict) return `${label} variable names must be a single letter.`;
   if (occ.name.endsWith('$')) {
     return `${label} string variable names must be a single letter (e.g. A$).`;
@@ -101,6 +124,7 @@ export function singleLetterVariableErrors(
       opts.label,
       suffixChars,
       opts.strict ?? false,
+      opts.digitSuffix ?? false,
     );
     if (message)
       errors.push({
@@ -146,6 +170,26 @@ export function atomVariableErrors(
     label: 'Acorn Atom',
     strict: true,
     options: lexisFor('atom'),
+  });
+}
+
+/**
+ * Editor diagnostics for Dartmouth BASIC's names.
+ *
+ * The rule is the compiler's `var10` routine: a letter, then at most one digit,
+ * and the character after the digit must not be another one. `$` is refused
+ * outright ("$ never legal in regular basic"), so a string name is not a
+ * length problem here - it is not a name at all, and the lexis having no suffix
+ * character is what reports it.
+ */
+export function ge235VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return singleLetterVariableErrors(source, keywords, {
+    label: 'GE-235',
+    digitSuffix: true,
+    options: GE235_LEXIS,
   });
 }
 

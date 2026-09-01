@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
+import { hasFatalErrors } from '../types';
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { ge235Charset } from './charset';
-import { ge235Keywords } from './keywords';
+import { ge235Keywords, ge235Operators } from './keywords';
 import { ge235CompletionSource, ge235LanguageSupport } from './language';
+import { tokenizeProgram } from './tokenizer';
+import { detokenizeProgram } from './detokenizer';
+import { ge235VariableErrors } from '../../editor/variableLint';
 import { ge235AiProfile } from './aiProfile';
 import { ge235BuildTargets } from './targets';
 import { ge235KeyboardLayout } from './keyboardLayout';
@@ -44,20 +48,36 @@ export const ge235: Dialect = {
 
   fileExtensions: ['.txt', '.bas'],
   keywords: ge235Keywords,
+  operators: ge235Operators,
   charset: ge235Charset,
   languageSupport: ge235LanguageSupport,
   completionSource: ge235CompletionSource,
 
-  tokenize(_source: string): TokenizeResult {
-    throw new Error('ge235: not implemented');
+  /**
+   * There is nothing to tokenize: the machine compiled its source at RUN, so
+   * the "program bytes" are the source itself, punched as 6-bit BCD onto a
+   * paper tape. `programBytes` is the line records; `image` adds the
+   * end-of-message code that closes the tape.
+   */
+  tokenize(source: string): TokenizeResult {
+    const { program, image, errors } = tokenizeProgram(source);
+    return {
+      programBytes: program,
+      image: hasFatalErrors(errors) ? new Uint8Array(0) : image,
+      errors,
+      byteSize: program.length,
+    };
   },
 
-  detokenize(_image: Uint8Array): string {
-    throw new Error('ge235: not implemented');
+  detokenize(image: Uint8Array): string {
+    return detokenizeProgram(image);
   },
 
-  lint(_source: string): TokenizeError[] {
-    throw new Error('ge235: not implemented');
+  lint(source: string): TokenizeError[] {
+    return [
+      ...tokenizeProgram(source).errors,
+      ...ge235VariableErrors(source, ge235Keywords),
+    ];
   },
 
   // No romUrl: the interpreter backend needs no ROM image.
