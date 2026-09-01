@@ -240,16 +240,21 @@ each independently switchable.
 On every machine whose character generator can draw lower case, the on-screen
 keyboard SHALL be able to type both cases, by the route the machine itself uses:
 a shifted letter where that is how the machine gives the other case, or the
-machine's own case-lock key where it has one. A machine whose character
-generator has no lower case SHALL NOT be given a way to type one.
+machine's own case lock where it has one. A machine whose character generator
+has no lower case SHALL NOT be given a way to type one.
 
 A keycap SHALL show the case it will type. Where the machine's case changes what
 an unshifted letter key produces, the keycaps SHALL follow, so the keyboard never
 shows one case while typing the other.
 
-A key that locks case SHALL be distinguished from a modifier: pressing it SHALL
-reach the machine's own case key rather than holding a modifier down, and its
-effect SHALL persist after it is released until it is pressed again.
+A machine's case lock SHALL be reached by locking the shift key - its second tap,
+as a phone keyboard's is - and SHALL NOT be offered as a keycap of its own. That
+tap SHALL press the machine's own case key rather than holding the shift down,
+and its effect SHALL persist after the tap until the shift is tapped again. While
+the lock is latched the keyboard SHALL show the base legends in the latched case
+rather than the shifted ones, since the letters have already changed case; and
+because the lock holds no key down, releasing the keyboard's keys - a lost focus,
+a stopped machine - SHALL leave it latched.
 
 The case a keyboard offers before anything is pressed SHALL be the case the
 machine produces when it has just started.
@@ -261,19 +266,32 @@ machine produces when it has just started.
 - **THEN** the other case is typed, and the keycap showed that case before it was
   pressed
 
-#### Scenario: A machine with a case-lock key
+#### Scenario: A machine with a case lock
 
-- **WHEN** the user presses the case-lock keycap on a machine that has one, and
-  then presses a letter key
+- **WHEN** the user taps the shift key twice on a machine that has a case lock,
+  and then presses a letter key
 - **THEN** the letter is typed in the other case, the letter keycaps show that
-  case, and the machine's own case key was pressed rather than a modifier held
+  case, and the machine's own case key was pressed rather than the shift held
+
+#### Scenario: The lock stays until it is tapped off
+
+- **WHEN** the user locks the case, types several letters, and taps the shift key
+  once more
+- **THEN** every letter was typed in the locked case, and the keycaps and what
+  they type return to the case the machine started in
+
+#### Scenario: No machine offers a case keycap
+
+- **WHEN** the user opens the on-screen keyboard for any machine
+- **THEN** the bottom row carries no case-lock keycap, and the keys in its
+  machine region are only keys that do something else
 
 #### Scenario: A machine with no lower case
 
 - **WHEN** the user opens the on-screen keyboard for a machine whose character
   generator has no lower case
-- **THEN** the keyboard offers neither a case pair on its letter keys nor a
-  case-lock key
+- **THEN** the keyboard offers neither a case pair on its letter keys nor a case
+  lock on its shift
 
 #### Scenario: A machine whose unshifted letters are lower case
 
@@ -340,11 +358,13 @@ offered through the symbol mode instead.
 
 The SHIFT flank SHALL be one sticky shift key, as on a phone keyboard: a
 tap shifts only the next key, and a second tap locks it until it is tapped
-again. The board SHALL NOT offer a second shift-like keycap whose only
-work the symbol mode already does - a modifier earns a keycap by doing
-something of its own, like a control key or a graphics modifier - so the
-Spectrum's SYMBOL SHIFT has no keycap: its combinations are sent by the
-symbol-mode cells.
+again. On a machine with a case lock that second tap SHALL latch the
+machine's case rather than hold the shift down, which is why no machine
+offers a case keycap of its own. The board SHALL NOT offer a second
+shift-like keycap whose only work the symbol mode already does - a modifier
+earns a keycap by doing something of its own, like a control key or a
+graphics modifier - so the Spectrum's SYMBOL SHIFT has no keycap: its
+combinations are sent by the symbol-mode cells.
 
 On the bottom row, the Enter/Return key SHALL sit at the far bottom right,
 wider than a letter key, with the quote key immediately to its left, and
@@ -401,8 +421,11 @@ modifier gives, drawn below the base legend in the ink the machine printed
 that layer in, so it changes colour with the layer it carries; a key whose
 selected layer is blank shows its base legend alone. A marking no mode or
 modifier reaches - a keyword legend on a machine whose keys also carry a
-shift marking - is not printed. Legends SHALL be sized from the keycap, so
-the same key reads the same way on a phone and on a desktop, only larger.
+shift marking - is not printed. A legend of a single character SHALL be sized
+from the keycap, so the same key reads the same way on a phone and on a
+desktop, only larger; a legend of a word SHALL take one fixed size wherever it
+is printed, so a wide key's word is never drawn larger than the letters beside
+it and one word never shrinks the rest of the board.
 
 Each letter-band key SHALL show its symbol-mode character as a small hint in
 the theme's own ink - the way a phone keyboard prints its long-press hints -
@@ -425,6 +448,13 @@ keyboards do - rather than both cases at once.
   desktop
 - **THEN** each key carries the same legends in the same places on both,
   drawn larger on the desktop
+
+#### Scenario: A word reads at the same size as a letter
+
+- **WHEN** the user looks at a machine key whose legend is a word, beside the
+  letter keys
+- **THEN** the word is drawn at the size the SHIFT and Return words are, rather
+  than larger because its key is wider
 
 #### Scenario: The mode chooses the marking and its colour
 
