@@ -124,7 +124,7 @@ delegation rather than a fork.
 | 2     | Emulator core (Z80 + VDP + slots)  | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
-| 5     | Memory map & runtime introspection | ⬜     |
+| 5     | Memory map & runtime introspection | ✅     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
 
@@ -389,48 +389,76 @@ times that for a long header, and this ROM boots with `HEADER` (`0xF40A`) = 15:
 **Verify:** audio round-trip test + import/export through `importProgram`; the
 app itself cannot reach the dialect until it is registered in Stage 7.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection ✅
 
-- [ ] `memoryMap.ts` — the 64K address space tiled: BIOS `0x0000`–`0x3FFF`,
-      MSX BASIC `0x4000`–`0x7FFF`, cartridge/RAM pages, the BASIC program area,
-      the string pool, the file buffers, the **MSX system variables at
-      `0xF380`–`0xFFFF`** and the stack under them. Note in the map that VRAM is
-      a _separate_ 16 KB address space reached only through `VPOKE`/`VPEEK` and
-      ports `0x98`/`0x99` — a reader who assumes one address space will
-      misread every screen POKE this machine's BASIC does
-- [ ] `addresses.ts` — the workspace pointers, each **read off the ROM**, not
-      copied from a web page: `TXTTAB` (program start), `VARTAB`, `ARYTAB`,
-      `STREND`, `STKTOP`, `HIMEM`, `CURLIN`. The commonly-quoted values are
-      right often enough to be dangerous
-- [ ] re-check the `memoryBlocks.ts` ranges Stage 3 wrote against the map they
-      now have to agree with — `memoryMapDetail.test.ts` pins the program region
-      to `memoryBlocks.programArea`
-- [ ] `vars.ts` → `readVariables()`. **Do not assume
-      `src/emulator/microsoftBasicVars.ts` fits.** It decodes Microsoft _8K_
-      BASIC, which has one numeric type; MSX BASIC is BASIC-80-derived with
-      four (`%` integer, `!` single, `#` double, `$` string) and long names, so
-      the entry layout differs. Read the real layout off the booted machine byte
-      for byte — as that file's own header says its two existing layouts were —
-      and then decide whether to extend `MsBasicVarsLayout` or write a sibling
-      decoder. Extending the shared module is the better outcome if the walk is
-      genuinely the same shape
-- [ ] `reports.ts` → `readReport()` — MSX BASIC's error messages and codes, and
-      `OK` / `Break in nn`
-- [ ] `readMemoryStats()` — **counting every pool a program spends**, not just
-      the program area. On this machine that is the program text, the variable
-      and array area, and the string pool below `HIMEM`; a figure covering only
-      the first reads as a program that allocates nothing, which is a
-      measurement rather than an absence and nothing downstream can tell the
-      difference
-- [ ] memory-activity hooks (`setMemoryActivityRecording` /
-      `drainMemoryActivity`) on the bus, with the machine's own introspection
-      reading through a **non-recording** path so the overlay does not report
-      the IDE's polling as the program's accesses
-- [ ] tests: memory-map layout, block round-trip, a variable watch over a
-      program using all four numeric types
+Every address below was read off the booted ROM or out of the ROM image, and
+three of them are not what a reference page would have given:
+
+- **The variable layout is simpler than Microsoft 8K BASIC's, not an extension
+  of it.** An entry is `type(1) name(2) value`, where the type byte _is_ the
+  value's size in bytes — 2 integer, 3 string, 4 single, 8 double. The name is
+  stored forwards and unflagged, a string descriptor is three bytes rather than
+  four, and an array's bounds run last dimension first. So the shared 8K decoder
+  does not fit and `MsBasicVarsLayout` was not extended; a sibling decoder that
+  shares nothing with it is the honest outcome.
+- **MSX BASIC's default numeric type is double**, and no suffix is stored. Which
+  suffix a name needs comes from `DEFTBL`, the 26-byte default-type table
+  DEFINT/DEFSNG/DEFDBL/DEFSTR write, so the watcher reads that back and shows
+  `A` for a double and `A%` for an integer exactly as the program spells them.
+- **The interpreter records where a program stopped but never why.** STOP, END
+  and CTRL-STOP all leave the same OLDLIN/OLDTXT pair for CONT, so `Break in nn`
+  is decided from the resume point itself: the token behind it settles STOP and
+  END, and what follows it — an end-of-program link or another line — tells a
+  run that fell off its last line from one that was interrupted.
+
+- [x] `memoryMap.ts` — the 64K address space tiled: the BIOS and MSX BASIC ROMs
+      in slot 0, then slot 3's RAM in two pools the machine's own pointers
+      bound — the program area to STKTOP `0xF0A0` and the string space to
+      MEMSIZ `0xF168` — the file buffers up to HIMEM, and the system area from
+      `0xF380` split into the slot-handling routines it opens with, the work
+      area, the RET-filled BIOS hook table at `0xFD9A`–`0xFFC9` and the tail
+      above it. VRAM is deliberately absent, in the map's own note as well as
+      its comment: it is a second 16 KB address space reached only through
+      `VPOKE`/`VPEEK` and ports `0x98`/`0x99`, and a reader who assumes one
+      address space would misread every screen POKE this machine's BASIC does
+- [x] the workspace pointers, each read off the ROM. They stay in
+      `src/emulator/msx/workspace.ts` rather than moving to `addresses.ts`:
+      they are fixed by the MSX standard rather than by this machine, so they
+      belong with the machine that reads them, and `addresses.ts` keeps the one
+      address the language layer needs on its own (`TXTTAB`'s value, the base a
+      program is relinked to)
+- [x] `memoryBlocks.ts` re-checked against the map it now has to agree with: the
+      reservation starts at the string space rather than at HIMEM, because the
+      stack is set up at the string space's floor and descends from there
+- [x] `vars.ts` → `readVariables()`, walking all four value types, arrays with
+      the shape the program DIMmed, and the string pool the descriptors point
+      into
+- [x] `reports.ts` → `readReport()` — the error codes and messages, crosschecked
+      character for character against the message table in the ROM image itself
+      (`0x3D76`), plus `Ok` and `Break in nn`
+- [x] `readMemoryStats()` — counting both pools a program spends: the program
+      text, variables and arrays below STREND, and the strings filled downwards
+      from MEMSIZ. Free is FRE(0)'s own arithmetic. The pair is what lets the
+      profiler charge memory to the line that took it, which the string-churn
+      probe confirms lands on the one line that builds a string
+- [x] memory-activity hooks on the bus, stamped in `MsxSlots.read`/`write`
+      where every CPU access already passes, with `readRam`/`readRamWord` left
+      outside them so the machine's own introspection does not paint the overlay
+      with the IDE's polling
+- [x] tests: memory-map layout and its agreement with the block linter; the
+      decoders over hand-built RAM images with no ROM; and one ROM-backed
+      acceptance file that walks a program using all four types, reads the
+      report the machine printed, and drains the activity buffer
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; the watcher shows live vars.
+
+Two things this leaves for the registration stage. `programRamBudget.test.ts`
+compares `programRamBytes` with the cold-start `free`, and this machine reports
+two disjoint pools, so the 200-byte string space reads as free on top of the
+program area — the PMD 85's case exactly, and it wants the same kind of
+shortfall allowance with the same reason. `lineProfiling.test.ts` needs no
+exception: the churn probe moves this figure.
 
 ## Stage 6 — Reference docs ⬜
 

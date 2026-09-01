@@ -28,16 +28,20 @@ const PROGRAM_AREA_SLACK_BYTES = 768;
 const VALID_RANGES: readonly MemoryRange[] = [{ start: 0x8000, end: 0xffff }];
 
 /**
- * Live machine state a block would clobber once the machine is running: the
- * MSX system variable area the standard fixes at the top of memory, the BIOS
- * work area inside it, and the stack, which the BIOS sets up just below it.
+ * Live machine state a block would clobber once the machine is running, which
+ * is everything from the top of the program area up: the string space, the file
+ * buffers, and the MSX system variable area the standard fixes above them. The
+ * stack is in here too - the BIOS sets it up at the string space's floor and it
+ * descends from there - which is why the reservation starts at 0xF0A0 rather
+ * than at the HIMEM a clean boot reports. The boundaries are the ones the
+ * memory map draws, read off the booted machine's own pointers.
  *
  * The screen is not here, and that is a fact about the machine rather than an
  * omission: the picture lives in the VDP's own 16KB, a second address space no
  * POKE reaches.
  */
 const RESERVED_RANGES: readonly MemoryRange[] = [
-  { start: 0xf380, end: 0xffff }, // system variables, BIOS work area and stack
+  { start: 0xf0a0, end: 0xffff }, // strings, file buffers, system area, stack
 ];
 
 /**
