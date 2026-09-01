@@ -249,3 +249,24 @@ export function targetMachineLabel(machine: MachineLike): string {
 export function machineChoiceLabel(machine: MachineLike): string {
   return `${machine.name}, ${machineSummary(machine)}`;
 }
+
+/**
+ * Where to scroll the list so a given row sits in the middle of it.
+ *
+ * Clamped to the list's own ends, so a row too near the top or the bottom to be
+ * centred lands at that end rather than leaving the list scrolled past its
+ * content. Returns 0 where every row already fits, which is the list's resting
+ * position and therefore not a jump.
+ *
+ * `row.top` is measured from the top of the list's scrolled content, not from
+ * the viewport - `offsetTop` against a positioned scrollport.
+ */
+export function centredScrollTop(
+  row: { top: number; height: number },
+  list: { height: number; scrollHeight: number },
+): number {
+  const furthest = list.scrollHeight - list.height;
+  if (furthest <= 0) return 0;
+  const centred = row.top - (list.height - row.height) / 2;
+  return Math.max(0, Math.min(centred, furthest));
+}

@@ -166,3 +166,35 @@
 - [x] 8.5 `npx vitest run src/components/ src/storage/`, `npm run typecheck`,
       `npm run lint`, `npm run format:check`, and `npm run e2e:chromium --
     e2e/project-setup e2e/persistence e2e/porting-guidance` at one worker.
+
+## 9. The list holds still, and opens where the machine is
+
+- [x] 9.1 The panel takes a fixed height sized to the screen and becomes a flex
+      column, overriding the shared modal's content sizing and its scrolling.
+      The list below the controls becomes the scrollport, so narrowing cannot
+      move the search field. The sticky controls row goes with it - it existed
+      only because the panel was the scroller.
+- [x] 9.2 A pure rule beside the filter: where to scroll a list so a given row
+      sits in its middle, clamped to the list's own ends, and not at all where
+      the rows already fit. Tested as one `it` over a table of rows naming the
+      offending case, plus the case with nothing to scroll.
+- [x] 9.3 The dialog applies it as the list opens, and only then: re-centring
+      under someone narrowing the list would move the rows out from under them
+      as they typed. A second ref carries "this opening still owes the list its
+      focus and its scroll", set true while closed so a dialog whose first
+      render is already open settles like any other.
+- [x] 9.4 Focus lands on the chosen machine's row, not the search field, which
+      is what raises a phone's on-screen keyboard. `preventScroll`, so the
+      browser's own just-into-view scroll does not fight the centring. The list
+      itself is the fallback where no row is chosen, so the keyboard still lands
+      somewhere that is not a text field.
+- [x] 9.5 Browser coverage, in the journeys that already exist rather than new
+      cold specs: the narrowing journey in `e2e/project-setup/` gains the list's
+      height held across two narrowings and the centring measured off the real
+      layout, and the porting guide's keyboard test asserts the chosen row is
+      focused where it asserted the search field.
+- [x] 9.6 `npx vitest run src/components/`, `npm run typecheck`, `npm run lint`,
+      `npm run format:check`, `npm run e2e:chromium -- e2e/project-setup
+      e2e/porting-guidance e2e/persistence e2e/shell-navigation` at one worker,
+      `npm run docs:build`, and the getting-started screenshot regenerated with
+      `npm run e2e:docs-screenshots` - the picker's chrome is in it.

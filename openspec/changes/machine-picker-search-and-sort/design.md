@@ -124,12 +124,36 @@ remember to save. The stored arrangement is validated on read against the known
 arrangements and falls back to manufacturer, so a stale or hand-edited value
 cannot produce a list with no order.
 
-**Focus moves to the narrowing field when the list opens.** Today it lands on
-the currently chosen machine, so the keyboard starts where the eye does. That
-stops working the moment a remembered narrowing can hide the chosen machine —
-there may be no row to focus. The field is the one element always present, and
-it is where a keyboard user wants to start in a list they can type into. The
-chosen machine is scrolled into view instead, when it survives the narrowing.
+**The list opens on the machine already chosen, and centres it.** The keyboard
+starts where the eye does. The narrowing field would be the other candidate — it
+is the one element always present, and a list you can type into invites it — but
+focusing a text field is exactly what raises a phone's on-screen keyboard, and it
+raises it over the list the user opened it to read. That is too high a price on
+the surface where the list is hardest to read already.
+
+The objection this answers is that a remembered narrowing might leave no row to
+focus. It cannot: a narrowing that hides the chosen machine is dropped as the
+list opens (below), and the picker always offers the machine the document is on.
+Where there is somehow no chosen row, focus falls to the list itself rather than
+to the field, so the keyboard still lands on something that is not an editor.
+
+The chosen row is put in the middle of the list rather than merely into view.
+`block: 'nearest'` leaves it flush against whichever edge it entered from, which
+answers "is it on screen" but not "what is near it" — and the second is the
+question someone opening a list of machines is asking. Where the row is too near
+an end to be centred it goes to that end, and where every machine already fits
+nothing moves at all: a list that scrolled when it had no need to would read as a
+glitch. The arithmetic is a pure function beside the filter and the grouping, for
+the same reason those are.
+
+**The list scrolls, not the panel.** The dialog is a fixed height sized to the
+screen, and the machines scroll inside it below controls that do not move. The
+alternative is what the shared modal gives for free — a panel sized to its
+content — and under a search field that is unusable: every keystroke changes how
+many machines match, so every keystroke resizes the dialog and moves the field
+out from under the cursor. Fixing the height also retires the sticky controls
+row, which existed only because the panel was the scroller and the field could
+otherwise be scrolled out of sight.
 
 **A remembered narrowing that hides the current machine is dropped as the list
 opens.** Persisting the text buys the case where you come back to the search you

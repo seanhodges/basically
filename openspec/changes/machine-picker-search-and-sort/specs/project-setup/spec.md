@@ -41,6 +41,18 @@ dropped and every machine shown. This applies only as the list opens; text the
 user types SHALL narrow the list as typed, whether or not the chosen machine
 survives it.
 
+The list SHALL be presented at a size fixed to the screen, which SHALL NOT change
+as the list is narrowed or rearranged. The machines SHALL scroll within it,
+reading from its top, while the means of narrowing and arranging them stay where
+they are.
+
+As the list opens it SHALL bring the machine currently chosen into view: in the
+middle of the list where the list can put it there, at the list's top or bottom
+where the machine is too near an end to be centred, and unmoved where every
+machine already fits. Opening the list SHALL start the keyboard on that machine
+rather than on the means of narrowing the list, so that opening it on a touch
+device does not raise the on-screen keyboard unasked.
+
 Each machine's description SHALL name the dialect of BASIC that machine runs,
 and SHALL add one distinguishing fact about the machine where that also fits. It
 SHALL be brief enough to be read in full on a phone-width screen rather than
@@ -96,6 +108,32 @@ anonymous.
   machine, or matches machines but not the one currently chosen
 - **THEN** the text is dropped and every machine is shown, so the list never
   opens without the machine the user is on
+
+#### Scenario: Narrowing the list does not resize it
+
+- **WHEN** the user types into the machine list, matching first several machines
+  and then none at all
+- **THEN** the list stays the size it was, the machines that match scroll within
+  it from the top, and the text the user is typing into does not move
+
+#### Scenario: The list opens on the machine in use
+
+- **WHEN** the user opens the machine list on a machine that has machines both
+  above and below it
+- **THEN** that machine is shown in the middle of the list, and the keyboard is
+  on it
+
+#### Scenario: The machine in use is too near an end to centre
+
+- **WHEN** the user opens the machine list on the first machine in it
+- **THEN** the list is shown from its top rather than scrolled above its own
+  first machine
+
+#### Scenario: Opening the list on a phone
+
+- **WHEN** the user opens the machine list on a touch device
+- **THEN** the on-screen keyboard stays down, and rises only once the user acts
+  on the means of narrowing the list
 
 #### Scenario: Reading the descriptions on a phone
 

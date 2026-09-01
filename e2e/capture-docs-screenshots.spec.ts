@@ -368,12 +368,15 @@ test('getting-started: the New-project dialog', async ({ page }) => {
 test('getting-started: the machine picker', async ({ page }) => {
   await open(page);
   const dialog = await openNewProjectDialog(page);
-  // Every machine at once is taller than the capture viewport, and the panel
-  // caps at 88vh - so give it the height rather than shooting a scrolled slice.
-  await page.setViewportSize({ width: VIEWPORT.width, height: 1200 });
+  // No viewport shows every machine at once: the panel is a fixed height and
+  // the machines scroll inside it, opening on the one in use. That is what the
+  // reader sees, so it is what the figure shows.
   await dialog.locator('button[data-target-machine]').first().click();
   const picker = machinePicker(page);
   await picker.waitFor({ state: 'visible' });
+  // Off the rows, or whichever one the trigger's click left the pointer over
+  // picks up the hover border and reads as a second selected machine.
+  await page.mouse.move(0, 0);
   await page.waitForTimeout(300);
   await picker
     .locator('> div')

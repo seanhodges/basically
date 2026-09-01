@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_MACHINE_SORT,
   MACHINE_SORTS,
+  centredScrollTop,
   filterMachines,
   groupMachines,
   groupMachinesByManufacturer,
@@ -279,5 +280,45 @@ describe('picker labels', () => {
     // guide one of the two triggers is the machine being ported *from*.
     expect(machineTriggerLabel('Porting from', c64)).toBe('Porting from: C64');
     expect(targetMachineLabel(c64)).toBe('Target machine: C64');
+  });
+});
+
+describe('centring the chosen machine in the list', () => {
+  // A 480px scrollport over 1200px of rows, each 60px tall, so the furthest it
+  // can scroll is 720 and a centred row sits at its top minus 210.
+  const list = { height: 480, scrollHeight: 1200 };
+  const ROW = 60;
+
+  it('centres a row it can centre, and clamps the ones it cannot', () => {
+    const cases: { what: string; top: number; want: number }[] = [
+      { what: 'the first row', top: 0, want: 0 },
+      { what: 'a row still too high to centre', top: 180, want: 0 },
+      { what: 'a row exactly one scrollport down', top: 480, want: 270 },
+      { what: 'a row in the middle', top: 600, want: 390 },
+      { what: 'a row too low to centre', top: 1020, want: 720 },
+      { what: 'the last row', top: 1140, want: 720 },
+    ];
+    for (const c of cases) {
+      expect(
+        centredScrollTop({ top: c.top, height: ROW }, list),
+        `${c.what} at ${c.top}`,
+      ).toBe(c.want);
+    }
+  });
+
+  it('does not scroll a list whose rows all fit', () => {
+    // Nothing to jump to: the row is on screen wherever it is in the list.
+    const short = { height: 480, scrollHeight: 300 };
+    expect(centredScrollTop({ top: 0, height: ROW }, short)).toBe(0);
+    expect(centredScrollTop({ top: 240, height: ROW }, short)).toBe(0);
+    expect(
+      centredScrollTop(
+        { top: 240, height: ROW },
+        {
+          height: 480,
+          scrollHeight: 480,
+        },
+      ),
+    ).toBe(0);
   });
 });

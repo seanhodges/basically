@@ -4,27 +4,32 @@
   z-index: var(--z-dialog-nested);
 }
 
+/* A fixed height, not one sized to the rows in it: the list is narrowed as the
+   user types, and a panel that resized to what matched would move the search
+   field out from under the cursor on every keystroke. Fills a phone or a laptop
+   screen, and stops there rather than becoming a full-height column on a tall
+   monitor.
+
+   Overrides `.modal`'s own `max-height` and scrolling: the list below owns the
+   scroll instead, so the search field and the arrangement control stay put. */
 .panel {
+  display: flex;
+  flex-direction: column;
   width: min(520px, 94vw);
+  height: min(88vh, 640px);
+  max-height: none;
+  overflow: hidden;
 }
 
-/* The search field and the arrangement control, on one row above the list.
-
-   Sticky, because the panel scrolls (`.modal` owns the scroll) and the list is
-   taller than it: opening on a machine near the bottom scrolls the row that
-   holds the focused search field out of sight otherwise. Sticks to the top of
-   the panel's padding box, so it needs the panel's own background to cover the
-   rows passing under it. */
+/* The search field and the arrangement control, on one row above the list and
+   outside its scrollport, so neither moves as the list is narrowed. */
 .controls {
-  position: sticky;
-  top: -20px;
-  z-index: 1;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 8px 0 0;
   padding: 8px 0;
-  background: var(--bg-panel);
 }
 
 .search {
@@ -65,11 +70,27 @@
   color: var(--text-dim);
 }
 
+/* The scrollport, filling what the controls and the actions row leave. Results
+   flow from its top whatever the list has been narrowed to.
+
+   `min-height: 0` because a flex item's default floor is its content, which
+   would push the panel past its height rather than scrolling. `position:
+   relative` so a row's `offsetTop` is measured from here - the dialog reads it
+   to centre the chosen machine. */
 .groups {
+  flex: 1;
+  min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin: 10px 0 4px;
+  padding: 10px 0 4px;
+  overflow-y: auto;
+}
+
+/* Holds its height against the list above it. */
+.actions {
+  flex: none;
 }
 
 .group {
@@ -141,7 +162,7 @@
 }
 
 /* The machine's one-line description. Clamped rather than wrapped freely, so a
-   long blurb cannot push the list into a scroll on a phone. */
+   long blurb cannot make one row several times the height of its neighbours. */
 .blurb {
   font-size: 12px;
   line-height: 1.4;
