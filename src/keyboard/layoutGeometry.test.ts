@@ -339,12 +339,17 @@ describe('every function key is a function key', () => {
  * are keys of their own grid - a rub-out and a re-type - and there is no up or
  * down for a CURSOR legend to name, so both sit on the base layer and the
  * keyboardLayout test pins them.
+ *
+ * The two teletypes have none at all: a carriage on a paper roll only goes
+ * forward, and RUB OUT takes back the character just typed rather than moving
+ * to it.
  */
 const NO_CURSOR_KEYS = new Set([
   'altair8800',
   'apple1',
   'apple2',
   'apple2plus',
+  'ge235',
 ]);
 
 /** Direction → the arrow a CURSOR legend prints for it. */
