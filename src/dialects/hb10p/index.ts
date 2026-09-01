@@ -70,6 +70,11 @@ export const hb10p: Dialect = {
   // running question of how much RAM an HB-10P has: 28815 is the 64 KB
   // machine's answer, and a 16 KB one would print 12431.
   programRamBytes: 28815,
+  // The MSX general-purpose port is the machine's own game interface, read
+  // through the PSG's I/O register rather than through the key matrix, and it
+  // carries two triggers rather than one.
+  joystickModes: ['native'],
+  joystickFireButtons: 2,
   romUrl: `${import.meta.env.BASE_URL}roms/msx/hb10p.rom`,
   romBytes: 32 * 1024,
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
