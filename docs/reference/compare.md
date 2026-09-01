@@ -4,8 +4,7 @@ title: Porting guide
 
 <script setup>
 import { altair8800Reference } from '../../src/reference/altair8800';
-import { apple1Reference } from '../../src/reference/apple1';
-import { apple2Reference } from '../../src/reference/apple2';
+import { integerBasicReference } from '../../src/reference/integer-basic';
 import { applesoftReference } from '../../src/reference/applesoft';
 import { atariReference } from '../../src/reference/atari';
 import { atomReference } from '../../src/reference/atom';
@@ -14,13 +13,11 @@ import { commodoreReference } from '../../src/reference/commodore';
 import { cpcReference } from '../../src/reference/cpc';
 import { pmd85Reference } from '../../src/reference/pmd85';
 import { trs80Reference } from '../../src/reference/trs80';
-import { zxspectrumReference } from '../../src/reference/zxspectrum';
 import { zx80Reference } from '../../src/reference/zx80';
-import { zx81Reference } from '../../src/reference/zx81';
+import { sinclairReference } from '../../src/reference/sinclair';
 
 import { altair8800Escapes } from '../../src/reference/escapes/altair8800';
-import { apple1Escapes } from '../../src/reference/escapes/apple1';
-import { apple2Escapes } from '../../src/reference/escapes/apple2';
+import { integerBasicEscapes } from '../../src/reference/escapes/integer-basic';
 import { applesoftEscapes } from '../../src/reference/escapes/applesoft';
 import { atariEscapes } from '../../src/reference/escapes/atari';
 import { atomEscapes } from '../../src/reference/escapes/atom';
@@ -29,9 +26,8 @@ import { commodoreEscapes } from '../../src/reference/escapes/commodore';
 import { cpcEscapes } from '../../src/reference/escapes/cpc';
 import { pmd85Escapes } from '../../src/reference/escapes/pmd85';
 import { trs80Escapes } from '../../src/reference/escapes/trs80';
-import { zxspectrumEscapes } from '../../src/reference/escapes/zxspectrum';
 import { zx80Escapes } from '../../src/reference/escapes/zx80';
-import { zx81Escapes } from '../../src/reference/escapes/zx81';
+import { sinclairEscapes } from '../../src/reference/escapes/sinclair';
 
 import { altair8800MemoryMap } from '../../src/dialects/altair8800/memoryMap';
 import { apple1MemoryMap } from '../../src/dialects/apple1/memoryMap';
@@ -63,35 +59,31 @@ import { machines as machineList } from '../../src/reference/machines';
 // survive being averaged across a family.
 const referenceByPage = {
   altair8800: altair8800Reference,
-  apple1: apple1Reference,
-  apple2: apple2Reference,
   applesoft: applesoftReference,
   atari: atariReference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,
   cpc: cpcReference,
+  'integer-basic': integerBasicReference,
   pmd85: pmd85Reference,
   trs80: trs80Reference,
-  zxspectrum: zxspectrumReference,
+  sinclair: sinclairReference,
   zx80: zx80Reference,
-  zx81: zx81Reference,
 };
 const escapesByPage = {
   altair8800: altair8800Escapes,
-  apple1: apple1Escapes,
-  apple2: apple2Escapes,
   applesoft: applesoftEscapes,
   atari: atariEscapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
   commodore: commodoreEscapes,
   cpc: cpcEscapes,
+  'integer-basic': integerBasicEscapes,
   pmd85: pmd85Escapes,
   trs80: trs80Escapes,
-  zxspectrum: zxspectrumEscapes,
+  sinclair: sinclairEscapes,
   zx80: zx80Escapes,
-  zx81: zx81Escapes,
 };
 
 // Memory maps belong to the *machine*, like facts and unlike the reference and

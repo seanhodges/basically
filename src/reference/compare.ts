@@ -76,9 +76,9 @@ export interface FalseFriendWarning {
 
 /** Which pages are being compared, and the cross-dialect data to apply. */
 export interface DiffContext {
-  /** Docs page slug of the source table. */
+  /** Machine id of the source, which is what the spellings are keyed by. */
   from: string;
-  /** Docs page slug of the target table. */
+  /** Machine id of the target. */
   to: string;
   equivalences: KeywordEquivalence[];
 }
@@ -113,6 +113,19 @@ export interface EscapeDiff {
 }
 
 /**
+ * Whether a value naming one machine or several names this one. The shape the
+ * pair notes and the domain-guidance cells both use for their target.
+ */
+export function namesMachine(
+  side: string | readonly string[],
+  dialectId: string,
+): boolean {
+  return typeof side === 'string'
+    ? side === dialectId
+    : side.includes(dialectId);
+}
+
+/**
  * Rows one machine actually has. A row with no `onlyOn` belongs to every machine
  * its page covers; one that names ids belongs only to those.
  */
@@ -139,10 +152,10 @@ function entriesForMachine<E extends { onlyOn?: string[] }>(
  * machine parameter and keeps this module what its header promises - pure, and
  * knowing nothing about `src/`.
  */
-export function tableForMachine(
-  table: ReferenceTableData,
+export function tableForMachine<T extends ReferenceTableData>(
+  table: T,
   dialectId: string,
-): ReferenceTableData {
+): T {
   return { ...table, entries: entriesForMachine(table.entries, dialectId) };
 }
 
@@ -460,7 +473,7 @@ const GAIN_NAMES = 4;
  * `reachFor` prefers the authored names, filtered to ones the source actually
  * lacks, so a command the reader already has is never offered as new.
  *
- * `domainGuidance` and `toSlug` are optional and taken as arguments, exactly
+ * `domainGuidance` and `toMachine` are optional and taken as arguments, exactly
  * as `composeGuidance` takes its `pairNotes` - this module imports only types
  * from the data layer. Omitting them falls back to the target's own table
  * ("has no keyword in this domain at all" vs "has one") and reports no gains,
@@ -472,13 +485,13 @@ export function capabilitySections(
   to: ReferenceTableData,
   order: readonly KeywordDomain[],
   domainGuidance?: DomainGuidance[],
-  toSlug?: string,
+  toMachine?: string,
 ): CapabilitySection[] {
   const provided = new Set(to.entries.map((e) => e.domain));
-  const guidanceByDomain = toSlug
+  const guidanceByDomain = toMachine
     ? new Map(
         (domainGuidance ?? [])
-          .filter((g) => g.to === toSlug)
+          .filter((g) => namesMachine(g.to, toMachine))
           .map((g) => [g.domain, g]),
       )
     : undefined;
@@ -593,15 +606,15 @@ export interface EscapeSection {
  * `table` is the table the entries came from - the source table for the codes a
  * port must replace, the target's for the ones it gains.
  *
- * `escapeGuidance` and `toSlug` are optional and taken as arguments, exactly as
- * {@link capabilitySections} takes its `domainGuidance` - this module imports
+ * `escapeGuidance` and `toMachine` are optional and taken as arguments, exactly
+ * as {@link capabilitySections} takes its `domainGuidance` - this module imports
  * only types from the data layer. Omitting them yields sections with no verdict.
  */
 export function escapeSections(
   entries: EscapeEntry[],
   table: EscapeTableData,
   escapeGuidance?: EscapeGuidance[],
-  toSlug?: string,
+  toMachine?: string,
 ): EscapeSection[] {
   const categories = new Map(table.categories.map((c) => [c.id, c]));
   const byCategory = new Map<string, EscapeEntry[]>();
@@ -616,10 +629,10 @@ export function escapeSections(
     else byCategory.set(entry.category, [entry]);
   }
 
-  const guidanceByClass = toSlug
+  const guidanceByClass = toMachine
     ? new Map(
         (escapeGuidance ?? [])
-          .filter((g) => g.to === toSlug)
+          .filter((g) => namesMachine(g.to, toMachine))
           .map((g) => [g.class, g]),
       )
     : undefined;
@@ -654,9 +667,9 @@ export function escapeSections(
 }
 
 /**
- * Source spelling → target spelling, for commands both pages provide under
- * different names. Groups that don't name both pages, or that spell the command
- * the same on both, contribute nothing.
+ * Source spelling → target spelling, for commands both machines provide under
+ * different names. Groups that don't name both machines, or that spell the
+ * command the same on both, contribute nothing.
  */
 function renameMap(context?: DiffContext): Map<string, string> {
   const map = new Map<string, string>();
@@ -670,8 +683,8 @@ function renameMap(context?: DiffContext): Map<string, string> {
 }
 
 /**
- * The commands both pages spell alike and mean differently. Nothing else on the
- * page can surface these: they match on name, kind and often syntax, so they
+ * The commands both machines spell alike and mean differently. Nothing else on
+ * the page can surface these: they match on name, kind and often syntax, so they
  * reach none of the diff buckets while still changing what a program computes.
  */
 export function falseFriendsBetween(
@@ -690,9 +703,9 @@ export function falseFriendsBetween(
 
 /** Everything needed to compose the prose guidance for one ordered pair. */
 export interface GuidanceContext {
-  /** Source page slug. */
+  /** Machine id being ported from. */
   from: string;
-  /** Target page slug. */
+  /** Machine id being ported to. */
   to: string;
   /** Facts for the target, whose portingNotes and substitutions are surfaced. */
   targetFacts?: PortingFacts;
@@ -727,8 +740,8 @@ export interface PairGuidance {
   /** keyword → "do this instead", for inline display against the diff lists. */
   substitutions: Map<string, string>;
   /**
-   * The target's domain-guidance cells, keyed by domain. Target-scoped (every
-   * cell has `to === ctx.to`) and empty when `domainGuidance` is omitted.
+   * The target machine's domain-guidance cells, keyed by domain. Target-scoped
+   * (every cell names `ctx.to`) and empty when `domainGuidance` is omitted.
    */
   domains: Map<KeywordDomain, DomainGuidance>;
 }
@@ -745,7 +758,7 @@ export interface PairGuidance {
  */
 export function composeGuidance(ctx: GuidanceContext): PairGuidance {
   const pair = ctx.pairNotes.find(
-    (n) => n.from === ctx.from && n.to === ctx.to,
+    (n) => namesMachine(n.from, ctx.from) && namesMachine(n.to, ctx.to),
   );
   const notes = pair?.notes ?? [];
   const covered = new Set(notes.flatMap((n) => n.covers ?? []));
@@ -767,7 +780,7 @@ export function composeGuidance(ctx: GuidanceContext): PairGuidance {
     ),
     domains: new Map(
       (ctx.domainGuidance ?? [])
-        .filter((g) => g.to === ctx.to)
+        .filter((g) => namesMachine(g.to, ctx.to))
         .map((g) => [g.domain, g]),
     ),
   };

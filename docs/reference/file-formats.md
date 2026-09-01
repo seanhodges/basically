@@ -78,9 +78,9 @@ machine's set remain tokenizer errors.
 Each dialect's full notation is a searchable table on its escape-codes
 reference page:
 
-- [ZX81 escape codes](./zx81/escapes) (zxtext2p-compatible where practical)
+- [Sinclair BASIC escape codes](./sinclair/escapes) — the ZX81's
+  (zxtext2p-compatible where practical) and the Spectrums' (48K & 128K)
 - [ZX80 escape codes](./zx80/escapes)
-- [ZX Spectrum escape codes](./zxspectrum/escapes) (48K & 128K)
 - [BBC escape codes](./bbc/escapes) (Micro & Master, teletext names)
 - [Commodore 64 escape codes](./commodore/escapes) (petcat-interoperable)
 - [TRS-80 escape codes](./trs80/escapes)
@@ -115,9 +115,9 @@ the active dialect.
 Each machine's native binary, disc image and cassette encoding are documented in
 full on its own page:
 
-- [ZX81 file formats](./zx81/formats) — `.P`
+- [Sinclair BASIC file formats](./sinclair/formats) — the ZX81's `.P` and the
+  Spectrums' `.TAP` (48K & 128K)
 - [ZX80 file formats](./zx80/formats) — `.O`
-- [ZX Spectrum file formats](./zxspectrum/formats) — `.TAP` (48K & 128K)
 - [BBC Micro / Master file formats](./bbc/formats) — `.bbc`, `.ssd`
 - [Commodore 64 / VIC-20 / PET file formats](./commodore/formats) — `.prg`, `.d64`
 - [TRS-80 file formats](./trs80/formats) — `.cas`, `.dsk`
@@ -125,8 +125,8 @@ full on its own page:
 - [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
 - [Altair 8800 file formats](./altair8800/formats) — `.bin`, paper tape `.txt`
 - [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
-- [Apple I file formats](./apple1/formats) — `.bin` cassette dump
-- [Apple II file formats](./apple2/formats) — `.bin` cassette record
+- [Integer BASIC file formats](./integer-basic/formats) — the Apple I's `.bin`
+  cassette dump and the Apple II's `.bin` cassette record
 - [Applesoft file formats](./applesoft/formats) — `.bin` program, Apple II Plus
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 
@@ -139,7 +139,7 @@ through the [project bundle](#project-bundle-zip) and through
 [share links](../guide/publishing). The ZX Spectrum `.TAP` (48K & 128K), the Commodore `.d64`,
 the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
 **both directions** (see each machine's page —
-[`.TAP`](./zxspectrum/formats#zx-spectrum-tap),
+[`.TAP`](./sinclair/formats#zx-spectrum-tap),
 [`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64),
 [`.ssd`](./bbc/formats#bbc-micro-master-ssd),
 [Atom `.dsk`](./atom/formats#acorn-atom-dsk),
@@ -185,7 +185,7 @@ The machines with a container roomy enough for them carry their blocks in
 **both directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
 as inline assembly in the `.bbc`), the Commodore in a
 [`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
-[`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
+[`.TAP`](./sinclair/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
 machine code inside the listing as `#BIN` REM records. The rest — the Amstrad
 CPC, the Altair, the PMD 85 and the two Apples — export the BASIC program only,
@@ -211,10 +211,10 @@ is immune to playback / clock speed drift, resampling and sample-rate mismatch.
 Each machine's tape encoding is described in the **Cassette audio** section of
 its format page:
 
-- [ZX81](./zx81/formats#cassette-audio) / [ZX80](./zx80/formats#cassette-audio) —
+- [ZX81](./sinclair/formats#cassette-audio) / [ZX80](./zx80/formats#cassette-audio) —
   bytes MSB-first, 4/9-pulse bits; the ZX81 prefixes a program-name header, the
   ZX80 has no named files.
-- [ZX Spectrum / 128](./zxspectrum/formats#cassette-audio) — the standard ROM
+- [ZX Spectrum / 128](./sinclair/formats#cassette-audio) — the standard ROM
   tape format, derived from the same two blocks the `.TAP` export uses.
 - [BBC Micro / Master](./bbc/formats#cassette-audio) — the cassette filing
   system (CFS) over Kansas City Standard FSK at 1200 baud.
@@ -229,10 +229,10 @@ its format page:
   own FSK, 2400 Hz against 1850 Hz at 300 baud rather than Kansas City Standard.
 - [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
   whose phase carries the bit, eleven bit periods to a byte.
-- [Apple I](./apple1/formats#cassette-audio) — the cassette card's square wave,
+- [Apple I](./integer-basic/formats#cassette-audio) — the cassette card's square wave,
   where a bit's duration is its value: a 2 kHz cycle for a zero, 1 kHz for a
   one, behind ten seconds of leader per memory range.
-- [Apple II](./apple2/formats#cassette-audio) — the same square wave from the
+- [Apple II](./integer-basic/formats#cassette-audio) — the same square wave from the
   ROM rather than a card, with a checksum byte closing each record: the program
   goes out as two records, its length and then its text.
 - [Apple II Plus](./applesoft/formats#cassette-audio) — the same ROM routine

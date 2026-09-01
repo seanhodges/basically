@@ -18,14 +18,17 @@ describe('referenceTopic', () => {
   });
 
   it('builds a reference path with the keyword query for a self-named page', () => {
-    expect(referenceTopic(getDialect('zx81'), 'PRINT')).toBe(
-      'reference/zx81?q=PRINT',
+    expect(referenceTopic(getDialect('zx80'), 'PRINT')).toBe(
+      'reference/zx80?q=PRINT',
     );
   });
 
   it('maps dialects that share a reference page to that page', () => {
     expect(referenceTopic(getDialect('zxspectrum128'), 'BEEP')).toBe(
-      'reference/zxspectrum?q=BEEP',
+      'reference/sinclair?q=BEEP',
+    );
+    expect(referenceTopic(getDialect('zx81'), 'PRINT')).toBe(
+      'reference/sinclair?q=PRINT',
     );
     expect(referenceTopic(getDialect('bbcmicro'), 'MODE')).toBe(
       'reference/bbc?q=MODE',
@@ -37,7 +40,7 @@ describe('referenceTopic', () => {
 
   it('url-encodes special characters in the keyword', () => {
     expect(referenceTopic(getDialect('zx81'), '<=')).toBe(
-      'reference/zx81?q=%3C%3D',
+      'reference/sinclair?q=%3C%3D',
     );
   });
 

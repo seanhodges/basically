@@ -4,14 +4,15 @@
  *
  * The two central assertions are mirror images, and that is the point:
  *
- *  - a KeywordEquivalence claims two pages spell one command differently, so
- *    each named page MUST have its spelling and MUST NOT have another page's;
- *  - a FalseFriend claims two pages spell one command alike, so every named page
- *    MUST have that exact spelling.
+ *  - a KeywordEquivalence claims two machines spell one command differently, so
+ *    each named machine MUST have its spelling and MUST NOT have another's;
+ *  - a FalseFriend claims two machines spell one command alike, so every named
+ *    machine MUST have that exact spelling.
  *
- * Unlike the sibling crosschecks this file needs no `src/` import: the
- * reference tables are themselves already pinned to `src/dialects/` by
- * keyword-crosscheck.test.ts, so pinning to them transitively pins to the code.
+ * Both halves read the machine's *own* rows - its page's rows less those scoped
+ * to a relative - rather than the page's. A page covers a family, and a family
+ * is where the spellings start to differ: checked against the page, a claim that
+ * the ZX81 spells the jump `GO TO` would pass on the Spectrum's row.
  */
 import { describe, expect, it } from 'vitest';
 import { referencePages as PAGES } from './pages';
@@ -27,21 +28,12 @@ const NAMES: Record<string, Set<string>> = Object.fromEntries(
   Object.keys(PAGES).map((p) => [p, namesOn(p)]),
 );
 
-/**
- * Page slug for a machine, and the machines on a page. `keywordEquivalences`,
- * `falseFriends` and `pairPortingNotes` stay keyed by *page*, because a
- * spelling is a property of the BASIC and every machine on a page shares it -
- * while `portingFacts` is keyed by *machine*, because free RAM and colour are
- * not. Both are right, so this file crosses between them.
- */
+/** The reference page a machine reads from. */
 const pageOf = (dialectId: string): string => {
   const dialect = dialects.find((d) => d.id === dialectId);
   if (!dialect) throw new Error(`unknown dialect: ${dialectId}`);
   return referencePageOf(dialect);
 };
-
-const machinesOn = (page: string): string[] =>
-  dialects.filter((d) => referencePageOf(d) === page).map((d) => d.id);
 
 /**
  * Command names one machine has - its page's rows less those scoped to a
@@ -57,53 +49,64 @@ const namesForMachine = (dialectId: string): Set<string> => {
   );
 };
 
+/** Every registered machine, which is what the porting data is keyed by. */
+const MACHINE_IDS = dialects.map((d) => d.id);
+
+const HAS: Record<string, Set<string>> = Object.fromEntries(
+  MACHINE_IDS.map((id) => [id, namesForMachine(id)]),
+);
+
+/** A pair side names one machine or several; both forms expand to a list. */
+const sideIds = (side: string | readonly string[]): readonly string[] =>
+  typeof side === 'string' ? [side] : side;
+
 describe('keyword equivalences', () => {
   it.each(keywordEquivalences.map((e) => [e.concept, e] as const))(
-    '%s names only real pages, with at least two spellings',
+    '%s names only real machines, with at least two spellings',
     (_concept, group) => {
-      const pages = Object.keys(group.spellings);
-      expect(pages.length).toBeGreaterThanOrEqual(2);
-      for (const page of pages) expect(Object.keys(PAGES)).toContain(page);
-      // A group whose pages all agree describes no rename at all.
+      const ids = Object.keys(group.spellings);
+      expect(ids.length).toBeGreaterThanOrEqual(2);
+      for (const id of ids) expect(MACHINE_IDS).toContain(id);
+      // A group whose machines all agree describes no rename at all.
       expect(new Set(Object.values(group.spellings)).size).toBeGreaterThan(1);
     },
   );
 
   it.each(keywordEquivalences.map((e) => [e.concept, e] as const))(
-    '%s: every page really uses the spelling claimed for it',
+    '%s: every machine really uses the spelling claimed for it',
     (_concept, group) => {
-      for (const [page, spelling] of Object.entries(group.spellings)) {
+      for (const [id, spelling] of Object.entries(group.spellings)) {
         expect(
-          NAMES[page]!.has(spelling),
-          `${page} has no "${spelling}" row, so it cannot be that page's spelling`,
+          HAS[id]!.has(spelling),
+          `${id} has no "${spelling}" row of its own, so it cannot be that machine's spelling`,
         ).toBe(true);
       }
     },
   );
 
   it.each(keywordEquivalences.map((e) => [e.concept, e] as const))(
-    "%s: no page also has another page's spelling for the same command",
+    "%s: no machine also has another machine's spelling for the same command",
     (_concept, group) => {
       const spellings = new Set(Object.values(group.spellings));
-      for (const [page, spelling] of Object.entries(group.spellings)) {
+      for (const [id, spelling] of Object.entries(group.spellings)) {
         for (const other of spellings) {
           if (other === spelling) continue;
-          // If a page had both spellings they would be two distinct commands,
-          // and renaming one into the other would be wrong.
+          // If a machine had both spellings they would be two distinct
+          // commands, and renaming one into the other would be wrong.
           expect(
-            NAMES[page]!.has(other),
-            `${page} has both "${spelling}" and "${other}", so they are not the same command there`,
+            HAS[id]!.has(other),
+            `${id} has both "${spelling}" and "${other}", so they are not the same command there`,
           ).toBe(false);
         }
       }
     },
   );
 
-  it('does not claim the same spelling for two different concepts on one page', () => {
+  it('does not claim the same spelling for two different concepts on one machine', () => {
     const seen = new Map<string, string>();
     for (const group of keywordEquivalences) {
-      for (const [page, spelling] of Object.entries(group.spellings)) {
-        const key = `${page}:${spelling}`;
+      for (const [id, spelling] of Object.entries(group.spellings)) {
+        const key = `${id}:${spelling}`;
         expect(
           seen.get(key),
           `${key} is claimed by both "${seen.get(key)}" and "${group.concept}"`,
@@ -115,14 +118,16 @@ describe('keyword equivalences', () => {
 });
 
 /**
- * Pages left out of a group on purpose, keyed `<group>:<page>` with the reason.
+ * Machines left out of a group on purpose, keyed `<group>:<machine>` with the
+ * reason.
  *
  * The two assertions below are the completeness half of the mirror the file
- * opens with: the checks above prove every page a group *names* really has the
- * spelling, and these prove every page that *has* the spelling is named. Without
- * them a machine registered after the group was written simply never appeared in
- * it, and the porting comparison reported its GOTO as a command the target has
- * not got.
+ * opens with: the checks above prove every machine a group *names* really has
+ * the spelling, and these prove every machine that *has* the spelling is named.
+ * Without them a machine registered after the group was written simply never
+ * appeared in it, and the porting comparison reported its GOTO as a command the
+ * target has not got - which is exactly what a machine joining a relative's
+ * page used to do silently.
  */
 const NOT_IN_GROUP: Record<string, string> = {
   // The Atom's CLEAR selects a screen mode; it has no discard-variables command
@@ -131,40 +136,41 @@ const NOT_IN_GROUP: Record<string, string> = {
   // Atari BASIC has GOTO and GO TO as separate tokens and lists each back the
   // way it was typed, so it holds both of the group's spellings and there is
   // nothing to rename in either direction.
-  'unconditional-jump:atari': "it spells the jump both of the group's ways",
+  'unconditional-jump:atari800': "it spells the jump both of the group's ways",
+  'unconditional-jump:atari400': "it spells the jump both of the group's ways",
 };
 
 describe('porting data completeness', () => {
   it.each(keywordEquivalences.map((e) => [e.concept, e] as const))(
-    '%s names every page that spells the command one of its ways',
+    '%s names every machine that spells the command one of its ways',
     (concept, group) => {
       const spellings = [...new Set(Object.values(group.spellings))];
-      const missing = Object.keys(PAGES).filter(
-        (page) =>
-          !(page in group.spellings) &&
-          !NOT_IN_GROUP[`${concept}:${page}`] &&
-          spellings.some((spelling) => NAMES[page]!.has(spelling)),
+      const missing = MACHINE_IDS.filter(
+        (id) =>
+          !(id in group.spellings) &&
+          !NOT_IN_GROUP[`${concept}:${id}`] &&
+          spellings.some((spelling) => HAS[id]!.has(spelling)),
       );
       expect(
         missing,
-        `these pages have one of ${concept}'s spellings but are not in the ` +
+        `these machines have one of ${concept}'s spellings but are not in the ` +
           'group - add them to porting.ts, or excuse them in NOT_IN_GROUP',
       ).toEqual([]);
     },
   );
 
   it.each(falseFriends.map((f) => [f.keyword, f] as const))(
-    '%s names every page that has the keyword',
+    '%s names every machine that has the keyword',
     (keyword, friend) => {
-      const missing = Object.keys(PAGES).filter(
-        (page) =>
-          !(page in friend.meanings) &&
-          !NOT_IN_GROUP[`${keyword}:${page}`] &&
-          NAMES[page]!.has(keyword),
+      const missing = MACHINE_IDS.filter(
+        (id) =>
+          !(id in friend.meanings) &&
+          !NOT_IN_GROUP[`${keyword}:${id}`] &&
+          HAS[id]!.has(keyword),
       );
       expect(
         missing,
-        `these pages have "${keyword}" but say nothing about what it means ` +
+        `these machines have "${keyword}" but say nothing about what it means ` +
           'there - add them to porting.ts, or excuse them in NOT_IN_GROUP',
       ).toEqual([]);
     },
@@ -172,26 +178,26 @@ describe('porting data completeness', () => {
 
   // An exemption that excuses nothing is a leftover, and it would go on
   // excusing nothing silently.
-  it('excuses only a real page from a real group', () => {
+  it('excuses only a real machine from a real group', () => {
     const groups = new Set([
       ...keywordEquivalences.map((e) => e.concept),
       ...falseFriends.map((f) => f.keyword),
     ]);
     for (const key of Object.keys(NOT_IN_GROUP)) {
-      const [group, page] = key.split(':');
+      const [group, id] = key.split(':');
       expect(groups, `${key} names no group`).toContain(group);
-      expect(Object.keys(PAGES), `${key} names no page`).toContain(page);
+      expect(MACHINE_IDS, `${key} names no machine`).toContain(id);
     }
   });
 });
 
 describe('false friends', () => {
   it.each(falseFriends.map((f) => [f.keyword, f] as const))(
-    '%s names only real pages, at least two, with differing meanings',
+    '%s names only real machines, at least two, with differing meanings',
     (_keyword, friend) => {
-      const pages = Object.keys(friend.meanings);
-      expect(pages.length).toBeGreaterThanOrEqual(2);
-      for (const page of pages) expect(Object.keys(PAGES)).toContain(page);
+      const ids = Object.keys(friend.meanings);
+      expect(ids.length).toBeGreaterThanOrEqual(2);
+      for (const id of ids) expect(MACHINE_IDS).toContain(id);
       expect(
         new Set(Object.values(friend.meanings)).size,
         'every listed meaning is identical, so this is not a false friend',
@@ -200,12 +206,12 @@ describe('false friends', () => {
   );
 
   it.each(falseFriends.map((f) => [f.keyword, f] as const))(
-    '%s: every page listed actually has that keyword',
+    '%s: every machine listed actually has that keyword',
     (keyword, friend) => {
-      for (const page of Object.keys(friend.meanings)) {
+      for (const id of Object.keys(friend.meanings)) {
         expect(
-          NAMES[page]!.has(keyword),
-          `${page} has no "${keyword}" row, so it cannot mean anything by it`,
+          HAS[id]!.has(keyword),
+          `${id} has no "${keyword}" row of its own, so it cannot mean anything by it`,
         ).toBe(true);
       }
     },
@@ -301,14 +307,19 @@ describe.each(portingFacts.map((f) => [f.id, f] as const))(
 
 describe('pair porting notes', () => {
   it.each(pairPortingNotes.map((p) => [`${p.from}→${p.to}`, p] as const))(
-    '%s names real pages, is directional, and stays within budget',
+    '%s names real machines, is directional, and stays within budget',
     (_label, pair) => {
-      expect(Object.keys(PAGES)).toContain(pair.from);
-      expect(Object.keys(PAGES)).toContain(pair.to);
-      expect(
-        pair.from,
-        'a pair note must compare two different pages',
-      ).not.toBe(pair.to);
+      const from = sideIds(pair.from);
+      const to = sideIds(pair.to);
+      for (const id of [...from, ...to]) expect(MACHINE_IDS).toContain(id);
+      // A machine on both sides would make the note a pair with itself, which
+      // the comparison can never ask for.
+      for (const id of from) {
+        expect(
+          to,
+          'a pair note must compare two different machines',
+        ).not.toContain(id);
+      }
       expect(pair.notes.length).toBeGreaterThan(0);
       expect(pair.notes.length).toBeLessThanOrEqual(MAX_NOTES);
       for (const { text } of pair.notes) {
@@ -327,16 +338,19 @@ describe('pair porting notes', () => {
   it.each(pairPortingNotes.map((p) => [`${p.from}→${p.to}`, p] as const))(
     '%s only claims to cover topics its target writes about',
     (_label, pair) => {
-      // Pair notes name pages; facts name machines. A topic counts as written
-      // about if any machine on the target page writes about it - within a
-      // family the notes are shared, so in practice they all do.
-      const written = new Set(
-        machinesOn(pair.to)
-          .flatMap(
-            (id) => portingFacts.find((f) => f.id === id)?.portingNotes ?? [],
-          )
-          .flatMap((n) => n.topics),
-      );
+      // Both sides name machines now, so a topic counts as written about only
+      // where every target the note serves writes about it: dropping a bullet
+      // one of them still needs would leave that reader without it.
+      const written = sideIds(pair.to)
+        .map(
+          (id) =>
+            new Set(
+              (
+                portingFacts.find((f) => f.id === id)?.portingNotes ?? []
+              ).flatMap((n) => n.topics),
+            ),
+        )
+        .reduce((all, one) => new Set([...all].filter((t) => one.has(t))));
       for (const note of pair.notes) {
         for (const topic of note.covers ?? []) {
           expect(
@@ -348,8 +362,14 @@ describe('pair porting notes', () => {
     },
   );
 
+  // Expanded to machine pairs, because two entries naming overlapping lists
+  // would leave the comparison picking whichever came first.
   it('has no duplicate ordered pair', () => {
-    const keys = pairPortingNotes.map((p) => `${p.from}→${p.to}`);
+    const keys = pairPortingNotes.flatMap((p) =>
+      sideIds(p.from).flatMap((from) =>
+        sideIds(p.to).map((to) => `${from}→${to}`),
+      ),
+    );
     expect(new Set(keys).size).toBe(keys.length);
   });
 });

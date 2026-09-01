@@ -36,6 +36,7 @@ export const zxspectrum: Dialect = {
   blurb: 'Britain’s best-selling computer. 48K Sinclair BASIC.',
   basicDialect: '48K Sinclair BASIC',
   basicFamily: 'Sinclair BASIC',
+  docsReference: 'sinclair',
   programRamBytes: 41472,
   memoryMap: spectrumMemoryMap,
   memoryBlocks: spectrumMemoryBlocks,

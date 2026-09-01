@@ -5,7 +5,10 @@
 // Cells are keyed by (target, class) and never by pair, for the reason
 // domain-guidance.ts is: a target-anchored note like "the Spectrum carries
 // colour in the string as {INK n}" is equally correct arriving from a C64, a
-// BBC or a CPC. The class is what makes the codes addressable across pages -
+// BBC or a CPC. The target is a machine, not the page it reads from - a ZX81
+// and a Spectrum share the Sinclair page and share almost no control code -
+// and machines that do share a cell are named together through the lists in
+// porting.ts. The class is what makes the codes addressable across pages -
 // escape *categories* are page-scoped, so `colour` and `cursor` are Commodore
 // chips while the Spectrum files its {INK n} under `control`.
 //
@@ -22,6 +25,7 @@
 // Edit by hand, grounded in each machine's own escape page and reference table
 // - the same discipline domain-guidance.ts and facts.ts already follow.
 import type { EscapeClass } from './escape-classes';
+import { ATARIS, BBCS, COMMODORES, CPCS, SPECTRUMS } from './porting';
 
 /** A short worked example of how the job is done on the target machine. */
 export interface EscapeGuidanceExample {
@@ -33,8 +37,11 @@ export interface EscapeGuidanceExample {
 
 /** Advice for one (target dialect, control-code class) pair. */
 export interface EscapeGuidance {
-  /** Target page slug this cell advises for. */
-  to: string;
+  /**
+   * The machine this cell advises for, or the machines it reads the same for.
+   * Several are named only where the advice is genuinely shared.
+   */
+  to: string | readonly string[];
   /** The class of control code this cell covers. */
   class: EscapeClass;
   /**
@@ -279,18 +286,18 @@ export const escapeGuidance: EscapeGuidance[] = [
   },
   { to: 'atom', class: 'raw-byte', support: 'full', instead: RESPELL_HEX },
 
-  // ----------------------------------------------------------------- bbc --
+  // ---------------------------------------------------------------- BBCS --
   // Teletext MODE 7 carries colour and effects in the string; everything else
   // is a VDU call or a TAB.
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'colour',
     support: 'full',
     instead:
       'MODE 7 has the same teletext codes: {RED}…{WHITE} colour the text from there on, {GRAPHICS RED}… colour the mosaics. Outside MODE 7 use COLOUR n and GCOL.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'cursor',
     support: 'full',
     instead:
@@ -301,42 +308,42 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'editing',
     support: 'partial',
     instead:
       'CLS clears the screen and VDU 127 deletes the character behind the cursor; there is no insert, so re-print the line where the original inserted into it.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'mode',
     support: 'partial',
     instead:
       'MODE n selects the screen mode. Both cases are always on screen, so a character-set switch is dropped, and reverse video is a COLOUR swap rather than a mode.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'screen-effect',
     support: 'full',
     instead:
       'MODE 7 carries the effect as a code of its own: {FLASH} starts flashing text and {STEADY} ends it. In the other modes flashing is a palette pairing set with VDU 19.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'function-keys',
     support: 'none',
     instead:
       'No function-key code goes in a string: read the key with GET or INKEY and branch on the value.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'block-graphics',
     support: 'partial',
     instead:
       'MODE 7 draws 64 teletext mosaic cells, typed as their block glyphs — redraw the shape on that 2x3 grid, or use MOVE, DRAW and PLOT in a graphics mode.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'user-defined-graphics',
     support: 'full',
     instead:
@@ -347,47 +354,47 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'inverse-video',
     support: 'partial',
     instead:
       'No inverse characters: print with the colours swapped instead — COLOUR 128+n sets the background, so COLOUR 0 with COLOUR 135 gives black on white.',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'compression',
     support: 'none',
     instead:
       'No space compression: print the spaces, or skip with SPC(n) or TAB(n).',
   },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'embedded-number',
     support: 'none',
     instead: NO_HIDDEN_NUMBER,
   },
-  { to: 'bbc', class: 'literal', support: 'partial', instead: PLAIN_LITERAL },
+  { to: BBCS, class: 'literal', support: 'partial', instead: PLAIN_LITERAL },
   {
-    to: 'bbc',
+    to: BBCS,
     class: 'control',
     support: 'partial',
     instead:
       'No named escapes below 0x80, but the VDU driver still acts on bytes 0-31: write one as {0xNN} inside the string, or send it with VDU n.',
   },
-  { to: 'bbc', class: 'raw-byte', support: 'full', instead: RESPELL_HEX },
+  { to: BBCS, class: 'raw-byte', support: 'full', instead: RESPELL_HEX },
 
-  // ----------------------------------------------------------- commodore --
+  // ---------------------------------------------------------- COMMODORES --
   // PETSCII carries colour, cursor and editing itself, so what arrives here is
   // mostly a respelling; the gaps are attributes and redefinable characters.
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'colour',
     support: 'full',
     instead:
       'PETSCII has its own colour codes — {black}, {white}, {red} and the rest — embedded in the PRINT string exactly where the original ones were.',
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'screen-effect',
     support: 'none',
     instead:
@@ -402,73 +409,73 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'block-graphics',
     support: 'partial',
     instead:
       'PETSCII draws 64 keycap shapes — {CBM-a}…, {SHIFT-a}… and the shaded blocks — but they are a different set, so redraw the shape from what PETSCII has.',
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'user-defined-graphics',
     support: 'none',
     instead:
       'No SYMBOL or VDU 23: copy the character ROM into RAM, POKE the eight rows of the shape over a character, and point the video chip at the copy.',
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'inverse-video',
     support: 'full',
     instead:
       '{rvon} turns reverse video on from that point in the string and {rvoff} turns it off again.',
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'compression',
     support: 'none',
     instead:
       'No space compression: print the spaces, or skip with TAB(n) or SPC(n).',
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'embedded-number',
     support: 'none',
     instead: NO_HIDDEN_NUMBER,
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'literal',
     support: 'partial',
     instead:
       'Type the character itself. PETSCII has no backslash — 0x5C is £ — so use / or £ where one was printed.',
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'control',
     support: 'partial',
     instead:
       "PETSCII acts on its own codes, not another machine's: {stop} plus the colour, cursor, editing and mode codes. Match the effect to one of those, or drop it.",
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'raw-byte',
     support: 'full',
     instead:
       'Respell the byte as {$xx} in hex or {nnn} in decimal — the petcat spellings.',
   },
 
-  // ----------------------------------------------------------------- cpc --
+  // ---------------------------------------------------------------- CPCS --
   // 32 firmware codes cover almost everything a control code does elsewhere,
   // so most classes arrive here as a respelling onto {0xNN} plus operands.
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'colour',
     support: 'full',
     instead:
       'The firmware carries colour in the string: {0x0F} then a pen byte sets the text ink and {0x0E} then a pen sets the paper — or call PEN and PAPER.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'cursor',
     support: 'full',
     instead:
@@ -479,42 +486,42 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'editing',
     support: 'partial',
     instead:
       '{0x0C} clears the window, {0x10} deletes the character under the cursor and {0x0D} is a carriage return. There is no insert: re-print the line instead.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'mode',
     support: 'partial',
     instead:
       '{0x04} then a mode byte selects MODE 0-2, and {0x18} exchanges PEN and PAPER for reverse video. Both cases are always available, so a case switch is dropped.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'screen-effect',
     support: 'partial',
     instead:
       '{0x1C} gives an ink two colours, which flashes it, and SPEED INK sets the rate. There is no conceal, box or double height.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'function-keys',
     support: 'none',
     instead:
       'No function-key code goes in a string: read the key with INKEY(n) and branch on the value.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'block-graphics',
     support: 'partial',
     instead:
       'The CPC draws 64 mosaic cells, typed as their block glyphs — redraw the shape on that 2x3 grid, or define your own character with SYMBOL.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'user-defined-graphics',
     support: 'full',
     instead:
@@ -529,34 +536,34 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'inverse-video',
     support: 'full',
     instead:
       '{0x18} exchanges PEN and PAPER from that point in the string, and a second {0x18} puts them back.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'compression',
     support: 'none',
     instead:
       'No space compression: print the spaces, skip with TAB(n) or SPC(n), or LOCATE the column.',
   },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'embedded-number',
     support: 'none',
     instead: NO_HIDDEN_NUMBER,
   },
-  { to: 'cpc', class: 'literal', support: 'partial', instead: PLAIN_LITERAL },
+  { to: CPCS, class: 'literal', support: 'partial', instead: PLAIN_LITERAL },
   {
-    to: 'cpc',
+    to: CPCS,
     class: 'control',
     support: 'full',
     instead:
       'The firmware acts on all of 0x00-0x1F, spelled {0x00}…{0x1F} — colour, cursor, mode, window, SYMBOL and sound. Match the effect to the code that does it.',
   },
-  { to: 'cpc', class: 'raw-byte', support: 'full', instead: RESPELL_HEX },
+  { to: CPCS, class: 'raw-byte', support: 'full', instead: RESPELL_HEX },
 
   // --------------------------------------------------------------- trs80 --
   // A monochrome 64x16 screen with PRINT @ and ten display codes; no colour
@@ -853,11 +860,11 @@ export const escapeGuidance: EscapeGuidance[] = [
       'Respell the byte as \\{NN} — a backslash, then two hex digits in braces.',
   },
 
-  // ---------------------------------------------------------- zxspectrum --
+  // ----------------------------------------------------------- SPECTRUMS --
   // Colour, position and attributes all travel inside the string as control
   // directives, so most classes arrive as a respelling.
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'colour',
     support: 'full',
     instead:
@@ -868,7 +875,7 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'cursor',
     support: 'full',
     instead:
@@ -876,80 +883,91 @@ export const escapeGuidance: EscapeGuidance[] = [
     example: { caption: 'Position with AT', code: ['10 PRINT AT 5,10;"HERE"'] },
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'editing',
     support: 'partial',
     instead:
       'CLS clears the screen, but nothing deletes or inserts within a line. Re-print the line, or overwrite it with {AT r,c}.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'mode',
     support: 'partial',
     instead:
       'One screen mode, and both cases are always available, so a character-set switch is dropped. Reverse video is {INVERSE 1} rather than a mode.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'screen-effect',
     support: 'partial',
     instead:
       '{FLASH 1} blinks a region and {BRIGHT 1} intensifies it; {OVER 1} merges what is printed with what is already there. No conceal, box or double height.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'function-keys',
     support: 'none',
     instead:
       'No function keys and no code for one: read a key with INKEY$ and branch on what it returns.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'block-graphics',
     support: 'partial',
     instead:
       'The Spectrum draws 16 quadrant cells, typed as their block glyphs — redraw the shape on that 2x2 grid, or define a UDG (\\a…\\u) for it.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'inverse-video',
     support: 'full',
     instead:
       '{INVERSE 1} swaps ink and paper from that point in the string, and {INVERSE 0} puts them back.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'compression',
     support: 'none',
     instead:
       'No space compression: print the spaces, skip with {TAB n}, or place the text with {AT r,c}.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'embedded-number',
     support: 'full',
     instead:
       'Respell it as {=n}: the Spectrum keeps the same hidden 5-byte form after a printed number.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'literal',
     support: 'partial',
     instead:
       "A lone backslash opens a UDG escape, so write \\\\ for a literal one. A second space character like the Commodore's shifted space becomes an ordinary space.",
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'control',
     support: 'partial',
     instead:
       'The directives are {INK n}, {PAPER n}, {FLASH n}, {BRIGHT n}, {INVERSE n}, {OVER n}, {AT r,c} and {TAB n} — match the effect to one of those, or drop it.',
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     class: 'raw-byte',
     support: 'full',
     instead: RESPELL_HEX,
+  },
+  // The one class only the 128 can be asked about: 0xA3 and 0xA4 are UDGs T and
+  // U on a 48K and the SPECTRUM and PLAY tokens here, so the port between the
+  // two Spectrums loses exactly two graphics. No other machine has UDG codes to
+  // lose into this one.
+  {
+    to: 'zxspectrum128',
+    class: 'user-defined-graphics',
+    support: 'partial',
+    instead:
+      'UDGs A-S carry over unchanged, but T and U do not exist here: 0xA3 and 0xA4 are the SPECTRUM and PLAY tokens. Redraw those two shapes from A-S.',
   },
 
   // --------------------------------------------------------------- pmd85 --
@@ -1178,7 +1196,7 @@ export const escapeGuidance: EscapeGuidance[] = [
     instead: RESPELL_HEX,
   },
 
-  // --------------------------------------------------------------- apple2 --
+  // -------------------------------------------------------------- apple2 --
   // Two named escapes and a raw byte. The character generator holds 64 shapes
   // and the top two bits of a screen byte pick the video mode rather than
   // another shape, so inverse and flashing are the only codes with names -
@@ -1300,9 +1318,9 @@ export const escapeGuidance: EscapeGuidance[] = [
     instead: RESPELL_HEX,
   },
 
-  // ------------------------------------------------------------ applesoft --
+  // ---------------------------------------------------------- apple2plus --
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'colour',
     support: 'none',
     instead:
@@ -1313,7 +1331,7 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'cursor',
     support: 'none',
     instead:
@@ -1324,21 +1342,21 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'editing',
     support: 'partial',
     instead:
       'Only backspace, {0x88}, is acted on inside a string. Clear the screen with HOME, and overwrite a field by printing spaces over it rather than by deleting what is there.',
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'mode',
     support: 'none',
     instead:
       'The display mode is a statement, not a code: GR opens the lo-res screen, HGR and HGR2 the hi-res pages, and TEXT switches back. There is no second character set to select.',
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'screen-effect',
     support: 'partial',
     instead:
@@ -1349,14 +1367,14 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'function-keys',
     support: 'none',
     instead:
       'No function keys on this keyboard. Poll the latch with PEEK(-16384) and branch on the letter, which is what a program uses for its controls anyway.',
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'block-graphics',
     support: 'none',
     instead:
@@ -1367,7 +1385,7 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'user-defined-graphics',
     support: 'none',
     instead:
@@ -1378,7 +1396,7 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'inverse-video',
     support: 'partial',
     instead:
@@ -1389,46 +1407,46 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'compression',
     support: 'none',
     instead:
       'No space compression: print the spaces with SPC(, or skip to the column with TAB(, which moves the cursor forward without writing anything on the way.',
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'embedded-number',
     support: 'none',
     instead: NO_HIDDEN_NUMBER,
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'literal',
     support: 'partial',
     instead:
       'Type the character itself where the machine has it. There is no backslash, backtick, brace, bar or tilde, and no lower case — a lower-case letter folds to its capital.',
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'control',
     support: 'partial',
     instead:
       'A string holds only codes with bit 7 set, and three of them do anything: {0x8D} carriage return, {0x88} backspace and {0x87} the bell. Drop the rest.',
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     class: 'raw-byte',
     support: 'full',
     instead: RESPELL_HEX,
   },
 
-  // ---------------------------------------------------------------- atari --
+  // -------------------------------------------------------------- ATARIS --
   // ATASCII carries its graphics as ordinary characters rather than as escapes,
   // and everything the screen editor acts on is a cursor or an editing code, so
   // the two classes it really has are those - plus inverse video, which is a
   // bit rather than a code.
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'colour',
     support: 'none',
     instead:
@@ -1439,7 +1457,7 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'cursor',
     support: 'full',
     instead:
@@ -1450,35 +1468,35 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'editing',
     support: 'full',
     instead:
       'Respell as {clear}, {insert line}, {delete line}, {insert char}, {delete char}, {set tab} and {clear tab}. A carriage return becomes {eol}, which is code 155 here rather than 13.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'mode',
     support: 'none',
     instead:
       'One character set with both letter cases in it, so there is no case switch to make. Reverse video is a bit on each character rather than a mode: see the inverse-video advice.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'screen-effect',
     support: 'none',
     instead:
       'No attribute to flash, conceal or double: drop the effect. Inverse video is the one emphasis this machine has in the character stream, and animating a colour register is the other.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'function-keys',
     support: 'none',
     instead:
       'No function keys on a 400 or an 800. Read the console keys with PEEK(53279) — START, SELECT and OPTION — or branch on an ordinary key from PEEK(764).',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'block-graphics',
     support: 'full',
     instead:
@@ -1489,14 +1507,14 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'user-defined-graphics',
     support: 'none',
     instead:
       'No redefinable characters from BASIC. Copy the ROM character set into RAM, change the shapes there and POKE 756 with its page — machine-code work, and 1K of RAM.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'inverse-video',
     support: 'full',
     instead:
@@ -1507,44 +1525,44 @@ export const escapeGuidance: EscapeGuidance[] = [
     },
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'compression',
     support: 'none',
     instead:
       'No space compression: print the spaces, or move to the column with POSITION and print nothing in between, which is faster and shorter.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'embedded-number',
     support: 'none',
     instead: NO_HIDDEN_NUMBER,
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'literal',
     support: 'partial',
     instead:
       'Type the character itself: space and backslash are ordinary here. Three ASCII positions are not: 96 is a diamond, 123 a spade, and 126 and 127 the backspace and tab arrows.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'control',
     support: 'partial',
     instead:
       'Respell as {eol} for a line ending, {bell} for the buzzer and {esc} for the escape code. A line feed, a backspace or a form feed has no code of its own here — drop it.',
   },
   {
-    to: 'atari',
+    to: ATARIS,
     class: 'raw-byte',
     support: 'full',
     instead:
       'Respell the byte as {$xx} — a dollar and two hex digits, lower case. It is the only place hexadecimal appears on this machine; BASIC itself has none.',
   },
-  // ----------------------------------------------- commodore, editing --
+  // ------------------------------------------------- COMMODORES, editing --
   // Added with the Atari page: its screen editor has tab-stop and line-opening
   // codes the Commodore's has no spelling for, so the class became losable.
   {
-    to: 'commodore',
+    to: COMMODORES,
     class: 'editing',
     support: 'partial',
     instead:

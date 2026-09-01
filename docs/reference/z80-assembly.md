@@ -78,8 +78,8 @@ Four pseudo-ops control layout and data:
 
 The address ranges a routine may occupy, the default load address, and the entry
 points you call from BASIC are machine-specific — see the **Memory** section on
-each machine's hardware page: [ZX81](./zx81/hardware),
-[ZX80](./zx80/hardware), [ZX Spectrum](./zxspectrum/hardware),
+each machine's hardware page: [ZX81](./sinclair/hardware),
+[ZX80](./zx80/hardware), [ZX Spectrum](./sinclair/hardware),
 [TRS-80](./trs80/hardware), [Amstrad CPC](./cpc/hardware) and
 [Altair 8800](./altair8800/hardware).
 

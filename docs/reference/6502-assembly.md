@@ -79,7 +79,8 @@ points you call (`SYS`, `CALL`, `USR`, `LINK`) are machine-specific — see the
 **Memory** section on each machine's hardware page:
 [Commodore 64, VIC-20 & PET](./commodore/hardware),
 [BBC Micro & Master](./bbc/hardware), [Acorn Atom](./atom/hardware),
-[Apple I](./apple1/hardware), [Apple II](./apple2/hardware),
+[Apple I](./integer-basic/hardware),
+[Apple II](./integer-basic/hardware),
 [Apple II Plus](./applesoft/hardware) and [Atari 800 & 400](./atari/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect

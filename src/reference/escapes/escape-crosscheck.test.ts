@@ -99,13 +99,37 @@ const FLOATS: Record<string, FloatProbe> = {
 
 type Adapter = CharsetProbe & { data: EscapeTableData; float?: FloatProbe };
 
+/**
+ * The rows of `page` that belong to one charset family: those scoped to a
+ * machine the family covers, plus the unscoped ones every machine on the page
+ * has.
+ *
+ * A page covers a family of BASIC and a charset is a property of the machine,
+ * so two families can share a page - the Apple I and the Apple II share the
+ * Integer BASIC page, the ZX81 and the Spectrums the Sinclair one - and each
+ * probe must be read against its own rows. Running a probe over the whole page
+ * would ask an Apple I to parse `{INVA}`.
+ */
+export function rowsForFamily(
+  page: EscapeTableData,
+  dialectIds: readonly string[],
+): EscapeTableData {
+  return {
+    ...page,
+    entries: page.entries.filter(
+      (e) => !e.onlyOn || e.onlyOn.some((id) => dialectIds.includes(id)),
+    ),
+  };
+}
+
 const ADAPTERS: [string, Adapter][] = CHARSET_PROBES.map((probe) => {
-  const data = escapePages[probe.id];
-  if (!data) {
+  const page = escapePages[probe.page ?? probe.id];
+  if (!page) {
     throw new Error(
       `charset probe "${probe.id}" has no escape table in src/reference/pages.ts`,
     );
   }
+  const data = rowsForFamily(page, probe.dialects);
   return [probe.id, { ...probe, data, float: FLOATS[probe.id] }];
 });
 
@@ -233,7 +257,13 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every Sinclair backslash escape has a row, with its glyph as alias', () => {
     for (const [table, escapes, graphics] of [
-      [escapePages.zx81!, ZX81_ESCAPES, ZX81_GRAPHICS],
+      // The ZX81's share of the Sinclair page: the Spectrums' backslash rows on
+      // it are UDGs, spelled from a different table entirely.
+      [
+        rowsForFamily(escapePages.sinclair!, ['zx81']),
+        ZX81_ESCAPES,
+        ZX81_GRAPHICS,
+      ],
       [escapePages.zx80!, ZX80_ESCAPES, ZX80_GRAPHICS],
     ] as const) {
       const byEscape = new Map(table.entries.map((e) => [e.escape, e]));
@@ -274,11 +304,11 @@ describe('escape cross-check: table-driven extras', () => {
  */
 describe('escape machine scoping', () => {
   it('every onlyOn names a machine the page covers', () => {
-    for (const [id, adapter] of ADAPTERS) {
+    for (const [id, page] of Object.entries(escapePages)) {
       const onPage = new Set(
         dialects.filter((d) => referencePageOf(d) === id).map((d) => d.id),
       );
-      for (const entry of adapter.data.entries) {
+      for (const entry of page.entries) {
         for (const scoped of entry.onlyOn ?? []) {
           expect(
             onPage,
@@ -301,14 +331,46 @@ describe('escape machine scoping', () => {
     }
   });
 
-  // Pins the enumeration this change is built on, so a future scoping has to be
-  // a deliberate act rather than a quiet one.
-  it('scopes only the Spectrum UDG rows that a 128K reads as tokens', () => {
-    const scoped = ADAPTERS.flatMap(([id, adapter]) =>
+  // Two quite different scopings live on these pages, and only one of them is
+  // interesting.
+  //
+  // A page split across charset families scopes nearly every row, because a row
+  // is a property of one generator: that is bookkeeping, and pinning the
+  // hundred-odd spellings it produces would say nothing. What matters is a row
+  // scoped *within* a family - one machine of a family reading a code its
+  // relatives do not - because that is a claim about the hardware, and the
+  // enumeration below is what makes it a deliberate act rather than a quiet
+  // one.
+  it('scopes only the rows a machine genuinely reads differently', () => {
+    const withinFamily = ADAPTERS.flatMap(([id, adapter]) =>
       adapter.data.entries
-        .filter((e) => e.onlyOn)
+        .filter(
+          (e) =>
+            e.onlyOn && adapter.dialects.some((d) => !e.onlyOn!.includes(d)),
+        )
         .map((e) => `${id}:${e.escape}`),
     );
-    expect(scoped.sort()).toEqual(['zxspectrum:\\t', 'zxspectrum:\\u']);
+    expect(withinFamily.sort()).toEqual(['zxspectrum:\\t', 'zxspectrum:\\u']);
+  });
+
+  // The other half of the same rule: on a page whose machines do not share a
+  // charset, every row that names a code must say whose it is. Only the
+  // catch-alls may stand unscoped, and each of those is scoped anyway.
+  it('leaves no row unattributed on a page split across charsets', () => {
+    const familiesOn = new Map<string, number>();
+    for (const [, adapter] of ADAPTERS) {
+      const page = adapter.page ?? adapter.id;
+      familiesOn.set(page, (familiesOn.get(page) ?? 0) + 1);
+    }
+    for (const [page, families] of familiesOn) {
+      if (families < 2) continue;
+      const unscoped = escapePages[page]!.entries.filter((e) => !e.onlyOn);
+      for (const row of unscoped) {
+        expect(
+          row.codes,
+          `${page}: ${row.escape} names a code but no machine`,
+        ).toBe('rest');
+      }
+    }
   });
 });

@@ -5,7 +5,12 @@
 //
 // Cells are keyed by (target, capability) and never by pair: a target-anchored
 // note like "the ZX81 has no pixel graphics, rescale to the 64x44 block grid"
-// is equally correct arriving from a CPC, a BBC or a Spectrum. `summary`
+// is equally correct arriving from a CPC, a BBC or a Spectrum. The target is a
+// machine, not the reference page it reads from: a cell is a paragraph written
+// *to* a machine, and two machines on one page needing different advice is the
+// ordinary case - the ZX81 and the Spectrum share the Sinclair page and share
+// almost none of this. Machines that do share a cell are named together through
+// the lists in porting.ts. `summary`
 // renders only in the "newly available" brief (what this machine offers
 // here); `instead` renders only against a lost-capability group (what to do
 // instead); the two are never shown together. Completeness is enforced from
@@ -16,6 +21,15 @@
 // Edit by hand, grounded in each dialect's real reference table and hardware
 // page — the same discipline porting.ts and facts.ts already follow.
 import type { KeywordDomain } from './domains';
+import {
+  ATARIS,
+  BBCS,
+  COMMODORE_V2S,
+  COMMODORES,
+  CPCS,
+  LOCOMOTIVE_1_1S,
+  SPECTRUMS,
+} from './porting';
 
 /** A short worked example of how a job is done on the target machine. */
 export interface DomainGuidanceExample {
@@ -27,8 +41,12 @@ export interface DomainGuidanceExample {
 
 /** Advice for one (target dialect, capability) pair. */
 export interface DomainGuidance {
-  /** Target page slug this cell advises for. */
-  to: string;
+  /**
+   * The machine this cell advises for, or the machines it reads the same for.
+   * Several are named only where the advice is genuinely shared, never because
+   * they share a reference page.
+   */
+  to: string | readonly string[];
   /** The capability domain this cell covers. */
   domain: KeywordDomain;
   /** How well the target covers this capability on its own. */
@@ -361,9 +379,9 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
-  // ---------------------------------------------------------- zxspectrum --
+  // ----------------------------------------------------------- SPECTRUMS --
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'control-flow',
     support: 'partial',
     summary:
@@ -377,7 +395,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['FOR', 'GO TO', 'GO SUB'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'data',
     support: 'full',
     summary:
@@ -387,7 +405,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'READ', 'DIM'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -397,7 +415,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SIN', 'SQR', 'RND'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'strings',
     support: 'partial',
     summary:
@@ -411,7 +429,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['CODE', 'LEN', 'STR$'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'text-screen',
     support: 'full',
     summary:
@@ -421,7 +439,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['AT', 'SCREEN$', 'TAB'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'graphics',
     support: 'full',
     summary:
@@ -431,7 +449,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DRAW', 'CIRCLE', 'PLOT'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'colour',
     support: 'full',
     summary:
@@ -440,22 +458,39 @@ export const domainGuidance: DomainGuidance[] = [
       'No per-pixel colour: one ink/paper pair applies to a whole 8×8 cell, so redesign artwork that relies on finer colour granularity.',
     reachFor: ['INK', 'PAPER', 'FLASH'],
   },
+  // Split from the Spectrums' shared cell: PLAY and the AY chip arrived with the
+  // 128, so a 48K reader offered them is sent to a command their machine has
+  // never had. The two share nothing here but BEEP.
   {
     to: 'zxspectrum',
     domain: 'sound',
     support: 'partial',
     summary:
-      'BEEP plays a tone at a given duration and pitch on a single channel, with PLAY for simple tunes.',
+      'BEEP plays a tone at a given duration and pitch, on the one beeper channel the 48K has.',
     instead:
       'No multi-channel envelope like SOUND/ENVELOPE: BEEP duration,pitch plays one note at a time — sequence several for a tune.',
     example: {
       caption: 'A tune from sequential BEEPs',
       code: ['10 BEEP .2,0', '20 BEEP .2,4'],
     },
+    reachFor: ['BEEP'],
+  },
+  {
+    to: 'zxspectrum128',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP sounds one tone on the beeper; PLAY drives the AY chip’s three channels from music strings.',
+    instead:
+      'No SOUND/ENVELOPE register control: BEEP duration,pitch for one note, or hand PLAY one music string per channel.',
+    example: {
+      caption: 'Three channels with PLAY',
+      code: ['10 PLAY "cdefg", "eg", "c"'],
+    },
     reachFor: ['BEEP', 'PLAY'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'input',
     support: 'full',
     summary:
@@ -465,7 +500,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INKEY$', 'INPUT'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'storage',
     support: 'full',
     summary:
@@ -475,7 +510,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SAVE', 'VERIFY', 'CAT'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -485,7 +520,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PEEK', 'POKE', 'IN'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'program-editing',
     support: 'partial',
     summary:
@@ -496,7 +531,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LIST', 'RUN', 'CONTINUE'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'error-handling',
     support: 'none',
     summary:
@@ -513,9 +548,9 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
-  // ----------------------------------------------------------------- bbc --
+  // ---------------------------------------------------------------- BBCS --
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'control-flow',
     support: 'full',
     summary:
@@ -525,7 +560,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PROC', 'REPEAT', 'ON'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'data',
     support: 'full',
     summary:
@@ -535,7 +570,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'DIM', 'READ'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -545,7 +580,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SQR', 'LOG', 'RND'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'strings',
     support: 'full',
     summary:
@@ -555,7 +590,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LEFT$', 'MID$', 'INSTR'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'text-screen',
     support: 'full',
     summary:
@@ -565,7 +600,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['VDU', 'TAB', 'WIDTH'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'graphics',
     support: 'full',
     summary:
@@ -575,7 +610,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DRAW', 'PLOT', 'POINT'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'colour',
     support: 'full',
     summary:
@@ -585,7 +620,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['COLOUR', 'GCOL'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'sound',
     support: 'full',
     summary:
@@ -595,7 +630,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SOUND', 'ENVELOPE'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'input',
     support: 'full',
     summary:
@@ -605,7 +640,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INKEY', 'GET', 'ADVAL'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'storage',
     support: 'full',
     summary:
@@ -615,7 +650,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPENIN', 'BPUT', 'CHAIN'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -625,7 +660,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['CALL', 'USR', 'OSCLI'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'program-editing',
     support: 'full',
     summary:
@@ -635,7 +670,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['AUTO', 'RENUMBER', 'TRACE'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'error-handling',
     support: 'full',
     summary:
@@ -644,9 +679,9 @@ export const domainGuidance: DomainGuidance[] = [
       'No RESUME to continue at the failing line: the handler must GOTO back explicitly, since ON ERROR does not resume on its own.',
     reachFor: ['ERROR', 'ERR', 'REPORT'],
   },
-  // ------------------------------------------------------------ commodore --
+  // ---------------------------------------------------------- COMMODORES --
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'control-flow',
     support: 'partial',
     summary:
@@ -665,7 +700,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['FOR', 'GOSUB', 'ON'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'data',
     support: 'full',
     summary:
@@ -675,7 +710,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'READ', 'RESTORE'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -685,7 +720,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SQR', 'LOG', 'RND'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'strings',
     support: 'full',
     summary:
@@ -695,7 +730,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LEFT$', 'MID$', 'ASC'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'text-screen',
     support: 'partial',
     summary:
@@ -709,7 +744,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PRINT', 'TAB('],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'graphics',
     support: 'none',
     summary:
@@ -722,7 +757,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'colour',
     support: 'none',
     summary:
@@ -735,7 +770,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'sound',
     support: 'none',
     summary:
@@ -748,7 +783,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'input',
     support: 'full',
     summary:
@@ -757,8 +792,11 @@ export const domainGuidance: DomainGuidance[] = [
       'No INKEY$-named function: GET A$ is the equivalent — it returns an empty string immediately when no key is waiting.',
     reachFor: ['GET', 'INPUT'],
   },
+  // Split from the Commodores' shared cell: DSAVE, DLOAD and CATALOG are BASIC
+  // 4.0, so only the PET has them - a VIC-20 or C64 reader sent to them is sent
+  // to commands their machine answers with a syntax error.
   {
-    to: 'commodore',
+    to: 'pet',
     domain: 'storage',
     support: 'full',
     summary:
@@ -768,7 +806,17 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPEN', 'DSAVE', 'CATALOG'],
   },
   {
-    to: 'commodore',
+    to: COMMODORE_V2S,
+    domain: 'storage',
+    support: 'full',
+    summary:
+      'OPEN/PRINT#/INPUT# give full sequential file I/O, with LOAD, SAVE and VERIFY for whole files.',
+    instead:
+      'No disk commands and no RECORD: OPEN a channel on the drive and drive it with PRINT#/INPUT#, or move whole files with LOAD and SAVE.',
+    reachFor: ['OPEN', 'PRINT#', 'INPUT#'],
+  },
+  {
+    to: COMMODORES,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -778,7 +826,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SYS', 'USR', 'PEEK'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'program-editing',
     support: 'partial',
     summary:
@@ -789,7 +837,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LIST', 'RUN', 'CONT'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'error-handling',
     support: 'none',
     summary:
@@ -1119,9 +1167,9 @@ export const domainGuidance: DomainGuidance[] = [
       'No REPORT-style plain-English error text: read the numeric ERR and ERL and look the code up in the manual.',
     reachFor: ['RESUME', 'ERL', 'ERR'],
   },
-  // ----------------------------------------------------------------- cpc --
+  // ---------------------------------------------------------------- CPCS --
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'control-flow',
     support: 'full',
     summary:
@@ -1131,7 +1179,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['WHILE', 'ELSE', 'AFTER'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'data',
     support: 'full',
     summary:
@@ -1141,7 +1189,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'DEFINT', 'DIM'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -1151,7 +1199,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['ROUND', 'LOG10', 'MAX'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'strings',
     support: 'full',
     summary:
@@ -1161,7 +1209,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LOWER$', 'UPPER$', 'INSTR'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'text-screen',
     support: 'full',
     summary:
@@ -1170,8 +1218,20 @@ export const domainGuidance: DomainGuidance[] = [
       "No POS-only report: POS(#stream) reports the column for any window, and VPOS the row — read both, they're not one call.",
     reachFor: ['LOCATE', 'WINDOW', 'ZONE'],
   },
+  // Split from the CPCs' shared cell: FILL and MASK came with Locomotive BASIC
+  // 1.1, so the 464 has neither.
   {
-    to: 'cpc',
+    to: 'cpc464',
+    domain: 'graphics',
+    support: 'full',
+    summary:
+      'DRAW/DRAWR/PLOT/PLOTR with relative and absolute forms give rich vector graphics, with no separate CIRCLE.',
+    instead:
+      'No named CIRCLE: approximate one with a short loop of PLOT points at computed offsets around the centre, or several DRAWR segments.',
+    reachFor: ['DRAW', 'DRAWR', 'PLOTR'],
+  },
+  {
+    to: LOCOMOTIVE_1_1S,
     domain: 'graphics',
     support: 'full',
     summary:
@@ -1181,7 +1241,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DRAWR', 'FILL', 'MASK'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'colour',
     support: 'full',
     summary:
@@ -1191,7 +1251,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INK', 'PAPER', 'BORDER'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'sound',
     support: 'full',
     summary:
@@ -1201,7 +1261,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['ENV', 'ENT', 'SOUND'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'input',
     support: 'full',
     summary:
@@ -1211,7 +1271,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['JOY', 'INKEY', 'KEY DEF'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'storage',
     support: 'full',
     summary:
@@ -1221,7 +1281,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPENIN', 'MERGE', 'CAT'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -1231,7 +1291,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['CALL', 'OUT', 'DI'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'program-editing',
     support: 'full',
     summary:
@@ -1240,8 +1300,19 @@ export const domainGuidance: DomainGuidance[] = [
       'No OLD-style undelete after NEW: keep an external copy before clearing, since a cleared program cannot be recovered.',
     reachFor: ['AUTO', 'RENUM', 'TRON'],
   },
+  // Split for the same reason: DERR and ON BREAK CONT are 1.1 additions.
   {
-    to: 'cpc',
+    to: 'cpc464',
+    domain: 'error-handling',
+    support: 'full',
+    summary:
+      'ON ERROR GOTO with RESUME, plus ON BREAK GOSUB and ON BREAK STOP, give full error and break trapping.',
+    instead:
+      'No REPORT-style plain-English error text: read the numeric ERR code and look it up, or trap specific codes you expect.',
+    reachFor: ['RESUME', 'ON ERROR GOTO', 'ERR'],
+  },
+  {
+    to: LOCOMOTIVE_1_1S,
     domain: 'error-handling',
     support: 'full',
     summary:
@@ -1831,7 +1902,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
 
-  // --------------------------------------------------------------- apple2 --
+  // -------------------------------------------------------------- apple2 --
   // The Apple 1's interpreter with graphics, a cursor and a tape behind it.
   // Most of what a reader expects of "Apple II BASIC" is Applesoft, which is
   // the other ROM: no floating point, no hi-res, no string functions but two.
@@ -2027,9 +2098,9 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
 
-  // ------------------------------------------------------------ applesoft --
+  // ---------------------------------------------------------- apple2plus --
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'control-flow',
     support: 'partial',
     summary:
@@ -2049,7 +2120,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'data',
     support: 'partial',
     summary:
@@ -2067,7 +2138,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DIM', 'DATA', 'READ', 'LET'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'numeric',
     support: 'partial',
     summary:
@@ -2081,7 +2152,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SQR', 'RND', 'INT', 'ABS'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'strings',
     support: 'partial',
     summary:
@@ -2100,7 +2171,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['MID$', 'LEN', 'CHR$', 'VAL'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'text-screen',
     support: 'partial',
     summary:
@@ -2114,7 +2185,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PRINT', 'HTAB', 'VTAB', 'HOME'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'graphics',
     support: 'partial',
     summary:
@@ -2133,7 +2204,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['HGR', 'HPLOT', 'PLOT', 'SCRN('],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'colour',
     support: 'partial',
     summary:
@@ -2147,7 +2218,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['COLOR=', 'HCOLOR='],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'sound',
     support: 'none',
     summary:
@@ -2160,7 +2231,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'input',
     support: 'partial',
     summary:
@@ -2179,7 +2250,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INPUT', 'GET', 'PDL'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'storage',
     support: 'partial',
     summary:
@@ -2197,7 +2268,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LOAD', 'SAVE', 'STORE', 'RECALL'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'memory-hardware',
     support: 'partial',
     summary:
@@ -2211,7 +2282,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM:'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'program-editing',
     support: 'partial',
     summary:
@@ -2225,7 +2296,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LIST', 'DEL', 'TRACE', 'NEW'],
   },
   {
-    to: 'applesoft',
+    to: 'apple2plus',
     domain: 'error-handling',
     support: 'partial',
     summary:
@@ -2243,9 +2314,9 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['ONERR', 'RESUME'],
   },
 
-  // ---------------------------------------------------------------- atari --
+  // -------------------------------------------------------------- ATARIS --
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'control-flow',
     support: 'partial',
     summary:
@@ -2264,7 +2335,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'data',
     support: 'partial',
     summary:
@@ -2278,7 +2349,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DIM', 'DATA', 'READ', 'CLR'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'numeric',
     support: 'partial',
     summary:
@@ -2292,7 +2363,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SIN', 'SQR', 'INT', 'RND'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'strings',
     support: 'partial',
     summary:
@@ -2311,7 +2382,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LEN', 'ASC', 'CHR$', 'VAL'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'text-screen',
     support: 'partial',
     summary:
@@ -2325,7 +2396,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PRINT', 'POSITION', 'PUT', 'LPRINT'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'graphics',
     support: 'partial',
     summary:
@@ -2344,7 +2415,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['GRAPHICS', 'PLOT', 'DRAWTO', 'LOCATE'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'colour',
     support: 'partial',
     summary:
@@ -2358,7 +2429,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SETCOLOR', 'COLOR'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'sound',
     support: 'partial',
     summary:
@@ -2378,7 +2449,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SOUND'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'input',
     support: 'partial',
     summary:
@@ -2397,7 +2468,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INPUT', 'GET', 'STICK', 'STRIG'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'storage',
     support: 'partial',
     summary:
@@ -2411,7 +2482,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPEN', 'CLOSE', 'XIO', 'SAVE'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'memory-hardware',
     support: 'partial',
     summary:
@@ -2430,7 +2501,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PEEK', 'POKE', 'USR', 'FRE'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'program-editing',
     support: 'partial',
     summary:
@@ -2447,7 +2518,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LIST', 'NEW', 'RUN', 'CONT'],
   },
   {
-    to: 'atari',
+    to: ATARIS,
     domain: 'error-handling',
     support: 'partial',
     summary:

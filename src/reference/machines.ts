@@ -8,12 +8,12 @@
 // the unit now; this module is the list.
 //
 // Only machine ids are selectable. Page slugs are not, deliberately: a page
-// slug and a dialect id live in the same `?from=`/`?to=` namespace, and
-// `zxspectrum` is both the 48K machine and the page its 128K sibling shares -
-// one string, two meanings, and no way for the URL to say which. One namespace
-// of machine ids has no such case to resolve. `page` below still names the
-// reference page a machine reads from; it is a property of the machine, not
-// something a reader can select.
+// slug and a dialect id would live in the same `?from=`/`?to=` namespace, and
+// `zxspectrum` was for a while both the 48K machine and the page its siblings
+// shared - one string, two meanings, and no way for the URL to say which. One
+// namespace of machine ids has no such case to resolve, whatever the pages are
+// called. `page` below still names the reference page a machine reads from; it
+// is a property of the machine, not something a reader can select.
 //
 // Hand-authored because the docs runtime must never reach the dialect registry
 // (it imports every dialect index, and each pulls in an emulator core) - a ban
@@ -72,7 +72,7 @@ export const machines: MachineChoice[] = [
   },
   {
     id: 'apple1',
-    page: 'apple1',
+    page: 'integer-basic',
     name: 'Apple I',
     manufacturer: 'Apple',
     year: 1976,
@@ -82,7 +82,7 @@ export const machines: MachineChoice[] = [
   },
   {
     id: 'apple2',
-    page: 'apple2',
+    page: 'integer-basic',
     name: 'Apple II',
     manufacturer: 'Apple',
     year: 1977,
@@ -242,7 +242,7 @@ export const machines: MachineChoice[] = [
   },
   {
     id: 'zx81',
-    page: 'zx81',
+    page: 'sinclair',
     name: 'ZX81',
     manufacturer: 'Sinclair',
     year: 1981,
@@ -252,7 +252,7 @@ export const machines: MachineChoice[] = [
   },
   {
     id: 'zxspectrum',
-    page: 'zxspectrum',
+    page: 'sinclair',
     name: 'Spectrum',
     manufacturer: 'Sinclair',
     year: 1982,
@@ -262,7 +262,7 @@ export const machines: MachineChoice[] = [
   },
   {
     id: 'zxspectrum128',
-    page: 'zxspectrum',
+    page: 'sinclair',
     name: 'Spectrum 128',
     manufacturer: 'Sinclair',
     year: 1985,

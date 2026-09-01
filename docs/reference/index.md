@@ -34,22 +34,21 @@ instead, explained on each of those pages.
 
 ## BASIC dialects
 
-Each dialect powers one or more of the emulated machines:
+One page per family of BASIC, naming the machines it covers and the version
+each of them runs:
 
-- [Altair 8K BASIC](./altair8800) — MITS Altair 8800
-- [Apple 1 Integer BASIC](./apple1) — Apple I
-- [Apple II Integer BASIC](./apple2) — Apple II
 - [Applesoft BASIC](./applesoft) — Apple II Plus
 - [Atari BASIC](./atari) — Atari 800, Atari 400
 - [Atom BASIC](./atom) — Acorn Atom
 - [BASIC-G](./pmd85) — Tesla PMD 85-2
-- [BBC BASIC](./bbc) — BBC Micro, BBC Master
-- [Commodore BASIC](./commodore) — Commodore 64, VIC-20, PET
-- [Locomotive BASIC](./cpc) — Amstrad CPC 464, Amstrad CPC 664, Amstrad CPC 6128
+- [BBC BASIC](./bbc) — BBC Micro (BASIC II), BBC Master (BASIC IV)
+- [Commodore BASIC](./commodore) — PET (4.0), VIC-20 and Commodore 64 (V2)
+- [Integer BASIC](./integer-basic) — Apple I, Apple II
+- [Locomotive BASIC](./cpc) — Amstrad CPC 464 (1.0), CPC 664 and CPC 6128 (1.1)
+- [Microsoft BASIC](./altair8800) — MITS Altair 8800, running Altair 8K BASIC
+- [Sinclair BASIC](./sinclair) — ZX81, ZX Spectrum 48K, ZX Spectrum 128K
 - [TRS-80 Level II BASIC](./trs80) — TRS-80
-- [ZX Spectrum BASIC](./zxspectrum) — ZX Spectrum 48K, ZX Spectrum 128K
 - [ZX80 BASIC](./zx80) — ZX80
-- [ZX81 BASIC](./zx81) — ZX81
 
 ## Assembly language
 

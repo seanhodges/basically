@@ -19,6 +19,7 @@ import {
   diffEscapes,
   diffKeywords,
   escapeTableForMachine,
+  namesMachine,
   tableForMachine,
   type ProgramVocabulary,
 } from './compare';
@@ -196,7 +197,7 @@ describe('the narrowing holds', () => {
   const fullDiff = diffKeywords(
     tableForMachine(c64.table, c64.id),
     tableForMachine(spectrum.table, spectrum.id),
-    { from: c64.page, to: spectrum.page, equivalences: keywordEquivalences },
+    { from: c64.id, to: spectrum.id, equivalences: keywordEquivalences },
   );
 
   it('never names a lost command the program does not use', () => {
@@ -242,7 +243,7 @@ describe('what the port does not require stays out', () => {
     const diff = diffKeywords(
       tableForMachine(c64.table, c64.id),
       tableForMachine(spectrum.table, spectrum.id),
-      { from: c64.page, to: spectrum.page, equivalences: keywordEquivalences },
+      { from: c64.id, to: spectrum.id, equivalences: keywordEquivalences },
     );
     expect(diff.newlyAvailable.length).toBeGreaterThan(0);
     // Scanned over what the report *offers*, which is not the same as what it
@@ -279,7 +280,7 @@ describe('what the port does not require stays out', () => {
 
   it('repeats none of the worked examples the system prompt already carries', () => {
     const lines = domainGuidance
-      .filter((g) => g.to === spectrum.page)
+      .filter((g) => namesMachine(g.to, spectrum.id))
       .flatMap((g) => g.example?.code ?? []);
     expect(lines.length).toBeGreaterThan(0);
     expect(lines.filter((line) => report.includes(line))).toEqual([]);

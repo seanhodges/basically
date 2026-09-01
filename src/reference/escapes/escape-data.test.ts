@@ -35,9 +35,25 @@ describe.each(SETS)('escape data: %s', (_id, data) => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('has at most one catch-all (rest) row', () => {
+  // One catch-all *per machine*: a byte no row claims falls to the rest row, so
+  // two of them reachable from one machine would leave the fall-through
+  // undecided. A page whose machines do not share a charset carries one each -
+  // the ZX81 spells a raw byte `\{NN}` and the Spectrums `{0xNN}` - so the rule
+  // is that the rest rows are scoped and no machine is named by two of them.
+  it('has at most one catch-all (rest) row per machine', () => {
     const rest = data.entries.filter((e) => e.codes === 'rest');
-    expect(rest.length).toBeLessThanOrEqual(1);
+    if (rest.length <= 1) return;
+    const claimed = new Set<string>();
+    for (const row of rest) {
+      expect(
+        row.onlyOn,
+        `${row.escape} is a second catch-all, unscoped`,
+      ).toBeTruthy();
+      for (const id of row.onlyOn ?? []) {
+        expect(claimed.has(id), `${id} has two catch-alls`).toBe(false);
+        claimed.add(id);
+      }
+    }
   });
 
   it('every category has at least one entry', () => {

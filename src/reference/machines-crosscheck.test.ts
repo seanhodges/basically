@@ -67,10 +67,11 @@ describe('what the picker asks of a machine', () => {
 });
 
 describe('selection namespace', () => {
-  // Only machine ids are selectable. A docs page slug is not, because
-  // `zxspectrum` is both the 48K machine's id and the page its 128K sibling
-  // shares - one string with two meanings in one namespace, which no URL can
-  // disambiguate. Keeping pages out of the namespace is what removes the case.
+  // Only machine ids are selectable. A docs page slug is not: `zxspectrum` was
+  // for a while both the 48K machine's id and the page its siblings shared -
+  // one string with two meanings in one namespace, which no URL can
+  // disambiguate. Keeping pages out of the namespace is what removes the case,
+  // whatever the pages are called.
   it('has no duplicate ids', () => {
     const ids = machines.map((m) => m.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -90,17 +91,13 @@ describe('selection namespace', () => {
   });
 
   it('covers a machine whose id is also its page, and one where it is not', () => {
-    expect(machines.find((m) => m.id === 'zxspectrum')?.page).toBe(
-      'zxspectrum',
-    );
-    expect(machines.find((m) => m.id === 'zxspectrum128')?.page).toBe(
-      'zxspectrum',
-    );
+    expect(machines.find((m) => m.id === 'zx80')?.page).toBe('zx80');
+    expect(machines.find((m) => m.id === 'zxspectrum')?.page).toBe('sinclair');
   });
 
-  // A page covers one family and no more, which is what would let it be titled
-  // after one. The reference is still a page per machine variant, so this reads
-  // as a property the pages already have rather than one they were given.
+  // A page covers one family and no more, which is what lets it be titled after
+  // one - and, now that the reference is a page per family, what makes the page
+  // and the family the same division of the machines.
   it('gives each page a single family', () => {
     const familyByPage = new Map<string, string>();
     for (const m of machines) {

@@ -66,8 +66,18 @@ import { parseAtariChar } from './atari800/atascii';
  * place; nothing in the app reads them.
  */
 export interface CharsetProbe {
-  /** Charset-family id; matches `src/reference/escapes/<id>.ts`. */
+  /** Charset-family id, and the name of its scaffold source. */
   id: string;
+  /**
+   * The escapes page this family's rows live on, where that is not the family
+   * id. A reference page covers a family of BASIC and a charset is a property
+   * of the machine, so the two part company wherever one BASIC was carried by
+   * two character generators: the Apple I and the Apple II share the Integer
+   * BASIC page and decode bytes quite differently, as do the ZX81 and the
+   * Spectrums on the Sinclair page. Rows belonging to one of them are scoped
+   * with `onlyOn`, and the crosscheck reads each probe against its own.
+   */
+  page?: string;
   /** Name of the exported table in that data file. */
   varName: string;
   /** Reference-page title. */
@@ -167,8 +177,9 @@ const APPLE2_CHARSET = {
 export const CHARSET_PROBES: CharsetProbe[] = [
   {
     id: 'zx81',
-    varName: 'zx81Escapes',
-    title: 'ZX81 escape codes',
+    page: 'sinclair',
+    varName: 'sinclairEscapes',
+    title: 'Sinclair BASIC escape codes',
     machines: ['Sinclair ZX81'],
     dialects: ['zx81'],
     decode: (b) => zx81Charset.glyph(b),
@@ -191,8 +202,9 @@ export const CHARSET_PROBES: CharsetProbe[] = [
   },
   {
     id: 'zxspectrum',
-    varName: 'zxspectrumEscapes',
-    title: 'ZX Spectrum escape codes',
+    page: 'sinclair',
+    varName: 'sinclairEscapes',
+    title: 'Sinclair BASIC escape codes',
     machines: ['Sinclair ZX Spectrum 48K', 'Sinclair ZX Spectrum 128K'],
     dialects: ['zxspectrum', 'zxspectrum128'],
     decode: (b) => spectrumDecodeSpan(Uint8Array.of(b), 0, 1).text,
@@ -302,8 +314,9 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     // glyphs of the Signetics 2513 sit at 0xA0-0xDF rather than at 0x20-0x5F.
     // Everything else - including the whole low half - is a raw-byte escape.
     id: 'apple1',
-    varName: 'apple1Escapes',
-    title: 'Apple I escape codes',
+    page: 'integer-basic',
+    varName: 'integerBasicEscapes',
+    title: 'Integer BASIC escape codes',
     machines: ['Apple I'],
     dialects: ['apple1'],
     decode: (b) => apple1DecodeSpan(Uint8Array.of(b), 0, 1).text,
@@ -321,8 +334,9 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     // run, which would otherwise break the round trip.
     ...APPLE2_CHARSET,
     id: 'apple2',
-    varName: 'apple2Escapes',
-    title: 'Apple II escape codes',
+    page: 'integer-basic',
+    varName: 'integerBasicEscapes',
+    title: 'Integer BASIC escape codes',
     machines: ['Apple II'],
     dialects: ['apple2'],
   },

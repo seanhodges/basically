@@ -15,7 +15,11 @@
 // derived from module-level constants through pure functions in a fixed order,
 // with an explicit sort and no iteration-order dependence.
 import { sortEntries } from './sort';
-import { escapeTableForMachine, tableForMachine } from './compare';
+import {
+  escapeTableForMachine,
+  namesMachine,
+  tableForMachine,
+} from './compare';
 import { KEYWORD_DOMAINS, type KeywordDomain } from './domains';
 import { domainGuidance } from './domain-guidance';
 import { portingFacts } from './facts';
@@ -351,7 +355,7 @@ function describeShortfalls(
   facts: PortingFacts,
 ): string {
   const cells = domainGuidance
-    .filter((g) => g.to === machine.page && g.support !== 'full')
+    .filter((g) => namesMachine(g.to, machine.id) && g.support !== 'full')
     .slice()
     .sort(
       (a, b) =>
