@@ -122,7 +122,7 @@ delegation rather than a fork.
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core (Z80 + VDP + slots)  | ✅     |
-| 3     | Wire-up: keyboard + samples        | ⬜     |
+| 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
@@ -279,36 +279,36 @@ builder for `loadProgram`).
 **Verify:** the boot test reads `MSX BASIC version 1.0` and a plausible
 `Bytes free` off `readScreenText()`.
 
-## Stage 3 — Wire-up: keyboard + samples ⬜
+## Stage 3 — Wire-up: keyboard + samples ✅
 
 No registry change here: the machine is finished and driven headlessly, and is
 offered to the user in Stage 7. Verify it by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
-- [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match the
+- [x] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match the
       emulator's `setKey`; geometry entirely from `templateRows`
       (`gridColumns: GRID_COLUMNS`, every key `KEY_SPAN`, `ROW_KEYS` to a band,
       `centerRow`/`bottomRow`) — never author a width. The MSX board is wider
       than the template: move what no longer fits to the bottom row and reach
       the rest from the host keyboard. `powerOnCase` read off the booted ROM,
       not assumed
-- [ ] the MSX function keys F1–F5 (and shifted F6–F10) are a real strip: they
+- [x] the MSX function keys F1–F5 (and shifted F6–F10) are a real strip: they
       are `style: 'fn'` with `editor: null`, and they press the matrix and
       nothing else. Ten fit; do not add an eleventh
-- [ ] read `src/keyboard/layoutGeometry.test.ts` **while writing the layout** —
+- [x] read `src/keyboard/layoutGeometry.test.ts` **while writing the layout** —
       it only picks this dialect up at Stage 7, and what it holds is this
       stage's work. Symbols are reached **only through the SYM pages**: a typing
       band carries its base character alone, and the machine's real shifted key
       faces go in the header comment rather than on a SHIFT layer. The SYM pages
       sit at the canonical positions. The MSX has a four-way cursor cluster, so
       it gets a CURSOR mode rather than an entry in `NO_CURSOR_KEYS`
-- [ ] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard palette
+- [x] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard palette
       and the charset so they cannot drift. Derive the entries from the
       character generator ROM. The MSX prints its graphics on the keycaps' front
       faces (reached with GRAPH), so `key` and `modifier: 'GRAPH'` are known
       here — unlike the CPC, this machine does not need code-labelled cells
-- [ ] the `palette: 'graphics'` editor mode + `graphicsPalette` on the layout
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport` (`cpu: 'z80'`), and
+- [x] the `palette: 'graphics'` editor mode + `graphicsPalette` on the layout
+- [x] `memoryBlocks.ts` — `MemoryBlocksSupport` (`cpu: 'z80'`), and
       `loadProgram` writing the blocks it is handed if Stage 2 did not.
       **`kaleido.bas` carries its routine as a memory block** and
       `src/app/sampleBlocks.ts` will not assemble one without this, so the
@@ -317,16 +317,16 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       — on MSX that means **below `HIMEM` after lowering it with `CLEAR`**, or
       in the gap the machine leaves under the system area; Stage 5 re-checks the
       figures against the map
-- [ ] `samples/` + `samples.ts` — `hello`, `circles`, `breakout`, `maze`,
+- [x] `samples/` + `samples.ts` — `hello`, `circles`, `breakout`, `maze`,
       `kaleido`, in that order, ported to MSX BASIC (`hello` is the starter for
       a fresh document). Use the **`authoring-dialect-samples`** sub-skill. This
       machine gives the ports more to work with than most: `SCREEN 2` with
       `LINE`/`CIRCLE`/`PSET`, real sprites for `breakout`, `PLAY` for sound and
       `STICK`/`STRIG` for input. Resist using all of it — the samples are the
       same five programs everywhere, not a feature tour
-- [ ] every sample **run on the machine** and fixed until its screen is right;
+- [x] every sample **run on the machine** and fixed until its screen is right;
       tokenizing clean proves nothing
-- [ ] finalize `aiProfile.ts`, **under 5000 characters composed** —
+- [x] finalize `aiProfile.ts`, **under 5000 characters composed** —
       `ai/promptStability.test.ts` caps it there and only says so at Stage 7.
       What this profile owes is mostly _unlearning_: the model knows Microsoft
       BASIC and will reach for it, so spend the budget on where MSX BASIC
@@ -334,11 +334,11 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       and what each can draw, `PLAY`'s MML strings, `SET PAGE`-less MSX1 limits,
       the sprite statements) and **not** on restating the keyword table the same
       prompt already carries
-- [ ] `index.ts` — assemble the full `Dialect` (placeholder picker identity
+- [x] `index.ts` — assemble the full `Dialect` (placeholder picker identity
       until Stage 7). `joystickModes: ['native']` and
       `joystickFireButtons: 2` — the MSX general-purpose port has two triggers,
       read through the PSG's I/O ports
-- [ ] tests: keyboard matrix (every token reachable by keycap or host key),
+- [x] tests: keyboard matrix (every token reachable by keycap or host key),
       samples tokenize **and run**. No geometry test of its own — the registry
       battery covers it from Stage 7
 
