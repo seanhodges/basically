@@ -103,6 +103,12 @@ export const ge235: Dialect = {
 
   keyboardLayout: ge235KeyboardLayout,
   samples: ge235Samples,
+
+  /**
+   * One export, the paper tape the Teletype's punch produced. No `audio`,
+   * because the machine had no tape interface to model, and no `binaryImports`,
+   * because the tape is text and opens through `fileExtensions`.
+   */
   buildTargets: ge235BuildTargets,
   aiProfile: ge235AiProfile,
 };
