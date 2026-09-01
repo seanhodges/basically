@@ -12,7 +12,12 @@ import { buildSamFile, parseSamFile, parseSamFileWithReport } from './samfile';
 import { samcoupeCompletionSource, samcoupeLanguageSupport } from './language';
 import { samcoupeVariableErrors } from '../../editor/variableLint';
 import { samcoupeAiProfile } from './aiProfile';
-import { samcoupeBuildTargets } from './targets';
+import {
+  buildCassetteSamples,
+  CASSETTE_SAMPLE_RATE,
+  samcoupeBuildTargets,
+} from './targets';
+import { decodeSamCassette } from './audio/cassetteDecoder';
 import { samcoupeKeyboardLayout } from './keyboardLayout';
 import { samcoupeSamples } from './samples';
 import { samcoupeMemoryMap } from './memoryMap';
@@ -102,5 +107,35 @@ export const samcoupe: Dialect = {
   keyboardLayout: samcoupeKeyboardLayout,
   samples: samcoupeSamples,
   buildTargets: samcoupeBuildTargets,
+
+  binaryImports: [{ extension: '.tap', label: 'Import .TAP…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the SAM Coupé type LOAD "" - or press F7, which types it for you - and press ENTER before starting playback.',
+    decodeSamples: (samples, sampleRate) => {
+      // The decoder re-frames every recovered block into a container image, so
+      // a recording goes back through the same reader the .TAP button uses and
+      // arrives with the header's warnings and auto-start line, not just the
+      // program text.
+      const { name, image } = decodeSamCassette(samples, sampleRate);
+      const { file, warnings } = parseSamFileWithReport(image);
+      const text = detokenizeWithWarnings(
+        file ? file.program : new Uint8Array(0),
+      );
+      return {
+        programName: file?.name || name,
+        source: text.source,
+        warnings: [...warnings, ...text.warnings],
+        ...(file?.autoStart != null ? { autoStart: file.autoStart } : {}),
+      };
+    },
+    saveInstructions:
+      'On the SAM Coupé type SAVE "NAME" and press ENTER; it asks you to start the tape and press a key, and the tone then plays from the tape socket. Feed that into this device, then start listening.',
+  },
+
   aiProfile: samcoupeAiProfile,
 };
