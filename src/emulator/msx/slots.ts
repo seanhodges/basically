@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../memoryActivityBuffer';
 import type { MsxModel } from './model';
 
 /** Every MSX address space is four 16KB pages, one slot number each. */
@@ -25,6 +30,12 @@ const OPEN_BUS = 0xff;
  * which view it wants; {@link readRam} is the RAM one and is what those callers
  * take, because a program and its variables are always in RAM.
  *
+ * Live memory activity is stamped here rather than in the machine, because this
+ * is the one place every CPU access passes through. The `readRam`/`writeRam`
+ * pair below is deliberately outside it: those are what the debugger and the
+ * introspection readers use, and stamping them would report the IDE's own
+ * polling as the program's accesses.
+ *
  * Secondary slots (selected through 0xFFFF inside an expanded primary) are not
  * modelled - no machine here is expanded. The register is still decoded per
  * page rather than flattened, so a cartridge slot has somewhere to arrive.
@@ -39,6 +50,8 @@ export class MsxSlots {
   /** One slot number per page, as the last write to port A set them. */
   private readonly pageSlot = new Uint8Array(PAGE_COUNT);
   private register = 0;
+  /** Addresses the CPU has touched since the last drain. Off by default. */
+  readonly activity = new MemoryActivityBuffer();
 
   constructor(rom: Uint8Array, model: MsxModel) {
     this.rom = rom;
@@ -74,6 +87,7 @@ export class MsxSlots {
 
   read(addr: number): number {
     const a = addr & 0xffff;
+    if (this.activity.enabled) this.activity.hits[a] |= READ_BIT;
     const slot = this.pageSlot[a >> 14]!;
     if (slot === this.ramSlot) return this.readRam(a);
     if (slot === 0) {
@@ -86,6 +100,7 @@ export class MsxSlots {
 
   write(addr: number, value: number): void {
     const a = addr & 0xffff;
+    if (this.activity.enabled) this.activity.hits[a] |= WRITE_BIT;
     const slot = this.pageSlot[a >> 14]!;
     const toRam =
       slot === this.ramSlot ||

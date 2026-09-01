@@ -34,8 +34,8 @@ export const TOK_SINGLE = 0x1d;
 export const TOK_DOUBLE = 0x1f;
 
 /** Mantissa bytes, and therefore BCD digits, in each float type. */
-const SINGLE_BYTES = 3;
-const DOUBLE_BYTES = 7;
+export const SINGLE_BYTES = 3;
+export const DOUBLE_BYTES = 7;
 const SINGLE_DIGITS = SINGLE_BYTES * 2;
 const DOUBLE_DIGITS = DOUBLE_BYTES * 2;
 
@@ -336,4 +336,19 @@ export function decodeNumber(
     default:
       return null;
   }
+}
+
+/**
+ * A stored float as the machine would print it: the exponent byte at `i` and
+ * `mantissaBytes` of BCD after it. Used by the variable watcher, which reads
+ * the same two float shapes out of the interpreter's variable area that the
+ * tokenizer writes into a line.
+ */
+export function formatFloatBytes(
+  bytes: ArrayLike<number>,
+  i: number,
+  mantissaBytes: number,
+): string {
+  const type: NumType = mantissaBytes === DOUBLE_BYTES ? 'double' : 'single';
+  return formatDecimal(decodeFloat(bytes, i, mantissaBytes), type);
 }

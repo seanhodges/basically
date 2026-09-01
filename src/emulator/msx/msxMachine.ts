@@ -13,7 +13,10 @@ import type {
   LineCost,
   MachineEmulator,
   MachineFileStore,
+  MachineMemoryStats,
+  MachineReport,
   MachineScreenText,
+  MachineVariable,
 } from '../../dialects/types';
 import { createMachineLoop } from '../machineLoop';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
@@ -30,10 +33,20 @@ import {
   ARYTAB,
   CURLIN,
   DIRECT_MODE,
+  FRETOP,
+  MEMSIZ,
+  STKTOP,
   STREND,
   TXTTAB,
   VARTAB,
+  type MsxMemPort,
 } from './workspace';
+// Both readers decode MSX BASIC rather than this computer - the variable
+// layout and the error table are the same on any MSX1 - so a sibling model
+// takes these as they are. They live in the dialect folder because they answer
+// in its character set and its number formatting.
+import { readVariables } from '../../dialects/hb10p/vars';
+import { readReport } from '../../dialects/hb10p/reports';
 
 /** The MSX standard's Z80 clock: 21.47727MHz / 6, on PAL and NTSC alike. */
 export const CPU_HZ = 3_579_545;
@@ -98,7 +111,19 @@ export class MsxMachine implements MachineEmulator {
    * arms it for the life of a run, and the machine loop's step charges the
    * T-states it consumed to the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+
+  /**
+   * The bus as the introspection readers see it: RAM by CPU address, whichever
+   * slot is selected, and without stamping the memory-activity overlay.
+   */
+  private readonly memPort: MsxMemPort = {
+    peek: (addr) => this.slots.readRam(addr),
+    peekWord: (addr) => this.slots.readRamWord(addr),
+  };
 
   /**
    * Frame and debug slice from one walk over the budget - here a whole frame's
@@ -325,12 +350,70 @@ export class MsxMachine implements MachineEmulator {
     return readScreenText(this.vdp, this.charset);
   }
 
+  /** Live BASIC variables, walked from MSX BASIC's own variable storage. */
+  readVariables(): MachineVariable[] {
+    return readVariables(this.memPort);
+  }
+
+  /** The last BASIC report: Ok, an error, or a break. */
+  readReport(): MachineReport | null {
+    return readReport(this.memPort);
+  }
+
+  /**
+   * What the program has spent of the RAM MSX BASIC hands it, and what is left.
+   *
+   * The machine spends two pools and both are counted. Program text, variables
+   * and arrays grow up from TXTTAB to STREND; strings are filled downwards from
+   * MEMSIZ, and FRETOP is how far down they have reached. A figure covering
+   * only the first would read as a program that allocates nothing however hard
+   * it churned its strings, which is a measurement rather than an absence.
+   *
+   * The free figure is FRE(0)'s own arithmetic - everything between the arrays
+   * and the lowest string - so it spans the free program area and the
+   * unallocated part of the string space alike. The sign-on banner's figure is
+   * smaller than this because it counts neither the string space nor the last
+   * few bytes below the stack.
+   *
+   * Null while the pointers are implausible (mid-boot, mid-injection), so the
+   * IDE falls back to its tokenized-size estimate rather than showing nonsense.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    const mem = this.memPort;
+    const txttab = mem.peekWord(TXTTAB);
+    const strend = mem.peekWord(STREND);
+    const fretop = mem.peekWord(FRETOP);
+    const stktop = mem.peekWord(STKTOP);
+    const memsiz = mem.peekWord(MEMSIZ);
+    const laidOut =
+      txttab > 0 &&
+      txttab <= strend &&
+      strend <= stktop &&
+      stktop <= fretop &&
+      fretop <= memsiz;
+    if (!laidOut) return null;
+    return {
+      used: strend - txttab + (memsiz - fretop),
+      free: fretop - strend,
+    };
+  }
+
   setProfileRecording(enabled: boolean): void {
     this.profile.setEnabled(enabled);
   }
 
   drainProfile(): LineCost[] | null {
     return this.profile.drain();
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.slots.activity.enabled = enabled;
+    if (!enabled) this.slots.activity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.slots.activity.enabled) return null;
+    return this.slots.activity.drain(recycle);
   }
 
   // --- Input ---
