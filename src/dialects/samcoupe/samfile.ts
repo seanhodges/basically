@@ -45,6 +45,17 @@ export const DATA_BLOCK = 0xff;
 /** A Spectrum header block, which the SAM ROM also reads. */
 export const SPECTRUM_HEADER_BLOCK = 0x00;
 
+/**
+ * The byte that ends a stored program, standing where a line number's high
+ * byte would be. It is part of the program area rather than a delimiter around
+ * it: a freshly reset machine has `NVARS = PROG + 1` with that one 0xFF between
+ * them, and the ROM's own line walk stops on it (`LD A,(HL) / ADD A,1 / RET C`
+ * in tadjm.asm). So it is saved with the program and counted in every length
+ * the header carries - a tape written without it loads a program the
+ * interpreter then scans straight off the end of.
+ */
+export const PROGRAM_END = 0xff;
+
 /** Header length, and the type byte for a BASIC program. */
 export const HEADER_BYTES = 80;
 export const PROGRAM_TYPE = 16;
@@ -68,6 +79,20 @@ export interface SamFileOptions {
   name?: string;
   /** Auto-run line, or null for "load only". Defaults to the first line. */
   autoStart?: number | null;
+  /**
+   * The two variable areas SAM BASIC keeps between the program and its string
+   * and array variables, saved after the program the way the ROM's own SAVE
+   * writes them.
+   *
+   * A tape written without them is not merely smaller: the loader deletes
+   * everything from PROG up to the edit line and rebuilds it to the three
+   * lengths the header carries, so a header claiming no variable areas leaves
+   * a machine with none - and the first `RUN` or `CLEAR` after such a load
+   * walks off into memory that is no longer there. A freshly reset Coupé keeps
+   * 92 bytes in the first area and 512 in the second, which is why a program
+   * that never declares a variable still has areas to save.
+   */
+  variableAreas?: { numeric: Uint8Array; other: Uint8Array };
 }
 
 export interface ParsedSamFile {
@@ -136,9 +161,15 @@ export interface SamBlock {
   bytes: Uint8Array;
 }
 
-/** The 80 header bytes describing a BASIC program of `length` bytes. */
+/**
+ * The 80 header bytes describing a stored program.
+ *
+ * `lengths` are the three boundaries the ROM restores on load, each measured
+ * from PROG: the end of the program itself, the end of the numeric variable
+ * area after it, and the end of the area after that.
+ */
 export function programHeader(
-  length: number,
+  lengths: [number, number, number],
   opts: SamFileOptions & { autoStart: number | null },
 ): Uint8Array {
   const header = new Uint8Array(HEADER_BYTES);
@@ -148,8 +179,10 @@ export function programHeader(
   header.fill(0xff, 26, 40);
   header[0] = PROGRAM_TYPE;
   header.set(nameBytes(opts.name ?? 'program'), 1);
-  // No variables are saved, so every boundary sits at the end of the program.
-  for (const at of [16, 19, 22, HDN + 3]) header.set(pageForm(length), at);
+  header.set(pageForm(lengths[0]), 16);
+  header.set(pageForm(lengths[1]), 19);
+  header.set(pageForm(lengths[2]), 22);
+  header.set(pageForm(lengths[2]), HDN + 3); // the data block's own length
   if (opts.autoStart !== null) {
     header[HDN + 6] = 0;
     header[HDN + 7] = opts.autoStart & 0xff;
@@ -170,10 +203,22 @@ export function samBlocks(
   const firstLine =
     programBytes.length >= 2 ? (programBytes[0]! << 8) | programBytes[1]! : 0;
   const autoStart = opts.autoStart === undefined ? firstLine : opts.autoStart;
-  const header = programHeader(programBytes.length, { ...opts, autoStart });
+  const areas = opts.variableAreas;
+  const progLen = programBytes.length + 1;
+  const numeric = areas?.numeric ?? new Uint8Array(0);
+  const other = areas?.other ?? new Uint8Array(0);
+  const data = new Uint8Array(progLen + numeric.length + other.length);
+  data.set(programBytes);
+  data[programBytes.length] = PROGRAM_END;
+  data.set(numeric, progLen);
+  data.set(other, progLen + numeric.length);
+  const header = programHeader(
+    [progLen, progLen + numeric.length, data.length],
+    { ...opts, autoStart },
+  );
   return [
     { type: HEADER_BLOCK, bytes: blockWithParity(HEADER_BLOCK, header) },
-    { type: DATA_BLOCK, bytes: blockWithParity(DATA_BLOCK, programBytes) },
+    { type: DATA_BLOCK, bytes: blockWithParity(DATA_BLOCK, data) },
   ];
 }
 
@@ -276,7 +321,10 @@ export function parseSamFileWithReport(image: Uint8Array): {
       warnings.push('The program header failed its parity check.');
     if (!data.parityOk)
       warnings.push('The program data failed its parity check.');
-    const progLen = Math.min(fromPageForm(h.payload, 16), data.payload.length);
+    let progLen = Math.min(fromPageForm(h.payload, 16), data.payload.length);
+    // Drop the end-of-program byte the length counts, so `program` is the
+    // stored lines and nothing else.
+    if (progLen > 0 && data.payload[progLen - 1] === PROGRAM_END) progLen--;
     const autoStart =
       h.payload[HDN + 6] === 0
         ? h.payload[HDN + 7]! | (h.payload[HDN + 8]! << 8)

@@ -28,7 +28,9 @@ describe('samcoupe samfile', () => {
     const blocks = samBlockScan(image);
     expect(blocks.map((b) => b.type)).toEqual([HEADER_BLOCK, DATA_BLOCK]);
     expect(blocks[0]!.payload).toHaveLength(HEADER_BYTES);
-    expect(Array.from(blocks[1]!.payload)).toEqual(Array.from(program));
+    // The data block is the program area, which ends with the ROM's own
+    // end-of-program byte - the interpreter walks lines until it sees one.
+    expect(Array.from(blocks[1]!.payload)).toEqual([...program, 0xff]);
     // SABLK seeds the parity with the type byte and folds in each saved byte.
     for (const { type, bytes } of samBlocks(program, { name: 'demo' })) {
       let parity = 0;
@@ -48,8 +50,10 @@ describe('samcoupe samfile', () => {
       ...Array(10).fill(0x20),
     ]);
     // The three length fields and the data length are the page form of the
-    // program length: page, offset low, offset high in the 0x8000 window.
-    const pageForm = [0, program.length & 0xff, 0x80 | (program.length >> 8)];
+    // program-area length - the lines plus the end-of-program byte: page,
+    // offset low, offset high in the 0x8000 window.
+    const stored = program.length + 1;
+    const pageForm = [0, stored & 0xff, 0x80 | (stored >> 8)];
     for (const at of [16, 19, 22, 34]) {
       expect(Array.from(header.subarray(at, at + 3)), `field ${at}`).toEqual(
         pageForm,
