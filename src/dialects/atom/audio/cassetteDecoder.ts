@@ -1,4 +1,5 @@
-import { atomChecksum } from './cassetteEncoder';
+import { ATOM_FRAMING, atomChecksum } from './cassetteEncoder';
+import { decodeKcsBytes } from '../../audio/kansasCity';
 import { TEXT_START } from '../addresses';
 
 /**
@@ -10,13 +11,11 @@ import { TEXT_START } from '../addresses';
  * bits LSB-first, stop `1`), with a continuous 2400 Hz carrier - a run of `1`
  * bits - leading in and between blocks.
  *
- * We classify each half-cycle as fast (2400 Hz) or slow (1200 Hz) **relative to
- * the carrier**: the carrier dominates the recording, so the median half-cycle
- * is a fast one, and a threshold at 1.5× that survives playback/clock-speed
- * drift, resampling and sample-rate mismatch. The framed bytes are parsed as
- * Atom blocks - four `*` (0x2A) sync bytes then a header whose trailing checksum
- * (a plain sum mod 256 over the header and data) has to verify, which is what
- * lets us reject noise and find the block boundaries.
+ * The modulation is undone by the shared Kansas City reader; what is left here
+ * is the file format. The framed bytes are parsed as Atom blocks - four `*`
+ * (0x2A) sync bytes then a header whose trailing checksum (a plain sum mod 256
+ * over the header and data) has to verify, which is what lets us reject noise
+ * and find the block boundaries.
  */
 const SYNC = 0x2a; // '*'
 const SYNC_COUNT = 4;
@@ -33,88 +32,10 @@ export function decodeCassette(
   samples: Float32Array,
   sampleRate: number,
 ): DecodeCassetteResult {
-  const bytes = decodeBytes(samples, sampleRate);
+  const bytes = decodeKcsBytes(samples, sampleRate, ATOM_FRAMING);
   const file = parseAtomFile(bytes);
   if (!file) throw new Error(NO_ATOM_SIGNAL);
   return file;
-}
-
-/** Recover the framed byte stream from the FSK waveform. */
-function decodeBytes(samples: Float32Array, sampleRate: number): Uint8Array {
-  const halves = halfCycles(samples, sampleRate); // true = fast (2400 Hz)
-  const bytes: number[] = [];
-  let k = 0;
-
-  // Consume 8 slow halves (→ '0', four 1200 Hz cycles) or 16 fast halves
-  // (→ '1', eight 2400 Hz cycles).
-  const readBit = (): number | null => {
-    if (k >= halves.length) return null;
-    if (!halves[k]) {
-      k += 8;
-      return 0;
-    }
-    k += 16;
-    return 1;
-  };
-
-  while (k < halves.length) {
-    if (halves[k]) {
-      k++; // skip carrier / stop bits until a start bit (slow half)
-      continue;
-    }
-    if (readBit() !== 0) continue; // start bit must be '0'
-    let v = 0;
-    let ok = true;
-    for (let b = 0; b < 8; b++) {
-      const bit = readBit();
-      if (bit === null) {
-        ok = false;
-        break;
-      }
-      v |= bit << b; // LSB first
-    }
-    if (!ok) break;
-    readBit(); // stop bit
-    bytes.push(v);
-  }
-  return Uint8Array.from(bytes);
-}
-
-/**
- * Collapse the high-passed, Schmitt-gated signal into half-cycles, each tagged
- * fast (2400 Hz) or slow (1200 Hz). The threshold is derived from the signal:
- * the carrier makes fast halves the most common, so the median is a fast half.
- */
-function halfCycles(samples: Float32Array, sampleRate: number): boolean[] {
-  const hp = highPass(samples, sampleRate, 5);
-  const peak = percentileAbs(hp, 0.99);
-  if (peak < 1e-4) return [];
-  const gate = peak * 0.25;
-
-  const lengths: number[] = [];
-  let state = 0; // -1 low, +1 high, 0 unknown
-  let last = -1;
-  for (let i = 0; i < hp.length; i++) {
-    const v = hp[i]!;
-    let edge = false;
-    if (state <= 0 && v > gate) {
-      edge = state === -1;
-      state = 1;
-    } else if (state >= 0 && v < -gate) {
-      edge = state === 1;
-      state = -1;
-    }
-    if (edge) {
-      if (last >= 0) lengths.push(i - last);
-      last = i;
-    }
-  }
-  if (lengths.length === 0) return [];
-
-  const sorted = [...lengths].sort((a, b) => a - b);
-  const fastHalf = sorted[sorted.length >> 1]!; // median ≈ a 2400 Hz half-cycle
-  const threshold = fastHalf * 1.5; // 1200 Hz half is ≈2× the 2400 Hz half
-  return lengths.map((d) => d < threshold);
 }
 
 /**
@@ -232,34 +153,4 @@ function parseBlock(bytes: Uint8Array, p: number): ParsedBlock | null {
     isLast: (flag & 0x80) === 0,
     end: checksumPos + 1,
   };
-}
-
-/** One-pole high-pass: subtract a slow running mean to kill DC / baseline drift. */
-function highPass(
-  x: Float32Array,
-  sampleRate: number,
-  ms: number,
-): Float32Array {
-  const rc = ms / 1000;
-  const dt = 1 / sampleRate;
-  const alpha = dt / (rc + dt);
-  const out = new Float32Array(x.length);
-  const warm = Math.min(x.length, Math.round(2 * rc * sampleRate));
-  let lp = 0;
-  for (let i = 0; i < warm; i++) lp += x[i]!;
-  lp = warm > 0 ? lp / warm : 0;
-  for (let i = 0; i < x.length; i++) {
-    lp += alpha * (x[i]! - lp);
-    out[i] = x[i]! - lp;
-  }
-  return out;
-}
-
-function percentileAbs(x: Float32Array, p: number): number {
-  const a = Float32Array.from(x, Math.abs).sort();
-  const idx = Math.min(
-    a.length - 1,
-    Math.max(0, Math.floor(p * (a.length - 1))),
-  );
-  return a[idx]!;
 }

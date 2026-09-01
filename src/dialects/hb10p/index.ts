@@ -24,6 +24,13 @@ import { hb10pMemoryMap } from './memoryMap';
 import { hb10pMemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
 import { buildBasFile, importBasFile } from './basfile';
+import {
+  casToTapeStream,
+  isCasImage,
+  readTapeFile,
+  readTapeStream,
+} from './casfile';
+import { hb10pCassetteAudio } from './audio/cassette';
 import { hb10pVariableErrors } from '../../editor/variableLint';
 import { MsxMachine } from '../../emulator/msx/msxMachine';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from '../../emulator/msx/display';
@@ -103,11 +110,11 @@ export const hb10p: Dialect = {
   },
 
   detokenize(image: Uint8Array): string {
-    return importBasFile(image).source;
+    return importProgramImage(image).source;
   },
 
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
-    return importBasFile(image);
+    return importProgramImage(image);
   },
 
   lint(source: string): TokenizeError[] {
@@ -129,5 +136,32 @@ export const hb10p: Dialect = {
   keyboardLayout: hb10pKeyboardLayout,
   samples: hb10pSamples,
   buildTargets: hb10pBuildTargets,
+  binaryImports: [
+    { extension: '.bas', label: 'Import tokenized .BAS…' },
+    { extension: '.cas', label: 'Import .CAS cassette…' },
+  ],
+  audio: hb10pCassetteAudio,
   aiProfile: hb10pAiProfile,
 };
+
+/**
+ * Import a file the machine could have written: a `.cas` tape image, or the
+ * `.bas` a disk save leaves - tokenized or an ASCII listing.
+ *
+ * The `.cas` is told by its block marker rather than by the extension it
+ * arrived under, so a tape image dropped on the editor reads as one whichever
+ * way it is named.
+ */
+function importProgramImage(image: Uint8Array): DetokenizeResult {
+  if (!isCasImage(image)) return importBasFile(image);
+  const file = readTapeStream(casToTapeStream(image));
+  if (!file) {
+    return {
+      source: '',
+      warnings: [
+        'This .cas file holds no MSX tape file this dialect can read.',
+      ],
+    };
+  }
+  return readTapeFile(file);
+}

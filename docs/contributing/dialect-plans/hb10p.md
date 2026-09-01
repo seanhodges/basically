@@ -123,7 +123,7 @@ delegation rather than a fork.
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core (Z80 + VDP + slots)  | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
-| 4     | Transfer & tape I/O                | ⬜     |
+| 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
@@ -347,7 +347,7 @@ because the kaleidoscope sample cannot load without one.
 **Verify:** `npm run typecheck` + `npm test` (the app and e2e cannot see the
 machine yet — that is Stage 7's verify).
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
 MSX cassette is the Kansas City Standard at 1200 baud (a `0` bit is one cycle of
 1200 Hz, a `1` bit is two cycles of 2400 Hz), with a 2400 Hz leader; the BIOS
@@ -356,16 +356,38 @@ header then the tokenized program; `SAVE "cas:",A` writes ASCII. `.cas` files
 are the community container: the eight-byte block marker
 `1F A6 DE BA CC 13 7D 74` before each tape block.
 
-- [ ] `targets.ts` — `BuildTarget[]`: `.bas` (the tokenized file), `.cas` (tape
+The block layout was read off this ROM rather than off a web page, and it pays
+for itself: the writer at `0x7125` calls TAPOON, writes **ten** copies of the
+marker byte and **six** filename bytes, and the reader at `0x70B8` demands
+exactly that back. The data writer at `0x713E` then repeats the program area's
+last byte **seven** times, which is where the tail of zeros on a tokenized
+`.cas` comes from. TAPOUT at `0x1A19` writes a start bit, rotates eight data
+bits out LSB-first and calls the `1` writer **twice** — MSX frames 8N2, not the
+8N1 the rest of the Kansas City family uses, and decoding one as the other slips
+a bit every byte. The header tone is `HEADER × 256` cycles of 2400 Hz, four
+times that for a long header, and this ROM boots with `HEADER` (`0xF40A`) = 15:
+15360 cycles (6.4 s) before a file and 3840 (1.6 s) before its data.
+
+- [x] `targets.ts` — `BuildTarget[]`: `.bas` (the tokenized file), `.cas` (tape
       image), and the cassette `.wav` via `cassetteWavTarget`
-- [ ] `audio/cassette.ts` — `buildSamples` + `decodeSamples` over
+- [x] `audio/cassette.ts` — `buildSamples` + `decodeSamples` over
       `src/transfer/wav.ts`, plus `loadInstructions` (`CLOAD` then PLAY, or
       `RUN"CAS:"`) and `saveInstructions` (`CSAVE "NAME"`)
-- [ ] `binaryImports` — `.bas` and `.cas`, both readable by `detokenize()`
-- [ ] tests: cassette encode → decode round-trip; `.cas` block framing
+- [x] `binaryImports` — `.bas` and `.cas`, both readable by `detokenize()`.
+      A `.cas` is told by its block marker rather than by the extension it
+      arrived under, and an ASCII (`0xEA`) or BSAVE (`0xD0`) tape is reported
+      rather than pasted into the editor as garbage
+- [x] the modulation itself is **shared**, in `src/dialects/audio/kansasCity.ts`:
+      the BBC and the Atom carried a byte-identical copy of the half-cycle
+      writer and reader apiece, and MSX would have been the third. Only the
+      cycle counts and the stop-bit count differ, so those became a `KcsFraming`
+      and both existing dialects moved onto the shared module
+- [x] tests: cassette encode → decode round-trip (clean, and through noise, a
+      bad recording level and a fast tape); `.cas` block framing and alignment
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, `.bas` builder).
-**Verify:** audio round-trip test + import/export in the app.
+**Verify:** audio round-trip test + import/export through `importProgram`; the
+app itself cannot reach the dialect until it is registered in Stage 7.
 
 ## Stage 5 — Memory map & runtime introspection ⬜
 
