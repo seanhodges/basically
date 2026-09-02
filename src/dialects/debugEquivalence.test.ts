@@ -27,11 +27,19 @@
  * completion. Registry-driven, so a machine added later is covered the day it
  * declares a stepper.
  *
- * What it cannot see: a counter that reaches only the painted picture. The
- * PMD 85's blink attribute is driven off its frame count and read at
- * `renderTo`, which needs a canvas that the node environment does not have -
- * several machines paint through `document.createElement`. That half is pinned
- * against the one machine that has it, in `pmd85/emulator/pmd85Machine.test.ts`.
+ * The picture is in scope too, through the headless canvas in
+ * `headless/headlessCanvas`. It is worth checking separately from the cycle
+ * count because painting is not always on the path a cycle takes: the machines
+ * that hand the shared loop a `renderFrame` do it from `onSliceEnd`, and one
+ * that painted from its `runFrame` instead would keep perfect time and still
+ * show a frozen screen to anyone stepping it. So each window is fingerprinted
+ * either side and the two paths must agree on whether the picture moved.
+ *
+ * What that still cannot see is the *phase* of a counter that only the picture
+ * reads - the PMD 85's blink attribute divides its frame count, and a slice
+ * that advanced the count by the wrong amount would repaint either way. That
+ * needs a machine with a blink attribute to test against, so it stays pinned
+ * where the attribute is, in `pmd85/emulator/pmd85Machine.test.ts`.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
@@ -41,6 +49,10 @@ import {
   runFrames,
   runUntil,
 } from './bootHarness';
+import {
+  HeadlessCanvas,
+  installCanvasGlobals,
+} from './headless/headlessCanvas';
 import type { MachineEmulator } from './types';
 
 /** Booting the real ROMs dominates every case here (see c64Machine.test.ts). */
@@ -88,6 +100,28 @@ const AUDIO_TOLERANCE = 0.1;
  */
 const NO_DEBUG_PARITY: Record<string, string> = {};
 
+/**
+ * Machines whose picture is already still by the time the windows run, and why.
+ *
+ * The probe prints until the screen is full, and these ROMs stop when it is:
+ * the Spectrums and the SAM park at `scroll?` waiting for a key, and the ZX80
+ * gives up with report 5 at line 20. A still screen is the same picture at both
+ * ends of either window, so there is nothing for the two to disagree about -
+ * and naming them is better than a longer window, which cannot help when the
+ * machine is waiting for a key that never comes. The ZX81 is not among them:
+ * it is slow enough that a window ends mid-screen with the ROM still printing.
+ *
+ * The picture assertions read this both ways, so an entry cannot go stale
+ * quietly: a machine listed here that starts repainting fails just as one
+ * missing from it that stops.
+ */
+const STILL_SCREEN: Record<string, string> = {
+  zx80: 'stops with report 5 at line 20 once the screen is full',
+  zxspectrum: 'waits at the scroll? prompt once the screen is full',
+  zxspectrum128: 'waits at the scroll? prompt once the screen is full',
+  samcoupe: 'waits at the scroll? prompt once the screen is full',
+};
+
 /** Machines with no stepper at all sit this out; that is a different fact. */
 function steppable(machine: MachineEmulator): boolean {
   return typeof machine.debugStep === 'function';
@@ -117,6 +151,33 @@ interface Window {
   running: boolean | null;
   /** Whether it could still name the line it was on. */
   named: boolean;
+  /** Whether the picture at the end of the window differs from the one before it. */
+  repainted: boolean;
+  /** Distinct colours in the picture at the end - one is a blank screen. */
+  colours: number;
+}
+
+/**
+ * A digest of a painted frame, over every byte of it.
+ *
+ * Sampling a stride is the obvious economy and it is wrong here: the smallest
+ * change this has to see is one character, which on a 256x192 screen is eight
+ * runs of a few dozen bytes, and a stride wide enough to be worth taking misses
+ * it often enough to make the comparison a coin toss. The ZX81 found this - it
+ * is the slowest BASIC in the registry, so a window of it is a character or two
+ * rather than a scroll. Every byte of a frame is a few hundred thousand, four
+ * times per machine, which is nothing next to booting one.
+ */
+function fingerprint(rgba: Uint8ClampedArray): number {
+  let hash = 0;
+  for (let i = 0; i < rgba.length; i++) hash = (hash * 31 + rgba[i]!) | 0;
+  return hash;
+}
+
+/** Paint the machine's current frame into `canvas` and digest it. */
+function paint(machine: MachineEmulator, canvas: HeadlessCanvas): number {
+  machine.renderTo(canvas.renderContext);
+  return fingerprint(canvas.rgba);
 }
 
 /** Drain everything the machine accumulated, so a window starts from nothing. */
@@ -125,18 +186,30 @@ function drain(machine: MachineEmulator): void {
   machine.readAudio?.();
 }
 
-function measured(machine: MachineEmulator, cycles: number, samples: number) {
+function measured(
+  machine: MachineEmulator,
+  canvas: HeadlessCanvas,
+  cycles: number,
+  samples: number,
+  before: number,
+): Window {
   return {
     cycles,
     samples,
     running: machine.isProgramRunning(),
     named: machine.currentLine?.() !== null,
+    repainted: paint(machine, canvas) !== before,
+    colours: canvas.distinctColours(),
   };
 }
 
 /** A window of ordinary frames. */
-async function frameWindow(machine: MachineEmulator): Promise<Window> {
+async function frameWindow(
+  machine: MachineEmulator,
+  canvas: HeadlessCanvas,
+): Promise<Window> {
   drain(machine);
+  const before = paint(machine, canvas);
   let samples = 0;
   await runUntil(
     machine,
@@ -149,8 +222,10 @@ async function frameWindow(machine: MachineEmulator): Promise<Window> {
   const costs = machine.drainProfile?.() ?? [];
   return measured(
     machine,
+    canvas,
     costs.reduce((sum, c) => sum + c.cost, 0),
     samples,
+    before,
   );
 }
 
@@ -159,8 +234,12 @@ async function frameWindow(machine: MachineEmulator): Promise<Window> {
  * breakpoints and no line resumed from, so nothing ever pauses and each slice
  * is a whole frame's budget.
  */
-async function sliceWindow(machine: MachineEmulator): Promise<Window> {
+async function sliceWindow(
+  machine: MachineEmulator,
+  canvas: HeadlessCanvas,
+): Promise<Window> {
   drain(machine);
+  const before = paint(machine, canvas);
   let samples = 0;
   for (let i = 0; i < WINDOW; i++) {
     const step = machine.debugStep!({
@@ -179,17 +258,25 @@ async function sliceWindow(machine: MachineEmulator): Promise<Window> {
   const costs = machine.drainProfile?.() ?? [];
   return measured(
     machine,
+    canvas,
     costs.reduce((sum, c) => sum + c.cost, 0),
     samples,
+    before,
   );
 }
 
 describe('a debug slice advances a machine as a frame does', () => {
   let undoRomLoading: () => void;
+  let undoCanvas: () => void;
   beforeAll(() => {
     undoRomLoading = installNodeRomLoading();
+    // Six machines allocate their back canvas through `document.createElement`.
+    undoCanvas = installCanvasGlobals();
   });
-  afterAll(() => undoRomLoading());
+  afterAll(() => {
+    undoCanvas();
+    undoRomLoading();
+  });
 
   for (const dialect of dialects) {
     it(
@@ -215,8 +302,12 @@ describe('a debug slice advances a machine as a frame does', () => {
           await runFrames(machine, SETTLE_FRAMES);
           machine.setProfileRecording?.(true);
 
-          const frames = await frameWindow(machine);
-          const slices = await sliceWindow(machine);
+          const canvas = new HeadlessCanvas(
+            machine.displayWidth,
+            machine.displayHeight,
+          );
+          const frames = await frameWindow(machine, canvas);
+          const slices = await sliceWindow(machine, canvas);
 
           // Time, as the machine's own account of what it ran. The one figure
           // every profiled machine can be compared on, and the one that says
@@ -247,6 +338,33 @@ describe('a debug slice advances a machine as a frame does', () => {
             ).toBeLessThan(AUDIO_TOLERANCE);
           }
 
+          // The picture. The probe prints as it counts, so a machine keeping
+          // up repaints across either window - which makes "the slice window
+          // did not" a real answer rather than the only one available. It is
+          // reachable because the machines that buffer a frame hand back
+          // whatever they last painted: a slice path that never painted returns
+          // the frame window's picture unchanged, and says so here.
+          expect(
+            Math.min(frames.colours, slices.colours),
+            `${dialect.id} painted a blank frame, so the comparison below ` +
+              'would be between two screens with nothing on them',
+          ).toBeGreaterThan(1);
+          const still = dialect.id in STILL_SCREEN;
+          expect(
+            frames.repainted,
+            still
+              ? `${dialect.id} is listed as leaving its screen still, but it ` +
+                  'repainted over plain frames - drop it from STILL_SCREEN'
+              : `${dialect.id} drew the same picture across ${WINDOW} plain ` +
+                  'frames, so there is nothing here for a stepped run to ' +
+                  'differ from - give it an entry in STILL_SCREEN saying why',
+          ).toBe(!still);
+          expect(
+            slices.repainted,
+            `${dialect.id} repainted over ${WINDOW} frames but not over ` +
+              `${WINDOW} debug slices, so a stepped run shows a frozen screen`,
+          ).toBe(frames.repainted);
+
           // And the machine still answers the two questions the run loop asks
           // it every step, which a slice that fell out of its run would not.
           expect(slices.running).toBe(frames.running);
@@ -267,6 +385,12 @@ describe('a debug slice advances a machine as a frame does', () => {
     for (const id of Object.keys(NO_DEBUG_PARITY)) {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }
+    for (const id of Object.keys(STILL_SCREEN)) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+    // And the picture comparison reaches most of the registry rather than
+    // being excused across it.
+    expect(Object.keys(STILL_SCREEN).length).toBeLessThan(dialects.length / 2);
     expect(
       dialects.length - Object.keys(NO_DEBUG_PARITY).length,
     ).toBeGreaterThan(1);
