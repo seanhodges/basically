@@ -1308,3 +1308,46 @@
 .vk-theme-ge235 .vk-style-shift .vk-label {
   color: #ded8cf;
 }
+
+/* ---------------------------------------------------------------------------
+   MGT SAM Coupé keyboard theme: the black wedge the machine is, with pale grey
+   keycaps and the f0-f9 strip in the darker grey that sets it apart from the
+   letters. The SYMBOL legends are the red the machine prints them in, and the
+   CAPS ones white, so a keycap's ink says which shift reaches it; the CURSOR
+   overlay borrows the same red, the arrows being a mode rather than a cluster
+   of its own here. Activated by the layout's `theme: 'vk-theme-samcoupe'`. */
+.virtual-keyboard.vk-theme-samcoupe {
+  background: #141417;
+}
+
+.vk-theme-samcoupe .vk-keycap {
+  background: linear-gradient(#44464c, #303238);
+}
+
+.vk-theme-samcoupe .vk-style-fn .vk-keycap {
+  background: linear-gradient(#2c2e33, #202226);
+}
+
+.vk-theme-samcoupe .vk-style-fn .vk-label {
+  color: #cfd2d8;
+}
+
+.vk-theme-samcoupe .vk-layer-caps {
+  color: #e2e4e8;
+}
+
+.vk-theme-samcoupe .vk-layer-caps.vk-active {
+  color: #ffffff;
+}
+
+.vk-theme-samcoupe .vk-layer-symbols,
+.vk-theme-samcoupe .vk-layer-symbols2,
+.vk-theme-samcoupe .vk-layer-cursor {
+  color: #c8564a;
+}
+
+.vk-theme-samcoupe .vk-layer-symbols.vk-active,
+.vk-theme-samcoupe .vk-layer-symbols2.vk-active,
+.vk-theme-samcoupe .vk-layer-cursor.vk-active {
+  color: #ffd2cc;
+}

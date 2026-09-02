@@ -584,4 +584,46 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
       REL: '1',
     },
   },
+  {
+    id: 'samcoupe',
+    machines: ['MGT SAM Coupé'],
+    dialects: ['samcoupe'],
+    // Beta BASIC's line rather than Sinclair BASIC's, and the operators are
+    // where the two are closest: the value logic and the 1 for true are the
+    // Spectrum's, and `DIV` and `MOD` are Beta BASIC's additions - the bitwise
+    // pair being spelled BAND and BOR, which leaves AND and OR to pick a value
+    // as they do on the machine this one looks like.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2↑3',
+      '30 PRINT "ASSC";2↑3↑2',
+      '40 PRINT "UNMI";0-2↑2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "IDIV";7 DIV 2',
+      '110 PRINT "REMD";7 MOD 2',
+      '120 PRINT "REL";(1<=2)',
+      '130 PRINT "CAT";"A"+"B"',
+      '140 PRINT "ZZEND"',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '5',
+      ORV: '1',
+      NOTV: '0',
+      TRU: '1',
+      DIVV: '3.5',
+      IDIV: '3',
+      REMD: '1',
+      REL: '1',
+      CAT: 'AB',
+    },
+  },
 ];

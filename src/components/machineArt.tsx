@@ -122,6 +122,11 @@ const HITBIT_DECK = '#d6d4cd';
 const HITBIT_KEYS = '#4a4c52'; // VirtualKeyboard.css .vk-theme-hb10p
 const HITBIT_RED = '#c2372f'; // VirtualKeyboard.css .vk-theme-hb10p .vk-style-fn
 const HITBIT_SLOT = '#2b2c30';
+const SAM_CASE = '#141417'; // VirtualKeyboard.css .vk-theme-samcoupe
+const SAM_KEYS = '#44464c'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-keycap
+const SAM_FN = '#2c2e33'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-style-fn
+const SAM_RED = '#c8564a'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-layer-symbols
+const SAM_DRIVE = '#3a3c42';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
 const BASE = {
@@ -142,6 +147,7 @@ const BASE = {
   apple2: '#9a8c6f',
   atari: '#a89878',
   hitbit: '#bab8b1',
+  sam: '#0b0b0d',
   teletype: '#5e5a51',
 };
 
@@ -899,6 +905,53 @@ function Ge235Art({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   MGT */
+
+/**
+ * The SAM Coupé: a black wedge with the two 3.5" drive bays across its right
+ * shoulder - fitted or blanked, they are the shape the case is built around -
+ * and a full-travel keyboard whose f0-f9 strip runs above the letters.
+ */
+function SamCoupeArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.sam} />
+      <path d="M3 11h42v13H3z" fill={SAM_CASE} />
+      {/* The raised back, where the drive bays sit. */}
+      <path d="M5 6h38v5H5z" fill={SAM_CASE} />
+      <rect x="26" y="7.2" width="7.5" height="2.6" fill={SAM_DRIVE} />
+      <rect x="35" y="7.2" width="7.5" height="2.6" fill={SAM_DRIVE} />
+      {/* The badge, the one colour on an otherwise black machine. */}
+      <rect x="6" y="7.6" width="6" height="1.8" fill={SAM_RED} />
+      {/* f0-f9 above the letters, then three rows of keys. */}
+      {Array.from({ length: 10 }, (_, i) => (
+        <rect
+          key={`f${i}`}
+          x={6 + i * 3.5}
+          y="12.2"
+          width="2.8"
+          height="1.5"
+          fill={SAM_FN}
+        />
+      ))}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 12 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={6 + c * 2.9}
+            y={14.8 + r * 2.3}
+            width="2.3"
+            height="1.8"
+            fill={SAM_KEYS}
+          />
+        )),
+      )}
+      <rect x="14" y="21.7" width="17" height="1.5" fill={SAM_KEYS} />
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -926,6 +979,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   atari800: Atari800Art,
   atari400: Atari400Art,
   hb10p: Hb10pArt,
+  samcoupe: SamCoupeArt,
   ge235: Ge235Art,
 };
 

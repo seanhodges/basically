@@ -208,6 +208,17 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
     ],
     escapes: [],
   },
+  // The Spectrum's two commands and the Spectrum's embedded pair, on a screen
+  // whose nine-scanline cell makes the reachable rows 0 to 18 rather than 0 to
+  // 21 - the bottom two rows being the input window.
+  samcoupe: {
+    origin: 0,
+    commands: SINCLAIR_COMMANDS,
+    escapes: [
+      { keyword: 'AT', kind: 'row-column' },
+      { keyword: 'TAB', kind: 'column' },
+    ],
+  },
 };
 
 /** How `dialectId` states print positions, or undefined where it states none. */

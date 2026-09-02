@@ -173,6 +173,11 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // 64 codes are letters, digits, punctuation and six controls, which
   // charset.ts asserts outright.
   ge235: [],
+  // The sixteen block-graphic cells and the twenty-five user-defined graphics
+  // after them, as `samcoupe/charset.ts` maps them: 0x80-0x8F are the quadrant
+  // mosaics `POUDG` builds, and 0x90-0xA8 the UDGs the ROM's 328 bytes of UDG
+  // RAM holds.
+  samcoupe: [...range(0x80, 0x8f), ...range(0x90, 0xa8)],
 };
 
 /** Classify one byte from its canonical text form. */

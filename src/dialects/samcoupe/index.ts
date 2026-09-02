@@ -27,15 +27,17 @@ import { ROM_BYTES } from './emulator/memory';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
 
 /**
- * The SAM Coupé. Not registered yet, so nothing in the app can reach it; the
- * members below are filled in as each part of the machine is built.
+ * The SAM Coupé: MGT's 1989 Z80 machine, running Andy Wright's SAM BASIC.
  *
- * The picker identity - the blurb especially - is written for its reader when
- * the dialect joins the registry.
+ * It looks like a Spectrum and is not one. The hardware compatibility is real -
+ * MODE 1 is the Spectrum's screen byte for byte, and the tape scheme is the
+ * Spectrum's with a different first byte - but SAM BASIC is a Beta BASIC
+ * descendant with its own token table, its own line format and a paged 256K
+ * address space, which is why nothing here delegates to `zxspectrum`.
  */
 export const samcoupe: Dialect = {
   id: 'samcoupe',
-  name: 'Coupé',
+  name: 'SAM Coupé',
   manufacturer: 'MGT',
   year: 1989,
   basicDialect: 'SAM BASIC',

@@ -124,6 +124,12 @@ const ROM_NAME_FACTS: Record<
   // constants the compiler floats as it reads them - never expressions, so its
   // text is verbatim.
   ge235: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  // Nothing truncates: `NAMTOBUF` stores a name in full and compares all of
+  // it, so `SCORE` and `SCALE` are two variables. It folds the name to lower
+  // case as it stores it, so `Score` and `score` are one. DATA holds
+  // expressions the READ evaluates, as on the Sinclair machines this BASIC
+  // descends from, rather than the text between the commas.
+  samcoupe: { significant: 'all', case: 'folded', dataItems: 'evaluated' },
 };
 
 describe('name facts are stated per machine', () => {

@@ -39,6 +39,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'setcolor', dialectId: 'atari400' }, // SETCOLOR - Atari BASIC's palette command
   { verb: 'vpoke', dialectId: 'hb10p' }, // VPOKE - MSX BASIC's write-to-video-RAM command
   { verb: 'let', dialectId: 'ge235' }, // LET - Dartmouth BASIC required it on every assignment
+  { verb: 'palette', dialectId: 'samcoupe' }, // PALETTE - SAM BASIC's CLUT command
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).

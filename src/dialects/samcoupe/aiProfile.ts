@@ -14,6 +14,7 @@ export const samcoupeAiProfile: AiProfile = composeAiProfile({
         'The structured keywords are what makes a listing read as SAM rather than Spectrum, and are the idiomatic way to write here: DO / LOOP (WHILE or UNTIL on either end), EXIT IF, block IF with END IF and ELSE, DEF PROC / END PROC called by writing the name, LABEL for a named jump target. Reach for them before GO TO.',
         'A numeric name may be 32 characters long and a string or array name 10 (not counting the $ or the bracket); `_` is a name character.',
         'Numbers may be written in hex with & (&FE00). PEEK and POKE take one byte, DPEEK and DPOKE a two-byte little-endian word.',
+        'AND and OR pick a value rather than combining bits, as on the Spectrum: 5 AND 3 is 5 and 5 OR 3 is 1. BAND and BOR are the bitwise pair and there is no exclusive-OR keyword; DIV and MOD are integer division and remainder, and a true comparison is 1.',
         "CALL address runs machine code, and USR address does too (returning the BC it leaves); this IDE injects code blocks the program can CALL. The screen is NOT in the Z80's 64K window, so a routine that draws has to page it in.",
       ],
     },

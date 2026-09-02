@@ -116,6 +116,7 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
   ['apple2', null],
   ['atari800', null],
   ['hb10p', 64],
+  ['samcoupe', 64],
 ];
 
 /** Machines whose tables are proved elsewhere, and by what. */
@@ -160,6 +161,10 @@ describe('every SYM cell types its own character on the machine', () => {
         dialect,
         ramKb === null ? {} : { ramKb: ramKb as 16 | 32 | 64 },
       );
+      // The SAM holds at a sign-on screen until a key is pressed, exactly as
+      // the real machine does; its emulator's own boot answers that.
+      const boot = (machine as { bootToReady?: () => void }).bootToReady;
+      if (typeof boot === 'function') boot.call(machine);
       await runFrames(machine, 300);
 
       for (const cell of cells) {

@@ -958,16 +958,22 @@ export const escapeGuidance: EscapeGuidance[] = [
     support: 'full',
     instead: RESPELL_HEX,
   },
-  // The one class only the 128 can be asked about: 0xA3 and 0xA4 are UDGs T and
-  // U on a 48K and the SPECTRUM and PLAY tokens here, so the port between the
-  // two Spectrums loses exactly two graphics. No other machine has UDG codes to
-  // lose into this one.
+  // The UDG banks are three different sizes, so a port between them loses
+  // whatever the target has not got: A-U on a 48K, A-S on a 128 (0xA3 and 0xA4
+  // being the SPECTRUM and PLAY tokens there), A-Y on a SAM.
+  {
+    to: 'zxspectrum',
+    class: 'user-defined-graphics',
+    support: 'partial',
+    instead:
+      'UDGs A-U carry over unchanged, but V-Y do not exist here - the bank stops at 0xA4. Redraw those four shapes from A-U, or build them from the block graphics.',
+  },
   {
     to: 'zxspectrum128',
     class: 'user-defined-graphics',
     support: 'partial',
     instead:
-      'UDGs A-S carry over unchanged, but T and U do not exist here: 0xA3 and 0xA4 are the SPECTRUM and PLAY tokens. Redraw those two shapes from A-S.',
+      'UDGs A-S carry over unchanged; T and U are the SPECTRUM and PLAY tokens here, and V-Y do not exist at all. Redraw those shapes from A-S.',
   },
 
   // --------------------------------------------------------------- pmd85 --
@@ -1823,5 +1829,127 @@ export const escapeGuidance: EscapeGuidance[] = [
     support: 'full',
     instead:
       'Respell the code as {0oNN} - two octal digits, because the characters are six bits and this machine is octal throughout.',
+  },
+
+  // ------------------------------------------------------------- samcoupe --
+  // A bitmap screen with real colour, and a string that carries its own print
+  // controls: the SAM answers most of these under its own `{PEN n}`-style
+  // directives rather than under the class the source filed them as.
+  {
+    to: 'samcoupe',
+    class: 'colour',
+    support: 'partial',
+    instead:
+      'Colour goes in the string as {PEN n} and {PAPER n}, which name palette slots rather than fixed colours - so set the slot with PALETTE first if the shade matters.',
+    example: {
+      caption: 'Colour travels in the string',
+      code: ['10 PALETTE 2,72', '20 PRINT "{PEN 2}WARNING"'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'cursor',
+    support: 'partial',
+    instead:
+      'No cursor codes: {AT r,c} and {TAB n} are the only positioning a string carries, and both are absolute. A code that moved the cursor by one becomes an AT at the place it would have reached.',
+    example: {
+      caption: 'Position absolutely with AT',
+      code: ['10 PRINT "{AT 5,10}HERE"'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'editing',
+    support: 'none',
+    instead:
+      'Nothing clears or deletes from inside a string. CLS clears the screen, CLS # the current window, and a line is rubbed out by printing spaces over it with {AT r,c}.',
+    example: {
+      caption: 'Clear with a statement, not a code',
+      code: ['10 CLS', '20 PRINT AT 3,0;"          "'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'No character-set or screen-mode code inside a string: MODE 1-4 chooses the screen and clears it, CSIZE the cell, and BLOCKS switches 128-143 between blocks and UDG shapes.',
+    example: {
+      caption: 'The mode is a statement of its own',
+      code: ['10 MODE 4', '20 CSIZE 8,8'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'screen-effect',
+    support: 'partial',
+    instead:
+      '{OVER n} and {INVERSE n} are the two effects a string carries; a scroll or a window change is a statement - ROLL, SCROLL and WINDOW - rather than a code.',
+    example: {
+      caption: 'Combine with what is already there',
+      code: ['10 PRINT "{OVER 1}=="'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No function-key codes in a string: the SAM programs its keys with DEF KEYCODE and KEYIN, which run BASIC rather than putting a byte in the input.',
+  },
+  {
+    to: 'samcoupe',
+    class: 'block-graphics',
+    support: 'partial',
+    instead:
+      'The sixteen 2x2 quadrant blocks are 128-143, written as their own glyphs - so a 2x2 shape carries over and a 2x3 or teletext one has to be redrawn on the coarser grid, or plotted.',
+    example: {
+      caption: 'The blocks are ordinary characters',
+      code: ['10 PRINT "▘▝▖▗"'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'inverse-video',
+    support: 'partial',
+    instead:
+      'No inverse characters: {INVERSE 1} swaps pen and paper for what follows and {INVERSE 0} puts them back, so bracket the run rather than reversing each character.',
+    example: {
+      caption: 'Inverse is a run, not a character',
+      code: ['10 PRINT "{INVERSE 1}SCORE{INVERSE 0}"'],
+    },
+  },
+  {
+    to: 'samcoupe',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No run-length codes: a run of blanks is written out, or printed with TAB - {TAB n} moves the print position rather than storing the spaces.',
+  },
+  {
+    to: 'samcoupe',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'samcoupe',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'A lone backslash opens a UDG escape, so write \\\\ for the literal one the SAM really has at 0x5C. A second space character becomes an ordinary space.',
+  },
+  {
+    to: 'samcoupe',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'The directives are {PEN n}, {PAPER n}, {FLASH n}, {BRIGHT n}, {INVERSE n}, {OVER n}, {AT r,c} and {TAB n} - match the effect to one of those, or drop it. {INK n} is read as {PEN n}.',
+  },
+  {
+    to: 'samcoupe',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
   },
 ];

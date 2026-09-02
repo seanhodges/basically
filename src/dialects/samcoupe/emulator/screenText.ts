@@ -4,7 +4,7 @@ import {
   type GlyphSignatures,
 } from '../../../emulator/fontMatcher';
 import type { MachineScreenText } from '../../types';
-import { samcoupeCharset } from '../charset';
+import { plainChar } from '../charset';
 
 /**
  * Recovering the SAM's screen as characters.
@@ -160,7 +160,11 @@ export function readSamcoupeScreenText(opts: {
     cols,
     rows,
     cellMask,
-    charFor: (code) => samcoupeCharset.glyph(code) ?? ' ',
+    // The plain character rather than the source spelling: the seam wants one
+    // code point per column, and 0x5C's spelling is the two-character escape
+    // `\\` - which read back as a space, so a screen with a backslash on it
+    // reported one that was not there.
+    charFor: (code) => plainChar(code) ?? ' ',
   });
   return { lines, cols, rows };
 }

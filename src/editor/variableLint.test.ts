@@ -317,6 +317,11 @@ const NO_NAME_RULE: Record<string, string> = {
   // of the seven words that may follow an expression - needs a name written
   // for it rather than `UNSTORABLE`.
   apple2: 'names are fully significant',
+  // SAM BASIC keeps every character of a name too; its own restriction is a
+  // length ceiling per type - 32 characters for a numeric name and 10 for a
+  // string or array one - which `UNSTORABLE` is well inside. The ceilings are
+  // exercised by the samcoupeVariableErrors cases above.
+  samcoupe: 'names are fully significant',
 };
 
 /**

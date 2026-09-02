@@ -53,6 +53,7 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   // and the paper tape the Teletype punched is the listing rather than a file
   // the language could open.
   ge235: 'the language has no file statement, so nothing reaches the store',
+  samcoupe: 'no file-I/O trap, so nothing reaches the store',
 };
 
 /** The payload every case below unwraps to, so a partial split is visible. */

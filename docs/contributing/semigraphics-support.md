@@ -58,6 +58,7 @@ reported as such rather than guessed at.
 | Atari 400 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 | HB-10P | — | 29 (0xC0-0xD7, 0xDB-0xDF) | 29 | 13 | 0 | 0 | 29/29 |
 | GE-235 | — | _none_ | — | — | — | — | — |
+| SAM Coupé | — | 41 (0x80-0xA8) | 40 | 25 | 0 | 1 | 40/41 |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -274,20 +275,30 @@ it can display is an ordinary character; see the citation beside its
 entry in src/dialects/semigraphicsAudit.ts for how that was
 established.
 
+### SAM Coupé
+
+Charset family `samcoupe`. Graphics bytes 0x80-0xA8.
+
+Spelled as: 1 escape-raw, 25 glyph-astral, 15 glyph-bmp.
+
+**Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
+
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
+
 ## Characters the machines need
 
-319 distinct non-ASCII codepoints, 126 of them astral.
+323 distinct non-ASCII codepoints, 130 of them astral.
 This is the exact set the bundled character-graphics font is subset to.
 
 | Codepoint | Character | Plane | Used by |
 | --- | :-: | --- | --- |
 | `U+00A1` | ¡ | BMP | cpc464, cpc6128, cpc664, hb10p |
 | `U+00A2` | ¢ | BMP | hb10p |
-| `U+00A3` | £ | BMP | bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+00A3` | £ | BMP | bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+00A5` | ¥ | BMP | hb10p |
 | `U+00A7` | § | BMP | cpc464, cpc6128, cpc664, hb10p |
 | `U+00A8` | ¨ | BMP | cpc464, cpc6128, cpc664 |
-| `U+00A9` | © | BMP | cpc464, cpc6128, cpc664, zxspectrum, zxspectrum128 |
+| `U+00A9` | © | BMP | cpc464, cpc6128, cpc664, samcoupe, zxspectrum, zxspectrum128 |
 | `U+00AA` | ª | BMP | hb10p |
 | `U+00AB` | « | BMP | hb10p |
 | `U+00AC` | ¬ | BMP | cpc464, cpc6128, cpc664, hb10p |
@@ -378,7 +389,7 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+207F` | ⁿ | BMP | hb10p |
 | `U+20A7` | ₧ | BMP | hb10p |
 | `U+2190` | ← | BMP | commodore64, pet, vic20 |
-| `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, cpc664, ge235, pet, vic20, zxspectrum, zxspectrum128 |
+| `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, cpc664, ge235, pet, samcoupe, vic20, zxspectrum, zxspectrum128 |
 | `U+2208` | ∈ | BMP | hb10p |
 | `U+2219` | ∙ | BMP | hb10p |
 | `U+221A` | √ | BMP | hb10p |
@@ -419,32 +430,32 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+2575` | ╵ | BMP | cpc464, cpc6128, cpc664 |
 | `U+2576` | ╶ | BMP | cpc464, cpc6128, cpc664 |
 | `U+2577` | ╷ | BMP | cpc464, cpc6128, cpc664 |
-| `U+2580` | ▀ | BMP | cpc464, cpc6128, cpc664, hb10p, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2580` | ▀ | BMP | cpc464, cpc6128, cpc664, hb10p, samcoupe, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2581` | ▁ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
 | `U+2582` | ▂ | BMP | atari400, atari800, commodore64, hb10p, pet, vic20 |
 | `U+2583` | ▃ | BMP | commodore64, pet, vic20 |
-| `U+2584` | ▄ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2584` | ▄ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2586` | ▆ | BMP | hb10p |
-| `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, cpc664, hb10p, pmd85, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, cpc664, hb10p, pmd85, samcoupe, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258A` | ▊ | BMP | hb10p |
-| `U+258C` | ▌ | BMP | atari400, atari800, atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+258C` | ▌ | BMP | atari400, atari800, atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258D` | ▍ | BMP | commodore64, pet, vic20 |
 | `U+258E` | ▎ | BMP | atari400, atari800, commodore64, hb10p, pet, vic20 |
 | `U+258F` | ▏ | BMP | cpc464, cpc6128, cpc664 |
-| `U+2590` | ▐ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, cpc664, hb10p, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2590` | ▐ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, cpc664, hb10p, samcoupe, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2592` | ▒ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20, zx80, zx81 |
 | `U+2594` | ▔ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
 | `U+2595` | ▕ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20 |
-| `U+2596` | ▖ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2597` | ▗ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2598` | ▘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2599` | ▙ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259A` | ▚ | BMP | commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259B` | ▛ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259C` | ▜ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259D` | ▝ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259E` | ▞ | BMP | cpc464, cpc6128, cpc664, hb10p, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+259F` | ▟ | BMP | cpc464, cpc6128, cpc664, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2596` | ▖ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2597` | ▗ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2598` | ▘ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2599` | ▙ | BMP | cpc464, cpc6128, cpc664, samcoupe, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259A` | ▚ | BMP | commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259B` | ▛ | BMP | cpc464, cpc6128, cpc664, samcoupe, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259C` | ▜ | BMP | cpc464, cpc6128, cpc664, samcoupe, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259D` | ▝ | BMP | atari400, atari800, commodore64, cpc464, cpc6128, cpc664, hb10p, pet, samcoupe, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259E` | ▞ | BMP | cpc464, cpc6128, cpc664, hb10p, samcoupe, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+259F` | ▟ | BMP | cpc464, cpc6128, cpc664, samcoupe, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+25A0` | ■ | BMP | cpc464, cpc6128, cpc664, hb10p |
 | `U+25A1` | □ | BMP | cpc464, cpc6128, cpc664 |
 | `U+25AC` | ▬ | BMP | hb10p |
@@ -474,27 +485,31 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+2B61` | ⭡ | BMP | cpc464, cpc6128, cpc664 |
 | `U+2B62` | ⭢ | BMP | cpc464, cpc6128, cpc664 |
 | `U+2B63` | ⭣ | BMP | cpc464, cpc6128, cpc664 |
-| `U+1F130` | 🄰 | astral | zxspectrum, zxspectrum128 |
-| `U+1F131` | 🄱 | astral | zxspectrum, zxspectrum128 |
-| `U+1F132` | 🄲 | astral | zxspectrum, zxspectrum128 |
-| `U+1F133` | 🄳 | astral | zxspectrum, zxspectrum128 |
-| `U+1F134` | 🄴 | astral | zxspectrum, zxspectrum128 |
-| `U+1F135` | 🄵 | astral | zxspectrum, zxspectrum128 |
-| `U+1F136` | 🄶 | astral | zxspectrum, zxspectrum128 |
-| `U+1F137` | 🄷 | astral | zxspectrum, zxspectrum128 |
-| `U+1F138` | 🄸 | astral | zxspectrum, zxspectrum128 |
-| `U+1F139` | 🄹 | astral | zxspectrum, zxspectrum128 |
-| `U+1F13A` | 🄺 | astral | zxspectrum, zxspectrum128 |
-| `U+1F13B` | 🄻 | astral | zxspectrum, zxspectrum128 |
-| `U+1F13C` | 🄼 | astral | zxspectrum, zxspectrum128 |
-| `U+1F13D` | 🄽 | astral | zxspectrum, zxspectrum128 |
-| `U+1F13E` | 🄾 | astral | zxspectrum, zxspectrum128 |
-| `U+1F13F` | 🄿 | astral | zxspectrum, zxspectrum128 |
-| `U+1F140` | 🅀 | astral | zxspectrum, zxspectrum128 |
-| `U+1F141` | 🅁 | astral | zxspectrum, zxspectrum128 |
-| `U+1F142` | 🅂 | astral | zxspectrum, zxspectrum128 |
-| `U+1F143` | 🅃 | astral | zxspectrum, zxspectrum128 |
-| `U+1F144` | 🅄 | astral | zxspectrum, zxspectrum128 |
+| `U+1F130` | 🄰 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F131` | 🄱 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F132` | 🄲 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F133` | 🄳 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F134` | 🄴 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F135` | 🄵 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F136` | 🄶 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F137` | 🄷 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F138` | 🄸 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F139` | 🄹 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F13A` | 🄺 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F13B` | 🄻 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F13C` | 🄼 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F13D` | 🄽 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F13E` | 🄾 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F13F` | 🄿 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F140` | 🅀 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F141` | 🅁 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F142` | 🅂 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F143` | 🅃 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F144` | 🅄 | astral | samcoupe, zxspectrum, zxspectrum128 |
+| `U+1F145` | 🅅 | astral | samcoupe |
+| `U+1F146` | 🅆 | astral | samcoupe |
+| `U+1F147` | 🅇 | astral | samcoupe |
+| `U+1F148` | 🅈 | astral | samcoupe |
 | `U+1FB00` | 🬀 | astral | atom, bbcmaster, bbcmicro, trs80 |
 | `U+1FB01` | 🬁 | astral | atom, bbcmaster, bbcmicro, trs80 |
 | `U+1FB02` | 🬂 | astral | atom, bbcmaster, bbcmicro, trs80 |

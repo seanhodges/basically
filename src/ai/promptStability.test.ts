@@ -81,6 +81,11 @@ const PROMPT_CEILINGS: Record<string, number> = {
   // and being short in all thirteen capability domains makes a long section
   // about what to do instead.
   ge235: 32_000,
+  // Second only to the MSX, and for the same reason: SAM BASIC's table is
+  // around a hundred and eighty rows, Beta BASIC's structured keywords and the
+  // machine's screen, palette, sound and disk vocabulary on top of a Sinclair
+  // core.
+  samcoupe: 50_000,
 };
 
 /**

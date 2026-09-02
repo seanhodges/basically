@@ -298,7 +298,7 @@
       "file": "basically-graphics-extra.woff2",
       "source": "unscii-16-full",
       "license": "GPL-2.0-or-later",
-      "unicodeRange": "U+2208, U+2219, U+223D, U+2300, U+2310, U+231C-231F, U+263C, U+2B60-2B63, U+1F130-1F144",
+      "unicodeRange": "U+2208, U+2219, U+223D, U+2300, U+2310, U+231C-231F, U+263C, U+2B60-2B63, U+1F130-1F148",
       "codepoints": [
         "2208",
         "2219",
@@ -334,7 +334,11 @@
         "1F141",
         "1F142",
         "1F143",
-        "1F144"
+        "1F144",
+        "1F145",
+        "1F146",
+        "1F147",
+        "1F148"
       ]
     }
   ]

@@ -72,6 +72,17 @@ function cursorLegend(
   throw new Error(`${dialect.id} has no ${arrow} cursor legend`);
 }
 
+/**
+ * Reach the machine's editor. Most of these are at their prompt after a second
+ * of emulated time; the SAM holds at its sign-on screen until a key is pressed,
+ * exactly as the real machine does, and its emulator's own boot answers that.
+ */
+async function reachPrompt(machine: MachineEmulator): Promise<void> {
+  const boot = (machine as { bootToReady?: () => void }).bootToReady;
+  if (typeof boot === 'function') boot.call(machine);
+  await runFrames(machine, 300);
+}
+
 const count = (haystack: string, ch: string): number =>
   haystack.toUpperCase().split(ch).length - 1;
 
@@ -87,6 +98,7 @@ const MOVES: [string, 16 | 32 | 64, string, string][] = [
   ['pmd85', 64, 'KeyA', 'KeyB'],
   ['atari800', 16, 'A', 'B'],
   ['hb10p', 64, 'A', 'B'],
+  ['samcoupe', 64, 'KeyA', 'KeyB'],
 ];
 
 describe("the on-screen cursor keys move the machine's own cursor", () => {
@@ -94,7 +106,7 @@ describe("the on-screen cursor keys move the machine's own cursor", () => {
     it(`${id} takes the cursor back over what was typed`, async () => {
       const dialect = getDialect(id)!;
       const machine = await bootMachine(dialect, { ramKb });
-      await runFrames(machine, 300);
+      await reachPrompt(machine);
 
       await tap(machine, [letterA]);
       await tap(machine, [letterA]);
@@ -177,6 +189,10 @@ const CLAIMED: Record<string, string[]> = {
   /** The MSX bus in src/emulator/msx/ over the same vendored Z80 core: slots,
    *  a VDP and a PPI-scanned matrix, none of which the machines above have. */
   hb10p: ['hb10p'],
+  /** The SAM's own paged bus and ASIC in src/dialects/samcoupe/emulator/,
+   *  over the same vendored Z80 core: four page registers, a video chip that
+   *  fetches from a RAM page, and a matrix of its own. */
+  samcoupe: ['samcoupe'],
 };
 
 /** Machines neither battery can reach, and why. */

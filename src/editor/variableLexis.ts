@@ -141,9 +141,6 @@ export const MSX_LEXIS: VariableLexis = {
  * are not a name. Names are fully significant, so nothing truncates - a string
  * or array name longer than ten characters is rejected outright rather than
  * shortened, which is a lint rule and not a lexis one.
- *
- * Not in {@link VARIABLE_LEXIS}: that table names exactly the registered
- * machines, and this one is not registered yet.
  */
 export const SAMCOUPE_LEXIS: VariableLexis = {
   nameChars: '_',
@@ -235,6 +232,7 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   atari800: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
   atari400: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
   hb10p: MSX_LEXIS,
+  samcoupe: SAMCOUPE_LEXIS,
 };
 
 /**

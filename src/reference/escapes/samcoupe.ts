@@ -1,8 +1,7 @@
 // Escape-code table for the SAM BASIC escapes page.
-// Hand-authored rather than scaffolded: the escape scaffolder is driven by
-// src/dialects/charsetProbes.ts, which names only registered dialects. Grounded
-// in src/dialects/samcoupe/charset.ts and its graphics table, and pinned against
-// them by escapes/escape-crosscheck.test.ts once the machine registers.
+// Hand-authored rather than scaffolded, and grounded in
+// src/dialects/samcoupe/charset.ts and its graphics table; pinned against them
+// by escapes/escape-crosscheck.test.ts.
 //
 // The SAM's own font covers 0x20-0x7F with a real glyph for every code, and
 // 0x80-0xA8 are the block graphics and the twenty-five user-defined characters,

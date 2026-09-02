@@ -70,6 +70,9 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx80: 'GOTO',
       zx81: 'GOTO',
       ...sameFor(SPECTRUMS, 'GO TO'),
+      // Beta BASIC's spelling is the Spectrum's, two words - GOTO is not a
+      // keyword on this machine at all.
+      samcoupe: 'GO TO',
     },
   },
   {
@@ -91,6 +94,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx80: 'GOSUB',
       zx81: 'GOSUB',
       ...sameFor(SPECTRUMS, 'GO SUB'),
+      samcoupe: 'GO SUB',
     },
   },
   {
@@ -108,6 +112,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx81: 'CONT',
       zx80: 'CONTINUE',
       ...sameFor(SPECTRUMS, 'CONTINUE'),
+      samcoupe: 'CONTINUE',
     },
   },
   {
@@ -129,6 +134,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx80: 'CLEAR',
       zx81: 'CLEAR',
       ...sameFor(SPECTRUMS, 'CLEAR'),
+      samcoupe: 'CLEAR',
     },
   },
   {
@@ -145,6 +151,9 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(BBCS, 'CALL'),
       ...sameFor(COMMODORES, 'SYS'),
       ...sameFor(CPCS, 'CALL'),
+      // The one Sinclair-looking machine with a command for it: CALL runs code
+      // at an address, and USR does so too rather than instead.
+      samcoupe: 'CALL',
     },
   },
   {
@@ -155,6 +164,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx80: 'RANDOMISE',
       zx81: 'RAND',
       ...sameFor(SPECTRUMS, 'RANDOMIZE'),
+      samcoupe: 'RANDOMIZE',
     },
   },
 ];
@@ -193,6 +203,8 @@ export const falseFriends: FalseFriend[] = [
         SPECTRUMS,
         'Picks a value, not bits: a AND b is a when b is non-zero and 0 otherwise, so 5 AND 3 is 5.',
       ),
+      samcoupe:
+        'Picks a value as the Spectrum does, so 5 AND 3 is 5. BAND is the bitwise one here, and gives 1.',
     },
   },
   {
@@ -222,6 +234,8 @@ export const falseFriends: FalseFriend[] = [
         SPECTRUMS,
         'Picks a value, not bits: a OR b is 1 when b is non-zero and a otherwise, so 5 OR 3 is 1.',
       ),
+      samcoupe:
+        'Picks a value as the Spectrum does, so 5 OR 3 is 1. BOR is the bitwise one here, and gives 7.',
     },
   },
   {
@@ -267,6 +281,7 @@ export const falseFriends: FalseFriend[] = [
         SPECTRUMS,
         'Discards all variables, leaving the program intact.',
       ),
+      samcoupe: 'Discards all variables, leaving the program intact.',
     },
   },
   {
@@ -294,6 +309,8 @@ export const falseFriends: FalseFriend[] = [
         'Nothing to do with the keyboard either: it reads a record from a random-access file into its field buffer. INKEY$ is the key read here.',
       trs80:
         'Nothing to do with the keyboard: it reads a record from a random-access file into its buffer (Disk BASIC).',
+      samcoupe:
+        'Waits for a key press and puts it in the variable it names, so a loop that must keep moving reads INKEY$ instead.',
     },
   },
   {
@@ -321,6 +338,8 @@ export const falseFriends: FalseFriend[] = [
     meanings: {
       atom: 'Closes a DO loop.',
       ...sameFor(BBCS, 'Closes a REPEAT loop.'),
+      samcoupe:
+        'A clause rather than a statement: it goes on either end of a DO loop, so DO UNTIL tests before the body and LOOP UNTIL after it.',
     },
   },
   {
@@ -359,6 +378,8 @@ export const falseFriends: FalseFriend[] = [
         SPECTRUMS,
         'The argument is the address: it calls machine code there and returns the BC register pair — unless it is a single-letter string, which gives that user-defined graphic’s address instead.',
       ),
+      samcoupe:
+        'The argument is the address: it calls machine code there and returns the BC register pair. CALL runs a routine here too, and is the ordinary way to reach one.',
     },
   },
   {

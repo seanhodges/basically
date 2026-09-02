@@ -1851,6 +1851,110 @@ const entries: PortingFactsEntry[] = [
       'Nothing writes memory: there is no PEEK, no POKE and no USR.',
     addressNotation: 'dec',
   },
+  {
+    id: 'samcoupe',
+    basicDialect: 'SAM BASIC',
+    portingNotes: [
+      {
+        text: 'There is no implied LET: a bare A=1 opens a call to a procedure named A, so every assignment needs LET.',
+        topics: ['statement-layout'],
+      },
+      {
+        text: 'The structured keywords are the idiom here - DO/LOOP with WHILE or UNTIL on either end, EXIT IF, block IF with END IF, DEF PROC/END PROC called by name, LABEL for a named jump - so most GO TOs can go.',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'AND and OR pick a value as the Spectrum’s do rather than combining bits; BAND and BOR are the bitwise pair, and there is no exclusive-OR keyword at all.',
+        topics: ['numbers'],
+      },
+      {
+        text: 'MODE chooses one of four screens and clears it, and the boot cell is nine scanlines tall, so the text grid is 32×21 with the bottom two rows the input window PRINT AT cannot reach.',
+        topics: ['text-screen'],
+      },
+      {
+        text: 'The graphics origin is the bottom left, y runs 0 to 173, and DRAW is relative to the graphics position rather than to a coordinate - so a line starts with PLOT.',
+        topics: ['graphics'],
+      },
+      {
+        text: 'The screen is not in the Z80’s 64K window: PEEK and POKE cannot reach it, and a machine-code routine that draws has to page it in.',
+        topics: ['memory'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'REPEAT',
+        note: 'DO … LOOP UNTIL condition is the same loop, and DO UNTIL puts the test at the top.',
+      },
+      {
+        keyword: 'CLR',
+        note: 'CLEAR discards the variables here, as on the Sinclair machines.',
+      },
+      {
+        keyword: 'SYS',
+        note: 'CALL address runs machine code; USR address does too and returns the BC it leaves.',
+      },
+      {
+        keyword: 'LOCATE',
+        note: 'PRINT AT line,column, counted from zero and row first - and only rows 0 to 18 are reachable.',
+      },
+      {
+        keyword: 'INK',
+        note: 'PEN slot sets the foreground colour. INK is accepted as a spelling of it and lists back as PEN.',
+      },
+    ],
+    lineNumberRange: '1–65279',
+    lineNumbers: { min: 1, max: 65279 },
+    statementSeparator: ':',
+    elseSupported: true,
+    letRequired: 'required',
+    // Keywords are typed in full and matched as whole words; there is no dot
+    // notation and no shifted-keyword entry, so nothing shrinks a listing.
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
+    variableNaming:
+      'Names are fully significant and `_` is a name character; a numeric name may be 32 characters and a string or array name 10, not counting its $ or bracket.',
+    variableSignificance: {
+      plain: null,
+      marked: null,
+      markerDistinguishes: true,
+      markers: '$',
+      caseSensitive: false,
+    },
+    numberHandling: 'Floating point.',
+    numbers: { fractions: true },
+    exponentOperator: '↑',
+    integerDivisionOperator: 'DIV',
+    remainderOperator: 'MOD',
+    logicalOperators: 'value',
+    comparisonTrue: 1,
+    // The font redraws two printable ASCII codes: 0x5E is the up arrow (which
+    // is also the power operator) and 0x60 is the pound sign, so `^` and the
+    // backtick have no glyph of their own.
+    unsupportedCharacters: ['^', '`'],
+    screen:
+      '32×21 text at boot, the bottom two rows being the input window; mode 4 is 256×192 in sixteen colours, mode 3 512×192 in four.',
+    textScreen: { columns: 32, rows: 21 },
+    // The counter the ROM waits on rather than a clock a program reads: SAM
+    // BASIC has no TIME, so a paced loop is written with PAUSE.
+    waitIdiom: {
+      text: 'PAUSE n, which waits n fiftieths of a second or until a key is pressed - PAUSE 50 is a second, and PAUSE 0 waits for a key with no timeout',
+      keywords: ['PAUSE'],
+    },
+    // Measured: `loopSpeed.test.ts` counts the frames a 5000-iteration empty
+    // FOR/NEXT loop takes on the booted ROM.
+    loopSpeed: 1801,
+    freeRamBytes: 57545,
+    // No screenBase: the picture is fetched by the ASIC straight out of a RAM
+    // page, and which page is a register rather than an address, so the screen
+    // is not a region of the map a PEEK addresses.
+    programStart: '&5CD5',
+    colour:
+      'Sixteen on screen from a palette of 128, through a sixteen-entry lookup table PALETTE points at whichever colours a program wants.',
+    sound:
+      'A Philips SAA 1099: six channels in stereo over eight octaves. BEEP sounds a note, ZAP/POW/BOOM/ZOOM are built-in effects, and SOUND writes a chip register directly.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'dec',
+    hexPrefix: '&',
+  },
 ];
 
 /** Machine facts with every `extends` folded in; see {@link resolvePortingFacts}. */
