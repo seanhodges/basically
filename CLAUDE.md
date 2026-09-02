@@ -61,6 +61,11 @@ npm run e2e:chromium -- e2e/<capability>   # e2e for one capability, Chromium on
 npm run e2e:headed     # same as e2e, with a visible browser
 npm run e2e:report     # open the last Playwright HTML report
 
+# Run a listing on any registered machine outside the browser: the screen as
+# text on stdout, or as a PNG. Builds its bundle when stale. `--help` for the rest.
+printf '10 PRINT "HI"\n' | ./scripts/run-listing.sh commodore64
+printf '10 PRINT "HI"\n' | ./scripts/run-listing.sh bbcmicro png --png /tmp/bbc.png
+
 npm run typecheck      # fast type check (tsc -b, no bundle)
 npm run lint           # ESLint
 npm run lint:fix       # ESLint with autofix
@@ -110,11 +115,14 @@ browser can prove; everything else belongs in a colocated `*.test.ts`.
   Vitest next to the source — headless emulator tests that boot the real
   ROMs and read the screen back are the norm here, not the exception.
 - **One representative per browser flow; registry-driven Vitest for the
-  matrix.** Never loop all machines in a spec. Boot one machine per emulator
-  wiring family (self-contained Z80 → zxspectrum, cpu6502 → pet, viciious →
-  commodore64, jsbeeb → bbcmicro) and pin the per-machine matrix in a
-  registry-driven unit test (pattern: `e2e/paletteMachines.ts` +
-  `src/dialects/graphicsPalette.test.ts`).
+  matrix.** Never loop all machines in a spec. Boot one machine and pin the
+  per-machine matrix in a registry-driven unit test — `e2e/paletteMachines.ts` +
+  `src/dialects/graphicsPalette.test.ts` for a fact about the dialects,
+  `e2e/program-execution/emulator-boot.spec.ts` +
+  `src/dialects/screenPaints.test.ts` for one about the running machines. That
+  second pair is why the wiring families no longer need a boot each: a machine's
+  own picture is reachable headlessly through `src/dialects/headless/`, so the
+  browser is left proving only what the app adds around it.
 - **Reuse expensive setup within a file.** If several tests share a booted
   machine, an opened drawer, or a saved project, merge them into one journey
   test with staged assertions rather than repeating the setup per test.

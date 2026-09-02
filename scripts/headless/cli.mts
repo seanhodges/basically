@@ -1,12 +1,12 @@
 import { writeFileSync } from 'node:fs';
-import { encodePng } from './headlessCanvas.mts';
+import { encodePng } from '../../src/dialects/headless/headlessCanvas';
 import {
   RunError,
   machineList,
   runListing,
   screenLines,
   type RunResult,
-} from './runListing.mts';
+} from '../../src/dialects/headless/runListing';
 
 /**
  * Run a BASIC listing on a registered machine and print what is on its screen.

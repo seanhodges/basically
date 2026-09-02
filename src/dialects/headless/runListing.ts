@@ -1,20 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dialects } from '../../src/dialects/registry';
+import { dialects } from '../registry';
 import {
   bootMachine,
   configureRomRoot,
   hasRom,
   installNodeRomLoading,
-} from '../../src/dialects/bootHarness';
-import { hasFatalErrors } from '../../src/dialects/types';
-import type {
-  Dialect,
-  MachineScreenText,
-  TokenizeError,
-} from '../../src/dialects/types';
-import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas.mts';
+} from '../bootHarness';
+import { hasFatalErrors } from '../types';
+import type { Dialect, MachineScreenText, TokenizeError } from '../types';
+import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
 
 /**
  * Run a BASIC listing on a registered machine under node and report its screen.
@@ -28,6 +24,18 @@ import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas.mts';
  * caller owns its own input and output, so a command line and a server can each
  * wrap this without either inheriting the other's shape.
  */
+
+/** One frame, as {@link RunOptions.until} sees it. */
+export interface RunFrame {
+  /** The characters the machine says are on screen, or null if it cannot say. */
+  screen: MachineScreenText | null;
+  /**
+   * Distinct colours in this frame, painting it if the caller asks. One means
+   * a flat screen; more than one is the headless reading of "it has drawn
+   * something", which is what the browser check this replaces polled for.
+   */
+  colours: () => number;
+}
 
 export interface RunOptions {
   /** A dialect id, or a machine name; matched case-insensitively. */
@@ -44,6 +52,21 @@ export interface RunOptions {
   maxFrames?: number;
   /** Frames to run after the program stops; see {@link SETTLE_FRAMES}. */
   settleFrames?: number;
+  /**
+   * Stop at the first frame this holds of, rather than waiting for the program
+   * to end.
+   *
+   * Wanted because a program that never ends is not the only thing a frame
+   * count reads wrong: a program that loops over a screen it keeps clearing has
+   * no single settled picture, so any fixed number lands on an arbitrary moment
+   * of the animation - blank as often as not. A predicate names the moment
+   * instead, and costs nothing on a machine that reaches it in a few frames.
+   *
+   * The frame is handed over with its picture behind a call rather than a
+   * value, because painting one costs more than reading the characters and a
+   * predicate that only wants the characters should not pay for it.
+   */
+  until?: (frame: RunFrame) => boolean;
   /** Paint the machine's picture as well as reading its screen text. */
   pixels?: boolean;
   /** `public/` to read the ROMs from; discovered by {@link findRomRoot} when absent. */
@@ -83,6 +106,8 @@ export interface RunResult {
   /** Whether the machine was ever seen running the program, and then stopped. */
   started: boolean;
   ended: boolean;
+  /** Whether {@link RunOptions.until} held before the cap; true when unused. */
+  reached: boolean;
   screen: MachineScreenText | null;
   /** The painted frame, when `pixels` was asked for. */
   picture: {
@@ -191,6 +216,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
     frames: 0,
     started: false,
     ended: false,
+    reached: false,
     screen: null,
     picture: null,
     timings: { ...timings, totalMs: performance.now() - startedAt },
@@ -225,8 +251,37 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       let started = false;
       let ended = false;
       let frames = 0;
+      // One canvas for the whole run: the predicate paints into it and, when it
+      // stops the run, what it saw is what comes back - so the result is the
+      // frame the predicate accepted rather than another one taken later.
+      let canvas: HeadlessCanvas | null = null;
+      let renderMs = 0;
+      const paint = (): HeadlessCanvas => {
+        const at = performance.now();
+        canvas ??= new HeadlessCanvas(
+          machine.displayWidth,
+          machine.displayHeight,
+        );
+        machine.renderTo(canvas.renderContext);
+        renderMs += performance.now() - at;
+        return canvas;
+      };
+
+      let reached = opts.until === undefined;
+      let lastScreen: MachineScreenText | null = null;
       for (; frames < cap; frames++) {
         machine.runFrame();
+        if (opts.until !== undefined) {
+          lastScreen = machine.readScreenText?.() ?? null;
+          reached = opts.until({
+            screen: lastScreen,
+            colours: () => paint().distinctColours(),
+          });
+          if (reached) {
+            frames++;
+            break;
+          }
+        }
         if (fixed === undefined) {
           // Tri-state: null until the machine has taken the program, so a
           // `false` can only mean a program that started and then stopped.
@@ -243,31 +298,35 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         // synchronous loop never lets them land.
         if (frames % 20 === 0) await new Promise((r) => setTimeout(r, 0));
       }
-      // Only when the run was bounded by the program itself: a caller who asked
-      // for an exact number of frames wants that number and no more.
-      if (fixed === undefined) {
+      // Settling is for a run the program itself ended: the frame in flight when
+      // it stopped is part-drawn. A predicate stop needs none - it already named
+      // the frame it wanted - and running on past it would be actively wrong,
+      // since a blinking or looping screen is a different picture two frames
+      // later. A caller who asked for an exact count wants that count and no
+      // more either.
+      const settled = !reached || opts.until === undefined;
+      if (fixed === undefined && settled) {
         const settle = opts.settleFrames ?? SETTLE_FRAMES;
         for (let i = 0; i < settle; i++, frames++) machine.runFrame();
       }
       timings.runMs = performance.now() - runAt;
 
-      const screen = machine.readScreenText?.() ?? null;
+      const screen =
+        opts.until !== undefined && reached && !settled
+          ? lastScreen
+          : (machine.readScreenText?.() ?? null);
 
       let picture: RunResult['picture'] = null;
-      if (opts.pixels) {
-        const renderAt = performance.now();
-        const canvas = new HeadlessCanvas(
-          machine.displayWidth,
-          machine.displayHeight,
-        );
-        machine.renderTo(canvas.renderContext);
-        timings.renderMs = performance.now() - renderAt;
+      if (opts.pixels || canvas) {
+        // Repainted only when the run moved on since the predicate last looked.
+        const painted = canvas && !settled ? canvas : paint();
+        timings.renderMs = renderMs;
         picture = {
-          width: canvas.width,
-          height: canvas.height,
-          rgba: canvas.rgba,
-          colours: canvas.distinctColours(),
-          hostFontGlyphs: canvas.hostFontGlyphs,
+          width: painted.width,
+          height: painted.height,
+          rgba: painted.rgba,
+          colours: painted.distinctColours(),
+          hostFontGlyphs: painted.hostFontGlyphs,
         };
       }
 
@@ -278,6 +337,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         frames,
         started,
         ended,
+        reached,
         screen,
         picture,
         timings: { ...timings, totalMs: performance.now() - startedAt },

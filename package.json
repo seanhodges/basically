@@ -29,9 +29,7 @@
     "gen:semigraphics": "vite-node scripts/gen-semigraphics-audit.mts",
     "gen:glyphs": "vite-node scripts/gen-glyph-addresses.mts",
     "gen:apple1rom": "vite-node scripts/build-apple1-rom.mts",
-    "gen:atarirom": "vite-node scripts/build-atari-rom.mts",
-    "spike:build": "node scripts/headless/build.mjs",
-    "spike:screen": "node scripts/headless/dist/cli.mjs"
+    "gen:atarirom": "vite-node scripts/build-atari-rom.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
