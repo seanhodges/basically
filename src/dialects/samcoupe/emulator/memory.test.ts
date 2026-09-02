@@ -8,6 +8,7 @@ import {
   ROM_BYTES,
   SamMemory,
 } from './memory';
+import { READ_BIT, WRITE_BIT } from '../../../emulator/memoryActivityBuffer';
 
 /** A ROM whose every byte says which half of the image it came from. */
 function markedRom(): Uint8Array {
@@ -81,6 +82,38 @@ describe('samcoupe memory', () => {
     mem.write(0x4000, 0x55);
     expect(mem.peek(0x0000)).not.toBe(0x55);
     expect(mem.peek(0x4000)).toBe(0x55);
+  });
+
+  it('records activity where the memory map draws it, not where the CPU saw it', () => {
+    const mem = new SamMemory(markedRom());
+    mem.clearRam();
+    mem.activity.enabled = true;
+    // The ROM's own paging: page 0 in section B, page 5 in section C, ROM1 on
+    // top. The map draws BASIC's pages one after another from 0x4000, so page 0
+    // lands at 0x4000 wherever the window shows it and page 5 lands off the map
+    // entirely.
+    mem.lmpr = 0x1f | LMPR_ROM1;
+    mem.hmpr = 5;
+    mem.write(0x4123, 1); // section B: page 0
+    mem.read(0x8123); // section C: page 5, above the map
+    mem.read(0xc123); // section D: ROM1, which the map does not draw
+    mem.read(0x0123); // section A: ROM0, drawn where the CPU sees it
+    const hits = mem.activity.drain()!;
+    expect(hits[0x4123]).toBe(WRITE_BIT);
+    expect(hits[0x0123]).toBe(READ_BIT);
+    expect(hits[0x8123]).toBe(0);
+    expect(hits[0xc123]).toBe(0);
+
+    // Page 1 is the map's second BASIC page whichever section shows it: the
+    // window's 0xC000 and its 0x8000 stamp the same band.
+    mem.lmpr = 0x1f;
+    mem.hmpr = 0;
+    mem.read(0xc123); // section D: page 1
+    mem.hmpr = 1;
+    mem.write(0x8456, 2); // section C: page 1
+    const paged = mem.activity.drain()!;
+    expect(paged[0x8123]).toBe(READ_BIT);
+    expect(paged[0x8456]).toBe(WRITE_BIT);
   });
 
   it('rejects a ROM that is not the machine`s own size', () => {

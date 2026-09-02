@@ -115,7 +115,7 @@ that turned up in the audit:
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
-| 5     | Memory map & runtime introspection | ⬜     |
+| 5     | Memory map & runtime introspection | ✅     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
 
@@ -369,29 +369,53 @@ the setting that gives the manual's 2250 baud.
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection ✅
 
-- [ ] `memoryMap.ts` — the regions, tiling the address space end to end. **The
-      map is of the Z80's 64K window, not of the 256K behind it**: the viewer's
-      contract is a contiguous cover of `addressSpace`, so the paged pages are
-      described in region notes rather than by widening the space. Settle that
-      reading before writing the file — it is the one design question this stage
-      has that no other machine in the tree has faced
-- [ ] re-check the `memoryBlocks.ts` ranges Stage 3 wrote against the map they
-      now have to agree with — `memoryMapDetail.test.ts` pins the program region
-      to `memoryBlocks.programArea`
-- [ ] `sysvars.ts` / `vars.ts` / `reports.ts` → `readVariables()` /
-      `readReport()` on the emulator. SAM BASIC's variables carry long names, so
-      the name table is its own walk rather than `sinclairVars.ts`'s
-- [ ] `readMemoryStats()` — **counting every pool a program spends**, not just
-      the program area. On a machine with 217K available to a program on a
-      standard 256K Coupé, a figure that misses the string pool reads as a
-      program that allocates nothing, and nothing downstream can tell that from
-      a measurement. Read the ROM's own pointers
-- [ ] `programRamBytes` on the dialect — the documented free figure, checked
-      against what the booted ROM reports rather than taken from the brochure
-- [ ] memory-activity hooks for the memory-map overlay
-- [ ] tests: memory-map layout, block round-trip
+- [x] `memoryMap.ts` — the regions, tiling the address space end to end. The
+      design question this stage opens with has an answer the plan did not
+      expect: the map is neither the 256K nor the Z80's window, but **the
+      address space SAM BASIC's own PEEK, POKE, CALL and USR use**, which the
+      ROM fixes relative to BASIC's base page (`PDPSUBR` in misc1.asm) — ROM 0,
+      then BASIC's four pages one after another from 0x4000, running on past
+      0xFFFF to 0x1FFFF. The Z80's window would have had to describe the same
+      bytes twice, because section C shows the same page as section B at the
+      prompt and neither stays put while a program runs; this space has one
+      address per byte, is what a user types, and agrees with the block linter
+      byte for byte. The fourth page and the display pages are named in region
+      notes rather than drawn
+- [x] the `memoryBlocks.ts` ranges re-checked against it — the two now agree in
+      `memoryMap.test.ts` rather than only by having been written from the same
+      sysvars, and its reserved comment names the channel information the map
+      draws below `PROG`
+- [x] `sysvars.ts` / `vars.ts` / `reports.ts` → `readVariables()` /
+      `readReport()`. Two areas rather than one list: numbers hang off a 26-word
+      first-letter table between `NVARS` and `NUMEND`, each record chaining to
+      the next of the same letter; strings and arrays are a plain self-sizing
+      list from `SAVARS` up to the edit line, with a gap between the two the
+      numeric area grows into. The reports are the whole `ERRMVAL` table
+      expanded out of the 32 shared fragments text.asm packs it into, and the
+      number is the report number itself, not the Sinclairs' number-less-one
+- [x] `readMemoryStats()` — `RAMTOP - WKEND - 1` for the free figure, which is
+      `GETROOM`'s own arithmetic and so is what `PRINT FREE` answers; `WKEND` is
+      above every pool, so a program whose cost is entirely in strings shows it
+- [x] `programRamBytes` — 57545, read off the booted ROM's own pointers at a
+      cold prompt rather than taken from a brochure
+- [x] memory-activity hooks — Stage 2 wired them, and they stamped raw CPU
+      addresses, which would have painted ROM 1's every instruction fetch onto
+      the band the map draws as BASIC's third page. They are translated into the
+      map's space now, and a page the map does not reach records nothing
+- [x] tests: the map's layout and its agreement with the linter; the decoders
+      against hand-built areas; and one booted-ROM journey that types the four
+      record shapes and a FOR variable, reads three reports back and checks each
+      against the line the ROM printed, measures FREE against `readMemoryStats`,
+      and proves the base-page addressing with two POKEs — plus a block loaded
+      at `defaultAddress` and read back by the program's own PEEK
+
+> The 217K this stage's brief quoted is not a figure SAM BASIC ever offers a
+> program. `RAMTOP` boots at the top of page 3, so BASIC's program, variables
+> and strings share 64K; the rest of the 256K is reachable only through `MEM$`,
+> the screen pages and `POKE` past 0xFFFF, none of which the byte counter is
+> measuring.
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; variable watcher shows live vars.
