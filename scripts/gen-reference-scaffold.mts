@@ -35,6 +35,7 @@ import {
   atariOperators,
 } from '../src/dialects/atari800/keywords';
 import { hb10pKeywords, hb10pOperators } from '../src/dialects/hb10p/keywords';
+import { ge235Keywords, ge235Operators } from '../src/dialects/ge235/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -284,6 +285,31 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       entries: dedupe([
         ...hb10pKeywords.map((k) => toEntry(k)),
         ...hb10pOperators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
+    // The page slug is the dialect id here, but the title is the language: this
+    // is Dartmouth BASIC, and the GE-235 is the machine that ran it.
+    id: 'ge235',
+    varName: 'ge235Reference',
+    data: {
+      title: 'Dartmouth BASIC',
+      machines: ['GE-235'],
+      // Every operator is punctuation the compiler reads a character at a time
+      // rather than a word in the keyword table, so the reference page's rows
+      // for them are seeded from the dialect's operator list (see
+      // src/dialects/operators.ts).
+      entries: dedupe([
+        ...ge235Keywords.map((k) => toEntry(k)),
+        ...ge235Operators.map(
           (word): ReferenceEntry => ({
             name: word,
             kind: 'operator',

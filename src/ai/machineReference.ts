@@ -29,6 +29,7 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
   commodore: () =>
     import('../reference/commodore').then((m) => m.commodoreReference),
   cpc: () => import('../reference/cpc').then((m) => m.cpcReference),
+  ge235: () => import('../reference/ge235').then((m) => m.ge235Reference),
   'integer-basic': () =>
     import('../reference/integer-basic').then((m) => m.integerBasicReference),
   msx: () => import('../reference/msx').then((m) => m.msxReference),
@@ -58,6 +59,7 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
   commodore: () =>
     import('../reference/escapes/commodore').then((m) => m.commodoreEscapes),
   cpc: () => import('../reference/escapes/cpc').then((m) => m.cpcEscapes),
+  ge235: () => import('../reference/escapes/ge235').then((m) => m.ge235Escapes),
   'integer-basic': () =>
     import('../reference/escapes/integer-basic').then(
       (m) => m.integerBasicEscapes,
