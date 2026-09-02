@@ -71,7 +71,8 @@ Every dialect's charset is **total**: each byte 0x00–0xFF has a text form
 that tokenizes back to the same byte, so imported programs never lose data
 silently. Bytes with no printable glyph round-trip through dialect-styled
 escapes (Sinclair `\{NN}`, Spectrum/BBC/TRS-80/Atom `{0xNN}`, C64 `{$xx}`,
-plus named forms like `{INK 2}`, `{RED}` or `{clr}`), recognised in the
+GE-235 `{0oNN}` in octal, plus named forms like `{INK 2}`, `{RED}` or
+`{clr}`), recognised in the
 literal contexts where raw bytes live in a real program. Characters outside a
 machine's set remain tokenizer errors.
 
@@ -110,6 +111,7 @@ reference page:
 | Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records |
 | Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks      |
 | MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read             |
+| GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a plain-ASCII paper tape                  |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -135,6 +137,8 @@ full on its own page:
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 - [MSX file formats](./msx/formats) — `.bas`, `.cas`
 - [SAM Coupé file formats](./samcoupe/formats) — `.tap`
+- [GE-235 file formats](./dartmouth/formats) — the paper tape `.txt`, and why there
+  is nothing else
 
 ## Machine code & data blocks
 

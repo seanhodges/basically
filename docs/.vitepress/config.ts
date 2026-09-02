@@ -179,6 +179,19 @@ export default withPwa(
               ],
             },
             {
+              // Named for the language rather than the machine, as the MSX and
+              // Locomotive pages are: Dartmouth BASIC is what the GE-235 ran,
+              // and it is the ancestor of every other BASIC listed here.
+              text: 'Dartmouth BASIC',
+              link: '/reference/dartmouth',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/dartmouth/hardware' },
+                { text: 'Escape codes', link: '/reference/dartmouth/escapes' },
+                { text: 'File formats', link: '/reference/dartmouth/formats' },
+              ],
+            },
+            {
               // One page covers both revisions of Integer BASIC: the Apple 1's
               // and the Apple II's, the later machine's additions tagged on the
               // shared table.

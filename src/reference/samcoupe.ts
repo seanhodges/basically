@@ -40,7 +40,7 @@ const samcoupeTable: BasicReferenceTableData = {
     { id: 'height', meaning: 'how tall something is, in pixels' },
     { id: 'hwreg', meaning: 'a hardware register, by number' },
     { id: 'index', meaning: 'a colour-lookup slot, 0 to 15' },
-    { id: 'item', meaning: 'a variable, array or procedure, by name' },
+    { id: 'target', meaning: 'a variable, array or procedure, by name' },
     { id: 'keycode', meaning: 'a key code, as CODE returns it' },
     { id: 'picture', meaning: 'a formatting pattern a number is printed to' },
     { id: 'radius', meaning: 'the radius of a circle, in pixels' },
@@ -1409,7 +1409,7 @@ const samcoupeTable: BasicReferenceTableData = {
       name: 'LENGTH',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'LENGTH(<action>, <item>)',
+      syntax: 'LENGTH(<action>, <target>)',
       description:
         'The size or the address of a variable, an array or a procedure, the first argument choosing which — so LENGTH(1,a$) measures a string where LENGTH(0,a$) finds it.',
     },

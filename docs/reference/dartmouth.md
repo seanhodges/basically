@@ -1,0 +1,64 @@
+---
+title: Dartmouth BASIC reference
+---
+
+<script setup>
+import { dartmouthReference } from '../../src/reference/dartmouth';
+</script>
+
+# Dartmouth BASIC reference
+
+Every command, function and operator in **Dartmouth BASIC** as the GE-235
+compiled it in February 1965 — the first BASIC there was, and the ancestor of
+every other one on this site.
+
+It is a short table, and the short parts are the interesting parts. There are no
+strings, no graphics, no sound and no way to reach the hardware; what is here is
+arithmetic, loops, subroutines and a teletype. Almost everything a reader
+arriving from a later BASIC expects to find is a later idea, so the notes below
+are largely a list of what is missing and what was written instead.
+
+**In this reference:** [Hardware](./dartmouth/hardware) · [Escape codes](./dartmouth/escapes) · [File formats](./dartmouth/formats) · [Argument notation](./#argument-notation)
+
+## Notes and caveats
+
+- One statement to a line — there is no `:` separator and no shorthand for any
+  keyword. Line numbers run from 0 to 99999 and a program may be 240 lines long.
+  `END` is mandatory and must be the highest-numbered line.
+- **`LET` is never optional.** A line opening with a letter matches no
+  statement, so `10 A=1` is rejected as a bad instruction. This is the single
+  most common thing to trip on when bringing a program back to this machine.
+- **There are no strings at all** — no string variables, no `A$`, no string
+  functions, no string expressions. The only text a program can produce is a
+  literal inside `PRINT`, and a literal is never a value. Strings arrive in the
+  fourth edition of the language, three years later.
+- A variable name is one letter, optionally followed by one digit: `A`, `A1`,
+  `Z9`. `A12` is not a name. An array is named by a bare letter, takes one or
+  two subscripts counting from 0, and is 11 by 11 unless `DIM` says otherwise;
+  `A` and `A(0)` are two different places to put a number.
+- Blanks are deleted before a line is read, so `FORI=1TO10` is a loop, `GO TO`
+  is `GOTO` and `P R I N T` is `PRINT`. The usual companion trap does not arise
+  here: no name is long enough to contain a keyword.
+- The power operator is the up arrow `↑`, which is what the Teletype's keyboard
+  had; `^` is a 1967 spelling and `**` is not this language. There is no `AND`,
+  `OR` or `NOT`, no integer division and no remainder — write `A-B*INT(A/B)`.
+- A comparison is not a value. The six relations `=` `<` `>` `<=` `>=` `<>`
+  exist only between `IF` and `THEN`, and `=<` and `=>` are refused. `THEN`
+  takes a line number and nothing else, and there is no `ELSE`.
+- The library is ten functions and no more: `ABS` `ATN` `COS` `EXP` `INT` `LOG`
+  `RND` `SIN` `SQR` `TAN`, plus whatever `DEF` defines. There is no `SGN`, no
+  `TAB`, no `RESTORE`, no `ON`, no `RANDOMIZE` and no way to read a single
+  keypress — `INPUT` reads a whole typed line of numbers and is the only key
+  read there is.
+- `RND` gives the same sequence on every run. Without `RANDOMIZE`, a program
+  wanting variety asks the user for a number and folds it in itself.
+- Every fault stops the program. The compiler lists what is wrong with the
+  whole program and refuses to run it; the run-time reports one fault, names the
+  line, and stops. Nothing resumes — there is no `CONT` and no error trapping.
+
+<ReferenceTable :data="dartmouthReference" />
+
+The machine hardware — the teletype, the paper roll and the core store — is on
+the [hardware](./dartmouth/hardware) page; the control codes you can embed in source
+are on the [escape codes](./dartmouth/escapes) page; the paper-tape export is on the
+[file formats](./dartmouth/formats) page.
