@@ -18,8 +18,16 @@ import {
   SPECTRUM_KEYWORD,
   PLAY_KEYWORD,
 } from '../src/dialects/zxspectrum128/keywords';
-import { bbcKeywords } from '../src/dialects/bbcmicro/keywords';
-import { c64Keywords } from '../src/dialects/commodore64/keywords';
+import {
+  bbcKeywords,
+  bbcMasterKeywords,
+  bbcOperators,
+} from '../src/dialects/bbcmicro/keywords';
+import {
+  c64Keywords,
+  c64Operators,
+} from '../src/dialects/commodore64/keywords';
+import { petKeywords } from '../src/dialects/pet/keywords';
 import { atomKeywords } from '../src/dialects/atom/keywords';
 import { trs80Keywords } from '../src/dialects/trs80/keywords';
 import { locoKeywordTable } from '../src/dialects/cpc464/keywords';
@@ -187,7 +195,21 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     data: {
       title: 'BBC BASIC (Micro & Master)',
       machines: ['BBC Micro Model B', 'BBC Master'],
-      entries: dedupe(bbcKeywords.map((k) => toEntry(k))),
+      // BASIC IV is BASIC II plus EDIT, so only the Master's badge is ever
+      // reached; the Micro's is here because nothing but the tables decides
+      // that, and a word BASIC IV dropped would need it.
+      entries: sharedPage([
+        {
+          tag: 'BASIC II only',
+          keywords: bbcKeywords,
+          operators: bbcOperators,
+        },
+        {
+          tag: 'BASIC IV only',
+          keywords: bbcMasterKeywords,
+          operators: bbcOperators,
+        },
+      ]),
     },
   },
   {
@@ -198,9 +220,20 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     id: 'commodore',
     varName: 'commodoreReference',
     data: {
-      title: 'Commodore BASIC',
+      title: 'Commodore 64, VIC-20 & PET BASIC',
       machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
-      entries: dedupe(c64Keywords.map((k) => toEntry(k))),
+      // Two contributors for three machines: the VIC-20's keyword table is the
+      // C64's, re-exported, so they are one group. BASIC 4.0 is that group's
+      // vocabulary plus the PET's disk commands, which is why only the PET's
+      // badge is ever reached.
+      entries: sharedPage([
+        {
+          tag: 'BASIC V2 only',
+          keywords: c64Keywords,
+          operators: c64Operators,
+        },
+        { tag: 'BASIC 4.0', keywords: petKeywords, operators: c64Operators },
+      ]),
     },
   },
   {
