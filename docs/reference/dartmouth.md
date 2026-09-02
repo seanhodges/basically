@@ -3,7 +3,7 @@ title: Dartmouth BASIC reference
 ---
 
 <script setup>
-import { ge235Reference } from '../../src/reference/ge235';
+import { dartmouthReference } from '../../src/reference/dartmouth';
 </script>
 
 # Dartmouth BASIC reference
@@ -18,7 +18,7 @@ arithmetic, loops, subroutines and a teletype. Almost everything a reader
 arriving from a later BASIC expects to find is a later idea, so the notes below
 are largely a list of what is missing and what was written instead.
 
-**In this reference:** [Hardware](./ge235/hardware) · [Escape codes](./ge235/escapes) · [File formats](./ge235/formats) · [Argument notation](./#argument-notation)
+**In this reference:** [Hardware](./dartmouth/hardware) · [Escape codes](./dartmouth/escapes) · [File formats](./dartmouth/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 
@@ -56,9 +56,9 @@ are largely a list of what is missing and what was written instead.
   whole program and refuses to run it; the run-time reports one fault, names the
   line, and stops. Nothing resumes — there is no `CONT` and no error trapping.
 
-<ReferenceTable :data="ge235Reference" />
+<ReferenceTable :data="dartmouthReference" />
 
 The machine hardware — the teletype, the paper roll and the core store — is on
-the [hardware](./ge235/hardware) page; the control codes you can embed in source
-are on the [escape codes](./ge235/escapes) page; the paper-tape export is on the
-[file formats](./ge235/formats) page.
+the [hardware](./dartmouth/hardware) page; the control codes you can embed in source
+are on the [escape codes](./dartmouth/escapes) page; the paper-tape export is on the
+[file formats](./dartmouth/formats) page.

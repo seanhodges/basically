@@ -183,12 +183,12 @@ export default withPwa(
               // Locomotive pages are: Dartmouth BASIC is what the GE-235 ran,
               // and it is the ancestor of every other BASIC listed here.
               text: 'Dartmouth BASIC',
-              link: '/reference/ge235',
+              link: '/reference/dartmouth',
               collapsed: true,
               items: [
-                { text: 'Hardware', link: '/reference/ge235/hardware' },
-                { text: 'Escape codes', link: '/reference/ge235/escapes' },
-                { text: 'File formats', link: '/reference/ge235/formats' },
+                { text: 'Hardware', link: '/reference/dartmouth/hardware' },
+                { text: 'Escape codes', link: '/reference/dartmouth/escapes' },
+                { text: 'File formats', link: '/reference/dartmouth/formats' },
               ],
             },
             {

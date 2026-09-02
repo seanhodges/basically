@@ -134,7 +134,7 @@ full on its own page:
 - [Applesoft file formats](./applesoft/formats) — `.bin` program, Apple II Plus
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 - [MSX file formats](./msx/formats) — `.bas`, `.cas`
-- [GE-235 file formats](./ge235/formats) — the paper tape `.txt`, and why there
+- [GE-235 file formats](./dartmouth/formats) — the paper tape `.txt`, and why there
   is nothing else
 
 ## Machine code & data blocks

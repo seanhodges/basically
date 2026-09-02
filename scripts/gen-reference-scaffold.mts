@@ -298,8 +298,8 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
   {
     // The page slug is the dialect id here, but the title is the language: this
     // is Dartmouth BASIC, and the GE-235 is the machine that ran it.
-    id: 'ge235',
-    varName: 'ge235Reference',
+    id: 'dartmouth',
+    varName: 'dartmouthReference',
     data: {
       title: 'Dartmouth BASIC',
       machines: ['GE-235'],

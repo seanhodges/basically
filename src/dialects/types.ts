@@ -1308,7 +1308,10 @@ export interface Dialect {
   /**
    * Slug of this dialect's docs reference page under `/docs/reference/`.
    * Defaults to `id` when absent; set it when several dialects share one page
-   * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum').
+   * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum'), and also
+   * when a page one machine has to itself is named for the family of BASIC
+   * rather than for the machine (hb10p → 'msx', ge235 → 'dartmouth'). A page
+   * documents a language, so it is named for one.
    */
   docsReference?: string;
   /**

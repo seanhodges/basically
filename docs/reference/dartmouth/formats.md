@@ -15,7 +15,7 @@ machine is offered as BASIC only and has none.
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine format overview, see the [file formats
 overview](../file-formats). See also the [Dartmouth BASIC
-reference](../ge235) and its [escape codes](./escapes).
+reference](../dartmouth) and its [escape codes](./escapes).
 
 ## GE-235 paper tape `.txt`
 

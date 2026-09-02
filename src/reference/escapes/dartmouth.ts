@@ -25,7 +25,7 @@ function control(code: number, description: string) {
   };
 }
 
-export const ge235Escapes: EscapeTableData = {
+export const dartmouthEscapes: EscapeTableData = {
   title: 'GE-235 escape codes',
   machines: ['GE-235'],
   categories: [

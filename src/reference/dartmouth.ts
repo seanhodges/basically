@@ -17,7 +17,7 @@
 import type { BasicReferenceTableData } from './types';
 import { withAbbreviations } from './abbreviations';
 
-const ge235Table: BasicReferenceTableData = {
+const dartmouthTable: BasicReferenceTableData = {
   title: 'Dartmouth BASIC',
   machines: ['GE-235'],
   placeholders: [
@@ -361,7 +361,7 @@ const ge235Table: BasicReferenceTableData = {
  * authored above. There are none here — the compiler reads whole words — so the
  * rows come back unchanged. See ./abbreviations.
  */
-export const ge235Reference: BasicReferenceTableData = withAbbreviations(
-  'ge235',
-  ge235Table,
+export const dartmouthReference: BasicReferenceTableData = withAbbreviations(
+  'dartmouth',
+  dartmouthTable,
 );

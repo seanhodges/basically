@@ -9,7 +9,7 @@ import { ge235MemoryMap } from '../../../src/dialects/ge235/memoryMap';
 # GE-235 hardware
 
 The terminal, the paper it printed on and the core store behind it, for the
-machine that runs [Dartmouth BASIC](../ge235).
+machine that runs [Dartmouth BASIC](../dartmouth).
 
 ## GE-235
 
