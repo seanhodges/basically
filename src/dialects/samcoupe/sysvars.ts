@@ -20,6 +20,14 @@ export const CHARS = 0x5c36;
 export const ERRNR = 0x5c3a;
 /** Screen mode, 0-3 for MODE 1-4. */
 export const MODE = 0x5a40;
+/**
+ * `TLBYTE` and the name buffer beside it, where `NAMTOBUF` leaves the variable
+ * a statement is looking for: the type/length byte, then the name itself with
+ * spaces removed and letters folded to lower case. The error handler reads them
+ * back to print the name in a "not found" report, and so does `./reports.ts`.
+ */
+export const TLBYTE = 0x513f;
+export const NMBUFF = 0x5140;
 /** Paper for the two 24K modes, as matching nibbles or double bits. */
 export const M23PAPP = 0x5a48;
 /** Character cell size: scanlines then columns. Nine by eight after a reset. */
@@ -31,15 +39,37 @@ export const LWBOT = 0x5a3f;
 export const LSOFF = 0x5a5d;
 /**
  * The four three-byte page-form pointers that bound the BASIC area, each a 16K
- * page followed by the address it appears at in the 0x8000-0xBFFF window: the
- * start of the program, its end, the end of the numeric variable area after it,
- * and the end of the area after that. The tape header records the last three as
- * offsets from `PROG`, and the loader rebuilds the whole area from them.
+ * page followed by the address it appears at in the 0x8000-0xBFFF window.
+ * Upward from `PROG`: the program, then the numeric variables from `NVARS` to
+ * `NUMEND`, then a gap the numeric area grows into, then the string and array
+ * list from `SAVARS` up. The tape header records the last three as offsets from
+ * `PROG`, and the loader rebuilds the whole area from them.
  */
 export const PROG = 0x5a9f;
 export const NVARS = 0x5a87;
 export const NUMEND = 0x5a84;
 export const SAVARS = 0x5a81;
+
+/**
+ * `WKEND`: the top of everything the BASIC area is currently spending - the
+ * program, all three variable areas and the workspace above them. It is the one
+ * pointer `FREE` is measured from, so it is also what tells a program that
+ * allocates strings from one that allocates nothing.
+ */
+export const WKEND = 0x5a8d;
+
+/**
+ * `ELINE`: the edit line, and so the top of the string and array list that
+ * starts at `SAVARS` - the list has no length of its own, only a 0xFF stopper.
+ */
+export const ELINE = 0x5a93;
+
+/**
+ * `RAMTOP`, the ceiling of the BASIC area, in the same page-form as the
+ * pointers above: page then an address the page shows at. A stock machine boots
+ * with page 3 at 0xBFFF, which is 64K of program, variables and strings.
+ */
+export const RAMTOP = 0x5cb1;
 
 /** Physical RAM top page: 0x0F on a 256K machine, 0x1F on a 512K one. */
 export const PRAMTP = 0x5cb4;

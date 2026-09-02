@@ -8,7 +8,10 @@ import type {
   JoystickState,
   LineCost,
   MachineEmulator,
+  MachineMemoryStats,
+  MachineReport,
   MachineScreenText,
+  MachineVariable,
 } from '../../types';
 import { createMachineLoop } from '../../../emulator/machineLoop';
 import {
@@ -36,19 +39,25 @@ import { parseSamFileWithReport, samBlocks } from '../samfile';
 import {
   CHARS,
   CSIZE,
+  ELINE,
   NUMEND,
   NVARS,
+  RAMTOP,
   SAVARS,
   LSOFF,
   LWBOT,
   LWTOP,
   M23PAPP,
   PPC,
+  PROG,
   ROM_LD_BYTES,
   ROM_MAIN_LOOP,
   ROM_SA_BYTES,
   ROM_SIGN_ON_WAIT,
+  WKEND,
 } from '../sysvars';
+import { readSamcoupeVariables } from '../vars';
+import { readSamcoupeReport } from '../reports';
 
 /** The SAM's Z80 runs at 6MHz - nearly twice a Spectrum's. */
 const CPU_HZ = 6_000_000;
@@ -139,14 +148,12 @@ export class SamMachine implements MachineEmulator {
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run and {@link stepInstruction} charges the cycles
-   * it consumes to the line executing at the time. It reports cycles only - the
-   * reader that would charge memory to a line has no in-use figure to read from
-   * this machine yet, and reporting zero would read as a line that allocates
-   * nothing rather than as one nobody measured.
+   * it consumes to the line executing at the time, along with the bytes the
+   * machine's own BASIC memory figures moved by while it ran.
    */
   private readonly profile = new LineCostRecorder(
     PROFILE_SLICE_CYCLES,
-    () => null,
+    () => this.readMemoryStats()?.used ?? null,
   );
   /** Run state, latched when the ROM comes back to its editor loop. */
   private readonly runLatch = new ProgramEndLatch();
@@ -542,6 +549,14 @@ export class SamMachine implements MachineEmulator {
     return out;
   }
 
+  /** A byte at a flat BASIC-area address: page * 16K plus the offset in it. */
+  private flatByte(addr: number): number {
+    return this.memory.pageByte(
+      Math.floor(addr / PAGE_BYTES),
+      addr % PAGE_BYTES,
+    );
+  }
+
   /** A byte at a Z80 address, taking sysvar-page reads off page 0. */
   private readAnywhere(addr: number): number {
     if (addr >= SECTION_B_BASE && addr < 0x8000) return this.sysvarByte(addr);
@@ -693,6 +708,54 @@ export class SamMachine implements MachineEmulator {
   isProgramRunning(): boolean | null {
     if (this.disposed) return null;
     return this.runLatch.read(this.currentLine() !== null);
+  }
+
+  /**
+   * SAM BASIC's variables, off the machine's own two areas.
+   *
+   * Read through the pages rather than through the CPU's window: the areas
+   * begin in BASIC's base page but grow across the three above it, and the
+   * window shows at most two of them at a time.
+   */
+  readVariables(): MachineVariable[] {
+    return readSamcoupeVariables({
+      read: (addr) => this.flatByte(addr),
+      nvars: this.farPointer(NVARS).linear,
+      numend: this.farPointer(NUMEND).linear,
+      savars: this.farPointer(SAVARS).linear,
+      eline: this.farPointer(ELINE).linear,
+    });
+  }
+
+  readReport(): MachineReport {
+    return readSamcoupeReport({
+      read: (addr) => this.sysvarByte(addr),
+      readWord: (addr) => this.sysvarWord(addr),
+    });
+  }
+
+  /**
+   * What the BASIC area is spending, and what is left - the ROM's own
+   * arithmetic, which is what `PRINT FREE` answers with.
+   *
+   * `GETROOM` in tadjm.asm measures the free figure from `WKEND` to `RAMTOP`
+   * with a borrow set, so the byte at RAMTOP is not offered; that one-byte
+   * shortfall is kept rather than tidied away, because a figure that disagrees
+   * with the machine's own FREE is worse than one that is a byte pessimistic.
+   * Everything below WKEND is charged as used, which on this machine means the
+   * program, all three variable areas and the workspace above them - a program
+   * whose cost is entirely in strings shows it here rather than reading as one
+   * that allocates nothing.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    const prog = this.farPointer(PROG).linear;
+    const wkend = this.farPointer(WKEND).linear;
+    const ramtop = this.farPointer(RAMTOP).linear;
+    const used = wkend - prog;
+    const free = ramtop - wkend - 1;
+    // Implausible pointers mean the ROM has not sized itself yet.
+    if (prog <= 0 || used <= 0 || free < 0) return null;
+    return { used, free };
   }
 
   setProfileRecording(enabled: boolean): void {

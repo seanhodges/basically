@@ -40,7 +40,13 @@ export const samcoupe: Dialect = {
   year: 1989,
   basicDialect: 'SAM BASIC',
   blurb: 'A 6MHz Z80 with four screen modes. Runs SAM BASIC.',
-  programRamBytes: 0,
+  /**
+   * What the machine itself reports free at a cold prompt: RAMTOP less WKEND,
+   * the arithmetic `PRINT FREE` uses. That is BASIC's whole four-page area -
+   * the program, its variables and its strings - less the 608 bytes a reset
+   * Coupé has already spent on the areas it cannot start without.
+   */
+  programRamBytes: 57545,
   memoryMap: samcoupeMemoryMap,
   memoryBlocks: samcoupeMemoryBlocks,
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },

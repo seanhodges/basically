@@ -49,7 +49,7 @@ const PROGRAM_AREA_SLACK_BYTES = 1024;
  */
 const RESERVED_RANGES: readonly MemoryRange[] = [
   { start: 0x4000, end: 0x59ff }, // ROM workspace, buffers and the stack
-  { start: 0x5a00, end: PROG - 1 }, // system variables
+  { start: 0x5a00, end: PROG - 1 }, // system variables, then channel information
 ];
 
 /** The BASIC program and the variable areas that grow above it. */

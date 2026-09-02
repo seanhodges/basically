@@ -105,9 +105,37 @@ export class SamMemory {
 
   read = (address: number): number => {
     const addr = address & 0xffff;
-    if (this.activity.enabled) this.activity.hits[addr] |= READ_BIT;
+    if (this.activity.enabled) this.stamp(addr, READ_BIT);
     return this.peek(addr);
   };
+
+  /**
+   * Record one access at the address the memory map draws it at, which is not
+   * the address the CPU used.
+   *
+   * The map is the space SAM BASIC's own PEEK and POKE address (see
+   * `../memoryMap.ts`): ROM 0, then BASIC's pages one after another from
+   * 0x4000. The CPU's window is four slots that show any page anywhere, so a
+   * byte of BASIC's own page has one address on the map and two in the window,
+   * and the top of the window is ROM 1 for most of a running program. Stamping
+   * the raw CPU address would paint ROM 1's every instruction fetch onto the
+   * band the map draws as the program's third page.
+   *
+   * A page the map does not reach - the screen a program has just paged in,
+   * anything above BASIC's four - is not recorded rather than folded onto a
+   * band it is not in. ROM 1 goes the same way; the map draws only ROM 0.
+   */
+  private stamp(addr: number, bit: number): void {
+    const section = addr >> 14;
+    const page = this.sectionPage(section);
+    if (page < 0) {
+      // ROM: the low half is drawn where the CPU sees it, the high half not.
+      if (section === 0) this.activity.hits[addr] |= bit;
+      return;
+    }
+    const mapped = PAGE_BYTES + page * PAGE_BYTES + (addr & 0x3fff);
+    if (mapped < 0x10000) this.activity.hits[mapped] |= bit;
+  }
 
   /**
    * Read without recording the access. Everything the host reads for itself -
@@ -128,7 +156,7 @@ export class SamMemory {
 
   write = (address: number, value: number): void => {
     const addr = address & 0xffff;
-    if (this.activity.enabled) this.activity.hits[addr] |= WRITE_BIT;
+    if (this.activity.enabled) this.stamp(addr, WRITE_BIT);
     const section = addr >> 14;
     if (section === 0 && this.lmpr & LMPR_WPROT) return;
     const page = this.sectionPage(section);
