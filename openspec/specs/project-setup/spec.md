@@ -90,8 +90,15 @@ machine. Every machine the IDE supports SHALL carry this information.
 
 The list SHALL be arranged one of several ways, chosen by the user from a
 control the list carries: grouped by manufacturer, ungrouped by model, grouped
-by release year, or grouped by the dialect of BASIC the machine runs. Grouping
-by manufacturer SHALL be the arrangement a user who has never chosen one gets.
+by release year, or grouped by the family of BASIC the machine runs. Grouping by
+manufacturer SHALL be the arrangement a user who has never chosen one gets.
+
+Where the list is grouped by the BASIC the machines run, the grouping SHALL be
+by family rather than by version, so that machines running different versions of
+one BASIC read under one heading rather than under a heading each. The heading
+SHALL name the family. Each machine's own description SHALL still name the
+version it runs, so that grouping machines together never hides which of them
+runs what.
 
 Within an arrangement the machines SHALL read in a stated order rather than
 registration order: by name where the arrangement is anything but year, and
@@ -104,9 +111,11 @@ The list SHALL show no group heading it has no machines under, in any
 arrangement and however the list has been narrowed.
 
 The user SHALL be able to narrow the list by typing, matching a machine's name,
-its manufacturer, or the BASIC it runs, without regard to letter case. Where
-nothing matches what was typed, the list SHALL say so rather than appearing
-empty, and SHALL offer a way back to the whole list.
+its manufacturer, or the BASIC it runs, without regard to letter case. The BASIC
+it runs SHALL be matched by the name of its family and by the name of the
+version that machine runs alike, so that a user who knows either finds the
+machine. Where nothing matches what was typed, the list SHALL say so rather than
+appearing empty, and SHALL offer a way back to the whole list.
 
 The typed text and the chosen arrangement SHALL be remembered, so that the list
 opens as the user last left it — both later in the same session, wherever a
@@ -154,6 +163,20 @@ anonymous.
 - **THEN** the machines are grouped under the year each was released, oldest
   year first, and only years that hold a machine are headed
 
+#### Scenario: Arranging the list by the BASIC the machines run
+
+- **WHEN** the user arranges the machine list by the BASIC the machines run, and
+  two of the machines run different versions of one BASIC
+- **THEN** both read under one heading naming the family, and each machine's own
+  description still names the version it runs
+
+#### Scenario: Machines whose BASICs are unrelated stay apart
+
+- **WHEN** the user arranges the machine list by the BASIC the machines run, and
+  two machines run BASICs that are not versions of one another
+- **THEN** they read under separate headings, however much else the two machines
+  have in common
+
 #### Scenario: Ordering a group by name
 
 - **WHEN** the user arranges the machine list any way but by year
@@ -166,6 +189,13 @@ anonymous.
   BASIC it runs
 - **THEN** the list shows only the machines that match, still arranged the way
   the user chose, and no heading is left standing without machines under it
+
+#### Scenario: Narrowing the list by a version rather than a family
+
+- **WHEN** the user types the name of the particular version of a BASIC that one
+  machine of a family runs
+- **THEN** that machine is among those the list shows, rather than the text
+  matching only the family name its heading carries
 
 #### Scenario: Typing something no machine matches
 
