@@ -235,6 +235,19 @@ export default withPwa(
               ],
             },
             {
+              // The Coupé is the only machine running SAM BASIC, and shares its
+              // keyword table with nothing: Andy Wright's Beta BASIC line, not
+              // Sinclair BASIC.
+              text: 'SAM BASIC',
+              link: '/reference/samcoupe',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/samcoupe/hardware' },
+                { text: 'Escape codes', link: '/reference/samcoupe/escapes' },
+                { text: 'File formats', link: '/reference/samcoupe/formats' },
+              ],
+            },
+            {
               // One page covers the ZX81 and both Spectrums; each machine's own
               // rows are tagged on the shared table.
               text: 'Sinclair BASIC',

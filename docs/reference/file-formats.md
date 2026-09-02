@@ -86,6 +86,7 @@ reference page:
 - [TRS-80 escape codes](./trs80/escapes)
 - [Acorn Atom escape codes](./atom/escapes)
 - [MSX escape codes](./msx/escapes)
+- [SAM Coupé escape codes](./samcoupe/escapes)
 
 ## Native binary formats
 
@@ -108,6 +109,7 @@ reference page:
 | Apple II Plus      | `.bin`                 | `.bin`                 | tokenized program from $0801; the tape puts a header record in front of it |
 | Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records |
 | Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks      |
+| MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read             |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -132,6 +134,7 @@ full on its own page:
 - [Applesoft file formats](./applesoft/formats) — `.bin` program, Apple II Plus
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 - [MSX file formats](./msx/formats) — `.bas`, `.cas`
+- [SAM Coupé file formats](./samcoupe/formats) — `.tap`
 
 ## Machine code & data blocks
 

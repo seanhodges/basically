@@ -154,8 +154,12 @@ export const samcoupeKeywords: KeywordInfo[] = [
     word: 'MEM$',
     token: 0x4d,
     kind: 'function',
-    signature: 'MEM$ (page)',
-    doc: 'A 16K memory page as a string, for reading and writing RAM in bulk.',
+    // The page form this used to carry is not one the ROM accepts: a single
+    // subscript is "Not understood" and only a `TO` slice parses. What comes
+    // back is the same address space PEEK reads, checked against PEEK on the
+    // booted ROM.
+    signature: 'MEM$(a TO b)',
+    doc: 'A slice of memory as a string, for reading and writing RAM in bulk.',
   },
   {
     word: 'PATH$',
