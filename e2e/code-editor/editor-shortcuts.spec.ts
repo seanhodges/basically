@@ -222,6 +222,11 @@ test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
     }, altGraph);
 
   // AltGr+E (reported as Ctrl+Alt+E on Windows) must NOT open Export.
+  //
+  // Slept rather than polled because the assertion is that nothing happens:
+  // there is no event to wait for, and `toBeHidden` against an element that was
+  // never created passes instantly, which would pass just as well if the dialog
+  // were about to open one tick later.
   await dispatch(true);
   await page.waitForTimeout(300);
   await expect(

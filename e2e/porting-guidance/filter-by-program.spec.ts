@@ -507,25 +507,35 @@ test('the indicator goes as soon as the user does anything else', async ({
 // in src/app/useDismiss.test.ts. The self-dismissal timeout is a plain
 // setTimeout, and waiting it out cost this spec ten seconds of doing nothing.
 
-test('the indicator never appears while the documentation is already open', async ({
-  page,
-}) => {
+/**
+ * The other half of the indicator's `hintVisible && !open` condition, from the
+ * side a user can actually reach.
+ *
+ * This used to switch the target machine with the drawer already open and
+ * assert the indicator never came. Below 769px the drawer is `width: 100vw`, so
+ * the toolbar it clicked is underneath it - the switch was landing only because
+ * the click won a race against the drawer arriving, and it stopped winning the
+ * moment the suite began serving a built app instead of a dev server. There is
+ * no phone route to that scenario at all: the only in-drawer machine control is
+ * the comparison's, and taking it closes the drawer. So the guard is checked
+ * the way round that exists - raise the indicator, then open the drawer over it.
+ */
+test('opening the documentation takes the indicator away', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 900 });
-  await openApp(page);
-  await selectDialect(page, 'commodore64');
-  await setEditorSource(page, PROGRAM);
+  await beginPort(page);
 
-  // Documentation open before the switch: the comparison it opens on is the
-  // offer, so pointing at a handle that is not on screen would be nonsense.
+  const hint = page.getByRole('button', {
+    name: /Porting guide ready for this move/,
+  });
+  await expect(hint).toBeVisible();
+
+  // By the handle rather than by the indicator itself, so what clears it is the
+  // drawer being open and not the indicator's own click.
   await page
     .getByRole('button', { name: 'Open the documentation panel' })
     .click();
   await expect(drawerOf(page)).toBeVisible();
-  await selectDialect(page, 'zx81', 'keep my code');
-
-  await expect(
-    page.getByRole('button', { name: /Porting guide ready for this move/ }),
-  ).toHaveCount(0);
+  await expect(hint).toBeHidden();
 });
 
 test('loading a different program closes the comparison it was offered for', async ({

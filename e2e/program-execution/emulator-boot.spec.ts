@@ -104,16 +104,27 @@ test(`sample boots, runs and paints - ${BOOTED.label}`, async ({ page }) => {
   await stopEmulator(page);
 });
 
-test('screen focus captures keys; Escape releases it', async ({ page }) => {
-  test.setTimeout(90_000);
+/**
+ * No machine, because neither assertion needs one: `EmulatorPane` renders the
+ * shell and its canvas whether or not one exists, `focused` is component state
+ * the canvas's own focus handlers toggle, and the Escape branch of its key
+ * handler returns before it reads the machine at all.
+ *
+ * This used to boot one and was named for capturing keys, which it never
+ * asserted. Nothing in the suite yet proves a physical key press reaches a
+ * running machine - the virtual keyboard's route is covered in
+ * `e2e/virtual-input/`, and the machines' own key handling in
+ * `src/dialects/cursorKeys.test.ts` and `caseKeys.test.ts`, but the browser
+ * half between them is a real gap rather than something this test was quietly
+ * doing.
+ */
+test('the screen takes focus on a click and gives it back on Escape', async ({
+  page,
+}) => {
   await openApp(page);
-  // Needs a program to run: the editor starts empty now.
-  await createProjectWithSample(page, 'Hello world');
-  await playAndWaitRunning(page);
   const shell = page.locator('[class*="screenShell"]');
   await page.locator('canvas').first().click();
   await expect(shell).toHaveClass(/focused/);
   await page.keyboard.press('Escape');
   await expect(shell).not.toHaveClass(/focused/);
-  await stopEmulator(page);
 });

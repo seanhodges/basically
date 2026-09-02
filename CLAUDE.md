@@ -103,9 +103,15 @@ mapping.
 
 ## Writing efficient tests
 
-e2e minutes are the project's scarcest CI resource (one runner, one worker,
-Chromium, 30-minute cap). Before adding an e2e test, ask what only a real
-browser can prove; everything else belongs in a colocated `*.test.ts`.
+e2e runs on one runner, one worker, Chromium, under a 30-minute cap, and it is
+a blocking gate. It is no longer the scarce resource it was: the suite serves
+the built artifact rather than a dev server, which took it from around twelve
+minutes to around three, and a test that cost four seconds now costs one. The
+rules below are still the rules - a browser is the most expensive way to learn
+anything, and the reasons to prefer a unit test were never only about minutes -
+but "it is too slow" is no longer the argument. Before adding an e2e test, ask
+what only a real browser can prove; everything else belongs in a colocated
+`*.test.ts`.
 
 - **e2e is for browser-only behaviour** — canvas actually painting,
   pointer/touch capture, clipboard and file-picker fallbacks, real
