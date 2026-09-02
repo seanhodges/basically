@@ -211,10 +211,11 @@ machine: these predate the microcomputer and have no core to reuse, nor any
 prospect of one being vendored. They ship, if at all, as clean-room interpreters
 
 - the TRS-80's shape, arrived at for a different reason. Adding one also moves
-  the project's own era boundary, which `src/dialects/registry.test.ts` pins to
-  1975-1995, and the "microcomputer BASIC" framing in `README.md` and `CLAUDE.md`
-  along with it. That is a deliberate widening of what this project claims to be,
-  so it belongs in the plan rather than in a passing test edit.
+  the project's own era boundary: `src/dialects/registry.test.ts` now bounds a
+  dialect's year to 1960-1995, and `README.md` and `CLAUDE.md` say "retro BASIC"
+  rather than "microcomputer BASIC". That widening is deliberate, so a further
+  one belongs in the plan for the machine that needs it rather than in a passing
+  test edit.
 
 | Status | Machine                 | CPU             | BASIC                      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------ | ----------------------- | --------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

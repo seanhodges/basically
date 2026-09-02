@@ -2,8 +2,10 @@
 
 ## What this is
 
-**Basically** is a browser-based IDE for microcomputer BASIC dialects and supporting
-multiple machines (Sinclair, Acorn/BBC, Commodore, Tandy…). Don't assume a count or list;
+**Basically** is a browser-based IDE for retro BASIC dialects and supporting
+multiple machines (Sinclair, Acorn/BBC, Commodore, Tandy…) — from the 1960s
+mainframe BASIC was born on to the 8-bit micros that carried it, so "microcomputer"
+is no longer the boundary. Don't assume a count or list;
 check `src/dialects/registry.ts` (`getDialect`/the registered dialects) for what's
 actually available. Each dialect has an in-browser CPU emulator, per-dialect
 hardware import/export (cassette audio, native binary downloads, serial device, etc),

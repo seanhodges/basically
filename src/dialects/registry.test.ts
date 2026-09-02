@@ -172,9 +172,12 @@ describe('dialect registry', () => {
         Number.isInteger(d.year),
         `${d.id} year should be an integer`,
       ).toBe(true);
-      // The 8-bit microcomputer era, generously bounded - a typo like 19881
+      // From BASIC's own first machines to the end of the 8-bit era,
+      // generously bounded at both ends - the lower bound sits below 1964, when
+      // Dartmouth first ran the language, because a machine that predates the
+      // microcomputer can still run a BASIC this IDE targets. A typo like 19881
       // or a default 0 fails, a genuine machine does not.
-      expect(d.year, `${d.id} year looks wrong`).toBeGreaterThanOrEqual(1975);
+      expect(d.year, `${d.id} year looks wrong`).toBeGreaterThanOrEqual(1960);
       expect(d.year, `${d.id} year looks wrong`).toBeLessThanOrEqual(1995);
     }
   });
