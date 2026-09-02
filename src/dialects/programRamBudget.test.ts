@@ -66,6 +66,12 @@ const UNMEASURABLE: Record<string, string> = {
   // in src/dialects/altair8800/emulator/altairMachine.test.ts.
   altair8800:
     'the cold-start dialogue is unanswered, so BASIC has no workspace',
+  // Not "unread" but "not in bytes": the GE-235's core store is 8,192 twenty-
+  // bit words, and the figure its memory map gives - 4,139 words of object code
+  // and variables - is not a byte count a source length in characters could be
+  // compared against. The dialect declares 0 for the same reason, which is what
+  // turns the byte budget off rather than making it wrong.
+  ge235: 'the machine counts words, so there is no byte figure to report',
 };
 
 /** How far above the reading a budget may sit: the empty program's end marker. */

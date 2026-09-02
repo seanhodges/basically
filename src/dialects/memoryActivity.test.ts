@@ -44,6 +44,10 @@ const NO_MEMORY_BUS: Record<string, string> = {
   // over a RAM image, so there are no CPU accesses to record - the same reason
   // it reports no BASIC memory figures (see lineProfiling.test.ts).
   trs80: 'the interpreter backend executes no CPU over a RAM image',
+  // No CPU core exists for this machine to execute at all - no GE-2xx
+  // implementation in JS or WASM - so the backend is a clean-room interpreter
+  // with no core image beneath it and no access to stamp.
+  ge235: 'a clean-room interpreter with no core image beneath it',
 };
 
 /** Frames of the ROM's own start-up; enough that the CPU has fetched something. */

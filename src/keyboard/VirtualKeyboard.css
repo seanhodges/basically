@@ -1284,3 +1284,27 @@
 .vk-theme-hb10p .vk-layer-cursor.vk-active {
   color: #ffd8d3;
 }
+
+/* ---------------------------------------------------------------------------
+   GE-235 keyboard theme, which is a Teletype Model 33 ASR theme - the machine
+   itself is a mainframe in another room and has no keyboard of its own. The
+   ASR-33's keys are round black caps in a beige case with white legends
+   stamped into them, so the SHIFT overlay takes the faded grey of a legend
+   printed on the key face and brightens when SHIFT is engaged. RUB OUT and
+   the SHIFT bar take the darker phenolic of the teletype's own function keys.
+   Activated by the layout's `theme: 'vk-theme-ge235'`. */
+.vk-theme-ge235 .vk-layer-shift {
+  color: #97918a;
+}
+
+.vk-theme-ge235 .vk-layer-shift.vk-active {
+  color: #f2ede6;
+}
+
+.vk-theme-ge235 .vk-style-shift .vk-keycap {
+  background: linear-gradient(#3a3733, #262421);
+}
+
+.vk-theme-ge235 .vk-style-shift .vk-label {
+  color: #ded8cf;
+}

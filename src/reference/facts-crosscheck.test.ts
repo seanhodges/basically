@@ -63,6 +63,10 @@ const parseAddr = (s: string): number =>
  * compile, and its compiler says so, so a two-line probe carries that complaint
  * unless it ends properly. Every other machine here runs a fragment as it
  * stands, which is why this is a map rather than a field.
+ *
+ * Stated here rather than read from `bootHarness.wholeProgram`, which says the
+ * same thing for the batteries that boot a machine: this file is pure data and
+ * must not pull an emulator bringup in behind it.
  */
 const PROGRAM_TAIL: Partial<Record<string, string>> = { ge235: '99 END\n' };
 

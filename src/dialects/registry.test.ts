@@ -3,12 +3,30 @@ import { dialects, getDialect } from './registry';
 import { basicFamilyOf, referencePageOf } from './referencePage';
 
 describe('dialect registry', () => {
+  /**
+   * The one machine whose program space is not a number of bytes.
+   *
+   * The GE-235's core store is 8,192 twenty-bit words, and the figure its
+   * memory map gives - 4,139 words of object code and variables - is not a byte
+   * count that could be compared against a source length in characters. Zero is
+   * the honest answer to a field asking for bytes on a machine that has none,
+   * and it is what turns the byte budget off rather than making it wrong.
+   */
+  const NOT_MEASURED_IN_BYTES = new Set(['ge235']);
+
   it('every dialect declares a positive program RAM estimate', () => {
     for (const d of dialects) {
       expect(
         Number.isInteger(d.programRamBytes),
         `${d.id} programRamBytes should be an integer`,
       ).toBe(true);
+      if (NOT_MEASURED_IN_BYTES.has(d.id)) {
+        expect(
+          d.programRamBytes,
+          `${d.id} counts words, so it declares no byte figure at all`,
+        ).toBe(0);
+        continue;
+      }
       expect(
         d.programRamBytes,
         `${d.id} programRamBytes should be positive`,
@@ -42,6 +60,10 @@ describe('dialect registry', () => {
     atari800: 'dec',
     atari400: 'dec',
     hb10p: 'hex',
+    // Word numbers, plainly written: nothing in this BASIC takes an address, so
+    // no program is ever written in a notation, and the octal its own listings
+    // use is carried in the map's notes rather than made a third toggle state.
+    ge235: 'dec',
   };
 
   it('every dialect declares its memory-map address notation', () => {

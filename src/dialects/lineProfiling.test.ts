@@ -37,6 +37,7 @@ import {
   installNodeRomLoading,
   runFrames,
   runUntil,
+  wholeProgram,
 } from './bootHarness';
 import { MEMORY_SAMPLE_FRAMES, RunProfiler } from '../app/runProfile';
 import type { LineCost, MachineEmulator } from './types';
@@ -66,17 +67,20 @@ const NO_LINE_COSTS: Record<string, string> = {
   atom: 'no readable "line being executed" cell',
   trs80:
     'the interpreter executes statements, so there are no cycles to charge',
+  ge235:
+    'a clean-room interpreter with no CPU under it, so there are no cycles to charge',
 };
 
 /**
  * Machines that cannot report their BASIC memory figures, and why.
  *
- * The TRS-80 backend interprets BASIC statements rather than executing a Z80
- * over a RAM image, so it has no BASIC pointers to read a used/free split out
- * of - there is no figure to report rather than a figure left unread.
+ * Both are interpreter backends rather than a CPU running over a RAM image, so
+ * neither has BASIC pointers to read a used/free split out of - there is no
+ * figure to report rather than a figure left unread.
  */
 const NO_MEMORY_FIGURES: Record<string, string> = {
   trs80: 'the interpreter has no RAM image, so there are no BASIC pointers',
+  ge235: 'the interpreter has no core image, so there are no pointers to read',
 };
 
 /**
@@ -269,7 +273,9 @@ describe('every registered machine measures what it can', () => {
           // Off by default: nothing measures a machine nobody armed.
           expect(machine.drainProfile?.() ?? null).toBeNull();
 
-          const { image, errors } = dialect.tokenize(PROBE);
+          const { image, errors } = dialect.tokenize(
+            wholeProgram(dialect.id, PROBE),
+          );
           expect(errors).toEqual([]);
           const costs = await measureProbe(machine, image);
           if (!arms) {
@@ -313,7 +319,9 @@ describe('every registered machine measures what it can', () => {
           // The other half: bytes charged to the line that took them. Measured
           // on the same booted machine, because booting the ROM is the whole
           // cost of this file.
-          const churn = dialect.tokenize(CHURN_BY_DIALECT[dialect.id] ?? CHURN);
+          const churn = dialect.tokenize(
+            wholeProgram(dialect.id, CHURN_BY_DIALECT[dialect.id] ?? CHURN),
+          );
           expect(churn.errors).toEqual([]);
           const taken = (await measureProbe(
             machine,

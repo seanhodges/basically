@@ -48,6 +48,7 @@ const EXPECTED_WIDTHS: Record<string, number> = {
   atari800: 1152, // 384 x3
   atari400: 1152, // 384 x3
   hb10p: 960, // 320 x3
+  ge235: 1152, // 576 x2
 };
 
 describe('screenshotScale', () => {

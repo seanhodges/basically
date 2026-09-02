@@ -76,6 +76,11 @@ const PROMPT_CEILINGS: Record<string, number> = {
   // standard's screen, sprite, sound, video-RAM and file words - where the next
   // largest machine has half as many.
   hb10p: 55_000,
+  // The narrowest language here and not the narrowest prompt, which is the
+  // shape of this machine: thirty-one keywords make a short reference table,
+  // and being short in all thirteen capability domains makes a long section
+  // about what to do instead.
+  ge235: 32_000,
 };
 
 /**
@@ -111,7 +116,11 @@ const SECTION_CEILINGS: Record<string, number> = {
   // longer ones.
   'EVERY COMMAND, FUNCTION AND OPERATOR THIS MACHINE HAS': 33_000,
   'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 3_000,
-  'WHERE THIS MACHINE IS SHORT': 5_000,
+  // The GE-235 sets this, and the reason is the machine: it is the ancestor of
+  // every other BASIC here, so it is short in all thirteen capability domains
+  // and each one earns a paragraph and a worked example. Every other machine
+  // is short in a handful.
+  'WHERE THIS MACHINE IS SHORT': 5_400,
 };
 
 /**

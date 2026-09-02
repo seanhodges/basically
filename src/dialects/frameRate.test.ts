@@ -93,6 +93,11 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // than the 312 most PAL machines here count, so an MSX runs fractionally
   // *above* 50 where they sit fractionally below it.
   hb10p: 50.16,
+  // Nothing raster about it: a Teletype prints ten characters a second and this
+  // machine's speed lives in a statement budget instead. 50 is the pacing
+  // convention the rest of the app is written to - how often the host is given
+  // a chance to redraw the paper.
+  ge235: 50.0,
 };
 
 describe('machine frame rates', () => {

@@ -128,6 +128,11 @@ const EXCUSED: Record<string, string> = {
   bbcmaster: 'reuses the bbcmicro layout',
   atari400: 'reuses the atari800 layout',
   apple2plus: 'reuses the apple2 layout',
+  // No key matrix and nothing to echo into: this machine has no command prompt,
+  // so a keypress outside INPUT reaches no reader and prints nothing. Its
+  // twenty SYM cells are proved against the teletype adapter cell by cell in
+  // ge235/keyboardLayout.test.ts, which is the same seam a boot would follow.
+  ge235: 'no prompt to echo into - the SYM cells are proved in its layout test',
 };
 
 describe('every registered machine is covered', () => {

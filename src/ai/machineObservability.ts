@@ -46,6 +46,10 @@ export function driveKeyNames(dialect: Dialect): string[] {
 export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
+  // Unlike the two above, this one is outstanding work rather than a limit: the
+  // GE-235's interpreter holds its variables in a table it could hand back, and
+  // the watcher was simply deferred out of the work that brought the machine in.
+  'ge235',
 ]);
 
 /** Whether this dialect's machine can be asked for its BASIC variables. */
@@ -91,11 +95,11 @@ export function canCheckByRunning(dialectId: string): boolean {
  * is executing, and Atom BASIC cannot - the same machine, for the same reason,
  * that has no step-through debugger.
  *
- * Charging it at all needs a clock to charge in, and the TRS-80's backend has
+ * Charging it at all needs a clock to charge in, and an interpreter backend has
  * none: it interprets BASIC statements rather than executing a CPU over a RAM
- * image, so there are no cycles to attribute. It could be given a made-up
- * currency of its own, but every figure in the IDE would then have to carry
- * which currency it was in - for one machine, in a unit the hardware never had.
+ * image, so there are no cycles to attribute. Such a machine could be given a
+ * made-up currency of its own, but every figure in the IDE would then have to
+ * carry which currency it was in - in a unit the hardware never had.
  *
  * Kept here rather than read off a machine because the decision is taken before
  * any machine exists - the assistant's tool set is settled per conversation from
@@ -106,6 +110,9 @@ export function canCheckByRunning(dialectId: string): boolean {
 export const DIALECTS_WITHOUT_PROFILE: ReadonlySet<string> = new Set([
   'atom',
   'trs80',
+  // The TRS-80's reason exactly: a clean-room interpreter with no CPU beneath
+  // it, so there are no cycles to attribute a line's cost in.
+  'ge235',
 ]);
 
 /** Whether a run on this dialect's machine can be measured line by line. */

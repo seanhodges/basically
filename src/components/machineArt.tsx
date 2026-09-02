@@ -66,6 +66,10 @@ const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
 const PMD_BLUE = '#7fb4d4'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-fn
 const PMD_RED = '#c0362c'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-shift
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
+const ASR33_CASE = '#8d8779';
+const ASR33_KEYS = '#262421'; // VirtualKeyboard.css .vk-theme-ge235 .vk-style-shift
+const ASR33_PAPER = '#efe9dc';
+const ASR33_INK = '#4a463f';
 const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc664/-cpc6128
 
 const DARK_KEYS = '#2a2a2e';
@@ -138,6 +142,7 @@ const BASE = {
   apple2: '#9a8c6f',
   atari: '#a89878',
   hitbit: '#bab8b1',
+  teletype: '#5e5a51',
 };
 
 /* ---------------------------------------------------------------------------
@@ -827,6 +832,73 @@ function Hb10pArt({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   General Electric */
+
+/**
+ * GE-235: the machine itself is a mainframe in another room, so what a user
+ * saw was the Teletype Model 33 ASR on the desk in front of them - a beige
+ * pedestal with a paper roll standing up behind three rows of round black
+ * keys, and the punch and reader stack on its left. The portrait is that
+ * terminal, which is the only part of this machine anyone ever sat at.
+ */
+function Ge235Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      {/* The paper standing up behind the keyboard, with a line of type on it. */}
+      <path d="M13 3h22v13H13z" fill={ASR33_PAPER} />
+      {[0, 1, 2].map((r) => (
+        <rect
+          key={`t${r}`}
+          x="15.5"
+          y={5.5 + r * 3}
+          width={r === 2 ? 9 : 17 - r * 3}
+          height="1.1"
+          fill={ASR33_INK}
+        />
+      ))}
+      {/* The pedestal, and the deck the keyboard sits in. */}
+      <path d="M4 16h40v11H4z" fill={ASR33_CASE} />
+      <path d="M4 27h40v2H4z" fill={BASE.teletype} />
+      {/* The tape punch and reader stack, to the left of the keys. */}
+      <rect x="6" y="18" width="5" height="7" fill={BASE.teletype} />
+      <rect x="7.2" y="19.5" width="2.6" height="1.2" fill={ASR33_PAPER} />
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: 3 }, (_, c) => (
+          <circle
+            key={`h${r}-${c}`}
+            cx={7.6 + c * 1.2}
+            cy={22 + r * 0.9}
+            r="0.28"
+            fill={ASR33_PAPER}
+          />
+        )),
+      )}
+      {/* Three rows of round keys, each row a little further right. */}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 10 }, (_, c) => (
+          <circle
+            key={`k${r}-${c}`}
+            cx={13.6 + r * 0.9 + c * 3}
+            cy={18.6 + r * 2.6}
+            r="1.15"
+            fill={ASR33_KEYS}
+          />
+        )),
+      )}
+      {/* The space bar. */}
+      <rect
+        x="17"
+        y="25.4"
+        width="15"
+        height="1.3"
+        rx="0.5"
+        fill={ASR33_KEYS}
+      />
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -854,6 +926,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   atari800: Atari800Art,
   atari400: Atari400Art,
   hb10p: Hb10pArt,
+  ge235: Ge235Art,
 };
 
 /** A machine's portrait, `size` px tall. */
