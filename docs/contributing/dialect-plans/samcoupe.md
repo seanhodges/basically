@@ -116,7 +116,7 @@ that turned up in the audit:
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ✅     |
-| 6     | Reference docs                     | ⬜     |
+| 6     | Reference docs                     | ✅     |
 | 7     | Register & ship                    | ⬜     |
 
 ---
@@ -420,36 +420,60 @@ the setting that gives the manual's 2250 baud.
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; variable watcher shows live vars.
 
-## Stage 6 — Reference docs ⬜
+## Stage 6 — Reference docs ✅
 
-Everything here is keyed by **docs page**, so it lands and is checked before the
-machine registers. The machine-keyed half of the reference bundle —
-`src/reference/machines.ts` and the `facts.ts` porting entry — is **not** here;
-it goes with the registry line in Stage 7. Run the **`dialect-reference-docs`**
-sub-skill, which owns the scaffold commands, the four page templates and the
-crosscheck wiring. The page slug is `samcoupe`, and this machine takes a page of
-its own: it shares no keyword table with `zxspectrum`.
+Everything here is keyed by **docs page**, so it landed and was checked before
+the machine registers. The page slug is `samcoupe`, and this machine takes a page
+of its own: it shares no keyword table with `zxspectrum`.
 
-- [ ] **Ask about the sidebar first.** `CLAUDE.md` forbids adding an entry to
-      `docs/.vitepress/config.ts` without the user's explicit say-so, and
-      `docsNavigation.test.ts` fails without one — so the question is asked
-      before this stage starts, not found in the middle of it
-- [ ] `src/reference/samcoupe.ts` + `escapes/samcoupe.ts` — scaffold with
-      `npm run gen:reference` / `npm run gen:escapes`, then hand-enrich
-- [ ] `docs/reference/samcoupe.md` + `samcoupe/{hardware,escapes,formats}.md`,
-      plus a row and a link in the cross-machine `docs/reference/file-formats.md`
-      for the SAM tape container and the `.mgt` disk image
-- [ ] `pages.ts`, the index bullet, `docs/reference/z80-assembly.md`'s machine
-      lists, and `src/ai/machineReference.ts`'s lazy loaders
-- [ ] add `'samcoupe'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` —
-      without it `pages.test.ts` and `keyword-crosscheck.test.ts` both reject the
-      page as one no registered machine reads from
-- [ ] the `porting.ts` equivalence groups and false friends, and the
-      `domain-guidance.ts` / `escape-guidance.ts` cells. Author these from the
-      crosschecks' own failures, which name the exact domains and control-code
-      classes a source can lose into this machine
+- [x] **The sidebar was asked for and granted** before the stage started, as
+      `CLAUDE.md` requires and `docsNavigation.test.ts` enforces
+- [x] `src/reference/samcoupe.ts` — 181 rows, one per word in the keyword table
+      plus the eight arithmetic and relational spellings the dialect declares as
+      operators because the machine stores them as character codes
+- [x] `src/reference/escapes/samcoupe.ts` — hand-authored rather than
+      scaffolded: the escape scaffolder reads `CHARSET_PROBES`, which refuses a
+      dialect the registry does not carry. The eight print-control directives,
+      the twenty-five `\a`-`\y` UDG spellings, the self-escaping backslash and
+      the raw catch-all; the block graphics need no row, having Unicode glyphs
+- [x] `docs/reference/samcoupe.md` + `samcoupe/{hardware,escapes,formats}.md`,
+      plus the row and the two links in the cross-machine
+      `docs/reference/file-formats.md`
+- [x] `pages.ts`, the index bullet, `docs/reference/z80-assembly.md`'s two
+      machine lists, `src/ai/machineReference.ts`'s lazy loaders and the sidebar
+      group
+- [x] `'samcoupe'` in `PENDING_PAGE_IDS`, to be deleted by the change that
+      registers the machine
 
-**Depends on:** Stages 1–3 (keywords, charset, memory map, samples).
+What the family instinct gets wrong here was read off the running ROM rather
+than assumed, and each of these is stated on the pages:
+
+- `PRINT AT` reaches rows 0-18 only. `CSIZE` boots at 8x9, so the grid is 32x21
+  and the bottom two rows are the lower window: asking for one is report 32.
+- `ATTR` is a MODE 1 reading and answers report 34 in any other mode.
+- The argument ceilings are the ROM's: `PALETTE` slot 0-15 and colour 0-127,
+  `BORDER` 0-15, `CSIZE` width 6 or 8 and height 6-32, `SOUND` register 0-31,
+  `ROLL`/`SCROLL` direction 1-4, `y` 0-173 in every mode.
+- A whole vocabulary is in the ROM's token table but not in the ROM. `DIR`,
+  `ERASE`, `FORMAT`, `MOVE`, `COPY`, `RENAME`, `PROTECT`, `HIDE`, `REF`, `USING`
+  and `WRITE` tokenize and are then refused as "Not understood", the parser that
+  reads them arriving with a disc operating system; `EOF`, `PTR`, `PATH$`,
+  `DVAR` and the file form of `OPEN` get as far as running and answer "No DOS".
+- A qualifier goes in front of `PUT`'s coordinates, not after them.
+
+One figure in the dialect's own source was wrong and is corrected with this
+stage: `MEM$` is not a page form. A single subscript is "Not understood"; only
+`MEM$(a TO b)` parses, and what comes back is the same address space `PEEK`
+reads, checked against `PEEK` on the booted ROM.
+
+> **Two of this stage's briefs turned out to belong elsewhere.** The `.mgt` disc
+> image is not in the file-formats row because Stage 4 did not take that
+> stretch - the page says disc images are not read. And `porting.ts`,
+> `domain-guidance.ts` and `escape-guidance.ts` cannot land here after all:
+> all three are keyed by registered machine id and their crosschecks resolve
+> every id through the registry, so they go with the registry line.
+
+**Depends on:** Stages 1-3 (keywords, charset, memory map, samples).
 **Verify:** `npm run docs:build` (it fails on dead links) + the reference
 crosschecks.
 
@@ -482,6 +506,12 @@ with the registry line.
       **measured** by running the battery, not authored), and the
       `referenceByPage`, `escapesByPage` and `memoryMapById` maps in
       `docs/reference/compare.md`
+- [ ] the rest of the machine-keyed reference data, for the same reason: the
+      `porting.ts` equivalence groups and false friends, the `domain-guidance.ts`
+      and `escape-guidance.ts` cells, and the `charsetProbes.ts` entry the escape
+      crosscheck is driven by. Author them from the crosschecks' own failures,
+      which name the exact groups, domains and control-code classes a source can
+      lose into this machine
 - [ ] delete `'samcoupe'` from `PENDING_PAGE_IDS` in the same change —
       `pages.test.ts` fails on an entry whose machine has arrived, so the list
       empties itself rather than being remembered

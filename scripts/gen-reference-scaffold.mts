@@ -49,6 +49,10 @@ import {
   atariOperators,
 } from '../src/dialects/atari800/keywords';
 import { hb10pKeywords, hb10pOperators } from '../src/dialects/hb10p/keywords';
+import {
+  samcoupeKeywords,
+  samcoupeOperators,
+} from '../src/dialects/samcoupe/keywords';
 import { ge235Keywords, ge235Operators } from '../src/dialects/ge235/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
@@ -367,6 +371,28 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       entries: dedupe([
         ...hb10pKeywords.map((k) => toEntry(k)),
         ...hb10pOperators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
+    id: 'samcoupe',
+    varName: 'samcoupeReference',
+    data: {
+      title: 'SAM BASIC',
+      machines: ['MGT SAM Coupé'],
+      // The arithmetic and relational operators the SAM stores as character
+      // codes rather than tokens are declared on the dialect, not in the
+      // keyword table, and the page lists both (see src/dialects/operators.ts).
+      entries: dedupe([
+        ...samcoupeKeywords.map((k) => toEntry(k)),
+        ...samcoupeOperators.map(
           (word): ReferenceEntry => ({
             name: word,
             kind: 'operator',

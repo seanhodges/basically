@@ -35,6 +35,8 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
     import('../reference/integer-basic').then((m) => m.integerBasicReference),
   msx: () => import('../reference/msx').then((m) => m.msxReference),
   pmd85: () => import('../reference/pmd85').then((m) => m.pmd85Reference),
+  samcoupe: () =>
+    import('../reference/samcoupe').then((m) => m.samcoupeReference),
   sinclair: () =>
     import('../reference/sinclair').then((m) => m.sinclairReference),
   trs80: () => import('../reference/trs80').then((m) => m.trs80Reference),
@@ -68,6 +70,8 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
     ),
   msx: () => import('../reference/escapes/msx').then((m) => m.msxEscapes),
   pmd85: () => import('../reference/escapes/pmd85').then((m) => m.pmd85Escapes),
+  samcoupe: () =>
+    import('../reference/escapes/samcoupe').then((m) => m.samcoupeEscapes),
   sinclair: () =>
     import('../reference/escapes/sinclair').then((m) => m.sinclairEscapes),
   trs80: () => import('../reference/escapes/trs80').then((m) => m.trs80Escapes),

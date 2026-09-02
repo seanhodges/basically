@@ -27,6 +27,7 @@ import { commodoreReference } from './commodore';
 import { cpcReference } from './cpc';
 import { dartmouthReference } from './dartmouth';
 import { pmd85Reference } from './pmd85';
+import { samcoupeReference } from './samcoupe';
 import { sinclairReference } from './sinclair';
 import { trs80Reference } from './trs80';
 import { zx80Reference } from './zx80';
@@ -42,6 +43,7 @@ import { commodoreEscapes } from './escapes/commodore';
 import { cpcEscapes } from './escapes/cpc';
 import { dartmouthEscapes } from './escapes/dartmouth';
 import { pmd85Escapes } from './escapes/pmd85';
+import { samcoupeEscapes } from './escapes/samcoupe';
 import { sinclairEscapes } from './escapes/sinclair';
 import { trs80Escapes } from './escapes/trs80';
 import { zx80Escapes } from './escapes/zx80';
@@ -63,7 +65,7 @@ export { referencePageOf } from '../dialects/referencePage';
  * page or whose machines have arrived - so the exemption cannot outlive the
  * staging it exists for. Empty is the ordinary state.
  */
-export const PENDING_PAGE_IDS: readonly string[] = ['dartmouth'];
+export const PENDING_PAGE_IDS: readonly string[] = ['dartmouth', 'samcoupe'];
 
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {
@@ -78,6 +80,7 @@ export const referencePages: Record<string, BasicReferenceTableData> = {
   'integer-basic': integerBasicReference,
   msx: msxReference,
   pmd85: pmd85Reference,
+  samcoupe: samcoupeReference,
   sinclair: sinclairReference,
   trs80: trs80Reference,
   zx80: zx80Reference,
@@ -104,6 +107,7 @@ export const escapePages: Record<string, EscapeTableData> = {
   'integer-basic': integerBasicEscapes,
   msx: msxEscapes,
   pmd85: pmd85Escapes,
+  samcoupe: samcoupeEscapes,
   sinclair: sinclairEscapes,
   trs80: trs80Escapes,
   zx80: zx80Escapes,
