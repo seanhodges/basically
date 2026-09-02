@@ -58,7 +58,7 @@ reported as such rather than guessed at.
 | Atari 400 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 | HB-10P | — | 29 (0xC0-0xD7, 0xDB-0xDF) | 29 | 13 | 0 | 0 | 29/29 |
 | GE-235 | — | _none_ | — | — | — | — | — |
-| Coupé | — | 41 (0x80-0xA8) | 40 | 25 | 0 | 1 | 40/41 |
+| SAM Coupé | — | 41 (0x80-0xA8) | 40 | 25 | 0 | 1 | 40/41 |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -275,7 +275,7 @@ it can display is an ordinary character; see the citation beside its
 entry in src/dialects/semigraphicsAudit.ts for how that was
 established.
 
-### Coupé
+### SAM Coupé
 
 Charset family `samcoupe`. Graphics bytes 0x80-0xA8.
 

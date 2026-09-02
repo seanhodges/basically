@@ -256,7 +256,7 @@ export const machines: MachineChoice[] = [
   {
     id: 'samcoupe',
     page: 'samcoupe',
-    name: 'Coupé',
+    name: 'SAM Coupé',
     manufacturer: 'MGT',
     year: 1989,
     blurb: 'A 6MHz Z80 with four screen modes. Runs SAM BASIC.',

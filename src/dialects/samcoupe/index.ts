@@ -37,7 +37,7 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
  */
 export const samcoupe: Dialect = {
   id: 'samcoupe',
-  name: 'Coupé',
+  name: 'SAM Coupé',
   manufacturer: 'MGT',
   year: 1989,
   basicDialect: 'SAM BASIC',
