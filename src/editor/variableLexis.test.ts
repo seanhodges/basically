@@ -118,6 +118,12 @@ const ROM_NAME_FACTS: Record<
   // folds - unlike the PMD 85, which is the other machine here whose charset
   // preserves case, the MSX ROM folds the name before looking it up.
   hb10p: { significant: 2, case: 'folded', dataItems: 'verbatim' },
+  // The shortest rule here: a name is one letter and at most one digit, so
+  // every character of it is significant and there is nothing to truncate.
+  // Case folds because the character set has one alphabet, and DATA holds
+  // constants the compiler floats as it reads them - never expressions, so its
+  // text is verbatim.
+  ge235: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
 };
 
 describe('name facts are stated per machine', () => {

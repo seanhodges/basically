@@ -2506,6 +2506,9 @@ function fmtIntegerArithmetic(f: PortingFacts): string {
 }
 /** Bitwise, Sinclair value or true/false logic, with exclusive-OR folded in. */
 function fmtLogicalOperators(f: PortingFacts): string {
+  if (f.logicalOperators === undefined) {
+    return 'None - the machine has no AND, OR or NOT; nest the IFs instead';
+  }
   if (f.logicalOperators === 'value') {
     return 'Value logic - A AND B is A or 0, not a bit pattern';
   }
@@ -2517,7 +2520,9 @@ function fmtLogicalOperators(f: PortingFacts): string {
     : 'Bitwise on integers; no exclusive-OR operator';
 }
 function fmtComparisonTrue(f: PortingFacts): string {
-  return `${f.comparisonTrue} for true, 0 for false`;
+  return f.comparisonTrue === undefined
+    ? 'Nothing - a comparison is not a value, only a test between IF and THEN'
+    : `${f.comparisonTrue} for true, 0 for false`;
 }
 /**
  * How short a keyword may be written on this machine, and which symbols stand

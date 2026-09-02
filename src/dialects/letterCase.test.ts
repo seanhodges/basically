@@ -78,6 +78,7 @@ const RESTATED: Record<string, string> = {
     'lower case always; keywords upper case only; names fold; encoding preserves; dialect is lenient',
   hb10p:
     'lower case always; keyword case folds; names fold; encoding preserves',
+  ge235: 'no lower case; keyword case folds; names fold; encoding folds',
 };
 
 /** Turn one restatement back into the fields it claims. */

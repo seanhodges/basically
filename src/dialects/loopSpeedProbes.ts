@@ -193,4 +193,23 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
     iterations: 5000,
     ...programs(5000),
   },
+  {
+    // The slowest of the lot, and the only one whose speed is a policy rather
+    // than a clock: there is no GE-235 core to emulate, so the interpreter
+    // spends a fixed statement budget per frame - a time-shared user's share of
+    // a machine running compiled code. It needs the END that `programs` leaves
+    // off, because a program without one does not run here at all: the compiler
+    // reports "no end instruction" instead.
+    id: 'dartmouth',
+    dialects: ['ge235'],
+    iterations: 500,
+    base: [`10 ${PRINT_MARKER}`, '20 END', ''].join('\n'),
+    loop: [
+      '10 FOR I=1 TO 500',
+      '20 NEXT I',
+      `30 ${PRINT_MARKER}`,
+      '40 END',
+      '',
+    ].join('\n'),
+  },
 ];

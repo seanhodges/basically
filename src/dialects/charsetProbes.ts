@@ -43,6 +43,10 @@ import {
   parseChar as msxParseChar,
   decodeSpan as msxDecodeSpan,
 } from './hb10p/charset';
+import {
+  parseChar as ge235ParseChar,
+  decodeSpan as ge235DecodeSpan,
+} from './ge235/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -105,6 +109,13 @@ export interface CharsetProbe {
   parseUnit(text: string, i: number): { codes: number[]; length: number };
   /** True when a decode form is an escape rather than a plain printable. */
   isEscapeForm(text: string): boolean;
+  /**
+   * How many codes the set has, where that is not a byte's worth. The GE-235's
+   * are six bits, so its 64 codes are the whole set and a "byte" above 63 is
+   * not a code at all - every consumer that walks a charset end to end reads
+   * this rather than assuming 256.
+   */
+  codeCount?: number;
   /** Shape of the catch-all raw-byte escape. */
   rawPattern: RegExp;
   /** How that raw-byte escape is spelled in the docs. */
@@ -164,6 +175,9 @@ const RAW_HEX_BRACE = /^\{0x[0-9A-F]{2}\}$/;
 // digits (see `parseAtariChar`), but this is the canonical spelling a decode
 // produces.
 const RAW_HEX_DOLLAR_BRACE = /^\{\$[0-9a-f]{2}\}$/;
+// The GE-235's codes are six bits and its listings are octal throughout, so its
+// raw escape names a code in octal rather than in hex: two digits, always.
+const RAW_OCTAL_BRACE = /^\{0o[0-7]{2}\}$/;
 
 /**
  * Everything about the Apple II's character generator, shared by the two
@@ -383,7 +397,29 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',
   },
+  {
+    // Six bits, not eight: the Teletype's set is 64 BCD codes, 57 of them
+    // printing, and there is no second half to escape. Nor is there a picture
+    // in it - the terminal is a paper roll, so a code either strikes a type bar
+    // or works the carriage.
+    id: 'dartmouth',
+    varName: 'dartmouthEscapes',
+    title: 'GE-235 escape codes',
+    machines: ['GE-235'],
+    dialects: ['ge235'],
+    codeCount: 64,
+    decode: (b) => ge235DecodeSpan(Uint8Array.of(b), 0).text,
+    ...parseAll(ge235ParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_OCTAL_BRACE,
+    rawSpelling: '{0oNN}',
+  },
 ];
+
+/** The number of codes a probe's set holds - a byte's worth unless it says otherwise. */
+export function codeCountOf(probe: CharsetProbe): number {
+  return probe.codeCount ?? 256;
+}
 
 const byDialect = new Map<string, CharsetProbe>();
 for (const probe of CHARSET_PROBES) {

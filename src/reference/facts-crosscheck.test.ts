@@ -706,14 +706,30 @@ describe('operator facts match the machine', () => {
     // Two probes, because three kinds of logic answer these. `5 AND 3` is 5
     // only where AND picks an operand; among the rest, `5 OR 3` is 7 only where
     // OR combines bits, leaving true/false logic as the machine that answers 1
-    // to both.
-    const { ANDV, ORV } = probe!.expect;
+    // to both. A probe that asks neither question is a machine with no AND, OR
+    // or NOT to ask about, and the facts must say so by declaring none.
+    const { ANDV, ORV, TRU } = probe!.expect;
     expect(
       facts.logicalOperators,
       `${id}: ANDV is ${ANDV} and ORV is ${ORV}`,
-    ).toBe(ANDV !== '1' ? 'value' : ORV === '7' ? 'bitwise' : 'logical');
+    ).toBe(
+      ANDV === undefined
+        ? undefined
+        : ANDV !== '1'
+          ? 'value'
+          : ORV === '7'
+            ? 'bitwise'
+            : 'logical',
+    );
 
-    expect(String(facts.comparisonTrue), `${id}: TRU`).toBe(probe!.expect.TRU);
+    // Likewise TRU: a probe that never prints a comparison is a machine where
+    // one is not a value, and the facts declare no yield rather than a number.
+    expect(
+      facts.comparisonTrue === undefined
+        ? undefined
+        : String(facts.comparisonTrue),
+      `${id}: TRU`,
+    ).toBe(TRU);
   });
 });
 

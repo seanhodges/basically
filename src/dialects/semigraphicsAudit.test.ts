@@ -7,6 +7,7 @@ import {
   IN_SCOPE,
   SEMIGRAPHIC_CODES,
 } from './semigraphicsAudit';
+import { codeCountOf, probeFor } from './charsetProbes';
 import { dialects } from './registry';
 import { getDialect } from './registry';
 
@@ -17,13 +18,16 @@ describe('semigraphics audit', () => {
     expect(audits.map((a) => a.id)).toEqual(dialects.map((d) => d.id));
   });
 
-  it('classifies all 256 bytes of every dialect exactly once', () => {
+  it('classifies every code of every dialect exactly once', () => {
+    // A byte's worth on all but the GE-235, whose codes are six bits - so the
+    // count comes off the charset probe rather than being assumed here.
     for (const audit of audits) {
-      expect(audit.bytes.length, audit.id).toBe(256);
+      const size = codeCountOf(probeFor(audit.id)!);
+      expect(audit.bytes.length, audit.id).toBe(size);
       expect(
         audit.bytes.map((b) => b.code),
         audit.id,
-      ).toEqual(Array.from({ length: 256 }, (_, i) => i));
+      ).toEqual(Array.from({ length: size }, (_, i) => i));
     }
   });
 

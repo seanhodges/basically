@@ -53,6 +53,7 @@ import {
 } from './apple2plus/keywords';
 import { atariKeywords, atariStatements } from './atari800/keywords';
 import { hb10pKeywords, HB10P_ALIASES } from './hb10p/keywords';
+import { ge235Keywords } from './ge235/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -112,6 +113,11 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   atari800: atariKeywords,
   atari400: atariKeywords,
   hb10p: [...hb10pKeywords, ...HB10P_ALIASES],
+  // No aliases to fold in, and no ORDERS entry either: the 1965 compiler reads
+  // whole words. It matches a statement by its first letter and then spells the
+  // rest out, so there is no prefix to shorten and no symbol that stands for a
+  // command - `?` is not even in the character set.
+  ge235: ge235Keywords,
 };
 
 /** The registered machines this module knows a keyword table for. */
