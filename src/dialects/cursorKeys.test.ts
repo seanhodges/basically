@@ -201,6 +201,9 @@ const NO_CURSOR_KEYS: Record<string, string> = {
   // The same two keys on the same keyboard: Applesoft edits a line through the
   // ROM's own screen editor exactly as Integer BASIC does.
   apple2plus: 'the arrows are base-layer keys, not a CURSOR legend',
+  // Paper, not a screen: a Teletype's carriage only ever moves forward, and
+  // there is nothing already printed for an arrow to move back over.
+  ge235: 'no cursor keys on the machine, and paper cannot be moved over',
 };
 
 describe('every registered machine is covered by a cursor-key claim', () => {

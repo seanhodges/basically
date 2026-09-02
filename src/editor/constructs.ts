@@ -808,10 +808,8 @@ export const SAMCOUPE_CONSTRUCTS: ConstructTemplate[] = [
  * language is the smallest. `THEN` takes a line number and nothing else, so the
  * IF template ends in one rather than in a statement; `LET` earns a template of
  * its own, since this BASIC has no bare assignment to fall back on; and the
- * functions are the ten in the library, none of which touches a string.
- *
- * Not in {@link constructsByDialect}: that map names exactly the registered
- * machines, so the dialect's own `language.ts` reads this export by name.
+ * functions are the four of the library that are not pure trigonometry, which
+ * every other machine here omits for the same reason - `SIN(` types itself.
  */
 export const GE235_CONSTRUCTS: ConstructTemplate[] = [
   {
@@ -829,15 +827,9 @@ export const GE235_CONSTRUCTS: ConstructTemplate[] = [
   stringCmd('PRINT', 'print a string'),
   ...fns([
     ['ABS', 'n'],
-    ['ATN', 'n'],
-    ['COS', 'n'],
     ['EXP', 'n'],
     ['INT', 'n'],
-    ['LOG', 'n'],
     ['RND', 'n'],
-    ['SIN', 'n'],
-    ['SQR', 'n'],
-    ['TAN', 'n'],
   ]),
 ];
 
@@ -869,6 +861,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   atari800: ATARI_CONSTRUCTS,
   atari400: ATARI_CONSTRUCTS,
   hb10p: MSX_CONSTRUCTS,
+  ge235: GE235_CONSTRUCTS,
 };
 
 /**

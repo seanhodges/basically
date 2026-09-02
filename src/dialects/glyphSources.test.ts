@@ -291,7 +291,7 @@ const ANCHORS: Record<
  * Dialect ids with no glyph source of their own - see the assertion that pins
  * this set at the foot of the file.
  */
-const WITHOUT_GLYPHS = new Set(['altair8800']);
+const WITHOUT_GLYPHS = new Set(['altair8800', 'ge235']);
 
 /**
  * The code that means "A" on a dialect with no ROM anchor above and no ASCII
@@ -853,11 +853,12 @@ describe('glyph sources', () => {
   });
 
   it('names the machines whose shapes are not theirs to account for', () => {
-    // The Altair has no video hardware and no character generator: its shapes
-    // belong to whichever terminal is plugged into the serial board, so there
-    // is nothing on the machine for a glyph to be traced to. Declared as a set
-    // rather than derived from the empty entry, so a dialect cannot join it by
-    // someone forgetting to fill its sources in.
+    // Two machines, for two versions of the same reason. The Altair has no
+    // video hardware and no character generator: its shapes belong to whichever
+    // terminal is plugged into the serial board. The GE-235's terminal is a
+    // Teletype, where a shape is a type bar rather than a bitmap anywhere.
+    // Declared as a set rather than derived from the empty entry, so a dialect
+    // cannot join it by someone forgetting to fill its sources in.
     const empty = Object.entries(GLYPH_SOURCES)
       .filter(([, sources]) => sources.length === 0)
       .map(([id]) => id);

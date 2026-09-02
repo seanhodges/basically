@@ -80,4 +80,21 @@ describe('the status bar and the porting guide agree', () => {
       expect(fit.percent).toBe(ramBudget(bytes, target.freeRamBytes).pct);
     }
   });
+
+  it('reports no fit at all for a target whose space is not bytes', () => {
+    // The GE-235's program space is 4,139 twenty-bit words, which is not a
+    // figure a source length in characters can be a percentage of - so it
+    // declares no byte budget and the guide reports nothing rather than
+    // reporting every program as overflowing. Its memory map carries the space
+    // in the unit the machine measures it in.
+    const words = portingFacts.find((f) => f.id === 'ge235')!;
+    expect(words.freeRamBytes).toBe(0);
+    expect(
+      programFitForTarget(words, {
+        dialectId: 'ge235',
+        bytes: 291,
+        clean: true,
+      }),
+    ).toBeNull();
+  });
 });

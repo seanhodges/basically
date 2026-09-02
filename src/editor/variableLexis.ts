@@ -107,6 +107,24 @@ const APPLE1_LEXIS: VariableLexis = { suffixChars: '$', crunched: true };
  * `&H`, `&O` and `&B` (and the bare `&` the machine reads as octal), so the
  * prefix here is wider than the editor's two separate hex and binary patterns.
  */
+/**
+ * Dartmouth BASIC's lexis, and it is mostly a list of absences. A name is one
+ * letter and at most one digit - `A` and `A1` are variables, `AB` and `A12` are
+ * "illegal variable" - so both characters are always written out and there is
+ * nothing for `significantChars` to truncate. There is no type marker at all,
+ * `$` being rejected outright ("$ never legal in regular basic" in the
+ * compiler's own `var`), and no literal prefix, this BASIC having only decimal
+ * numbers. The compiler deletes every blank outside a string literal as it
+ * reads a line in, so it crunches: `FORI=1TO10` is a loop. `DATA` holds
+ * constants that are floated as they are compiled, never expressions, so a word
+ * inside one is not a variable.
+ */
+export const GE235_LEXIS: VariableLexis = {
+  suffixChars: '',
+  crunched: true,
+  dataIsVerbatim: true,
+};
+
 export const MSX_LEXIS: VariableLexis = {
   suffixChars: '$%!#',
   hexPrefix: '&[HhOoBb]?',
@@ -134,27 +152,6 @@ export const SAMCOUPE_LEXIS: VariableLexis = {
 };
 
 /**
- * Dartmouth BASIC's lexis, and it is mostly a list of absences. A name is one
- * letter and at most one digit - `A` and `A1` are variables, `AB` and `A12` are
- * "illegal variable" - so both characters are always written out and there is
- * nothing for `significantChars` to truncate. There is no type marker at all,
- * `$` being rejected outright ("$ never legal in regular basic" in the
- * compiler's own `var`), and no literal prefix, this BASIC having only decimal
- * numbers. The compiler deletes every blank outside a string literal as it
- * reads a line in, so it crunches: `FORI=1TO10` is a loop. `DATA` holds
- * constants that are floated as they are compiled, never expressions, so a word
- * inside one is not a variable.
- *
- * Not in {@link VARIABLE_LEXIS}: that table names exactly the registered
- * machines, and this one is not registered yet.
- */
-export const GE235_LEXIS: VariableLexis = {
-  suffixChars: '',
-  crunched: true,
-  dataIsVerbatim: true,
-};
-
-/**
  * Dialect id → its name lexis. `{}` is a statement, not an omission: the
  * Sinclair machines take the defaults (`$` the only marker, no extra name
  * characters, no hex prefix, no crunching, and DATA items that are expressions).
@@ -162,6 +159,7 @@ export const GE235_LEXIS: VariableLexis = {
 export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   zx80: {},
   zx81: {},
+  ge235: GE235_LEXIS,
   zxspectrum: {},
   zxspectrum128: {},
   // `_` is a name character here, and `&FF` a hex literal whose letters are not.

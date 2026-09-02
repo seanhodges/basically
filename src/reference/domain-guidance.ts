@@ -2707,4 +2707,218 @@ export const domainGuidance: DomainGuidance[] = [
     },
     reachFor: ['ERROR', 'ERR', 'ERL', 'RESUME'],
   },
+  // ---------------------------------------------------------------- ge235 --
+  {
+    to: 'ge235',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, DEF FN for a one-line function, and STOP or END to finish.',
+    instead:
+      'THEN takes a line number, never a statement, and there is no ELSE and no ON...GOTO: invert the test, jump, and let the line below be the other branch. END must be the last line.',
+    example: {
+      caption: 'THEN jumps; the branches are lines',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'DEF'],
+  },
+  {
+    to: 'ge235',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'LET assigns, DIM declares an array of one or two subscripts, and DATA/READ walk a table of constants.',
+    instead:
+      'LET is required on every assignment, and the DATA pointer never rewinds - there is no RESTORE. A table read twice is READ into an array first and indexed afterwards.',
+    example: {
+      caption: 'READ once into an array, then index',
+      code: [
+        '10 DIM A(3)',
+        '20 FOR I=1 TO 3',
+        '30 READ A(I)',
+        '40 NEXT I',
+        '50 DATA 7,8,9',
+      ],
+    },
+    reachFor: ['LET', 'DIM', 'READ', 'DATA'],
+  },
+  {
+    to: 'ge235',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Floating point throughout: ABS, INT, SQR, LOG, EXP, RND, the four trig functions, and ↑ to raise to a power.',
+    instead:
+      'No SGN, no PI and no integer division: test the sign with two IFs, write PI out as a constant, and use INT(A/B) where a whole quotient is meant.',
+    example: {
+      caption: 'The sign of X, as two jumps',
+      code: [
+        '10 LET S=0',
+        '20 IF X<0 THEN 50',
+        '30 IF X>0 THEN 60',
+        '40 GOTO 70',
+        '50 LET S=-1',
+      ],
+    },
+    reachFor: ['ABS', 'INT', 'SQR', 'RND'],
+  },
+  {
+    to: 'ge235',
+    domain: 'strings',
+    support: 'none',
+    summary:
+      'None. A variable holds a number, and the only text is the literal inside PRINT.',
+    instead:
+      'There is no string variable, so text is held as numbers - one code to an array element - and printed a piece at a time. Anything that compares or searches words has to be rethought as arithmetic.',
+    example: {
+      caption: 'A word as numbers in an array',
+      code: [
+        '10 DIM W(3)',
+        '20 FOR I=1 TO 3',
+        '30 READ W(I)',
+        '40 NEXT I',
+        '50 DATA 8,9,10',
+      ],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT writes to a 72-column Teletype, with a comma stepping to the next of five fifteen-column zones.',
+    instead:
+      'Nothing positions the carriage and nothing clears paper: a comma or a semicolon is the only spacing, and a trailing one holds the line open. Print blank lines where a port would clear the screen.',
+    example: {
+      caption: 'Zones with a comma, no gap with a semicolon',
+      code: ['10 PRINT "A","B"', '20 PRINT "C";"D"', '30 PRINT', '40 END'],
+    },
+    reachFor: ['PRINT'],
+  },
+  {
+    to: 'ge235',
+    domain: 'graphics',
+    support: 'none',
+    summary: 'None. The output device is a Teletype printing on a paper roll.',
+    instead:
+      'There is nothing to plot to. Build the picture in an array and PRINT it a character to a column, one row at a time - and remember a row printed cannot be changed afterwards.',
+    example: {
+      caption: 'A row of the picture, printed as characters',
+      code: [
+        '10 FOR C=1 TO 20',
+        '20 IF P(C)=0 THEN 40',
+        '30 PRINT "*";',
+        '40 NEXT C',
+        '50 PRINT',
+      ],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'colour',
+    support: 'none',
+    summary: 'None. The Teletype prints black type on white paper.',
+    instead:
+      'Nothing here has a colour. Where a port used colour to tell things apart, use a different character - the set has 57 printable ones - or print a label beside the value.',
+    example: {
+      caption: 'Tell things apart by character',
+      code: [
+        '10 IF H=0 THEN 40',
+        '20 PRINT "*";',
+        '30 GOTO 50',
+        '40 PRINT ".";',
+      ],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'sound',
+    support: 'none',
+    summary:
+      'None. The Teletype has a bell, and this BASIC has no way to ring it.',
+    instead:
+      'There is no sound of any kind and no code a program can send to reach the bell. Where a port made a noise to mark an event, print a line saying what happened instead.',
+    example: {
+      caption: 'Say it rather than sound it',
+      code: ['10 IF L>0 THEN 30', '20 PRINT "GAME OVER."', '30 END'],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a comma-separated list of numbers from the Teletype and waits for the carriage return.',
+    instead:
+      'Nothing reads a key as it is pressed, and INPUT takes no prompt string and no text - only numbers. PRINT the question first, and let a number stand for each choice a port made with a keypress.',
+    example: {
+      caption: 'Prompt with PRINT, then read a number',
+      code: ['10 PRINT "1=LEFT 2=RIGHT"', '20 INPUT D', '30 IF D=1 THEN 60'],
+    },
+    reachFor: ['INPUT'],
+  },
+  {
+    to: 'ge235',
+    domain: 'storage',
+    support: 'none',
+    summary:
+      'None from inside the language: a program is punched to paper tape by the Teletype, not by a statement.',
+    instead:
+      'There is no SAVE, LOAD or file of any kind. Data a port kept between runs has to be written into DATA lines and edited by hand, which is what the era did.',
+    example: {
+      caption: 'Kept data lives in DATA lines',
+      code: ['10 READ H', '20 PRINT "BEST";H', '30 DATA 1200', '40 END'],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'memory-hardware',
+    support: 'none',
+    summary:
+      'None. There is no PEEK, no POKE and no USR: a compiled program cannot name an address at all.',
+    instead:
+      'Nothing reaches outside the language, so a port that read or wrote memory has to do the job in BASIC - keep the value in a variable, or in an array where it was a table in memory.',
+    example: {
+      caption: 'A table in an array, not in memory',
+      code: ['10 DIM T(16)', '20 LET T(1)=255', '30 PRINT T(1)', '40 END'],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'REM carries a comment to the end of its line, which is the whole of what a program can say about itself.',
+    instead:
+      'The editing commands are the time-sharing system’s rather than the language’s, so there is no LIST, RUN or NEW to write in a program - and no way for a program to change itself.',
+    example: {
+      caption: 'REM is the only editing word in the language',
+      code: ['10 REM MOVE THE PLAYER', '20 LET P=P+1', '30 END'],
+    },
+    reachFor: ['REM'],
+  },
+  {
+    to: 'ge235',
+    domain: 'error-handling',
+    support: 'none',
+    summary:
+      'None. A fault prints its message with the line number and the run stops.',
+    instead:
+      'Nothing traps an error, so a program has to avoid one: test a divisor before dividing and a value before taking its square root or logarithm, since all fourteen run-time faults are fatal.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF B=0 THEN 40',
+        '20 LET Q=A/B',
+        '30 GOTO 50',
+        '40 PRINT "NO."',
+      ],
+    },
+  },
 ];

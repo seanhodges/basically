@@ -331,6 +331,19 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'rest of the Microsoft family: `print` lists back as PRINT, and a name ' +
       'is identified after folding.',
   },
+  ge235: {
+    lowerCase: 'none',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'folded',
+    note:
+      'A Teletype Model 33 has one alphabet: the type basket holds capitals ' +
+      'and nothing else, and the 6-bit BCD set has one code per letter, so ' +
+      'the charset stores a lower-case letter as the capital. The scan folds ' +
+      'by that route rather than by comparing case - no lower-case letter can ' +
+      'reach the compiler in the first place - and a name is a letter and an ' +
+      'optional digit, compared as the one code each character has.',
+  },
 };
 
 /** The declared facts for a registered machine, or undefined for an unknown id. */

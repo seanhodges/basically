@@ -110,6 +110,10 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // program waits on a deck that is not there. Outstanding work rather than a
   // limitation - the hardware has files.
   hb10p: 'never reads the store; its cassette I/O is not trapped',
+  // The starkest case here, and a limitation rather than outstanding work:
+  // Dartmouth BASIC has no file statement of any kind. A program's own data
+  // lived in its DATA lines, and the tape the Teletype punched is a listing.
+  ge235: 'no file statements at all; the paper tape is a listing, not a file',
 };
 
 let restoreRomLoading: () => void;

@@ -5,8 +5,9 @@
   </picture>
 </p>
 
-A web IDE for microcomputer BASIC - write, run and ship games and programs for
-real retro hardware from your browser.
+A web IDE for retro BASIC - write, run and ship games and programs for real
+historic hardware from your browser, from the mainframe BASIC was born on to
+the 8-bit micros that carried it.
 
 Support includes the **Sinclair ZX81**, **ZX Spectrum**, **BBC
 Micro**, among others.

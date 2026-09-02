@@ -23,7 +23,11 @@
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import { bootMachine, installNodeRomLoading } from './bootHarness';
+import {
+  bootMachine,
+  installNodeRomLoading,
+  wholeProgram,
+} from './bootHarness';
 import { LOOP_SPEED_PROBES } from './loopSpeedProbes';
 import type { Dialect, MachineEmulator } from './types';
 
@@ -46,7 +50,7 @@ function iterationsFor(dialectId: string): number {
 }
 
 function tokenized(dialect: Dialect, source: string): Uint8Array {
-  const { image, errors } = dialect.tokenize(source);
+  const { image, errors } = dialect.tokenize(wholeProgram(dialect.id, source));
   expect(errors, `${dialect.id} could not tokenize its own probe`).toEqual([]);
   return image;
 }

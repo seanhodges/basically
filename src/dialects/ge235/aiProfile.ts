@@ -30,6 +30,7 @@ export const ge235AiProfile: AiProfile = composeAiProfile({
         'NO STRINGS AT ALL. There are no string variables, no A$, no string functions and no string expressions. The only text a program can produce is a literal inside PRINT. Strings arrive three years later, in the fourth edition.',
         'LET IS MANDATORY. Every assignment is LET V=expr; a line starting with a letter is an illegal instruction.',
         'IF takes a line number: IF A<B THEN 100. There is no THEN <statement>, no ELSE, and a comparison is not a value - relations exist only inside IF.',
+        'NO AND, OR OR NOT. There is no logical operator of any kind, so a compound condition is nested IFs, each jumping to the next test.',
         'No ON, no RESTORE (the DATA pointer cannot be rewound), no RANDOMIZE, no TAB, no SGN, no INKEY of any kind, no PEEK/POKE, no CLS, no ELSE, no WHILE.',
         'The whole library is ABS ATN COS EXP INT LOG RND SIN SQR TAN, plus FNx from DEF. There is no eleventh function.',
         'The statements are DATA DEF DIM END FOR GOSUB GOTO IF INPUT LET NEXT PRINT READ REM RETURN STOP, with STEP THEN TO as clause words. Nothing else is a statement.',

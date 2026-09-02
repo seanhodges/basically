@@ -6,6 +6,7 @@ import type { EscapeEntry, EscapeTableData } from '../src/reference/types';
 
 import {
   CHARSET_PROBES,
+  codeCountOf,
   type CharsetProbe,
 } from '../src/dialects/charsetProbes';
 
@@ -29,7 +30,7 @@ function scaffold(src: CharsetProbe): EscapeTableData {
   const entries: EscapeEntry[] = [];
   let hasRaw = false;
   let rawExample: { source: string; bytes: number[] } | undefined;
-  for (let b = 0; b < 256; b++) {
+  for (let b = 0; b < codeCountOf(src); b++) {
     const text = src.decode(b);
     if (!src.isEscapeForm(text)) continue;
     if (src.rawPattern.test(text)) {

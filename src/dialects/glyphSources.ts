@@ -171,6 +171,12 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // `&H` rather than one; it mirrors memoryWrites.hexPrefix like the Acorn,
   // Amstrad and PMD entries above.
   hb10p: '&H',
+  // Empty, and the only empty sigil here: the GE-235 has no glyph to record an
+  // address for, so nothing ever formats one. Its own listings write plain
+  // octal with no sigil in front of it - `top: eqo 17777` - and there is no
+  // spelling to borrow, this BASIC having no PEEK, no POKE and no way to name
+  // an address at all. The key is present so the omission is deliberate.
+  ge235: '',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -627,6 +633,13 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   // that any glyph can be traced to. Recording a source would be inventing one;
   // the key is present so the omission is deliberate rather than forgotten.
   altair8800: [],
+
+  // Empty for a reason of its own, and a starker one: the GE-235's output
+  // device is a Teletype Model 33, which forms a character by swinging a type
+  // bar against the paper. The shapes are pieces of metal in a type basket, so
+  // there is no ROM, no chip and no logic anywhere in the machine that holds a
+  // bitmap - the glyphs this IDE draws are the font the browser has.
+  ge235: [],
 
   apple1: [
     {

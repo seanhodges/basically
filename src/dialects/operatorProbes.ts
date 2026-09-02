@@ -545,4 +545,43 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
       CAT: 'AB',
     },
   },
+  {
+    // The ancestor, and the shortest program here, because most of the battery
+    // asks about operators this BASIC does not have. There is no AND, OR or
+    // NOT of any kind - the whole vocabulary is in `ge235/keywords.ts` - no
+    // integer division, no remainder, no exclusive-OR, and no string to
+    // concatenate: the only text this machine handles is the literal PRINT
+    // writes. `↑` is the power operator, spelled as the ASR-33's own up arrow.
+    //
+    // TRU has no answer here rather than a different one: a comparison is not
+    // a value in this BASIC, and exists only between IF and THEN. So REL asks
+    // its question the only way the machine can be asked it - by jumping on
+    // `<=` and printing which way it went.
+    id: 'dartmouth',
+    machines: ['GE-235'],
+    dialects: ['ge235'],
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2↑3',
+      '30 PRINT "ASSC";2↑3↑2',
+      '40 PRINT "UNMI";0-2↑2',
+      '50 PRINT "DIVV";7/2',
+      '60 LET R=0',
+      '70 IF 1<=2 THEN 90',
+      '80 GOTO 100',
+      '90 LET R=1',
+      '100 PRINT "REL";R',
+      '110 PRINT "ZZEND"',
+      '120 END',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      DIVV: '3.5',
+      REL: '1',
+    },
+  },
 ];

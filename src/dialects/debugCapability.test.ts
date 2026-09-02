@@ -66,6 +66,10 @@ const NOT_DEBUGGABLE: Record<string, string> = {
   // BASIC keeps none the IDE can point at. A stepper built on a guess would
   // pause on confidently wrong lines.
   atom: 'no readable "line being executed" cell',
+  // An interpreter that could answer perfectly well - it holds the line it is
+  // on - but the stepper and the variable watcher were both deferred out of the
+  // work that brought the machine in. Outstanding work, not a limitation.
+  ge235: 'the stepper is not wired up yet',
 };
 
 describe('the debuggable flag matches the machines', () => {

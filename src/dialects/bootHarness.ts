@@ -146,3 +146,20 @@ export async function runUntil(
   }
   return false;
 }
+
+/**
+ * The line a probe program needs after it to be a whole program on this
+ * machine.
+ *
+ * Dartmouth BASIC requires END as the last line: the compiler refuses a program
+ * without one and says so, so a shared two-line probe would carry that
+ * complaint here and nowhere else. Every other registered machine runs a
+ * fragment as it stands, which is why this is a table rather than a member on
+ * the dialect. The line number is high enough to sit after any probe.
+ */
+const PROGRAM_TAIL: Partial<Record<string, string>> = { ge235: '9999 END\n' };
+
+/** A probe program with whatever tail the machine needs to accept it. */
+export function wholeProgram(dialectId: string, source: string): string {
+  return source + (PROGRAM_TAIL[dialectId] ?? '');
+}

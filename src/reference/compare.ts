@@ -2264,6 +2264,11 @@ export function programFitForTarget(
   const lowerBound = !size.clean;
   if (lowerBound && size.bytes === 0) return null;
   const freeBytes = targetFacts.freeRamBytes;
+  // A target declaring no byte budget has none to declare: the GE-235's program
+  // space is measured in twenty-bit words, and a percentage of zero bytes would
+  // report every program as overflowing a memory it does not have. The machine's
+  // own memory map is where its space is stated, in the unit it is stated in.
+  if (freeBytes <= 0) return null;
   const { pct } = ramBudget(size.bytes, freeBytes);
   const severity = ramSeverity(pct);
   const verdict: FitVerdict =
@@ -2484,7 +2489,13 @@ function fmtLet(f: PortingFacts): string {
   }[f.letRequired];
 }
 function fmtRam(f: PortingFacts): string {
-  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
+  // Zero is not "no memory" but "not a number of bytes": the GE-235's store is
+  // twenty-bit words, so its program space cannot be stated in the unit this
+  // row is written in. The memory layout further down the page states it in the
+  // unit the machine measures it in, which is where the reader is sent.
+  return f.freeRamBytes > 0
+    ? `${f.freeRamBytes.toLocaleString('en-GB')} bytes`
+    : 'Not counted in bytes - see the memory layout below';
 }
 function fmtCharacters(f: PortingFacts): string {
   return f.unsupportedCharacters.length === 0
@@ -2506,6 +2517,9 @@ function fmtIntegerArithmetic(f: PortingFacts): string {
 }
 /** Bitwise, Sinclair value or true/false logic, with exclusive-OR folded in. */
 function fmtLogicalOperators(f: PortingFacts): string {
+  if (f.logicalOperators === undefined) {
+    return 'None - the machine has no AND, OR or NOT; nest the IFs instead';
+  }
   if (f.logicalOperators === 'value') {
     return 'Value logic - A AND B is A or 0, not a bit pattern';
   }
@@ -2517,7 +2531,9 @@ function fmtLogicalOperators(f: PortingFacts): string {
     : 'Bitwise on integers; no exclusive-OR operator';
 }
 function fmtComparisonTrue(f: PortingFacts): string {
-  return `${f.comparisonTrue} for true, 0 for false`;
+  return f.comparisonTrue === undefined
+    ? 'Nothing - a comparison is not a value, only a test between IF and THEN'
+    : `${f.comparisonTrue} for true, 0 for false`;
 }
 /**
  * How short a keyword may be written on this machine, and which symbols stand

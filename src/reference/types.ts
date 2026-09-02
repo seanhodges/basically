@@ -655,20 +655,27 @@ export interface PortingFacts {
    * operands to a truth value first, so `5 AND 3` and `5 OR 3` are both 1 and
    * `NOT 5` is 0 - Apple 1 Integer BASIC, which has no bitwise operator at all.
    *
-   * Required, and read off each running machine by
-   * src/dialects/operatorBattery.test.ts. Nothing else in these facts implies
-   * it, and a condition that reads identically on both machines gives different
-   * answers - the failure a porter finds last, because nothing errors.
+   * Read off each running machine by src/dialects/operatorBattery.test.ts.
+   * Nothing else in these facts implies it, and a condition that reads
+   * identically on both machines gives different answers - the failure a porter
+   * finds last, because nothing errors.
+   *
+   * Absent only where the machine has none of the three: Dartmouth BASIC has no
+   * AND, OR or NOT at all, so there is no behaviour to name and a compound
+   * condition has to become nested IFs.
    */
-  logicalOperators: 'bitwise' | 'value' | 'logical';
+  logicalOperators?: 'bitwise' | 'value' | 'logical';
   /**
    * What a true comparison evaluates to: -1 on the Microsoft, BBC and Locomotive
    * machines and the ZX80, 1 on the ZX81, the Spectrum and the Atom.
    *
    * Also measured rather than authored. It is what decides whether the counting
    * idiom `X=X+(A>B)` adds or subtracts after a port.
+   *
+   * Absent where a comparison is not a value: on the GE-235 it exists only
+   * between IF and THEN, so `X=X+(A>B)` is not a program there at all.
    */
-  comparisonTrue: -1 | 1;
+  comparisonTrue?: -1 | 1;
   /**
    * Printable ASCII (0x20-0x7E) this machine's character set has no glyph for,
    * in code-point order - e.g. the ZX81's `!`. Empty where the machine covers

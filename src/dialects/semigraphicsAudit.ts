@@ -1,6 +1,6 @@
 import type { Dialect } from './types';
 import { dialects } from './registry';
-import { probeFor, type CharsetProbe } from './charsetProbes';
+import { codeCountOf, probeFor, type CharsetProbe } from './charsetProbes';
 import { resolveEditorAction } from '../keyboard/editorActions';
 
 /**
@@ -167,6 +167,12 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // tables - see `hb10p/graphics.ts`, whose transcription `keyboardLayout.test.ts`
   // reads back out of the ROM.
   hb10p: [...range(0xc0, 0xd7), ...range(0xdb, 0xdf)],
+  // Empty, and this is the emptiest of them: the GE-235's output device is a
+  // Teletype Model 33 striking type bars onto a paper roll, so a "character" is
+  // a piece of metal and there is no character generator to hold a mosaic. Its
+  // 64 codes are letters, digits, punctuation and six controls, which
+  // charset.ts asserts outright.
+  ge235: [],
 };
 
 /** Classify one byte from its canonical text form. */
@@ -228,7 +234,9 @@ export function auditDialect(dialect: Dialect): DialectAudit {
     id: dialect.id,
     name: dialect.name,
     probeId: probe.id,
-    bytes: Array.from({ length: 256 }, (_, code) => classify(probe, code)),
+    bytes: Array.from({ length: codeCountOf(probe) }, (_, code) =>
+      classify(probe, code),
+    ),
     declared: SEMIGRAPHIC_CODES[dialect.id] ?? null,
     typeable: typeableCodes(dialect),
     inScope: IN_SCOPE.has(dialect.id),

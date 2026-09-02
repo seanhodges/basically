@@ -57,6 +57,7 @@ reported as such rather than guessed at.
 | Atari 800 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 | Atari 400 | — | 27 (0x00-0x1A) | 27 | 2 | 0 | 0 | 27/27 |
 | HB-10P | — | 29 (0xC0-0xD7, 0xDB-0xDF) | 29 | 13 | 0 | 0 | 29/29 |
+| GE-235 | — | _none_ | — | — | — | — | — |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -265,6 +266,14 @@ Spelled as: 13 glyph-astral, 16 glyph-bmp.
 
 No gaps: every graphics byte has its own character and can be typed.
 
+### GE-235
+
+This machine has no block graphics at all - not a range nobody has
+read off it yet, but a character set with no mosaic in it. Every byte
+it can display is an ordinary character; see the citation beside its
+entry in src/dialects/semigraphicsAudit.ts for how that was
+established.
+
 ## Characters the machines need
 
 319 distinct non-ASCII codepoints, 126 of them astral.
@@ -369,7 +378,7 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+207F` | ⁿ | BMP | hb10p |
 | `U+20A7` | ₧ | BMP | hb10p |
 | `U+2190` | ← | BMP | commodore64, pet, vic20 |
-| `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, cpc664, pet, vic20, zxspectrum, zxspectrum128 |
+| `U+2191` | ↑ | BMP | commodore64, cpc464, cpc6128, cpc664, ge235, pet, vic20, zxspectrum, zxspectrum128 |
 | `U+2208` | ∈ | BMP | hb10p |
 | `U+2219` | ∙ | BMP | hb10p |
 | `U+221A` | √ | BMP | hb10p |

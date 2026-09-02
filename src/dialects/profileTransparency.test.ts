@@ -70,6 +70,9 @@ const NOT_PROFILED: Record<string, string> = {
   // over a RAM image, so there is no run loop to fold a profiler onto (see
   // memoryActivity.test.ts).
   trs80: 'the interpreter backend executes no CPU over a RAM image',
+  // The same reason again: a clean-room interpreter with no CPU core beneath
+  // it, so there is no run loop for a profiler to be folded onto.
+  ge235: 'a clean-room interpreter with no CPU under it to profile',
 };
 
 /** Prints as it counts, so the screen carries the run's whole history. */

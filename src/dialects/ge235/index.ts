@@ -5,7 +5,11 @@ import { hasFatalErrors } from '../types';
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { ge235Charset } from './charset';
 import { ge235Keywords, ge235Operators } from './keywords';
-import { ge235CompletionSource, ge235LanguageSupport } from './language';
+import {
+  ge235CompletionSource,
+  ge235Crunched,
+  ge235LanguageSupport,
+} from './language';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { ge235VariableErrors } from '../../editor/variableLint';
@@ -31,9 +35,9 @@ import { ge235MemoryMap } from './memoryMap';
  *  - **No assembly.** The machine is offered as BASIC only, so there are no
  *    memory blocks and no binary directives.
  *
- * Registering this machine also moves the project's own era boundary:
- * `registry.test.ts` bounds every dialect's year to 1975-1995, and a 1965
- * mainframe sits outside it.
+ * Registering it moved the project's own era boundary: the year bound in
+ * `registry.test.ts` used to start at 1975, and a 1965 mainframe sits well
+ * below the microcomputer.
  */
 export const ge235: Dialect = {
   id: 'ge235',
@@ -61,6 +65,7 @@ export const ge235: Dialect = {
   keywords: ge235Keywords,
   operators: ge235Operators,
   charset: ge235Charset,
+  crunched: ge235Crunched,
   languageSupport: ge235LanguageSupport,
   completionSource: ge235CompletionSource,
 

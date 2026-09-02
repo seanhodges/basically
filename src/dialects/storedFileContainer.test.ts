@@ -48,6 +48,11 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   atari800: 'no file-I/O trap, so nothing reaches the store',
   atari400: 'no file-I/O trap, so nothing reaches the store',
   hb10p: 'no file-I/O trap, so nothing reaches the store',
+  // Not "not wired up yet" but "there is nothing to wire": the GE-235 has no
+  // file statement of any kind. A program's own data lived in its DATA lines,
+  // and the paper tape the Teletype punched is the listing rather than a file
+  // the language could open.
+  ge235: 'the language has no file statement, so nothing reaches the store',
 };
 
 /** The payload every case below unwraps to, so a partial split is visible. */

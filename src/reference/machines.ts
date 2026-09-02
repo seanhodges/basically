@@ -181,6 +181,19 @@ export const machines: MachineChoice[] = [
     basicFamily: 'Commodore BASIC',
   },
   {
+    // The page is named for the language rather than the machine, and the
+    // family is the language's own name: this is the only machine in the list
+    // that runs Dartmouth BASIC, and every other BASIC here descends from it.
+    id: 'ge235',
+    page: 'dartmouth',
+    name: 'GE-235',
+    manufacturer: 'General Electric',
+    year: 1965,
+    blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
+    basicDialect: 'Dartmouth BASIC',
+    basicFamily: 'Dartmouth BASIC',
+  },
+  {
     id: 'cpc464',
     page: 'cpc',
     name: 'CPC 464',

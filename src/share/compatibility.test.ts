@@ -23,10 +23,22 @@ const stubDialects = [
 ] as unknown as Dialect[];
 
 describe('computeCompatibleDialects', () => {
-  it('returns every machine for a lowest-common-denominator program', () => {
+  it('returns every machine but the GE-235 for a lowest-common-denominator program', () => {
+    // There is no program every registered machine accepts, and the two ends of
+    // the registry are why. Dartmouth BASIC requires END as the last line - its
+    // compiler refuses a program without one - and Sinclair BASIC has no END at
+    // all, using STOP instead. So the classic PRINT/GOTO pair reaches every
+    // machine except the GE-235, and adding the END it wants loses the four
+    // Sinclairs. Asserted both ways below, because the shape of the gap is the
+    // fact worth keeping.
     expect(computeCompatibleDialects('10 PRINT "HI"\n20 GOTO 10')).toEqual(
-      dialects.map((d) => d.id),
+      dialects.map((d) => d.id).filter((id) => id !== 'ge235'),
     );
+    const withEnd = computeCompatibleDialects(
+      '10 PRINT "HI"\n20 GOTO 10\n30 END',
+    );
+    expect(withEnd).toContain('ge235');
+    expect(withEnd).not.toContain('zx81');
   });
 
   it('keeps ZX81-specific keywords off the other Sinclair machines', () => {

@@ -36,6 +36,7 @@ import { referencePageOf } from '../../dialects/referencePage';
 
 import {
   CHARSET_PROBES,
+  codeCountOf,
   type CharsetProbe,
 } from '../../dialects/charsetProbes';
 import {
@@ -190,7 +191,7 @@ describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
         }
       }
     }
-    for (let b = 0; b < 256; b++) {
+    for (let b = 0; b < codeCountOf(adapter); b++) {
       const text = adapter.decode(b);
       const needsEscape = adapter.isEscapeForm(text);
       const claim = claimed.get(b);
