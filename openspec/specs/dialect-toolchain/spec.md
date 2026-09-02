@@ -20,8 +20,16 @@ as how its machines are described, and the narrowing and the arrangement SHALL
 be shared: choosing one while switching the target machine SHALL be what
 starting a project then finds.
 
-Every registered dialect SHALL declare the BASIC its machine runs, so that the
-machines can be arranged and searched by it without reading it out of prose.
+Every registered dialect SHALL declare the BASIC its machine runs, naming both
+the version that machine runs and the family that version belongs to, so that
+the machines can be arranged and searched by either without reading it out of
+prose. Machines running different versions of one BASIC SHALL declare the same
+family; machines whose BASICs are not versions of one another SHALL declare
+different families, whatever their makers have in common.
+
+The family SHALL NOT stand in for the version anywhere the version is what a
+reader needs: a machine that declares a family still declares the version it
+runs, and the two SHALL be separately readable.
 
 Where the user is asked what should happen to their code, the question SHALL
 state what travels with it and what does not, so that neither the work kept nor
@@ -49,8 +57,15 @@ actually holds.
 #### Scenario: Every machine names its BASIC
 
 - **WHEN** the machines are arranged by the BASIC they run
-- **THEN** every registered machine appears under the name of a BASIC, and none
-  is left unaccounted for
+- **THEN** every registered machine appears under the name of a family of BASIC,
+  and none is left unaccounted for
+
+#### Scenario: A machine's version is readable alongside its family
+
+- **WHEN** the user reads a machine that runs a later version of a BASIC other
+  machines in its family run earlier versions of
+- **THEN** the version that machine runs is named, and is not replaced by the
+  name of its family
 
 #### Scenario: Switching target still asks about the user's program
 
