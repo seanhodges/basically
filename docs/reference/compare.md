@@ -14,6 +14,7 @@ import { cpcReference } from '../../src/reference/cpc';
 import { dartmouthReference } from '../../src/reference/dartmouth';
 import { msxReference } from '../../src/reference/msx';
 import { pmd85Reference } from '../../src/reference/pmd85';
+import { samcoupeReference } from '../../src/reference/samcoupe';
 import { trs80Reference } from '../../src/reference/trs80';
 import { zx80Reference } from '../../src/reference/zx80';
 import { sinclairReference } from '../../src/reference/sinclair';
@@ -29,6 +30,7 @@ import { cpcEscapes } from '../../src/reference/escapes/cpc';
 import { dartmouthEscapes } from '../../src/reference/escapes/dartmouth';
 import { msxEscapes } from '../../src/reference/escapes/msx';
 import { pmd85Escapes } from '../../src/reference/escapes/pmd85';
+import { samcoupeEscapes } from '../../src/reference/escapes/samcoupe';
 import { trs80Escapes } from '../../src/reference/escapes/trs80';
 import { zx80Escapes } from '../../src/reference/escapes/zx80';
 import { sinclairEscapes } from '../../src/reference/escapes/sinclair';
@@ -50,6 +52,7 @@ import { ge235MemoryMap } from '../../src/dialects/ge235/memoryMap';
 import { hb10pMemoryMap } from '../../src/dialects/hb10p/memoryMap';
 import { pmd85MemoryMap } from '../../src/dialects/pmd85/memoryMap';
 import { petMemoryMap } from '../../src/dialects/pet/memoryMap';
+import { samcoupeMemoryMap } from '../../src/dialects/samcoupe/memoryMap';
 import { vic20MemoryMap } from '../../src/dialects/vic20/memoryMap';
 import { zx80MemoryMap } from '../../src/dialects/zx80/memoryMap';
 import { zx81MemoryMap } from '../../src/dialects/zx81/memoryMap';
@@ -75,6 +78,7 @@ const referenceByPage = {
   'integer-basic': integerBasicReference,
   msx: msxReference,
   pmd85: pmd85Reference,
+  samcoupe: samcoupeReference,
   trs80: trs80Reference,
   sinclair: sinclairReference,
   zx80: zx80Reference,
@@ -91,6 +95,7 @@ const escapesByPage = {
   'integer-basic': integerBasicEscapes,
   msx: msxEscapes,
   pmd85: pmd85Escapes,
+  samcoupe: samcoupeEscapes,
   trs80: trs80Escapes,
   sinclair: sinclairEscapes,
   zx80: zx80Escapes,
@@ -121,6 +126,7 @@ const memoryMapById = {
   hb10p: hb10pMemoryMap,
   pet: petMemoryMap,
   pmd85: pmd85MemoryMap,
+  samcoupe: samcoupeMemoryMap,
   vic20: vic20MemoryMap,
   zx80: zx80MemoryMap,
   zx81: zx81MemoryMap,

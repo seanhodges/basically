@@ -595,6 +595,23 @@ describe('glyph sources', () => {
       });
     });
 
+    it('reports the SAM font as packed, with no address of its own', () => {
+      // The shapes are in the image, but compressed: the ROM unpacks the table
+      // into RAM before anything draws from it, so a file offset would name
+      // bytes that are not the glyph and the address it ends up at is RAM.
+      expect(glyphLocation('samcoupe', 0x41)).toEqual({
+        kind: 'packed',
+        file: 'samcoupe.rom',
+        table: 'CHARSRC',
+        index: 0x41 - 0x20,
+      });
+      // And its block graphics are generated, as every machine's here are.
+      expect(glyphLocation('samcoupe', 0x8f)).toEqual({
+        kind: 'logic',
+        by: "the ROM's POUDG",
+      });
+    });
+
     it('gives the in-chip fonts the chip index rather than an address', () => {
       // The MCM6670 and the SAA5050 hold their alphanumerics in mask ROM the
       // CPU cannot reach, so the chip's own glyph index is the only address.

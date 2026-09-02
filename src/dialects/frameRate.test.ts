@@ -98,6 +98,10 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // convention the rest of the app is written to - how often the host is given
   // a chance to redraw the paper.
   ge235: 50.0,
+  // 6MHz / 119808 T (312 lines of 48 cells at eight cycles each). The ASIC
+  // clocks its cells from the same crystal the CPU runs at, so the SAM lands on
+  // the ZX81's and 48K Spectrum's rate from quite different arithmetic.
+  samcoupe: 50.08,
 };
 
 describe('machine frame rates', () => {

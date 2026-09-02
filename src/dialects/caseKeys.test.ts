@@ -161,6 +161,27 @@ describe('the case a machine types', () => {
     expect(await echo(machine, ['C'])).toBe('C');
     expect(await echo(machine, ['Shift', 'D'])).toBe('D');
   }, 120000);
+
+  it('boots the SAM in lower case, with SHIFT and CAPS LOCK both reaching upper', async () => {
+    // Read off the ROM. The sign-on screen holds the machine in a keypress
+    // loop, exactly as the real one does, so a key is pressed to reach BASIC -
+    // and the prompt itself draws nothing, the cursor living in the lower
+    // window, so there is no text to wait for afterwards.
+    const machine = await bootMachine(getDialect('samcoupe'));
+    expect(
+      await runUntil(machine, () => screenText(machine).includes('MILES')),
+      'the machine never signed on',
+    ).toBe(true);
+    await tap(machine, ['Space']);
+    await runFrames(machine, 200);
+    expect(await echo(machine, ['KeyA'])).toBe('a');
+    expect(await echo(machine, ['ShiftLeft', 'KeyB'])).toBe('B');
+    // CAPS LOCK is a keycap of its own here, and SHIFT still gives upper case
+    // under it - the BBC's arrangement rather than the CPC's.
+    await tap(machine, ['CapsLock']);
+    expect(await echo(machine, ['KeyC'])).toBe('C');
+    expect(await echo(machine, ['ShiftLeft', 'KeyD'])).toBe('D');
+  }, 120000);
 });
 
 describe('every machine with a second case is covered', () => {
@@ -184,6 +205,7 @@ describe('every machine with a second case is covered', () => {
       'commodore64',
       'atari800',
       'hb10p',
+      'samcoupe',
     ];
     const covered = new Set([...probed, ...Object.keys(EXCUSED)]);
     const withLowerCase = dialects

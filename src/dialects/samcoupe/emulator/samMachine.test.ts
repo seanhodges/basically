@@ -107,6 +107,18 @@ describe('samcoupe machine', () => {
     machine.dispose();
   });
 
+  it('reads a backslash on screen back as one character', () => {
+    // The screen reader hands the seam one code point per column, and 0x5C's
+    // *source* spelling is the two-character escape `\\` - which read back as
+    // a space, hiding a character the machine had plainly drawn.
+    const machine = new SamMachine({ rom: ROM });
+    const { bytes } = tokenizeProgram('10 PRINT CHR$ 47;CHR$ 92;CHR$ 65');
+    machine.loadProgram(buildSamFile(bytes, 'slash'));
+    for (let i = 0; i < RUN_FRAMES; i++) machine.runFrame();
+    expect(screen(machine).filter((l) => l !== '')[0]).toBe('/\\A');
+    machine.dispose();
+  });
+
   it('measures the line it is executing on the plain run path', () => {
     const machine = new SamMachine({ rom: ROM });
     // A loop long enough to still be running after the load returns, so the

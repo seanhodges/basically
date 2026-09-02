@@ -254,6 +254,16 @@ export const machines: MachineChoice[] = [
     basicFamily: 'BASIC-G',
   },
   {
+    id: 'samcoupe',
+    page: 'samcoupe',
+    name: 'Coupé',
+    manufacturer: 'MGT',
+    year: 1989,
+    blurb: 'A 6MHz Z80 with four screen modes. Runs SAM BASIC.',
+    basicDialect: 'SAM BASIC',
+    basicFamily: 'SAM BASIC',
+  },
+  {
     id: 'zx80',
     page: 'zx80',
     name: 'ZX80',

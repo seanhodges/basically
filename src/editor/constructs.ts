@@ -764,9 +764,6 @@ export const APPLE2PLUS_CONSTRUCTS: ConstructTemplate[] = [
  * the IF and FOR every dialect has. The bracketed functions list with no space
  * before the bracket - the ROM prints its immediate functions with neither a
  * leading nor a trailing space - unlike the Spectrum's.
- *
- * Not in {@link constructsByDialect}: that map names exactly the registered
- * machines, so the dialect's own `language.ts` reads this export by name.
  */
 export const SAMCOUPE_CONSTRUCTS: ConstructTemplate[] = [
   ifThen(),
@@ -862,6 +859,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   atari400: ATARI_CONSTRUCTS,
   hb10p: MSX_CONSTRUCTS,
   ge235: GE235_CONSTRUCTS,
+  samcoupe: SAMCOUPE_CONSTRUCTS,
 };
 
 /**

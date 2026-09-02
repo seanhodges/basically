@@ -64,6 +64,7 @@ describe('dialect registry', () => {
     // no program is ever written in a notation, and the octal its own listings
     // use is carried in the map's notes rather than made a third toggle state.
     ge235: 'dec',
+    samcoupe: 'dec',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -113,6 +114,10 @@ describe('dialect registry', () => {
     // cartridge - a short replacement fills from 0x0000 up, so a BIOS-only
     // image still boots to a machine that resets.
     'hb10p',
+    // One 32K image, ROM 0 then ROM 1, which the machine pages in over the top
+    // and bottom of the window; a short replacement fills from the start, so a
+    // ROM 0 on its own still boots.
+    'samcoupe',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {

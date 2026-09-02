@@ -47,6 +47,10 @@ import {
   parseChar as ge235ParseChar,
   decodeSpan as ge235DecodeSpan,
 } from './ge235/charset';
+import {
+  parseChar as samcoupeParseChar,
+  decodeSpan as samcoupeDecodeSpan,
+} from './samcoupe/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -413,6 +417,23 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_OCTAL_BRACE,
     rawSpelling: '{0oNN}',
+  },
+  {
+    id: 'samcoupe',
+    varName: 'samcoupeEscapes',
+    title: 'SAM BASIC escape codes',
+    machines: ['MGT SAM Coupé'],
+    dialects: ['samcoupe'],
+    decode: (b) => samcoupeDecodeSpan(Uint8Array.of(b), 0, 1).text,
+    // Multi-byte in both directions: an embedded print control carries one or
+    // two operand bytes, so `{AT 1,3}` is one unit and three bytes.
+    ...parseAllMulti(samcoupeParseChar),
+    // Two escape forms rather than one: the braces are the print-control
+    // directives and the raw bytes, and `\\a`-`\\y` are the user-defined
+    // graphics, which is why this is not BRACED_ESCAPE_FORM.
+    isEscapeForm: (t) => /^\{.+\}$/.test(t) || t.startsWith('\\'),
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
   },
 ];
 

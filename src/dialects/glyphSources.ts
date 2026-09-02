@@ -95,6 +95,26 @@ export interface ChipGlyphSource extends GlyphSourceBase {
   indexOf: (code: number) => number | undefined;
 }
 
+/**
+ * Bitmaps stored compressed in a ROM, unpacked into RAM before anything draws
+ * them. No glyph has an address in the image - the packing is per glyph and the
+ * rows of one are not contiguous bytes - and the address it ends up at is a RAM
+ * one the machine is free to move, so neither `base` nor `fileOffset` has an
+ * honest value to carry. What can be recorded is which image holds the packed
+ * table, what the machine calls it, and what unpacks it.
+ */
+export interface PackedRomGlyphSource extends GlyphSourceBase {
+  kind: 'packed';
+  /** Path under `public/roms/`. */
+  file: string;
+  /** The machine's own name for the packed table. */
+  table: string;
+  /** What unpacks it, and where the result is found afterwards. */
+  unpackedBy: string;
+  /** Machine code -> glyph index in the unpacked table. */
+  indexOf: (code: number) => number | undefined;
+}
+
 /** No stored bitmap: the shape is generated from the code's own bits. */
 export interface LogicGlyphSource extends GlyphSourceBase {
   kind: 'logic';
@@ -102,7 +122,11 @@ export interface LogicGlyphSource extends GlyphSourceBase {
   by: string;
 }
 
-export type GlyphSource = RomGlyphSource | ChipGlyphSource | LogicGlyphSource;
+export type GlyphSource =
+  | RomGlyphSource
+  | ChipGlyphSource
+  | LogicGlyphSource
+  | PackedRomGlyphSource;
 
 /**
  * How each machine writes a hex address, so an address is recorded in the form
@@ -177,6 +201,9 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // spelling to borrow, this BASIC having no PEEK, no POKE and no way to name
   // an address at all. The key is present so the omission is deliberate.
   ge235: '',
+  // SAM BASIC writes `&FE00`, mirroring memoryWrites.hexPrefix as the Acorn,
+  // Amstrad, PMD and MSX entries above do.
+  samcoupe: '&',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -670,6 +697,39 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   atari400: [atariFont()],
 
   hb10p: [msxFont()],
+
+  samcoupe: [
+    {
+      kind: 'packed',
+      file: 'samcoupe.rom',
+      table: 'CHARSRC',
+      unpackedBy: 'UPACK, into the RAM that CHARS then points at',
+      codes: range(0x20, 0x7f),
+      indexOf: linear(0x20, 0x7f, 0x20),
+      // The bitmap is eight rows; the cell around it is nine scanlines tall at
+      // boot, which is what makes the text screen 32x21 rather than 32x24.
+      cell: { w: 8, h: 8 },
+      note:
+        'The font ships packed and no glyph has an address in the image: the ' +
+        'ROM unpacks the whole table into RAM at boot and biases CHARS so ' +
+        'glyph c sits at CHARS + c*8, the Spectrum convention. That address is ' +
+        'RAM, and a program may move it or redefine a glyph, so what the ' +
+        'screen draws is read back out of RAM rather than looked up here - see ' +
+        'samcoupe/emulator/screenText.ts. Codes 0x90-0xA8 are the ' +
+        'user-defined graphics, whose shapes live in RAM for the same reason ' +
+        "the Spectrum's do and so are claimed by nothing here.",
+    },
+    {
+      kind: 'logic',
+      by: "the ROM's POUDG",
+      codes: range(0x80, 0x8f),
+      cell: { w: 8, h: 8 },
+      note:
+        'The sixteen block graphics are built from the quadrant bits of the ' +
+        'code rather than stored - bit 1 the top left and bit 0 the top right, ' +
+        'which is not the Sinclair order.',
+    },
+  ],
 };
 
 /** What a dialect's glyph for `code` comes from, or undefined if nothing claims it. */
@@ -695,12 +755,14 @@ export type GlyphLocation =
       stride: number;
     }
   | { kind: 'chip'; chip: string; index: number }
-  | { kind: 'logic'; by: string };
+  | { kind: 'logic'; by: string }
+  | { kind: 'packed'; file: string; table: string; index: number };
 
 /**
  * The machine-side location of one dialect's glyph for `code`. `rom` carries the
  * CPU address; `chip` the chip's own glyph index, there being no CPU address;
- * `logic` neither, because nothing is stored.
+ * `packed` the image and the table's name, the packing leaving no per-glyph
+ * address to give; `logic` none of them, because nothing is stored.
  */
 export function glyphLocation(
   dialectId: string,
@@ -712,6 +774,8 @@ export function glyphLocation(
   const index = source.indexOf(code);
   if (index === undefined) return undefined;
   if (source.kind === 'chip') return { kind: 'chip', chip: source.chip, index };
+  if (source.kind === 'packed')
+    return { kind: 'packed', file: source.file, table: source.table, index };
   return {
     kind: 'rom',
     file: source.file,

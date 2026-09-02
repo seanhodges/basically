@@ -2921,4 +2921,170 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
+
+  // ------------------------------------------------------------- samcoupe --
+  {
+    to: 'samcoupe',
+    domain: 'control-flow',
+    support: 'full',
+    summary:
+      'DO/LOOP with WHILE or UNTIL on either end, EXIT IF, block IF with END IF and ELSE, DEF PROC/END PROC, LABEL, ON and GO SUB.',
+    instead:
+      'No REPEAT or WEND: the test is a clause on DO or LOOP rather than a keyword of its own. A procedure is called by writing its name, and LABEL gives a jump a name instead of a line number.',
+    reachFor: ['DO', 'LOOP', 'DEF PROC', 'LABEL'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'data',
+    support: 'full',
+    summary:
+      'DATA/READ/RESTORE with ITEM to say which item is next, DIM for arrays and strings, and CLEAR to discard the variables.',
+    instead:
+      'No type declarations and no SWAP: there is one numeric type, `$` marks a string, and DIM a$(20) is a fixed-length string rather than an array of them.',
+    reachFor: ['DATA', 'READ', 'DIM', 'ITEM'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'numeric',
+    support: 'full',
+    summary:
+      'A full trig and log set with PI, DIV and MOD for integer division, and BAND and BOR for the bitwise pair.',
+    instead:
+      'AND and OR pick a value rather than combining bits, so a mask is BAND or BOR; there is no exclusive-OR keyword at all. LN is the natural logarithm and there is no base-10 one.',
+    reachFor: ['DIV', 'MOD', 'BAND', 'PI'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, VAL, CODE and CHR$, STRING$ to build, INSTR to search, and HEX$/BIN$ to convert - with Sinclair slicing for the rest.',
+    instead:
+      'No LEFT$, RIGHT$ or MID$: a slice is written a$(2 TO 4), with either end left out to run to the start or the end of the string.',
+    example: {
+      caption: 'A slice does what MID$ does',
+      code: [
+        '10 LET a$="SAM COUPE"',
+        '20 PRINT a$(1 TO 3)',
+        '30 PRINT a$(5 TO)',
+      ],
+    },
+    reachFor: ['LEN', 'INSTR', 'STRING$', 'CHR$'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT AT positions text from zero, TAB moves the column, CSIZE sets the cell, WINDOW confines printing and USING formats a number.',
+    instead:
+      'No LOCATE and no PRINT @: AT is a clause inside the PRINT and takes the row first. The cell is nine scanlines tall, so only rows 0 to 18 are reachable - the last two are the input window.',
+    example: {
+      caption: 'AT goes inside the PRINT, row first',
+      code: ['10 CLS', '20 PRINT AT 5,10;"HERE"'],
+    },
+    reachFor: ['AT', 'TAB', 'CSIZE', 'WINDOW'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'graphics',
+    support: 'full',
+    summary:
+      'PLOT, DRAW, CIRCLE and FILL in four screen modes, with GRAB and PUT for sprites, ROLL and SCROLL to shift, and BLITZ to replay a figure.',
+    instead:
+      'The origin is the bottom left and DRAW is relative: DRAW dx,dy draws by a distance from the graphics position, so a line starts with a PLOT. A third argument bends it into an arc.',
+    reachFor: ['PLOT', 'DRAW', 'CIRCLE', 'GRAB'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'colour',
+    support: 'full',
+    summary:
+      'PALETTE points each of the sixteen slots at one of 128 colours; PEN, PAPER and BORDER pick a slot, and OVER and INVERSE combine what is drawn.',
+    instead:
+      'INK is accepted as a spelling of PEN and lists back as PEN. FLASH and BRIGHT are attribute bits, so they work in mode 1 only - in mode 4 colour is per pixel and there is nothing to flash.',
+    reachFor: ['PALETTE', 'PEN', 'PAPER', 'BORDER'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP sounds a note by length and semitone, ZAP/POW/BOOM/ZOOM are built-in effects, and SOUND writes a SAA 1099 register directly.',
+    instead:
+      'No music strings and no envelope command: SOUND register,value is the only way to the noise generators, the envelopes and the stereo, and it is not a note - a tune is BEEPs in a loop.',
+    example: {
+      caption: 'SOUND writes a register, BEEP plays a note',
+      code: ['10 SOUND 28,1', '20 BEEP .2,0', '30 BEEP .2,4'],
+    },
+    reachFor: ['BEEP', 'SOUND', 'ZAP', 'BOOM'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INKEY$ polls without waiting, GET waits for one key, INPUT reads a line with a prompt, and KEY and DEF KEYCODE reach the key table.',
+    instead:
+      'No joystick function: the 9-pin port is wired onto matrix keys 6, 7, 8, 9 and 0, so a loop testing INKEY$ for those characters answers the stick and the keyboard alike.',
+    example: {
+      caption: 'The stick is read as keys',
+      code: [
+        '10 LET k$=INKEY$',
+        '20 IF k$="6" THEN LET x=x-1',
+        '30 IF k$="7" THEN LET x=x+1',
+      ],
+    },
+    reachFor: ['INKEY$', 'GET', 'INPUT', 'KEY'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'storage',
+    support: 'full',
+    summary:
+      'SAVE, LOAD, MERGE and VERIFY move programs and CODE blocks, and OPEN/CLOSE with EOF and PTR read a file record by record.',
+    instead:
+      'No CHAIN: a program that must run another LOADs it, which starts it. DEVICE picks the tape or a drive, and this IDE serves tape as audio rather than modelling a disk.',
+    reachFor: ['SAVE', 'LOAD', 'MERGE', 'OPEN'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'memory-hardware',
+    support: 'full',
+    summary:
+      'PEEK and POKE take a byte, DPEEK and DPOKE a little-endian word, IN and OUT reach a port, and CALL or USR run machine code at an address.',
+    instead:
+      'No SYS and no USR vector: both call forms take the address itself. The screen is not in the Z80’s 64K window, so a routine that draws has to page it in first.',
+    reachFor: ['POKE', 'DPOKE', 'CALL', 'USR'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'program-editing',
+    support: 'full',
+    summary:
+      'AUTO numbers lines as they are typed, RENUM renumbers a finished program, DELETE removes a range, and LLIST prints a listing.',
+    instead:
+      'No TRON/TROFF trace and no EDIT command: the machine edits a line with its own screen editor, and a program is traced by printing from it.',
+    reachFor: ['AUTO', 'RENUM', 'DELETE', 'LIST'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ON ERROR sends a report to a handler, and ON ERROR OFF hands errors back to BASIC.',
+    instead:
+      'No RESUME and no ERR: the handler is a statement list rather than a line to return from, so it reads the report from the system variables and ends in a GO TO of its own.',
+    example: {
+      caption: 'The handler is a statement, not a line',
+      code: [
+        '10 ON ERROR GO TO 100',
+        '20 LET x=1/0',
+        '30 STOP',
+        '100 PRINT "FAILED"',
+        '110 STOP',
+      ],
+    },
+    reachFor: ['ON ERROR', 'OFF'],
+  },
 ];

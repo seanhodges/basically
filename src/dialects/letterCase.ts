@@ -344,6 +344,18 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'reach the compiler in the first place - and a name is a letter and an ' +
       'optional digit, compared as the one code each character has.',
   },
+  samcoupe: {
+    lowerCase: 'always',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'preserved',
+    note:
+      'The unpacked ROM font draws both cases across 0x20-0x7F and the machine ' +
+      'types lower case unshifted, so a listing keeps the case it was written ' +
+      'in. The keyword scan folds - `print` is PRINT and lists back as PRINT - ' +
+      'and `NAMTOBUF` folds a variable name to lower case before it is looked ' +
+      'up, so `Score` and `score` are one variable.',
+  },
 };
 
 /** The declared facts for a registered machine, or undefined for an unknown id. */

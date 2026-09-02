@@ -62,6 +62,10 @@ const FAMILIES: Record<string, string[]> = {
   /** The MSX bus in src/emulator/msx/, over the same vendored Z80 core as the
    *  Sinclairs but with its own slot decoding and its own run loop. */
   hb10p: ['hb10p'],
+  /** The SAM's own paged bus and ASIC in src/dialects/samcoupe/emulator/, over
+   *  the same vendored Z80 core: page registers, a video chip fetching from a
+   *  RAM page, and a run loop that steps the ASIC alongside the CPU. */
+  samcoupe: ['samcoupe'],
 };
 
 /** Machines with no profiled run to compare, and why. */
@@ -77,6 +81,11 @@ const NOT_PROFILED: Record<string, string> = {
 
 /** Prints as it counts, so the screen carries the run's whole history. */
 const PROBE = '10 FOR I=1 TO 40\n20 PRINT I;\n30 NEXT I\n40 GOTO 10\n';
+
+/** The same program where a machine spells the jump differently. */
+const PROBES: Record<string, string> = {
+  samcoupe: '10 FOR I=1 TO 40\n20 PRINT I;\n30 NEXT I\n40 GO TO 10\n',
+};
 const FRAMES = 300;
 
 describe('measuring a run does not change it', () => {
@@ -91,7 +100,7 @@ describe('measuring a run does not change it', () => {
       `${id} reaches the same state measured or not`,
       async () => {
         const dialect = getDialect(id);
-        const { image, errors } = dialect.tokenize(PROBE);
+        const { image, errors } = dialect.tokenize(PROBES[id] ?? PROBE);
         expect(errors).toEqual([]);
 
         const run = async (measured: boolean) => {

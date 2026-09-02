@@ -22,6 +22,7 @@ import { atari800 } from './atari800';
 import { atari400 } from './atari400';
 import { hb10p } from './hb10p';
 import { ge235 } from './ge235';
+import { samcoupe } from './samcoupe';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -47,6 +48,7 @@ export const dialects: Dialect[] = [
   atari400,
   hb10p,
   ge235,
+  samcoupe,
 ];
 
 export function getDialect(id: string): Dialect {

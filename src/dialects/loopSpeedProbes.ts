@@ -212,4 +212,12 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
       '',
     ].join('\n'),
   },
+  {
+    // A 6MHz Z80 running a Beta BASIC derivative: several times a Spectrum, so
+    // it needs several times the Spectrum's count to be timed to the frame.
+    id: 'samcoupe',
+    dialects: ['samcoupe'],
+    iterations: 5000,
+    ...programs(5000),
+  },
 ];
