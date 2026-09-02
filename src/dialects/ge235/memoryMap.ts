@@ -170,6 +170,9 @@ export const SYMBOL_TABLE = 0o17326;
 
 export const ge235MemoryMap: MemoryMap = {
   addressSpace: CORE_WORDS,
+  // The one map here that is not byte-addressed, and every reader of it has to
+  // know: the boundaries below are word numbers.
+  addressUnit: 'word',
   regions: [
     {
       start: 0,

@@ -1046,6 +1046,16 @@ export interface MemoryRegion {
 export interface MemoryMap {
   /** Size of the addressable space, e.g. 0x10000 for a 64K machine. */
   addressSpace: number;
+  /**
+   * What one address counts, where that is not a byte.
+   *
+   * Every 8-bit machine here addresses bytes, which is why this is absent on
+   * all of them. The GE-235 addresses twenty-bit words, so its `addressSpace`
+   * and every boundary in `regions` are word numbers - and the side-by-side
+   * comparison, which draws two maps at the same pixels per unit, has to say so
+   * rather than let a reader take one pane's units for the other's.
+   */
+  addressUnit?: 'byte' | 'word';
   /** Contiguous leaf regions, ascending, covering `0 .. addressSpace - 1`. */
   regions: MemoryRegion[];
   /**

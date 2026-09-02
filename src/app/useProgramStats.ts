@@ -80,6 +80,11 @@ export interface RamDisplay {
  * shows actual usage against the machine's own total (used + free); without
  * them it falls back to the tokenized-size estimate against the dialect's
  * hardcoded budget.
+ *
+ * A dialect declaring no budget at all gets the size and nothing else. That is
+ * not a missing figure but a machine whose program space is not a number of
+ * bytes - the GE-235 counts twenty-bit words - and "100% of 0K" is the wrong
+ * answer to a question it was never asked.
  */
 export function ramDisplay(
   bytes: number,
@@ -96,6 +101,9 @@ export function ramDisplay(
       text: `${live.used.toLocaleString()} bytes used (${pct}% of ${label})`,
       severity: ramSeverity(pct),
     };
+  }
+  if (programRamBytes <= 0) {
+    return { pct: 0, text: `${bytes.toLocaleString()} bytes`, severity: 'ok' };
   }
   const { pct, label } = ramBudget(bytes, programRamBytes);
   return {

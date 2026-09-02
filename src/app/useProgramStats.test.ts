@@ -68,6 +68,16 @@ describe('ramDisplay (estimate mode)', () => {
     const d = ramDisplay(12288, 15360, null); // exactly 80%
     expect(d.severity).toBe('warn');
   });
+
+  it('shows the size alone on a machine that declares no byte budget', () => {
+    // Not a missing figure: the GE-235 counts twenty-bit words, so it has no
+    // byte budget for a percentage to be a share of, and "100% of 0K" would
+    // report every program as overflowing a memory the machine does not have.
+    const d = ramDisplay(291, 0, null);
+    expect(d.text).toBe('291 bytes');
+    expect(d.pct).toBe(0);
+    expect(d.severity).toBe('ok');
+  });
 });
 
 describe('ramDisplay (live mode)', () => {

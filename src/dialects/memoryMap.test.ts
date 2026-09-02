@@ -81,16 +81,18 @@ describe('every dialect that ships a memory map', () => {
    * a reader must not take it for one.
    *
    * So the assertion is not "every machine is the same" but "every
-   * byte-addressed machine is": a second word-addressed machine joins the set
-   * below with its unit written down, and a byte-addressed one that drifts off
-   * 64K still fails here by name.
+   * byte-addressed machine is". A map that counts something else says so on
+   * `addressUnit`, which is what the comparison labels its pane with; a
+   * byte-addressed one that drifts off 64K still fails here by name.
    */
-  const WORD_ADDRESSED = new Set(['ge235']);
-
   it('spans the same address space on every byte-addressed machine, which the side-by-side comparison assumes', () => {
     const spaces = new Map<number, string[]>();
+    const otherUnit: Dialect[] = [];
     for (const d of mapped) {
-      if (WORD_ADDRESSED.has(d.id)) continue;
+      if ((d.memoryMap!.addressUnit ?? 'byte') !== 'byte') {
+        otherUnit.push(d);
+        continue;
+      }
       const space = d.memoryMap!.addressSpace;
       spaces.set(space, [...(spaces.get(space) ?? []), d.id]);
     }
@@ -99,15 +101,13 @@ describe('every dialect that ships a memory map', () => {
         ([space, ids]) => `0x${space.toString(16)}: ${ids.join(', ')}`,
       ),
     ).toHaveLength(1);
-    // And the exemption is not a way out of the check: a machine named there
-    // has to genuinely differ, or it belongs above with the rest.
-    for (const id of WORD_ADDRESSED) {
-      const d = mapped.find((m) => m.id === id);
-      expect(d, `${id} names no memory map`).toBeDefined();
+    // And declaring another unit is not a way out of the check: a map that
+    // claims one has to genuinely span something else, or it belongs above.
+    for (const d of otherUnit) {
       expect(
         [...spaces.keys()],
-        `${id} spans what every byte-addressed machine does, so it is not an exception`,
-      ).not.toContain(d!.memoryMap!.addressSpace);
+        `${d.id} spans what every byte-addressed machine does, so its unit changes nothing`,
+      ).not.toContain(d.memoryMap!.addressSpace);
     }
   });
 });

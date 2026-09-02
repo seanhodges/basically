@@ -103,6 +103,12 @@ describe('the language & hardware table', () => {
     // Written the way the table renders it, thousands separated - the figure a
     // reader compares, not a raw byte count.
     expect(ram.fromText).toBe('3,583 bytes');
+    // And a machine whose program space is not a number of bytes says so rather
+    // than reading "0 bytes": the GE-235 counts twenty-bit words, which the
+    // memory layout further down the page draws.
+    expect(rowFor('zx81', 'ge235', 'Free program RAM').toText).toBe(
+      'Not counted in bytes - see the memory layout below',
+    );
   });
 
   it('builds every row for every registered pair of machines', () => {

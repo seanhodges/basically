@@ -95,6 +95,13 @@ export function MemoryMapPair({
             {machine.name}
             <span className="mm-pane-role">
               {side === 'from' ? 'porting from' : 'porting to'}
+              {/* Only where the unit is not a byte, which is every other
+                  machine here. The two panes are drawn at the same pixels per
+                  unit, so an unlabelled word-addressed column would read as a
+                  machine with an eighth of the memory rather than one counting
+                  something else. */}
+              {(machine.map.addressUnit ?? 'byte') === 'word' &&
+                ' · addresses are words, not bytes'}
             </span>
           </h4>
         )}
@@ -111,8 +118,10 @@ export function MemoryMapPair({
           onScrollChange={onScrollChange}
           onZoomGesture={onZoomGesture}
           // The whole reason the two are side by side: every band is exactly its
-          // share of the address space, so a line drawn across the panes is one
-          // address on both machines.
+          // share of the address space, so a line drawn across the panes is the
+          // same fraction of each machine's memory. On two byte-addressed
+          // machines - which is every pair but one - it is also the same
+          // address; where the units differ the pane header says so.
           proportional
           // A `display: none` pane cannot take a scroll offset, so the view is
           // told when it is out of view and re-applies it on the way back. That

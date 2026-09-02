@@ -2264,6 +2264,11 @@ export function programFitForTarget(
   const lowerBound = !size.clean;
   if (lowerBound && size.bytes === 0) return null;
   const freeBytes = targetFacts.freeRamBytes;
+  // A target declaring no byte budget has none to declare: the GE-235's program
+  // space is measured in twenty-bit words, and a percentage of zero bytes would
+  // report every program as overflowing a memory it does not have. The machine's
+  // own memory map is where its space is stated, in the unit it is stated in.
+  if (freeBytes <= 0) return null;
   const { pct } = ramBudget(size.bytes, freeBytes);
   const severity = ramSeverity(pct);
   const verdict: FitVerdict =
@@ -2484,7 +2489,13 @@ function fmtLet(f: PortingFacts): string {
   }[f.letRequired];
 }
 function fmtRam(f: PortingFacts): string {
-  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
+  // Zero is not "no memory" but "not a number of bytes": the GE-235's store is
+  // twenty-bit words, so its program space cannot be stated in the unit this
+  // row is written in. The memory layout further down the page states it in the
+  // unit the machine measures it in, which is where the reader is sent.
+  return f.freeRamBytes > 0
+    ? `${f.freeRamBytes.toLocaleString('en-GB')} bytes`
+    : 'Not counted in bytes - see the memory layout below';
 }
 function fmtCharacters(f: PortingFacts): string {
   return f.unsupportedCharacters.length === 0
