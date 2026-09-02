@@ -8,20 +8,34 @@ import type {
   ReferenceTableData,
 } from '../src/reference/types';
 
-import { zx81Keywords } from '../src/dialects/zx81/keywords';
+import { zx81Keywords, zx81Operators } from '../src/dialects/zx81/keywords';
 import { zx80Keywords } from '../src/dialects/zx80/keywords';
-import { spectrumKeywords } from '../src/dialects/zxspectrum/keywords';
+import {
+  spectrumKeywords,
+  spectrumOperators,
+} from '../src/dialects/zxspectrum/keywords';
 import {
   SPECTRUM_KEYWORD,
   PLAY_KEYWORD,
 } from '../src/dialects/zxspectrum128/keywords';
-import { bbcKeywords } from '../src/dialects/bbcmicro/keywords';
-import { c64Keywords } from '../src/dialects/commodore64/keywords';
+import {
+  bbcKeywords,
+  bbcMasterKeywords,
+  bbcOperators,
+} from '../src/dialects/bbcmicro/keywords';
+import {
+  c64Keywords,
+  c64Operators,
+} from '../src/dialects/commodore64/keywords';
+import { petKeywords } from '../src/dialects/pet/keywords';
 import { atomKeywords } from '../src/dialects/atom/keywords';
 import { trs80Keywords } from '../src/dialects/trs80/keywords';
 import { locoKeywordTable } from '../src/dialects/cpc464/keywords';
 import { altair8800Keywords } from '../src/dialects/altair8800/keywords';
-import { apple1Keywords } from '../src/dialects/apple1/keywords';
+import {
+  apple1Keywords,
+  apple1Operators,
+} from '../src/dialects/apple1/keywords';
 import {
   apple2Keywords,
   apple2Operators,
@@ -35,6 +49,7 @@ import {
   atariOperators,
 } from '../src/dialects/atari800/keywords';
 import { hb10pKeywords, hb10pOperators } from '../src/dialects/hb10p/keywords';
+import { ge235Keywords, ge235Operators } from '../src/dialects/ge235/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -92,14 +107,77 @@ function dedupe(entries: ReferenceEntry[]): ReferenceEntry[] {
   return entries.filter((e) => (seen.has(e.name) ? false : seen.add(e.name)));
 }
 
+/** Seed a row for an operator the dialect declares outside its keyword table. */
+function operatorEntry(name: string): ReferenceEntry {
+  return { name, kind: 'operator', syntax: name, description: '' };
+}
+
+/** One machine's - or one model group's - share of a page several of them read. */
+interface Contributor {
+  /** Badge for a word this contributor has and its page-mates have not. */
+  tag: string;
+  keywords: readonly KeywordInfo[];
+  /**
+   * Operators the dialect declares rather than holding in its keyword table
+   * (see src/dialects/operators.ts). The reference page lists both.
+   */
+  operators?: readonly string[];
+}
+
+/**
+ * The rows of a page whose machines do not share one vocabulary, badged by who
+ * has what: a word more than one contributor spells is unbadged, and one only a
+ * single contributor has carries that contributor's tag.
+ *
+ * The badge is all a seed can say. Which machine ids a row belongs to is
+ * `ReferenceEntry.onlyOn`, and the enrichment pass writes it - the scaffolder
+ * knows model groups ("the Spectrums") and not registry ids. What the badge
+ * does is put every difference in front of whoever enriches the file, instead
+ * of leaving it to be noticed when keyword-crosscheck.test.ts fails.
+ */
+function sharedPage(contributors: readonly Contributor[]): ReferenceEntry[] {
+  const words = contributors.map(
+    (c) => new Set([...c.keywords.map((k) => k.word), ...(c.operators ?? [])]),
+  );
+  const soleTag = (word: string): string | undefined => {
+    const holders = contributors.filter((_, i) => words[i]!.has(word));
+    return holders.length === 1 ? holders[0]!.tag : undefined;
+  };
+  return dedupe(
+    contributors.flatMap((c) => [
+      ...c.keywords.map((k) => toEntry(k, soleTag(k.word))),
+      ...(c.operators ?? []).map((word) => {
+        const tag = soleTag(word);
+        return tag ? { ...operatorEntry(word), tag } : operatorEntry(word);
+      }),
+    ]),
+  );
+}
+
 const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
   {
-    id: 'zx81',
-    varName: 'zx81Reference',
+    // The page slug, not a dialect id: one page covers the ZX81 and both
+    // Spectrums, which share a BASIC and not much of a vocabulary. Naming a set
+    // after either machine made the generator write a second, empty file every
+    // time it ran, because it never saw the enriched sinclair.ts beside it.
+    id: 'sinclair',
+    varName: 'sinclairReference',
     data: {
-      title: 'ZX81 BASIC',
-      machines: ['Sinclair ZX81'],
-      entries: dedupe(zx81Keywords.map((k) => toEntry(k))),
+      title: 'Sinclair BASIC',
+      machines: [
+        'Sinclair ZX81',
+        'Sinclair ZX Spectrum 48K',
+        'Sinclair ZX Spectrum 128K',
+      ],
+      entries: sharedPage([
+        { tag: 'ZX81 only', keywords: zx81Keywords, operators: zx81Operators },
+        {
+          tag: 'Spectrum only',
+          keywords: spectrumKeywords,
+          operators: spectrumOperators,
+        },
+        { tag: '128K only', keywords: [SPECTRUM_KEYWORD, PLAY_KEYWORD] },
+      ]),
     },
   },
   {
@@ -112,25 +190,26 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     },
   },
   {
-    id: 'zxspectrum',
-    varName: 'zxspectrumReference',
-    data: {
-      title: 'ZX Spectrum BASIC (48K & 128K)',
-      machines: ['Sinclair ZX Spectrum 48K', 'Sinclair ZX Spectrum 128K'],
-      entries: dedupe([
-        ...spectrumKeywords.map((k) => toEntry(k)),
-        toEntry(SPECTRUM_KEYWORD, '128K only'),
-        toEntry(PLAY_KEYWORD, '128K only'),
-      ]),
-    },
-  },
-  {
     id: 'bbc',
     varName: 'bbcReference',
     data: {
       title: 'BBC BASIC (Micro & Master)',
       machines: ['BBC Micro Model B', 'BBC Master'],
-      entries: dedupe(bbcKeywords.map((k) => toEntry(k))),
+      // BASIC IV is BASIC II plus EDIT, so only the Master's badge is ever
+      // reached; the Micro's is here because nothing but the tables decides
+      // that, and a word BASIC IV dropped would need it.
+      entries: sharedPage([
+        {
+          tag: 'BASIC II only',
+          keywords: bbcKeywords,
+          operators: bbcOperators,
+        },
+        {
+          tag: 'BASIC IV only',
+          keywords: bbcMasterKeywords,
+          operators: bbcOperators,
+        },
+      ]),
     },
   },
   {
@@ -141,9 +220,20 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     id: 'commodore',
     varName: 'commodoreReference',
     data: {
-      title: 'Commodore BASIC',
+      title: 'Commodore 64, VIC-20 & PET BASIC',
       machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
-      entries: dedupe(c64Keywords.map((k) => toEntry(k))),
+      // Two contributors for three machines: the VIC-20's keyword table is the
+      // C64's, re-exported, so they are one group. BASIC 4.0 is that group's
+      // vocabulary plus the PET's disk commands, which is why only the PET's
+      // badge is ever reached.
+      entries: sharedPage([
+        {
+          tag: 'BASIC V2 only',
+          keywords: c64Keywords,
+          operators: c64Operators,
+        },
+        { tag: 'BASIC 4.0', keywords: petKeywords, operators: c64Operators },
+      ]),
     },
   },
   {
@@ -189,33 +279,26 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     },
   },
   {
-    id: 'apple1',
-    varName: 'apple1Reference',
+    // The page slug, not a dialect id: one page covers both revisions of the
+    // interpreter, the Apple I's and the Apple II's. As with the Sinclair page
+    // above, a set named after either machine wrote an empty file beside the
+    // enriched integer-basic.ts on every run.
+    id: 'integer-basic',
+    varName: 'integerBasicReference',
     data: {
-      title: 'Apple 1 Integer BASIC',
-      machines: ['Apple I'],
-      entries: dedupe(apple1Keywords.map((k) => toEntry(k))),
-    },
-  },
-  {
-    id: 'apple2',
-    varName: 'apple2Reference',
-    data: {
-      title: 'Apple II Integer BASIC',
-      machines: ['Apple II'],
-      // The symbolic operators are declared on the dialect rather than held in
-      // the keyword table, and the reference page lists both (see
-      // src/dialects/operators.ts), so seed a row for each of them too.
-      entries: dedupe([
-        ...apple2Keywords.map((k) => toEntry(k)),
-        ...apple2Operators.map(
-          (word): ReferenceEntry => ({
-            name: word,
-            kind: 'operator',
-            syntax: word,
-            description: '',
-          }),
-        ),
+      title: 'Integer BASIC',
+      machines: ['Apple I', 'Apple II'],
+      entries: sharedPage([
+        {
+          tag: 'Apple I only',
+          keywords: apple1Keywords,
+          operators: apple1Operators,
+        },
+        {
+          tag: 'Apple II only',
+          keywords: apple2Keywords,
+          operators: apple2Operators,
+        },
       ]),
     },
   },
@@ -284,6 +367,31 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       entries: dedupe([
         ...hb10pKeywords.map((k) => toEntry(k)),
         ...hb10pOperators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
+    // The page slug is the dialect id here, but the title is the language: this
+    // is Dartmouth BASIC, and the GE-235 is the machine that ran it.
+    id: 'dartmouth',
+    varName: 'dartmouthReference',
+    data: {
+      title: 'Dartmouth BASIC',
+      machines: ['GE-235'],
+      // Every operator is punctuation the compiler reads a character at a time
+      // rather than a word in the keyword table, so the reference page's rows
+      // for them are seeded from the dialect's operator list (see
+      // src/dialects/operators.ts).
+      entries: dedupe([
+        ...ge235Keywords.map((k) => toEntry(k)),
+        ...ge235Operators.map(
           (word): ReferenceEntry => ({
             name: word,
             kind: 'operator',

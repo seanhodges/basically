@@ -43,6 +43,15 @@ export const ge235: Dialect = {
   blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
   basicDialect: 'Dartmouth BASIC',
 
+  /**
+   * The reference page is named for the language, not for this machine: what it
+   * documents is Dartmouth BASIC, which several machines ran and which every
+   * other BASIC here descends from. `basicFamily` is left off because
+   * `basicDialect` is already the family name - this is the only machine in the
+   * registry that runs it.
+   */
+  docsReference: 'dartmouth',
+
   // The figure this field wants is the space a program actually gets, and the
   // machine measures that in twenty-bit words rather than bytes - `memoryMap.ts`
   // holds the layout. The interpreter decides what a program may hold.
