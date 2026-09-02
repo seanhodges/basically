@@ -20,7 +20,7 @@ export default tseslint.config(
   // Vendored / generated / build output - not ours to lint.
   {
     ignores: [
-      'dist/**',
+      '**/dist/**',
       'docs/.vitepress/cache/**',
       'src/emulator/z80/**',
       'src/emulator/6502/**',

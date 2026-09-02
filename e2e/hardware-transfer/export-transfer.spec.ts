@@ -63,7 +63,7 @@ test('the cassette exports play through the speakers and download as .wav', asyn
 }) => {
   // The two things done with the same encoded tape, on one saved document:
   // played out loud, and written to a file at both densities.
-  test.setTimeout(120_000); // encoding the tape twice over is the long part
+  test.setTimeout(60_000); // encoding the tape twice over is the long part
 
   await openExportOnSavedDoc(page);
 

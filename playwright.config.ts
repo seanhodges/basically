@@ -69,25 +69,33 @@ export default defineConfig({
       },
     },
   ],
-  webServer: [
-    {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-      // The standalone-player specs stub the share API with page.route.
-      // Point it at a dummy origin so the fetch is actually issued and then
-      // intercepted; no real network call is made.
-      env: { ...process.env, VITE_SHARE_API_URL: 'https://api.example.test' },
-    },
-    {
-      // The in-app docs drawer iframes /docs/, which the IDE dev server
-      // proxies to this VitePress dev server (see vite.config.ts). Without it
-      // the drawer-content assertions have nothing to show.
-      command: 'npm run docs:dev -- --port 5174',
-      url: 'http://localhost:5174/docs/',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-    },
-  ],
+  // One server over the built artifact, not two dev servers over source.
+  //
+  // The suite used to run against `vite dev` plus a VitePress dev server behind
+  // the app's /docs proxy, which meant every test paid for the unbundled module
+  // graph - React, CodeMirror and the emulator cores as separate requests - on a
+  // cold context. `dist/` is laid out exactly as the deployed artifact is, docs
+  // and all, so one static server replaces both and the proxy with them.
+  //
+  // The build runs here rather than as a separate step so `npm run e2e` is still
+  // one command; the timeout covers it, which is why it is not the default 60s.
+  // Generous with it because CI's runner has half the cores this was measured on
+  // and the e2e job is a blocking gate - a build that is merely slow must not
+  // read as a failure.
+  //
+  // `reuseExistingServer` now means reusing whatever is already on 5173, which
+  // serves a build rather than live source: a server left running by hand can
+  // therefore be stale. Playwright tears down the one it starts itself, so this
+  // only bites someone who started their own.
+  webServer: {
+    command: 'npm run e2e:build && npm run e2e:serve',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 600_000,
+    // The standalone-player specs stub the share API with page.route. Point it
+    // at a dummy origin so the fetch is actually issued and then intercepted; no
+    // real network call is made. Read at build time now rather than by a dev
+    // server, since Vite folds it into the bundle.
+    env: { ...process.env, VITE_SHARE_API_URL: 'https://api.example.test' },
+  },
 });

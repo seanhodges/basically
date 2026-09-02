@@ -152,6 +152,10 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   // is what this stage wants.
   await page.getByRole('button', { name: 'Start new' }).click();
   await clearEditor(page);
+  // The same editor-focus debounce as above (EDITOR_KB_HIDE_DELAY_MS), on the
+  // far side of a machine switch: the keycap below carries the letter A on the
+  // machine being left as well as the one being arrived at, so a web-first
+  // assertion on it would be satisfied by the outgoing keyboard.
   await page.waitForTimeout(400);
   const bbcA = page.locator('[data-keyid="KeyA"]');
   const legend = bbcA.locator('.vk-pos-center');

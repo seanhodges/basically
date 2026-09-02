@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
 import type { Dialect, MachineEmulator, MachineFileStore } from './types';
 
@@ -19,7 +20,26 @@ import type { Dialect, MachineEmulator, MachineFileStore } from './types';
  * also drop stubs the caller set for its own reasons.
  */
 
-const PUBLIC = path.resolve(__dirname, '../../public');
+/**
+ * Where the committed ROMs live. Overridable because this module is not always
+ * running from its own source tree: bundled into a single file it has no idea
+ * where the repository is, and only its caller does.
+ */
+let romRoot: string | null = null;
+
+/** Point the ROM loaders at a `public/` directory other than this checkout's. */
+export function configureRomRoot(dir: string): void {
+  romRoot = dir;
+}
+
+function publicDir(): string {
+  // Resolved from this module's own URL rather than `__dirname`, which exists
+  // only under a runner that supplies it.
+  return (
+    romRoot ??
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public')
+  );
+}
 
 /**
  * Make the machines that fetch their own ROMs work under node, and return the
@@ -39,7 +59,7 @@ export function installNodeRomLoading(): () => void {
   const previous = globalThis.fetch;
   globalThis.fetch = (async (url: string) => {
     const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.join(PUBLIC, rel));
+    const data = readFileSync(path.join(publicDir(), rel));
     return {
       ok: true,
       status: 200,
@@ -55,7 +75,7 @@ export function installNodeRomLoading(): () => void {
 
 /** The path under public/ behind a dialect's `romUrl`. */
 export function romPath(romUrl: string): string {
-  return path.join(PUBLIC, romUrl.slice(romUrl.indexOf('roms/')));
+  return path.join(publicDir(), romUrl.slice(romUrl.indexOf('roms/')));
 }
 
 /**

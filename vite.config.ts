@@ -17,39 +17,59 @@ export default defineConfig({
       },
     },
   },
+  // `vite preview` serves the built artifact, where /docs/ is real files under
+  // dist/docs - but Vite falls preview's proxy back to the dev server's, which
+  // would send those requests to a VitePress dev server that is not running.
+  // An explicit empty map stops that inheritance.
+  preview: { proxy: {} },
   plugins: [
     react(),
     // Service worker for the app shell. The docs site ships its own
     // service worker via @vite-pwa/vitepress; the two have nested scopes (/ and
     // /docs/) and each precaches its own build.
-    VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      manifest: false,
-      workbox: {
-        // The emulator cores and a few assets are large; raise the precache
-        // maximum file size so the app shell is fully cached.
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest,woff2,wasm}'],
-        // Third-party ROMs cache at runtime.
-        globIgnores: ['**/roms/**'],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.includes('/roms/'),
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'roms',
-              expiration: { maxEntries: 32 },
-              cacheableResponse: { statuses: [0, 200] },
+    //
+    // Left out of the build the e2e suite runs against. A dev server never
+    // registers this - vite-plugin-pwa needs `devOptions` for that - so the
+    // browser the specs drive has never had a service worker, and giving them
+    // one along with a production build would be a behaviour change smuggled in
+    // with a speed change: every test opens a fresh context, so each would
+    // install and precache the whole shell from scratch, and an install racing
+    // the first assertions is a flake nobody asked for. The service worker is
+    // real behaviour and deserves its own test, not a side effect of this one.
+    ...(process.env.E2E === '1'
+      ? []
+      : [
+          VitePWA({
+            registerType: 'autoUpdate',
+            injectRegister: 'auto',
+            manifest: false,
+            workbox: {
+              // The emulator cores and a few assets are large; raise the precache
+              // maximum file size so the app shell is fully cached.
+              maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+              globPatterns: [
+                '**/*.{js,css,html,png,svg,ico,webmanifest,woff2,wasm}',
+              ],
+              // Third-party ROMs cache at runtime.
+              globIgnores: ['**/roms/**'],
+              runtimeCaching: [
+                {
+                  urlPattern: ({ url }) => url.pathname.includes('/roms/'),
+                  handler: 'CacheFirst',
+                  options: {
+                    cacheName: 'roms',
+                    expiration: { maxEntries: 32 },
+                    cacheableResponse: { statuses: [0, 200] },
+                  },
+                },
+              ],
+              // Never let the app's SPA navigation fallback answer for docs URLs.
+              // Match the bare `/docs` too (no trailing slash) so a visit to
+              // ba.sical.ly/docs reaches the server's redirect to /docs/.
+              navigateFallbackDenylist: [/^\/docs(\/|$)/],
             },
-          },
-        ],
-        // Never let the app's SPA navigation fallback answer for docs URLs.
-        // Match the bare `/docs` too (no trailing slash) so a visit to
-        // ba.sical.ly/docs reaches the server's redirect to /docs/.
-        navigateFallbackDenylist: [/^\/docs(\/|$)/],
-      },
-    }),
+          }),
+        ]),
   ],
   test: {
     environment: 'node',
