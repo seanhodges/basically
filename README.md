@@ -6,11 +6,10 @@
 </p>
 
 A web IDE for retro BASIC - write, run and ship games and programs for real
-historic hardware from your browser, from the mainframe BASIC was born on to
-the 8-bit micros that carried it.
+hardware from your browser.
 
-Support includes the **Sinclair ZX81**, **ZX Spectrum**, **BBC
-Micro**, among others.
+Support includes the **Commodore 64**, **ZX81**, **ZX Spectrum**, **BBC
+Micro**, and many more.
 
 <p align="center">
   <img alt="The Basically IDE: a Commodore 64 game in the editor, running in the built-in emulator, with the on-screen keyboard" src="docs/public/screenshot.jpg" width="900" />
