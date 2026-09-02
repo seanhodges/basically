@@ -1711,4 +1711,117 @@ export const escapeGuidance: EscapeGuidance[] = [
       code: ['10 PRINT "{home}";', '20 PRINT TAB(10);"SCORE"'],
     },
   },
+  // ---------------------------------------------------------------- ge235 --
+  // A Teletype striking type bars onto paper, and a 6-bit set of 64 codes:
+  // every class but its own two is 'none', and the advice is almost always to
+  // drop the code rather than respell it.
+  {
+    to: 'ge235',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour: the type is black and the paper is white. Drop the code, or mark the text some other way where the colour carried the meaning.',
+    example: {
+      caption: 'Mark the text instead of colouring it',
+      code: ['10 PRINT "*** ALERT ***"'],
+    },
+  },
+  {
+    to: 'ge235',
+    class: 'cursor',
+    support: 'none',
+    instead:
+      'Nothing addresses a carriage: paper only moves forward. Print each line whole, in order, and reach a column with a comma - which steps to the next of five fifteen-column zones.',
+    example: {
+      caption: 'A comma steps to the next zone',
+      code: ['10 PRINT "NAME","SCORE"'],
+    },
+  },
+  {
+    to: 'ge235',
+    class: 'editing',
+    support: 'none',
+    instead:
+      'Nothing printed can be erased. Replace a screen clear with blank PRINTs, and print a whole line again where the original deleted part of one.',
+  },
+  {
+    to: 'ge235',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'One type basket and no modes to switch: drop the code. The Teletype prints the 57 characters its set has and nothing else.',
+  },
+  {
+    to: 'ge235',
+    class: 'screen-effect',
+    support: 'none',
+    instead:
+      'Nothing flashes, conceals or doubles on paper: drop the effect, or give the text a line of its own where it has to catch the eye.',
+  },
+  {
+    to: 'ge235',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'The ASR-33 has no function key and no code for one: ask with INPUT and branch on the number typed.',
+  },
+  {
+    to: 'ge235',
+    class: 'block-graphics',
+    support: 'none',
+    instead:
+      'No graphics characters: a shape here is a piece of metal in a type basket. Redraw the picture from punctuation - * and . are the era’s own choice - or drop it.',
+    example: {
+      caption: 'A bar from punctuation',
+      code: ['10 PRINT "**********"'],
+    },
+  },
+  {
+    to: 'ge235',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'Nothing is redefinable: the shapes are cast in metal. Build the figure from several ordinary characters, or drop it.',
+  },
+  {
+    to: 'ge235',
+    class: 'inverse-video',
+    support: 'none',
+    instead:
+      'Nothing is reversible on paper. Where inverse marked text out, bracket it with punctuation instead - the set has no lower case to contrast with.',
+  },
+  {
+    to: 'ge235',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces. A comma reaches the next fifteen-column zone, which is the only skipping there is.',
+  },
+  {
+    to: 'ge235',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'ge235',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'Type the character itself: space and backslash are ordinary characters here. But the set has no ! # % & ’ @ _ or ^ at all, so a literal using one has to be respelled.',
+  },
+  {
+    to: 'ge235',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Six codes work the Teletype - {0o32} bell, {0o37} carriage return, {0o52} tab, {0o55} end of message, {0o72} line feed and {0o77} fill. Drop anything else; none of them is a screen command.',
+  },
+  {
+    to: 'ge235',
+    class: 'raw-byte',
+    support: 'full',
+    instead:
+      'Respell the code as {0oNN} - two octal digits, because the characters are six bits and this machine is octal throughout.',
+  },
 ];

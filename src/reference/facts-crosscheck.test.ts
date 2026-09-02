@@ -40,17 +40,31 @@ const regionStart = (
 ): number | undefined =>
   d.memoryMap?.regions.find((r) => r.kind === kind)?.start;
 
-/** Parse an authored address string ("$4000", "&C000", "&H8001", "'2401"). */
+/** Parse an authored address string ("$4000", "&C000", "&H8001", "'2401", "0o7724"). */
 const parseAddr = (s: string): number =>
-  // `&H` before the bare `&`: MSX BASIC's hex prefix is two characters, and
-  // stripping only the ampersand would leave an H in front of the digits.
-  parseInt(
-    s
-      .replace(/^0x/i, '')
-      .replace(/^&[Hh]/, '')
-      .replace(/^[$&#']/, ''),
-    16,
-  );
+  // Octal first: the GE-235 counts its core in twenty-bit words and writes them
+  // octal, which is the only notation its own listings ever use.
+  /^0o[0-7]+$/.test(s)
+    ? parseInt(s.slice(2), 8)
+    : // `&H` before the bare `&`: MSX BASIC's hex prefix is two characters, and
+      // stripping only the ampersand would leave an H in front of the digits.
+      parseInt(
+        s
+          .replace(/^0x/i, '')
+          .replace(/^&[Hh]/, '')
+          .replace(/^[$&#']/, ''),
+        16,
+      );
+
+/**
+ * What a probe program needs after it to be a whole program on this machine.
+ *
+ * Dartmouth BASIC requires END as the last line: a program without one does not
+ * compile, and its compiler says so, so a two-line probe carries that complaint
+ * unless it ends properly. Every other machine here runs a fragment as it
+ * stands, which is why this is a map rather than a field.
+ */
+const PROGRAM_TAIL: Partial<Record<string, string>> = { ge235: '99 END\n' };
 
 /** Printable ASCII, the range `unsupportedCharacters` is defined over. */
 const PRINTABLE = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
@@ -329,9 +343,21 @@ describe('variable-name significance is the one each lint enforces', () => {
     return `10 LET ${stem}X${marker}=${a}\n20 LET ${stem}Y${marker}=${b}\n`;
   };
 
+  /**
+   * Machines whose names are too short for the probe to ask its question of.
+   *
+   * The probe needs two names of at least two characters differing at the
+   * second, and Dartmouth BASIC has none: a name is one letter and at most one
+   * digit, so `QX` is not a shorter form of anything - it is not a name, and
+   * the lint refuses it for a reason that is not significance. Nothing is ever
+   * truncated there, which is exactly what `plain: null` says; what the test
+   * asserts instead is below.
+   */
+  const NAMES_TOO_SHORT_TO_PROBE = new Set(['ge235']);
+
   /** Whether the machine's own linter objects to a program. */
   const flags = (dialect: Dialect, source: string): boolean =>
-    dialect.lint(source).length > 0;
+    dialect.lint(source + (PROGRAM_TAIL[dialect.id] ?? '')).length > 0;
 
   /**
    * The shortest shared prefix at which this machine treats two names as one,
@@ -359,6 +385,22 @@ describe('variable-name significance is the one each lint enforces', () => {
       flags(dialect, probe(0, '')),
       `${id} rejects two distinct names`,
     ).toBe(false);
+
+    if (NAMES_TOO_SHORT_TO_PROBE.has(id)) {
+      // The claim in place of the reading, and it is the stronger one: every
+      // longer probe is refused rather than quietly merged, which is what
+      // "nothing is truncated" means on a machine with no longer name to
+      // truncate.
+      expect(rule.plain, `${id} truncates nothing, so it keeps every name`) //
+        .toBeNull();
+      for (let n = 1; n <= PROBE_LIMIT; n++) {
+        expect(
+          flags(dialect, probe(n, '')),
+          `${id} accepts a ${n + 1}-character name it has no room for`,
+        ).toBe(true);
+      }
+      return;
+    }
 
     expect(
       observed(dialect, ''),
@@ -569,8 +611,11 @@ describe('abbreviated entry is the tokenizer’s own', () => {
     atari400: { short: '10 L.\n', full: '10 LIST\n' },
   };
 
+  const tail = (d: Dialect, src: string): string =>
+    src + (PROGRAM_TAIL[d.id] ?? '');
+
   const bytes = (d: Dialect, src: string): string =>
-    Array.from(d.tokenize(src).image).join(',');
+    Array.from(d.tokenize(tail(d, src)).image).join(',');
 
   it.each(PAIRS)('%s', (id, facts, dialect) => {
     const { style, shrinksProgram } = facts.abbreviatedEntry;
@@ -580,7 +625,7 @@ describe('abbreviated entry is the tokenizer’s own', () => {
       // The full spelling has to be a line this machine accepts, or both arms
       // of the comparison below are error images and the probe proves nothing.
       expect(
-        dialect.tokenize(probe.full).errors,
+        dialect.tokenize(tail(dialect, probe.full)).errors,
         `${id} rejects the ${named} probe's full spelling`,
       ).toEqual([]);
       const reads = bytes(dialect, probe.short) === bytes(dialect, probe.full);
@@ -595,8 +640,10 @@ describe('abbreviated entry is the tokenizer’s own', () => {
       // bytes from the short one - the shorter text is the whole point - so its
       // pin is that its own lint takes the notation without complaint.
       if (shrinksProgram) {
-        expect(dialect.lint(probe.short), `${id} rejects its own ${style}`) //
-          .toEqual([]);
+        expect(
+          dialect.lint(tail(dialect, probe.short)),
+          `${id} rejects its own ${style}`,
+        ).toEqual([]);
       } else {
         expect(reads, `${id} does not read its own ${style} abbreviation`) //
           .toBe(true);
@@ -610,8 +657,8 @@ describe('abbreviated entry is the tokenizer’s own', () => {
     }
     const probe = PROBE_OVERRIDE[id] ?? PROBES[style];
     const saved =
-      dialect.tokenize(probe.full).byteSize -
-      dialect.tokenize(probe.short).byteSize;
+      dialect.tokenize(tail(dialect, probe.full)).byteSize -
+      dialect.tokenize(tail(dialect, probe.short)).byteSize;
     expect(saved > 0, `${id}: shrinksProgram says the opposite of ${saved}`) //
       .toBe(shrinksProgram);
   });

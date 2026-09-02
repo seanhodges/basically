@@ -1707,6 +1707,150 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'hex',
     hexPrefix: '&H',
   },
+  {
+    id: 'ge235',
+    basicDialect: 'Dartmouth BASIC',
+    portingNotes: [
+      {
+        text: 'There are no strings: a variable holds a number, and the only text the machine handles is the literal inside PRINT. Anything a port does with words or characters has to become numbers, or be dropped.',
+        topics: ['strings'],
+      },
+      {
+        text: 'LET is required on every assignment: a line opening with a letter reaches no decoder at all and is refused. One statement to a line, too - there is no separator.',
+        topics: ['statement-layout'],
+      },
+      {
+        text: 'A comparison is not a value: it lives only between IF and THEN, and THEN takes a line number. There is no AND, OR or NOT either, so a compound condition becomes nested IFs.',
+        topics: ['control-flow', 'operators'],
+      },
+      {
+        text: 'A variable name is one letter and at most one digit, and an array name has no room for the digit - so a program needing more than 286 names cannot be renamed into this machine.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'RND takes no seed and there is no RANDOMIZE, so every run deals the same sequence - the era’s listings ask the user for a number and fold it in. No RESTORE either: a table read twice goes into an array first.',
+        topics: ['numbers', 'storage'],
+      },
+      {
+        text: 'The output is a paper roll on a Teletype: PRINT is the whole repertoire, nothing printed can be redrawn, and its five fifteen-column zones are the only positioning there is.',
+        topics: ['text-screen', 'graphics'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE, and no statement after THEN either: invert the test and let the line below be the other branch.',
+      },
+      {
+        keyword: 'RESTORE',
+        note: 'The DATA pointer never rewinds. READ the table into an array once and index it afterwards.',
+      },
+      {
+        keyword: 'SGN',
+        note: 'No SGN: write IF X<0 THEN … and IF X>0 THEN … , or use (X>0)-(X<0)’s equivalent as two jumps.',
+      },
+      {
+        keyword: 'TAB',
+        note: 'No TAB: a comma moves to the next of five fifteen-column zones, which is the only column control the machine has.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'Nothing reads a key. INPUT waits for a number and a carriage return, so a real-time loop becomes one turn per typed answer.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'Nothing clears paper. PRINT blank lines, or let the earlier output roll up out of view.',
+      },
+      {
+        keyword: 'PLOT',
+        note: 'No graphics of any kind: build the picture in an array and PRINT it a character to a column.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound hardware. The Teletype’s bell is the only noise, and BASIC has no way to ring it.',
+      },
+      {
+        keyword: 'COLOUR',
+        note: 'No colour: the output is black type on paper.',
+      },
+      {
+        keyword: 'POKE',
+        note: 'No PEEK, no POKE and no USR. A compiled program cannot name an address at all, so nothing can be reached outside the language.',
+      },
+    ],
+    // En dash, as every other entry uses.
+    lineNumberRange: '0–99999',
+    lineNumbers: { min: 0, max: 99999 },
+    statementSeparator: null,
+    elseSupported: false,
+    letRequired: 'required',
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
+    variableNaming:
+      'One letter, optionally followed by one digit (A, A1). An array name is the letter alone. There is no type marker: $ is refused outright.',
+    // Nothing is ever truncated here, which is what `null` says: a name is one
+    // letter and at most one digit, and anything longer is not a shorter form
+    // of a name - it is refused outright as an illegal variable. There are no
+    // type markers to distinguish, `$` being rejected wherever it appears.
+    variableSignificance: {
+      plain: null,
+      marked: null,
+      markerDistinguishes: false,
+      markers: '',
+      caseSensitive: false,
+    },
+    numberHandling:
+      'Floating point only, six significant digits, magnitudes to a little under 10^77 either way.',
+    numbers: { fractions: true },
+    exponentOperator: '↑',
+    // No logicalOperators and no comparisonTrue: this BASIC has neither AND, OR
+    // nor NOT, and a comparison is a test between IF and THEN rather than a
+    // value. Both absences are pinned to the operator probe, which asks neither
+    // question of this machine because it cannot be asked.
+    unsupportedCharacters: [
+      '!',
+      '#',
+      '%',
+      '&',
+      "'",
+      '@',
+      '^',
+      '_',
+      '`',
+      '{',
+      '|',
+      '}',
+      '~',
+    ],
+    screen:
+      '72×24 Teletype Model 33 on a paper roll, black on white; the paper scrolls and nothing already printed can be redrawn.',
+    textScreen: { columns: 72, rows: 24 },
+    // The empty list is the fact, as it is on the Altair: there is no pause
+    // statement and no clock a program can read, so a counting loop is the only
+    // delay - and an expensive one on a machine that charged for its processor.
+    waitIdiom: {
+      text: 'nothing: no pause statement and no clock to read, so a counting loop is the only delay',
+      keywords: [],
+    },
+    // Measured, like every other figure here, by `loopSpeed.test.ts`. It is not
+    // a property of 1965 hardware: there is no GE-235 core to emulate, so the
+    // interpreter spends a fixed statement budget per frame - a time-shared
+    // user's share of a machine running compiled code.
+    loopSpeed: 245,
+    // Zero, and the dialect says so too: the figure this field wants is bytes,
+    // and this machine's store is 8,192 twenty-bit words. `memoryMap.ts` is
+    // where the space a program gets is stated in the unit it is measured in.
+    freeRamBytes: 0,
+    // No screenBase: there is no display memory, only a Teletype channel. The
+    // object program starts here, written in the octal the machine's own
+    // listings use - it has no hex notation, and no notation for an address at
+    // all inside BASIC.
+    programStart: '0o7724',
+    colour: 'None - black type on paper.',
+    sound: 'None. The Teletype has a bell, and BASIC cannot ring it.',
+    memoryWriteSyntax:
+      'Nothing writes memory: there is no PEEK, no POKE and no USR.',
+    addressNotation: 'dec',
+  },
 ];
 
 /** Machine facts with every `extends` folded in; see {@link resolvePortingFacts}. */

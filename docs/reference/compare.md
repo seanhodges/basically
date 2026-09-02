@@ -11,6 +11,7 @@ import { atomReference } from '../../src/reference/atom';
 import { bbcReference } from '../../src/reference/bbc';
 import { commodoreReference } from '../../src/reference/commodore';
 import { cpcReference } from '../../src/reference/cpc';
+import { dartmouthReference } from '../../src/reference/dartmouth';
 import { msxReference } from '../../src/reference/msx';
 import { pmd85Reference } from '../../src/reference/pmd85';
 import { trs80Reference } from '../../src/reference/trs80';
@@ -25,6 +26,7 @@ import { atomEscapes } from '../../src/reference/escapes/atom';
 import { bbcEscapes } from '../../src/reference/escapes/bbc';
 import { commodoreEscapes } from '../../src/reference/escapes/commodore';
 import { cpcEscapes } from '../../src/reference/escapes/cpc';
+import { dartmouthEscapes } from '../../src/reference/escapes/dartmouth';
 import { msxEscapes } from '../../src/reference/escapes/msx';
 import { pmd85Escapes } from '../../src/reference/escapes/pmd85';
 import { trs80Escapes } from '../../src/reference/escapes/trs80';
@@ -44,6 +46,7 @@ import { c64MemoryMap } from '../../src/dialects/commodore64/memoryMap';
 import { cpc464MemoryMap } from '../../src/dialects/cpc464/memoryMap';
 import { cpc664MemoryMap } from '../../src/dialects/cpc664/memoryMap';
 import { cpc6128MemoryMap } from '../../src/dialects/cpc6128/memoryMap';
+import { ge235MemoryMap } from '../../src/dialects/ge235/memoryMap';
 import { hb10pMemoryMap } from '../../src/dialects/hb10p/memoryMap';
 import { pmd85MemoryMap } from '../../src/dialects/pmd85/memoryMap';
 import { petMemoryMap } from '../../src/dialects/pet/memoryMap';
@@ -68,6 +71,7 @@ const referenceByPage = {
   bbc: bbcReference,
   commodore: commodoreReference,
   cpc: cpcReference,
+  dartmouth: dartmouthReference,
   'integer-basic': integerBasicReference,
   msx: msxReference,
   pmd85: pmd85Reference,
@@ -83,6 +87,7 @@ const escapesByPage = {
   bbc: bbcEscapes,
   commodore: commodoreEscapes,
   cpc: cpcEscapes,
+  dartmouth: dartmouthEscapes,
   'integer-basic': integerBasicEscapes,
   msx: msxEscapes,
   pmd85: pmd85Escapes,
@@ -112,6 +117,7 @@ const memoryMapById = {
   cpc464: cpc464MemoryMap,
   cpc664: cpc664MemoryMap,
   cpc6128: cpc6128MemoryMap,
+  ge235: ge235MemoryMap,
   hb10p: hb10pMemoryMap,
   pet: petMemoryMap,
   pmd85: pmd85MemoryMap,
