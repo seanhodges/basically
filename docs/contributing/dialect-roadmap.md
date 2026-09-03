@@ -63,19 +63,21 @@ work, plus any gap a program can run into.
 
 ## Tier 1 - Language layer only
 
-A bundled core and an existing machine wiring already cover the hardware, so
-there is no new emulator work at all: a keyword table, a memory map, an AI
-profile and metadata.
+A bundled core, or an interpreter a shipped machine already runs on, covers the
+hardware, so there is no new emulator work at all: a keyword table, a charset, a
+memory map, an AI profile and metadata.
 
 `src/dialects/bbcmaster/` is the reference implementation - four hand-written
 files, everything else imported from the sibling, and the whole hardware
 divergence expressed as one model parameter (`new BbcMachine('Master')`).
 `cpc664` and `atari400` are the same shape. Point `docsReference` at the base
-dialect's page and the docs work stays nearly free.
+dialect's page and the docs work stays nearly free. A machine name that links
+out has a plan under `dialect-plans/` already written.
 
-| Status | Machine              | BASIC           | Core        | Note                                                               |
-| ------ | -------------------- | --------------- | ----------- | ------------------------------------------------------------------ |
-| ⬜     | TRS-80 Model III / 4 | Model III BASIC | interpreter | Source-compatible Level II superset, same display; no ROM question |
+| Status | Machine                                             | BASIC             | Core        | Note                                                                   |
+| ------ | --------------------------------------------------- | ----------------- | ----------- | ---------------------------------------------------------------------- |
+| ⬜     | TRS-80 Model III / 4                                | Model III BASIC   | interpreter | Source-compatible Level II superset, same display; no ROM question     |
+| ⬜     | [General Electric GE-635](./dialect-plans/ge635.md) | Dartmouth 4th ed. | interpreter | Strings, matrices, multi-line functions; shares `ge235`, ASCII not BCD |
 
 ## Tier 2 - New bus, simple display
 
@@ -126,9 +128,14 @@ the tree, or would add nothing the registry does not already cover.
 
 Machines older than the microcomputer have no core to reuse and no prospect of
 one being vendored, so they ship as clean-room interpreters on the TRS-80's
-pattern - Tier 1 work with an interpreter to write. Adding the GE-235 widened
-the era bound in `src/dialects/registry.test.ts` to 1960-1995; widening it again
-belongs in the plan for the machine that needs it, not in a passing test edit.
+pattern. The first of a family pays for the interpreter; the rest share it
+through a machine profile rather than forking it, which is why the GE-635 sits
+in Tier 1 above and why the Honeywell 6000 becomes a delegation sibling of it
+once it lands.
+
+Adding the GE-235 widened the era bound in `src/dialects/registry.test.ts` to
+1960-1995; widening it again belongs in the plan for the machine that needs it,
+not in a passing test edit.
 
 ## Acorn Atom language gaps
 

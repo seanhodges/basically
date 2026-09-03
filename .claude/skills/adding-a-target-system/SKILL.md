@@ -249,9 +249,12 @@ cross-link to the new plan from `docs/contributing/dialect-roadmap.md`.
 The roadmap's tiers are **effort**, not hardware family — language layer only ·
 new bus, simple display · new bus, custom video or sound chip · blocked — so file
 the machine by what the audit above says it will actually cost, and let its
-`Core` column say which bundled core it would run on. Keep the row's note to one
-clause: `dialect-roadmap.test.ts` enforces a cell budget, and long-form detail
-belongs in `docs/contributing/architecture.md` or the machine's reference pages.
+`Core` column say which bundled core (or shared interpreter) it would run on.
+Carry the plan cross-link as a link on the machine's own name — the page has no
+column for it, and the link disappears with the row when the machine ships. Keep
+the row's note to one clause: `dialect-roadmap.test.ts` enforces a cell budget,
+and long-form detail belongs in `docs/contributing/architecture.md` or the
+machine's reference pages.
 
 Group work by dependency into medium, single-session stages, **ending with the
 one that registers** — see _What registration switches on_ above for why nothing
