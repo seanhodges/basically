@@ -2,7 +2,9 @@
   Plan template for `adding-a-target-system`.
   Copy to docs/contributing/dialect-plans/<id>.md and fill in. Replace <…> placeholders,
   delete stages the audit shows are already satisfied, and tick the checklist
-  as each stage lands. Add a cross-link to this file from docs/contributing/dialect-roadmap.md.
+  as each stage lands. Add a ⬜ row for the machine in the matching effort tier of
+  docs/contributing/dialect-roadmap.md, cross-linked to this file; the registration
+  stage moves that row into the roadmap's Shipped table.
   For a delegation target (sibling of a shipped machine), collapse stages 1/3/4
   into "import from the base dialect" and keep only the owned pieces.
   For a pair (one design, two ROMs), the base plan carries the shared hardware
@@ -248,7 +250,10 @@ disappears with the registry line.
       theme never overrides a width). **In this change, not earlier:**
       `keyboardTheme.test.ts` fails on a theme block that no _registered_ layout
       names, so the stylesheet cannot precede the registry line
-- [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`, and whatever
+- [ ] move this machine's row out of its effort tier and into the **Shipped**
+      table in `docs/contributing/dialect-roadmap.md`, keyed by the dialect id
+      with the note cut to one clause — `dialect-roadmap.test.ts` fails while a
+      registered dialect is still sitting in a tier — and whatever
       polish the audit listed — `joystickModes`, emulator sound (`readAudio`),
       dialect quirks, and the AI-profile accuracy pass: settle every "there is
       no X" in `aiProfile.ts` against `keywords.ts` and this machine's entry in
