@@ -37,6 +37,8 @@ later Microsoft BASIC descends from.
 - `PEEK`, `POKE`, `INP`, `OUT` and `WAIT` all take decimal addresses. There is
   no hexadecimal notation anywhere in this BASIC.
 
+<ReferenceTable :data="altair8800Reference" />
+
 ## The interpreter
 
 The Altair had no firmware. BASIC arrived on a paper tape you loaded into RAM
@@ -50,5 +52,3 @@ The image is bundled, and starts automatically — the cold-start dialogue
 you with 48 KB, 72 columns and the transcendental functions kept. You can
 install a different Altair BASIC in the settings page; the addresses in this
 reference were read off the 4.0 eight-K tape and are not promised of another.
-
-<ReferenceTable :data="altair8800Reference" />

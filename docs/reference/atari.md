@@ -25,14 +25,12 @@ the Atari 400.
 - **Statements are separated by `:`, and everything after `THEN` belongs to the
   `THEN`.** There is no `ELSE`, no `WHILE` and no `REPEAT`, so a statement
   written after an `IF` on the same line cannot be reached unconditionally.
-- **There are no string functions but `LEN`.** A string is sliced by
+- **There are no string functions but `LEN`, and every string must be
+  `DIM`ensioned first**, to a fixed size that never grows. A string is sliced by
   subscripting it — `A$(3, 5)` is characters 3 to 5 and `A$(3)` is from 3 to the
-  end — and two strings are joined by assigning the second past the end of the
-  first, `A$(LEN(A$) + 1) = B$`. `+` is arithmetic only, and there are no string
-  arrays.
-- **Every string and array must be `DIM`ensioned before use**, to a fixed size
-  that never grows. A string is a buffer of that length; `LEN` reports how much
-  of it is currently in use.
+  end — and two are joined by assigning the second past the end of the first,
+  `A$(LEN(A$) + 1) = B$`. `+` is arithmetic only, and there are no string
+  arrays. Arrays need a `DIM` too.
 - **Numbers are ten-digit decimal floating point and there is no integer type.**
   There is also no hexadecimal, which is why every address in the table below
   and everywhere else on this machine is written in decimal.

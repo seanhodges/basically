@@ -74,6 +74,18 @@ function anchors(source: string): { slugs: string[]; explicit: Set<string> } {
   return { slugs, explicit };
 }
 
+/** Caveat bullets, split by the `###` group they sit under (if any). */
+function caveatGroups(source: string): number[] {
+  const body = source.slice(source.indexOf('## Notes and caveats'));
+  const groups: number[] = [0];
+  for (const line of body.split('\n').slice(1)) {
+    if (/^## /.test(line) || line.startsWith('<ReferenceTable')) break;
+    if (/^### /.test(line)) groups.push(0);
+    if (/^- /.test(line)) groups[groups.length - 1]! += 1;
+  }
+  return groups.filter((n) => n > 0);
+}
+
 const PAGES = REFERENCE_PAGE_IDS.filter((p) => machinesOn(p).length > 0);
 
 describe.each(PAGES)('the %s reference page', (page) => {
@@ -101,6 +113,17 @@ describe.each(PAGES)('the %s reference page', (page) => {
     expect(afterTable).not.toContain(`](./${page}/hardware)`);
   });
 
+  it('keeps the caveats to the seven that matter most', () => {
+    // A ceiling, not a quota: a page with four things worth saying says four.
+    // What it stops is the drift that put fourteen bullets on one page and five
+    // on another, half of them restating a row of the table below. A page
+    // covering several machines groups its caveats per machine, and each group
+    // is counted on its own.
+    for (const [i, n] of caveatGroups(source).entries()) {
+      expect(n, `${page}.md, caveat group ${i + 1}`).toBeLessThanOrEqual(7);
+    }
+  });
+
   it('files what the machine will not run under the one heading', () => {
     // Keywords that tokenize and then do nothing are a fact four machines have
     // and the rest do not. It was written three different ways - a section
@@ -114,12 +137,16 @@ describe.each(PAGES)('the %s reference page', (page) => {
     expect(invented, `${page}.md`).toEqual([]);
   });
 
-  it('leads with Notes and caveats, and ends on the table', () => {
+  it('reaches the table straight after the caveats', () => {
     // A machine may earn a section past the caveats - the Apple I's unnumbered
-    // preamble, the Altair's tape-loaded interpreter - but the caveats come
-    // first on every page, and the table is the last thing on it.
-    expect(headings(source, 2)[0]).toBe('Notes and caveats');
-    expect(source.trimEnd().endsWith('/>')).toBe(true);
+    // preamble, the Altair's tape-loaded interpreter - but the table is what a
+    // reader came for, so those follow it rather than pushing it down the page.
+    // On the Apple I's page they had pushed it past 1600 words.
+    const marks = source
+      .split('\n')
+      .filter((l) => l.startsWith('## ') || l.startsWith('<ReferenceTable'));
+    expect(marks[0]).toBe('## Notes and caveats');
+    expect(marks[1]).toMatch(/^<ReferenceTable/);
   });
 });
 

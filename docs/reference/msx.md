@@ -12,9 +12,8 @@ Every command, function and operator in **MSX BASIC 1.0**, the BASIC that came
 in the ROM of every MSX1 — here, the Sony HB-10P.
 
 MSX was a published standard rather than one company's machine, so this BASIC is
-the same on every MSX1 whoever built it. It is Microsoft BASIC underneath, and
-most of the table below will read as familiar; what is not Microsoft is the
-machine bolted to it, and that is where the interesting keywords are.
+the same on every MSX1 whoever built it. It is Microsoft BASIC underneath; what
+is not Microsoft is the machine bolted to it.
 
 **In this reference:** [Hardware](./msx/hardware) · [Escape codes](./msx/escapes) · [File formats](./msx/formats) · [Argument notation](./#argument-notation)
 
@@ -48,6 +47,8 @@ machine bolted to it, and that is where the interesting keywords are.
 - There is no `WHILE`/`WEND`. And `CALL` is for cartridge extensions, not for
   machine code: a code block is reached with `DEF USR` and `USR`.
 
+<ReferenceTable :data="msxReference" />
+
 ## What this machine does not run
 
 The disc vocabulary is in the ROM of a machine that never had a drive. `FILES`,
@@ -56,5 +57,3 @@ The disc vocabulary is in the ROM of a machine that never had a drive. `FILES`,
 function call`; `FIELD`, `GET`, `PUT #`, `LSET` and `RSET` want a disc for the
 same reason. They are in the table because the machine has them, not because
 they work.
-
-<ReferenceTable :data="msxReference" />
