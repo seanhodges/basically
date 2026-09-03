@@ -64,7 +64,7 @@ the chip's line to drop the code; the payload itself is not editable.
 
 The ZX81 exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import - listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz and offers
+recording, back into editable source. The encoder emits mono 44.1 kHz and offers
 a "robust" mode that lengthens the leader for temperamental hardware.
 
 The tape scheme is the one described under [Delivering the
@@ -123,7 +123,7 @@ the real program imported.
 
 The ZX Spectrum exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import - listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz and offers
+recording, back into editable source. The encoder emits mono 44.1 kHz and offers
 a "robust" mode that lengthens the pilot for temperamental hardware. A
 document's memory blocks travel through the cassette `.wav` the same way they
 travel through the `.TAP`, on both machines.

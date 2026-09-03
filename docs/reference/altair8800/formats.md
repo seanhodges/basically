@@ -11,7 +11,7 @@ The `.bin` is also an import format and round-trips back to editable source; a
 paper tape is text, so it opens through the ordinary text file path. No Altair
 export carries [memory blocks](../file-formats#machine-code-data-blocks) —
 `CSAVE` wrote the program area and nothing else — though an import can bring one
-back (below).
+back (below). The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
@@ -68,7 +68,7 @@ a plain readable listing.
 
 The Altair exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz. The
+recording, back into editable source. The encoder emits mono 44.1 kHz. The
 cassette `.wav` carries exactly the bytes of the `.bin` above.
 
 The encoding is the MITS 88-ACR board's own, and it is **not** the Kansas City

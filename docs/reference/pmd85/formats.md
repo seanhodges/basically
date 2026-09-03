@@ -11,7 +11,7 @@ cassette **`.wav`** carrying the same blocks as audio. All three are also import
 formats and round-trip back to editable source. No PMD 85 export carries
 [memory blocks](../file-formats#machine-code-data-blocks) — BASIC-G's `SAVE`
 writes the program area and nothing else — though an import can bring one back
-(below).
+(below). The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
@@ -98,7 +98,7 @@ written as.
 
 The PMD 85 exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz. The
+recording, back into editable source. The encoder emits mono 44.1 kHz. The
 cassette `.wav` carries exactly the blocks of the `.ptp` above.
 
 The encoding is **not** the Kansas City Standard several other machines here

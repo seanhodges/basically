@@ -16,7 +16,7 @@ No Atari export carries
 [memory blocks](../file-formats#machine-code-data-blocks). A block sits in page
 6, which is outside what `SAVE` and `CSAVE` write — the machine's own save
 routines write BASIC's program area and nothing else — so use the `.zip` project
-bundle to keep a program and its blocks together.
+bundle to keep a program and its blocks together. The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 For the shared editor `.txt`, the project bundle, escape notation and the
 cross-machine machine-code overview, see the
@@ -105,7 +105,7 @@ description, and it is the only place a document's name survives the trip.
 ## Cassette audio
 
 The Atari exposes a `.wav` export (and "play through speakers") **and** a
-cassette-audio import — listening on the mic or line-in, or decoding a `.wav`
+cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
 recording, back into editable source. The encoder emits mono 44.1 kHz, and the
 audio carries exactly the records the `.cas` above holds.
 

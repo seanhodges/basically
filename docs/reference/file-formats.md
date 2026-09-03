@@ -209,10 +209,15 @@ as inline assembly in the `.bbc`), the Commodore in a
 [`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
 [`.TAP`](./sinclair/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
-machine code inside the listing as `#BIN` REM records. The rest — the Amstrad
-CPC, the Altair, the PMD 85 and the two Apples — export the BASIC program only,
-and the Transfer dialog says which blocks would be left behind before it writes
-the file.
+machine code inside the listing as `#BIN` REM records.
+
+::: warning An export can leave your blocks behind
+Every other machine exports the BASIC program only — the Amstrad CPCs, the
+Altair, the PMD 85, the SAM Coupé, the Atari, the MSX and all three Apples.
+The Transfer dialog names the blocks that would be left behind before it writes
+the file. Use the [project bundle](#project-bundle-zip) to keep a program and
+its blocks together.
+:::
 
 ## Cassette audio
 
