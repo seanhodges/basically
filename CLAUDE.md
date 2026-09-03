@@ -15,9 +15,10 @@ and an optional Claude-powered code assistant.
 
 **Key mental model:** the app talks only to the `Dialect` interface
 (`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to a
-machine's specifics directly. Each dialect lives in `src/dialects/<name>/`. Some
-dialects keep a small self-contained machine under that folder; others wrap a
-larger vendored/third-party core under `src/emulator/` (e.g. the BBC's jsbeeb in
+machine's specifics directly. Each dialect lives in `src/dialects/<name>/`. The
+Sinclair-shaped dialects keep their machine under `src/dialects/<name>/emulator/`;
+every other machine, in-tree bus or adapter, lives under `src/emulator/<machine>/`
+(e.g. the CPC bus in `src/emulator/cpc/`, the BBC's jsbeeb adapter in
 `src/emulator/bbc/`, the C64's viciious in `src/emulator/c64/`). The `Dialect`
 seam is what stays uniform and makes new dialects pluggable.
 
@@ -244,8 +245,8 @@ The AI path is parallel: prompt + lint errors → `streamChat()` →
 
 ## Adding a dialect
 
-Full step-by-step guide: **`docs/contributing/adding-a-dialect.md`**;
-see also `docs/contributing/dialect-roadmap.md`,
+How to plan a machine with the skill, run its stages and submit them:
+**`docs/contributing/adding-a-dialect.md`**; see also `docs/contributing/dialect-roadmap.md`,
 `docs/reference/file-formats.md` (`.bas` / `.P` / `.O` / `.TAP` / `.BBC` / `.prg` /
 cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
 

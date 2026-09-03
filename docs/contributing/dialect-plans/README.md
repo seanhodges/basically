@@ -25,8 +25,8 @@ dialect complete.
   source comments, which stop meaning anything once the stages are gone.
 
 See `docs/contributing/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
-to add and why), and `docs/contributing/adding-a-dialect.md` (dialect folder +
-virtual keyboard) / `docs/reference/file-formats.md` /
-`docs/reference/serial-protocol.md` for the per-component reference detail each stage draws
-on. The plan template lives alongside the skill at
+to add and why), `docs/contributing/adding-a-dialect.md` (how to run the skill,
+the checks, and how to submit each stage), and `docs/reference/file-formats.md` /
+`docs/reference/serial-protocol.md` for the transfer-format detail the stages
+draw on. The plan template lives alongside the skill at
 `.claude/skills/adding-a-target-system/plan-template.md`.
