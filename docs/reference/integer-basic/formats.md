@@ -66,11 +66,11 @@ Reading a tape back is the same two ranges with `R` in place of `W`, in the same
 order. There is no name, no length field, no checksum and no directory: an ACI
 tape is a memory range, and the person holding it is expected to know which.
 
-### Cassette audio
+### Cassette audio {#apple-i-cassette-audio}
 
 The Apple I exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz, and the
+recording, back into editable source. The encoder emits mono 44.1 kHz, and the
 audio carries exactly the two ranges the `.bin` above holds.
 
 The card is a square-wave generator and nothing else, so a bit's **duration**
@@ -104,7 +104,7 @@ card.
 
 ## The Apple II
 
-Integer BASIC has `SAVE` and `LOAD` in the language, so unlike the Apple 1 this
+Integer BASIC has `SAVE` and `LOAD` in the language, so unlike the Apple I this
 machine has a program file of its own: the length-prefixed **cassette record**
 that `SAVE` writes. The IDE exports that record as **`.bin`**, exports the same
 record modulated as cassette **`.wav`** audio, and takes either back. The listing
@@ -137,11 +137,11 @@ Importing a file whose two-byte header does not describe the rest of it is not
 refused: the whole file is read as program text instead and the import says so,
 so a truncated tape still shows what it held.
 
-### Cassette audio
+### Cassette audio {#apple-ii-cassette-audio}
 
 The Apple II exposes a `.wav` export (and "play through speakers") **and** a
-cassette-audio import — listening on the mic or line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz.
+cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
+recording, back into editable source. The encoder emits mono 44.1 kHz.
 
 The modulation is Woz's, and a bit's **length** carries its value: one cycle of
 about 2 kHz is a zero, one cycle of about 1 kHz is a one, and bytes go out most

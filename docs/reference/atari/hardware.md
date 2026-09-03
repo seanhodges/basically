@@ -16,11 +16,11 @@ memory.
 The two machines are one design fitted with different amounts of RAM. The
 display, colour, sound and controller hardware below is the same on both — the
 same 6502 at 1.79 MHz, the same ANTIC, GTIA, POKEY and PIA — so only the
-[Atari 400's memory](#memory-1) differs, and it differs in one number.
+[Atari 400's memory](#atari400-memory) differs, and it differs in one number.
 
 ## Atari 800
 
-### Screen modes
+### Screen modes {#atari800-screen-modes}
 
 `GRAPHICS <mode>` selects a mode, clears the screen and rebuilds the display
 list. The picture and its display list are laid out downwards from the top of
@@ -64,7 +64,7 @@ print into column 39: the screen editor reads a character written there as the
 end of a logical line and pushes the rest of the screen down a row — which tears
 a drawn picture several moves after the fact. Stop at column 38.
 
-### Colour
+### Colour {#atari800-colour}
 
 `SETCOLOR <register>, <hue>, <luminance>` says what colour one of the five
 colour registers holds, as a hue from 0 to 15 and a brightness from 0 to 14.
@@ -89,7 +89,7 @@ the vertical-blank routine copies to the chip fifty times a second. `POKE`ing
 the hardware register directly is undone at the next frame; `POKE` the shadow
 instead.
 
-### Graphics
+### Graphics {#atari800-graphics}
 
 `PLOT <x>, <y>` draws one point in the register `COLOR` selected and leaves the
 graphics cursor there; `DRAWTO <x>, <y>` draws a straight line on from it. The
@@ -109,9 +109,12 @@ program can hold.
 The machine's players and missiles — hardware sprites — are not reachable from
 BASIC: there is no keyword for them, and driving them means `POKE`ing GTIA and
 handing it a page of RAM. That is machine-code work, and the
-[memory](#memory) section below is where a routine to do it goes.
+[memory](#atari800-memory) section below is where a routine to do it goes. The
+hardware is here: ANTIC fetches player and missile graphics each scanline and
+GTIA draws them, so a routine that sets `PMBASE` and enables the DMA gets
+sprites on screen.
 
-### Sound
+### Sound {#atari800-sound}
 
 `SOUND <voice>, <pitch>, <distortion>, <volume>` plays a tone on one of POKEY's
 four voices and keeps playing it until the voice is changed or the program ends.
@@ -130,7 +133,27 @@ and the BREAK key do not, so a program halted mid-note keeps sounding it.
 The console buzzer is separate from POKEY: printing the `{bell}` escape clicks
 the speaker directly, through whatever the four voices are doing.
 
-### Memory
+### Timing {#atari800-timing}
+
+The machine here is a **PAL** one: a 1.7734 MHz 6502 over 312 scanlines of 114
+cycles each, `PEEK(53268)` answering 1. A program written for a 60 Hz NTSC
+Atari — 262 lines, and a different colour clock — runs, but anything timed
+against the frame runs slow, and its colours come out of a different palette.
+
+ANTIC and the processor share one bus, so every byte the chip fetches is a cycle
+the program does not get: the display list, the playfield, the players and
+missiles, and nine cycles of memory refresh whatever else is happening. The
+playfield is the large term, and the text modes are the expensive ones — a
+character mode fetches a row of the font on every scanline. `GRAPHICS 0` costs
+roughly a third of the frame, which is why a delay loop is worth timing rather
+than calculating.
+
+Those stolen cycles are taken off the front of each scanline here rather than
+spread through it as the chip really takes them. The count per line is right, so
+anything measured in whole lines or frames matches the machine; a routine timed
+to a handful of cycles within one scanline does not.
+
+### Memory {#atari800-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
@@ -180,7 +203,7 @@ Every mnemonic, directive and operand form the assembly editor accepts is in the
 
 ## Atari 400
 
-### Screen modes
+### Screen modes {#atari400-screen-modes}
 
 Identical to the Atari 800 — the same ANTIC and the same operating system, so
 the same `GRAPHICS` modes and the same text window. The 400 simply has less
@@ -188,21 +211,26 @@ room to hold a screen in: `GRAPHICS 8` needs about 8K of the 16K fitted, which
 is half the machine, and a program that wants the high-resolution modes has
 little space left for itself.
 
-### Colour
+### Colour {#atari400-colour}
 
 Identical to the 800 — the same GTIA, the same five colour registers and the
-same `SETCOLOR` / `COLOR` pair described [above](#colour).
+same `SETCOLOR` / `COLOR` pair described [above](#atari800-colour).
 
-### Graphics
+### Graphics {#atari400-graphics}
 
 Identical to the 800. The 400's keyboard is a flat membrane rather than moving
 keys, but the graphics characters it types are the same ATASCII codes.
 
-### Sound
+### Sound {#atari400-sound}
 
 Identical to the 800 — the same POKEY and the same four-voice `SOUND`.
 
-### Memory
+### Timing {#atari400-timing}
+
+Identical to the [800](#atari800-timing) — the same PAL ANTIC and the same
+cycle-stealing.
+
+### Memory {#atari400-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
@@ -217,5 +245,5 @@ stop sticking. The screen and its display list come off the top of the 16K
 rather than the 48K, so the program area runs from 2048 up to about 15392.
 
 The same block window, the same default of 1536, the same two warned bands and
-the same run-time checks described [above](#memory) apply — the top of the
+the same run-time checks described [above](#atari800-memory) apply — the top of the
 window moves down with the RAM, and nothing else changes.

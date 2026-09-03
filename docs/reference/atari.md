@@ -11,6 +11,8 @@ import { atariReference } from '../../src/reference/atari';
 Every command, function and operator in Atari BASIC, shared by the Atari 800 and
 the Atari 400.
 
+**In this reference:** [Hardware](./atari/hardware) · [Escape codes](./atari/escapes) · [File formats](./atari/formats) · [Argument notation](./#argument-notation)
+
 ## Notes and caveats
 
 - **A keyword is matched before a name, and matched greedily.** `LOGO` is read
@@ -23,14 +25,12 @@ the Atari 400.
 - **Statements are separated by `:`, and everything after `THEN` belongs to the
   `THEN`.** There is no `ELSE`, no `WHILE` and no `REPEAT`, so a statement
   written after an `IF` on the same line cannot be reached unconditionally.
-- **There are no string functions but `LEN`.** A string is sliced by
+- **There are no string functions but `LEN`, and every string must be
+  `DIM`ensioned first**, to a fixed size that never grows. A string is sliced by
   subscripting it — `A$(3, 5)` is characters 3 to 5 and `A$(3)` is from 3 to the
-  end — and two strings are joined by assigning the second past the end of the
-  first, `A$(LEN(A$) + 1) = B$`. `+` is arithmetic only, and there are no string
-  arrays.
-- **Every string and array must be `DIM`ensioned before use**, to a fixed size
-  that never grows. A string is a buffer of that length; `LEN` reports how much
-  of it is currently in use.
+  end — and two are joined by assigning the second past the end of the first,
+  `A$(LEN(A$) + 1) = B$`. `+` is arithmetic only, and there are no string
+  arrays. Arrays need a `DIM` too.
 - **Numbers are ten-digit decimal floating point and there is no integer type.**
   There is also no hexadecimal, which is why every address in the table below
   and everywhere else on this machine is written in decimal.
@@ -44,9 +44,3 @@ the Atari 400.
   `)`, `,`, `;` and `:` — has no row either.
 
 <ReferenceTable :data="atariReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./atari/hardware) page; the control codes and graphics bytes
-you can embed in source are on the [escape codes](./atari/escapes) page; the
-native file containers and cassette encoding are on the
-[file formats](./atari/formats) page.

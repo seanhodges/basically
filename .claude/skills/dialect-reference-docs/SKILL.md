@@ -21,22 +21,27 @@ crosscheck tests below make drift a test failure, not a doc-review problem.
 machine names its page with the `docsReference` field on the `Dialect` (see
 `src/app/docsTopic.ts`), and every machine running a version of one BASIC names
 the same page. `<page>` below means that family page id; `<id>` means one
-dialect folder. The twelve pages, and the machines each covers:
+dialect folder. The pages, and the machines each covers - `src/reference/machines.ts`
+is the list this is read off, and `machines-crosscheck.test.ts` pins it to the
+registry, so check there rather than trusting this table:
 
 | Page            | Title                 | Machines                          |
 | --------------- | --------------------- | --------------------------------- |
 | `altair8800`    | Microsoft BASIC       | Altair 8800                       |
+| `integer-basic` | Integer BASIC         | Apple I, Apple II                 |
 | `applesoft`     | Applesoft BASIC       | Apple II Plus                     |
 | `atari`         | Atari BASIC           | Atari 800, Atari 400              |
 | `atom`          | Atom BASIC            | Acorn Atom                        |
 | `bbc`           | BBC BASIC             | BBC Micro, BBC Master             |
 | `commodore`     | Commodore BASIC       | PET, VIC-20, Commodore 64         |
+| `dartmouth`     | Dartmouth BASIC       | GE-235                            |
 | `cpc`           | Locomotive BASIC      | CPC 464, CPC 664, CPC 6128        |
-| `integer-basic` | Integer BASIC         | Apple I, Apple II                 |
-| `pmd85`         | BASIC-G               | PMD 85-2                          |
-| `sinclair`      | Sinclair BASIC        | ZX81, Spectrum 48K, Spectrum 128K |
+| `msx`           | MSX BASIC             | Sony HB-10P                       |
 | `trs80`         | TRS-80 Level II BASIC | TRS-80                            |
+| `pmd85`         | BASIC-G               | PMD 85-2                          |
+| `samcoupe`      | SAM BASIC             | SAM Coupé                         |
 | `zx80`          | ZX80 BASIC            | ZX80                              |
+| `sinclair`      | Sinclair BASIC        | ZX81, Spectrum 48K, Spectrum 128K |
 
 Machines sharing a page share a `basicFamily` — the family of BASIC they run,
 which the picker heads its by-BASIC groups with, as distinct from the
@@ -69,7 +74,7 @@ which is what stops a CPC 464 being offered BASIC 1.1's `FILL`.
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/reference/<page>.ts`                           | `ReferenceTableData` — every keyword, hand-enriched syntax + descriptions                                                                                                                                                                                        |
 | `src/reference/escapes/<page>.ts`                   | `EscapeTableData` — every escape spelling with byte probes                                                                                                                                                                                                       |
-| `docs/reference/<page>.md`                          | Parent page: intro → Notes and caveats → `<ReferenceTable>` → footer                                                                                                                                                                                             |
+| `docs/reference/<page>.md`                          | Parent page: one-sentence intro → nav bar → 5-7 Notes and caveats → `<ReferenceTable>` → any machine-specific section                                                                                                                                            |
 | `docs/reference/<page>/hardware.md`                 | One H2 per machine × `### Screen modes/Colour/Graphics/Sound/Memory`                                                                                                                                                                                             |
 | `docs/reference/<page>/escapes.md` and `formats.md` | `<EscapeTable>` page; native containers + closing `## Cassette audio`                                                                                                                                                                                            |
 | Wiring                                              | Sidebar group in `docs/.vitepress/config.ts` (**Hardware above Escape codes**), bullet in `docs/reference/index.md`, machine added to the CPU's list in `docs/reference/{z80,6502}-assembly.md` (intro **and** "Where blocks live"), `docsReference` on siblings |
@@ -135,6 +140,9 @@ has no sound hardware.").
 1. Run `npx vitest run src/reference` — the crosscheck suites surface
    drift mechanically: a keyword without a reference row, an invented row, an
    escape byte no row claims, a probe that no longer tokenizes.
+   `page-structure.test.ts` does the same for the pages themselves: the intro
+   formula, the navigation bar, the caveat cap, the heading sequence, and any
+   link that resolves to a different machine's section.
 2. Diff the hardware page's Memory section against `memoryBlocks.ts` /
    `memoryMap.ts` (ranges, default address, warned regions), and the
    Screen/Colour/Graphics/Sound sections against the keyword docs.

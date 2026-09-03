@@ -120,6 +120,26 @@ thrown away and a read does the job as well. Applesoft has no sound keyword at
 all, so every note is a program counting between toggles: `PEEK(-16336)` in a
 loop, with the loop's period as the pitch.
 
+### Timing
+
+The Apple II counts everything down from one 14.31818 MHz colour crystal:
+fourteen master clocks to a processor cycle, 65 cycles to a scanline, 262 lines
+to a field. To hold the line in step with the colour subcarrier the hardware
+stretches one cycle of every line, which makes a line 912 master clocks rather
+than 910 and the field rate 59.92 Hz — and the processor's average rate
+1.0205 MHz rather than the nominal 1.0227. A loop timed on real hardware comes
+out slightly slow against the nominal clock for that reason, and does the same
+here.
+
+The stretched cycle is not modelled one cycle at a time: the field is a budget
+of 17,030 cycles, so the average rate is right and only an
+instruction-by-instruction raster chase could tell the difference.
+
+The **floating bus** is not modelled either. On the machine, reading unfitted
+address space returns whatever the video scanner was fetching at that instant,
+which is a real signal some programs time themselves against; here those
+addresses read `$FF`.
+
 ### Memory
 
 The whole of the machine's address space, region by region. Zoom in to open a

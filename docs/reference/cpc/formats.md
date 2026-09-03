@@ -10,7 +10,7 @@ three round-trip back to editable source on import, and the IDE also imports a
 plain-text `.bas` listing. They all carry the BASIC program only; fixed-address
 [memory blocks](../file-formats#machine-code-data-blocks) travel with the
 document through the [project bundle](../file-formats#project-bundle-zip) and
-share links instead.
+share links instead. The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats

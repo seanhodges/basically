@@ -17,7 +17,7 @@ all, so each machine has a section of its own.
 
 ## Sinclair ZX81
 
-### Screen modes
+### Screen modes {#zx81-screen-modes}
 
 The ZX81 has a single 32×24 character display, with the bottom two lines
 reserved for input and reports. What it does have is two speed modes: `SLOW`
@@ -27,13 +27,13 @@ flickering it on only during INPUT or PAUSE. When the screen is full, `SCROLL`
 moves the whole display up a line — printing past the bottom without it stops
 the program with report 5.
 
-### Colour
+### Colour {#zx81-colour}
 
 The ZX81 has no colour hardware — the display is black on white. Individual
 characters can be shown in inverse video (white on black) using the inverse
 character set (see the [escape codes](./escapes) page).
 
-### Graphics
+### Graphics {#zx81-graphics}
 
 There is no bitmap mode. `PLOT` and `UNPLOT` set and clear block pixels on a
 low-resolution grid — x 0–63, y 0–43, origin at the bottom-left — where each
@@ -41,11 +41,11 @@ character cell is a 2×2 group of block pixels drawn with the charset's
 block-graphics characters. The same characters can be printed directly for
 chunky graphics (see [escape codes](./escapes)).
 
-### Sound
+### Sound {#zx81-sound}
 
 The ZX81 has no sound hardware.
 
-### Memory
+### Memory {#zx81-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
@@ -82,13 +82,13 @@ Every mnemonic, directive and operand form the assembly editor accepts is in the
 
 ## ZX Spectrum 48K
 
-### Screen modes
+### Screen modes {#spectrum48-screen-modes}
 
 The Spectrum has a single display mode: a 256×192 pixel bitmap overlaid by a
 32×24 grid of colour attribute cells. The top 22 character rows hold program
 output; the bottom two lines are reserved for input and reports.
 
-### Colour
+### Colour {#spectrum48-colour}
 
 Eight colours (0 black to 7 white) are available for `INK` (foreground),
 `PAPER` (background) and `BORDER`, with two per-cell modifiers: `BRIGHT` for
@@ -98,7 +98,12 @@ the same cell clash — the classic Spectrum attribute clash. `ATTR` reads a
 cell's attribute byte back; `INVERSE` and `OVER` modify how following output is
 drawn.
 
-### Graphics
+The screen here is the 256 × 192 active display and nothing around it, so
+**`BORDER` sets a colour that is not drawn**. It still stores and reads back as
+it does on the machine, and a program that uses the border for a loading
+stripe or a timing flash runs — the flash is simply not visible.
+
+### Graphics {#spectrum48-graphics}
 
 `PLOT <x>, <y>` sets a pixel — x runs 0–255 and y 0–175 from the bottom-left.
 `DRAW <dx>, <dy>` draws a line by a relative offset — unlike most machines here,
@@ -106,12 +111,12 @@ which draw to an absolute point — and a third argument bends it into an arc.
 `CIRCLE <x>, <y>` takes an absolute centre and a radius, and the `POINT` function
 tests whether a pixel is set.
 
-### Sound
+### Sound {#spectrum48-sound}
 
 `BEEP <duration>, <pitch>` plays a tone through the internal beeper — the duration
 in seconds and the pitch in semitones above or below middle C.
 
-### Timing
+### Timing {#spectrum48-timing}
 
 The Spectrum's processor runs at 3.5 MHz over 312 screen lines a frame, just
 over fifty frames a second.
@@ -139,7 +144,14 @@ receives that frame's interrupt once it switches them back on, provided it does
 so promptly. Leave them off for longer and the frame's interrupt is missed, as it
 is on the machine.
 
-### Memory
+Two things this does not reproduce. The **floating bus** is not modelled, so the
+trick of reading port 0xFF to find the beam answers nothing useful — a routine
+that syncs that way will not. And contention is charged per memory access rather
+than per processor cycle, which is a few clock cycles out inside a single
+instruction; the error cannot accumulate, and it is far below anything the
+picture can show.
+
+### Memory {#spectrum48-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
@@ -179,39 +191,39 @@ assembly editor accepts is in the [Z80 assembly reference](../z80-assembly).
 
 ## ZX Spectrum 128K
 
-### Screen modes
+### Screen modes {#spectrum128-screen-modes}
 
 The display hardware is the 48K's: the same single 256×192 bitmap mode with
 32×24 attribute cells.
 
-### Colour
+### Colour {#spectrum128-colour}
 
 Identical to the 48K — the same eight colours, `BRIGHT`, `FLASH` and per-cell
 attributes.
 
-### Graphics
+### Graphics {#spectrum128-graphics}
 
 Identical to the 48K — the same `PLOT`/`DRAW`/`CIRCLE` commands and coordinate
 space.
 
-### Sound
+### Sound {#spectrum128-sound}
 
 Alongside the 48K beeper and `BEEP`, the 128K models add an AY-3-8912
 three-channel sound chip, driven from BASIC with `PLAY` — one music string per
 channel. Keywords tagged **128K only** in the
 [reference table](../sinclair), such as `PLAY`, need 128 BASIC mode.
 
-### Timing
+### Timing {#spectrum128-timing}
 
 The 128K shares the picture out the same way the 48K does, on a slightly
 different clock: 3.5469 MHz over 311 lines a frame. The memory from 16384 to
 32767 is held off while the display is drawn, exactly as
-[above](#timing) — and so is whichever of the extra memory banks a program has
+[above](#spectrum48-timing) — and so is whichever of the extra memory banks a program has
 switched into the top 16K, if it is an odd-numbered one. The same routine can
 therefore run at two different speeds at 49152 depending only on which bank is
 switched in there.
 
-### Memory
+### Memory {#spectrum128-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
@@ -221,4 +233,4 @@ sits there.
 
 Block placement is identical to the 48K: the same **0x4000–0xFFFF** window,
 default address, warnings and `CLEAR` handling described
-[above](#memory) apply to the 128K models.
+[above](#spectrum48-memory) apply to the 128K models.

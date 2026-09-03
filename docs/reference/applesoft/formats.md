@@ -17,7 +17,7 @@ No Apple II Plus export carries
 [memory blocks](../file-formats#machine-code-data-blocks). `SAVE` writes the
 program workspace and nothing else, and a block sits on page 3, outside it —
 widening the file would make something the machine could not read back. Use the
-`.zip` project bundle to keep a program and its blocks together.
+`.zip` project bundle to keep a program and its blocks together. The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 ## Apple II Plus cassette record `.bin`
 
@@ -43,8 +43,8 @@ machine has. There is still no name in the file, and none on the tape either.
 ## Cassette audio
 
 The Apple II Plus exposes a `.wav` export (and "play through speakers") **and** a
-cassette-audio import — listening on the mic or line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz.
+cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
+recording, back into editable source. The encoder emits mono 44.1 kHz.
 
 The modulation is the monitor's rather than the interpreter's: `SAVE` and `LOAD`
 call `WRITE` at `$FECD` and `READ` at `$FEFD`, and those two routines are byte for
@@ -52,12 +52,10 @@ byte the same code in this machine's ROM as in the Apple II's. So an Apple II Pl
 tape sounds exactly like an Apple II tape, and a recorder that reads one reads the
 other.
 
-A bit's **length** carries its value: one cycle of about 2 kHz is a zero, one
-cycle of about 1 kHz is a one, and bytes go out most significant bit first. In
-front of each record is a leader of slower phases, about 780 Hz, ending in one
-short half-cycle — the sync bit, and the only mark on the tape that says where the
-data begins. Each record ends with a checksum byte, the exclusive-OR of everything
-in it; `LOAD` compares it and answers `ERR` when it does not match.
+The signal is therefore the one described under the
+[Apple II's cassette audio](../integer-basic/formats#apple-ii-cassette-audio): a
+bit's length carries its value, each record sits behind a leader ending in a sync
+bit, and a checksum byte closes it. Two things are this machine's own.
 
 Where a tape differs from the `.bin` file is that `SAVE` writes **two** records,
 each behind a leader of its own:
@@ -84,15 +82,9 @@ anyway — `READ` spends its first four seconds letting the tape speed settle be
 it starts hunting for a sync bit, so a leader shorter than that is never heard at
 all.
 
-Robust mode doubles both leaders and changes nothing else: the bit timings belong
-to the ROM, and a reader that cannot follow them is not helped by stretching them.
-
-Decoding measures every threshold against the leader it has just heard rather than
-against absolute durations, so a recording made at another sample rate, or played
-back by a recorder running off speed, still reads. The machine's own read routine
-instead counts a fixed number of loops, which is why a real Apple is famously fussy
-about tape speed. A checksum mismatch is reported as a warning rather than throwing
-the data away, so a damaged tape still shows what it held.
+Robust mode doubles both leaders and changes nothing else, and decoding measures
+its thresholds against the leader it has just heard rather than against absolute
+durations — as on the Apple II, and for the same reasons.
 
 On a real Apple II Plus, save with `SAVE` at the `]` prompt once the recorder is
 running, and load by starting playback and typing `LOAD` — there is no need to wait

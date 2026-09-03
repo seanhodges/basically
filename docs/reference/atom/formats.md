@@ -55,7 +55,7 @@ first that the blocks would be dropped.
 
 The Acorn Atom exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import - listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz and offers
+recording, back into editable source. The encoder emits mono 44.1 kHz and offers
 a "robust" mode that lengthens the leader for temperamental hardware. The
 cassette `.wav` carries the BASIC program only.
 

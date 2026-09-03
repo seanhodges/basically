@@ -16,7 +16,7 @@ board it runs on, so each has a section of its own.
 
 ## Apple I
 
-### Screen modes
+### Screen modes {#apple1-screen-modes}
 
 One screen, and no way to select another. The terminal section is a shift
 register holding a 40×24 grid of six-bit character codes, a character generator
@@ -44,12 +44,12 @@ and the interpreter refuses a lower-case name or keyword outright. Anything the
 generator cannot draw is discarded rather than guessed at. The
 [escape codes](./escapes) page lists what a program can hold.
 
-### Colour
+### Colour {#apple1-colour}
 
 The Apple I has no colour hardware: the video output is monochrome, and there is
 no inverse-video range in the character set to stand in for it.
 
-### Graphics
+### Graphics {#apple1-graphics}
 
 The Apple I has no graphics hardware and no graphics characters. Pictures are
 drawn on the text grid from the 64 characters there are; a cell is 7 dots wide
@@ -61,12 +61,12 @@ work towards the Apple II, left in an Apple I image — and reach a machine with
 nothing to draw on. The editor names each one rather than letting a program use
 it.
 
-### Sound
+### Sound {#apple1-sound}
 
 The Apple I has no sound hardware. There is no speaker, no bell code and no port
 to click at.
 
-### Memory
+### Memory {#apple1-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
@@ -113,7 +113,7 @@ Every mnemonic, directive and operand form the assembly editor accepts is in the
 
 ## Apple II
 
-### Screen modes
+### Screen modes {#apple2-screen-modes}
 
 Three modes, drawn into one 280×192 raster, and no video chip behind any of
 them: a counter chain walks memory in step with the raster and the byte it
@@ -143,7 +143,7 @@ addresses memory in raster order; a text row `r` starts at
 `1024 + 128 × (r MOD 8) + 40 × (r ÷ 8)`, so a program reading the screen with
 `PEEK` walks it that way rather than by multiplying by 40.
 
-### Colour
+### Colour {#apple2-colour}
 
 Sixteen colours, and they belong to the lo-res page alone. `COLOR=n` picks the
 one `PLOT`, `HLIN` and `VLIN` draw in, from 0 black to 15 white; the number is
@@ -163,7 +163,7 @@ through the monitor's output mask rather than through a control code —
 and `POKE 50,255` normal again. See the [escape codes](./escapes) page for how
 the bytes themselves are written.
 
-### Graphics
+### Graphics {#apple2-graphics}
 
 `GR` switches the lo-res screen on and clears it to black. `PLOT x,y` lights one
 block, with `x` from 0 to 39 and `y` from 0 to 47, counting from the top left;
@@ -181,7 +181,7 @@ space, punctuation, the digits and `A`–`Z` — and nothing else, so a picture 
 text screen is drawn from punctuation and a picture in colour is drawn on the
 lo-res page.
 
-### Sound
+### Sound {#apple2-sound}
 
 One bit, and not even a bit that can be written. `$C030` is wired to a flip-flop
 driving the speaker cone, and touching the address flips it — the value written is
@@ -189,7 +189,20 @@ thrown away and a read does the job as well. Integer BASIC has no sound keyword
 at all, so every note is a program counting between toggles: `PEEK(-16336)` in a
 loop, with the loop's period as the pitch.
 
-### Memory
+### Timing {#apple2-timing}
+
+The Apple II counts everything down from one 14.31818 MHz colour crystal: 65
+processor cycles to a scanline, 262 lines to a 59.92 Hz field, with one cycle a
+line stretched to hold the colour subcarrier in step. That stretch puts the
+processor's average rate at 1.0205 MHz rather than the nominal 1.0227, which is
+why a loop timed on real hardware runs slightly slow against the nominal clock.
+
+Two things are not reproduced. The stretched cycle is a per-field budget rather
+than a per-cycle model, so only an instruction-by-instruction raster chase could
+tell. And the **floating bus** — unfitted address space returning whatever the
+video scanner was fetching, which some programs time against — reads `$FF` here.
+
+### Memory {#apple2-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what

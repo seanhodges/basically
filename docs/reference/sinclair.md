@@ -12,13 +12,13 @@ Every command, function and operator in Sinclair BASIC — **ZX81 BASIC** on the
 1981 machine, and **48K** and **128 Sinclair BASIC** on the Spectrums that
 followed it.
 
-**In this reference:** [Hardware](./sinclair/hardware) · [Escape codes](./sinclair/escapes) · [File formats](./sinclair/formats) · [Argument notation](./#argument-notation)
-
 The three machines share an ancestry and about half a vocabulary. Rows only the
 ZX81 has are badged **ZX81 only**, rows only the Spectrums have **Spectrum
 only**, and the two the 128 alone has keep their **128K only** badge. Where all
 three have a row and behave differently — `PLOT`, `THEN`, `CLEAR`, `INPUT`,
 `SAVE`, `USR` — the row says how.
+
+**In this reference:** [Hardware](./sinclair/hardware) · [Escape codes](./sinclair/escapes) · [File formats](./sinclair/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

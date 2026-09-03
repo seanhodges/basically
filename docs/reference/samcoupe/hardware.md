@@ -19,7 +19,7 @@ memory.
 Pick a mode with `MODE`, which clears the screen as it changes it. The machine
 boots in mode 4.
 
-| Mode     | Pixels    | Colour                                     | Display file |
+| Mode     | Pixels    | Colours                                    | Display file |
 | -------- | --------- | ------------------------------------------ | ------------ |
 | `MODE 1` | 256 × 192 | One ink/paper pair per 8 × 8 cell          | 6 KB         |
 | `MODE 2` | 256 × 192 | One ink/paper pair per pixel row of a cell | 12 KB        |
@@ -148,6 +148,18 @@ reach the noise generators, the envelopes and the stereo:
 The IDE sums the two stereo halves to mono, because its audio path takes one
 stream and six channels being audible matters more here than the image: a voice
 panned hard left still sounds, at half amplitude.
+
+### Timing
+
+The SAM's Z80 runs at 6 MHz, nearly twice a Spectrum's 3.5 MHz, which is most
+of why SAM BASIC feels faster than the machine it resembles.
+
+Memory contention is **not modelled**. On the real machine the ASIC takes cycles
+off the processor while it fetches the picture, in a pattern that depends on the
+screen mode — mode 4 costing most — so a routine's real speed varies with where
+it runs and what is on screen. Here every access costs the same, and a routine
+timed against a raster on real hardware runs faster and more evenly than it
+would. Nothing measured in whole frames is affected.
 
 ### Joystick
 

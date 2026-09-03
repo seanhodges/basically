@@ -80,7 +80,7 @@ Disc images — `.mgt`, `.sad` and `.dsk` — are not read.
 ## Cassette audio
 
 The SAM exposes a `.wav` export (and "play through speakers") **and** a
-cassette-audio import — listening on the mic or line-in, or decoding a `.wav`
+cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
 recording, back into editable source. The encoder emits mono 44.1 kHz, and the
 audio carries exactly the blocks of the `.tap` above.
 

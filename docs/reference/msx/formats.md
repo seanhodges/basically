@@ -12,7 +12,7 @@ editable source on import, and the IDE also reads the plain ASCII listing that
 [memory blocks](../file-formats#machine-code-data-blocks): both `SAVE` and
 `CSAVE` write the program area and nothing else, so blocks travel with the
 document through the [project bundle](../file-formats#project-bundle-zip) and
-share links instead.
+share links instead. The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the
@@ -101,7 +101,7 @@ rather than an error.
 
 The MSX exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz, and the
+recording, back into editable source. The encoder emits mono 44.1 kHz, and the
 audio carries exactly the blocks of the `.cas` above.
 
 The encoding is the **Kansas City Standard** at 1200 baud: a `0` bit is one cycle

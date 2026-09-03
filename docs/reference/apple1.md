@@ -1,12 +1,12 @@
 ---
-title: Apple 1 Integer BASIC reference
+title: Apple I Integer BASIC reference
 head:
   - - meta
     - http-equiv: refresh
       content: 0; url=./integer-basic
 ---
 
-# Apple 1 Integer BASIC reference
+# Apple I Integer BASIC reference
 
 This page has moved: the Apple I and the Apple II now share one
 [Integer BASIC reference](./integer-basic).

@@ -34,10 +34,12 @@ Every command, function and operator in TRS-80 Level II BASIC.
   carets (`^^^^`): the up-arrow the manuals draw is the power operator, and the
   machine has no character for it to store inside a string.
 
+<ReferenceTable :data="trs80Reference" />
+
 ## What this machine does not run
 
-The TRS-80 runs on a BASIC interpreter rather than an emulated CPU, a few
-keywords are accepted but not currently supported in the emulator:
+The TRS-80 runs on a BASIC interpreter rather than an emulated CPU, so a few
+keywords are accepted but do nothing:
 
 - **Error trapping** — `ON ERROR GOTO`, `RESUME` and `ERROR` do not take effect,
   and `ERL`/`ERR` read as zero. A runtime error stops the program and is
@@ -54,5 +56,3 @@ keywords are accepted but not currently supported in the emulator:
 - **Editing and listing commands** — `LIST`, `EDIT`, `AUTO`, `DELETE`, `NEW`,
   `CONT`, `TRON` and `TROFF` belong to the machine's own prompt; use the IDE's
   editor and debugger instead.
-
-<ReferenceTable :data="trs80Reference" />

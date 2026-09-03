@@ -13,7 +13,7 @@ block file. Each has a section of its own below.
 The ZX81's native binary is the **`.P`** file, which doubles as the in-memory
 image the IDE's emulator injects and as the import format that round-trips back
 to editable source. The machine also exports and imports a cassette **`.wav`**
-(see [Cassette audio](#cassette-audio) below).
+(see [Cassette audio](#zx81-cassette-audio) below).
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
@@ -60,11 +60,11 @@ run and on every export the payload is spliced back at exactly its position
 in the program area, so the whole program round-trips byte-for-byte. Delete
 the chip's line to drop the code; the payload itself is not editable.
 
-### Cassette audio
+### Cassette audio {#zx81-cassette-audio}
 
 The ZX81 exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import - listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz and offers
+recording, back into editable source. The encoder emits mono 44.1 kHz and offers
 a "robust" mode that lengthens the leader for temperamental hardware.
 
 The tape scheme is the one described under [Delivering the
@@ -83,7 +83,7 @@ as the in-memory image the IDE's emulator injects and as the import format that
 round-trips back to editable source. A document on either machine can carry
 [memory blocks](../file-formats#machine-code-data-blocks) inside the `.TAP` in
 **both directions**. The machine also exports and imports a cassette **`.wav`** (see
-[Cassette audio](#cassette-audio) below).
+[Cassette audio](#spectrum-cassette-audio) below).
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
@@ -119,11 +119,11 @@ CODE file as a block. A tiny `LOAD "" CODE … : RANDOMIZE USR n` loader chainin
 into a longer program is recognised: the loader is skipped (with a note) and
 the real program imported.
 
-### Cassette audio
+### Cassette audio {#spectrum-cassette-audio}
 
 The ZX Spectrum exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import - listening on the mic / line-in, or decoding a `.wav`
-recording, back into editable source. The encoder emits mono 44.1kHz and offers
+recording, back into editable source. The encoder emits mono 44.1 kHz and offers
 a "robust" mode that lengthens the pilot for temperamental hardware. A
 document's memory blocks travel through the cassette `.wav` the same way they
 travel through the `.TAP`, on both machines.
