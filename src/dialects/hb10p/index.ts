@@ -62,6 +62,7 @@ export const hb10p: Dialect = {
   year: 1986,
   blurb: 'Sony’s MSX HitBit. Runs MSX BASIC 1.0.',
   basicDialect: 'MSX BASIC 1.0',
+  basicFamily: 'MSX BASIC',
   docsReference: 'msx',
   // MSX BASIC addresses memory in &H-prefixed hex (POKE &HC000, …).
   addressNotation: 'hex',
