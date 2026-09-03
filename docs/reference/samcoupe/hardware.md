@@ -19,7 +19,7 @@ memory.
 Pick a mode with `MODE`, which clears the screen as it changes it. The machine
 boots in mode 4.
 
-| Mode     | Pixels    | Colour                                     | Display file |
+| Mode     | Pixels    | Colours                                    | Display file |
 | -------- | --------- | ------------------------------------------ | ------------ |
 | `MODE 1` | 256 × 192 | One ink/paper pair per 8 × 8 cell          | 6 KB         |
 | `MODE 2` | 256 × 192 | One ink/paper pair per pixel row of a cell | 12 KB        |

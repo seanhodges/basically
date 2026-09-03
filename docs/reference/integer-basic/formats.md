@@ -104,7 +104,7 @@ card.
 
 ## The Apple II
 
-Integer BASIC has `SAVE` and `LOAD` in the language, so unlike the Apple 1 this
+Integer BASIC has `SAVE` and `LOAD` in the language, so unlike the Apple I this
 machine has a program file of its own: the length-prefixed **cassette record**
 that `SAVE` writes. The IDE exports that record as **`.bin`**, exports the same
 record modulated as cassette **`.wav`** audio, and takes either back. The listing

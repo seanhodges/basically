@@ -13,12 +13,12 @@ two revisions: **Apple 1 Integer BASIC**, written in 1976 for the machine it ran
 on, and **Apple II Integer BASIC**, in the 1977 machine's ROM sockets with the
 colour graphics, cursor and cassette the Apple I never had.
 
-**In this reference:** [Hardware](./integer-basic/hardware) · [Escape codes](./integer-basic/escapes) · [File formats](./integer-basic/formats) · [Argument notation](./#argument-notation)
-
 Rows the Apple II added are badged **Apple II only** in the table below, and the
 four the Apple I kept for itself — `HIMEM=`, `LOMEM=`, `OFF` and `SCR` — are
 badged **Apple I only**. Everything else is on both machines, and where the two
 behave differently the row says how.
+
+**In this reference:** [Hardware](./integer-basic/hardware) · [Escape codes](./integer-basic/escapes) · [File formats](./integer-basic/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

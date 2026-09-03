@@ -57,8 +57,3 @@ are largely a list of what is missing and what was written instead.
   line, and stops. Nothing resumes — there is no `CONT` and no error trapping.
 
 <ReferenceTable :data="dartmouthReference" />
-
-The machine hardware — the teletype, the paper roll and the core store — is on
-the [hardware](./dartmouth/hardware) page; the control codes you can embed in source
-are on the [escape codes](./dartmouth/escapes) page; the paper-tape export is on the
-[file formats](./dartmouth/formats) page.

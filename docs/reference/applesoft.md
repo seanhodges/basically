@@ -70,9 +70,3 @@ Plus where the original machine had Woz's Integer BASIC.
   negative: `PEEK(-16384)` reads the keyboard.
 
 <ReferenceTable :data="applesoftReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./applesoft/hardware) page; the control codes and graphics bytes
-you can embed in source are on the [escape codes](./applesoft/escapes) page; the
-native file containers and cassette encoding are on the
-[file formats](./applesoft/formats) page.

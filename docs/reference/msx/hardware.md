@@ -17,7 +17,7 @@ The screen, colour, graphics and sound hardware of each machine that runs
 
 Pick a mode with `SCREEN`:
 
-| Mode       | Text    | Graphics  | Colour                                 |
+| Mode       | Text    | Graphics  | Colours                                |
 | ---------- | ------- | --------- | -------------------------------------- |
 | `SCREEN 0` | 40 × 24 | —         | One pair for the whole screen          |
 | `SCREEN 1` | 32 × 24 | —         | One pair per eight character codes     |

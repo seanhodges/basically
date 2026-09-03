@@ -21,8 +21,6 @@ with `?q=` and `?cat=` query parameters.
 See also the [Atari BASIC reference](../atari) and
 [file formats](../file-formats#escape-notation).
 
-<EscapeTable :data="atariEscapes" />
-
 ## Inverse video is a solid block
 
 The top bit of a character code is inverse video, and the display chip draws an
@@ -43,3 +41,5 @@ stores, what separates the lines of a `LIST` listing, and what terminates every
 record the cassette and disk handlers read or write — where most machines here
 would use a carriage return of 13. A listing exported from the IDE carries it,
 and one imported is read by it; see [file formats](./formats).
+
+<EscapeTable :data="atariEscapes" />

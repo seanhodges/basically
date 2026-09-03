@@ -11,6 +11,8 @@ import { atariReference } from '../../src/reference/atari';
 Every command, function and operator in Atari BASIC, shared by the Atari 800 and
 the Atari 400.
 
+**In this reference:** [Hardware](./atari/hardware) · [Escape codes](./atari/escapes) · [File formats](./atari/formats) · [Argument notation](./#argument-notation)
+
 ## Notes and caveats
 
 - **A keyword is matched before a name, and matched greedily.** `LOGO` is read
@@ -44,9 +46,3 @@ the Atari 400.
   `)`, `,`, `;` and `:` — has no row either.
 
 <ReferenceTable :data="atariReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./atari/hardware) page; the control codes and graphics bytes
-you can embed in source are on the [escape codes](./atari/escapes) page; the
-native file containers and cassette encoding are on the
-[file formats](./atari/formats) page.
