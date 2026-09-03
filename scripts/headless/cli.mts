@@ -1,98 +1,65 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { encodePng } from '../../src/dialects/headless/headlessCanvas';
 import {
   RunError,
-  machineList,
   runListing,
   screenLines,
   type RunResult,
 } from '../../src/dialects/headless/runListing';
+import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
+import { usage } from '../../src/cli/usage';
+import { formatMachines, listMachines } from '../../src/cli/machines';
+import { describeMachine, formatMachineDescription } from '../../src/cli/info';
+import { formatProblems, lintListing } from '../../src/cli/lint';
+import { buildListing } from '../../src/cli/build';
 
 /**
- * Run a BASIC listing on a registered machine and print what is on its screen.
+ * The Basically toolchain outside the browser.
  *
- * Reads the listing from stdin so a program can be piped in from anywhere, and
- * writes only the screen to stdout - every figure about the run goes to stderr,
- * so `| diff` and `$(...)` see the machine's output and nothing else.
+ * Everything each operation knows lives under `src/cli/`; this is the process
+ * around it - argv in, standard input read, files written, streams chosen, exit
+ * code set - so nothing that decides an answer has to know it is in a process.
+ *
+ * Two rules run through every operation. Standard output carries only the
+ * product: the screen, the structured data, the problems a check found. Every
+ * figure, timing and notice goes to standard error, so `| diff` and `$(...)`
+ * see the answer and nothing else. And the exit code separates the two ways a
+ * request fails: 1 for a caller who asked for something impossible, 2 for a
+ * BASIC program that is itself at fault.
  */
 
-const USAGE = `
-run a BASIC listing headlessly and report the machine's screen
+/** The caller asked for something impossible. */
+const EXIT_BAD_REQUEST = 1;
+/** The BASIC program is at fault. */
+const EXIT_BAD_PROGRAM = 2;
 
-usage: cli <machine> [text|png] [options]   (the listing arrives on stdin)
+const out = (text: string) => process.stdout.write(text);
+const err = (text: string) => process.stderr.write(text);
 
-  --png <path>       where to write the picture (default screen.png)
-  --frames <n>       run exactly n frames instead of waiting for the program
-  --max-frames <n>   cap on that wait (default 4000)
-  --json             one JSON object on stdout instead of the screen text
-  --rom-root <dir>   read ROMs from this public/ rather than the checkout's
-  --list             print the registered machines and exit
-`.trimStart();
-
-interface Args {
-  machine: string;
-  mode: 'text' | 'png';
-  png: string;
-  frames?: number;
-  maxFrames?: number;
-  json: boolean;
-  romRoot?: string;
-}
-
-function number(flag: string, raw: string | undefined): number {
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new RunError(`${flag} wants a positive whole number, got "${raw}"`);
-  }
-  return value;
-}
-
-function parseArgs(argv: string[]): Args {
-  const positional: string[] = [];
-  const args: Args = {
-    machine: '',
-    mode: 'text',
-    png: 'screen.png',
-    json: false,
-  };
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    switch (arg) {
-      case '--png':
-        args.png = argv[++i] ?? '';
-        args.mode = 'png';
-        break;
-      case '--frames':
-        args.frames = number(arg, argv[++i]);
-        break;
-      case '--max-frames':
-        args.maxFrames = number(arg, argv[++i]);
-        break;
-      case '--rom-root':
-        args.romRoot = argv[++i];
-        break;
-      case '--json':
-        args.json = true;
-        break;
-      default:
-        if (arg.startsWith('-')) throw new RunError(`unknown option ${arg}`);
-        positional.push(arg);
-    }
-  }
-  const [machine, mode] = positional;
-  if (!machine) throw new RunError('name a machine (--list shows them all)');
-  if (mode !== undefined && mode !== 'text' && mode !== 'png') {
-    throw new RunError(`the mode is "text" or "png", not "${mode}"`);
-  }
-  args.machine = machine;
-  if (mode === 'png') args.mode = 'png';
-  return args;
+/** One JSON object on standard output, as a program would read it. */
+function json(value: unknown): void {
+  out(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks).toString('utf8');
+}
+
+/** The program, from the file the caller named or from standard input. */
+async function readProgram(input: ProgramInput): Promise<string> {
+  if (input.kind === 'stdin') {
+    const source = await readStdin();
+    if (source.trim() === '') throw new RunError('no program arrived on stdin');
+    return source;
+  }
+  try {
+    return readFileSync(input.path, 'utf8');
+  } catch {
+    throw new RunError(`cannot read "${input.path}"`);
+  }
 }
 
 /**
@@ -105,7 +72,7 @@ async function readStdin(): Promise<string> {
 function divertLogging(): () => void {
   const kept = { log: console.log, info: console.info, debug: console.debug };
   const toStderr = (...parts: unknown[]) =>
-    process.stderr.write(`${parts.map(String).join(' ')}\n`);
+    err(`${parts.map(String).join(' ')}\n`);
   console.log = toStderr;
   console.info = toStderr;
   console.debug = toStderr;
@@ -116,7 +83,7 @@ function divertLogging(): () => void {
 function report(result: RunResult, wrote: string | null): void {
   const { machine, timings, picture } = result;
   const ms = (n: number) => `${n.toFixed(0)}ms`;
-  process.stderr.write(
+  err(
     `${machine.name} (${machine.id}) ${machine.displayWidth}x${machine.displayHeight} ` +
       `@ ${machine.frameHz.toFixed(2)}Hz\n` +
       `program ${result.programBytes} bytes, ` +
@@ -131,13 +98,13 @@ function report(result: RunResult, wrote: string | null): void {
       `render ${ms(timings.renderMs)}  total ${ms(timings.totalMs)}\n`,
   );
   if (!machine.romPresent) {
-    process.stderr.write(
-      'this checkout carries no ROM for that machine, so it drew its ' +
+    err(
+      'this installation carries no ROM for that machine, so it drew its ' +
         'missing-image notice rather than running anything\n',
     );
   }
   if (picture) {
-    process.stderr.write(
+    err(
       `picture: ${picture.colours} distinct colours` +
         (picture.hostFontGlyphs > 0
           ? `, ${picture.hostFontGlyphs} glyphs in the stand-in font - this ` +
@@ -146,28 +113,50 @@ function report(result: RunResult, wrote: string | null): void {
           : ', exact - this machine hands over pixels\n'),
     );
   }
-  if (wrote) process.stderr.write(`wrote ${wrote}\n`);
+  if (wrote) err(`wrote ${wrote}\n`);
 }
 
-async function main(): Promise<number> {
-  const argv = process.argv.slice(2);
-  if (argv.includes('--help') || argv.includes('-h')) {
-    process.stdout.write(USAGE);
-    return 0;
+/** Every tokenizer problem, on standard error, the way a compiler places one. */
+function reportErrors(errors: RunResult['errors']): void {
+  for (const e of errors) {
+    const where =
+      e.column === undefined ? `${e.line}` : `${e.line}:${e.column + 1}`;
+    err(`${e.fatal === false ? 'warning' : 'error'} ${where}: ${e.message}\n`);
   }
-  if (argv.includes('--list')) {
-    for (const m of machineList()) {
-      process.stdout.write(
-        `${m.id.padEnd(16)} ${m.name.padEnd(14)} ${m.blurb}\n`,
-      );
-    }
-    return 0;
+}
+
+async function build(args: Extract<CliArgs, { operation: 'build' }>) {
+  const outcome = await buildListing({
+    machine: args.machine,
+    source: await readProgram(args.program),
+    out: args.out,
+    target: args.target,
+    programName: args.programName,
+  });
+  reportErrors(outcome.errors);
+  if (outcome.target === null) {
+    err('nothing was built: the program has a problem that prevents it\n');
+    return EXIT_BAD_PROGRAM;
   }
+  // A format that is more than one file puts the first where the caller asked -
+  // so the path they wrote always means something - and the rest beside it
+  // under the names the target chose.
+  const directory = path.dirname(args.out);
+  for (const [index, file] of outcome.files.entries()) {
+    const destination =
+      index === 0 ? args.out : path.join(directory, file.fileName);
+    writeFileSync(destination, file.bytes);
+    err(`wrote ${destination} (${file.bytes.length} bytes)\n`);
+  }
+  err(
+    `${outcome.machine.name} ${outcome.target.label} (${outcome.target.id}), ` +
+      `program ${outcome.programBytes} bytes\n`,
+  );
+  return 0;
+}
 
-  const args = parseArgs(argv);
-  const source = await readStdin();
-  if (source.trim() === '') throw new RunError('no listing arrived on stdin');
-
+async function run(args: Extract<CliArgs, { operation: 'run' }>) {
+  const source = await readProgram(args.program);
   const restoreLogging = divertLogging();
   let result: RunResult;
   try {
@@ -176,7 +165,7 @@ async function main(): Promise<number> {
       source,
       frames: args.frames,
       maxFrames: args.maxFrames,
-      pixels: args.mode === 'png',
+      pixels: args.screenshot !== undefined,
       romRoot: args.romRoot,
     });
   } finally {
@@ -184,64 +173,100 @@ async function main(): Promise<number> {
   }
 
   // A fatal diagnostic means nothing ran, which is a failed run rather than an
-  // empty screen: say which line, and say so on stderr and in the exit code.
-  const fatal = result.errors.filter((e) => e.fatal !== false);
-  for (const e of result.errors) {
-    const where =
-      e.column === undefined ? `${e.line}` : `${e.line}:${e.column + 1}`;
-    process.stderr.write(
-      `${e.fatal === false ? 'warning' : 'error'} ${where}: ${e.message}\n`,
-    );
-  }
-  if (fatal.length > 0) return 2;
+  // empty screen: say which line, and say so in the exit code too.
+  reportErrors(result.errors);
+  if (result.errors.some((e) => e.fatal !== false)) return EXIT_BAD_PROGRAM;
 
   let wrote: string | null = null;
-  if (result.picture) {
+  if (args.screenshot !== undefined && result.picture) {
     const { rgba, width, height } = result.picture;
-    writeFileSync(args.png, encodePng(rgba, width, height));
-    wrote = args.png;
+    writeFileSync(args.screenshot, encodePng(rgba, width, height));
+    wrote = args.screenshot;
   }
 
   if (args.json) {
-    process.stdout.write(
-      `${JSON.stringify(
-        {
-          machine: result.machine,
-          programBytes: result.programBytes,
-          frames: result.frames,
-          started: result.started,
-          ended: result.ended,
-          screen: result.screen,
-          picture: result.picture
-            ? {
-                width: result.picture.width,
-                height: result.picture.height,
-                colours: result.picture.colours,
-                hostFontGlyphs: result.picture.hostFontGlyphs,
-                path: wrote,
-              }
-            : null,
-          timings: result.timings,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-  } else if (args.mode === 'text') {
+    json({
+      machine: result.machine,
+      programBytes: result.programBytes,
+      frames: result.frames,
+      started: result.started,
+      ended: result.ended,
+      screen: result.screen,
+      picture: result.picture
+        ? {
+            width: result.picture.width,
+            height: result.picture.height,
+            colours: result.picture.colours,
+            hostFontGlyphs: result.picture.hostFontGlyphs,
+            path: wrote,
+          }
+        : null,
+      timings: result.timings,
+    });
+  } else if (args.screenText) {
     const lines = screenLines(result.screen);
-    process.stdout.write(lines.length > 0 ? `${lines.join('\n')}\n` : '');
+    out(lines.length > 0 ? `${lines.join('\n')}\n` : '');
   }
 
   report(result, wrote);
   return 0;
 }
 
+async function main(): Promise<number> {
+  const args = parseArgs(process.argv.slice(2));
+  switch (args.operation) {
+    case 'help':
+      out(usage(args.topic));
+      return 0;
+
+    case 'machines': {
+      const machines = listMachines();
+      if (args.json) json(machines);
+      else out(`${formatMachines(machines)}\n`);
+      return 0;
+    }
+
+    case 'info': {
+      const machine = describeMachine(args.machine);
+      if (args.json) json(machine);
+      else out(formatMachineDescription(machine));
+      return 0;
+    }
+
+    case 'lint': {
+      const outcome = lintListing(
+        args.machine,
+        await readProgram(args.program),
+      );
+      // A check's problems are its product, so they go to standard output
+      // rather than where a compiler would put them; the exit code is what
+      // says whether they mattered.
+      if (args.json) json(outcome);
+      else if (outcome.problems.length > 0) {
+        out(`${formatProblems(outcome.problems)}\n`);
+      }
+      err(
+        `${outcome.machine.name}: ${outcome.problems.length} problem` +
+          `${outcome.problems.length === 1 ? '' : 's'}` +
+          `${outcome.fatal ? ', at least one fatal' : ''}\n`,
+      );
+      return outcome.fatal ? EXIT_BAD_PROGRAM : 0;
+    }
+
+    case 'build':
+      return build(args);
+
+    case 'run':
+      return run(args);
+  }
+}
+
 main()
   .then((code) => process.exit(code))
   .catch((error: unknown) => {
     if (error instanceof RunError) {
-      process.stderr.write(`${error.message}\n`);
-      process.exit(1);
+      err(`${error.message}\n`);
+      process.exit(EXIT_BAD_REQUEST);
     }
     throw error;
   });

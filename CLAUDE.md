@@ -61,10 +61,16 @@ npm run e2e:chromium -- e2e/<capability>   # e2e for one capability, Chromium on
 npm run e2e:headed     # same as e2e, with a visible browser
 npm run e2e:report     # open the last Playwright HTML report
 
-# Run a listing on any registered machine outside the browser: the screen as
-# text on stdout, or as a PNG. Builds its bundle when stale. `--help` for the rest.
-printf '10 PRINT "HI"\n' | ./scripts/run-listing.sh commodore64
-printf '10 PRINT "HI"\n' | ./scripts/run-listing.sh bbcmicro png --png /tmp/bbc.png
+# The toolchain outside the browser: describe a machine, check a listing, build
+# one into a file the machine loads, or run one and report its screen. Builds
+# its bundle when stale. `--help` names every operation, `<operation> --help`
+# its options. Only `run` needs a ROM.
+./scripts/basically.sh machines                       # every machine, and whether its ROM is here
+./scripts/basically.sh info commodore64               # memory, BASIC rules, keywords, formats (--json for all of it)
+./scripts/basically.sh lint prog.bas -m zx81          # problems on stdout, no emulator; exit 2 if any is fatal
+./scripts/basically.sh build prog.bas -m zx81 -o /tmp/prog.p
+printf '10 PRINT "HI"\n' | ./scripts/basically.sh run -m commodore64
+./scripts/basically.sh run prog.bas -m bbcmicro --screenshot /tmp/bbc.png --screen-text
 
 npm run typecheck      # fast type check (tsc -b, no bundle)
 npm run lint           # ESLint
