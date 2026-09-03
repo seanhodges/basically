@@ -274,6 +274,54 @@ VIA / 6520 PIA and character renderer (`src/emulator/commodore/`), and the
 jsbeeb memory-activity tap. The vendored cores are third-party code and are not
 hand-edited (see [Don't touch](/contributing/contributing#don-t-touch)).
 
+#### Vendored core caveats
+
+What each core does not model, and what the adapter around it makes up for. A
+machine that reaches for one of these cores inherits its limits, so this is also
+the effort estimate behind
+[the roadmap](/contributing/dialect-roadmap#bundled-cores).
+
+- **Z80** - the core reports only the total T-states an instruction took, not
+  when within it each bus access happened. The Spectrums need that to charge ULA
+  contention, so they charge it adapter-side against a believed CPU position,
+  repositioned to the truth at every instruction boundary and advanced one
+  M-cycle per access in between
+  (`src/dialects/zxspectrum/emulator/ulaContention.ts`). The core's own M1 hook
+  covers the opcode fetch, so `z80core.js` stays byte-identical. The
+  approximation cannot place an access _inside_ an instruction, but it does not
+  accumulate: a contended access re-quantises the position onto the ULA's
+  eight-T grid. There is no floating bus, so a raster sync that reads port
+  `0xFF` will not work.
+- **Z80 as 8080** - the Z80 was designed to be binary compatible with the 8080,
+  but not quite totally, so 8080 machines drive the core through
+  `src/emulator/i8080/`. It restores the two flag behaviours the Z80 changed: P,
+  which the 8080 always fills with parity where the Z80 fills it with signed
+  overflow, and `DAA`, which the 8080 always applies as if for an addition
+  because it has no N flag. Altair 8K BASIC does not reach its sign-on banner
+  without the first. Any further 8080 machine uses that module rather than
+  repeating the tables.
+- **viciious** - the public-domain subset of upstream commit `69f0dc6`,
+  unmodified, minus the webpack build, DOM host, ROM source modules and monitor
+  UI. It carries ~40 upstream `TODO`s (VIC-II timing edges, SID ADSR scaling,
+  CIA serial shifter, tape bounds checking); none block current use, but they
+  are worth checking upstream if an accuracy issue shows up. Sprite DMA is not
+  modelled and the core is PAL-only. Its `index.d.ts` is repo-authored, not
+  upstream, and may be extended. The largest gap is handled outside the core:
+  viciious fetches the character matrix on a bad line but never pulls BA, so its
+  CPU keeps all 63 cycles of every raster line - about a thousand cycles a frame
+  the 6510 should not have. `src/emulator/c64/badLines.ts` models the
+  arbitration adapter-side and `c64Machine.ts` withholds the CPU tick on the
+  cycles the chip owns, leaving the vendored `.js` byte-identical.
+- **jsbeeb** - its `allModels` table carries only the BBC B (three disc
+  variants), the Master 128 (three filing-system variants), the Atom (four
+  variants) and `Tube65C02`. There is no Model B+, Master Compact or Electron,
+  so those machines are blocked upstream rather than merely expensive.
+- **Auto-`RUN` after a load** - the OS keyboard-buffer addresses differ between
+  BBC OS 1.20 and the Master's MOS 3.20, and the Master's power-on only sets
+  `PAGE` at ~1.45M cycles against the Model B's ~725K; the ZX80 does not
+  auto-run a loaded program at all. All three type `RUN` through the key matrix,
+  which is OS-version independent, rather than poking the buffer.
+
 ### Assembler layer (`src/asm/`)
 
 First-party paired assembler/disassembler engines - one per CPU (`z80`, `6502`)

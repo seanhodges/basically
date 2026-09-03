@@ -116,7 +116,8 @@ And know the small per-dialect tables **outside** the folder that a new dialect
 | `public/roms/…` + `public/roms/ATTRIBUTION.md`                                                                                                    | ROM asset **and** its attribution block (skip for interpreter dialects)                                                                                                                                              | emulator core                  |
 | `docs/reference/<page>.md`, `docs/reference/<page>/{hardware,escapes,formats}.md`, `src/reference/<page>.ts`, `docs/.vitepress/config.ts` sidebar | per-dialect reference docs — run the **`dialect-reference-docs`** skill (it owns the scaffold commands, page templates and crosscheck tests)                                                                         | docs — **before** registration |
 | `src/reference/machines.ts`, `src/reference/facts.ts`, the page maps in `docs/reference/compare.md`                                               | the machine-keyed half of the reference bundle: picker row, porting facts, and the maps the porting guide reads them through                                                                                         | **with** registration          |
-| `docs/contributing/dialect-roadmap.md`                                                                                                            | status row + cross-link to the plan                                                                                                                                                                                  | when planning                  |
+| `docs/contributing/dialect-roadmap.md`                                                                                                            | a ⬜ row in the effort tier that matches the work, + cross-link to the plan                                                                                                                                          | when planning                  |
+| `docs/contributing/dialect-roadmap.md`                                                                                                            | that row moves into the **Shipped** table, keyed by the dialect id, note cut to one clause                                                                                                                           | registration (same change)     |
 
 ### What registration switches on
 
@@ -136,6 +137,7 @@ the per-dialect tables above:
 | `keyboard/keyboardTheme.test.ts`                                                                                                               | the `vk-theme-<id>` block in `src/keyboard/VirtualKeyboard.css`, or the theme named in that battery's `UNSTYLED_THEMES` with a reason. It also fails on a theme block **no registered layout names**, so the stylesheet cannot land ahead of the registry line — the two go in one change |
 | `dialects/loopSpeed.test.ts`                                                                                                                   | a **measured** `loopSpeed` in the porting facts — run the battery to get the figure, do not author one                                                                                                                                                                                    |
 | `ai/machineReference.test.ts`, `promptStability.test.ts`                                                                                       | the lazy reference loaders, and a measured prompt-size ceiling                                                                                                                                                                                                                            |
+| `docs/contributing/dialect-roadmap.test.ts`                                                                                                    | a Shipped-table row keyed by the dialect id, its candidate row gone from the tier, and the note inside the page's cell budget                                                                                                                                                             |
 
 So **registration is the last act, not the middle one.** A plan that registers
 in the wire-up stage is a plan whose next three stages start on a red build: the
@@ -243,6 +245,16 @@ in. Keep the template's status legend (✅ shipped / 🔨 in progress / ⬜ plan
 / ⛔ blocked, matching `docs/contributing/dialect-roadmap.md`) and its per-stage structure:
 checklist, files created/filled, dependencies, and a verify line. Add a
 cross-link to the new plan from `docs/contributing/dialect-roadmap.md`.
+
+The roadmap's tiers are **effort**, not hardware family — language layer only ·
+new bus, simple display · new bus, custom video or sound chip · blocked — so file
+the machine by what the audit above says it will actually cost, and let its
+`Core` column say which bundled core (or shared interpreter) it would run on.
+Carry the plan cross-link as a link on the machine's own name — the page has no
+column for it, and the link disappears with the row when the machine ships. Keep
+the row's note to one clause: `dialect-roadmap.test.ts` enforces a cell budget,
+and long-form detail belongs in `docs/contributing/architecture.md` or the
+machine's reference pages.
 
 Group work by dependency into medium, single-session stages, **ending with the
 one that registers** — see _What registration switches on_ above for why nothing
@@ -567,18 +579,18 @@ the stages on demand. Do not start implementing.
 
 ## Key files to study
 
-| File                                                                                                                            | What it shows                                 |
-| ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `src/dialects/types.ts`                                                                                                         | Every interface a complete dialect implements |
-| `src/dialects/zx81/index.ts`                                                                                                    | How a `Dialect` is assembled (in-tree Z80)    |
-| `src/dialects/commodore64/index.ts`                                                                                             | A `Dialect` over a wrapped 6502 emulator      |
-| `src/dialects/bbcmaster/`                                                                                                       | Delegation over a sibling (imports bbcmicro)  |
-| `src/player/routes.ts`                                                                                                          | `SHARE_VERBS` — bijection with the registry   |
-| `src/dialects/registry.ts`                                                                                                      | Where registration happens (the last stage)   |
-| `src/dialects/zx81/emulator/`                                                                                                   | `MachineEmulator` over the shared Z80 core    |
-| `src/keyboard/layoutSchema.ts`                                                                                                  | All keyboard-layout types                     |
-| `docs/contributing/dialect-roadmap.md`                                                                                          | Tiered roadmap + status legend to cross-link  |
-| `docs/contributing/adding-a-dialect.md` (dialect folder + virtual keyboard), `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
+| File                                                                                                                            | What it shows                                     |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `src/dialects/types.ts`                                                                                                         | Every interface a complete dialect implements     |
+| `src/dialects/zx81/index.ts`                                                                                                    | How a `Dialect` is assembled (in-tree Z80)        |
+| `src/dialects/commodore64/index.ts`                                                                                             | A `Dialect` over a wrapped 6502 emulator          |
+| `src/dialects/bbcmaster/`                                                                                                       | Delegation over a sibling (imports bbcmicro)      |
+| `src/player/routes.ts`                                                                                                          | `SHARE_VERBS` — bijection with the registry       |
+| `src/dialects/registry.ts`                                                                                                      | Where registration happens (the last stage)       |
+| `src/dialects/zx81/emulator/`                                                                                                   | `MachineEmulator` over the shared Z80 core        |
+| `src/keyboard/layoutSchema.ts`                                                                                                  | All keyboard-layout types                         |
+| `docs/contributing/dialect-roadmap.md`                                                                                          | Effort tiers + legend; Shipped is registry-pinned |
+| `docs/contributing/adding-a-dialect.md` (dialect folder + virtual keyboard), `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages     |
 
 ## Guardrails
 
