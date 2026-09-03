@@ -243,6 +243,67 @@ editor (CodeMirror)
 The AI path is parallel: prompt + lint errors → `streamChat()` →
 `extractCodeBlocks()` → `mergeBasicLines()` → push back into the editor.
 
+## Documenting architecture changes
+
+`docs/contributing/architecture.md` is the map of **how** the code is put
+together; `openspec/specs/` say **what** it guarantees. Keep the map current in
+the same change that moves the code, and keep it in the shape that survives:
+
+- **Update it when the shape changes**, not for every edit: a new `Dialect` or
+  `MachineEmulator` member, a new store request counter, a new storage key or
+  lifetime rule, a new top-level `src/` folder, a new obligation test under
+  `src/dialects/`, or a new vendored-core caveat. Find the section by the
+  folder or symbol it names and change that row, table or diagram.
+- **Tables for member lists, one diagram per flow, short prose for rules.**
+  A new capability is a new row, not a new paragraph. Every mermaid diagram
+  should show a mechanism the text cannot say in a sentence.
+- **Write nothing that drifts on its own.** No machine lists or counts (say
+  "every registered machine"; name one machine only as an example of a
+  pattern), no line counts, no library version numbers beyond the stack line,
+  no constant values. Name a symbol only after grepping that it exists.
+- **Lifecycle claims come from the module contract**, not memory: what clears
+  the virtual filesystem is the header comment in `src/storage/vfs/vfsStore.ts`,
+  what autosave keeps is `persistAutosave` in the store. Quote the rule, then
+  point at the test that pins it, rather than restating either.
+- **Point at the registry-driven test** that holds every machine to a fact
+  (`src/dialects/*.test.ts`) instead of listing which machines satisfy it and
+  which are excused; the test's own table is the source of truth.
+- **Figures are regenerated, never hand-edited.** The annotated IDE screenshot
+  comes from `e2e/capture-docs-screenshots.spec.ts`
+  (`npm run e2e:docs-screenshots -- -g "architecture"`); re-run it when the
+  shell layout changes.
+- Keep the `#vendored-core-caveats` heading: the dialect roadmap links to it.
+- `npm run docs:build` is part of the gate for any change under `docs/`.
+
+**Diagrams and tables have to survive a phone**, and both fail silently - a
+diagram scaled to 3px text and a table dragged sideways still "render". Measure
+rather than eyeball: build the docs, serve `dist/`, and read the numbers out of
+a real browser at 390px and at 1440px.
+
+- **A mermaid diagram is drawn once at an intrinsic width and then scaled to
+  its column**, and its label text scales with it. Keep that width under about
+  1100px, which is roughly 16px labels in a desktop article and 8px on a phone.
+  Prefer `flowchart TB` over `LR`: a page already scrolls down, and left-to-right
+  is drawn as wide as the pipeline is long. Where the enumeration matters more
+  than the picture, cut the diagram down and let the table beside it carry the
+  detail.
+- **Sequence diagrams are the exception** - their width comes from the
+  participant count, and six is already ~1400px. That is what the enlarge-on-tap
+  viewer (`theme/components/Mermaid.vue`) exists for; do not mangle a sequence
+  diagram to fit.
+- **Keep each `<br/>` line in a node label short.** Mermaid sizes the node from
+  its own measurement; a line that then wraps is clipped by the box.
+- **Two-column tables fit a phone and three-column ones do not.** Where a
+  column is thin - a folder path, a test filename - fold it under the first
+  column with `<br>` rather than spending a column on it.
+- **Never break a code identifier to make a table fit.** `src/com|ponents|/`
+  costs the reader more than the sideways drag does, so the CSS keeps tokens
+  whole and lets the table scroll inside itself; the page itself must never
+  scroll sideways at any width.
+- **A new surface inside the docs must claim Escape in the capture phase.** The
+  drawer's own handler (`theme/Layout.vue`) closes the drawer and stands down
+  only for a keypress something else has already marked handled.
+
 ## Adding a dialect
 
 How to plan a machine with the skill, run its stages and submit them:

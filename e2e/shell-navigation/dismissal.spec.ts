@@ -221,6 +221,46 @@ test('a menu closing on Escape does not also close the screen behind it', async 
   await expect(panel).toBeHidden();
 });
 
+test('a diagram enlarged inside the docs drawer takes Escape first', async ({
+  page,
+}) => {
+  await open(page);
+
+  // The documentation runs in an iframe, so its own Escape handler is the only
+  // one that sees the key while the reader's focus is in there - and it closes
+  // the drawer. A diagram enlarged inside that frame is a surface of its own on
+  // top of it, and has to take the keypress first, or putting the diagram down
+  // takes the whole drawer with it.
+  await page.getByRole('button', { name: 'Open documentation' }).click();
+  const drawer = page.locator('[aria-label="Documentation"]');
+  await expect(drawer).toHaveAttribute('aria-hidden', 'false');
+
+  // The architecture page is the one with diagrams; the drawer opens on
+  // whatever topic the IDE last asked for, so route the frame to it.
+  await page.evaluate(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(
+      '[aria-label="Documentation"] iframe',
+    );
+    frame?.contentWindow?.location.replace('/docs/contributing/architecture');
+  });
+
+  const docs = drawer.frameLocator('iframe');
+  const enlarge = docs.getByRole('button', { name: 'Enlarge diagram' }).first();
+  // Mermaid arrives through two dynamic imports on a freshly loaded frame.
+  await expect(enlarge).toBeEnabled({ timeout: 30_000 });
+  await enlarge.click();
+  const viewer = docs.getByRole('dialog', { name: 'Enlarged diagram' });
+  await expect(viewer).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(viewer).toBeHidden();
+  await expect(drawer).toHaveAttribute('aria-hidden', 'false');
+
+  // And a second Escape then closes the drawer itself.
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveAttribute('aria-hidden', 'true');
+});
+
 test('New project → machine picker: Escape unwinds one modal at a time', async ({
   page,
 }) => {

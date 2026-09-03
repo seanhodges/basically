@@ -94,3 +94,235 @@
     'Basically Graphics', 'Basically Graphics Extra', ui-monospace, 'Menlo',
     'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
 }
+
+/* ---------- Diagrams ---------- */
+/* A mermaid diagram is laid out at one intrinsic width and then scaled to the
+   column it lands in, and its label text scales with it: the widest flowchart
+   on the architecture page draws its 16px labels at 4px in a desktop article
+   and 2px on a phone. So the inline diagram is a preview - a shape, and a
+   control - and the viewer it opens is where it is read. See
+   theme/components/Mermaid.vue. */
+
+.diagram {
+  margin: 20px 0;
+}
+
+/* Strip the button chrome: the diagram is the control, and it should read as a
+   figure until the pointer is over it. */
+.diagram__preview {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  cursor: zoom-in;
+  transition: border-color 0.2s;
+}
+
+.diagram__preview:hover,
+.diagram__preview:focus-visible {
+  border-color: var(--vp-c-divider);
+}
+
+.diagram__preview[disabled] {
+  cursor: default;
+}
+
+.diagram__svg {
+  display: block;
+}
+
+.diagram__svg svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+
+/* The affordance. Always shown on a touch screen, where there is no hover to
+   discover it with, and on a diagram small enough to read inline it is still
+   the honest label for what a tap does. */
+.diagram__hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.diagram__preview:hover .diagram__hint,
+.diagram__preview:focus-visible .diagram__hint {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .diagram__hint {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagram__preview,
+  .diagram__hint {
+    transition: none;
+  }
+}
+
+/* ---------- The enlarged diagram viewer ---------- */
+
+.diagram-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--vp-c-bg);
+}
+
+.diagram-viewer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.diagram-viewer__zoom {
+  margin-right: auto;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram-viewer__bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.diagram-viewer__bar button:hover:not([disabled]) {
+  border-color: var(--vp-c-brand-1);
+}
+
+.diagram-viewer__bar button[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The pan/zoom surface. `touch-action: none` is what makes a pinch reach the
+   pointer handlers instead of being spent scrolling the page behind. */
+.diagram-viewer__surface {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.diagram-viewer__surface:active {
+  cursor: grabbing;
+}
+
+.diagram-viewer__content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+/* Mermaid writes a max-width onto its own <svg>, which would cap the zoom at
+   the width of the column the diagram was first drawn for. */
+.diagram-viewer__content svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none !important;
+}
+
+.diagram-viewer__help {
+  flex: none;
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- Tables on a narrow screen ---------- */
+/* VitePress makes every table its own horizontal scroller, so a wide one never
+   drags the page sideways - but a reader still has to find and work that
+   scroller. Most of the width in these tables is unbreakable inline code
+   (`setMemoryActivityRecording()`), which sets a min-content width far past a
+   phone's: letting those tokens wrap is what actually makes the table fit. */
+
+/* Break a token only when it cannot fit its line on its own. Deliberately not
+   `anywhere`, which does let a table's minimum width fall to the screen's but
+   pays for it by splitting identifiers across lines - `src/com|ponents|/` is
+   harder to read than a table the reader drags. */
+.vp-doc table code {
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 640px) {
+  .vp-doc table {
+    font-size: 14px;
+  }
+
+  .vp-doc table code {
+    font-size: 13px;
+  }
+
+  .vp-doc th,
+  .vp-doc td {
+    padding: 6px 8px;
+  }
+}
+
+/* Mermaid measures a label's box against its own 1.5 line-height and then draws
+   the label as HTML inside a fixed-size foreignObject, which inherits the
+   site's looser body line-height instead - so every label came out 4px a line
+   taller than the box holding it, and the last line of a multi-line node was
+   clipped. Pin the labels back to what the layout was measured with. */
+.diagram foreignObject div {
+  line-height: 1.5;
+}
+
+/* The site's own paragraph rule reaches the <p> mermaid wraps each label in,
+   which is where the extra 4px a line came from. */
+.diagram foreignObject p {
+  margin: 0;
+  line-height: inherit;
+}
+
+/* A table full of file paths can still be wider than a phone once its
+   identifiers are kept whole, and VitePress makes each table its own scroller -
+   so the page never moves sideways, but the scroller has to be findable. A
+   thin, always-drawn scrollbar is the affordance. */
+.vp-doc table {
+  scrollbar-width: thin;
+}

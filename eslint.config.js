@@ -66,7 +66,7 @@ export default tseslint.config(
       ],
     },
   },
-  // The shared reference tree (src/reference/) is ~12,000 lines of tables that
+  // The shared reference tree (src/reference/) is tens of thousands of lines of tables that
   // only the AI assistant needs, and only once the user sends something. It is
   // reached through a dynamic import in src/ai/machineReference.ts so it lands
   // in chunks of its own; one static import from anywhere in the app would put
