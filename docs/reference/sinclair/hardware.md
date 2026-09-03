@@ -144,6 +144,13 @@ receives that frame's interrupt once it switches them back on, provided it does
 so promptly. Leave them off for longer and the frame's interrupt is missed, as it
 is on the machine.
 
+Two things this does not reproduce. The **floating bus** is not modelled, so the
+trick of reading port 0xFF to find the beam answers nothing useful — a routine
+that syncs that way will not. And contention is charged per memory access rather
+than per processor cycle, which is a few clock cycles out inside a single
+instruction; the error cannot accumulate, and it is far below anything the
+picture can show.
+
 ### Memory {#spectrum48-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a

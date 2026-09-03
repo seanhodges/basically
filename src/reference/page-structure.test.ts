@@ -101,6 +101,19 @@ describe.each(PAGES)('the %s reference page', (page) => {
     expect(afterTable).not.toContain(`](./${page}/hardware)`);
   });
 
+  it('files what the machine will not run under the one heading', () => {
+    // Keywords that tokenize and then do nothing are a fact four machines have
+    // and the rest do not. It was written three different ways - a section
+    // here, a caveat bullet there - so a reader could not tell whether a page
+    // without one had nothing to declare. One spelling, or none.
+    const invented = headings(source, 2).filter(
+      (h) =>
+        h !== 'What this machine does not run' &&
+        /\b(does not|do not|doesn't|not work|not run|unsupported)\b/i.test(h),
+    );
+    expect(invented, `${page}.md`).toEqual([]);
+  });
+
   it('leads with Notes and caveats, and ends on the table', () => {
     // A machine may earn a section past the caveats - the Apple I's unnumbered
     // preamble, the Altair's tape-loaded interpreter - but the caveats come

@@ -167,7 +167,7 @@ those bounds out for a program that moved them.
 The preamble is part of the program text, so renumbering leaves it where it is
 and the assistant will not drop it.
 
-## What is in the Apple I's interpreter but does not work
+## What this machine does not run
 
 `COLOR=`, `PLOT`, `HLIN` and `AT` are in the Apple I's syntax table, left over
 from Woz's work towards the Apple II, and reach a machine with no graphics

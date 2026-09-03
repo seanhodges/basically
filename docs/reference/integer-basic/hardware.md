@@ -189,6 +189,19 @@ thrown away and a read does the job as well. Integer BASIC has no sound keyword
 at all, so every note is a program counting between toggles: `PEEK(-16336)` in a
 loop, with the loop's period as the pitch.
 
+### Timing {#apple2-timing}
+
+The Apple II counts everything down from one 14.31818 MHz colour crystal: 65
+processor cycles to a scanline, 262 lines to a 59.92 Hz field, with one cycle a
+line stretched to hold the colour subcarrier in step. That stretch puts the
+processor's average rate at 1.0205 MHz rather than the nominal 1.0227, which is
+why a loop timed on real hardware runs slightly slow against the nominal clock.
+
+Two things are not reproduced. The stretched cycle is a per-field budget rather
+than a per-cycle model, so only an instruction-by-instruction raster chase could
+tell. And the **floating bus** — unfitted address space returning whatever the
+video scanner was fetching, which some programs time against — reads `$FF` here.
+
 ### Memory {#apple2-memory}
 
 The whole of the machine's address space, region by region. Zoom in to open a

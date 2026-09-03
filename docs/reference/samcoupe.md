@@ -45,15 +45,18 @@ compatibility between the two machines is at the hardware level, not this one.
   `UNTIL` on either end, `EXIT IF`, block `IF` with `ELSE` and `END IF`,
   `DEF PROC`/`END PROC` called by writing the name, and `LABEL` for a named jump
   target that survives `RENUM`.
-- A group of keywords is in the ROM's token table but not in the ROM. `DIR`,
-  `ERASE`, `FORMAT`, `MOVE`, `COPY`, `RENAME`, `PROTECT`, `HIDE`, `REF`, `USING`
-  and `WRITE` all tokenize and are then refused as `Not understood`, because the
-  parser that would read them arrives with a disc operating system. `EOF`,
-  `PTR`, `PATH$`, `DVAR` and the file form of `OPEN` get as far as running and
-  answer `No DOS` instead. They are listed because the machine has them, not
-  because they work here.
-- `LPRINT`, `LLIST` and `DUMP` want a printer, and the mouse and light-pen
-  readings (`XMOUSE`, `YMOUSE`, `XPEN`, `YPEN`, `BUTTON`) want hardware that is
-  not fitted. None of them is an error; they simply do nothing.
+
+## What this machine does not run
+
+A group of keywords is in the ROM's token table but not in the ROM. `DIR`,
+`ERASE`, `FORMAT`, `MOVE`, `COPY`, `RENAME`, `PROTECT`, `HIDE`, `REF`, `USING`
+and `WRITE` all tokenize and are then refused as `Not understood`, because the
+parser that would read them arrives with a disc operating system. `EOF`, `PTR`,
+`PATH$`, `DVAR` and the file form of `OPEN` get as far as running and answer
+`No DOS` instead.
+
+`LPRINT`, `LLIST` and `DUMP` want a printer, and the mouse and light-pen
+readings (`XMOUSE`, `YMOUSE`, `XPEN`, `YPEN`, `BUTTON`) want hardware that is
+not fitted. None of them is an error; they simply do nothing.
 
 <ReferenceTable :data="samcoupeReference" />

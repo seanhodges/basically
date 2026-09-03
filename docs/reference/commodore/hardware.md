@@ -170,6 +170,10 @@ sits there.
 
 <MemoryMapSingle machine="pet" :map="petMemoryMap" />
 
+The machine here is a fixed **32K** PET. RAM and ROM expansions are not
+modelled, and neither are the higher-memory variants — an 8000-series
+80-column PET is a different machine, and this is not it.
+
 A PET program can carry fixed-address machine code or data — **memory blocks** —
 that load into RAM alongside the BASIC program before it runs. On the PET a block
 may sit from **0x0400 to 0x7FFF** (BASIC text itself starts at $0401); new blocks
