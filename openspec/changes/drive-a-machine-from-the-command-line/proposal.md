@@ -22,10 +22,15 @@ nothing can assert what a program does in response to a keypress.
   expectation — what to press, how long to wait, what the screen must then show —
   and passes or fails, reporting which expectation failed and what the screen
   actually held.
-- **A spec file format**, its assertion vocabulary, and the dependency needed to
-  read it, subject to the licence check every new dependency gets.
+- **A spec file format and its assertion vocabulary.** A spec is the same
+  one-action-per-line script the assistant already drives with, grown with
+  expectations about the screen and about whether the program is still running —
+  so `--keys`, a spec file and the assistant share one vocabulary, and no new
+  dependency is needed to read any of them.
 - **Key names become a machine-independent vocabulary.** A caller writes `SPACE`
   or `P`, and each machine resolves it to whatever its own keyboard calls it.
+  Describing a machine lists the names it answers to, so a caller can find out
+  what it may press without opening the IDE.
 
 ## Non-goals
 
@@ -64,7 +69,6 @@ not writing them.
 each declares about its keyboard — which is the part most likely to surface machines
 that declare less than the rest, and so wants a registry-driven test from the start.
 
-**A new dependency** for the spec file format, needing a licence check compatible
-with the project's, and attribution where required.
-
-**Design and tasks** are written when this change is scheduled.
+**No new dependency.** The spec format is a line-per-action script read by the
+parser the assistant already has, so nothing is added to the runtime bundle and
+there is no licence to check.
