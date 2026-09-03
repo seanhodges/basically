@@ -274,6 +274,35 @@ the same change that moves the code, and keep it in the shape that survives:
 - Keep the `#vendored-core-caveats` heading: the dialect roadmap links to it.
 - `npm run docs:build` is part of the gate for any change under `docs/`.
 
+**Diagrams and tables have to survive a phone**, and both fail silently - a
+diagram scaled to 3px text and a table dragged sideways still "render". Measure
+rather than eyeball: build the docs, serve `dist/`, and read the numbers out of
+a real browser at 390px and at 1440px.
+
+- **A mermaid diagram is drawn once at an intrinsic width and then scaled to
+  its column**, and its label text scales with it. Keep that width under about
+  1100px, which is roughly 16px labels in a desktop article and 8px on a phone.
+  Prefer `flowchart TB` over `LR`: a page already scrolls down, and left-to-right
+  is drawn as wide as the pipeline is long. Where the enumeration matters more
+  than the picture, cut the diagram down and let the table beside it carry the
+  detail.
+- **Sequence diagrams are the exception** - their width comes from the
+  participant count, and six is already ~1400px. That is what the enlarge-on-tap
+  viewer (`theme/components/Mermaid.vue`) exists for; do not mangle a sequence
+  diagram to fit.
+- **Keep each `<br/>` line in a node label short.** Mermaid sizes the node from
+  its own measurement; a line that then wraps is clipped by the box.
+- **Two-column tables fit a phone and three-column ones do not.** Where a
+  column is thin - a folder path, a test filename - fold it under the first
+  column with `<br>` rather than spending a column on it.
+- **Never break a code identifier to make a table fit.** `src/com|ponents|/`
+  costs the reader more than the sideways drag does, so the CSS keeps tokens
+  whole and lets the table scroll inside itself; the page itself must never
+  scroll sideways at any width.
+- **A new surface inside the docs must claim Escape in the capture phase.** The
+  drawer's own handler (`theme/Layout.vue`) closes the drawer and stands down
+  only for a keypress something else has already marked handled.
+
 ## Adding a dialect
 
 Full step-by-step guide: **`docs/contributing/adding-a-dialect.md`**;

@@ -22,16 +22,16 @@ so the IDE can embed them in a drawer.
 flowchart LR
   subgraph browser ["Browser"]
     ide["Basically IDE<br/>React SPA · PWA"]
-    ls[("localStorage / sessionStorage<br/>settings · autosave · API keys · custom ROMs")]
-    idb[("IndexedDB<br/>emulator virtual filesystem")]
+    ls[("localStorage<br/>sessionStorage")]
+    idb[("IndexedDB")]
     ide <--> ls
     ide <--> idb
   end
 
-  host["Static hosting"] -->|"app · docs · ROMs"| browser
-  ide <-->|"cassette audio · image files · WebSerial"| hw["Real hardware"]
-  ide -->|"streamed chat, user's own API key"| ai["AI provider APIs"]
-  ide <-->|"publish · fetch"| share["Share API<br/>(optional, own origin)"]
+  host["Static hosting<br/>app · docs · ROMs"] --> ide
+  ide <-->|"audio · files · serial"| hw["Real hardware"]
+  ide -->|"streamed chat"| ai["AI provider APIs"]
+  ide <-->|"publish · fetch"| share["Share API<br/>(optional)"]
 ```
 
 Four things cross the network. Three are optional.
@@ -47,71 +47,32 @@ Four things cross the network. Three are optional.
 
 ```mermaid
 flowchart TB
-  subgraph presentation ["Presentation - React 18 (src/components, src/keyboard)"]
-    workspace["Workspace · Toolbar · StatusBar · dialogs"]
-    editorui["CodeMirrorHost · AsmEditor · ByteEditor · EditorTabBar"]
-    emupane["EmulatorPane"]
-    panels["AiPanel · MemoryMapPanel · VariableWatcher · DocsDrawer"]
-    vkbd["Virtual keyboard + controller (data-driven)"]
-  end
+  ui["Presentation · React 18<br/>src/components · src/keyboard"]
+  store["Application state · Zustand<br/>src/app"]
+  svc["Machine-agnostic services<br/>editor · asm · ai · reference<br/>transfer · share · player · storage · audio"]
+  seam{{"The Dialect seam<br/>src/dialects/types.ts"}}
+  mach["Per-machine code<br/>src/dialects/&lt;name&gt; · src/emulator"]
+  persist[("Browser storage<br/>localStorage · IndexedDB")]
 
-  subgraph state ["Application state - Zustand (src/app)"]
-    store["useIdeStore<br/>document · session · requests · settings"]
-    aistore["useAiStore<br/>chat thread"]
-  end
-
-  subgraph services ["Machine-agnostic services"]
-    editor["src/editor<br/>CodeMirror builders"]
-    asm["src/asm<br/>assemble / disassemble"]
-    ai["src/ai<br/>providers · prompts · merge"]
-    reference["src/reference<br/>machine reference data"]
-    transfer["src/transfer<br/>WAV · mic/speaker · WebSerial"]
-    shareapi["src/share + src/player<br/>publish · routes · compatibility"]
-    storage["src/storage<br/>settings · bundle · files · VFS"]
-    audio["src/audio<br/>Web Audio worklet"]
-  end
-
-  subgraph seam ["The Dialect seam - src/dialects/types.ts"]
-    dialect["Dialect"]
-    machine["MachineEmulator"]
-  end
-
-  subgraph machines ["Per-machine code"]
-    folders["src/dialects/&lt;name&gt;/"]
-    cores["src/emulator/<br/>in-tree machines · vendored cores · shared chips"]
-  end
-
-  presentation --> state
-  editorui --> editor
-  editorui --> asm
-  panels --> aistore --> ai
-  ai -.->|"dynamic import()"| reference
-  dialogs["Transfer · Share dialogs"] --> transfer
-  dialogs --> shareapi
-  emupane --> audio
-  editor --> dialect
-  ai --> dialect
-  transfer --> dialect
-  shareapi --> dialect
-  emupane --> machine
-  dialect -->|"createEmulator()"| machine
-  dialect --- folders
-  machine --- folders
-  folders --> cores
-  state --> storage
+  ui <--> store
+  ui --> svc
+  store --> svc
+  svc --> seam
+  seam -->|"createEmulator()"| mach
+  svc --> persist
 ```
 
-| Layer                | Folder(s)                                                                             | Responsibility                                              |
-| -------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Presentation         | `src/components/`, `src/keyboard/`                                                    | React UI shell, dialogs, virtual input                      |
-| Application state    | `src/app/`                                                                            | Single store, request counters, run loop helpers, profiler  |
-| Language toolchain   | `src/dialects/`                                                                       | The `Dialect` seam, registry and one folder per machine     |
-| Emulation            | `src/dialects/<name>/emulator/`, `src/emulator/`                                      | Machines, vendored CPU cores, shared chips                  |
-| Assembler            | `src/asm/`                                                                            | Paired assembler/disassembler engines per CPU               |
-| Editor services      | `src/editor/`                                                                         | CodeMirror language, completion, lint and analysis builders |
-| Reference data       | `src/reference/`                                                                      | Structured machine reference shared by the docs and the AI  |
-| Integration services | `src/ai/`, `src/transfer/`, `src/share/`, `src/player/`, `src/audio/`, `src/storage/` | AI, hardware transfer, sharing, sound, persistence          |
-| Headless toolchain   | `src/cli/`, `src/dialects/headless/`, `scripts/basically`                             | The same toolchain outside the browser                      |
+| Layer                                                                                                                  | Responsibility                                              |
+| ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Presentation**<br>`src/components/` · `src/keyboard/`                                                                | React UI shell, dialogs, virtual input                      |
+| **Application state**<br>`src/app/`                                                                                    | Single store, request counters, run loop helpers, profiler  |
+| **Language toolchain**<br>`src/dialects/`                                                                              | The `Dialect` seam, registry and one folder per machine     |
+| **Emulation**<br>`src/dialects/<name>/emulator/` · `src/emulator/`                                                     | Machines, vendored CPU cores, shared chips                  |
+| **Assembler**<br>`src/asm/`                                                                                            | Paired assembler/disassembler engines per CPU               |
+| **Editor services**<br>`src/editor/`                                                                                   | CodeMirror language, completion, lint and analysis builders |
+| **Reference data**<br>`src/reference/`                                                                                 | Structured machine reference shared by the docs and the AI  |
+| **Integration services**<br>`src/ai/` · `src/transfer/` · `src/share/` · `src/player/` · `src/audio/` · `src/storage/` | AI, hardware transfer, sharing, sound, persistence          |
+| **Headless toolchain**<br>`src/cli/` · `src/dialects/headless/` · `scripts/basically`                                  | The same toolchain outside the browser                      |
 
 ### Presentation layer
 
@@ -156,7 +117,7 @@ counter reacts. `stopRequest`, `pauseRequest`, `resetRequest`, `stepRequest`,
 the same shape. Modules stay decoupled and the state stays serialisable.
 
 ```mermaid
-flowchart LR
+flowchart TB
   src["Toolbar · shortcut · AI panel"] -->|"requestRun() bumps runRequest"| store[("useIdeStore")]
   store -->|"useEffect keyed on runRequest"| ep["EmulatorPane"]
   ep -->|"emulatorStatus · liveMemory · runOutcome"| store
@@ -168,15 +129,15 @@ flowchart LR
 `getDialect(id)` throws on an unknown id; `findDialect(id)` returns
 `undefined`. Each dialect folder implements one interface:
 
-| Group        | Members                                                                                                                                                                       | Purpose                                                                             |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Identity     | `id`, `name`, `manufacturer`, `year`, `basicDialect`, `basicFamily`, `blurb`, `docsReference`                                                                                 | The machine picker, sorting and search, the docs page it shares                     |
-| Text ⇄ bytes | `tokenize`, `detokenize`, `detokenizeWithReport`, `lint`, `charset`, `crunched`, `statementSeparator`                                                                         | Editor text to a loadable image and back; errors as `TokenizeError[]`, never thrown |
-| Editor feed  | `keywords`, `operators`, `languageSupport()`, `completionSource`, `unnumberedLineKey`                                                                                         | Highlighting, completion, line handling                                             |
-| Hardware I/O | `buildTargets`, `binaryImports`, `audio`, `fileExtensions`                                                                                                                    | Native image export and import, cassette encode/decode                              |
-| Memory       | `memoryMap`, `memoryBlocks`, `addressNotation`, `memoryWrites`, `memoryReads`, `programRamBytes`                                                                              | What the memory-map viewer draws; where blocks may live; the RAM budget             |
-| Machine      | `createEmulator()`, `romUrl`, `romBytes`, `displaySize`, `displayControls`, `keyboardLayout`, `joystickModes`, `joystickFireButtons`, `capturesDataFiles`, `unwrapStoredFile` | The emulator and what the UI feature-detects on                                     |
-| Assistant    | `aiProfile`, `samples`                                                                                                                                                        | The machine-specific prompt; bundled programs                                       |
+| Group, and what it is for                                                                               | Members                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Identity**<br>The machine picker, sorting and search, the docs page it shares                         | `id`, `name`, `manufacturer`, `year`, `basicDialect`, `basicFamily`, `blurb`, `docsReference`                                                                                 |
+| **Text ⇄ bytes**<br>Editor text to a loadable image and back; errors as `TokenizeError[]`, never thrown | `tokenize`, `detokenize`, `detokenizeWithReport`, `lint`, `charset`, `crunched`, `statementSeparator`                                                                         |
+| **Editor feed**<br>Highlighting, completion, line handling                                              | `keywords`, `operators`, `languageSupport()`, `completionSource`, `unnumberedLineKey`                                                                                         |
+| **Hardware I/O**<br>Native image export and import, cassette encode/decode                              | `buildTargets`, `binaryImports`, `audio`, `fileExtensions`                                                                                                                    |
+| **Memory**<br>What the memory-map viewer draws; where blocks may live; the RAM budget                   | `memoryMap`, `memoryBlocks`, `addressNotation`, `memoryWrites`, `memoryReads`, `programRamBytes`                                                                              |
+| **Machine**<br>The emulator and what the UI feature-detects on                                          | `createEmulator()`, `romUrl`, `romBytes`, `displaySize`, `displayControls`, `keyboardLayout`, `joystickModes`, `joystickFireButtons`, `capturesDataFiles`, `unwrapStoredFile` |
+| **Assistant**<br>The machine-specific prompt; bundled programs                                          | `aiProfile`, `samples`                                                                                                                                                        |
 
 Capability flags are optional on the type and the UI feature-detects on them:
 `romUrl` is absent for a machine that needs no ROM, `debuggable` gates the
@@ -220,15 +181,15 @@ Optional on the type is not optional in practice. Registry-driven tests under
 excused, the test's own table names it and the hardware reason, so an absence
 is a decision somebody wrote down.
 
-| Obligation                          | Test                       | Notes                                                                                                                                                                                          |
-| ----------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Report whether a program is running | `programRunState.test.ts`  | A program that terminates must report `true` then `false` within bounded frames. Machines without a ROM cell for it latch the address where BASIC gives up (`src/emulator/programEndLatch.ts`) |
-| Screen readable as text             | `screenReadable.test.ts`   | No excuses table; every registered machine implements `readScreenText()`                                                                                                                       |
-| Memory-activity tap                 | `memoryActivity.test.ts`   | Needs a non-recording read (`peek` / `rawReadWord`) beside the CPU's read, so the IDE's own polling is not painted as program activity                                                         |
-| BASIC pointers for the RAM budget   | `programRamBudget.test.ts` | `readMemoryStats()`                                                                                                                                                                            |
-| Debugger pair                       | `debugCapability.test.ts`  | `currentLine()` + `debugStep()`                                                                                                                                                                |
-| Per-line profile                    | `lineProfiling.test.ts`    | Always-on, charged in the machine's own cycles (`src/emulator/lineCostRecorder.ts`)                                                                                                            |
-| A debug slice equals a frame        | `debugEquivalence.test.ts` | See below                                                                                                                                                                                      |
+| Obligation, and the test that holds every machine to it              | Notes                                                                                                                                                                                          |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Report whether a program is running**<br>`programRunState.test.ts` | A program that terminates must report `true` then `false` within bounded frames. Machines without a ROM cell for it latch the address where BASIC gives up (`src/emulator/programEndLatch.ts`) |
+| **Screen readable as text**<br>`screenReadable.test.ts`              | No excuses table; every registered machine implements `readScreenText()`                                                                                                                       |
+| **Memory-activity tap**<br>`memoryActivity.test.ts`                  | Needs a non-recording read (`peek` / `rawReadWord`) beside the CPU's read, so the IDE's own polling is not painted as program activity                                                         |
+| **BASIC pointers for the RAM budget**<br>`programRamBudget.test.ts`  | `readMemoryStats()`                                                                                                                                                                            |
+| **Debugger pair**<br>`debugCapability.test.ts`                       | `currentLine()` + `debugStep()`                                                                                                                                                                |
+| **Per-line profile**<br>`lineProfiling.test.ts`                      | Always-on, charged in the machine's own cycles (`src/emulator/lineCostRecorder.ts`)                                                                                                            |
+| **A debug slice equals a frame**<br>`debugEquivalence.test.ts`       | See below                                                                                                                                                                                      |
 
 **A debug slice is a frame.** A debug session opens on an ordinary press of
 Play, so `debugStep()` is how most machines are usually run. Everything
@@ -242,13 +203,13 @@ loop, with the reason written at its `runFrame`.
 
 #### Where machine code lives
 
-| Pattern                                    | Location                                    | Example                                                                |
-| ------------------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------- |
-| Self-contained machine over a vendored CPU | `src/dialects/<name>/emulator/`             | The Sinclair machines over `src/emulator/z80/`                         |
-| In-tree machine with its own chipset       | `src/emulator/<name>/`                      | `src/emulator/cpc/` (gate array, CRTC, PPI)                            |
-| Adapter around a third-party core          | `src/emulator/<name>/`                      | `src/emulator/bbc/` around jsbeeb; `src/emulator/c64/` around viciious |
-| Interpreter, no CPU or ROM                 | `src/dialects/<name>/interpreter/`          | The TRS-80 Level II and Dartmouth backends                             |
-| Shared chips and helpers                   | `src/emulator/<chip>/`, `src/emulator/*.ts` | `ay/` (AY-3-8912), `i8080/`, `commodore/`, `microsoftBasicVars.ts`     |
+| Pattern, and where it lives                                                       | Example                                                                |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Self-contained machine over a vendored CPU**<br>`src/dialects/<name>/emulator/` | The Sinclair machines over `src/emulator/z80/`                         |
+| **In-tree machine with its own chipset**<br>`src/emulator/<name>/`                | `src/emulator/cpc/` (gate array, CRTC, PPI)                            |
+| **Adapter around a third-party core**<br>`src/emulator/<name>/`                   | `src/emulator/bbc/` around jsbeeb; `src/emulator/c64/` around viciious |
+| **Interpreter, no CPU or ROM**<br>`src/dialects/<name>/interpreter/`              | The TRS-80 Level II and Dartmouth backends                             |
+| **Shared chips and helpers**<br>`src/emulator/<chip>/`, `src/emulator/*.ts`       | `ay/` (AY-3-8912), `i8080/`, `commodore/`, `microsoftBasicVars.ts`     |
 
 Vendored cores (`src/emulator/z80/`, `src/emulator/6502/cpu6502.js`,
 `src/emulator/c64/viciious/`, the jsbeeb package) are third-party and never
@@ -260,13 +221,13 @@ What each core does not model, and what the adapter makes up for. A machine
 built on one of these inherits its limits, which is the effort estimate behind
 [the roadmap](/contributing/dialect-roadmap#bundled-cores).
 
-| Core                      | Gap                                                                                                                                                       | Adapter-side fix                                                                                                                                                                                                    |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Z80**                   | Reports total T-states per instruction, not when each bus access happened. No floating bus.                                                               | The Spectrums charge ULA contention against a believed CPU position, re-synced at each instruction boundary (`src/dialects/zxspectrum/emulator/ulaContention.ts`). A raster sync reading port `0xFF` will not work. |
-| **Z80 as 8080**           | The 8080 fills P with parity where the Z80 uses overflow, and applies `DAA` as for an addition.                                                           | `src/emulator/i8080/` restores both. Any 8080 machine uses it rather than repeating the tables.                                                                                                                     |
-| **viciious**              | Public-domain subset of upstream `69f0dc6`, PAL only, no sprite DMA, ~40 upstream `TODO`s. Fetches the character matrix on a bad line but never pulls BA. | `src/emulator/c64/badLines.ts` models the arbitration and `c64Machine.ts` withholds the CPU tick on the cycles the chip owns. `index.d.ts` is repo-authored.                                                        |
-| **jsbeeb**                | Its model table carries only the models it ships. Machines it lacks are blocked upstream, not merely expensive.                                           | None.                                                                                                                                                                                                               |
-| **Auto-`RUN` after load** | OS keyboard-buffer addresses differ between OS versions, and power-on timing differs between models.                                                      | Machines type `RUN` through the key matrix, which is OS-version independent.                                                                                                                                        |
+| Core                      | What it does not model, and what the adapter does about it                                                                                                                                                                                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Z80**                   | Reports total T-states per instruction, not when each bus access happened, and has no floating bus. The Spectrums charge ULA contention against a believed CPU position, re-synced at each instruction boundary (`src/dialects/zxspectrum/emulator/ulaContention.ts`). A raster sync reading port `0xFF` will not work.          |
+| **Z80 as 8080**           | The 8080 fills P with parity where the Z80 uses overflow, and applies `DAA` as for an addition. `src/emulator/i8080/` restores both, and any 8080 machine uses it rather than repeating the tables.                                                                                                                              |
+| **viciious**              | Public-domain subset of upstream `69f0dc6`, PAL only, no sprite DMA, ~40 upstream `TODO`s. It fetches the character matrix on a bad line but never pulls BA, so `src/emulator/c64/badLines.ts` models the arbitration and `c64Machine.ts` withholds the CPU tick on the cycles the chip owns. Its `index.d.ts` is repo-authored. |
+| **jsbeeb**                | Its model table carries only the models it ships, so machines it lacks are blocked upstream rather than merely expensive. Nothing to make up for.                                                                                                                                                                                |
+| **Auto-`RUN` after load** | OS keyboard-buffer addresses differ between OS versions, and power-on timing differs between models. Machines type `RUN` through the key matrix instead, which is OS-version independent.                                                                                                                                        |
 
 ### Assembler layer
 
@@ -307,15 +268,15 @@ pin all of it to the real dialects.
 
 ```mermaid
 flowchart LR
-  ref["src/reference/<br/>tables · rules · porting advice · compare.ts"]
-  docs["Docs site<br/>reference + comparison pages"]
-  md["machineDescription.ts<br/>what the machine is<br/>(system prompt, cached)"]
+  ref["src/reference/<br/>tables · rules<br/>porting advice"]
+  docs["Docs site<br/>reference pages"]
+  md["machineDescription.ts<br/>what the machine is<br/>(cached system prompt)"]
   pd["portDescription.ts<br/>what this port needs<br/>(user turn)"]
   ai["AI assistant"]
   ref --> docs
   ref --> md --> ai
   ref --> pd --> ai
-  ai -.->|"dynamic import() only<br/>(ESLint-enforced)"| ref
+  ai -.->|"dynamic import()<br/>ESLint-enforced"| ref
 ```
 
 Two consumers, by design. The docs render it; the AI assistant composes it into
@@ -340,13 +301,13 @@ because their caller is a click that must still do what it can.
 
 ### Integration services
 
-| Service              | Folder                      | Contents                                                                                                                                                                                                                                                          |
-| -------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI**               | `src/ai/`                   | Provider registry with lazy-loaded SDK backends; `aiClient.ts` exposes one `streamChat()`; prompt builder; code extractor and merger                                                                                                                              |
-| **Transfer**         | `src/transfer/`             | WAV packing, speaker playback and microphone capture, the CRC-checked WebSerial bridge ([protocol](/reference/serial-protocol)). Cassette codecs and image formats stay per-dialect                                                                               |
-| **Share and player** | `src/share/`, `src/player/` | `shareClient.ts` publishes and fetches; `compatibility.ts` decides which other dialects can open a program; `routes.ts` maps `/<verb>/<id>` to a machine and stays dependency-free so the share backend can bundle it; `PlayerApp.tsx` is the emulator-only shell |
-| **Emulator audio**   | `src/audio/`                | A Web Audio `AudioWorklet` ring buffer the run loop pumps `readAudio()` into                                                                                                                                                                                      |
-| **Storage**          | `src/storage/`              | Typed accessors under the `mbide.*` namespace, the `.zip` project bundle, File System Access helpers with a download fallback, custom ROM images, the virtual filesystem                                                                                          |
+| Service                                              | Contents                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI**<br>`src/ai/`                                  | Provider registry with lazy-loaded SDK backends; `aiClient.ts` exposes one `streamChat()`; prompt builder; code extractor and merger                                                                                                                              |
+| **Transfer**<br>`src/transfer/`                      | WAV packing, speaker playback and microphone capture, the CRC-checked WebSerial bridge ([protocol](/reference/serial-protocol)). Cassette codecs and image formats stay per-dialect                                                                               |
+| **Share and player**<br>`src/share/` · `src/player/` | `shareClient.ts` publishes and fetches; `compatibility.ts` decides which other dialects can open a program; `routes.ts` maps `/<verb>/<id>` to a machine and stays dependency-free so the share backend can bundle it; `PlayerApp.tsx` is the emulator-only shell |
+| **Emulator audio**<br>`src/audio/`                   | A Web Audio `AudioWorklet` ring buffer the run loop pumps `readAudio()` into                                                                                                                                                                                      |
+| **Storage**<br>`src/storage/`                        | Typed accessors under the `mbide.*` namespace, the `.zip` project bundle, File System Access helpers with a download fallback, custom ROM images, the virtual filesystem                                                                                          |
 
 `src/storage/safeStorage.ts` installs an in-memory stand-in when the browser
 blocks site data, so the app still starts. Autosave writes a per-tab
@@ -454,7 +415,7 @@ Two debounced consumers run the tokenizer as a dry run while the user types.
 No machine is involved.
 
 ```mermaid
-flowchart LR
+flowchart TB
   typing["Keystrokes in CodeMirror"] --> lint["dialectLinter<br/>(400 ms debounce)"]
   typing --> stats["useProgramStats<br/>(debounced dry run)"]
   lint -->|"dialect.lint(source)"| diags["TokenizeError[] → inline diagnostics"]
@@ -475,7 +436,7 @@ share links. Older documents spell a memory block `'data'`; the shared bundle
 parser maps it to `'memory'`.
 
 ```mermaid
-flowchart LR
+flowchart TB
   tab["Block tab (AsmEditor)"] -->|"asmEngineFor(dialect.memoryBlocks.cpu)"| eng["AsmEngine"]
   eng -->|"assemble(source, origin)"| ok{"ok?"}
   ok -->|"bytes"| blk["Block in the store"]
@@ -596,31 +557,30 @@ Transfer is two-way and funnels through the seam: the dialect owns byte formats
 and cassette codecs; `src/transfer/` owns the machine-agnostic plumbing.
 
 ```mermaid
-flowchart LR
-  editor["Editor source + memory blocks"]
+flowchart TB
+  editor["Editor source<br/>+ memory blocks"]
 
   subgraph export ["Export: IDE → machine"]
-    build["dialect.buildTargets[].build()"]
-    enc["dialect.audio.buildSamples()"]
-    imgfile["native image file"]
-    wav["samplesToWav → .wav download"]
-    speaker["audioPlayer → speakers → EAR port"]
-    serial["webserial: CRC-checked bridge protocol"]
+    direction TB
+    build["buildTargets[].build()"]
+    enc["audio.buildSamples()"]
+    out["native image file<br/>· serial bridge"]
+    wav[".wav download<br/>· speaker → EAR port"]
+    build --> out
+    enc --> wav
   end
 
   subgraph import ["Import: machine → IDE"]
-    binfile["existing image file"]
-    mic["audioRecorder: mic capture or dropped .wav"]
-    dec["dialect.audio.decodeSamples()"]
-    detok["dialect.detokenizeWithReport()"]
+    direction TB
+    src["image file<br/>· mic or dropped .wav"]
+    dec["audio.decodeSamples()"]
+    detok["detokenizeWithReport()"]
+    src --> dec --> detok
   end
 
-  editor --> build --> imgfile
-  build --> serial
-  editor --> enc --> wav
-  enc --> speaker
-  binfile --> detok --> editor
-  mic --> dec --> detok
+  editor --> build
+  editor --> enc
+  detok --> editor
 ```
 
 Import is not always lossless. `detokenizeWithReport()` returns the recovered
@@ -660,12 +620,12 @@ verb plus a valid id falls through to the IDE.
 
 ### Persistence
 
-| Store                      | Holds                                                                                                                               | Written                                                      |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `localStorage` (`mbide.*`) | Settings; AI provider and per-provider API keys; custom ROM images; autosave backup                                                 | On change; ROMs on install                                   |
-| `sessionStorage` (per tab) | Autosave slot: source, name, blocks, listing-block overrides, scratch buffers, tape files, auto-start, boot disc; AI conversation   | Every 2 s while changed; conversation throttled to 1 s       |
-| IndexedDB (RxDB)           | The virtual filesystem mirror, scoped by machine and tab                                                                            | Fire-and-forget on every file mutation                       |
-| `.zip` project bundle      | `program.bas`, `blocks/<name>.bin`, `blocks/<name>.asm`, scratch buffers, `project.json` for the dialect id and fields with no file | On Save, through File System Access with a download fallback |
+| Store, and when it is written                                                             | Holds                                                                                                                               |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **`localStorage`** (`mbide.*`)<br>On change; ROMs on install                              | Settings; AI provider and per-provider API keys; custom ROM images; autosave backup                                                 |
+| **`sessionStorage`** (per tab)<br>Every 2 s while changed; conversation throttled to 1 s  | Autosave slot: source, name, blocks, listing-block overrides, scratch buffers, tape files, auto-start, boot disc; AI conversation   |
+| **IndexedDB** (RxDB)<br>Fire-and-forget on every file mutation                            | The virtual filesystem mirror, scoped by machine and tab                                                                            |
+| **`.zip` project bundle**<br>On Save, through File System Access with a download fallback | `program.bas`, `blocks/<name>.bin`, `blocks/<name>.asm`, scratch buffers, `project.json` for the dialect id and fields with no file |
 
 Autosave holds only real work: an untitled empty editor, or an untitled
 unmodified sample, is cleared rather than restored. Naming a project makes it
@@ -680,7 +640,7 @@ lint a listing, build it into the file the machine loads, or run it and report
 the screen. Only `run` needs a ROM.
 
 ```mermaid
-flowchart LR
+flowchart TB
   cli["scripts/basically<br/>(rebuilds its bundle when stale)"] --> ops["src/cli/<br/>machines · info · lint · build · run"]
   ops --> reg["src/dialects/registry.ts"]
   ops --> hl["src/dialects/headless/<br/>runListing.ts · headlessCanvas.ts"]
