@@ -231,7 +231,7 @@ export const machines: MachineChoice[] = [
     year: 1986,
     blurb: 'Sony’s MSX HitBit. Runs MSX BASIC 1.0.',
     basicDialect: 'MSX BASIC 1.0',
-    basicFamily: 'MSX BASIC 1.0',
+    basicFamily: 'MSX BASIC',
   },
   {
     id: 'trs80',

@@ -80,11 +80,16 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 
 ## Stage 2 — Emulator core ⬜
 
-- [ ] `emulator/<machine>.ts` (+ `memory.ts`, `display.ts`, `keyboard.ts`)
-      implementing `MachineEmulator` — **or** adapter under `src/emulator/<machine>/`
-      (note any new npm dependency + its license), **or** in-tree interpreter
+- [ ] the machine under `src/emulator/<machine>/` (an in-tree bus over a
+      vendored core, or an adapter over a package — note any new npm
+      dependency + its license; the home whenever siblings will share it)
+      **or** `emulator/` inside the dialect folder, **or** an in-tree
+      interpreter — implementing `MachineEmulator`
 - [ ] `reset` / `loadProgram` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
-      `releaseAllKeys` / `setSpeed` / `dispose` + `displayWidth`/`displayHeight`
+      `releaseAllKeys` / `isProgramRunning` / `dispose` + `frameHz` /
+      `displayWidth` / `displayHeight`, and `readScreenText` —
+      `screenReadable.test.ts` holds every registered machine to it, and the
+      headless verification of every later stage reads through it
 - [ ] `currentLine` / `debugStep` + `debuggable` on the dialect, and the profile
       charge — `runFrame` and `debugStep` share **one** step function, because a
       debug session opens on an ordinary press of Play (see the skill's
