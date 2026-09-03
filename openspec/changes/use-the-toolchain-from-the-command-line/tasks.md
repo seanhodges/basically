@@ -90,7 +90,7 @@
       positional `png` mode word, `--screen-text` names what was the default, and
       both may be given in one run — write the picture and report the text from the
       same run. Drop the positional `text|png` mode word entirely.
-- [x] 5.5 `git mv scripts/run-listing.sh scripts/basically.sh`, and update the
+- [x] 5.5 `git mv scripts/run-listing.sh scripts/basically`, and update the
       progress notice it prints from `[run-listing]` to `[basically]`. The
       build-when-stale mechanism and the source list it watches are unchanged; add
       `src/cli` to the watched sources so an edit there rebuilds the bundle.
@@ -119,14 +119,14 @@
       capability without browser coverage is legal.
 - [x] 7.5 By hand, with the bundle rebuilt from a clean tree, confirm each
       operation end to end and that the streams and exit codes behave:
-      `./scripts/basically.sh machines --json`;
-      `./scripts/basically.sh info zx81 --json`;
-      `./scripts/basically.sh lint <a clean listing> -m zx81` (exit 0) and a listing
+      `./scripts/basically machines --json`;
+      `./scripts/basically info zx81 --json`;
+      `./scripts/basically lint <a clean listing> -m zx81` (exit 0) and a listing
       with a real error (exit 2);
-      `./scripts/basically.sh build <listing> -m zx81 -o /tmp/prog.p`;
-      `printf '10 PRINT "HI"\n' | ./scripts/basically.sh run -m commodore64 --screen-text`;
-      `./scripts/basically.sh run <listing> -m bbcmicro --frames 500 --screenshot /tmp/bbc.png --screen-text`;
-      and `./scripts/basically.sh nonsense` (exit 1).
+      `./scripts/basically build <listing> -m zx81 -o /tmp/prog.p`;
+      `printf '10 PRINT "HI"\n' | ./scripts/basically run -m commodore64 --screen-text`;
+      `./scripts/basically run <listing> -m bbcmicro --frames 500 --screenshot /tmp/bbc.png --screen-text`;
+      and `./scripts/basically nonsense` (exit 1).
 - [x] 7.6 By hand, confirm the ROM-less promise: with `machines`, `info`, `lint` and
       `build` run against a checkout whose ROM directory is moved aside, each still
       succeeds. This is what the packaging change depends on, so it is verified here
