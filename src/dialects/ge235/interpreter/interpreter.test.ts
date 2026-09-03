@@ -192,6 +192,15 @@ describe('ge235 interpreter', () => {
     expect(output('10 PRINT 1+2*3\n20 END\n')).toBe(' 7');
   });
 
+  it('trims INT toward zero rather than flooring it', () => {
+    // The run-time negates a negative argument, takes the integer part of the
+    // mantissa and recomplements, so INT walks toward zero from both sides. The
+    // trap is INT(X+.5): it rounds for a non-negative X and trims for the rest.
+    expect(output('10 PRINT INT(2.5)\n20 END\n')).toBe(' 2');
+    expect(output('10 PRINT INT(-2.5)\n20 END\n')).toBe('-2');
+    expect(output('10 PRINT INT(-.6+.5)\n20 END\n')).toBe(' 0');
+  });
+
   it('reports the arithmetic faults the run-time reported', () => {
     const cases: [string, string][] = [
       ['1/0', 'DIVISION BY ZERO'],

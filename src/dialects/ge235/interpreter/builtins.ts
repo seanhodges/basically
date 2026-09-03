@@ -29,8 +29,11 @@ const LIBRARY: Record<string, (x: number, ctx: Ctx) => number> = {
   ATN: (x) => Math.atan(x),
   COS: (x) => Math.cos(x),
   EXP: (x) => checkNum(Math.exp(x)),
-  // The greatest integer not above x, so INT(-2.5) is -3 and not -2.
-  INT: (x) => Math.floor(x),
+  // The integer part, trimmed toward zero, so INT(-2.5) is -2 and not -3: the
+  // run-time negates a negative argument, truncates the mantissa and then
+  // recomplements the result. A true floor is a later change, and it is what
+  // makes INT(X+.5) round only for a non-negative X.
+  INT: (x) => Math.trunc(x),
   LOG: (x) => {
     if (x === 0) throw new BasicError('LOG_OF_ZERO');
     if (x < 0) throw new BasicError('LOG_OF_NEGATIVE');
