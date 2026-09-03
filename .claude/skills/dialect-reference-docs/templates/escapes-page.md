@@ -11,6 +11,9 @@ Rules:
   contexts recognise escapes (strings/REM/DATA/expressions), any parse-only
   alias families, and always the closing sentence about ?q=/?cat= prefill.
 - Keep the "See also" lines in exactly this form.
+- Where the machine needs more than the intro paragraph can hold, use "##"
+  sections and put them ABOVE the table, as the BBC page does - never below it,
+  and never as one long undifferentiated paragraph.
 - Delete this comment block from the generated page.
 -->
 

@@ -20,7 +20,21 @@ Rules:
   machine has but the dialect doesn't implement is stated as such — never
   claimed, never omitted.
 - Second and later machines describe deltas and refer to the first machine's
-  sections (link "#memory") for what is identical.
+  sections for what is identical.
+- A machine may add a heading its own hardware needs - Timing, Joystick,
+  Storage - but only between Sound and Memory, so the shared five stay where a
+  reader comparing two machines expects them.
+- On a page with more than one machine EVERY repeated heading carries an
+  explicit machine-scoped anchor ("### Memory {#cpc464-memory}"), and links use
+  those. Never link a VitePress-numbered duplicate (#memory-1): it is valid and
+  wrong, it lands on the first machine on the page, and inserting a machine
+  ahead of it renumbers every other link silently. This is what
+  src/reference/page-structure.test.ts checks.
+- Where the machine has an emulation gap, state it in the section it belongs
+  to, in the shape the existing pages use ("... which this dialect does not yet
+  implement, so there are no sound commands here"). Where the audit found no
+  gap, say so in one sentence rather than leaving silence, which a reader
+  cannot tell from an omission.
 - Link depth from this sub-directory: ../<page>, ./escapes, ../file-formats,
   ../z80-assembly or ../6502-assembly, ../../guide/machine-code.
 - Delete this comment block from the generated page.
