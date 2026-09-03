@@ -51,6 +51,19 @@ await build({
   // The app is served from the site root, so this is the base every dialect's
   // `romUrl` is built from; the ROM loader only reads the `roms/...` tail.
   define: { 'import.meta.env': JSON.stringify({ BASE_URL: '/' }) },
+  // jsbeeb's `utils_atom.js` picks a keyboard layout at module scope and probes
+  // for a stored one with `typeof localStorage`. Node exposes `localStorage` as
+  // a getter that emits an ExperimentalWarning unless `--localstorage-file` was
+  // passed, and `typeof` reads it - so the probe correctly finds nothing and
+  // warns on every run anyway. Put a plain `undefined`, the value that getter
+  // returns, in its place, so there is no getter left to trip. Writable and
+  // configurable because Node's own property has a setter, and code that
+  // assigns a storage of its own expects that to keep working. This runs ahead
+  // of the bundle body; the only declarations hoisted above it are node
+  // builtins, none of which touch web storage.
+  banner: {
+    js: "Object.defineProperty(globalThis, 'localStorage', { value: undefined, writable: true, configurable: true });",
+  },
   plugins: [rawImports],
   // esbuild's own info line names the file it wrote and how big it is.
   logLevel: 'info',

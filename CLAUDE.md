@@ -72,6 +72,7 @@ npm run e2e:report     # open the last Playwright HTML report
 ./scripts/basically build prog.bas -m zx81 -o /tmp/prog.p
 printf '10 PRINT "HI"\n' | ./scripts/basically run -m commodore64
 ./scripts/basically run prog.bas -m bbcmicro --screenshot /tmp/bbc.png --screen-text
+scripts\basically.cmd machines                     # the same tool from cmd.exe or PowerShell
 
 npm run typecheck      # fast type check (tsc -b, no bundle)
 npm run lint           # ESLint

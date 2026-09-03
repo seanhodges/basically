@@ -1,0 +1,4 @@
+# cmd.exe mis-parses a batch file that is missing its carriage returns,
+# so these are stored and checked out with CRLF whatever the platform.
+*.cmd text eol=crlf
+*.bat text eol=crlf

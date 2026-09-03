@@ -637,11 +637,12 @@ agree on one shape. Opening accepts the bundle, the older `.bproj`, or plain
 
 `scripts/basically` runs the same toolchain under Node: describe a machine,
 lint a listing, build it into the file the machine loads, or run it and report
-the screen. Only `run` needs a ROM.
+the screen. Only `run` needs a ROM. `scripts/basically.cmd` is the same entry
+point for cmd.exe and PowerShell, and has to stay in step with it.
 
 ```mermaid
 flowchart TB
-  cli["scripts/basically<br/>(rebuilds its bundle when stale)"] --> ops["src/cli/<br/>machines · info · lint · build · run"]
+  cli["scripts/basically · .cmd<br/>(rebuilds its bundle when stale)"] --> ops["src/cli/<br/>machines · info · lint · build · run"]
   ops --> reg["src/dialects/registry.ts"]
   ops --> hl["src/dialects/headless/<br/>runListing.ts · headlessCanvas.ts"]
   hl --> seam["Dialect → MachineEmulator"]
