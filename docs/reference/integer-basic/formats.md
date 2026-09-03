@@ -66,7 +66,7 @@ Reading a tape back is the same two ranges with `R` in place of `W`, in the same
 order. There is no name, no length field, no checksum and no directory: an ACI
 tape is a memory range, and the person holding it is expected to know which.
 
-### Cassette audio
+### Cassette audio {#apple-i-cassette-audio}
 
 The Apple I exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import — listening on the mic / line-in, or decoding a `.wav`
@@ -137,7 +137,7 @@ Importing a file whose two-byte header does not describe the rest of it is not
 refused: the whole file is read as program text instead and the import says so,
 so a truncated tape still shows what it held.
 
-### Cassette audio
+### Cassette audio {#apple-ii-cassette-audio}
 
 The Apple II exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import — listening on the mic or line-in, or decoding a `.wav`

@@ -81,37 +81,49 @@ reference page:
 
 - [Sinclair BASIC escape codes](./sinclair/escapes) — the ZX81's
   (zxtext2p-compatible where practical) and the Spectrums' (48K & 128K)
-- [ZX80 escape codes](./zx80/escapes)
+- [ZX80 escape codes](./zx80/escapes) — the ZX81's spellings, remapped
 - [BBC escape codes](./bbc/escapes) (Micro & Master, teletext names)
-- [Commodore 64 escape codes](./commodore/escapes) (petcat-interoperable)
+- [Commodore PETSCII escape codes](./commodore/escapes) (petcat-interoperable)
 - [TRS-80 escape codes](./trs80/escapes)
 - [Acorn Atom escape codes](./atom/escapes)
+- [Amstrad CPC escape codes](./cpc/escapes) — the firmware's text VDU controls
+- [Altair 8800 escape codes](./altair8800/escapes) — raw `{0xNN}` only; a serial
+  terminal has no display to control
+- [PMD 85 escape codes](./pmd85/escapes) — raw `{0xNN}` only
+- [Integer BASIC escape codes](./integer-basic/escapes) — the Apple I's and the
+  Apple II's, badged per machine
+- [Applesoft BASIC escape codes](./applesoft/escapes) — `{INV<c>}` and
+  `{FLASH<c>}` for the video modes
+- [Atari escape codes](./atari/escapes) — the fourteen ATASCII cursor and screen
+  controls
 - [MSX escape codes](./msx/escapes)
 - [SAM Coupé escape codes](./samcoupe/escapes)
+- [GE-235 escape codes](./dartmouth/escapes) — seven codes, written `{0oNN}` in
+  octal
 
 ## Native binary formats
 
-| Dialect            | Export                 | Import                 | What it is                                                                 |
-| ------------------ | ---------------------- | ---------------------- | -------------------------------------------------------------------------- |
-| ZX81               | `.P`                   | `.P`                   | RAM dump 0x4009 → E_LINE-1                                                 |
-| ZX80               | `.O`                   | `.O`                   | RAM dump 0x4000 → E_LINE-1                                                 |
-| ZX Spectrum / 128  | `.TAP`                 | `.TAP`                 | header + data tape blocks                                                  |
-| BBC Micro / Master | `.bbc`, `.ssd`         | `.bbc`, `.ssd`         | tokenized program from PAGE; `.ssd` disc adds code/data blocks             |
-| Commodore 64       | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $0801                                |
-| Commodore VIC-20   | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $1001                                |
-| Commodore PET      | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $0401                                |
-| TRS-80             | `.cas`, `.dsk`         | `.cas`, `.dsk`         | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks             |
-| Acorn Atom         | `.atm`, `.dsk`         | `.atm`, `.dsk`         | 22-byte header + `#2900` image; `.dsk` disc adds code blocks               |
-| Amstrad CPC        | `.bas`, `.cdt`         | `.bas`, `.cdt`         | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape         |
-| MITS Altair 8800   | `.bin`                 | `.bin`                 | `CSAVE` image: three `0xD3` markers, a one-character name, program         |
-| Tesla PMD 85       | `.ptp`, `.pmd`         | `.ptp`, `.pmd`         | header + body tape blocks; `.ptp` puts a length in front of each           |
-| Apple I            | `.bin`                 | `.bin`                 | cassette dump: the zero-page housekeeping block, then the workspace        |
-| Apple II           | `.bin`                 | `.bin`                 | cassette record: the two-byte program length, then the program text        |
-| Apple II Plus      | `.bin`                 | `.bin`                 | tokenized program from $0801; the tape puts a header record in front of it |
-| Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records |
-| Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks      |
-| MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read             |
-| GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a plain-ASCII paper tape                  |
+| Dialect            | Export                 | Import                 | What it is                                                                                        |
+| ------------------ | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
+| ZX81               | `.P`                   | `.P`                   | RAM dump 0x4009 → E_LINE-1                                                                        |
+| ZX80               | `.O`                   | `.O`                   | RAM dump 0x4000 → E_LINE-1                                                                        |
+| ZX Spectrum / 128  | `.TAP`                 | `.TAP`                 | header + data tape blocks                                                                         |
+| BBC Micro / Master | `.bbc`, `.ssd`         | `.bbc`, `.ssd`         | tokenized program from PAGE; `.ssd` disc adds code/data blocks                                    |
+| Commodore 64       | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $0801                                                       |
+| Commodore VIC-20   | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $1001                                                       |
+| Commodore PET      | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $0401                                                       |
+| TRS-80             | `.cas`, `.dsk`         | `.cas`, `.dsk`         | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks                                    |
+| Acorn Atom         | `.atm`, `.dsk`         | `.atm`, `.dsk`         | 22-byte header + `#2900` image; `.dsk` disc adds code blocks                                      |
+| Amstrad CPC        | `.bas`, `.cdt`         | `.bas`, `.cdt`         | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape                                |
+| MITS Altair 8800   | `.bin`, `.txt`         | `.bin`, `.txt`         | `CSAVE` image: three `0xD3` markers, a one-character name, program; `.txt` the paper-tape listing |
+| Tesla PMD 85       | `.ptp`, `.pmd`         | `.ptp`, `.pmd`         | header + body tape blocks; `.ptp` puts a length in front of each                                  |
+| Apple I            | `.bin`                 | `.bin`                 | cassette dump: the zero-page housekeeping block, then the workspace                               |
+| Apple II           | `.bin`                 | `.bin`                 | cassette record: the two-byte program length, then the program text                               |
+| Apple II Plus      | `.bin`                 | `.bin`                 | tokenized program from $0801; the tape puts a header record in front of it                        |
+| Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records                        |
+| Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks                             |
+| MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read                                    |
+| GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a plain-ASCII paper tape                                         |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -221,10 +233,10 @@ is immune to playback / clock speed drift, resampling and sample-rate mismatch.
 Each machine's tape encoding is described in the **Cassette audio** section of
 its format page:
 
-- [ZX81](./sinclair/formats#cassette-audio) / [ZX80](./zx80/formats#cassette-audio) —
+- [ZX81](./sinclair/formats#zx81-cassette-audio) / [ZX80](./zx80/formats#cassette-audio) —
   bytes MSB-first, 4/9-pulse bits; the ZX81 prefixes a program-name header, the
   ZX80 has no named files.
-- [ZX Spectrum / 128](./sinclair/formats#cassette-audio) — the standard ROM
+- [ZX Spectrum / 128](./sinclair/formats#spectrum-cassette-audio) — the standard ROM
   tape format, derived from the same two blocks the `.TAP` export uses.
 - [BBC Micro / Master](./bbc/formats#cassette-audio) — the cassette filing
   system (CFS) over Kansas City Standard FSK at 1200 baud.
@@ -235,14 +247,22 @@ its format page:
   scheme.
 - [Acorn Atom](./atom/formats#cassette-audio) — the Acorn cassette filing system
   over Kansas City Standard FSK at 300 baud.
+- [Amstrad CPC](./cpc/formats#cassette-audio) — the firmware scheme: pilot tone,
+  sync bit, then CRC'd segments MSB-first at 2000 baud.
+- [Sony HB-10P](./msx/formats#cassette-audio) — Kansas City Standard at 1200
+  baud, with the MSX's own byte framing.
+- [SAM Coupé](./samcoupe/formats#cassette-audio) — the Spectrum's two-pulse
+  scheme, on a timing the ROM builds from a delay loop.
+- [Atari 800 / 400](./atari/formats#cassette-audio) — plain FSK at 600 baud off
+  POKEY's clock, 5327 Hz a mark and 3995 Hz a space.
 - [Altair 8800](./altair8800/formats#cassette-audio) — the MITS 88-ACR board's
   own FSK, 2400 Hz against 1850 Hz at 300 baud rather than Kansas City Standard.
 - [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
   whose phase carries the bit, eleven bit periods to a byte.
-- [Apple I](./integer-basic/formats#cassette-audio) — the cassette card's square wave,
+- [Apple I](./integer-basic/formats#apple-i-cassette-audio) — the cassette card's square wave,
   where a bit's duration is its value: a 2 kHz cycle for a zero, 1 kHz for a
   one, behind ten seconds of leader per memory range.
-- [Apple II](./integer-basic/formats#cassette-audio) — the same square wave from the
+- [Apple II](./integer-basic/formats#apple-ii-cassette-audio) — the same square wave from the
   ROM rather than a card, with a checksum byte closing each record: the program
   goes out as two records, its length and then its text.
 - [Apple II Plus](./applesoft/formats#cassette-audio) — the same ROM routine

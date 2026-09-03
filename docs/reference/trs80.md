@@ -36,8 +36,8 @@ Every command, function and operator in TRS-80 Level II BASIC.
 
 ## What this machine does not run
 
-The TRS-80 runs on a BASIC interpreter rather than an emulated CPU, a few
-keywords are accepted but not currently supported in the emulator:
+The TRS-80 runs on a BASIC interpreter rather than an emulated CPU, so a few
+keywords are accepted but do nothing:
 
 - **Error trapping** — `ON ERROR GOTO`, `RESUME` and `ERROR` do not take effect,
   and `ERL`/`ERR` read as zero. A runtime error stops the program and is
