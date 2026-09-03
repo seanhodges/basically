@@ -109,7 +109,10 @@ program can hold.
 The machine's players and missiles — hardware sprites — are not reachable from
 BASIC: there is no keyword for them, and driving them means `POKE`ing GTIA and
 handing it a page of RAM. That is machine-code work, and the
-[memory](#atari800-memory) section below is where a routine to do it goes.
+[memory](#atari800-memory) section below is where a routine to do it goes. The
+hardware is here: ANTIC fetches player and missile graphics each scanline and
+GTIA draws them, so a routine that sets `PMBASE` and enables the DMA gets
+sprites on screen.
 
 ### Sound {#atari800-sound}
 
@@ -129,6 +132,26 @@ and the BREAK key do not, so a program halted mid-note keeps sounding it.
 
 The console buzzer is separate from POKEY: printing the `{bell}` escape clicks
 the speaker directly, through whatever the four voices are doing.
+
+### Timing {#atari800-timing}
+
+The machine here is a **PAL** one: a 1.7734 MHz 6502 over 312 scanlines of 114
+cycles each, `PEEK(53268)` answering 1. A program written for a 60 Hz NTSC
+Atari — 262 lines, and a different colour clock — runs, but anything timed
+against the frame runs slow, and its colours come out of a different palette.
+
+ANTIC and the processor share one bus, so every byte the chip fetches is a cycle
+the program does not get: the display list, the playfield, the players and
+missiles, and nine cycles of memory refresh whatever else is happening. The
+playfield is the large term, and the text modes are the expensive ones — a
+character mode fetches a row of the font on every scanline. `GRAPHICS 0` costs
+roughly a third of the frame, which is why a delay loop is worth timing rather
+than calculating.
+
+Those stolen cycles are taken off the front of each scanline here rather than
+spread through it as the chip really takes them. The count per line is right, so
+anything measured in whole lines or frames matches the machine; a routine timed
+to a handful of cycles within one scanline does not.
 
 ### Memory {#atari800-memory}
 
@@ -201,6 +224,11 @@ keys, but the graphics characters it types are the same ATASCII codes.
 ### Sound {#atari400-sound}
 
 Identical to the 800 — the same POKEY and the same four-voice `SOUND`.
+
+### Timing {#atari400-timing}
+
+Identical to the [800](#atari800-timing) — the same PAL ANTIC and the same
+cycle-stealing.
 
 ### Memory {#atari400-memory}
 

@@ -99,11 +99,13 @@ Every mnemonic, directive and operand form the assembly editor accepts is in the
 
 The Master offers the Micro's `MODE 0`–`7` and adds the shadow modes 128–135,
 which keep the screen in separate shadow RAM so a program loses no main memory
-to the display.
+to the display. The shadow modes work here as they do on the machine: `MODE 128`
+leaves `HIMEM` at `&8000` where `MODE 0` drops it to `&3000`.
 
 ### Colour {#bbcmaster-colour}
 
-As on the Micro; the Master's `COLOUR` can also redefine the palette directly.
+Identical to the [Micro](#bbcmicro-colour) — the same eight colours, the same
+`COLOUR`/`GCOL`, and `VDU 19` to remap a logical colour.
 
 ### Graphics {#bbcmaster-graphics}
 

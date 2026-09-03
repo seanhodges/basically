@@ -41,6 +41,15 @@ The SID chip plays three independent voices, but BASIC V2 has no sound
 keywords: music is made by POKEing the SID registers at 54272 ($D400), with the
 master volume at 54296.
 
+The SID here is a synthesised approximation, not a model of the 6581. Tones,
+noise, the pulse width and the ADSR envelopes all play; four things do not. The
+**filter is ignored** — the mode, cutoff and resonance at $D418 and $D415–$D417
+change nothing, so a program that filters a bright waveform down to a soft one
+just sounds bright. Ring modulation and hard sync are ignored. Setting more than
+one waveform bit picks a single waveform by priority rather than AND-ing them as
+the chip does. And the noise is a generic shift register, not the SID's own tap
+layout, so it is the right character but not the same sound.
+
 ### Timing {#c64-timing}
 
 The C64 here is a PAL machine: 312 raster lines of 63 processor cycles each,

@@ -98,6 +98,11 @@ the same cell clash — the classic Spectrum attribute clash. `ATTR` reads a
 cell's attribute byte back; `INVERSE` and `OVER` modify how following output is
 drawn.
 
+The screen here is the 256 × 192 active display and nothing around it, so
+**`BORDER` sets a colour that is not drawn**. It still stores and reads back as
+it does on the machine, and a program that uses the border for a loading
+stripe or a timing flash runs — the flash is simply not visible.
+
 ### Graphics {#spectrum48-graphics}
 
 `PLOT <x>, <y>` sets a pixel — x runs 0–255 and y 0–175 from the bottom-left.

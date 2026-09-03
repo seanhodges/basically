@@ -31,7 +31,8 @@ detection. The same sextant patterns can be printed directly as characters
 ### Sound
 
 The Model I has no sound hardware — games that made sound pulsed the cassette
-output port (`OUT 255, <byte>`) into an external amplifier.
+output port (`OUT 255, <byte>`) into an external amplifier. `OUT` is accepted
+here and does nothing, so nothing is audible.
 
 ### Memory
 
@@ -39,6 +40,20 @@ A TRS-80 program can carry fixed-address machine code or data — **memory
 blocks** — that load into RAM alongside the BASIC program before it runs. On the
 TRS-80 a block may sit from **0x4000 to 0x7FFF**; new blocks default to
 **0x7000**, high in RAM clear of a typical program.
+
+**A block here is data, not code.** This machine runs on a BASIC interpreter
+rather than an emulated Z80 (see [what it does not
+run](../trs80#what-this-machine-does-not-run)), so a block loads into the
+address space and `PEEK` and `POKE` reach it, but nothing can execute it: there
+is no `USR` to call one with. Blocks are still worth carrying — they travel with
+the document, and a SYSTEM-format `.cas` round-trips through them — but a
+machine-code routine will not run until this dialect is switched to its Z80
+backend.
+
+There is no memory map for this machine, because the interpreter has no ROM,
+no memory-mapped hardware and no fixed layout to draw: what it has is 64K of
+bytes with the video RAM at `0x3C00`. Every other machine's map is on its own
+hardware page.
 
 Blocks travel with the document through the
 [project bundle](../file-formats#project-bundle-zip) and through share links,
