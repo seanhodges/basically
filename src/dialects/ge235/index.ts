@@ -36,14 +36,16 @@ import { ge235MemoryMap } from './memoryMap';
  *    memory blocks and no binary directives.
  *
  * Registering it moved the project's own era boundary: the year bound in
- * `registry.test.ts` used to start at 1975, and a 1965 mainframe sits well
+ * `registry.test.ts` used to start at 1975, and a 1964 mainframe sits well
  * below the microcomputer.
  */
 export const ge235: Dialect = {
   id: 'ge235',
   name: 'GE-235',
   manufacturer: 'General Electric',
-  year: 1965,
+  // The machine, not the language: the GE-235 reached Dartmouth in 1964 and
+  // compiled the February 1965 BASIC this folder implements.
+  year: 1964,
   blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
   basicDialect: 'Dartmouth BASIC',
 

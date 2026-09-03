@@ -188,7 +188,7 @@ export const machines: MachineChoice[] = [
     page: 'dartmouth',
     name: 'GE-235',
     manufacturer: 'General Electric',
-    year: 1965,
+    year: 1964,
     blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
     basicDialect: 'Dartmouth BASIC',
     basicFamily: 'Dartmouth BASIC',
