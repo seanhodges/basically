@@ -242,6 +242,38 @@ editor (CodeMirror)
 The AI path is parallel: prompt + lint errors → `streamChat()` →
 `extractCodeBlocks()` → `mergeBasicLines()` → push back into the editor.
 
+## Documenting architecture changes
+
+`docs/contributing/architecture.md` is the map of **how** the code is put
+together; `openspec/specs/` say **what** it guarantees. Keep the map current in
+the same change that moves the code, and keep it in the shape that survives:
+
+- **Update it when the shape changes**, not for every edit: a new `Dialect` or
+  `MachineEmulator` member, a new store request counter, a new storage key or
+  lifetime rule, a new top-level `src/` folder, a new obligation test under
+  `src/dialects/`, or a new vendored-core caveat. Find the section by the
+  folder or symbol it names and change that row, table or diagram.
+- **Tables for member lists, one diagram per flow, short prose for rules.**
+  A new capability is a new row, not a new paragraph. Every mermaid diagram
+  should show a mechanism the text cannot say in a sentence.
+- **Write nothing that drifts on its own.** No machine lists or counts (say
+  "every registered machine"; name one machine only as an example of a
+  pattern), no line counts, no library version numbers beyond the stack line,
+  no constant values. Name a symbol only after grepping that it exists.
+- **Lifecycle claims come from the module contract**, not memory: what clears
+  the virtual filesystem is the header comment in `src/storage/vfs/vfsStore.ts`,
+  what autosave keeps is `persistAutosave` in the store. Quote the rule, then
+  point at the test that pins it, rather than restating either.
+- **Point at the registry-driven test** that holds every machine to a fact
+  (`src/dialects/*.test.ts`) instead of listing which machines satisfy it and
+  which are excused; the test's own table is the source of truth.
+- **Figures are regenerated, never hand-edited.** The annotated IDE screenshot
+  comes from `e2e/capture-docs-screenshots.spec.ts`
+  (`npm run e2e:docs-screenshots -- -g "architecture"`); re-run it when the
+  shell layout changes.
+- Keep the `#vendored-core-caveats` heading: the dialect roadmap links to it.
+- `npm run docs:build` is part of the gate for any change under `docs/`.
+
 ## Adding a dialect
 
 Full step-by-step guide: **`docs/contributing/adding-a-dialect.md`**;

@@ -679,3 +679,103 @@ test('annotated editor features - mobile', async ({ page }) => {
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/editor-features-mobile.png` });
 });
+
+// ---------------------------------------------------------------------------
+// Architecture overview figure.
+//
+// One desktop frame with the main presentation components outlined and named,
+// so the layer description can point at what the reader sees. Grep it on its
+// own with:
+//
+//   npm run e2e:docs-screenshots -- -g "architecture"
+// ---------------------------------------------------------------------------
+
+/**
+ * Outline regions and tag each with a name in one corner. Unlike `annotate`,
+ * there is no leader line: a component fills its box, so a tag sat on the box
+ * says enough and stays out of the neighbouring regions. Purely visual.
+ */
+type RegionTag = {
+  sel: string;
+  text: string;
+  anchor: 'tl' | 'tr' | 'tc' | 'bl' | 'br' | 'bc';
+  maxH?: number;
+};
+async function tagRegions(page: Page, specs: RegionTag[]) {
+  await page.evaluate((items: RegionTag[]) => {
+    const PALETTE = ['#e5484d', '#0090ff', '#30a46c', '#f76b15', '#8e4ec6'];
+    document.getElementById('__ann')?.remove();
+    const layer = document.createElement('div');
+    layer.id = '__ann';
+    Object.assign(layer.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '2147483647',
+      pointerEvents: 'none',
+      font: '600 15px system-ui, -apple-system, sans-serif',
+    } as CSSStyleDeclaration);
+    document.body.appendChild(layer);
+    items.forEach((it, i) => {
+      const el = document.querySelector(it.sel);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const h = it.maxH ? Math.min(r.height, it.maxH) : r.height;
+      const color = PALETTE[i % PALETTE.length];
+      const hl = document.createElement('div');
+      Object.assign(hl.style, {
+        position: 'absolute',
+        left: r.left + 'px',
+        top: r.top + 'px',
+        width: r.width + 'px',
+        height: h + 'px',
+        border: '3px solid ' + color,
+        boxSizing: 'border-box',
+      } as CSSStyleDeclaration);
+      layer.appendChild(hl);
+      const lab = document.createElement('div');
+      lab.textContent = it.text;
+      Object.assign(lab.style, {
+        position: 'absolute',
+        background: color,
+        color: '#fff',
+        padding: '4px 10px',
+        borderRadius: '4px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+        lineHeight: '1.3',
+        whiteSpace: 'nowrap',
+      } as CSSStyleDeclaration);
+      layer.appendChild(lab);
+      const lr = lab.getBoundingClientRect();
+      const pad = 6;
+      const x = it.anchor.endsWith('l')
+        ? r.left + pad
+        : it.anchor.endsWith('r')
+          ? r.right - pad - lr.width
+          : r.left + r.width / 2 - lr.width / 2;
+      const y = it.anchor.startsWith('t')
+        ? r.top + pad
+        : r.top + h - pad - lr.height;
+      lab.style.left = x + 'px';
+      lab.style.top = y + 'px';
+    });
+  }, specs);
+}
+
+test('architecture: annotated presentation components', async ({ page }) => {
+  await open(page);
+  await useDialect(page, DIALECT);
+  await loadSample(page, DESKTOP_HERO_SAMPLE);
+  await runAndBoot(page);
+  await startGame(page);
+  await hideKeyboard(page);
+  await page.waitForTimeout(500);
+  await tagRegions(page, [
+    { sel: '[class*="_toolbar_"]', text: 'Toolbar', anchor: 'tc' },
+    { sel: '[class*="_tabBar_"]', text: 'EditorTabBar', anchor: 'tr' },
+    { sel: '.cm-editor', text: 'CodeMirrorHost', anchor: 'br' },
+    { sel: '[class*="_emulatorPane_"]', text: 'EmulatorPane', anchor: 'br' },
+    { sel: '[class*="_statusBar_"]', text: 'StatusBar', anchor: 'tc' },
+  ]);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/architecture-components.png` });
+});
