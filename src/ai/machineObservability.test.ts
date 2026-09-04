@@ -8,7 +8,6 @@ import {
   buildExpectationRules,
   canCheckByRunning,
   canReportVariables,
-  driveKeyNames,
   canProfileRun,
   DIALECTS_WITHOUT_PROFILE,
   DIALECTS_WITHOUT_RUNTIME_REPORT,
@@ -16,6 +15,7 @@ import {
 } from './machineObservability';
 import { createMachineControl } from '../app/machineControl';
 import { indexKeyDefs } from '../keyboard/controllerConfig';
+import { keyVocabulary, resolveKeyName } from '../keyboard/keyNames';
 
 /**
  * What the assistant is told this machine can be asked about must match what
@@ -62,11 +62,12 @@ function romFor(romUrl: string | undefined): Uint8Array {
 }
 
 describe('the key names offered match the machines', () => {
-  // The crosscheck that stops the assistant being told about a key that does
+  // The crosscheck that stops any caller being told about a key that does
   // nothing. The names come from layout data, the pressing goes through the
   // machine's own matrix, and nothing but a real machine can say whether the
   // two agree - so every registered one is built and every name it advertises
-  // is actually pressed.
+  // is actually pressed. Both callers are proved at once: the assistant is told
+  // the same vocabulary a schedule on the command line writes.
   for (const dialect of dialects) {
     it(`${dialect.id} can press every key name it offers`, () => {
       const machine = dialect.createEmulator({
@@ -81,7 +82,7 @@ describe('the key names offered match the machines', () => {
         step: () => machine.runFrame(),
       });
 
-      const names = driveKeyNames(dialect);
+      const names = keyVocabulary(dialect.keyboardLayout);
       // A machine offering no keys at all would leave driving useless on it
       // while still advertising the capability.
       expect(names.length, `${dialect.id} offers no key names`).toBeGreaterThan(
@@ -100,14 +101,30 @@ describe('the key names offered match the machines', () => {
   }
 
   it('offers no key that presses nothing', () => {
-    // A key with no tokens is a legend, not a key: naming it would hand the
-    // assistant something that silently fails.
+    // A key with no tokens is a legend, not a key: naming it would hand a
+    // caller something that silently fails. Read through the resolver rather
+    // than off the id index - a vocabulary name is not a key id.
     for (const dialect of dialects) {
-      const index = indexKeyDefs(dialect.keyboardLayout);
-      for (const name of driveKeyNames(dialect)) {
+      for (const name of keyVocabulary(dialect.keyboardLayout)) {
         expect(
-          index.get(name)!.emits.length,
+          resolveKeyName(dialect.keyboardLayout, name)?.length ?? 0,
           `${dialect.id} / ${name}`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('still presses every one of a layout’s own key ids', () => {
+    // The assistant is no longer told these names, but every script already
+    // written names them - and so does the browser spec, which drives with
+    // `PRESS KeyA`. They stay accepted; they simply stop being advertised.
+    for (const dialect of dialects) {
+      const layout = dialect.keyboardLayout;
+      for (const [id, def] of indexKeyDefs(layout)) {
+        if (def.emits.length === 0) continue;
+        expect(
+          resolveKeyName(layout, id)?.length ?? 0,
+          `${dialect.id} / ${id}`,
         ).toBeGreaterThan(0);
       }
     }
@@ -117,10 +134,9 @@ describe('the key names offered match the machines', () => {
     // The prompt is a per-dialect constant and must stay byte-identical across
     // builds, or every conversation pays a cache write on every turn.
     for (const dialect of dialects) {
-      expect(driveKeyNames(dialect)).toEqual(driveKeyNames(dialect));
-      expect(driveKeyNames(dialect)).toEqual(
-        [...driveKeyNames(dialect)].sort(),
-      );
+      const layout = dialect.keyboardLayout;
+      expect(keyVocabulary(layout)).toEqual(keyVocabulary(layout));
+      expect(keyVocabulary(layout)).toEqual([...keyVocabulary(layout)].sort());
     }
   });
 });

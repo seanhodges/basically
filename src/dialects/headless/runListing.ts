@@ -9,7 +9,12 @@ import {
   installNodeRomLoading,
 } from '../bootHarness';
 import { hasFatalErrors } from '../types';
-import type { Dialect, MachineScreenText, TokenizeError } from '../types';
+import type {
+  Dialect,
+  MachineEmulator,
+  MachineScreenText,
+  TokenizeError,
+} from '../types';
 import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
 
 /**
@@ -67,6 +72,23 @@ export interface RunOptions {
    * predicate that only wants the characters should not pay for it.
    */
   until?: (frame: RunFrame) => boolean;
+  /**
+   * Act on the machine once the program is loaded, before the runner's own
+   * loop: `step` advances one frame, and every frame it spends is counted into
+   * {@link RunResult.driveFrames}.
+   *
+   * The runner is handed a machine and a clock and is told nothing about what a
+   * schedule is - which is what keeps `src/dialects/headless/` free of
+   * `src/app/` and keeps this module's promise of touching nothing but ROMs.
+   *
+   * When a hook is given, the run ends where the hook left it: its own waits
+   * already said how long to let the program run, and the screen the caller
+   * wants is the one the last action reached. A game never ends, so waiting for
+   * the program afterwards would pay the whole cap and then read an arbitrary
+   * later frame. `frames` still runs that many more, for the game that needs a
+   * moment to draw after the key.
+   */
+  drive?: (machine: MachineEmulator, step: () => void) => void;
   /** Paint the machine's picture as well as reading its screen text. */
   pixels?: boolean;
   /** `public/` to read the ROMs from; discovered by {@link findRomRoot} when absent. */
@@ -103,6 +125,8 @@ export interface RunResult {
   /** Size of the tokenized program, as the RAM budget counts it. */
   programBytes: number;
   frames: number;
+  /** Of those, the frames {@link RunOptions.drive} spent. */
+  driveFrames: number;
   /** Whether the machine was ever seen running the program, and then stopped. */
   started: boolean;
   ended: boolean;
@@ -214,6 +238,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
     errors,
     programBytes: byteSize,
     frames: 0,
+    driveFrames: 0,
     started: false,
     ended: false,
     reached: false,
@@ -247,10 +272,16 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
 
       const runAt = performance.now();
       const fixed = opts.frames;
-      const cap = fixed ?? opts.maxFrames ?? DEFAULT_MAX_FRAMES;
+      // A driven run's own loop runs only what the caller asked for on top of
+      // the schedule: the schedule already said how long to let the program
+      // run, and waiting for a game to end after it would pay the whole cap.
+      const cap = opts.drive
+        ? (fixed ?? 0)
+        : (fixed ?? opts.maxFrames ?? DEFAULT_MAX_FRAMES);
       let started = false;
       let ended = false;
       let frames = 0;
+      let driveFrames = 0;
       // One canvas for the whole run: the predicate paints into it and, when it
       // stops the run, what it saw is what comes back - so the result is the
       // frame the predicate accepted rather than another one taken later.
@@ -267,10 +298,29 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         return canvas;
       };
 
+      // Sampled per frame while a schedule is running, the same tri-state way
+      // the undriven loop samples it: a program cannot un-begin, so once it has
+      // been seen running and then stopped, it has ended - and a schedule whose
+      // last action was WAIT END is exactly the run that reaches that.
+      const observe = () => {
+        const running = machine.isProgramRunning();
+        if (running === true) started = true;
+        if (running === false && started) ended = true;
+      };
+      if (opts.drive) {
+        opts.drive(machine, () => {
+          machine.runFrame();
+          driveFrames++;
+          observe();
+        });
+        frames += driveFrames;
+      }
+
       let reached = opts.until === undefined;
       let lastScreen: MachineScreenText | null = null;
-      for (; frames < cap; frames++) {
+      for (; frames < driveFrames + cap; frames++) {
         machine.runFrame();
+        if (opts.drive) observe();
         if (opts.until !== undefined) {
           lastScreen = machine.readScreenText?.() ?? null;
           reached = opts.until({
@@ -305,7 +355,11 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       // later. A caller who asked for an exact count wants that count and no
       // more either.
       const settled = !reached || opts.until === undefined;
-      if (fixed === undefined && settled) {
+      // A driven run settles only where the program actually stopped: the
+      // caller's own frame count is exact, and a schedule that left a game
+      // running has no settled picture to wait for.
+      const settling = opts.drive ? ended : fixed === undefined;
+      if (settling && settled) {
         const settle = opts.settleFrames ?? SETTLE_FRAMES;
         for (let i = 0; i < settle; i++, frames++) machine.runFrame();
       }
@@ -335,6 +389,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         errors,
         programBytes: byteSize,
         frames,
+        driveFrames,
         started,
         ended,
         reached,

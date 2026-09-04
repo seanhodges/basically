@@ -1,32 +1,5 @@
 import type { Dialect } from '../dialects/types';
-import { indexKeyDefs } from '../keyboard/controllerConfig';
-
-/**
- * The names of the keys this machine has, for telling the assistant what it may
- * press when it drives a program.
- *
- * Derived from the machine's own keyboard layout rather than written down here,
- * because `MachineEmulator.setKey` takes an opaque machine-defined token and
- * those tokens are genuinely not uniform - one machine's `KeyA` is another's
- * bare `A`, and two of them map to raw matrix positions instead. A list written
- * by hand would be a second account of every machine's keyboard, drifting from
- * the first.
- *
- * Derivable without constructing an emulator, which matters: the system prompt
- * is built from the `Dialect` alone and has to stay byte-stable per dialect for
- * prefix caching. Sorted for exactly that reason - the layout's own order is an
- * arrangement of a keyboard, not a promise about iteration.
- *
- * Keys that emit nothing are left out. A key with no tokens presses nothing on
- * the matrix, so offering its name would be offering a key that silently fails.
- */
-export function driveKeyNames(dialect: Dialect): string[] {
-  const names: string[] = [];
-  for (const [id, def] of indexKeyDefs(dialect.keyboardLayout)) {
-    if (def.emits.length > 0) names.push(id);
-  }
-  return names.sort();
-}
+import { keyVocabulary } from '../keyboard/keyNames';
 
 /**
  * Dialect ids whose machines cannot report their BASIC variables.
@@ -230,10 +203,12 @@ export function buildScreenViewRules(canShowScreen: boolean): string {
  * text of a listing distinguishes one that prints its answer from one that
  * stops at a prompt waiting for the input that would produce it.
  *
- * The key names are this machine's own, derived from its keyboard
- * ({@link driveKeyNames}), so the assistant cannot ask for a key that does not
- * exist here - and so this text stays a per-dialect constant, which the prompt
- * cache depends on.
+ * The key names are the shared vocabulary, resolved for this machine from its
+ * own keyboard ({@link keyVocabulary}): a machine is offered only the names it
+ * actually has, so the assistant cannot ask for a key that does not exist here,
+ * and the same name means the same key on the next machine. Derived from the
+ * `Dialect` with no emulator booted, so this text stays a per-dialect constant,
+ * which the prompt cache depends on.
  */
 export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
   if (!canDrive) {
@@ -241,7 +216,7 @@ export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
 - The machine CANNOT be driven on this setup, so do not ask to drive it. Write programs whose result you can check without input, and remember that a program waiting for a keypress never reaches its result.`;
   }
 
-  const names = driveKeyNames(dialect);
+  const names = keyVocabulary(dialect.keyboardLayout);
   const joystick = dialect.joystickModes?.length
     ? `- The joystick works too: hold a direction (\`up\`, \`down\`, \`left\`, \`right\`) or \`fire1\`/\`fire2\` for a number of frames. On this machine it reaches the program through its own joystick port.`
     : `- The joystick works too: hold a direction (\`up\`, \`down\`, \`left\`, \`right\`) or \`fire1\`/\`fire2\` for a number of frames. This machine has no joystick port, so those arrive as the keys its games actually read - which is what a person playing it would press.`;
@@ -249,7 +224,7 @@ export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
   return `DRIVING THE PROGRAM
 - After the code, you MAY add \`DRIVE\` to your \`\`\`basic-view block to be given this machine once your program is running. You can then press its keys, work its joystick, wait, and look at the screen - deciding each step from what the last one showed - before you say whether the program worked.
 - Ask when your program does not reach its result on its own: it waits for input, it starts on a title screen, it shows a menu, or it is a game that only does something once something is pressed. Do NOT ask when the program prints its answer and stops - there is nothing to drive it to.
-- The keys on this machine are named: ${names.join(', ')}. Press them by name. Nothing else is a key here, and asking for one that is not will tell you so rather than doing anything.
+- The keys you may press here are named: ${names.join(', ')}. These names mean the same key on every machine, so a sequence you write for one works on another. Press them by name, and join them with + to press them together (SHIFT+P). Nothing else is a key here, and asking for one that is not will tell you so rather than doing anything.
 ${joystick}
 - Prefer waiting for text on screen over waiting a fixed number of frames. These machines differ by seconds in how long they take to boot and to reach a prompt, so a frame count is a guess where waiting for the prompt to actually appear is not.
 - Looking costs you: prefer reading the screen as characters over asking for a picture of it, for the same reasons the view rules give.

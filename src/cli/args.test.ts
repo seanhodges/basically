@@ -122,11 +122,33 @@ describe('the command line grammar', () => {
       ['a fractional frame count', ['run', '-m', 'zx81', '--frames', '1.5']],
       ['an option with no value', ['lint', 'prog.bas', '-m']],
       ['no machine to describe', ['info']],
+      [
+        'a cap on a wait a schedule already sets',
+        ['run', '-m', 'zx81', '--keys', 'PRESS A', '--max-frames', '100'],
+      ],
       ['two programs', ['lint', 'a.bas', 'b.bas', '-m', 'zx81']],
     ];
     for (const [what, argv] of cases) {
       expect(() => parseArgs(argv), what).toThrow(RunError);
     }
+  });
+
+  it('takes a schedule of what to press, verbatim', () => {
+    const args = parseArgs([
+      'run',
+      'prog.bas',
+      '-m',
+      'zx81',
+      '--keys',
+      'WAIT FOR "GO"; PRESS A',
+      '--frames',
+      '20',
+    ]);
+    if (args.operation !== 'run') throw new Error('not a run');
+    // Handed on as written: what a line means is the schedule parser's
+    // business, not the grammar's.
+    expect(args.keys).toBe('WAIT FOR "GO"; PRESS A');
+    expect(args.frames).toBe(20);
   });
 
   // The old grammar took a bare machine name first and ran it. Nothing accepts

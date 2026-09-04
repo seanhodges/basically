@@ -349,4 +349,7 @@ either, because ids stay accepted; the browser-level driving spec drives with
 `promptStability.test.ts` pins per-machine budgets and byte-stability across every
 capability combination, and its budgets are ceilings, so a vocabulary shorter than
 today's token list cannot breach them. The list stays sorted and derived from the
-`Dialect` alone, which is what the stability assertion actually turns on.
+`Dialect` alone, which is what the stability assertion actually turns on. Changing
+the driving rules does invalidate every cached prefix in the wild **once**, on the
+first request after the change reaches a user; that one-off cache write is the
+price of the change and is not a regression to go looking for later.

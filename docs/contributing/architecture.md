@@ -97,6 +97,20 @@ The virtual keyboard and game controller (`src/keyboard/`) are pure
 data-driven renderers. Each dialect supplies a `KeyboardLayout` (layers,
 legends, glyphs, matrix tokens); the keyboard code holds no per-machine logic.
 
+The same layouts carry a machine-independent vocabulary of key names.
+`src/keyboard/keyNames.ts` resolves a written name - a letter, `SPACE`,
+`ENTER`, `SHIFT`, a cursor key, a function key - to the matrix tokens that
+machine presses for it, reading only what the layout _declares_: the editor
+action on a legend, the modifier role on a key. It never strips a prefix off a
+key id and never matches a legend glyph, because both press the wrong key
+silently on a machine whose key positions and key meanings disagree.
+`keyVocabulary` lists what a given machine answers to, and a name it has no key
+for is refused rather than mapped onto a neighbour.
+`src/keyboard/keyNames.test.ts` holds every registered machine to that on layout
+data alone; the every-machine crosscheck in
+`src/ai/machineObservability.test.ts` boots each one on its real ROM and presses
+every name it offers.
+
 ### Application state layer
 
 One store, `useIdeStore` (`src/app/store.ts`), holds three kinds of state:
@@ -653,6 +667,18 @@ line is byte-identical to one downloaded from the Transfer dialog. `run` is the
 IDE's run path without the browser: tokenize, boot the emulator on its ROM,
 load the image, read the screen back. The runner shares
 `src/dialects/bootHarness.ts` with the registry-driven unit tests.
+
+`run --keys` and the AI assistant drive a running machine through one driver and
+one script vocabulary: `src/app/machineControl.ts` presses keys, works the
+joystick, advances frames and waits for what that produced, and
+`src/app/driveScript.ts` reads the one-action-per-line grammar
+(`PRESS`/`JOY`/`WAIT`/`WAIT FOR`/`WAIT END`, `#` comments) and runs it against
+that driver, stopping at the first action that fails. Key names are the shared
+vocabulary above. `RunOptions.drive` is the one seam between them: the runner
+hands the hook a machine and its own frame advance and knows nothing about what
+a schedule is, which keeps `src/dialects/headless/` free of `src/app/`. A run
+given a schedule ends where the schedule ends, and `src/cli/drive.ts` is the
+command line's half - option text to actions, actions to that hook.
 
 ## Where to go next
 

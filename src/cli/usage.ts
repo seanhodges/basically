@@ -85,14 +85,34 @@ usage: basically run [file] -m <machine> [options]
 
   [file]            the program, or "-"/nothing to read standard input
   -m, --machine     the machine to run on
-  --frames <n>      run exactly n frames instead of waiting for the program
-  --max-frames <n>  cap on that wait (default 4000)
+  --frames <n>      run exactly n frames instead of waiting for the program;
+                    with --keys, n more frames after the schedule
+  --max-frames <n>  cap on that wait (default 4000); not with --keys
+  --keys <script>   a schedule of what to press and when (see below); needs
+                    the machine's ROM
   --screen-text     report the screen as text (the default when nothing else
                     is asked for)
   --screenshot <p>  write a picture of the screen to p; may be asked for
                     alongside --screen-text, from the same run
   --json            one JSON object on standard output instead of the text
   --rom-root <dir>  read ROMs from this public/ rather than the checkout's
+
+A schedule is one action per line, or several separated by ";". A run given one
+ends where the schedule ends, so the screen reported is the one the last action
+left, and a step that could not be carried out fails the run.
+
+  PRESS <key>[+<key>...] [n]   press keys together, held for n frames
+  JOY <up|down|left|right|fire|fire2> [n]   hold a joystick control
+  WAIT <n>                     let the program run on for n frames
+  WAIT FOR "<text>" [n]        run until that text is on screen, giving up
+                               after n frames
+  WAIT END [n]                 run until the program stops, giving up after n
+  # ...                        a comment
+
+Keys are named the same way on every machine - the letters, the digits, SPACE,
+ENTER and SHIFT everywhere, and DELETE, ESCAPE, CTRL, TAB, the cursor keys and
+the function keys wherever the machine has them. "basically info <machine>"
+lists the names that machine answers to.
 `.trimStart(),
 };
 

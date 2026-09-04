@@ -33,6 +33,7 @@ import {
   screenText,
 } from './bootHarness';
 import { letterCaseFor } from './letterCase';
+import { resolveKeyName } from '../keyboard/keyNames';
 import type { MachineEmulator } from './types';
 
 let restoreRomLoading: () => void;
@@ -110,10 +111,21 @@ describe('the case a machine types', () => {
 
   it('types upper case on the PMD 85, with SHIFT reaching lower', async () => {
     // The one machine here whose shift key goes the other way.
-    const machine = await bootMachine(getDialect('pmd85'), { ramKb: 64 });
+    const dialect = getDialect('pmd85');
+    const machine = await bootMachine(dialect, { ramKb: 64 });
     await runFrames(machine, 400);
     expect(await echo(machine, ['KeyA'])).toBe('A');
     expect(await echo(machine, ['Shift', 'KeyB'])).toBe('b');
+
+    // The same booted machine answers the other question this board is the
+    // worked example of: it is QWERTZ, and its matrix tokens are DOM
+    // `KeyboardEvent.code` names, which are positional - so the key that types
+    // Z emits `KeyY`. A resolver that stripped the `Key` prefix off an id would
+    // press the cell that types Y here and say nothing about it, which is the
+    // one failure mode a shared key vocabulary must not have.
+    const layout = dialect.keyboardLayout;
+    expect(await echo(machine, resolveKeyName(layout, 'Z')!)).toBe('Z');
+    expect(await echo(machine, resolveKeyName(layout, 'Y')!)).toBe('Y');
   }, 120000);
 
   it('switches the whole Commodore screen rather than a key', async () => {

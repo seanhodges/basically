@@ -15,8 +15,11 @@ import { findRomRoot } from '../dialects/headless/runListing';
  *
  * Not memoised: an installation with no ROMs is a supported state, and the
  * answer is a fact about the filesystem now rather than at first ask.
+ *
+ * A caller who named a `public/` of its own passes it, so asking whether a ROM
+ * is there means the same thing as running against it.
  */
-export function locateRoms(): void {
-  const root = findRomRoot();
+export function locateRoms(romRoot?: string): void {
+  const root = romRoot ?? findRomRoot();
   if (root) configureRomRoot(root);
 }

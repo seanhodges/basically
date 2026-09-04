@@ -38,11 +38,12 @@ import { setAiProvider } from '../storage/settings';
  */
 function stubControl(over: Partial<MachineControl> = {}): MachineControl {
   return {
-    keyNames: () => ['KeyA'],
     pressKeys: vi.fn(() => ({ ok: true, frames: 3 })),
     joystick: vi.fn(() => ({ ok: true, frames: 3 })),
     advance: vi.fn((n: number) => ({ ok: true, frames: n })),
     waitForText: vi.fn(() => ({ ok: true, frames: 3 })),
+    waitForEnd: vi.fn(() => ({ ok: true, frames: 3 })),
+    programState: () => false,
     readText: () => ({ lines: ['READY'], cols: 5, rows: 1 }),
     releaseAll: vi.fn(),
     ...over,

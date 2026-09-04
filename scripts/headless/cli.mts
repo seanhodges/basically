@@ -13,6 +13,10 @@ import { formatMachines, listMachines } from '../../src/cli/machines';
 import { describeMachine, formatMachineDescription } from '../../src/cli/info';
 import { formatProblems, lintListing } from '../../src/cli/lint';
 import { buildListing } from '../../src/cli/build';
+import { driveHook, parseSchedule } from '../../src/cli/drive';
+import { findMachine } from '../../src/dialects/headless/runListing';
+import { hasRom } from '../../src/dialects/bootHarness';
+import { locateRoms } from '../../src/cli/roms';
 
 /**
  * The Basically toolchain outside the browser.
@@ -157,6 +161,25 @@ async function build(args: Extract<CliArgs, { operation: 'build' }>) {
 
 async function run(args: Extract<CliArgs, { operation: 'run' }>) {
   const source = await readProgram(args.program);
+  // Read before anything boots, so a schedule the tool cannot understand is the
+  // caller's mistake rather than a run that got part-way.
+  const schedule = args.keys === undefined ? null : parseSchedule(args.keys);
+  const dialect = findMachine(args.machine);
+  if (schedule && dialect) {
+    locateRoms(args.romRoot);
+    if (!hasRom(dialect)) {
+      // An undriven run on a ROM-less machine draws its missing-image notice,
+      // which at least says the machine boots. A driven one has nothing to
+      // drive, so it is refused before a step is taken rather than reporting a
+      // schedule that failed against a notice.
+      throw new RunError(
+        `this installation carries no ROM for ${dialect.name}, so there is ` +
+          'nothing for --keys to drive',
+      );
+    }
+  }
+  const handle = schedule && dialect ? driveHook(dialect, schedule) : null;
+
   const restoreLogging = divertLogging();
   let result: RunResult;
   try {
@@ -165,6 +188,7 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
       source,
       frames: args.frames,
       maxFrames: args.maxFrames,
+      drive: handle?.drive,
       pixels: args.screenshot !== undefined,
       romRoot: args.romRoot,
     });
@@ -189,6 +213,10 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
       machine: result.machine,
       programBytes: result.programBytes,
       frames: result.frames,
+      driveFrames: result.driveFrames,
+      keys: handle?.report
+        ? { ok: handle.report.ok, steps: handle.report.lines }
+        : null,
       started: result.started,
       ended: result.ended,
       screen: result.screen,
@@ -209,6 +237,19 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
   }
 
   report(result, wrote);
+  if (handle?.report) {
+    // The steps go to standard error beside the run's own figures: standard
+    // output carries the screen and nothing else, so `| diff` still works on a
+    // driven run.
+    for (const line of handle.report.lines) err(`  ${line}\n`);
+    if (!handle.report.ok) {
+      // The program did not reach where the schedule expected it to, which is
+      // the program's fault rather than the caller's - and the screen has
+      // already been printed, so the caller can see what it got instead.
+      err('the schedule stopped there\n');
+      return EXIT_BAD_PROGRAM;
+    }
+  }
   return 0;
 }
 
