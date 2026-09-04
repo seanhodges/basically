@@ -17,6 +17,7 @@ import type {
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
 import {
   LineCostRecorder,
   PROFILE_SLICE_CYCLES,
@@ -85,6 +86,17 @@ const MAX_BOOT_FRAMES = 200;
  * modelled: a read of an unclaimed port returns 0xFF rather than whatever the
  * ULA has in flight, so the floating-bus raster-sync trick will not work.
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice(
+  "Spectrum's 16K ROM",
+  'public/roms/zxspectrum.rom',
+);
+
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
@@ -100,6 +112,8 @@ export class SpectrumMachine implements MachineEmulator {
   readonly audioSampleRate = BEEPER_SAMPLES_PER_FRAME * this.frameHz;
 
   private readonly memory: SpectrumMemory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly keyboard = new SpectrumKeyboard();
   private readonly cpu: Z80Core;
   /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
@@ -196,6 +210,7 @@ export class SpectrumMachine implements MachineEmulator {
   private readonly deck: VfsTapeDeck | null;
 
   constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
+    this.hasRom = opts.rom.length > 0;
     this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new SpectrumMemory(opts.rom);
     // Every hook charges the ULA before it touches the bus. The opcode fetch is
@@ -493,6 +508,11 @@ export class SpectrumMachine implements MachineEmulator {
 
   /** Run whole frames until the ROM has booted to the ready prompt. */
   bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     let initFrame = -1;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
@@ -521,6 +541,11 @@ export class SpectrumMachine implements MachineEmulator {
       tapeFiles?: readonly TapeFile[];
     },
   ): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset(); // also rewinds the VFS tape deck
     this.bootToReady();
     // Inject without an auto-start line, then drive RUN: the LOAD-with-LINE
@@ -639,6 +664,10 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }

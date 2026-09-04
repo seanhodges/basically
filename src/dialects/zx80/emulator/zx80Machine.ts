@@ -9,6 +9,7 @@ import type {
   LineCost,
 } from '../../types';
 import { Zx80Memory } from './memory';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
 import {
   LineCostRecorder,
   PROFILE_SLICE_CYCLES,
@@ -60,12 +61,22 @@ const EDIT_CURSOR = 0xb0;
  *
  * Video is a per-frame D_FILE snapshot (see display.ts).
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice("ZX80's 4K ROM", 'public/roms/zx80.rom');
+
 export class Zx80Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
   readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
 
   private readonly memory: Zx80Memory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly keyboard = new Zx81Keyboard();
   private readonly cpu: Z80Core;
   private prevRBit6 = true;
@@ -95,6 +106,7 @@ export class Zx80Machine implements MachineEmulator {
   private readonly runLatch = new ProgramEndLatch();
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
+    this.hasRom = opts.rom.length > 0;
     this.memory = new Zx80Memory(opts.rom, opts.ramKb);
     this.cpu = Z80({
       mem_read: this.memory.read,
@@ -212,6 +224,11 @@ export class Zx80Machine implements MachineEmulator {
    * but the editor does not capture keystrokes reliably until a little later.
    */
   private bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (
@@ -234,6 +251,11 @@ export class Zx80Machine implements MachineEmulator {
   }
 
   loadProgram(image: Uint8Array): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset();
     this.bootToReady();
     // Arm the run latch for everything below: neither booting nor the LOAD nor
@@ -261,6 +283,10 @@ export class Zx80Machine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }

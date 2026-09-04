@@ -204,6 +204,21 @@ is a decision somebody wrote down.
 | **Debugger pair**<br>`debugCapability.test.ts`                       | `currentLine()` + `debugStep()`                                                                                                                                                                |
 | **Per-line profile**<br>`lineProfiling.test.ts`                      | Always-on, charged in the machine's own cycles (`src/emulator/lineCostRecorder.ts`)                                                                                                            |
 | **A debug slice equals a frame**<br>`debugEquivalence.test.ts`       | See below                                                                                                                                                                                      |
+| **Come up without its ROM**<br>`romImage.test.ts`                    | A machine handed an empty image loads, runs and renders rather than throwing, and draws a notice saying the image is missing (`src/emulator/romNotice.ts`). See below                          |
+
+**A missing ROM is a state, not a crash.** The images with no redistribution
+grant are meant to be removable (`public/roms/ATTRIBUTION.md`), so a checkout
+without one stays usable. A machine that takes its ROM through the seam is
+handed an empty image, and must construct, accept a program, run frames and
+render - drawing the shared no-firmware notice
+(`src/emulator/romNotice.ts`) instead of its own picture, in the host's font
+because the character generator is in the ROM that is missing. What it must not
+do is answer about a program it never ran: `isProgramRunning()` is `null`, not
+`false`. Machines that fetch their own ROM sets rather than taking `opts.rom`
+catch the failure and draw their own load-error banner instead. What a machine
+does with a _wrong-length_ image is its own business and deliberately not
+uniform - the Sinclairs refuse one, the Apple I accepts a monitor-only image
+because that is a real Apple I.
 
 **A debug slice is a frame.** A debug session opens on an ordinary press of
 Play, so `debugStep()` is how most machines are usually run. Everything

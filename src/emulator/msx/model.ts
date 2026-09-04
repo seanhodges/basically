@@ -35,4 +35,11 @@ export interface MsxModel {
    * page 3 pointing at a slot that on any other MSX holds nothing.
    */
   slot0Page3: 'empty' | 'ram-mirror';
+  /**
+   * Where this machine's image lives, for the notice it draws when it was
+   * handed none. Here rather than in the machine for the reason everything else
+   * is: MSX is a standard, and which file holds which computer's BIOS is that
+   * computer's own knowledge.
+   */
+  romPath: string;
 }

@@ -27,6 +27,7 @@ import {
   AY_CLOCK_CPC,
 } from '../ay';
 import { CpcMemory, type CpcModel } from './memory';
+import { drawRomNotice, noRomNotice } from '../romNotice';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { GateArray } from './gateArray';
 import { Crtc } from './crtc';
@@ -114,6 +115,18 @@ const basicVarPointers = (v: LocoSysVars) => [
  * it constructs cleanly but has no firmware to run (see the dialect's romUrl and
  * public/roms/cpc/).
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const noRomFor = (model: CpcModel): string[] =>
+  noRomNotice(
+    `CPC ${model} firmware and BASIC ROM`,
+    `public/roms/cpc/cpc${model}.rom`,
+  );
+
 export class CpcMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
@@ -128,6 +141,9 @@ export class CpcMachine implements MachineEmulator {
   }
 
   private readonly memory: CpcMemory;
+  /** False when the machine was handed no image; see {@link noRomFor}. */
+  private readonly hasRom: boolean;
+  private readonly model: CpcModel;
   private readonly gateArray = new GateArray();
   private readonly crtc = new Crtc();
   private readonly keyboard = new CpcKeyboard();
@@ -201,6 +217,8 @@ export class CpcMachine implements MachineEmulator {
     files?: MachineFileStore;
   }) {
     const model = opts.model ?? '464';
+    this.model = model;
+    this.hasRom = opts.rom.length > 0;
     this.memory = new CpcMemory(opts.rom, model);
     this.sysvars = locoSysVars(model === '464' ? 'basic10' : 'basic11');
     this.memPort = {
@@ -445,6 +463,10 @@ export class CpcMachine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, noRomFor(this.model));
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
@@ -475,6 +497,11 @@ export class CpcMachine implements MachineEmulator {
   ): void {
     this.reset();
     this.bootToReady();
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
 
     // The tokenized image is the raw program area (line records terminated by a
     // zero length word); drop it in at the model's program base (&0170).
@@ -527,6 +554,11 @@ export class CpcMachine implements MachineEmulator {
    * period so the "Ready" prompt and key-input loop are fully up.
    */
   private bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (this.cpu.getIFF1() === 1 && this.screenHasContent()) {

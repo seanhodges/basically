@@ -22,6 +22,7 @@ import { createMachineLoop } from '../machineLoop';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { AY_SAMPLES_PER_FRAME } from '../ay';
 import type { MsxModel } from './model';
+import { drawRomNotice, noRomNotice } from '../romNotice';
 import { MsxSlots } from './slots';
 import { Tms9918 } from './vdp';
 import { MsxPpi, type MsxPpiHost } from './ppi';
@@ -80,11 +81,22 @@ const BOOT_SETTLE_FRAMES = 30;
  * constructs cleanly and simply has nothing to run (see the dialect's romUrl
  * and public/roms/msx/).
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const noRomFor = (model: MsxModel): string[] =>
+  noRomNotice('32K BIOS and MSX BASIC image', model.romPath);
+
 export class MsxMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
 
   private readonly model: MsxModel;
+  /** False when the machine was handed no image; see {@link noRomFor}. */
+  private readonly hasRom: boolean;
   private readonly charset: CharsetMapping;
   private readonly slots: MsxSlots;
   private readonly vdp: Tms9918;
@@ -154,6 +166,7 @@ export class MsxMachine implements MachineEmulator {
     files?: MachineFileStore;
   }) {
     this.model = opts.model;
+    this.hasRom = opts.rom.length > 0;
     this.charset = opts.charset;
     this.linesPerFrame = this.model.region === 'pal' ? LINES_PAL : LINES_NTSC;
     this.slots = new MsxSlots(opts.rom, this.model);
@@ -310,6 +323,10 @@ export class MsxMachine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, noRomFor(this.model));
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
@@ -342,7 +359,10 @@ export class MsxMachine implements MachineEmulator {
    * types at the emulated keyboard is reported like any other.
    */
   isProgramRunning(): boolean | null {
-    if (this.disposed) return null;
+    // "Cannot say", not "no": with no image there is no BIOS to have started a
+    // program, and the workspace this reads is uninitialised RAM that happens
+    // to look like a line number often enough to matter.
+    if (this.disposed || !this.hasRom) return null;
     return this.currentLine() !== null;
   }
 
@@ -468,6 +488,11 @@ export class MsxMachine implements MachineEmulator {
   ): void {
     this.reset();
     this.bootToPrompt();
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
 
     // The dialect's image is the `.bas` container: a marker byte then the
     // program area exactly as it sits from TXTTAB. Only the program goes into
@@ -504,6 +529,11 @@ export class MsxMachine implements MachineEmulator {
    * rather than off a ROM address, so it holds for any MSX1 BIOS.
    */
   private bootToPrompt(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (this.cpu.getIFF1() === 1 && this.promptIsUp()) {
