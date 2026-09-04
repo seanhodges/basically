@@ -11,7 +11,7 @@
 
 ## 2. Parity, declared and enforced
 
-- [ ] 2.1 Add the exemption table with a reason per entry, seeded with today's asymmetries — running a program on the assistant's side, and anything stage 4 has not yet reached.
+- [ ] 2.1 Add the exemption table with a reason per entry, seeded with today's asymmetries: running a program on the assistant's side, and stating what a program should produce on the command line's side, the latter noting `test-a-program-from-either-caller` as what closes it.
 - [ ] 2.2 `src/ops/parity.test.ts`: every declared operation resolves to a real command line route and renders a tool definition, or carries an exemption.
 - [ ] 2.3 Assert the other direction in the same test: an entry naming an operation that is in fact present on both surfaces fails, so wiring one up forces its exemption out.
 - [ ] 2.4 Assert that a provider unable to be given tools is read as a property of that provider and not as any operation being absent.

@@ -16,10 +16,11 @@ change stopped.
 Worse, the two are already drifting inside the things they do share. `WAIT END`
 is accepted by the drive parser and never mentioned to the assistant. Semicolons
 separate actions on the command line and nowhere else, so a schedule a model
-writes is refused for punctuation the other caller allows. And a second
-assertion vocabulary is queued behind `test-a-program-from-the-command-line`,
-which will teach the command line `EXPECT` while the assistant keeps
-`SCREEN CONTAINS` — one machine, two ways to say the same thing.
+writes is refused for punctuation the other caller allows. And the assistant has
+been asserting things about its own programs all along, in a vocabulary of its
+own, while the command line has no way to assert anything at all — a gap that
+was nearly closed by giving the command line a second vocabulary rather than by
+noticing there was already one.
 
 Every one of those passed review. That is the actual problem: there is no list
 to hold the two surfaces to, so drift is invisible until someone goes looking.
@@ -112,13 +113,14 @@ cache depends on is stability within a conversation, which is kept and pinned.
 What must not happen is gating an operation by leaving it out of the list, so
 availability is decided when a call arrives rather than by what was offered.
 
-**`test-a-program-from-the-command-line`, which is in flight and unimplemented.**
-It teaches the command line an assertion vocabulary the assistant does not
-share. Applying it before the vocabularies are reconciled lands a parity
-violation on the day the guarantee arrives, so the two changes need sequencing:
-either the assertion question is settled first, or that change's vocabulary
-enters the exemption table as a declared, dated asymmetry rather than an
-accidental one.
+**The assertion vocabularies, which this change records rather than settles.**
+The assistant can state what its program should produce and the command line
+cannot, so that asymmetry enters the exemption table as a declared one on the day
+the guarantee arrives. Closing it is `test-a-program-from-either-caller`, which
+depends on this change and removes that entry. The earlier proposal to give the
+command line an assertion vocabulary of its own is withdrawn in favour of it: a
+capability that belongs to one caller is exactly what this guarantee exists to
+prevent.
 
 **No new dependency.** Everything here is a rearrangement of code already in the
 tree, and there is no licence to check.

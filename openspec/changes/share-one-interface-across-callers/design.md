@@ -204,13 +204,11 @@ through the first, and the assistant's tool set is unchanged until the third.
 
 ## Open Questions
 
-- **The two assertion vocabularies.** Whether they become one, and if so which
-  form survives — the assistant's forms include one settled by the assistant
-  looking at a picture, which no command line can evaluate, and the two are
-  checked at different moments against different readings. Out of scope here,
-  but it has to be answered before `test-a-program-from-the-command-line` is
-  applied, or that change lands the second vocabulary and the table inherits an
-  asymmetry nobody chose.
+- **The two assertion vocabularies.** Deferred to
+  `test-a-program-from-either-caller`, which depends on this change. Until it
+  lands, the assistant's ability to state what its program should produce is a
+  declared asymmetry in the exemption table rather than an accidental one — the
+  first entry recorded there, and the first removed.
 - **Whether listing the registered machines belongs on the assistant's surface.**
   A conversation is pinned to one machine, so it may be useful only when the
   subject is porting. Cheap either way; decide when it is wired.
