@@ -28,6 +28,12 @@ what a headless run should do.
   or `P`, and each machine resolves it to whatever its own keyboard calls it.
   Describing a machine lists the names it answers to, so a caller can find out
   what it may press without opening the IDE.
+- **The assistant is moved onto that vocabulary in the same change.** It is
+  handed each machine's raw matrix tokens today — `KeyA` here, `A` there, `Enter`
+  on thirteen machines and `Return` on six — and is told them instead as the
+  vocabulary. Its own names stay accepted, so nothing in flight breaks. Doing it
+  here is what keeps the vocabulary singular: the alternative leaves two lists of
+  key names for one machine in the tree until a later change removes one.
 
 ## Non-goals
 
@@ -38,6 +44,11 @@ what a headless run should do.
 - **Replacing the browser as the place to play a program.** This is for scripts and
   agents driving behaviour, not for playing.
 - **Recording input from a real session.** A schedule is written, not captured.
+- **Unifying how the assistant asserts things about its own programs.** Its
+  `SCREEN CONTAINS` expectations overlap with what
+  `test-a-program-from-the-command-line` proposes, but they are checked at
+  different moments and rest on a different mechanism. Only the key names unify
+  here.
 - **Typing text as words.** A schedule spells a word as `PRESS` lines; see the
   design's non-goals for why a `TYPE` action is not this change's to add.
 - **Anything the earlier change already settled** — the tool's name, its grammar,
@@ -53,6 +64,9 @@ None.
 
 - `headless-cli`: gains what a run can be told to type, and a machine-independent
   vocabulary of key names every registered machine resolves.
+- `ai-assistant`: the keys the assistant may press stop being named as each
+  machine names them and become that same vocabulary, while it keeps being told
+  only the names the machine in front of it actually has.
 
 ## Impact
 
@@ -71,6 +85,17 @@ nothing.
 **Every registered machine.** Key names have to resolve for all of them, from what
 each declares about its keyboard — which is the part most likely to surface machines
 that declare less than the rest, and so wants a registry-driven test from the start.
+One machine already disagrees with the obvious approach: the PMD 85 is a QWERTZ
+board whose matrix tokens are positional, so its `Z` key emits `KeyY`. Resolving a
+letter by its token rather than by what it types would press the wrong key there,
+silently.
+
+**The assistant's prompt.** The list of keys it is offered comes from its keyboard
+layout already, so this repoints that derivation rather than writing a second one.
+The prompt keeps the properties it depends on — derivable without booting a
+machine, sorted, byte-stable per dialect for prefix caching — and the existing
+crosscheck that boots every registered machine and presses every offered name
+becomes the proof for both callers at once.
 
 **No new dependency.** The schedule is the line-per-action script the parser
 already reads, so nothing is added to the runtime bundle and there is no licence

@@ -40,8 +40,11 @@ the driver; this document only says where the new parts go and why.
   script that works in one place works in the other, and there is one parser and
   one runner to test.
 - Key names a caller can write without knowing the machine, resolved from what
-  each machine's keyboard layout already declares, with a registry-driven test
-  holding every machine to it.
+  each machine's keyboard layout already declares, held to every machine by a
+  registry-driven test.
+- One vocabulary of *key names* too, not just of actions: the assistant is
+  migrated onto it in this change rather than a later one, so two lists of key
+  names for the same machine never exist side by side.
 - No new runtime dependency, and nothing added to the machine seam.
 
 **Non-Goals:**
@@ -56,9 +59,25 @@ the driver; this document only says where the new parts go and why.
 - **Checking a program against an expectation.** That is
   `test-a-program-from-the-command-line`, proposed on top of what this change
   builds.
-- **Recording a session, or anything the assistant's driving does on its side of
-  the join.** The assistant's tool description does not change and no
-  `ai-assistant` spec delta is written.
+- **Recording a session.** A schedule is written, not captured.
+- **Symbol keys in the vocabulary.** Every machine has a quote keycap and several
+  have `+ - = , .` cells, and the same declared-`insert` rule would reach them.
+  It is left out because the grammar cannot yet say them: this change makes `+`
+  the chord separator and `#` the comment marker, so `PRESS +` and `PRESS #` are
+  ungrammatical, and there is no quoting rule for a key name. Symbols need that
+  rule first; the mechanism is otherwise identical and can be added the day the
+  grammar can express it.
+- **Unifying the assistant's *assertion* vocabulary.** The assistant checks its
+  own programs with `SCREEN CONTAINS` and `VAR` in a `basic-expect` block, which
+  overlaps in spelling with the `EXPECT` lines
+  `test-a-program-from-the-command-line` proposes, but not in meaning: an
+  expectation there is latched across a whole run and settled once the program
+  ends, where an `EXPECT` line is checked at the one moment its script chose.
+  Bringing them together would reach into the run-check latching, a mechanism
+  separate from driving. Left alone deliberately.
+- **Changing how the assistant asks to drive, or what its tools are.** The
+  `basic-view` `DRIVE` request, the tool set and every tool description are
+  untouched; only the names of the keys it is offered change.
 
 ## Decisions
 
@@ -102,41 +121,129 @@ command line's grammar a fact about the AI module.
 ### Key names resolve from the layout, in one place, for every caller
 
 A new `src/keyboard/keyNames.ts` resolves a written name to the tokens a machine's
-layout says press it:
+layout says press it. The decision that matters is **what the resolver reads**,
+and the answer is neither the id nor the legend text: it is the semantics each
+layout already declares.
 
-1. **The machine's own key id**, exactly as today, so everything the assistant is
-   told still works.
-2. **A letter or digit**, matched case-insensitively against a key id with its
-   `Key`/`Digit` prefix stripped, or against the base-layer legend of a key.
-3. **A named key** — `SPACE`, `ENTER`, `SHIFT`, `DELETE`, `ESCAPE`, `BREAK`,
-   `STOP`, `CTRL`, `TAB`, the function keys `F0`–`F9`, and the cursor keys
-   `UP`/`DOWN`/`LEFT`/`RIGHT` — matched against ids and base legends the same
-   way, with a small alias table for the keys machines genuinely name differently
-   (`ENTER`/`RETURN`/`NEWLINE`, `DELETE`/`BACKSPACE`/`RUBOUT`, `ESCAPE`/`ESC`).
-   A cursor key resolves to the layout's CURSOR legend where it has one, which is
-   what `src/dialects/cursorKeys.test.ts` already proves presses the right cell.
+Every layout says, in data, what each of its keys *means*. `KeyLabel.editor`
+carries `{ insert: 'Z' }` for a character key, `{ action: 'newline' }` for enter,
+`{ action: 'backspace' }` for the rub-out, `{ action: 'left' }` for a cursor key;
+`KeyDef.modifier` names the modifier roles. `resolveEditorAction(layout, key,
+layerId)` (`src/keyboard/editorActions.ts`) already reads exactly this, and
+`resolveEmits` gives the tokens the same legend presses. So the vocabulary is
+derived from declared meaning, and **no rule anywhere strips a `Key`/`Digit`
+prefix off an id or matches a legend glyph**. Both of those are silent-wrong-key
+generators:
 
-The driver's `pressKeys` resolves through this rather than through the raw id
-index, so the assistant and the command line press keys the same way, and
-`driveKeyNames` stays what it is — the ids, for the prompt. A name that resolves to
-nothing is refused naming the machine and the name, never silently mapped to a
-neighbour.
+- **Stripping ids** breaks on the PMD 85, a Czechoslovak QWERTZ board whose own
+  header notes that its DOM `KeyboardEvent.code` tokens are *positional*: it
+  declares `key('KeyY', 'Z', 'z')`, so the key that types `Z` emits `KeyY`.
+  `PRESS Z` off the id would press the key that types `Y`. Read as declared
+  meaning, `resolveEditorAction` returns `{ insert: 'Z' }` for that key and the
+  right cell is found by construction.
+- **Matching glyphs** breaks on `←`, which is cursor-left on eighteen machines but
+  `{ action: 'backspace' }` on the TRS-80 and the Apple II — where the very same
+  arrow is the rub-out key.
 
-The vocabulary is a fact about every registered machine, so it gets one
-registry-driven test, `src/dialects/keyNames.test.ts`: every machine resolves the
-letters, the digits, `SPACE`, `ENTER` and `SHIFT` to non-empty tokens, naming the
-offending machine and name in the assertion. A machine whose keyboard truly lacks
-one of these — the test is what will say — is excused by name against its
-declared facts, as `caseKeys.test.ts` does, rather than given a key it does not
-have.
+Resolution, in order:
 
-Describing a machine gains a `keys` field: the names it answers to, machine-
-independent first and its own ids after, so a caller finds out what it may press
-from `basically info` rather than by trial.
+1. **The vocabulary**, case-folded. A **character** is a base-layer
+   `{ insert }` of a single letter or digit, with `' '` as `SPACE`. A **concept**
+   is a declared action: `ENTER` from `newline`, `DELETE` from `backspace`,
+   `UP`/`DOWN`/`LEFT`/`RIGHT` from the cursor actions, read across layers so the
+   `modeOnly` CURSOR overlay is included. A **modifier** comes from
+   `KeyDef.modifier`, with the layout's shift role normalised to `SHIFT` so the
+   four spellings — `Shift`, `CapsShift`, `LeftShift`, `ShiftLeft` — are one name.
+   A few concepts declare nothing to key on and need a small candidate table of
+   ids and legends: `ESCAPE` (the id is `Escape` on all seven machines that have
+   one, but the Altair's legend reads `ALT`) and `BREAK`. Everything else with a
+   word legend — the function keys, `TAB`, `START`, `STOP`, `RESET` — is offered
+   under the name its own keycap carries.
+2. **The machine's own key id**, exact, so every name the assistant has been given
+   until now keeps working.
+
+Deriving `DELETE` from the declared `backspace` action rather than from the id is
+what keeps the PMD 85 correct at the other end too: its `Del` key is
+`act('DEL', 'delete')`, a *forward* delete, and so is properly not the rub-out. For
+the same reason `DEL` is not an alias of `DELETE` — it would mean rub-out on
+twenty-three machines and delete-forward on one.
+
+Function keys are never renumbered. `F1` must not mean "the first function key",
+because the BBC and the CPCs start at `f0` where the C64 starts at `f1`; each is
+offered under the name printed on it, and `basically info` is how a caller learns
+which a machine has.
+
+A name that resolves to nothing is refused naming the machine and the name, never
+silently mapped to a neighbour — and a name whose tokens come back empty, which
+the CURSOR overlay legitimately produces for the keys it blanks, counts as
+resolving to nothing rather than as a press that sends nothing.
+
+`keyVocabulary(layout)` returns the machine-independent names *this* machine
+resolves, sorted. Absence is the honest answer: a machine with no escape key does
+not list `ESCAPE`. Only part of the vocabulary is universal — every registered
+machine has the letters, the digits, `SPACE`, `ENTER` and `SHIFT`, and that is
+what a registry-driven assertion can hold them all to. Escape, ctrl, tab, the
+cursor keys and the function keys are per machine: eleven machines have no escape,
+twelve no ctrl keycap, tab exists on the Ataris alone, five machines have no
+cursor keys and the PMD 85 has only three of the four.
+
+Describing a machine gains a `keys` field carrying that vocabulary, so a caller
+finds out what it may press from `basically info` rather than by trial.
+
+Aliases are accepted without being listed. `RETURN` and `NEWLINE` reach `ENTER`,
+`BACKSPACE` and `RUBOUT` reach `DELETE`, `ESC` reaches `ESCAPE`. Listing every
+spelling would triple that line in every system prompt and teach the model three
+names for one key; accepting them costs nothing and makes a hand-written schedule
+forgiving.
+
+`pressKeys` deduplicates the tokens a chord resolves to. `PRESS SHIFT+LEFT` on a
+Spectrum concatenates `['CapsShift']` with `['CapsShift','Digit5']`, and pressing
+and releasing one cell twice in a step is bookkeeping nobody needs.
 
 *Alternative rejected: rename every layout's key ids to one convention.* It
-touches every machine's keyboard for a naming preference, and two machines' ids
-are matrix positions that have no natural name to be renamed to.
+touches every machine's keyboard for a naming preference, and it would not help:
+the ids are not the problem, reading them as if they were names is.
+
+*Alternative rejected: derive a character from the key's legend text.* Nearly
+right, and it does get the PMD 85 right, but it is the same class of mistake one
+step further on — the legend is what is *drawn*, and `←` is drawn on both a
+cursor key and a rub-out. The declared action is what the layout actually
+promises.
+
+### The assistant is told the same vocabulary, so there is one of them
+
+`pressKeys` resolves every caller's names through the resolver, so the moment it
+lands the assistant *accepts* vocabulary names. What remains is to stop handing it
+the raw tokens: `driveKeyNames` (`src/ai/machineObservability.ts`) is repointed at
+`keyVocabulary`, and the one bullet of `buildDriveRules` that lists the machine's
+keys names the vocabulary instead. Raw ids stay accepted and stop being
+advertised.
+
+Doing this here rather than in a later change is what keeps the vocabulary
+singular. The alternative leaves `driveKeyNames` and `keyVocabulary` in the tree
+together, each a list of key names for the same machine — the exact drift this
+change exists to remove.
+
+It also settles where the vocabulary is proved. `src/ai/machineObservability.test.ts`
+already boots every registered dialect on its real ROM and asserts that every name
+the assistant is offered can actually be pressed; repointing the function makes
+that existing test the ROM-level proof for both callers. So this change adds no
+second registry-driven battery of its own — one more file booting every machine
+would be among the slowest in the suite for no fact the existing one does not
+already establish. What it adds instead is a fast, pure `src/keyboard/keyNames.test.ts`
+for the resolution rules themselves, with the PMD 85 pinned by name.
+
+The prompt's own constraints are met rather than worked around. The vocabulary is
+derivable from the `Dialect` alone with no emulator booted, and is sorted and
+byte-stable, which is what the prefix cache and `src/ai/promptStability.test.ts`
+require. That test's budgets are ceilings, so a list that gets shorter cannot
+break them. `driveToolDefinitions()` is untouched: its block stays free of machine
+specifics, which its own test asserts.
+
+*Alternative rejected: tell the assistant both the vocabulary and every machine
+id.* It is the safest for capability and the worst for the goal — the model keeps
+writing machine-specific names because they are still in front of it, and the
+prompt grows to carry two names for every key.
 
 ### The runner gains one hook, and the schedule is the run
 
@@ -202,13 +309,15 @@ the hook drives a machine from the family that queues its boot on a microtask
 (an Acorn or a Commodore), so the assumption is checked on the machine most
 likely to break it.
 
-**Resolving names from legends can match the wrong key on a layout whose base
-legend is not the character it types** → The resolver prefers ids to legends and
-the registry-driven test names the resolved tokens per machine, so a machine
-whose `A` resolves to something other than its A key fails the test rather than
-pressing quietly. The ROM-level proof stays where it is: one machine driven by
-vocabulary names in `machineControl.test.ts`, on top of the tokens
-`caseKeys.test.ts` already proves.
+**A name resolving to the wrong key is silent — it presses something, so nothing
+errors** → This is the failure mode worth the most care, and the PMD 85 is the
+worked example of it: its QWERTZ ids make `Z` and `Y` each other's positions, so
+an id-first resolver would press the wrong one with no complaint. Three things
+answer it. The precedence resolves a character by what it types rather than where
+it sits; the pure resolver test pins that machine by name; and the every-machine
+ROM crosscheck in `machineObservability.test.ts` presses every advertised name on
+every registered machine, so a name that resolves to a key that emits nothing, or
+to no key at all, fails rather than passing quietly.
 
 **Growing the parser changes what the assistant's `drive` tool accepts** → Only by
 addition: every script that parsed before parses the same, and the tool's
@@ -220,8 +329,24 @@ program** → Deliberate, and the flag that disagrees with it (`--max-frames`) i
 refused rather than ignored, so a caller cannot write a schedule believing the
 run will wait afterwards.
 
-**Two machines' key tokens are raw matrix positions, with no id a name can be
-derived from** → Those layouts still carry legends, which is the second route
-the resolver takes; the registry-driven test is what says whether legends are
-enough, and a machine they are not enough for gets a layout fix, not a
-command-line exception.
+**A concept could resolve to two different keys on one machine** → Where both
+resolve to the same tokens it is not ambiguity at all, and that is the common
+case: the CPCs and the MSX declare their cursor cells twice, once as a
+non-rendered `controllerKeys` entry and once as a CURSOR legend, both yielding
+`['CursorLeft']`. Comparing resolved tokens rather than keys absorbs it. Where
+they genuinely differ, the resolver does not choose — the test fails naming the
+machine and the concept, and the layout is fixed.
+
+**Repointing what the assistant is told changes a shipped feature's behaviour** →
+It is a spec change, not a quiet one: the `ai-assistant` delta modifies the
+requirement that today guarantees machine-specific naming. Its safety property is
+kept exactly — the assistant is still told only names this machine has, so it
+still cannot ask for a key that does not exist here. Nothing in flight breaks
+either, because ids stay accepted; the browser-level driving spec drives with
+`PRESS KeyA` and must stay green on that alone.
+
+**A prompt that changes size can silently cost cache writes** →
+`promptStability.test.ts` pins per-machine budgets and byte-stability across every
+capability combination, and its budgets are ceilings, so a vocabulary shorter than
+today's token list cannot breach them. The list stays sorted and derived from the
+`Dialect` alone, which is what the stability assertion actually turns on.

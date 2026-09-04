@@ -37,15 +37,21 @@ report the screen as it stood, and count as the program's failure.
 
 ### Requirement: Keys are named the same way on every machine
 
-A schedule SHALL name keys in a vocabulary that does not depend on the machine:
-every letter, every digit, and the keys machines have in common — space, enter,
-shift, delete, escape, the cursor keys and the function keys — SHALL be written
-the same way for every registered machine, and each machine SHALL resolve a name
-to whatever its own keyboard calls that key. Where machines name one key
-differently from one another, the common names SHALL be accepted as one. A
-machine's own key names SHALL also be accepted. A name that a machine has no key
-for SHALL be refused, naming the machine and the key, rather than resolved to
-some other key. Describing a machine SHALL list the names it answers to.
+A schedule SHALL name keys in a vocabulary that does not depend on the machine.
+Every letter, every digit, space, enter and shift SHALL be written the same way
+for every registered machine. The keys only some machines have — delete, escape,
+ctrl, tab, the cursor keys and the function keys — SHALL be written the same way
+wherever they exist, and SHALL simply not be offered by a machine that has none,
+rather than being mapped onto some other key it does have.
+
+A name SHALL resolve to the key that performs it, not to the key its machine's
+keyboard hardware happens to give that name, so that a machine whose key
+positions and key meanings disagree still presses what the caller asked for.
+Where machines name one key differently from one another, the common names SHALL
+be accepted as one. A machine's own key names SHALL also be accepted. A name a
+machine has no key for SHALL be refused, naming the machine and the key.
+Describing a machine SHALL list the names it answers to, so that a caller can
+find out what a machine has without guessing.
 
 #### Scenario: One schedule, two machines
 
@@ -59,6 +65,13 @@ some other key. Describing a machine SHALL list the names it answers to.
 - **WHEN** a schedule presses a key the machine's keyboard has no equivalent of
 - **THEN** the action fails, naming the machine and the key, and no other key is
   pressed in its place
+
+#### Scenario: A machine whose key positions and key meanings disagree
+
+- **WHEN** a schedule presses a letter on a machine whose keyboard hardware names
+  that key's position after a different letter
+- **THEN** the key that types the named letter is pressed, not the one the
+  hardware names after it
 
 #### Scenario: Finding out what may be pressed
 
