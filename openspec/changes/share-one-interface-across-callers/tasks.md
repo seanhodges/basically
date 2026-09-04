@@ -46,10 +46,10 @@
 ## 6. Quality gates
 
 - [x] 6.1 `npm run typecheck`
-- [ ] 6.2 `npx vitest run src/ops/ src/cli/ src/ai/ src/app/` for the touched areas, then `npm test` once, since this change crosses the store, the editor's run path and both callers.
+- [x] 6.2 `npx vitest run src/ops/ src/cli/ src/ai/ src/app/` for the touched areas, then `npm test` once, since this change crosses the store, the editor's run path and both callers.
 - [x] 6.3 `npm run lint` and `npm run format:check`
 - [x] 6.4 `npm run docs:build`
-- [ ] 6.5 `npm run e2e:chromium -- e2e/ai-assistant`
-- [ ] 6.6 `npm run e2e:chromium -- e2e/profiling`
-- [ ] 6.7 `npm run e2e:chromium -- e2e/program-execution`
+- [x] 6.5 `npm run e2e:chromium -- e2e/ai-assistant`
+- [x] 6.6 `npm run e2e:chromium -- e2e/profiling`
+- [x] 6.7 `npm run e2e:chromium -- e2e/program-execution`
 - [x] 6.8 Compare the command line's output against the same invocations before the change — describing a machine as JSON, checking a program, and a driven run — and confirm each is byte-identical.
