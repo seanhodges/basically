@@ -17,6 +17,7 @@ import { driveHook, parseSchedule } from '../../src/cli/drive';
 import { findMachine } from '../../src/dialects/headless/runListing';
 import { hasRom } from '../../src/dialects/bootHarness';
 import { locateRoms } from '../../src/cli/roms';
+import { runLsp } from './lsp.mts';
 
 /**
  * The Basically toolchain outside the browser.
@@ -73,7 +74,7 @@ async function readProgram(input: ProgramInput): Promise<string> {
  * land in the middle of the screen text on stdout and make the output useless
  * to anything reading it. Restored afterwards so a later throw still reports.
  */
-function divertLogging(): () => void {
+export function divertLogging(): () => void {
   const kept = { log: console.log, info: console.info, debug: console.debug };
   const toStderr = (...parts: unknown[]) =>
     err(`${parts.map(String).join(' ')}\n`);
@@ -299,6 +300,21 @@ async function main(): Promise<number> {
 
     case 'run':
       return run(args);
+
+    case 'lsp': {
+      // A bad `-m` is the caller's mistake to fail on before anything is
+      // served, exactly as every other operation refuses one; naming none at
+      // all is fine here, unlike every other operation, since the editor may
+      // say later.
+      if (args.machine !== undefined && !findMachine(args.machine)) {
+        throw new RunError(`no registered machine "${args.machine}"`);
+      }
+      await runLsp(args.machine);
+      // The server has no verdict on a program to report - it served until
+      // the editor disconnected, which is success whatever the programs it
+      // served turned out to have.
+      return 0;
+    }
   }
 }
 

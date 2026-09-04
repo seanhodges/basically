@@ -16,7 +16,14 @@
 
 import { RunError } from '../dialects/headless/runListing';
 
-export const OPERATIONS = ['machines', 'info', 'lint', 'build', 'run'] as const;
+export const OPERATIONS = [
+  'machines',
+  'info',
+  'lint',
+  'build',
+  'run',
+  'lsp',
+] as const;
 
 export type Operation = (typeof OPERATIONS)[number];
 
@@ -81,13 +88,28 @@ export interface RunArgs {
   romRoot?: string;
 }
 
+export interface LspArgs {
+  operation: 'lsp';
+  /** Serve over standard input/output; the only transport, so always set once parsed. */
+  stdio: boolean;
+  /**
+   * A machine to bind every document to by default, absent when the editor is
+   * expected to say later - see {@link ../lsp/binding}. Unlike every other
+   * program-reading operation, naming none is not the caller's mistake: the
+   * editor may set `basically.machine` or send it in `initializationOptions`
+   * once the server has started.
+   */
+  machine?: string;
+}
+
 export type CliArgs =
   | HelpArgs
   | MachinesArgs
   | InfoArgs
   | LintArgs
   | BuildArgs
-  | RunArgs;
+  | RunArgs
+  | LspArgs;
 
 function isOperation(word: string): word is Operation {
   return (OPERATIONS as readonly string[]).includes(word);
@@ -317,6 +339,28 @@ function parseRun(argv: string[]): RunArgs {
   };
 }
 
+function parseLsp(argv: string[]): LspArgs {
+  let machine: string | undefined;
+  let stdio = false;
+  const rest = scan(argv, (name, value) => {
+    switch (name) {
+      case '-m':
+      case '--machine':
+        machine = value();
+        break;
+      case '--stdio':
+        stdio = true;
+        break;
+      default:
+        throw unknownOption('lsp', name);
+    }
+  });
+  if (rest.length > 0) {
+    throw new RunError(`lsp takes no arguments, got "${rest[0]}"`);
+  }
+  return { operation: 'lsp', stdio, machine };
+}
+
 export function parseArgs(argv: string[]): CliArgs {
   const wantsHelp = argv.includes('--help') || argv.includes('-h');
   const first = argv[0];
@@ -342,5 +386,7 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseBuild(rest);
     case 'run':
       return parseRun(rest);
+    case 'lsp':
+      return parseLsp(rest);
   }
 }

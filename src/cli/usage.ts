@@ -21,6 +21,7 @@ usage: basically <operation> [options]
   lint       report a program's problems without running it
   build      write a program as a file the machine loads
   run        run a program and report its screen
+  lsp        serve an editor over the Language Server Protocol
 
 Every operation but "run" works with no ROM present. Where an operation takes a
 program, the path may be "-", or left out, to read it from standard input.
@@ -117,6 +118,28 @@ Keys are named the same way on every machine - the letters, the digits, SPACE,
 ENTER and SHIFT everywhere, and DELETE, ESCAPE, CTRL, TAB, the cursor keys and
 the function keys wherever the machine has them. "basically info <machine>"
 lists the names that machine answers to.
+`.trimStart(),
+
+  lsp: `
+serve an editor over the Language Server Protocol: no ROM, no emulator
+
+usage: basically lsp --stdio [-m <machine>]
+
+  --stdio           the only transport; required
+  -m, --machine     a machine every document defaults to, when the editor
+                    sets none of its own; optional, since a listing's own
+                    "#MACHINE" declaration or the editor's own setting can say
+                    later, once the server has started
+
+Point your editor's language-client configuration at this command - most
+editors run a language server as a child process over stdio. For example, a
+generic LSP client config might read:
+
+  { "command": "basically", "args": ["lsp", "--stdio"] }
+
+The server holds its streams open for the conversation and has no verdict to
+report, so it exits 0 when the editor disconnects; starting it with a bad
+option, or a machine that is not registered, exits 1 without serving anything.
 `.trimStart(),
 };
 

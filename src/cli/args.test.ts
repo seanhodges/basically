@@ -85,6 +85,19 @@ describe('the command line grammar', () => {
       json: false,
       romRoot: '/elsewhere/public',
     });
+    expect(parseArgs(['lsp', '--stdio', '-m', 'zx81'])).toEqual({
+      operation: 'lsp',
+      stdio: true,
+      machine: 'zx81',
+    });
+  });
+
+  it('takes no machine at all for lsp, since the editor may name one later', () => {
+    expect(parseArgs(['lsp', '--stdio'])).toEqual({
+      operation: 'lsp',
+      stdio: true,
+      machine: undefined,
+    });
   });
 
   it('takes no machine for lint/build, leaving it to the program to declare one', () => {
@@ -133,6 +146,8 @@ describe('the command line grammar', () => {
     const cases: [string, string[]][] = [
       ['an unknown operation', ['dance', '-m', 'zx81']],
       ['an unknown option', ['lint', '-m', 'zx81', '--loudly']],
+      ['an unknown option on lsp', ['lsp', '--stdio', '--loudly']],
+      ['a positional argument on lsp', ['lsp', '--stdio', 'prog.bas']],
       ['a missing machine on run', ['run', 'prog.bas']],
       ['a missing output path', ['build', 'prog.bas', '-m', 'zx81']],
       ['a non-numeric frame count', ['run', '-m', 'zx81', '--frames', 'lots']],

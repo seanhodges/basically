@@ -314,6 +314,63 @@ function rewriteLineReferences(
 }
 
 /**
+ * The line number referenced at column `col` of physical line `line`, or null
+ * when `col` is not on one - because nothing is there, because a number at
+ * that position is not a reference (`GOTO X+1`'s `1` is not a jump target),
+ * or because it sits inside a string or a comment. Walks the same ground as
+ * {@link rewriteLineReferences} (the same keywords, the same comma-list
+ * continuation for `ON x GOTO a,b,c`, the same skip of strings/REM/`#BIN`), so
+ * "what counts as a reference" is answered in one place rather than agreeing
+ * by inspection with the renumberer.
+ */
+export function lineNumberReferenceAt(
+  line: string,
+  col: number,
+): number | null {
+  if (isBinaryDirective(line)) return null;
+  const refRe = new RegExp(`(${REF_KEYWORDS.join('|')})(\\s*)(\\d+)`, 'gi');
+  const listRe = /(\s*,\s*)(\d+)/g;
+  let i = 0;
+  let inString = false;
+  while (i < line.length) {
+    const ch = line[i]!;
+    if (inString) {
+      if (ch === '"') inString = false;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      i++;
+      continue;
+    }
+    if (/[Rr]/.test(ch) && /^rem\b/i.test(line.slice(i))) break;
+    refRe.lastIndex = i;
+    const m = refRe.exec(line);
+    if (m && m.index === i) {
+      const numStart = i + m[1]!.length + m[2]!.length;
+      const numEnd = numStart + m[3]!.length;
+      if (col >= numStart && col <= numEnd) return parseInt(m[3]!, 10);
+      i += m[0].length;
+      if (LIST_KEYWORDS.has(m[1]!.replace(/\s+/g, '').toUpperCase())) {
+        listRe.lastIndex = i;
+        let lm: RegExpExecArray | null;
+        while ((lm = listRe.exec(line)) && lm.index === i) {
+          const lnStart = i + lm[1]!.length;
+          const lnEnd = lnStart + lm[2]!.length;
+          if (col >= lnStart && col <= lnEnd) return parseInt(lm[2]!, 10);
+          i += lm[0].length;
+          listRe.lastIndex = i;
+        }
+      }
+      continue;
+    }
+    i++;
+  }
+  return null;
+}
+
+/**
  * Apply a whole old→new shift map atomically: rewrite each moved line's own
  * number and every reference in one pass (against the original numbers, so a
  * 12→13/13→14 cascade is never double-applied), then re-sort ascending.
