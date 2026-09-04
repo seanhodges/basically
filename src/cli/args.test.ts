@@ -25,17 +25,18 @@ describe('the command line grammar', () => {
     expect(parseArgs(['machines', '--json'])).toEqual({
       operation: 'machines',
       json: true,
+      input: {},
     });
     expect(parseArgs(['info', 'zx81'])).toEqual({
       operation: 'info',
-      machine: 'zx81',
       json: false,
+      input: { machine: 'zx81' },
     });
     expect(parseArgs(['lint', 'prog.bas', '-m', 'zx81', '--json'])).toEqual({
       operation: 'lint',
       program: { kind: 'file', path: 'prog.bas' },
-      machine: 'zx81',
       json: true,
+      input: { machine: 'zx81' },
     });
     expect(
       parseArgs([
@@ -53,10 +54,13 @@ describe('the command line grammar', () => {
     ).toEqual({
       operation: 'build',
       program: { kind: 'file', path: 'prog.bas' },
-      machine: 'zx81',
       out: '/tmp/prog.p',
-      target: 'p',
-      programName: 'GAME',
+      input: {
+        machine: 'zx81',
+        fileName: '/tmp/prog.p',
+        target: 'p',
+        programName: 'GAME',
+      },
     });
     expect(
       parseArgs([
@@ -71,19 +75,28 @@ describe('the command line grammar', () => {
         '--screenshot',
         '/tmp/bbc.png',
         '--screen-text',
+        '--profile',
+        '--time',
+        '--variables',
         '--rom-root',
         '/elsewhere/public',
       ]),
     ).toEqual({
       operation: 'run',
       program: { kind: 'file', path: 'prog.bas' },
-      machine: 'bbcmicro',
-      frames: 500,
-      maxFrames: 900,
-      screenText: true,
-      screenshot: '/tmp/bbc.png',
       json: false,
-      romRoot: '/elsewhere/public',
+      screenshot: '/tmp/bbc.png',
+      input: {
+        machine: 'bbcmicro',
+        frames: 500,
+        maxFrames: 900,
+        screenText: true,
+        screenshot: true,
+        profile: true,
+        time: true,
+        variables: true,
+        romRoot: '/elsewhere/public',
+      },
     });
     expect(parseArgs(['lsp', '--stdio', '-m', 'zx81'])).toEqual({
       operation: 'lsp',
@@ -104,16 +117,19 @@ describe('the command line grammar', () => {
     expect(parseArgs(['lint', 'prog.bas'])).toEqual({
       operation: 'lint',
       program: { kind: 'file', path: 'prog.bas' },
-      machine: undefined,
       json: false,
+      input: { machine: undefined },
     });
     expect(parseArgs(['build', 'prog.bas', '--out', '/tmp/prog.p'])).toEqual({
       operation: 'build',
       program: { kind: 'file', path: 'prog.bas' },
-      machine: undefined,
       out: '/tmp/prog.p',
-      target: undefined,
-      programName: undefined,
+      input: {
+        machine: undefined,
+        fileName: '/tmp/prog.p',
+        target: undefined,
+        programName: undefined,
+      },
     });
   });
 
@@ -129,17 +145,20 @@ describe('the command line grammar', () => {
     }
   });
 
-  it('reports the screen as text unless only a picture was asked for', () => {
+  it('reports the screen as text unless only something else was asked for', () => {
     const text = (argv: string[]) => {
       const args = parseArgs(argv);
       if (args.operation !== 'run') throw new Error('not a run');
-      return args.screenText;
+      return args.input.screenText;
     };
     expect(text(['run', '-m', 'zx81'])).toBe(true);
     expect(text(['run', '-m', 'zx81', '--screenshot', 'a.png'])).toBe(false);
     expect(
       text(['run', '-m', 'zx81', '--screenshot', 'a.png', '--screen-text']),
     ).toBe(true);
+    // A measurement asked for alone is the answer, as a picture alone is.
+    expect(text(['run', '-m', 'zx81', '--profile'])).toBe(false);
+    expect(text(['run', '-m', 'zx81', '--time', '--screen-text'])).toBe(true);
   });
 
   it('refuses what the caller got wrong', () => {
@@ -179,8 +198,8 @@ describe('the command line grammar', () => {
     if (args.operation !== 'run') throw new Error('not a run');
     // Handed on as written: what a line means is the schedule parser's
     // business, not the grammar's.
-    expect(args.keys).toBe('WAIT FOR "GO"; PRESS A');
-    expect(args.frames).toBe(20);
+    expect(args.input.keys).toBe('WAIT FOR "GO"; PRESS A');
+    expect(args.input.frames).toBe(20);
   });
 
   // The old grammar took a bare machine name first and ran it. Nothing accepts

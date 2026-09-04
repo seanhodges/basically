@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { dialects, getDialect } from '../dialects/registry';
-import { describeMachine, formatMachineDescription } from './info';
-import { listMachines } from './machines';
-import { RunError } from '../dialects/headless/runListing';
+import { RunError } from '../dialects/headless/runError';
+import { describeMachine, infoOp } from './info';
+import { pureContext } from './testSupport';
+
+const ctx = pureContext();
 
 describe('describing a machine', () => {
   it('describes every registered machine completely', () => {
     for (const dialect of dialects) {
-      const machine = describeMachine(dialect.id);
+      const machine = describeMachine({ machine: dialect.id }, ctx);
       expect(machine.name, dialect.id).not.toBe('');
       expect(machine.manufacturer, dialect.id).not.toBe('');
       expect(machine.description, dialect.id).not.toBe('');
@@ -37,14 +39,15 @@ describe('describing a machine', () => {
     }
   });
 
-  it('renders every machine readably', () => {
+  it('tells a model about every machine readably', () => {
     for (const dialect of dialects) {
-      const text = formatMachineDescription(describeMachine(dialect.id));
+      const text = infoOp.describe(
+        describeMachine({ machine: dialect.id }, ctx),
+      );
       expect(text, dialect.id).toContain(dialect.name);
       expect(text, dialect.id).toContain(dialect.basicDialect);
-      // A caller finds out what a run may press from here rather than by trial.
-      expect(text, dialect.id).toContain('KEYS (');
-      expect(text.endsWith('\n'), dialect.id).toBe(true);
+      // A model finds out what a schedule may press from here, not by trial.
+      expect(text, dialect.id).toContain('Keys a schedule may press');
     }
   });
 
@@ -54,7 +57,7 @@ describe('describing a machine', () => {
   it('reads its figures off the dialect itself', () => {
     for (const id of ['zx81', 'bbcmicro']) {
       const dialect = getDialect(id);
-      const machine = describeMachine(id);
+      const machine = describeMachine({ machine: id }, ctx);
       expect(machine.programRamBytes, id).toBe(dialect.programRamBytes);
       expect(machine.basic.statementSeparator, id).toBe(
         dialect.statementSeparator,
@@ -72,21 +75,23 @@ describe('describing a machine', () => {
   });
 
   it('resolves a machine by name as well as by id, and refuses an unknown one', () => {
-    expect(describeMachine('ZX81').id).toBe('zx81');
-    expect(describeMachine('C64').id).toBe('commodore64');
-    expect(() => describeMachine('speccy-2000')).toThrow(RunError);
+    expect(describeMachine({ machine: 'ZX81' }, ctx).id).toBe('zx81');
+    expect(describeMachine({ machine: 'C64' }, ctx).id).toBe('commodore64');
+    expect(() => describeMachine({ machine: 'speccy-2000' }, ctx)).toThrow(
+      RunError,
+    );
   });
-});
 
-describe('listing the machines', () => {
-  it('reports every registered machine once, with its own blurb', () => {
-    const summaries = listMachines();
-    expect(summaries.map((m) => m.id)).toEqual(dialects.map((d) => d.id));
-    for (const summary of summaries) {
-      expect(summary.description, summary.id).toBe(
-        getDialect(summary.id).blurb,
-      );
-      expect(typeof summary.romPresent, summary.id).toBe('boolean');
-    }
+  it("describes the context's machine when none is named, and refuses when there is none", () => {
+    expect(
+      describeMachine({}, pureContext({ defaultMachine: 'bbcmicro' })).id,
+    ).toBe('bbcmicro');
+    expect(() => describeMachine({}, ctx)).toThrow(RunError);
+  });
+
+  it('asks the context whether the ROM is here', () => {
+    const absent = pureContext({ roms: { present: () => false } });
+    expect(describeMachine({ machine: 'zx81' }, absent).romPresent).toBe(false);
+    expect(describeMachine({ machine: 'zx81' }, ctx).romPresent).toBe(true);
   });
 });

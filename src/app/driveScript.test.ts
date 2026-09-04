@@ -23,6 +23,28 @@ function stubControl(overrides: Partial<MachineControl> = {}): MachineControl {
 }
 
 describe('reading a drive script', () => {
+  it('takes several actions on one line, separated by semicolons', () => {
+    // The same rule for every caller: a schedule on a shell line and a script
+    // the assistant writes are read by this one parser.
+    expect(parseDriveScript('WAIT FOR "GO"; PRESS A; WAIT END')).toEqual([
+      { kind: 'waitFor', needle: 'GO', maxFrames: DEFAULT_WAIT_FOR_FRAMES },
+      { kind: 'press', names: ['A'] },
+      { kind: 'waitEnd', maxFrames: DEFAULT_WAIT_FOR_FRAMES },
+    ]);
+  });
+
+  it('leaves a semicolon inside a needle alone', () => {
+    // Text on a screen is allowed to contain one, and splitting there would
+    // wait for half a phrase and then fail on the other half.
+    expect(parseDriveScript('WAIT FOR "READY; GO"')).toEqual([
+      {
+        kind: 'waitFor',
+        needle: 'READY; GO',
+        maxFrames: DEFAULT_WAIT_FOR_FRAMES,
+      },
+    ]);
+  });
+
   it('reads the actions a program actually needs', () => {
     expect(
       parseDriveScript('WAIT FOR "NAME?"\nPRESS KeyF\nPRESS Enter\nWAIT 50'),

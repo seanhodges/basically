@@ -21,9 +21,20 @@ const PROGRAM = ['10 CLS', '20 PRINT "MINE"', '30 GOTO 20'].join('\n');
  * Named here once and asserted from every turn: what these tests are for is
  * that the set never varies within a conversation, and two copies of the list
  * could drift apart and still both pass. Which tools exist, and in what order,
- * is pinned in src/ai/driveTools.test.ts.
+ * is the operation registry's (src/ops/registry.ts), pinned in
+ * src/ops/tools.test.ts.
  */
-const EVERY_TOOL = ['drive', 'look', 'profile', 'time'];
+const EVERY_TOOL = [
+  'machines',
+  'info',
+  'lint',
+  'build',
+  'drive',
+  'look',
+  'profile',
+  'time',
+  'variables',
+];
 
 /** A program that stops dead until a key is held - the case driving exists for. */
 const WAITS_FOR_A_KEY = [

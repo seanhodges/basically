@@ -9,7 +9,37 @@
  * help wants the sentence, not the shape.
  */
 
+import { DRIVE_ACTIONS } from '../app/driveScript';
 import type { Operation } from './args';
+
+/** The actions a schedule accepts, as help lists them: syntax, then meaning. */
+function actionLines(): string {
+  const width = 29;
+  const rows = [
+    ...DRIVE_ACTIONS.map((a) => [a.syntax, a.meaning]),
+    ['# ...', 'a comment'],
+  ];
+  return rows
+    .map(([syntax, meaning]) => {
+      const words = meaning!.split(' ');
+      const lines: string[] = [];
+      let line = '';
+      for (const word of words) {
+        if (line !== '' && `${line} ${word}`.length > 78 - width - 2) {
+          lines.push(line);
+          line = '';
+        }
+        line = line === '' ? word : `${line} ${word}`;
+      }
+      lines.push(line);
+      const head = `  ${syntax!.padEnd(width)}${syntax!.length > width ? '  ' : ''}`;
+      return [
+        `${head}${lines[0]}`,
+        ...lines.slice(1).map((l) => `${' '.repeat(width + 2)}${l}`),
+      ].join('\n');
+    })
+    .join('\n');
+}
 
 const SUMMARY = `
 the Basically toolchain, outside the browser
@@ -99,6 +129,12 @@ usage: basically run [file] -m <machine> [options]
                     is asked for)
   --screenshot <p>  write a picture of the screen to p; may be asked for
                     alongside --screen-text, from the same run
+  --profile         report where the run's time and memory went: the
+                    costliest lines as shares of the run, summed over the
+                    program's routines, and BASIC RAM over the run
+  --time            report how long the run took, in the machine's own time,
+                    and how it ended
+  --variables       report what the program's variables hold at the end
   --json            one JSON object on standard output instead of the text
   --rom-root <dir>  read ROMs from this public/ rather than the checkout's
 
@@ -106,13 +142,7 @@ A schedule is one action per line, or several separated by ";". A run given one
 ends where the schedule ends, so the screen reported is the one the last action
 left, and a step that could not be carried out fails the run.
 
-  PRESS <key>[+<key>...] [n]   press keys together, held for n frames
-  JOY <up|down|left|right|fire|fire2> [n]   hold a joystick control
-  WAIT <n>                     let the program run on for n frames
-  WAIT FOR "<text>" [n]        run until that text is on screen, giving up
-                               after n frames
-  WAIT END [n]                 run until the program stops, giving up after n
-  # ...                        a comment
+${actionLines()}
 
 Keys are named the same way on every machine - the letters, the digits, SPACE,
 ENTER and SHIFT everywhere, and DELETE, ESCAPE, CTRL, TAB, the cursor keys and

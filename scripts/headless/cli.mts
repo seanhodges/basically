@@ -1,30 +1,30 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { encodePng } from '../../src/dialects/headless/headlessCanvas';
-import {
-  RunError,
-  runListing,
-  screenLines,
-  type RunResult,
-} from '../../src/dialects/headless/runListing';
+import { RunError, screenLines } from '../../src/dialects/headless/runListing';
 import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
 import { usage } from '../../src/cli/usage';
-import { formatMachines, listMachines } from '../../src/cli/machines';
-import { describeMachine, formatMachineDescription } from '../../src/cli/info';
-import { formatProblems, lintListing } from '../../src/cli/lint';
-import { buildListing } from '../../src/cli/build';
-import { driveHook, parseSchedule } from '../../src/cli/drive';
-import { findMachine } from '../../src/dialects/headless/runListing';
-import { hasRom } from '../../src/dialects/bootHarness';
-import { locateRoms } from '../../src/cli/roms';
+import { formatMachines } from '../../src/cli/machines';
+import { formatMachineDescription } from '../../src/cli/info';
+import { formatProblems } from '../../src/cli/lint';
+import { cliContext } from '../../src/cli/roms';
+import { findMachine } from '../../src/dialects/machineLookup';
+import { decodeBytes } from '../../src/ops/bytes';
+import { buildOp } from '../../src/ops/build';
+import { infoOp } from '../../src/ops/info';
+import { lintOp } from '../../src/ops/lint';
+import { machinesOp } from '../../src/ops/machines';
+import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
+import { runOp, type RunOutcome } from '../../src/ops/run';
 import { runLsp } from './lsp.mts';
 
 /**
  * The Basically toolchain outside the browser.
  *
- * Everything each operation knows lives under `src/cli/`; this is the process
- * around it - argv in, standard input read, files written, streams chosen, exit
- * code set - so nothing that decides an answer has to know it is in a process.
+ * Everything each operation knows lives under `src/ops/`, shared with the
+ * assistant; `src/cli/` holds the grammar, the help and the renderers that are
+ * the command line's own. This is the process around them - argv in, standard
+ * input read, files written, streams chosen, exit code set - so nothing that
+ * decides an answer has to know it is in a process.
  *
  * Two rules run through every operation. Standard output carries only the
  * product: the screen, the structured data, the problems a check found. Every
@@ -85,7 +85,7 @@ export function divertLogging(): () => void {
 }
 
 /** The run's figures, for the reader deciding whether to trust the picture. */
-function report(result: RunResult, wrote: string | null): void {
+function report(result: RunOutcome, wrote: string | null): void {
   const { machine, timings, picture } = result;
   const ms = (n: number) => `${n.toFixed(0)}ms`;
   err(
@@ -122,7 +122,7 @@ function report(result: RunResult, wrote: string | null): void {
 }
 
 /** Every tokenizer problem, on standard error, the way a compiler places one. */
-function reportErrors(errors: RunResult['errors']): void {
+function reportErrors(errors: RunOutcome['errors']): void {
   for (const e of errors) {
     const where =
       e.column === undefined ? `${e.line}` : `${e.line}:${e.column + 1}`;
@@ -131,13 +131,10 @@ function reportErrors(errors: RunResult['errors']): void {
 }
 
 async function build(args: Extract<CliArgs, { operation: 'build' }>) {
-  const outcome = await buildListing({
-    machine: args.machine,
-    source: await readProgram(args.program),
-    out: args.out,
-    target: args.target,
-    programName: args.programName,
-  });
+  const outcome = await buildOp.run(
+    { ...args.input, source: await readProgram(args.program) },
+    cliContext(),
+  );
   reportErrors(outcome.errors);
   if (outcome.target === null) {
     err('nothing was built: the program has a problem that prevents it\n');
@@ -150,8 +147,8 @@ async function build(args: Extract<CliArgs, { operation: 'build' }>) {
   for (const [index, file] of outcome.files.entries()) {
     const destination =
       index === 0 ? args.out : path.join(directory, file.fileName);
-    writeFileSync(destination, file.bytes);
-    err(`wrote ${destination} (${file.bytes.length} bytes)\n`);
+    writeFileSync(destination, decodeBytes(file.base64));
+    err(`wrote ${destination} (${file.size} bytes)\n`);
   }
   err(
     `${outcome.machine.name} ${outcome.target.label} (${outcome.target.id}), ` +
@@ -162,37 +159,14 @@ async function build(args: Extract<CliArgs, { operation: 'build' }>) {
 
 async function run(args: Extract<CliArgs, { operation: 'run' }>) {
   const source = await readProgram(args.program);
-  // Read before anything boots, so a schedule the tool cannot understand is the
-  // caller's mistake rather than a run that got part-way.
-  const schedule = args.keys === undefined ? null : parseSchedule(args.keys);
-  const dialect = findMachine(args.machine);
-  if (schedule && dialect) {
-    locateRoms(args.romRoot);
-    if (!hasRom(dialect)) {
-      // An undriven run on a ROM-less machine draws its missing-image notice,
-      // which at least says the machine boots. A driven one has nothing to
-      // drive, so it is refused before a step is taken rather than reporting a
-      // schedule that failed against a notice.
-      throw new RunError(
-        `this installation carries no ROM for ${dialect.name}, so there is ` +
-          'nothing for --keys to drive',
-      );
-    }
-  }
-  const handle = schedule && dialect ? driveHook(dialect, schedule) : null;
 
   const restoreLogging = divertLogging();
-  let result: RunResult;
+  let result: RunOutcome;
   try {
-    result = await runListing({
-      machine: args.machine,
-      source,
-      frames: args.frames,
-      maxFrames: args.maxFrames,
-      drive: handle?.drive,
-      pixels: args.screenshot !== undefined,
-      romRoot: args.romRoot,
-    });
+    result = await runOp.run(
+      { ...args.input, source },
+      cliContext(args.input.romRoot),
+    );
   } finally {
     restoreLogging();
   }
@@ -204,46 +178,60 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
 
   let wrote: string | null = null;
   if (args.screenshot !== undefined && result.picture) {
-    const { rgba, width, height } = result.picture;
-    writeFileSync(args.screenshot, encodePng(rgba, width, height));
+    writeFileSync(args.screenshot, decodeBytes(result.picture.png));
     wrote = args.screenshot;
   }
 
   if (args.json) {
+    // The picture's bytes have gone to their file, so the JSON names the file
+    // rather than carrying them; the errors have gone to standard error.
+    const { picture, profile, time, variables } = result;
     json({
       machine: result.machine,
       programBytes: result.programBytes,
       frames: result.frames,
       driveFrames: result.driveFrames,
-      keys: handle?.report
-        ? { ok: handle.report.ok, steps: handle.report.lines }
-        : null,
+      keys: result.keys,
       started: result.started,
       ended: result.ended,
       screen: result.screen,
-      picture: result.picture
+      picture: picture
         ? {
-            width: result.picture.width,
-            height: result.picture.height,
-            colours: result.picture.colours,
-            hostFontGlyphs: result.picture.hostFontGlyphs,
+            width: picture.width,
+            height: picture.height,
+            colours: picture.colours,
+            hostFontGlyphs: picture.hostFontGlyphs,
             path: wrote,
           }
         : null,
       timings: result.timings,
+      ...(profile !== undefined ? { profile } : {}),
+      ...(time !== undefined ? { time } : {}),
+      ...(variables !== undefined ? { variables } : {}),
     });
-  } else if (args.screenText) {
-    const lines = screenLines(result.screen);
-    out(lines.length > 0 ? `${lines.join('\n')}\n` : '');
+  } else {
+    // What was asked for is the product, each on standard output, in the order
+    // the screen has always come first.
+    const sections: string[] = [];
+    if (args.input.screenText) {
+      const lines = screenLines(result.screen);
+      if (lines.length > 0) sections.push(lines.join('\n'));
+    }
+    if (result.profile) sections.push(profileOp.describe(result.profile));
+    if (result.time) sections.push(timeOp.describe(result.time));
+    if (result.variables) {
+      sections.push(variablesOp.describe(result.variables));
+    }
+    if (sections.length > 0) out(`${sections.join('\n\n')}\n`);
   }
 
   report(result, wrote);
-  if (handle?.report) {
+  if (result.keys) {
     // The steps go to standard error beside the run's own figures: standard
     // output carries the screen and nothing else, so `| diff` still works on a
     // driven run.
-    for (const line of handle.report.lines) err(`  ${line}\n`);
-    if (!handle.report.ok) {
+    for (const line of result.keys.steps) err(`  ${line}\n`);
+    if (!result.keys.ok) {
       // The program did not reach where the schedule expected it to, which is
       // the program's fault rather than the caller's - and the screen has
       // already been printed, so the caller can see what it got instead.
@@ -262,23 +250,23 @@ async function main(): Promise<number> {
       return 0;
 
     case 'machines': {
-      const machines = listMachines();
+      const machines = await machinesOp.run(args.input, cliContext());
       if (args.json) json(machines);
       else out(`${formatMachines(machines)}\n`);
       return 0;
     }
 
     case 'info': {
-      const machine = describeMachine(args.machine);
+      const machine = await infoOp.run(args.input, cliContext());
       if (args.json) json(machine);
       else out(formatMachineDescription(machine));
       return 0;
     }
 
     case 'lint': {
-      const outcome = lintListing(
-        args.machine,
-        await readProgram(args.program),
+      const outcome = await lintOp.run(
+        { ...args.input, source: await readProgram(args.program) },
+        cliContext(),
       );
       // A check's problems are its product, so they go to standard output
       // rather than where a compiler would put them; the exit code is what

@@ -14,7 +14,12 @@
  * reserved for a bad invocation.
  */
 
-import { RunError } from '../dialects/headless/runListing';
+import { RunError } from '../dialects/headless/runError';
+import type { BuildInput } from '../ops/build';
+import type { InfoInput } from '../ops/info';
+import type { LintInput } from '../ops/lint';
+import type { MachinesInput } from '../ops/machines';
+import type { RunInput } from '../ops/run';
 
 export const OPERATIONS = [
   'machines',
@@ -40,52 +45,48 @@ export interface HelpArgs {
   topic?: Operation;
 }
 
+/**
+ * Each operation's arguments are the operation's own input (`src/ops/`) with
+ * the program's text left for the shim to read, beside what only the command
+ * line knows: where the program comes from, where a file goes, and whether
+ * the answer is wanted as JSON.
+ */
 export interface MachinesArgs {
   operation: 'machines';
   json: boolean;
+  input: MachinesInput;
 }
 
 export interface InfoArgs {
   operation: 'info';
-  machine: string;
   json: boolean;
+  /** `machine` is always set: the grammar wants one. */
+  input: InfoInput;
 }
 
 export interface LintArgs {
   operation: 'lint';
   program: ProgramInput;
-  /** Absent when the caller relies on the program's own `#MACHINE` declaration. */
-  machine?: string;
   json: boolean;
+  /** `machine` absent when the caller relies on the program's own `#MACHINE` declaration. */
+  input: Omit<LintInput, 'source'>;
 }
 
 export interface BuildArgs {
   operation: 'build';
   program: ProgramInput;
-  /** Absent when the caller relies on the program's own `#MACHINE` declaration. */
-  machine?: string;
-  /** Where the first file produced is written. */
+  /** Where the first file produced is written; the input's `fileName`. */
   out: string;
-  /** A build target id, when the caller named one. */
-  target?: string;
-  /** The name the machine stores the program under; derived from `out` when absent. */
-  programName?: string;
+  input: Omit<BuildInput, 'source'>;
 }
 
 export interface RunArgs {
   operation: 'run';
   program: ProgramInput;
-  machine: string;
-  frames?: number;
-  maxFrames?: number;
-  /** A schedule of what to press and when, as the caller wrote it. */
-  keys?: string;
-  /** Report the screen as text. */
-  screenText: boolean;
+  json: boolean;
   /** Where to write a picture of the screen, when one was asked for. */
   screenshot?: string;
-  json: boolean;
-  romRoot?: string;
+  input: Omit<RunInput, 'source'>;
 }
 
 export interface LspArgs {
@@ -192,7 +193,7 @@ function parseMachines(argv: string[]): MachinesArgs {
   if (rest.length > 0) {
     throw new RunError(`machines takes no arguments, got "${rest[0]}"`);
   }
-  return { operation: 'machines', json };
+  return { operation: 'machines', json, input: {} };
 }
 
 function parseInfo(argv: string[]): InfoArgs {
@@ -206,7 +207,7 @@ function parseInfo(argv: string[]): InfoArgs {
       'info wants one machine (basically machines lists them)',
     );
   }
-  return { operation: 'info', machine: rest[0]!, json };
+  return { operation: 'info', json, input: { machine: rest[0]! } };
 }
 
 function parseLint(argv: string[]): LintArgs {
@@ -228,8 +229,8 @@ function parseLint(argv: string[]): LintArgs {
   return {
     operation: 'lint',
     program: programFrom('lint', rest),
-    machine,
     json,
+    input: { machine },
   };
 }
 
@@ -265,10 +266,8 @@ function parseBuild(argv: string[]): BuildArgs {
   return {
     operation: 'build',
     program: programFrom('build', rest),
-    machine,
     out,
-    target,
-    programName,
+    input: { machine, fileName: out, target, programName },
   };
 }
 
@@ -279,6 +278,9 @@ function parseRun(argv: string[]): RunArgs {
   let keys: string | undefined;
   let screenshot: string | undefined;
   let screenText = false;
+  let profile = false;
+  let time = false;
+  let variables = false;
   let json = false;
   let romRoot: string | undefined;
   const rest = scan(argv, (name, value) => {
@@ -301,6 +303,15 @@ function parseRun(argv: string[]): RunArgs {
         break;
       case '--screen-text':
         screenText = true;
+        break;
+      case '--profile':
+        profile = true;
+        break;
+      case '--time':
+        time = true;
+        break;
+      case '--variables':
+        variables = true;
         break;
       case '--json':
         json = true;
@@ -325,17 +336,26 @@ function parseRun(argv: string[]): RunArgs {
   return {
     operation: 'run',
     program: programFrom('run', rest),
-    machine: requireMachine('run', machine),
-    frames,
-    maxFrames,
-    keys,
-    // The screen's text is what a run reported before it could report anything
-    // else, so it stays the answer for a caller who asked for no output at all.
-    // Asking only for a picture is asking for the picture.
-    screenText: screenText || screenshot === undefined,
-    screenshot,
     json,
-    romRoot,
+    screenshot,
+    input: {
+      machine: requireMachine('run', machine),
+      frames,
+      maxFrames,
+      keys,
+      // The screen's text is what a run reported before it could report
+      // anything else, so it stays the answer for a caller who asked for no
+      // output at all. Asking only for a picture, or only for a measurement,
+      // is asking for that.
+      screenText:
+        screenText ||
+        (screenshot === undefined && !profile && !time && !variables),
+      screenshot: screenshot !== undefined,
+      profile,
+      time,
+      variables,
+      romRoot,
+    },
   };
 }
 

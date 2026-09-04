@@ -72,6 +72,7 @@ flowchart TB
 | **Editor services**<br>`src/editor/`                                                                                   | CodeMirror language, completion, lint and analysis builders |
 | **Reference data**<br>`src/reference/`                                                                                 | Structured machine reference shared by the docs and the AI  |
 | **Integration services**<br>`src/ai/` · `src/transfer/` · `src/share/` · `src/player/` · `src/audio/` · `src/storage/` | AI, hardware transfer, sharing, sound, persistence          |
+| **Operation layer**<br>`src/ops/`                                                                                      | One declaration per operation; both callers derive from it  |
 | **Headless toolchain**<br>`src/cli/` · `src/dialects/headless/` · `scripts/basically`                                  | The same toolchain outside the browser                      |
 | **Language server**<br>`src/lsp/` · `scripts/headless/lsp.mts`                                                         | The editor's own language help, served to any other editor  |
 
@@ -680,34 +681,95 @@ agree on one shape. Opening accepts the bundle, the older `.bproj`, or plain
 
 `scripts/basically` runs the same toolchain under Node: describe a machine,
 lint a listing, build it into the file the machine loads, or run it and report
-the screen. Only `run` needs a ROM. `scripts/basically.cmd` is the same entry
-point for cmd.exe and PowerShell, and has to stay in step with it.
+the screen, the measurements of the run, and what its variables hold. Only
+`run` needs a ROM. `scripts/basically.cmd` is the same entry point for cmd.exe
+and PowerShell, and has to stay in step with it.
+
+### One operation layer, two callers
+
+The command line and the AI assistant are two callers of one set of
+operations. Each operation is declared once in `src/ops/` - its name, a
+summary, an input schema, what it needs in order to run, how each caller
+reaches it, and a function from input and context to an outcome that survives
+being written as JSON - and both surfaces are derived from the declaration:
+the command line's shims call `run()` and render the outcome in their own
+columns, and the assistant's tool definitions are rendered from the name, the
+description and the schema (`src/ops/tools.ts`). The layer imports neither the
+filesystem, the DOM nor the store; `eslint.config.js` refuses those imports
+under `src/ops/`, and what an operation needs from either world arrives through
+its context (`OpContext` in `src/ops/types.ts`): whether a ROM is present, the
+machine session the caller holds, and - for the command line only - the
+headless runner and a painter.
 
 ```mermaid
 flowchart TB
-  cli["scripts/basically · .cmd<br/>(rebuilds its bundle when stale)"] --> ops["src/cli/<br/>machines · info · lint · build · run"]
-  ops --> reg["src/dialects/registry.ts"]
+  cli["scripts/basically · .cmd<br/>(rebuilds its bundle when stale)"] --> grammar["src/cli/<br/>args · usage · renderers · roms"]
+  grammar --> ops["src/ops/<br/>one declaration per operation"]
+  ai["src/ai/aiStore.ts<br/>the assistant's turn"] --> tools["src/ops/tools.ts<br/>tool definitions · runToolCall"]
+  tools --> ops
+  ops --> session{{"MachineSession<br/>src/app/machineSession.ts"}}
+  session --> browser["src/app/browserSession.ts<br/>the pane's machine · the store's readings"]
+  session --> headless["src/ops/headlessSession.ts<br/>the runner's machine · RunMeasurements"]
   ops --> hl["src/dialects/headless/<br/>runListing.ts · headlessCanvas.ts"]
   hl --> seam["Dialect → MachineEmulator"]
 ```
 
+**Parity is over capabilities, not over invocation.** A command line
+invocation holds no machine between runs, so what the assistant asks of a
+machine it is holding - press these keys, look, measure - the command line asks
+of one run, as an option on `run`. Each declaration names its route on each
+caller: an operation of its own, an option on another, a tool, or a line of
+the fenced block the assistant's reply carries. An operation deliberately
+absent from one caller is an entry in the exemption table (`src/ops/parity.ts`)
+with its reason. `src/ops/parity.test.ts` is the registry-driven check that
+holds both surfaces to the one list: it fails on an operation missing from a
+surface with no entry, on an entry for an operation that is in fact reachable
+from both, on a route the grammar or the block parsers do not actually take, on
+an outcome that does not survive JSON, and on an action the schedule accepts
+that either caller's description omits. A provider that cannot be given tools
+at all gates the assistant's whole surface and is read as a property of the
+provider, never as an operation being absent.
+
+**A machine session is one interface over a running machine.** `MachineSession`
+is the driver (`src/app/machineControl.ts`: press keys, work the joystick,
+advance, wait for text or for the program to end, read the screen) plus a
+capture of the display, the run's measurements, its timing and its variables.
+The pane registers the browser implementation while a machine is up; a
+headless run builds the other over the machine the runner owns. An operation
+needing a machine is written once against the session and works for either.
+The assistant's tools are offered on every turn of a conversation - the block
+must be the same bytes or the cached prefix behind it is lost
+(`src/ops/toolStability.test.ts`) - and an operation needing a machine answers
+that it was not given one when called on a turn that holds none.
+
+**Measuring a run is a fold, wherever the run happens.** `RunMeasurements`
+(`src/app/runMeasurements.ts`) folds one emulated frame into the profiler and
+the stopwatch together and says whether to publish or that the program is over.
+The emulator pane calls it every frame and publishes on its cadence; the
+headless runner calls it through `RunOptions.observe`, which hands an observer
+the machine when the program is loaded, after every frame, and once the run is
+over while the machine is still up. That is what lets `run --profile`,
+`--time` and `--variables` report on the same terms the IDE does.
+
 `build` reuses the dialect's `buildTargets`, so a file written from the command
-line is byte-identical to one downloaded from the Transfer dialog. `run` is the
-IDE's run path without the browser: tokenize, boot the emulator on its ROM,
-load the image, read the screen back. The runner shares
+line is byte-identical to one downloaded from the Transfer dialog; its outcome
+carries the bytes base64-encoded and the shim decodes them before writing.
+`run` is the IDE's run path without the browser: tokenize, boot the emulator on
+its ROM, load the image, read the screen back. The runner shares
 `src/dialects/bootHarness.ts` with the registry-driven unit tests.
 
-`run --keys` and the AI assistant drive a running machine through one driver and
-one script vocabulary: `src/app/machineControl.ts` presses keys, works the
-joystick, advances frames and waits for what that produced, and
-`src/app/driveScript.ts` reads the one-action-per-line grammar
-(`PRESS`/`JOY`/`WAIT`/`WAIT FOR`/`WAIT END`, `#` comments) and runs it against
-that driver, stopping at the first action that fails. Key names are the shared
-vocabulary above. `RunOptions.drive` is the one seam between them: the runner
-hands the hook a machine and its own frame advance and knows nothing about what
-a schedule is, which keeps `src/dialects/headless/` free of `src/app/`. A run
-given a schedule ends where the schedule ends, and `src/cli/drive.ts` is the
-command line's half - option text to actions, actions to that hook.
+`run --keys` and the assistant's `drive` tool drive a running machine through
+one driver and one script vocabulary: `src/app/driveScript.ts` reads the
+grammar (`PRESS`/`JOY`/`WAIT`/`WAIT FOR`/`WAIT END`, `#` comments, actions
+separated by newlines or by semicolons outside quotes) and runs it against the
+session, stopping at the first action that fails. The actions are a declared
+list (`DRIVE_ACTIONS`) that the command line's help and the assistant's tool
+description both render from, so an action the parser accepts is described to
+every caller. Key names are the shared vocabulary above. `RunOptions.drive` is
+the seam on the runner's side: it hands the hook a machine and its own frame
+advance and knows nothing about what a schedule is, which keeps
+`src/dialects/headless/` free of `src/app/` and of the operation layer. A run
+given a schedule ends where the schedule ends.
 
 ### Serving an editor: the language server
 

@@ -15,7 +15,10 @@ and an optional Claude-powered code assistant.
 
 **Key mental model:** the app talks only to the `Dialect` interface
 (`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to a
-machine's specifics directly. Each dialect lives in `src/dialects/<name>/`. The
+machine's specifics directly. Above that, the command line and the AI
+assistant are two callers of one operation layer (`src/ops/`): an operation is
+declared once and both surfaces derive from it, and an operation one caller
+deliberately lacks is a declared exemption with a reason, not an omission. Each dialect lives in `src/dialects/<name>/`. The
 Sinclair-shaped dialects keep their machine under `src/dialects/<name>/emulator/`;
 every other machine, in-tree bus or adapter, lives under `src/emulator/<machine>/`
 (e.g. the CPC bus in `src/emulator/cpc/`, the BBC's jsbeeb adapter in
@@ -78,6 +81,9 @@ printf '10 PRINT "HI"\n' | ./scripts/basically run -m commodore64
 # Needs the machine's ROM, and key names mean the same on every machine
 # (`info` lists the ones a machine has).
 ./scripts/basically run prog.bas -m zx81 --keys 'WAIT FOR "NAME?"; PRESS A; PRESS ENTER; WAIT END'
+# --profile, --time and --variables report the run's measurements, its timing
+# and its variables, on the same terms the IDE and the assistant read them.
+./scripts/basically run prog.bas -m zx81 --profile --time --variables
 ./scripts/basically lsp --stdio                    # a language server for any editor that speaks LSP; no ROM
 scripts\basically.cmd machines                     # the same tool from cmd.exe or PowerShell
 
@@ -225,6 +231,7 @@ and the rules are about the few files that are not.
 | `src/emulator/`                | Emulator cores used by the supported dialects/machines.                                                                                   |
 | `src/editor/`                  | Generic CodeMirror builders: BASIC language, completions, lint, line numbering                                                            |
 | `src/app/`                     | Zustand store (`store.ts`) and app-level hooks/utilities                                                                                  |
+| `src/ops/`                     | One declaration per operation; the command line and the assistant both derive from it, and `parity.test.ts` holds them to it              |
 | `src/components/`              | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                                                   |
 | `src/ai/`                      | Anthropic SDK client, prompt builder, AI code extractor/merge                                                                             |
 | `src/transfer/`                | Hardware export: WAV cassette, `.P`, WebSerial protocol                                                                                   |

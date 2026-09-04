@@ -15,37 +15,19 @@ import {
   getAiProvider,
   getProviderApiKey,
 } from '../storage/settings';
-import {
-  useIdeStore,
-  selectActiveSource,
-  selectVisibleProfile,
-  selectVisibleTiming,
-  type AiRunOutcome,
-} from '../app/store';
-import { outlineCapabilities } from '../editor/programOutline';
+import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
   freezeMachine,
-  hasMachineControl,
-  machineControl,
+  hasMachineSession,
+  machineSession,
   ownsMachine,
-} from '../app/machineControl';
+} from '../app/machineSession';
 import {
+  assistantToolRunner,
+  assistantTools,
   describeDriving,
-  describeScreen,
-  driveToolDefinitions,
-  refuseUngivenMachine,
-  DRIVE_TOOL,
-  LOOK_TOOL,
-  PROFILE_TOOL,
-  TIME_TOOL,
-  describeProfile,
-  describeTiming,
 } from './driveTools';
-import {
-  parseDriveScript,
-  runDriveScript,
-  type DriveReport,
-} from '../app/driveScript';
+import type { DriveReport } from '../app/driveScript';
 import type { Dialect } from '../dialects/types';
 import { resolveLint } from '../dialects/resolveListing';
 import { prepareListingPhoto, type ListingPhoto } from '../app/listingPhoto';
@@ -62,7 +44,7 @@ import {
   extractScreenViews,
   isApplicableBlock,
 } from './codeExtractor';
-import { canCheckByRunning, canProfileRun } from './machineObservability';
+import { canCheckByRunning } from './machineObservability';
 import {
   buildEditorFix,
   buildExpectationFix,
@@ -265,8 +247,9 @@ export interface SendParams {
   system: string;
   /**
    * How to run a tool the assistant calls, for the turn that has been given the
-   * machine. Absent on every other turn, which answers a call with a refusal
-   * instead (see {@link refuseUngivenMachine}).
+   * machine. Absent on every other turn, which runs the operations that need
+   * no machine and answers the rest with a refusal (see
+   * {@link assistantToolRunner}).
    *
    * Not paired with a tool list: which tools a request offers is a property of
    * the conversation's provider and is resolved by {@link AiState.send}, so a
@@ -604,10 +587,10 @@ export const useAiStore = create<AiState>((set, get) => ({
     // and the whole thread - on every turn following a drive.
     //
     // Offering a tool is not granting the machine: `runTool` is supplied only by
-    // the turn that holds one, and every other turn answers a call with a
-    // refusal rather than acting on an emulator nobody handed over.
+    // the turn that holds one, and every other turn answers a call needing one
+    // with a refusal rather than acting on an emulator nobody handed over.
     const tools = getProvider(providerId).supportsTools
-      ? driveToolDefinitions()
+      ? assistantTools()
       : undefined;
 
     // Stream one attempt into the trailing placeholder, resolving to its final
@@ -641,7 +624,7 @@ export const useAiStore = create<AiState>((set, get) => ({
             persist(get().messages);
           }
         },
-        runTool ?? refuseUngivenMachine,
+        runTool ?? assistantToolRunner(null),
       );
       activeHandle = handle;
       return handle.done;
@@ -1023,36 +1006,6 @@ export function settleJudgingTurn(
 }
 
 /**
- * The measurements of the last run, read out of the same store the user's own
- * editor gutter and profile report read.
- *
- * Read at call time rather than captured when the turn was armed: the run being
- * asked about is usually the check that has only just finished, and its final
- * measurements land as the run ends.
- */
-function profileForAssistant(): string {
-  const s = useIdeStore.getState();
-  return describeProfile(
-    selectVisibleProfile(s),
-    selectActiveSource(s),
-    outlineCapabilities(s.dialect.keywords),
-    canProfileRun(s.dialect.id),
-  );
-}
-
-/**
- * The timing of the last run, read out of the same store the user's own profile
- * report reads - so the two are never holding different numbers for one run.
- *
- * Read at call time for the same reason the profile is: the run being asked
- * about is usually the check that has only just finished.
- */
-function timingForAssistant(): string {
-  const s = useIdeStore.getState();
-  return describeTiming(selectVisibleTiming(s));
-}
-
-/**
  * Everything the driving turn needs, or null when there is no driving to do.
  *
  * Null whenever any one of the three conditions fails - the assistant did not
@@ -1075,11 +1028,12 @@ export function armDriving(asked: boolean): {
 } | null {
   if (!asked) return null;
   if (!getProvider(getAiProvider()).supportsTools) return null;
-  const control = machineControl();
-  if (!control) return null;
+  const session = machineSession();
+  if (!session) return null;
 
   const reports: DriveReport[] = [];
   freezeMachine(true);
+  const run = assistantToolRunner(session, (report) => reports.push(report));
 
   return {
     runTool: async (call) => {
@@ -1092,7 +1046,7 @@ export function armDriving(asked: boolean): {
       // Reported rather than thrown, on the same terms as a tool that does not
       // exist: the assistant keeps everything it did before, and can say in its
       // reply that the machine was taken away rather than losing the turn.
-      if (!ownsMachine(control)) {
+      if (!ownsMachine(session)) {
         return {
           callId: call.id,
           content:
@@ -1100,35 +1054,7 @@ export function armDriving(asked: boolean): {
           isError: true,
         };
       }
-      if (call.name === LOOK_TOOL) {
-        return { callId: call.id, content: describeScreen(control) };
-      }
-      if (call.name === PROFILE_TOOL) {
-        return { callId: call.id, content: profileForAssistant() };
-      }
-      if (call.name === TIME_TOOL) {
-        return { callId: call.id, content: timingForAssistant() };
-      }
-      if (call.name !== DRIVE_TOOL) {
-        // Reported rather than thrown, so the assistant can pick a tool that
-        // exists instead of losing everything it did before the mistake.
-        return {
-          callId: call.id,
-          content: `there is no tool called "${call.name}"`,
-          isError: true,
-        };
-      }
-      const script = String(call.input.script ?? '');
-      const report = runDriveScript(control, parseDriveScript(script));
-      reports.push(report);
-      return {
-        callId: call.id,
-        content: `${report.lines.join('\n')}\n\n${describeScreen(control)}`,
-        // An action that could not be carried out is the driving failing, not
-        // the program: flagged so the assistant corrects its driving rather
-        // than rewriting code that may be perfectly correct.
-        ...(report.ok ? {} : { isError: true }),
-      };
+      return run(call);
     },
     finish: () => {
       // Only where this turn still owns the machine: after a Stop the machine
@@ -1136,7 +1062,7 @@ export function armDriving(asked: boolean): {
       // the keys held are somebody else's. The thaw below is unconditional for
       // the opposite reason - the freeze is the thing that strands a machine, so
       // a thaw that could be skipped is exactly how one gets stranded.
-      if (ownsMachine(control)) control.releaseAll();
+      if (ownsMachine(session)) session.releaseAll();
       freezeMachine(false);
       // Said only where input actually reached the machine. Waiting and looking
       // change nothing the user could not have seen themselves, where a
@@ -1467,7 +1393,7 @@ useIdeStore.subscribe((state) => {
     run.views.drive &&
     context !== null &&
     getProvider(context.providerId).supportsTools &&
-    hasMachineControl();
+    hasMachineSession();
 
   if (
     run.outcome.kind !== 'errored' &&

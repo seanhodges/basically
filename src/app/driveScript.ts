@@ -13,6 +13,69 @@ import type { MachineControl } from './machineControl';
  * handed owns the machine and the clock.
  */
 
+/**
+ * Every action a schedule accepts, as both callers are told it.
+ *
+ * The parser below is the only reader of a schedule, so what it accepts and
+ * what a caller is told it accepts can only agree if they come from one list.
+ * The command line's help and the assistant's tool description both render
+ * these rows, and `src/ops/parity.test.ts` parses each `example` to prove the
+ * parser still takes every row. A `#` line is a comment and not an action.
+ */
+export interface DriveActionDescription {
+  kind: Exclude<DriveAction['kind'], 'malformed'>;
+  /** How the action is written. */
+  syntax: string;
+  /** What it does, as a phrase. */
+  meaning: string;
+  /** A line the parser must read as this kind. */
+  example: string;
+}
+
+export const DRIVE_ACTIONS: readonly DriveActionDescription[] = [
+  {
+    kind: 'press',
+    syntax: 'PRESS <key>[+<key>...] [n]',
+    meaning: 'press keys together, held for n frames',
+    example: 'PRESS SHIFT+P 3',
+  },
+  {
+    kind: 'joystick',
+    syntax: 'JOY <up|down|left|right|fire|fire2> [n]',
+    meaning: 'hold a joystick control for n frames',
+    example: 'JOY LEFT FIRE 5',
+  },
+  {
+    kind: 'wait',
+    syntax: 'WAIT <n>',
+    meaning: 'let the program run on for n frames',
+    example: 'WAIT 25',
+  },
+  {
+    kind: 'waitFor',
+    syntax: 'WAIT FOR "<text>" [n]',
+    meaning: 'run until that text is on screen, giving up after n frames',
+    example: 'WAIT FOR "READY" 100',
+  },
+  {
+    kind: 'waitEnd',
+    syntax: 'WAIT END [n]',
+    meaning: 'run until the program stops, giving up after n frames',
+    example: 'WAIT END 100',
+  },
+];
+
+/**
+ * How one action is separated from the next, stated once for every caller.
+ *
+ * A newline separates actions, and so does a semicolon outside quotes - so a
+ * whole schedule fits on one shell line, and a semicolon inside a quoted needle
+ * stays part of the needle, because text on a screen is allowed to contain
+ * one.
+ */
+export const DRIVE_SEPARATOR_RULE =
+  'one action per line, or several on one line separated by ";"';
+
 /** One line of a drive script, already understood. */
 export type DriveAction =
   | { kind: 'press'; names: string[]; holdFrames?: number }
@@ -78,7 +141,7 @@ function waitForAction(line: string, rest: string): DriveAction {
  */
 export function parseDriveScript(script: string): DriveAction[] {
   const out: DriveAction[] = [];
-  for (const raw of script.split('\n')) {
+  for (const raw of splitActions(script)) {
     const trimmed = raw.trim();
     if (trimmed.startsWith('#')) continue;
     const line = trimmed.replace(/[.;,]$/, '');
@@ -143,6 +206,24 @@ export function parseDriveScript(script: string): DriveAction[] {
     out.push({ kind: 'malformed', source: line });
   }
   return out;
+}
+
+/** One action per entry, split at newlines and at semicolons outside quotes. */
+function splitActions(text: string): string[] {
+  const lines: string[] = [];
+  let line = '';
+  let quoted = false;
+  for (const ch of text) {
+    if (ch === '"') quoted = !quoted;
+    if ((ch === ';' || ch === '\n') && !quoted) {
+      lines.push(line);
+      line = '';
+      continue;
+    }
+    line += ch;
+  }
+  lines.push(line);
+  return lines;
 }
 
 /** What running a script produced, as its caller is told it. */
