@@ -80,4 +80,51 @@ describe('building a program', () => {
       buildListing({ machine: 'speccy-2000', source: ZX81, out: 'a.tap' }),
     ).rejects.toThrow(RunError);
   });
+
+  it('reads the machine from the program when none is named', async () => {
+    const outcome = await buildListing({
+      source: `#MACHINE zx81\n${ZX81}`,
+      out: '/tmp/prog.p',
+    });
+    expect(outcome.machine.id).toBe('zx81');
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.files).toHaveLength(1);
+  });
+
+  it('-m overrides a declaration', async () => {
+    const outcome = await buildListing({
+      machine: 'zxspectrum',
+      source: `#MACHINE zx81\n${ZX81}`,
+      out: '/tmp/prog.tap',
+    });
+    expect(outcome.machine.id).toBe('zxspectrum');
+  });
+
+  it("is the caller's mistake when neither -m nor a declaration says", async () => {
+    await expect(
+      buildListing({ source: ZX81, out: '/tmp/prog.p' }),
+    ).rejects.toThrow(/-m <machine>.*#MACHINE/s);
+  });
+
+  it("is the caller's mistake, naming the line and column, when the declaration itself is at fault", async () => {
+    await expect(
+      buildListing({
+        source: `#MACHINE nosuchmachine\n${ZX81}`,
+        out: '/tmp/prog.p',
+      }),
+    ).rejects.toThrow(/^1:10: No registered machine "nosuchmachine"$/);
+  });
+
+  it('a declaring program with no -m produces the same bytes as one built with -m', async () => {
+    const declared = await buildListing({
+      source: `#MACHINE zx81\n${ZX81}`,
+      out: '/tmp/prog.p',
+    });
+    const explicit = await buildListing({
+      machine: 'zx81',
+      source: ZX81,
+      out: '/tmp/prog.p',
+    });
+    expect(declared.files[0]!.bytes).toEqual(explicit.files[0]!.bytes);
+  });
 });

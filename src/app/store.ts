@@ -48,6 +48,7 @@ import {
 } from '../ai/expectations';
 import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
+import { readMachineDirective } from '../dialects/machineDirective';
 import {
   listCustomRoms,
   saveCustomRom as persistCustomRom,
@@ -1495,6 +1496,20 @@ function clearProgramDocs(s: IdeState): Partial<IdeState> {
 }
 
 /**
+ * Rewrite a document's `#MACHINE` declaration to name `dialectId`, so a
+ * program kept across a target switch does not carry a lie about which
+ * machine it is for. A document with no declaration gets none added - a
+ * switch never turns an undeclared document into a declared one.
+ */
+function withDeclaredMachine(source: string, dialectId: string): string {
+  const { line } = readMachineDirective(source);
+  if (line === undefined) return source;
+  const lines = source.split('\n');
+  lines[line - 1] = `#MACHINE ${dialectId}`;
+  return lines.join('\n');
+}
+
+/**
  * State patch that performs an actual target switch: persist the choice, swap
  * the dialect, push `text` into the (rebuilt) editor, and stop the emulator.
  * Shared by the immediate path and the confirmation dialog.
@@ -1882,7 +1897,12 @@ export const useIdeStore = create<IdeState>((set) => ({
         s.blocks.length === 0 &&
         computeCompatibleDialects(s.source, [], [next]).length > 0
       ) {
-        return applyDialectSwitch(s, next, s.source, { retain: true });
+        return applyDialectSwitch(
+          s,
+          next,
+          withDeclaredMachine(s.source, next.id),
+          { retain: true },
+        );
       }
 
       // The user's own code that the target may not run: defer to the
@@ -2042,7 +2062,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       // `isMobileViewport()` applyDialectSwitch uses for `mobileTab`.
       const narrow = isMobileViewport();
       return {
-        ...applyDialectSwitch(s, next, s.source, { retain: true }),
+        ...applyDialectSwitch(s, next, withDeclaredMachine(s.source, next.id), {
+          retain: true,
+        }),
         docsProgramTopic: topic,
         ...(narrow
           ? { docsHintRequest: s.docsHintRequest + 1 }

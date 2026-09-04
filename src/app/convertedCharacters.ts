@@ -30,6 +30,7 @@ import type { Dialect } from '../dialects/types';
 import { sourceUnitContext, unitAt } from '../dialects/sourceUnits';
 import { letterCaseFor } from '../dialects/letterCase';
 import { isBinaryDirective } from '../dialects/binaryDirective';
+import { isMachineDirective } from '../dialects/machineDirective';
 
 /** One character the machine will store as a different one. */
 export interface ConvertedCharacter {
@@ -66,11 +67,18 @@ const TO_LOWER_SET = 0x0e;
 const TO_UPPER_SET = 0x8e;
 const CHR_SET_SWITCH = /^CHR\$\(\s*(14|142)\s*\)/i;
 
-/** The program's physical lines, less their line numbers and `#BIN` records. */
+/** The program's physical lines, less their line numbers, `#BIN` records and
+ *  `#MACHINE` declarations. */
 function codeLines(source: string): { line: number; body: string }[] {
   const out: { line: number; body: string }[] = [];
   source.split('\n').forEach((raw, index) => {
-    if (raw.trim() === '' || isBinaryDirective(raw.trim())) return;
+    const trimmed = raw.trim();
+    if (
+      trimmed === '' ||
+      isBinaryDirective(trimmed) ||
+      isMachineDirective(trimmed)
+    )
+      return;
     // The line number is stripped by *blanking* rather than by slicing, so a
     // column stays a column of the editor's own line.
     const body = raw.replace(/^(\s*)(\d+)/, (_m, ws: string, digits: string) =>

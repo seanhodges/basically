@@ -47,14 +47,16 @@ export interface InfoArgs {
 export interface LintArgs {
   operation: 'lint';
   program: ProgramInput;
-  machine: string;
+  /** Absent when the caller relies on the program's own `#MACHINE` declaration. */
+  machine?: string;
   json: boolean;
 }
 
 export interface BuildArgs {
   operation: 'build';
   program: ProgramInput;
-  machine: string;
+  /** Absent when the caller relies on the program's own `#MACHINE` declaration. */
+  machine?: string;
   /** Where the first file produced is written. */
   out: string;
   /** A build target id, when the caller named one. */
@@ -204,7 +206,7 @@ function parseLint(argv: string[]): LintArgs {
   return {
     operation: 'lint',
     program: programFrom('lint', rest),
-    machine: requireMachine('lint', machine),
+    machine,
     json,
   };
 }
@@ -241,7 +243,7 @@ function parseBuild(argv: string[]): BuildArgs {
   return {
     operation: 'build',
     program: programFrom('build', rest),
-    machine: requireMachine('build', machine),
+    machine,
     out,
     target,
     programName,

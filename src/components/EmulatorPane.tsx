@@ -31,6 +31,7 @@ import {
   type ScreenViewRequest,
 } from '../ai/expectations';
 import { countProgramErrors } from '../app/useProgramStats';
+import { resolveTokenize } from '../dialects/resolveListing';
 import { lintBlocks } from '../app/blockLint';
 import { programVocabulary } from '../app/programVocabulary';
 import {
@@ -838,7 +839,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             setError(`Fix ${errorCount} error(s) before running`);
             return;
           }
-          const result = dialect.tokenize(runSource);
+          const result = resolveTokenize(dialect, runSource);
           if (result.image.length === 0) {
             setError('Program is empty');
             return;

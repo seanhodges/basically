@@ -104,6 +104,30 @@ describe('openDroppedFile', () => {
     expect(s.fileName).toBe('notes.TXT');
   });
 
+  it('switches to the machine a dropped document declares', async () => {
+    await dropFile('game.bas', '#MACHINE commodore64\n10 PRINT "HI"');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('commodore64');
+    expect(s.source).toBe('#MACHINE commodore64\n10 PRINT "HI"');
+    expect(s.fileName).toBe('game.bas');
+    expect(s.statusNotice).toBe('Switched to C64 to match this program.');
+  });
+
+  it('does not switch when the declaration matches the active machine', async () => {
+    await dropFile('game.bas', '#MACHINE zx81\n10 PRINT "HI"');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
+    expect(s.statusNotice).toBeNull();
+  });
+
+  it('leaves the machine alone for an unregistered declaration', async () => {
+    await dropFile('game.bas', '#MACHINE nosuchmachine\n10 PRINT "HI"');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
+    expect(s.source).toBe('#MACHINE nosuchmachine\n10 PRINT "HI"');
+    expect(s.statusNotice).toBeNull();
+  });
+
   it('imports a dialect binary format via detokenize, like Import', async () => {
     useIdeStore.setState({ dialect: commodore64 });
     await dropFile('demo.prg', prgBytes);

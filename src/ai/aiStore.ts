@@ -47,6 +47,7 @@ import {
   type DriveReport,
 } from '../app/driveScript';
 import type { Dialect } from '../dialects/types';
+import { resolveLint } from '../dialects/resolveListing';
 import { prepareListingPhoto, type ListingPhoto } from '../app/listingPhoto';
 import {
   applyJudgement,
@@ -1275,7 +1276,7 @@ function checkLatestAnswer(mergeBase: string, stalenessBase: string): void {
   // effect refuses it with a message rather than an outcome - so the loop would
   // wait forever on a verdict nobody is going to produce. Report it as the
   // failure of this answer that it is, on the same bounded terms as any other.
-  const lintErrors = state.dialect.lint(candidate);
+  const lintErrors = resolveLint(state.dialect, candidate);
   if (lintErrors.length > 0) {
     reportUnbuildableAnswer(candidate, stalenessBase, lintErrors);
     return;

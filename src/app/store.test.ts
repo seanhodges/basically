@@ -294,6 +294,23 @@ describe('setDialect', () => {
     expect(s.scratchBuffers.map((b) => b.text)).toEqual(['10 PRINT 1']);
   });
 
+  it('a silent compatible switch rewrites an existing declaration to the new machine', () => {
+    useIdeStore.setState({
+      source: '#MACHINE zx81\n10 PRINT "HI"\n20 GOTO 10',
+      dirty: true,
+    });
+    useIdeStore.getState().setDialect('bbcmicro');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('#MACHINE bbcmicro\n10 PRINT "HI"\n20 GOTO 10');
+  });
+
+  it('a silent compatible switch adds no declaration to a document with none', () => {
+    useIdeStore.setState({ source: '10 PRINT "HI"\n20 GOTO 10', dirty: true });
+    useIdeStore.getState().setDialect('bbcmicro');
+    expect(useIdeStore.getState().source).toBe('10 PRINT "HI"\n20 GOTO 10');
+  });
+
   it('still prompts for a block-bearing document even when compatible', () => {
     // A block keeps the address it has, which the new machine's memory map may
     // refuse, so a document that carries one keeps the confirmation prompt
@@ -338,6 +355,19 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     expect(s.source).toBe('10 REM mine');
     expect(s.dirty).toBe(true);
     expect(s.pendingDialectId).toBeNull();
+  });
+
+  it("'keep' rewrites an existing declaration to name the new machine", () => {
+    useIdeStore.setState({ source: '#MACHINE zx81\n10 REM mine' });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('#MACHINE bbcmicro\n10 REM mine');
+  });
+
+  it("'keep' adds no declaration to a document with none", () => {
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().source).toBe('10 REM mine');
   });
 
   it("'keep' brings the scratch buffers with the program", () => {

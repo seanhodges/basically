@@ -17,6 +17,7 @@ import type {
   Block,
   TapeFile,
 } from '../dialects/types';
+import { resolveTokenize } from '../dialects/resolveListing';
 
 export interface ImportedProgram {
   source: string;
@@ -64,7 +65,7 @@ export function importFidelityWarnings(
   if (!source.trim()) {
     return ['The file contained no program lines this dialect could read.'];
   }
-  const { errors } = dialect.tokenize(source);
+  const { errors } = resolveTokenize(dialect, source);
   if (errors.length === 0) return [];
   const first = errors[0]!;
   return [

@@ -14,6 +14,8 @@ import { findMachine, RunError } from '../dialects/headless/runListing';
 import { programNameFromFileName } from '../storage/files';
 import { hasFatalErrors } from '../dialects/types';
 import type { BuildTarget, Dialect, TokenizeError } from '../dialects/types';
+import { remapErrors, resolveListing } from '../dialects/resolveListing';
+import { noMachineError } from './machineResolution';
 
 /** One file a build produced, ready for the caller to write. */
 export interface BuiltFile {
@@ -78,27 +80,44 @@ export function chooseTarget(
   return matched ?? first;
 }
 
+/**
+ * Naming a machine is optional when the program declares one (`#MACHINE
+ * <name>`); naming one anyway overrides the declaration. Naming a machine
+ * that is not registered, or naming none while the program declares none
+ * either, is the caller's mistake.
+ */
 export async function buildListing(opts: {
-  machine: string;
+  machine?: string;
   source: string;
   /** Where the first file will be written; names the target when none is given. */
   out: string;
   target?: string;
   programName?: string;
 }): Promise<BuildOutcome> {
-  const dialect = findMachine(opts.machine);
-  if (!dialect) throw new RunError(`no registered machine "${opts.machine}"`);
+  const explicit =
+    opts.machine === undefined ? undefined : findMachine(opts.machine);
+  if (opts.machine !== undefined && !explicit) {
+    throw new RunError(`no registered machine "${opts.machine}"`);
+  }
+  const resolved = resolveListing(opts.source, explicit);
+  if (!resolved.dialect) throw noMachineError('build', resolved.problems);
+  const dialect = resolved.dialect;
   const target = chooseTarget(dialect, opts);
   const programName =
     opts.programName ?? programNameFromFileName(baseName(opts.out));
 
-  const { errors, byteSize } = dialect.tokenize(opts.source, { programName });
+  const result = dialect.tokenize(resolved.source, { programName });
+  const errors = [
+    ...resolved.problems,
+    ...remapErrors(result.errors, resolved.remapLine),
+  ];
+  const byteSize = result.byteSize;
   const machine = { id: dialect.id, name: dialect.name };
   if (hasFatalErrors(errors)) {
     return { machine, errors, target: null, programBytes: byteSize, files: [] };
   }
 
-  const built = await target.build(opts.source, { programName });
+  const built = await target.build(resolved.source, { programName });
   return {
     machine,
     errors,

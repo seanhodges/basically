@@ -50,10 +50,12 @@ usage: basically info <machine> [--json]
   lint: `
 report a program's problems without running it: no ROM, no emulator
 
-usage: basically lint [file] -m <machine> [--json]
+usage: basically lint [file] [-m <machine>] [--json]
 
   [file]            the program, or "-"/nothing to read standard input
-  -m, --machine     the machine to check the program against
+  -m, --machine     the machine to check the program against; optional when
+                    the program declares one with a "#MACHINE <machine>" line,
+                    and overrides the declaration when both are given
   --json            the problems as JSON rather than one per line
 
 The problems go to standard output; the exit code says whether any was fatal.
@@ -62,11 +64,13 @@ The problems go to standard output; the exit code says whether any was fatal.
   build: `
 write a program as the transfer format its machine really loads
 
-usage: basically build [file] -m <machine> -o <path> [-t <target>]
+usage: basically build [file] [-m <machine>] -o <path> [-t <target>]
                        [--program-name <name>]
 
   [file]            the program, or "-"/nothing to read standard input
-  -m, --machine     the machine to build for
+  -m, --machine     the machine to build for; optional when the program
+                    declares one with a "#MACHINE <machine>" line, and
+                    overrides the declaration when both are given
   -o, --out         where to write the first file produced
   -t, --target      a build target id (basically info lists them); by default
                     the target whose extension matches --out, else the

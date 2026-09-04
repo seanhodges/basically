@@ -15,6 +15,7 @@
  */
 
 import { parseBinaryDirective } from '../dialects/binaryDirective';
+import { readMachineDirective } from '../dialects/machineDirective';
 import type { ListingLayout, Block } from '../dialects/types';
 
 /**
@@ -147,7 +148,7 @@ export function deriveListingBlocks(
   }
   if (binRecords.length === 0) return [];
 
-  const { bytes } = layout.tokenize(source);
+  const { bytes } = layout.tokenize(readMachineDirective(source).source);
   const records = walkRecords(bytes, layout);
 
   const blocks: Block[] = [];

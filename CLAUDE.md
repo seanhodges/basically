@@ -65,7 +65,9 @@ npm run e2e:report     # open the last Playwright HTML report
 # The toolchain outside the browser: describe a machine, check a listing, build
 # one into a file the machine loads, or run one and report its screen. Builds
 # its bundle when stale. `--help` names every operation, `<operation> --help`
-# its options. Only `run` needs a ROM.
+# its options. Only `run` needs a ROM. `-m` is optional for `lint`/`build` when
+# the program declares its own machine with a `#MACHINE <machine>` line; naming
+# one anyway overrides the declaration.
 ./scripts/basically machines                       # every machine, and whether its ROM is here
 ./scripts/basically info commodore64               # memory, BASIC rules, keywords, formats (--json for all of it)
 ./scripts/basically lint prog.bas -m zx81          # problems on stdout, no emulator; exit 2 if any is fatal

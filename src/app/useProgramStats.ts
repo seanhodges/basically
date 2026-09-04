@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Dialect } from '../dialects/types';
+import { resolveLint, resolveTokenize } from '../dialects/resolveListing';
 import { useIdeStore, selectActiveSource } from './store';
 import { convertedCharacters } from './convertedCharacters';
 import { strictCharacterErrors } from './strictCharacters';
@@ -34,8 +35,8 @@ export function countProgramErrors(
   strictCharacters = false,
 ): number {
   const base = includeEditorLint
-    ? dialect.lint(source).length
-    : dialect.tokenize(source).errors.length;
+    ? resolveLint(dialect, source).length
+    : resolveTokenize(dialect, source).errors.length;
   return base + strictCharacterErrors(source, dialect, strictCharacters).length;
 }
 
@@ -130,7 +131,7 @@ export function useProgramStats(): ProgramStats {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      const result = dialect.tokenize(source);
+      const result = resolveTokenize(dialect, source);
       setStats({
         bytes: result.byteSize,
         errors: countProgramErrors(dialect, source, true, strictCharacters),

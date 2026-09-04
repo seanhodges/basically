@@ -147,6 +147,11 @@ describe('programVocabulary - keywords', () => {
   it('reads an unnumbered line as code', () => {
     expect(programVocabulary('PRINT 1', c64).keywords).toEqual(['PRINT']);
   });
+
+  it('ignores a #MACHINE declaration line', () => {
+    const vocab = programVocabulary('#MACHINE commodore64\n10 PRINT 1', c64);
+    expect(vocab.keywords).toEqual(['PRINT']);
+  });
 });
 
 describe('programVocabulary - escape codes', () => {

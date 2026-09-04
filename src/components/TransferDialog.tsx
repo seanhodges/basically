@@ -6,6 +6,7 @@ import { samplesToWav } from '../transfer/wav';
 import { playSamples, type AudioPlayback } from '../transfer/audioPlayer';
 import { sendOverSerial, webSerialSupported } from '../transfer/webserial';
 import { fatalErrors } from '../dialects/types';
+import { resolveListing, resolveTokenize } from '../dialects/resolveListing';
 import styles from './TransferDialog.module.css';
 import dialog from './Dialog.module.css';
 
@@ -83,8 +84,13 @@ export function TransferDialog() {
       ? 'PROGRAM'
       : programNameFromFileName(fileName);
 
+  // A `#MACHINE` declaration is stripped once here: every export path below -
+  // the image build, a file target, cassette audio - re-tokenizes `source`
+  // internally, and none of them can see a directive line.
+  const resolvedSource = resolveListing(source, dialect).source;
+
   const buildImage = (): Uint8Array => {
-    const result = dialect.tokenize(source, { programName: baseName });
+    const result = resolveTokenize(dialect, source, { programName: baseName });
     // Only fatal (framing) errors block export; statement-shape lint keeps its
     // editor squiggle but the stored bytes are complete and ROM-faithful.
     const fatal = fatalErrors(result.errors);
@@ -99,7 +105,7 @@ export function TransferDialog() {
     guard(async () => {
       const target = dialect.buildTargets.find((t) => t.id === targetId);
       if (!target) throw new Error(`No ${targetId} target for ${dialect.name}`);
-      const files = await target.build(source, {
+      const files = await target.build(resolvedSource, {
         programName: baseName,
         blocks,
         loader,
@@ -142,7 +148,7 @@ export function TransferDialog() {
       requestStop();
       await waitForEmulatorStopped();
     }
-    const samples = audio.buildSamples(source, baseName, robust, {
+    const samples = audio.buildSamples(resolvedSource, baseName, robust, {
       blocks,
       loader,
     });
@@ -161,7 +167,7 @@ export function TransferDialog() {
     const audio = dialect.audio;
     if (!audio)
       throw new Error(`${dialect.name} has no cassette audio support`);
-    const samples = audio.buildSamples(source, baseName, robust, {
+    const samples = audio.buildSamples(resolvedSource, baseName, robust, {
       blocks,
       loader,
     });

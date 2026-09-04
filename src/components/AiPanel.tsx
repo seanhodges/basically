@@ -13,6 +13,7 @@ import {
   buildEditorFix,
 } from '../ai/promptBuilder';
 import { isPictureFile } from '../app/listingPhoto';
+import { resolveLint } from '../dialects/resolveListing';
 import { openImageFile } from '../storage/files';
 import {
   classifyBlock,
@@ -421,7 +422,7 @@ export function AiPanel() {
     // turn: whether one is waiting is derived from the thread, so it is still
     // waiting for the next request rather than lost.
     const screen = photo || !provider.acceptsImages ? null : threadScreen;
-    const errors = dialect.lint(source);
+    const errors = resolveLint(dialect, source);
     void useAiStore.getState().send({
       providerId,
       apiKey,
@@ -457,7 +458,7 @@ export function AiPanel() {
   // tokenizer errors become a one-tap fix prompt (and surface the panel).
   // Returns whether the new text has editor errors.
   const checkEditorErrors = (text: string): boolean => {
-    const errors = dialect.lint(text);
+    const errors = resolveLint(dialect, text);
     if (errors.length > 0) {
       useAiStore.getState().setPendingFix(buildEditorFix(text, errors));
       showAiPanel();
