@@ -11,24 +11,19 @@
 - [ ] 1.2 Grow the parser: `#` comment lines are skipped; `PRESS` takes a `+`-joined
       chord (`PRESS SHIFT+P`) as several names pressed together; `WAIT FOR "<text>"
       [n]` takes an optional cap in frames after a quoted needle; `WAIT END [n]`
-      runs until the program stops, capped at `n` or the wait-for default;
-      `EXPECT "<text>"`, `EXPECT NOT "<text>"`, `EXPECT STOPPED` and
-      `EXPECT RUNNING` are expectations. Every existing script still parses to the
-      same actions - the moved tests are the proof.
-- [ ] 1.3 Give `MachineControl` (`src/app/machineControl.ts`) the two members the
-      new lines need: `programState()` reading `machine.isProgramRunning()`, and
+      runs until the program stops, capped at `n` or the wait-for default. Every
+      existing script still parses to the same actions - the moved tests are the
+      proof.
+- [ ] 1.3 Give `MachineControl` (`src/app/machineControl.ts`) the two members
+      `WAIT END` needs: `programState()` reading `machine.isProgramRunning()`, and
       `waitForEnd(maxFrames)` which steps until the program has stopped or the cap
       is spent, bounded by `MAX_DRIVE_FRAMES` like every other step. Update the stub
       control in the assistant's tests.
-- [ ] 1.4 Extend `runDriveScript`: an expectation is a step that costs no frames and
-      fails the script the way a timed-out wait does - a `screen` expectation
-      matches a row at a time with spaces collapsed, exactly as `waitForText`
-      does; `WAIT END` calls `waitForEnd`. Extend `describe` so each new action
-      reads as a sentence in the report.
+- [ ] 1.4 Extend `runDriveScript` so `WAIT END` calls `waitForEnd`, and extend
+      `describe` so it reads as a sentence in the report.
 - [ ] 1.5 Write `src/app/driveScript.test.ts` cases for the new lines: comments
       vanish; a chord presses its names together; the wait-for cap is read; `WAIT
-      END` and each `EXPECT` form parse; a failed expectation stops the script and
-      names itself; a passing one costs no frames.
+      END` parses and runs.
 - [ ] 1.6 Add `programState` and `waitForEnd` cases to
       `src/app/machineControl.test.ts` on the real ZX81 ROM: a program that prints
       and stops is seen to stop within the cap; a `GOTO` loop is still running when
@@ -83,56 +78,40 @@
       and a run with a hook and no `frames` ends when the hook returns rather than
       at the cap.
 
-## 4. The command line's grammar and operations
+## 4. The command line's grammar and operation
 
 - [ ] 4.1 In `src/cli/args.ts`, add `--keys <script>` to `run`, refusing `--keys`
-      together with `--max-frames` as a caller's mistake; add the `test` operation:
-      `test [file] -m <machine> --spec <path> [--json] [--rom-root <dir>]`, where
-      `--spec` is required. Add `test` to `OPERATIONS` and to the per-operation
-      help in `src/cli/usage.ts`, documenting the vocabulary in the `run` and
-      `test` help blocks (one shared block, referenced from both, rather than two
-      copies). Extend `src/cli/args.test.ts` for each.
+      together with `--max-frames` as a caller's mistake. Document the vocabulary
+      in the `run` help block in `src/cli/usage.ts`. Extend `src/cli/args.test.ts`.
 - [ ] 4.2 Create `src/cli/drive.ts`: `parseSchedule(text)` splits inline text on
       newlines and on semicolons outside quotes, hands the result to
       `parseDriveScript`, and throws `RunError` naming the first malformed line;
       `driveHook(dialect, actions)` builds the runner's `drive` callback over
       `createMachineControl` (joystick through the dialect's first declared mode
-      when it has one, else key-mapped; fire buttons from the dialect) and
-      captures the `DriveReport`, releasing every key when the script ends
-      however it ends. Test both in `src/cli/drive.test.ts`.
-- [ ] 4.3 Create `src/cli/test.ts`: `testListing({ machine, source, spec, romRoot })`
-      refuses a ROM-less machine with `RunError` before booting, runs the program
-      under the schedule through `runListing`, and returns a `TestOutcome`:
-      `ok`, every step with its description, frames and outcome, the failing
-      step's line and detail when there is one, and the screen lines as they
-      stood. Add `formatTestOutcome` for the readable report. Test in
-      `src/cli/test.test.ts` on the ZX81: a spec that holds passes; one naming text
-      never printed fails at that line with the screen attached; one with an
-      unreadable line throws `RunError` without booting.
-- [ ] 4.4 In `scripts/headless/cli.mts`, wire `run --keys`: refuse a ROM-less
+      when it has one, else key-mapped; fire buttons from the dialect), captures
+      the `DriveReport` on a returned handle, and releases every key when the
+      script ends however it ends. Test both in `src/cli/drive.test.ts`.
+- [ ] 4.3 In `scripts/headless/cli.mts`, wire `run --keys`: refuse a ROM-less
       machine as a bad request, pass the hook, report each step on standard
       error, still print the screen, and exit 2 when a step failed; under `--json`
-      add the steps and `driveFrames`. Wire `test`: read the spec file (an
-      unreadable path is a bad request), print the readable report or the JSON on
-      standard output, and exit 0 on a pass, 2 on a failure.
+      add the steps and `driveFrames`.
 
 ## 5. Documentation
 
 - [ ] 5.1 Update the commands section of `CLAUDE.md`: one `run --keys` example
-      that gets past a prompt and one `test --spec` example, and mention that both
-      need a ROM.
-- [ ] 5.2 Update `docs/contributing/architecture.md`: add `test` to the headless
-      toolchain diagram's operations, and a sentence saying that `run --keys` and
-      `test` drive the machine through the same driver and script vocabulary the
-      assistant uses (`src/app/machineControl.ts`, `src/app/driveScript.ts`), with
-      key names resolved by `src/keyboard/keyNames.ts` and held to every machine by
+      that gets past a prompt, and mention that it needs a ROM.
+- [ ] 5.2 Update `docs/contributing/architecture.md`: add a sentence saying that
+      `run --keys` drives the machine through the same driver and script
+      vocabulary the assistant uses (`src/app/machineControl.ts`,
+      `src/app/driveScript.ts`), with key names resolved by
+      `src/keyboard/keyNames.ts` and held to every machine by
       `src/dialects/keyNames.test.ts`. No machine lists, no counts.
 
 ## 6. Quality gates
 
 - [ ] 6.1 `npx vitest run src/app/ src/keyboard/ src/cli/ src/dialects/headless/ src/dialects/keyNames.test.ts src/ai/driveTools.test.ts src/ai/driveTurn.test.ts src/ai/aiStore.test.ts`
       - the moved and grown vocabulary, the driver, the resolver and its
-      registry-driven table, the runner's hook, the new operations, and the
+      registry-driven table, the runner's hook, the new operation, and the
       assistant tests that consume the moved code.
 - [ ] 6.2 `npm run typecheck && npm run lint && npm run format:check`
 - [ ] 6.3 `npm run docs:build`, because `docs/contributing/architecture.md` changes.
@@ -145,8 +124,6 @@
       prints the screen and exits 0; the same with a wait for text never printed
       exits 2 and still prints the screen; `--keys 'NONSENSE'` exits 1 before any
       boot; the same schedule with `-m commodore64` presses the C64's own keys;
-      `./scripts/basically test <listing> -m zx81 --spec <a spec that holds>`
-      exits 0 and one that does not exits 2 naming the line; `basically info
-      zx81 --json` lists `keys`; and with the ROM directory moved aside, `run
-      --keys` and `test` exit 1 saying the ROM is missing while a plain `run`
+      `basically info zx81 --json` lists `keys`; and with the ROM directory moved
+      aside, `run --keys` exits 1 saying the ROM is missing while a plain `run`
       still reports it as a condition.

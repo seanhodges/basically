@@ -36,14 +36,12 @@ the driver; this document only says where the new parts go and why.
 
 **Goals:**
 
-- One vocabulary of actions, shared by `run --keys`, by a spec file and by the
-  assistant — so a script that works in one place works in the others, and there
-  is one parser and one runner to test.
+- One vocabulary of actions, shared by `run --keys` and by the assistant — so a
+  script that works in one place works in the other, and there is one parser and
+  one runner to test.
 - Key names a caller can write without knowing the machine, resolved from what
   each machine's keyboard layout already declares, with a registry-driven test
   holding every machine to it.
-- A `test` operation whose verdict is trustworthy: a failure names the expectation
-  that failed, by its line, and shows the screen as it stood.
 - No new runtime dependency, and nothing added to the machine seam.
 
 **Non-Goals:**
@@ -55,11 +53,9 @@ the driver; this document only says where the new parts go and why.
   which is honest about what the machine receives. A resolver that turns a
   character into a chord is a separate change, once there is a schedule that
   needs it.
-- **Several scenarios in one spec file.** A spec is one linear script; a program
-  with three things to check has three files. The command line is a loop away
-  from running them all.
-- **Pictures from `test`.** A test's product is its verdict; a caller who wants
-  the picture at a moment runs the same schedule under `run --keys --screenshot`.
+- **Checking a program against an expectation.** That is
+  `test-a-program-from-the-command-line`, proposed on top of what this change
+  builds.
 - **Recording a session, or anything the assistant's driving does on its side of
   the join.** The assistant's tool description does not change and no
   `ai-assistant` spec delta is written.
@@ -85,31 +81,18 @@ the command line.
 assistant's tool definitions, its wording and its behaviour are untouched, and its
 existing tests move with the code.
 
-The vocabulary grows by what a written script needs that a model improvising one
+The vocabulary grows by what a written schedule needs that a model improvising one
 did not:
 
-| Line                          | Meaning                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `# …`                         | A comment, ignored. A spec file that cannot say why it presses what it presses is not a spec.         |
-| `PRESS <key>[+<key>…] [n]`    | Press the named keys together; `+` joins a chord, so a shifted legend is `PRESS SHIFT+P`.             |
-| `WAIT FOR "<text>" [n]`       | As today, with an optional cap in frames where the default is not enough for a slow machine.           |
-| `WAIT END [n]`                | Run until the program stops, or fail after `n` frames. The moment a program that finishes reaches.    |
-| `EXPECT "<text>"`             | Fails unless the text is on screen now — matched a row at a time, spaces collapsed, as `WAIT FOR` is. |
-| `EXPECT NOT "<text>"`         | Fails if the text is on screen now.                                                                    |
-| `EXPECT STOPPED` / `RUNNING`  | Fails unless the program has stopped / is still running.                                               |
+| Line                       | Meaning                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `# …`                      | A comment, ignored. A schedule that cannot say why it presses what it presses is not written for anyone but the author. |
+| `PRESS <key>[+<key>…] [n]` | Press the named keys together; `+` joins a chord, so a shifted legend is `PRESS SHIFT+P`.        |
+| `WAIT FOR "<text>" [n]`    | As today, with an optional cap in frames where the default is not enough for a slow machine.     |
+| `WAIT END [n]`             | Run until the program stops, or fail after `n` frames. The moment a program that finishes reaches. |
 
-An expectation is a step that costs no frames and fails like a wait that timed
-out, so the runner's one rule — stop at the first failure, because everything
-after it was written for a screen that never arrived — covers it without a second
-loop. The driver gains the two members these need, `programState()` reading
-`isProgramRunning` and `waitForEnd(maxFrames)`, proved on the ZX81 ROM beside the
-others.
-
-*Alternative rejected: a structured spec file (YAML or JSON) with the steps as
-data.* The structure it would carry — which program, which machine — is already
-on the command line, so it would buy a second parser, a second vocabulary for the
-assistant to be taught, and for YAML a dependency, in exchange for nothing a `#`
-comment does not give.
+An action that cannot be carried out ends the schedule there, exactly as it does
+today — nothing about the stop-on-first-failure rule changes.
 
 *Alternative rejected: leave the parser in `src/ai/` and import it from the
 command line.* It works, but it drags the assistant's profile and timing
@@ -178,32 +161,35 @@ one would pay the whole cap after its last action — several seconds of a C64's
 time — and read the screen at an arbitrary later moment rather than the one the
 schedule reached.
 
-### The command line's two new pieces stay pure, and the shim stays a shim
+### The command line's new piece stays pure, and the shim stays a shim
 
-`src/cli/drive.ts` turns the text of a `--keys` option or a spec file into actions
-— splitting inline text on newlines and on semicolons outside quotes, then
-handing it to the shared parser — and throws `RunError` for a line it cannot
-read, naming the line, so a malformed schedule is exit 1 before any machine
-boots. `src/cli/test.ts` runs a program under a spec and returns a `TestOutcome`:
-every step and how it went, the failing step's line and detail if there was one,
-and the screen as it stood then. Neither reads a file or touches `process`; the
-shim reads the spec file, prints the report and sets the exit code, as it does
-for every other operation.
+`src/cli/drive.ts` turns the text of a `--keys` option into actions — splitting
+on newlines and on semicolons outside quotes, then handing it to the shared
+parser — and throws `RunError` for a line it cannot read, naming the line, so a
+malformed schedule is exit 1 before any machine boots. `driveHook(dialect,
+actions)` builds the runner's `drive` callback over `createMachineControl`
+(joystick through the dialect's first declared mode when it has one, else
+key-mapped; fire buttons from the dialect), captures the `DriveReport` it
+produced, and releases every key when the schedule ends however it ends. The
+captured report is exposed so a later caller — `test-a-program-from-the-command-
+line` — can read it without re-running anything; nothing in this change reads it
+besides the shim. Neither function reads a file or touches `process`; the shim
+reads the `--keys` text, prints the report and sets the exit code, as it does for
+every other operation.
 
 A schedule that fails part-way is the program's failure, not the caller's — the
-program did not reach where the schedule expected — so `run --keys` and `test`
-both exit 2 on it, with the screen still reported on standard output so the
-caller sees what it got instead. Under `--json`, `run` reports the schedule's
-steps beside the fields it already has.
+program did not reach where the schedule expected — so `run --keys` exits 2 on
+it, with the screen still reported on standard output so the caller sees what it
+got instead. Under `--json`, `run` reports the schedule's steps beside the fields
+it already has.
 
 ### Driving needs the ROM, and says so before starting
 
 An undriven run on a machine whose ROM is absent draws its missing-image notice
 and reports that as a condition of the run, which is useful: the caller learns
-the machine boots. A driven run has nothing to drive, and a test verdict from a
-machine that ran nothing would be a lie in either direction. So `run --keys` and
-`test` refuse a ROM-less machine as the caller's mistake, exit 1, before any step
-is taken, using the same `hasRom` the machine listing reports.
+the machine boots. A driven run has nothing to drive, so `run --keys` refuses a
+ROM-less machine as the caller's mistake, exit 1, before any step is taken, using
+the same `hasRom` the machine listing reports.
 
 ## Risks / Trade-offs
 
@@ -226,14 +212,13 @@ vocabulary names in `machineControl.test.ts`, on top of the tokens
 
 **Growing the parser changes what the assistant's `drive` tool accepts** → Only by
 addition: every script that parsed before parses the same, and the tool's
-description does not mention the new lines. A model that writes `EXPECT` gets a
-check rather than a "could not understand", which is the better of the two
-outcomes. The moved tests pin the old vocabulary byte for byte.
+description does not mention the new lines. The moved tests pin the old
+vocabulary byte for byte.
 
 **A schedule ends the run where an undriven run would have waited for the
-program** → Deliberate, and the two flags that disagree with it (`--max-frames`)
-are refused rather than ignored, so a caller cannot write a schedule believing
-the run will wait afterwards.
+program** → Deliberate, and the flag that disagrees with it (`--max-frames`) is
+refused rather than ignored, so a caller cannot write a schedule believing the
+run will wait afterwards.
 
 **Two machines' key tokens are raw matrix positions, with no id a name can be
 derived from** → Those layouts still carry legends, which is the second route
