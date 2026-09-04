@@ -1417,8 +1417,14 @@ the machine cannot be driven and on another that it can.
 
 What it can do SHALL be what a person at that machine could do: type text, press
 the machine's own keys, work the joystick, wait, and look at the screen. Keys
-SHALL be named as that machine names them, and the assistant SHALL be told which
-names that machine has, so it cannot ask for a key the machine does not have.
+SHALL be named in a vocabulary that does not depend on the machine — the same one
+any other caller driving a machine writes — so that a sequence of keys written for
+one machine means the same thing on another. Each machine SHALL resolve a name to
+whatever its own keyboard calls that key, and a name SHALL resolve to the key that
+types it rather than to the position its machine's keyboard hardware gives that
+name. The assistant SHALL be told which of those names the machine in front of it
+has, so it cannot ask for a key that machine does not have, and a name that
+machine has no key for SHALL be refused rather than resolved to some other key.
 Joystick directions and fire SHALL reach the program the way the machine's own
 controller does, whether that machine has a joystick port or maps it to keys.
 
@@ -1454,6 +1460,19 @@ reply does today, and no machine becomes unusable for not being driven.
   starts, and asks to drive it
 - **THEN** it can wait for that prompt to appear, press a key, and see the
   program running rather than its title screen
+
+#### Scenario: The same keys on a different machine
+
+- **WHEN** the assistant drives programs on two machines whose keyboards name
+  their keys differently
+- **THEN** it presses the same key by the same name on both, and each machine
+  presses its own key for that name
+
+#### Scenario: A key this machine does not have
+
+- **WHEN** the assistant asks for a key the machine in front of it has no
+  equivalent of
+- **THEN** it is told so, and no other key is pressed in its place
 
 #### Scenario: A program driven with the joystick
 
