@@ -37,6 +37,36 @@ describe('checking a program', () => {
     expect(() => lintListing('speccy-2000', '10 PRINT 1\n')).toThrow(RunError);
   });
 
+  it('reads the machine from the program when none is named', () => {
+    const outcome = lintListing(
+      undefined,
+      '#MACHINE commodore64\n10 PRINT "HI"\n',
+    );
+    expect(outcome.machine).toEqual({ id: 'commodore64', name: 'C64' });
+    expect(outcome.problems).toEqual([]);
+  });
+
+  it('-m overrides a declaration', () => {
+    const outcome = lintListing(
+      'zx81',
+      '#MACHINE commodore64\n10 PRINT "HI"\n',
+    );
+    expect(outcome.machine.id).toBe('zx81');
+  });
+
+  it("is the caller's mistake when neither -m nor a declaration says", () => {
+    expect(() => lintListing(undefined, '10 PRINT "HI"\n')).toThrow(RunError);
+    expect(() => lintListing(undefined, '10 PRINT "HI"\n')).toThrow(
+      /-m <machine>.*#MACHINE/s,
+    );
+  });
+
+  it("is the caller's mistake, naming the line and column, when the declaration itself is at fault", () => {
+    expect(() =>
+      lintListing(undefined, '#MACHINE nosuchmachine\n10 PRINT\n'),
+    ).toThrow(/^1:10: No registered machine "nosuchmachine"$/);
+  });
+
   it('places each problem the way a compiler places one', () => {
     const { problems } = lintListing('zx81', '10 X=5\n');
     expect(formatProblems(problems)).toBe(

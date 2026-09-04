@@ -157,6 +157,18 @@ Capability flags are optional on the type and the UI feature-detects on them:
 `romUrl` is absent for a machine that needs no ROM, `debuggable` gates the
 debugger, `supportsBinaryLines` gates `#BIN` records.
 
+A listing can also declare which machine it's for, on a `#MACHINE <name>` line
+
+- the same shape as `#BIN`, but universal rather than gated per dialect, so no
+  tokenizer is taught it. `src/dialects/machineDirective.ts` recognises and
+  strips the line; `src/dialects/resolveListing.ts` is the one point, above the
+  seam, that reads it, resolves the named dialect against the registry, and maps
+  tokenizer positions back onto what the user typed. Every path that turns a
+  listing into bytes - the editor lint, the run/export/share paths, the CLI's
+  `lint`/`build` - routes through `resolveTokenize`/`resolveLint` there rather
+  than calling `dialect.tokenize`/`dialect.lint` directly, so a path that forgot
+  would be the one place a declaring program behaved differently from the rest.
+
 ::: tip One address, one definition
 A dialect declares each hardware address once, in its `sysvars.ts` or
 `addresses.ts`. The memory map, block linter, file formats and emulator all
@@ -427,8 +439,9 @@ sequenceDiagram
    colliding with the program.
 3. **Build the machine.** On first run for a dialect, fetch and cache the ROM
    (a user-installed ROM takes precedence), then `createEmulator()`.
-4. **Tokenize.** `dialect.tokenize(source)` yields the bytes, the loadable
-   image, the byte size for the RAM budget, and any errors.
+4. **Tokenize.** `resolveTokenize(dialect, source)` - `dialect.tokenize` with a
+   `#MACHINE` declaration honoured - yields the bytes, the loadable image, the
+   byte size for the RAM budget, and any errors.
 5. **Load and run.** `loadProgram` writes blocks into RAM, mounts tape files
    and starts the program. A `requestAnimationFrame` loop paints each animation
    frame; `src/app/frameClock.ts` converts elapsed time into whole machine
@@ -447,8 +460,8 @@ No machine is involved.
 flowchart TB
   typing["Keystrokes in CodeMirror"] --> lint["dialectLinter<br/>(400 ms debounce)"]
   typing --> stats["useProgramStats<br/>(debounced dry run)"]
-  lint -->|"dialect.lint(source)"| diags["TokenizeError[] → inline diagnostics"]
-  stats -->|"dialect.tokenize(source)"| budget["byte count vs programRamBytes<br/>→ status bar ticker"]
+  lint -->|"resolveLint(dialect, source)"| diags["TokenizeError[] → inline diagnostics"]
+  stats -->|"resolveTokenize(dialect, source)"| budget["byte count vs programRamBytes<br/>→ status bar ticker"]
 ```
 
 Once a machine runs, the status-bar figure switches to

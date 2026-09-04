@@ -1,6 +1,7 @@
 import { linter, type Diagnostic } from '@codemirror/lint';
 import type { Extension } from '@codemirror/state';
 import type { Dialect } from '../dialects/types';
+import { resolveLint } from '../dialects/resolveListing';
 import { strictCharacterErrors } from '../app/strictCharacters';
 
 /**
@@ -13,7 +14,7 @@ export function dialectLinter(dialect: Dialect, strict = false): Extension {
       const doc = view.state.doc;
       const source = doc.toString();
       const errors = [
-        ...dialect.lint(source),
+        ...resolveLint(dialect, source),
         ...strictCharacterErrors(source, dialect, strict),
       ];
       const diagnostics: Diagnostic[] = [];

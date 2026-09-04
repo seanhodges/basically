@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { strictCharacterErrors } from '../app/strictCharacters';
 import { computeCompatibleDialects } from '../share/compatibility';
+import { resolveTokenize } from '../dialects/resolveListing';
 import { createShare, ShareApiError } from '../share/shareClient';
 import { serializeBlocks } from '../storage/projectFile';
 import { playerPathFor } from '../player/routes';
@@ -116,7 +117,7 @@ export function ShareLinkDialog() {
     // Strict characters counts here as the editor counts it: a link points at a
     // program that runs, and under that setting this one does not.
     const errorCount =
-      dialect.tokenize(source).errors.length +
+      resolveTokenize(dialect, source).errors.length +
       strictCharacterErrors(source, dialect, strictCharacters).length;
     if (errorCount > 0) {
       setBlockedReason(

@@ -31,6 +31,8 @@ import { probeFor } from '../dialects/charsetProbes';
 import { distinguishesNameCase, foldNameCase } from '../dialects/letterCase';
 import { findDialect } from '../dialects/registry';
 import { isBinaryDirective } from '../dialects/binaryDirective';
+import { isMachineDirective } from '../dialects/machineDirective';
+import { resolveTokenize } from '../dialects/resolveListing';
 import { scannable } from '../editor/programOutline';
 import { makeCrunchMatcher } from '../editor/crunch';
 import { operatorSpellings } from '../dialects/operators';
@@ -431,9 +433,9 @@ interface CodeLine {
  *
  * The editor position rides along because one finding is about lines rather than
  * about vocabulary: "these lines carry several statements" has to name them, and
- * blank and `#BIN` lines are skipped here, so a position cannot be recovered by
- * counting afterwards. The BASIC line number rides along for the same reason, one
- * finding over: the target machine's own range may not hold it.
+ * blank, `#BIN` and `#MACHINE` lines are skipped here, so a position cannot be
+ * recovered by counting afterwards. The BASIC line number rides along for the
+ * same reason, one finding over: the target machine's own range may not hold it.
  */
 function codeLines(source: string): CodeLine[] {
   const bodies: CodeLine[] = [];
@@ -443,6 +445,9 @@ function codeLines(source: string): CodeLine[] {
     // `#BIN` lines carry a base64 program-area record, not BASIC text; scanning
     // one for keywords finds whatever letters the payload happens to spell.
     if (isBinaryDirective(line)) return;
+    // A `#MACHINE` declaration is not part of the program either - it never
+    // reaches any machine, so it contributes no vocabulary.
+    if (isMachineDirective(line)) return;
     const numbered = /^(\d+)\s?/.exec(line);
     bodies.push({
       line: index + 1,
@@ -1363,7 +1368,7 @@ function programSize(
   target: Dialect | undefined,
 ): ProgramSize | null {
   if (!target) return null;
-  const { byteSize, errors } = target.tokenize(source);
+  const { byteSize, errors } = resolveTokenize(target, source);
   return { dialectId: target.id, bytes: byteSize, clean: errors.length === 0 };
 }
 
@@ -1430,7 +1435,7 @@ export function vocabularyReply(
   const to = toId !== null ? findDialect(toId) : undefined;
   const status = !source.trim()
     ? 'empty'
-    : hasFatalErrors(from.tokenize(source).errors)
+    : hasFatalErrors(resolveTokenize(from, source).errors)
       ? 'unreadable'
       : 'ready';
   const vocab = programVocabulary(source, from, blocks);

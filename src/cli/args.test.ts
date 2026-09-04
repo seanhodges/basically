@@ -87,6 +87,23 @@ describe('the command line grammar', () => {
     });
   });
 
+  it('takes no machine for lint/build, leaving it to the program to declare one', () => {
+    expect(parseArgs(['lint', 'prog.bas'])).toEqual({
+      operation: 'lint',
+      program: { kind: 'file', path: 'prog.bas' },
+      machine: undefined,
+      json: false,
+    });
+    expect(parseArgs(['build', 'prog.bas', '--out', '/tmp/prog.p'])).toEqual({
+      operation: 'build',
+      program: { kind: 'file', path: 'prog.bas' },
+      machine: undefined,
+      out: '/tmp/prog.p',
+      target: undefined,
+      programName: undefined,
+    });
+  });
+
   it('reads standard input from "-" and from no path at all', () => {
     for (const argv of [
       ['lint', '-', '-m', 'zx81'],
@@ -116,7 +133,7 @@ describe('the command line grammar', () => {
     const cases: [string, string[]][] = [
       ['an unknown operation', ['dance', '-m', 'zx81']],
       ['an unknown option', ['lint', '-m', 'zx81', '--loudly']],
-      ['a missing machine', ['lint', 'prog.bas']],
+      ['a missing machine on run', ['run', 'prog.bas']],
       ['a missing output path', ['build', 'prog.bas', '-m', 'zx81']],
       ['a non-numeric frame count', ['run', '-m', 'zx81', '--frames', 'lots']],
       ['a fractional frame count', ['run', '-m', 'zx81', '--frames', '1.5']],

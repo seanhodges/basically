@@ -108,4 +108,10 @@ describe('characters the machine will change', () => {
   it('takes no character from a #BIN payload', () => {
     expect(count('zx81', '10 PRINT "A"\n#BIN 4000 QUJDREVGRw==')).toBe(0);
   });
+
+  it('takes no character from a #MACHINE declaration', () => {
+    // A dialect whose lower case folds to upper would otherwise flag "machine"
+    // in a lower-case-spelled declaration as characters it converts.
+    expect(count('zx81', '#machine zx81\n10 PRINT "A"')).toBe(0);
+  });
 });

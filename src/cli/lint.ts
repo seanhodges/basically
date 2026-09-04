@@ -12,6 +12,8 @@
 
 import { findMachine, RunError } from '../dialects/headless/runListing';
 import { hasFatalErrors } from '../dialects/types';
+import { remapErrors, resolveListing } from '../dialects/resolveListing';
+import { noMachineError } from './machineResolution';
 
 export interface LintProblem {
   /** 1-based line. */
@@ -36,12 +38,28 @@ export interface LintOutcome {
   fatal: boolean;
 }
 
-export function lintListing(machine: string, source: string): LintOutcome {
-  const dialect = findMachine(machine);
-  if (!dialect) throw new RunError(`no registered machine "${machine}"`);
-  const errors = dialect.lint(source);
+/**
+ * Naming a machine is optional when the program declares one (`#MACHINE
+ * <name>`); naming one anyway overrides the declaration. Naming a machine
+ * that is not registered, or naming none while the program declares none
+ * either, is the caller's mistake.
+ */
+export function lintListing(
+  machine: string | undefined,
+  source: string,
+): LintOutcome {
+  const explicit = machine === undefined ? undefined : findMachine(machine);
+  if (machine !== undefined && !explicit) {
+    throw new RunError(`no registered machine "${machine}"`);
+  }
+  const resolved = resolveListing(source, explicit);
+  if (!resolved.dialect) throw noMachineError('lint', resolved.problems);
+  const errors = [
+    ...resolved.problems,
+    ...remapErrors(resolved.dialect.lint(resolved.source), resolved.remapLine),
+  ];
   return {
-    machine: { id: dialect.id, name: dialect.name },
+    machine: { id: resolved.dialect.id, name: resolved.dialect.name },
     problems: errors.map((e) => ({
       line: e.line,
       column: e.column,

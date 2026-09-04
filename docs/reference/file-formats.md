@@ -40,6 +40,28 @@ data block tab offers the same for its own `.asm` (assembly source) and `.bin`
 editor as source, so listings — including those saved by earlier versions —
 still open unchanged.
 
+### Declaring the machine
+
+A listing can say which machine it's written for, on a line of its own:
+
+```
+#MACHINE zx81
+10 PRINT "HELLO"
+```
+
+The name works the same way it does anywhere else in the IDE — a machine's id
+or its full name, either case. The line contributes nothing to the program: it
+costs no bytes, isn't part of the BASIC, and no machine ever sees it — the same
+way a `#BIN` line (see [Machine code & data blocks](#machine-code-data-blocks))
+carries a fact without being one. A declaring listing can be checked, built or
+run without separately naming a machine; naming one anyway is honoured and
+takes precedence. A name that isn't registered, or a second declaration in the
+same listing, is reported like any other problem with the program.
+
+Opening a document that declares a machine switches the IDE to it; switching
+the target machine keeps an existing declaration in step, and never adds one
+to a listing that had none.
+
 ## Project bundle (.zip)
 
 **Save project** writes the whole document as a `.zip` bundle — a zip archive

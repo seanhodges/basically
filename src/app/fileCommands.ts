@@ -24,8 +24,25 @@ import {
   type ParsedProject,
 } from '../storage/projectFile';
 import { findDialect } from '../dialects/registry';
+import { readMachineDirective } from '../dialects/machineDirective';
+import { findMachine } from '../dialects/machineLookup';
+import type { Dialect } from '../dialects/types';
 
 const textDecoder = new TextDecoder();
+
+/**
+ * The dialect a freshly opened `.bas`/`.txt` document should switch to, per
+ * its own `#MACHINE` declaration - null when it declares nothing, names a
+ * machine this build doesn't register, or names the machine already active
+ * (opening a document that declares a machine makes it the active target;
+ * see `openspec/specs/dialect-toolchain/spec.md`).
+ */
+function declaredDialect(source: string, active: Dialect): Dialect | null {
+  const { name } = readMachineDirective(source);
+  if (name === undefined) return null;
+  const found = findMachine(name);
+  return found && found.id !== active.id ? found : null;
+}
 
 /**
  * True when it's safe to replace the current document - nothing unsaved, an
@@ -64,13 +81,15 @@ export function newDocument(): void {
  * unzipped and parsed, installing its source and memory blocks atomically and
  * switching to the dialect it was saved under (see {@link installParsedProject});
  * a plain `.bas`/`.txt` (or any other extension) loads as plain source with no
- * blocks.
+ * blocks, switching to the machine it declares (see {@link declaredDialect})
+ * when that differs from the one already active.
  */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
   const opened = await openDocumentFile();
   if (!opened) return;
-  const { replaceDocument, setStatusNotice } = useIdeStore.getState();
+  const { dialect, replaceDocument, openProject, setStatusNotice } =
+    useIdeStore.getState();
   const ext = fileExtension(opened.name);
   if (isProjectExtension(ext)) {
     try {
@@ -82,7 +101,18 @@ export async function openDocument(): Promise<void> {
     }
     return;
   }
-  replaceDocument(textDecoder.decode(opened.bytes), opened.name);
+  const text = textDecoder.decode(opened.bytes);
+  const declared = declaredDialect(text, dialect);
+  if (declared) {
+    openProject({
+      dialectId: declared.id,
+      source: text,
+      fileName: opened.name,
+    });
+    setStatusNotice(`Switched to ${declared.name} to match this program.`);
+    return;
+  }
+  replaceDocument(text, opened.name);
 }
 
 /**
@@ -189,14 +219,16 @@ function unknownDialectNotice(
 /**
  * Open a file dropped onto the editor. A project bundle (a `.zip`, or a legacy
  * `.bproj`) is unzipped and installs its source and memory blocks atomically,
- * like File → Open; a plain `.txt`/`.bas` file loads as a named document; a file
- * whose extension matches one of the current dialect's binary import formats
- * (e.g. `.prg`, `.tap`) is detokenized back into the editor exactly like Import
- * - including the block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`,
- * `.dsk`), which bring the program back with its memory blocks; a picture is a
- * photograph or scan of a printed listing and goes to the AI assistant, which
- * reports its own outcome in the panel. All document-replacing paths are guarded
- * by {@link confirmDiscard}, so the user is warned before losing unsaved changes
+ * like File → Open; a plain `.txt`/`.bas` file loads as a named document,
+ * switching to the machine it declares (see {@link declaredDialect}) when
+ * that differs from the one already active; a file whose extension matches
+ * one of the current dialect's binary import formats (e.g. `.prg`, `.tap`) is
+ * detokenized back into the editor exactly like Import - including the
+ * block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`, `.dsk`), which
+ * bring the program back with its memory blocks; a picture is a photograph or
+ * scan of a printed listing and goes to the AI assistant, which reports its
+ * own outcome in the panel. All document-replacing paths are guarded by
+ * {@link confirmDiscard}, so the user is warned before losing unsaved changes
  * (adding a block isn't destructive, so it isn't, and neither is attaching a
  * picture). Unsupported types and read/detokenize/parse failures surface a
  * status-bar notice. A project bundle switches to the dialect it was saved under
@@ -204,8 +236,13 @@ function unknownDialectNotice(
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
-  const { dialect, replaceDocument, loadUnsavedDocument, setStatusNotice } =
-    store;
+  const {
+    dialect,
+    replaceDocument,
+    openProject,
+    loadUnsavedDocument,
+    setStatusNotice,
+  } = store;
   const ext = fileExtension(file.name);
   const binaryFmt = dialect.binaryImports?.find(
     (f) => f.extension.toLowerCase() === ext,
@@ -217,7 +254,18 @@ export async function openDroppedFile(file: File): Promise<void> {
       installParsedProject(parsed, file.name);
     } else if (ext === '.bas' || ext === '.txt') {
       if (!confirmDiscard()) return;
-      replaceDocument(await file.text(), file.name);
+      const text = await file.text();
+      const declared = declaredDialect(text, dialect);
+      if (declared) {
+        openProject({
+          dialectId: declared.id,
+          source: text,
+          fileName: file.name,
+        });
+        setStatusNotice(`Switched to ${declared.name} to match this program.`);
+      } else {
+        replaceDocument(text, file.name);
+      }
     } else if (binaryFmt) {
       if (!confirmDiscard()) return;
       const bytes = new Uint8Array(await file.arrayBuffer());

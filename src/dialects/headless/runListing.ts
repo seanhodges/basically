@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dialects } from '../registry';
 import {
   bootMachine,
   configureRomRoot,
@@ -10,11 +9,12 @@ import {
 } from '../bootHarness';
 import { hasFatalErrors } from '../types';
 import type {
-  Dialect,
   MachineEmulator,
   MachineScreenText,
   TokenizeError,
 } from '../types';
+import { resolveTokenize } from '../resolveListing';
+import { findMachine } from '../machineLookup';
 import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
 
 /**
@@ -189,20 +189,8 @@ const SETTLE_FRAMES = 2;
 /** Thrown for the two things a caller gets wrong, as against a bad program. */
 export class RunError extends Error {}
 
-/** Resolve a dialect by id or by the name the machine picker shows. */
-export function findMachine(name: string): Dialect | undefined {
-  const wanted = name.trim().toLowerCase();
-  return (
-    dialects.find((d) => d.id === name) ??
-    dialects.find((d) => d.id.toLowerCase() === wanted) ??
-    dialects.find((d) => d.name.toLowerCase() === wanted)
-  );
-}
-
-/** Every registered machine, in registry order. */
-export function machineList(): { id: string; name: string; blurb: string }[] {
-  return dialects.map((d) => ({ id: d.id, name: d.name, blurb: d.blurb }));
-}
+// Re-exported for the CLI modules that already import these from here.
+export { findMachine, machineList } from '../machineLookup';
 
 export async function runListing(opts: RunOptions): Promise<RunResult> {
   const dialect = findMachine(opts.machine);
@@ -221,7 +209,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
   };
 
   const tokenizeAt = performance.now();
-  const { image, errors, byteSize } = dialect.tokenize(opts.source);
+  const { image, errors, byteSize } = resolveTokenize(dialect, opts.source);
   timings.tokenizeMs = performance.now() - tokenizeAt;
 
   const machineInfo = {
