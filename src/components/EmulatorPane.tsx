@@ -42,12 +42,8 @@ import {
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import { FrameClock } from '../app/frameClock';
-import {
-  RunProfiler,
-  programLineNumbers,
-  PROFILE_PUBLISH_FRAMES,
-} from '../app/runProfile';
-import { RunStopwatch, formatTiming, timingFrame } from '../app/runTiming';
+import { RunMeasurements } from '../app/runMeasurements';
+import { formatTiming } from '../app/runTiming';
 import { canPauseRun } from '../app/runControl';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
@@ -58,11 +54,11 @@ import {
   snapshotScreen,
 } from '../app/screenCapture';
 import {
-  createMachineControl,
-  forgetMachineControl,
+  forgetMachineSession,
   machineFrozen,
-  registerMachineControl,
-} from '../app/machineControl';
+  registerMachineSession,
+} from '../app/machineSession';
+import { createBrowserSession } from '../app/browserSession';
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import type {
   Dialect,
@@ -220,24 +216,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
    */
   const clockRef = useRef(new FrameClock());
   /**
-   * The measurements of the run in progress, or null between runs.
+   * The measurements of the run in progress - its profile and its stopwatch
+   * together - or null between runs.
    *
    * Built when a run starts and thrown away when the next one does, so figures
-   * never accumulate across runs. Held in a ref rather than the store because it
-   * is folded into every emulated frame - fifty times a second, and more at a
-   * speed multiple - and pushed to the store on the far slower cadence the
-   * editor's gutter actually needs (see {@link PROFILE_PUBLISH_FRAMES}).
+   * never accumulate across runs. Held in a ref rather than the store because
+   * it is folded into every emulated frame - fifty times a second, and more at
+   * a speed multiple - and pushed to the store on the far slower cadence the
+   * editor's gutter actually needs, which the fold itself keeps.
    */
-  const profilerRef = useRef<RunProfiler | null>(null);
-  /**
-   * The stopwatch over the run in progress, or null between runs.
-   *
-   * Held beside the profiler and for the same reasons: it is marked on every
-   * emulated frame, and it is thrown away with the run so a duration always
-   * describes one execution. It reads the profiler's clock rather than keeping
-   * one of its own, so the two can never disagree about how long a run took.
-   */
-  const stopwatchRef = useRef<RunStopwatch | null>(null);
+  const measurementsRef = useRef<RunMeasurements | null>(null);
   /**
    * The speed setting, read inside the loop rather than through the closure so
    * a change takes effect on the next tick without restarting the loop.
@@ -314,19 +302,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
    * look at where its time went is looking at the run they just watched.
    */
   const flushProfile = useCallback(() => {
-    const profiler = profilerRef.current;
-    profilerRef.current = null;
-    if (profiler?.measured) setRunProfile(profiler.snapshot());
+    const measurements = measurementsRef.current;
+    measurementsRef.current = null;
+    if (!measurements) return;
     // Every path through here is the user ending the run - Stop, Reset, a
     // teardown - so a timing that has not already settled on its own ends as
     // "still running when the run was stopped", which is the one thing it must
     // never be mistaken for a completion time.
-    const stopwatch = stopwatchRef.current;
-    stopwatchRef.current = null;
-    if (stopwatch) {
-      stopwatch.stop();
-      setRunTiming(stopwatch.timing());
-    }
+    measurements.stop();
+    const profile = measurements.profile();
+    if (profile) setRunProfile(profile);
+    setRunTiming(measurements.timing());
   }, [setRunProfile, setRunTiming]);
 
   // Blank the preview so a freshly-started emulator never inherits the previous
@@ -360,7 +346,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     forgetScreenCapture();
   }, []);
 
-  // The driver the assistant reaches the machine through, offered on the same
+  // The session the assistant reaches the machine through, offered on the same
   // terms as the capture: only while a machine is up and drawing, and taken
   // back when it goes away. Unlike the capture there is no snapshot to keep -
   // a machine that is gone cannot be driven, and pretending otherwise would let
@@ -369,12 +355,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const registerControl = useCallback(
     (machine: MachineEmulator, render: () => void) => {
       unregisterControlRef.current?.();
-      unregisterControlRef.current = registerMachineControl(
-        createMachineControl({
+      unregisterControlRef.current = registerMachineSession(
+        createBrowserSession({
           machine,
-          layout: dialect.keyboardLayout,
+          dialect,
           gamepadMode: effectiveGamepadMode(dialect, gamepadMode),
-          fireButtons: dialect.joystickFireButtons ?? 1,
           // A driven frame renders like any other: what the assistant is shown
           // and what the user would have seen are the same picture.
           step: () => {
@@ -389,7 +374,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dropControl = useCallback(() => {
     unregisterControlRef.current?.();
     unregisterControlRef.current = null;
-    forgetMachineControl();
+    forgetMachineSession();
   }, []);
 
   // Let the browser paint at least once. Used to surface the loading overlay
@@ -477,43 +462,21 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const atRealTime = () =>
         !aiCheckActiveRef.current && speedRef.current === 1;
 
-      // Fold one emulated frame into the run's measurements: drain what the
-      // machine charged to each BASIC line, sample its RAM figures on the
-      // profiler's own cadence, and advance the stopwatch over the run. Always
-      // called, on the debug path as well as the ordinary one, so a run measures
-      // itself whichever way it is being run - and so the machine's accumulation
-      // never grows between drains.
+      // Fold one emulated frame into the run's measurements, and publish them
+      // when the fold says to. Always called, on the debug path as well as the
+      // ordinary one, so a run measures itself whichever way it is being run -
+      // and so the machine's accumulation never grows between drains. Once the
+      // program is over the loop runs on - the machine sits at its prompt, and
+      // the user may still be typing at it - but the measurements are done and
+      // dropped.
       const pumpMeasurements = () => {
-        const profiler = profilerRef.current;
-        if (!profiler) return;
-        profiler.frame(
-          machine.drainProfile?.() ?? null,
-          () => machine.readMemoryStats?.() ?? null,
-          machine.frameHz,
-        );
-        const stopwatch = stopwatchRef.current;
-        stopwatch?.frame(profiler.elapsedSeconds, timingFrame(machine));
-        // The program is over: measuring stops with it. The loop runs on -
-        // the machine sits at its prompt, and the user may still be typing at
-        // it - but none of that is the program, and folding it in would grow
-        // the elapsed time and the memory record of a run that had ended.
-        // Recording is switched off at the machine so it stops charging cycles
-        // to a line nobody is measuring.
-        if (stopwatch?.settled) {
-          machine.setProfileRecording?.(false);
-          profilerRef.current = null;
-          stopwatchRef.current = null;
-          setRunProfile(profiler.measured ? profiler.snapshot() : null);
-          setRunTiming(stopwatch.timing());
-          return;
-        }
-        // Published on the profiler's cadence rather than every frame: the
-        // duration is worth redrawing about twice a second, and the store is
-        // read by the whole app.
-        if (profiler.frameCount % PROFILE_PUBLISH_FRAMES === 0) {
-          setRunProfile(profiler.measured ? profiler.snapshot() : null);
-          if (stopwatch) setRunTiming(stopwatch.timing());
-        }
+        const measurements = measurementsRef.current;
+        if (!measurements) return;
+        const step = measurements.frame(machine);
+        if (step === 'quiet') return;
+        if (step === 'settled') measurementsRef.current = null;
+        setRunProfile(measurements.profile());
+        setRunTiming(measurements.timing());
       };
 
       // Drain the machine's synthesized audio and feed the speaker. Always
@@ -591,10 +554,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             // breakpointed line is reached: continuing off a breakpointed line
             // deliberately does not re-trigger on it (see `fromLine`), so
             // marking on the line would mark at moments that are not pauses.
-            const stopwatch = stopwatchRef.current;
-            if (stopwatch) {
-              store.setPauseInterval(stopwatch.pause(res.line));
-              store.setRunTiming(stopwatch.timing());
+            const measurements = measurementsRef.current;
+            if (measurements) {
+              store.setPauseInterval(measurements.stopwatch.pause(res.line));
+              store.setRunTiming(measurements.timing());
             }
             store.setEmulatorStatus('paused');
             // On mobile the Preview tab is showing when a breakpoint trips, so
@@ -927,13 +890,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // rather than adding to them. Armed for every run, not a profiling mode
         // the user has to have chosen before the run they wanted measured -
         // which is only afterwards that they know.
-        machine.setProfileRecording?.(true);
-        machine.drainProfile?.(); // discard anything charged during the boot
-        profilerRef.current = new RunProfiler(
-          bufferId,
-          programLineNumbers(runSource),
-        );
-        stopwatchRef.current = new RunStopwatch(bufferId);
+        measurementsRef.current = new RunMeasurements(bufferId, runSource);
+        measurementsRef.current.arm(machine);
         setRunProfile(null);
         setRunTiming(null);
         setPauseInterval(null);
@@ -1053,10 +1011,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       return;
     stopLoop();
     machine.releaseAllKeys(); // nothing stays held while paused
-    const stopwatch = stopwatchRef.current;
-    if (stopwatch) {
-      stopwatch.pause(null);
-      useIdeStore.getState().setRunTiming(stopwatch.timing());
+    const measurements = measurementsRef.current;
+    if (measurements) {
+      measurements.stopwatch.pause(null);
+      useIdeStore.getState().setRunTiming(measurements.timing());
     }
     setEmulatorStatus('paused');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1066,7 +1024,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   useEffect(() => {
     if (stepRequest === 0 || !debugActiveRef.current) return;
     debugModeRef.current = 'step';
-    stopwatchRef.current?.resume();
+    measurementsRef.current?.stopwatch.resume();
     useIdeStore.getState().setDebugLine(null);
     setEmulatorStatus('running');
     startLoop();
@@ -1085,7 +1043,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (continueRequest === 0 || !machineRef.current) return;
     if (useIdeStore.getState().emulatorStatus !== 'paused') return;
     debugModeRef.current = 'run';
-    stopwatchRef.current?.resume();
+    measurementsRef.current?.stopwatch.resume();
     useIdeStore.getState().setDebugLine(null);
     setEmulatorStatus('running');
     startLoop();
@@ -1207,8 +1165,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     disposeAudio();
     // The measurements go with the machine; the store drops the published ones
     // on the same switch.
-    profilerRef.current = null;
-    stopwatchRef.current = null;
+    measurementsRef.current = null;
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     // Forgotten rather than stashed: a question about this machine must never
     // be answered against the screen of the one before it.

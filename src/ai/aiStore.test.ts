@@ -75,11 +75,7 @@ vi.mock('./aiClient', () => ({
 }));
 
 import { unsentScreen, useAiStore, type DisplayMessage } from './aiStore';
-import {
-  driveToolDefinitions,
-  DRIVE_TOOL,
-  MACHINE_NOT_GIVEN,
-} from './driveTools';
+import { assistantTools, MACHINE_NOT_GIVEN } from './driveTools';
 import { loadMachineReference } from './machineReference';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
@@ -1802,7 +1798,7 @@ describe('aiStore', () => {
       const offered = h.everySent.map((o) => JSON.stringify(o.tools));
       expect(offered).toHaveLength(2);
       expect(new Set(offered).size).toBe(1);
-      expect(offered[0]).toBe(JSON.stringify(driveToolDefinitions()));
+      expect(offered[0]).toBe(JSON.stringify(assistantTools()));
     });
 
     it('offers none to a backend that cannot be given them', async () => {
@@ -1819,7 +1815,7 @@ describe('aiStore', () => {
       const p = useAiStore.getState().send(params);
       const answered = await h.runTool!({
         id: 'c1',
-        name: DRIVE_TOOL,
+        name: 'drive',
         input: { script: 'PRESS KeyA' },
       });
       h.current!.resolve('10 PRINT');

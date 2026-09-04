@@ -2,39 +2,13 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * The registered machines, as data and as a table.
- *
- * Reads no ROM and boots nothing: whether a machine's ROM is here is a question
- * about a file's existence, and the answer is what tells a caller which
- * machines it can actually run before it tries.
+ * The registered machines as a table. The data is the `machines` operation's
+ * (`src/ops/machines.ts`); only the column layout is the command line's.
  */
 
-import { hasRom } from '../dialects/bootHarness';
-import { findMachine, machineList } from '../dialects/headless/runListing';
-import { locateRoms } from './roms';
+import type { MachineSummary } from '../ops/machines';
 
-export interface MachineSummary {
-  /** The identifier every other operation takes, e.g. `zx81`. */
-  id: string;
-  name: string;
-  /** The one-line description the machine picker shows. */
-  description: string;
-  /** Whether this installation carries the machine's ROM. */
-  romPresent: boolean;
-}
-
-export function listMachines(): MachineSummary[] {
-  locateRoms();
-  return machineList().map((machine) => {
-    const dialect = findMachine(machine.id);
-    return {
-      id: machine.id,
-      name: machine.name,
-      description: machine.blurb,
-      romPresent: dialect !== undefined && hasRom(dialect),
-    };
-  });
-}
+export type { MachineSummary } from '../ops/machines';
 
 /** The machines as aligned columns, one per line. */
 export function formatMachines(machines: readonly MachineSummary[]): string {

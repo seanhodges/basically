@@ -95,6 +95,70 @@ export default tseslint.config(
       ],
     },
   },
+  // The operation layer (src/ops/) is shared by the command line and the
+  // assistant, so it may import neither the filesystem nor the DOM nor the
+  // store: the command line has no store and the browser has no filesystem,
+  // and one static import from either would put the layer out of reach of the
+  // other caller - or drag node into the browser bundle - and nothing would
+  // fail. So it fails here instead. What an operation needs from either world
+  // arrives through its context (src/ops/types.ts). Type imports are erased at
+  // build and are allowed; tests run in node and are exempt.
+  {
+    files: ['src/ops/**/*.{ts,tsx}'],
+    ignores: ['src/ops/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            'fs',
+            'path',
+            'os',
+            'zlib',
+            'url',
+            'module',
+            'child_process',
+          ].map((name) => ({
+            name,
+            message:
+              'src/ops/ imports nothing of node; take it from the context.',
+          })),
+          patterns: [
+            {
+              group: ['node:*'],
+              message:
+                'src/ops/ imports nothing of node; take it from the context (src/ops/types.ts).',
+              allowTypeImports: true,
+            },
+            {
+              group: ['**/app/store', '**/app/store.ts', '**/storage/settings'],
+              message:
+                'src/ops/ never reaches the store: a session or the context carries what an operation needs.',
+              allowTypeImports: true,
+            },
+            {
+              group: [
+                '**/dialects/headless/runListing',
+                '**/dialects/headless/headlessCanvas',
+                '**/dialects/bootHarness',
+                '**/cli/*',
+                '**/components/*',
+              ],
+              message:
+                'That module reaches node or the DOM; src/ops/ takes what it needs from the context.',
+              allowTypeImports: true,
+            },
+            {
+              group: ['**/reference/*', '**/reference/**/*'],
+              message:
+                'Load the reference data on demand instead: import() it (see src/ai/machineReference.ts), or import only its types.',
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Comments describe the code, not the plan that produced it. Per-dialect
   // plans and OpenSpec change folders are deleted once the work ships, so a
   // comment naming one is dead the day the work lands - and half of them

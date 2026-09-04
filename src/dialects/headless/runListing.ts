@@ -16,6 +16,7 @@ import type {
 import { resolveTokenize } from '../resolveListing';
 import { findMachine } from '../machineLookup';
 import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
+import { RunError } from './runError';
 
 /**
  * Run a BASIC listing on a registered machine under node and report its screen.
@@ -40,6 +41,29 @@ export interface RunFrame {
    * something", which is what the browser check this replaces polled for.
    */
   colours: () => number;
+}
+
+/**
+ * A caller watching a run from the outside: told when the program is loaded,
+ * after every frame, and once the run is over while the machine is still up.
+ *
+ * The runner hands over the machine and nothing else - it is told nothing
+ * about measurements, sessions or schedules, which is what keeps this folder
+ * free of `src/app/` and of the operation layer. Every frame the runner spends
+ * is reported, including the frames a {@link RunOptions.drive} hook steps and
+ * the settling frames after the program stops, so an observer folding
+ * measurements sees the same frames the browser's run loop would.
+ */
+export interface RunObserver {
+  /** The image is loaded and the machine is about to run its first frame. */
+  loaded?(machine: MachineEmulator): void;
+  /** One frame has run. */
+  frame?(machine: MachineEmulator): void;
+  /**
+   * The run is over and its screen read; the machine is still alive and is
+   * disposed once this settles.
+   */
+  finished?(machine: MachineEmulator): void | Promise<void>;
 }
 
 export interface RunOptions {
@@ -89,6 +113,8 @@ export interface RunOptions {
    * moment to draw after the key.
    */
   drive?: (machine: MachineEmulator, step: () => void) => void;
+  /** Watch the run; see {@link RunObserver}. */
+  observe?: RunObserver;
   /** Paint the machine's picture as well as reading its screen text. */
   pixels?: boolean;
   /** `public/` to read the ROMs from; discovered by {@link findRomRoot} when absent. */
@@ -186,8 +212,7 @@ const DEFAULT_MAX_FRAMES = 4000;
  */
 const SETTLE_FRAMES = 2;
 
-/** Thrown for the two things a caller gets wrong, as against a bad program. */
-export class RunError extends Error {}
+export { RunError } from './runError';
 
 // Re-exported for the CLI modules that already import these from here.
 export { findMachine, machineList } from '../machineLookup';
@@ -257,6 +282,12 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       // microtask; let it land before the first frame.
       await new Promise((r) => setTimeout(r, 0));
       timings.loadMs = performance.now() - loadAt;
+      const observe = opts.observe;
+      observe?.loaded?.(machine);
+      const runFrame = () => {
+        machine.runFrame();
+        observe?.frame?.(machine);
+      };
 
       const runAt = performance.now();
       const fixed = opts.frames;
@@ -290,16 +321,16 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       // the undriven loop samples it: a program cannot un-begin, so once it has
       // been seen running and then stopped, it has ended - and a schedule whose
       // last action was WAIT END is exactly the run that reaches that.
-      const observe = () => {
+      const sample = () => {
         const running = machine.isProgramRunning();
         if (running === true) started = true;
         if (running === false && started) ended = true;
       };
       if (opts.drive) {
         opts.drive(machine, () => {
-          machine.runFrame();
+          runFrame();
           driveFrames++;
-          observe();
+          sample();
         });
         frames += driveFrames;
       }
@@ -307,8 +338,8 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       let reached = opts.until === undefined;
       let lastScreen: MachineScreenText | null = null;
       for (; frames < driveFrames + cap; frames++) {
-        machine.runFrame();
-        if (opts.drive) observe();
+        runFrame();
+        if (opts.drive) sample();
         if (opts.until !== undefined) {
           lastScreen = machine.readScreenText?.() ?? null;
           reached = opts.until({
@@ -349,7 +380,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       const settling = opts.drive ? ended : fixed === undefined;
       if (settling && settled) {
         const settle = opts.settleFrames ?? SETTLE_FRAMES;
-        for (let i = 0; i < settle; i++, frames++) machine.runFrame();
+        for (let i = 0; i < settle; i++, frames++) runFrame();
       }
       timings.runMs = performance.now() - runAt;
 
@@ -371,6 +402,8 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
           hostFontGlyphs: painted.hostFontGlyphs,
         };
       }
+
+      await observe?.finished?.(machine);
 
       return {
         machine: machineInfo,

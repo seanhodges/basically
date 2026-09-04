@@ -20,13 +20,12 @@ vi.hoisted(() => {
   globalThis.sessionStorage = stub();
 });
 import {
-  forgetMachineControl,
+  forgetMachineSession,
   machineFrozen,
-  registerMachineControl,
-  type MachineControl,
-} from '../app/machineControl';
+  registerMachineSession,
+  type MachineSession,
+} from '../app/machineSession';
 import { armDriving, settleJudgingTurn } from './aiStore';
-import { DRIVE_TOOL, LOOK_TOOL } from './driveTools';
 import { setAiProvider } from '../storage/settings';
 
 /**
@@ -36,7 +35,7 @@ import { setAiProvider } from '../storage/settings';
  * rule, and the rule is the whole safety story: a turn that drove when it
  * should not have would act on the user's machine unasked.
  */
-function stubControl(over: Partial<MachineControl> = {}): MachineControl {
+function stubControl(over: Partial<MachineSession> = {}): MachineSession {
   return {
     pressKeys: vi.fn(() => ({ ok: true, frames: 3 })),
     joystick: vi.fn(() => ({ ok: true, frames: 3 })),
@@ -46,22 +45,36 @@ function stubControl(over: Partial<MachineControl> = {}): MachineControl {
     programState: () => false,
     readText: () => ({ lines: ['READY'], cols: 5, rows: 1 }),
     releaseAll: vi.fn(),
+    capture: () => null,
+    measurements: () => ({
+      canProfile: true,
+      profile: null,
+      source: '',
+      capabilities: {
+        hasProc: false,
+        hasFn: false,
+        hasGosub: false,
+        hasGoto: false,
+      },
+    }),
+    timing: () => null,
+    variables: () => null,
     ...over,
   };
 }
 
 beforeEach(() => {
-  forgetMachineControl();
+  forgetMachineSession();
   setAiProvider('anthropic');
 });
 
 afterEach(() => {
-  forgetMachineControl();
+  forgetMachineSession();
 });
 
 describe('when driving is armed', () => {
   it('is not armed when the assistant did not ask', () => {
-    registerMachineControl(stubControl());
+    registerMachineSession(stubControl());
     expect(armDriving(false)).toBeNull();
     // And the machine is left running, as it would be on any ordinary check.
     expect(machineFrozen()).toBe(false);
@@ -75,7 +88,7 @@ describe('when driving is armed', () => {
   });
 
   it('is not armed on a provider that cannot be given tools', () => {
-    registerMachineControl(stubControl());
+    registerMachineSession(stubControl());
     setAiProvider('openai');
     // Stated, not discovered: offering tools a backend drops would leave the
     // assistant asked to do something that silently never happens.
@@ -84,7 +97,7 @@ describe('when driving is armed', () => {
   });
 
   it('is armed, and holds the machine still, when all three hold', () => {
-    registerMachineControl(stubControl());
+    registerMachineSession(stubControl());
 
     const driving = armDriving(true);
 
@@ -95,7 +108,7 @@ describe('when driving is armed', () => {
   });
 
   it('lets the machine go again when the turn ends', () => {
-    registerMachineControl(stubControl());
+    registerMachineSession(stubControl());
     const driving = armDriving(true)!;
 
     driving.finish();
@@ -106,7 +119,7 @@ describe('when driving is armed', () => {
 
   it('releases every key when the turn ends', () => {
     const control = stubControl();
-    registerMachineControl(control);
+    registerMachineSession(control);
 
     armDriving(true)!.finish();
 
@@ -115,12 +128,12 @@ describe('when driving is armed', () => {
 
   it('lets the machine go even when it no longer owns it', () => {
     const control = stubControl();
-    registerMachineControl(control);
+    registerMachineSession(control);
     const driving = armDriving(true)!;
 
     // What a run the user started does: the pane drops the driver, and this
     // turn is left holding one that owns nothing.
-    forgetMachineControl();
+    forgetMachineSession();
     driving.finish();
 
     // The thaw still has to happen - it is the freeze that strands a machine.
@@ -134,13 +147,13 @@ describe('when driving is armed', () => {
 describe('a turn whose machine was taken back', () => {
   it('refuses to drive it', async () => {
     const control = stubControl();
-    registerMachineControl(control);
+    registerMachineSession(control);
     const driving = armDriving(true)!;
-    forgetMachineControl();
+    forgetMachineSession();
 
     const result = await driving.runTool({
       id: 'c1',
-      name: DRIVE_TOOL,
+      name: 'drive',
       input: { script: 'PRESS KeyA' },
     });
 
@@ -153,13 +166,13 @@ describe('a turn whose machine was taken back', () => {
 
   it('refuses to look at it', async () => {
     const control = stubControl();
-    registerMachineControl(control);
+    registerMachineSession(control);
     const driving = armDriving(true)!;
-    forgetMachineControl();
+    forgetMachineSession();
 
     const result = await driving.runTool({
       id: 'c1',
-      name: LOOK_TOOL,
+      name: 'look',
       input: {},
     });
 
@@ -172,12 +185,12 @@ describe('a turn whose machine was taken back', () => {
 describe('the tools it hands over', () => {
   it('drives the machine and shows what the screen became', async () => {
     const control = stubControl();
-    registerMachineControl(control);
+    registerMachineSession(control);
     const driving = armDriving(true)!;
 
     const result = await driving.runTool({
       id: 'c1',
-      name: DRIVE_TOOL,
+      name: 'drive',
       input: { script: 'PRESS KeyA' },
     });
 
@@ -189,12 +202,12 @@ describe('the tools it hands over', () => {
 
   it('looks without touching anything', async () => {
     const control = stubControl();
-    registerMachineControl(control);
+    registerMachineSession(control);
     const driving = armDriving(true)!;
 
     const result = await driving.runTool({
       id: 'c1',
-      name: LOOK_TOOL,
+      name: 'look',
       input: {},
     });
 
@@ -210,12 +223,12 @@ describe('the tools it hands over', () => {
         detail: 'this machine has no key called "F13"',
       })),
     });
-    registerMachineControl(control);
+    registerMachineSession(control);
     const driving = armDriving(true)!;
 
     const result = await driving.runTool({
       id: 'c1',
-      name: DRIVE_TOOL,
+      name: 'drive',
       input: { script: 'PRESS F13' },
     });
 
@@ -226,7 +239,7 @@ describe('the tools it hands over', () => {
   });
 
   it('answers a tool that does not exist rather than throwing', async () => {
-    registerMachineControl(stubControl());
+    registerMachineSession(stubControl());
     const driving = armDriving(true)!;
 
     const result = await driving.runTool({

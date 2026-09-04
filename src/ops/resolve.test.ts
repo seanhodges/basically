@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import { noMachineError } from './machineResolution';
+import { noMachineError } from './resolve';
 
 describe('noMachineError', () => {
   it('names the generic mistake when nothing pointed at a specific problem', () => {
