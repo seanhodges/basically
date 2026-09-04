@@ -11,6 +11,7 @@ import type {
   MachineVariable,
 } from '../../types';
 import { Zx81Memory } from './memory';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
 import {
   LineCostRecorder,
   PROFILE_SLICE_CYCLES,
@@ -63,12 +64,22 @@ const MAX_BOOT_FRAMES = 600;
  * Video is rendered as a per-frame D_FILE snapshot (see display.ts) rather
  * than cycle-exact scanline generation - correct for BASIC games.
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice("ZX81's 8K ROM", 'public/roms/zx81.rom');
+
 export class Zx81Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
   readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
 
   private readonly memory: Zx81Memory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly keyboard = new Zx81Keyboard();
   private readonly cpu: Z80Core;
   private nmiGeneratorOn = false;
@@ -100,6 +111,7 @@ export class Zx81Machine implements MachineEmulator {
   private readonly runLatch = new ProgramEndLatch();
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
+    this.hasRom = opts.rom.length > 0;
     this.memory = new Zx81Memory(opts.rom, opts.ramKb);
     this.cpu = Z80({
       mem_read: this.memory.read,
@@ -249,6 +261,11 @@ export class Zx81Machine implements MachineEmulator {
 
   /** Run whole frames until the ROM has finished booting to the K cursor. */
   bootToBasic(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (frame >= 10 && this.hasKCursor()) return;
@@ -265,6 +282,11 @@ export class Zx81Machine implements MachineEmulator {
   }
 
   loadProgram(image: Uint8Array, opts?: { autoStart?: number | null }): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset();
     this.bootToBasic();
     // An imported .P's auto-start line: re-point the rebuilt image's NXTLIN
@@ -298,6 +320,10 @@ export class Zx81Machine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }

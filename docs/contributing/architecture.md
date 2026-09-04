@@ -97,6 +97,20 @@ The virtual keyboard and game controller (`src/keyboard/`) are pure
 data-driven renderers. Each dialect supplies a `KeyboardLayout` (layers,
 legends, glyphs, matrix tokens); the keyboard code holds no per-machine logic.
 
+The same layouts carry a machine-independent vocabulary of key names.
+`src/keyboard/keyNames.ts` resolves a written name - a letter, `SPACE`,
+`ENTER`, `SHIFT`, a cursor key, a function key - to the matrix tokens that
+machine presses for it, reading only what the layout _declares_: the editor
+action on a legend, the modifier role on a key. It never strips a prefix off a
+key id and never matches a legend glyph, because both press the wrong key
+silently on a machine whose key positions and key meanings disagree.
+`keyVocabulary` lists what a given machine answers to, and a name it has no key
+for is refused rather than mapped onto a neighbour.
+`src/keyboard/keyNames.test.ts` holds every registered machine to that on layout
+data alone; the every-machine crosscheck in
+`src/ai/machineObservability.test.ts` boots each one on its real ROM and presses
+every name it offers.
+
 ### Application state layer
 
 One store, `useIdeStore` (`src/app/store.ts`), holds three kinds of state:
@@ -190,6 +204,21 @@ is a decision somebody wrote down.
 | **Debugger pair**<br>`debugCapability.test.ts`                       | `currentLine()` + `debugStep()`                                                                                                                                                                |
 | **Per-line profile**<br>`lineProfiling.test.ts`                      | Always-on, charged in the machine's own cycles (`src/emulator/lineCostRecorder.ts`)                                                                                                            |
 | **A debug slice equals a frame**<br>`debugEquivalence.test.ts`       | See below                                                                                                                                                                                      |
+| **Come up without its ROM**<br>`romImage.test.ts`                    | A machine handed an empty image loads, runs and renders rather than throwing, and draws a notice saying the image is missing (`src/emulator/romNotice.ts`). See below                          |
+
+**A missing ROM is a state, not a crash.** The images with no redistribution
+grant are meant to be removable (`public/roms/ATTRIBUTION.md`), so a checkout
+without one stays usable. A machine that takes its ROM through the seam is
+handed an empty image, and must construct, accept a program, run frames and
+render - drawing the shared no-firmware notice
+(`src/emulator/romNotice.ts`) instead of its own picture, in the host's font
+because the character generator is in the ROM that is missing. What it must not
+do is answer about a program it never ran: `isProgramRunning()` is `null`, not
+`false`. Machines that fetch their own ROM sets rather than taking `opts.rom`
+catch the failure and draw their own load-error banner instead. What a machine
+does with a _wrong-length_ image is its own business and deliberately not
+uniform - the Sinclairs refuse one, the Apple I accepts a monitor-only image
+because that is a real Apple I.
 
 **A debug slice is a frame.** A debug session opens on an ordinary press of
 Play, so `debugStep()` is how most machines are usually run. Everything
@@ -653,6 +682,18 @@ line is byte-identical to one downloaded from the Transfer dialog. `run` is the
 IDE's run path without the browser: tokenize, boot the emulator on its ROM,
 load the image, read the screen back. The runner shares
 `src/dialects/bootHarness.ts` with the registry-driven unit tests.
+
+`run --keys` and the AI assistant drive a running machine through one driver and
+one script vocabulary: `src/app/machineControl.ts` presses keys, works the
+joystick, advances frames and waits for what that produced, and
+`src/app/driveScript.ts` reads the one-action-per-line grammar
+(`PRESS`/`JOY`/`WAIT`/`WAIT FOR`/`WAIT END`, `#` comments) and runs it against
+that driver, stopping at the first action that fails. Key names are the shared
+vocabulary above. `RunOptions.drive` is the one seam between them: the runner
+hands the hook a machine and its own frame advance and knows nothing about what
+a schedule is, which keeps `src/dialects/headless/` free of `src/app/`. A run
+given a schedule ends where the schedule ends, and `src/cli/drive.ts` is the
+command line's half - option text to actions, actions to that hook.
 
 ## Where to go next
 

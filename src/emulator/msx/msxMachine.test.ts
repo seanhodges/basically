@@ -183,7 +183,10 @@ describe('MsxMachine without a ROM', () => {
       charset: hb10pCharset,
     });
     expect(() => m.runFrame()).not.toThrow();
-    expect(m.isProgramRunning()).toBe(false);
+    // Null, not false: with no BIOS there is nothing that could have started a
+    // program, and the workspace this would otherwise read is uninitialised RAM
+    // that looks like a line number often enough to matter.
+    expect(m.isProgramRunning()).toBeNull();
     m.dispose();
   });
 });

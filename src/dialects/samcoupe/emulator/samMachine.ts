@@ -20,6 +20,7 @@ import {
 } from '../../../emulator/lineCostRecorder';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 import { SamMemory, PAGE_BYTES } from './memory';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
 import {
   SamAsic,
   STATUS_INT_FRAME,
@@ -122,6 +123,17 @@ for (let d = 0; d <= 9; d++) TYPING_KEYS[String(d)] = [`Digit${d}`];
  * the right raster line, and a machine whose screen is 24K in the widest mode
  * pays for that fidelity on every write.
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice(
+  "SAM Coupe's 32K ROM",
+  'public/roms/samcoupe.rom',
+);
+
 export class SamMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
@@ -135,6 +147,8 @@ export class SamMachine implements MachineEmulator {
   readonly audioSampleRate = SAA_SAMPLES_PER_FRAME * this.frameHz;
 
   private readonly memory: SamMemory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly asic = new SamAsic();
   private readonly keyboard = new SamKeyboard();
   private readonly saa = new Saa1099();
@@ -197,6 +211,7 @@ export class SamMachine implements MachineEmulator {
   });
 
   constructor(opts: { rom: Uint8Array }) {
+    this.hasRom = opts.rom.length > 0;
     this.memory = new SamMemory(opts.rom);
     this.memory.clearRam();
     this.cpu = Z80({
@@ -428,6 +443,10 @@ export class SamMachine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
@@ -577,6 +596,11 @@ export class SamMachine implements MachineEmulator {
    * precise signal, unlike waiting for pixels to appear.
    */
   bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reachedMainLoop = false;
     this.atSignOn = false;
     let dismissed = false;
@@ -639,6 +663,11 @@ export class SamMachine implements MachineEmulator {
     image: Uint8Array,
     opts?: { blocks?: readonly Block[]; autoStart?: number | null },
   ): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset();
     this.bootToReady();
     // Queue the program with the header's auto-run stripped. A tape whose

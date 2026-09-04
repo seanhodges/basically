@@ -30,6 +30,7 @@ import { readAtariVariables } from './vars';
 import { readAtariReport } from './reports';
 import { HEADER_BYTES, IMMEDIATE_LINE } from '../../dialects/atari800/basfile';
 import { createMachineLoop } from '../machineLoop';
+import { drawRomNotice, noRomNotice } from '../romNotice';
 import { ProgramEndLatch } from '../programEndLatch';
 import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import {
@@ -165,6 +166,17 @@ export interface AtariMachineOptions {
   /** The OS followed by the BASIC cartridge - see `scripts/build-atari-rom.mts`. */
   rom: Uint8Array;
 }
+
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice(
+  "Atari's OS and BASIC ROM image",
+  'public/roms/atari.rom',
+);
 
 export class AtariMachine implements MachineEmulator {
   readonly displayWidth = ATARI_DISPLAY_WIDTH;
@@ -824,6 +836,10 @@ export class AtariMachine implements MachineEmulator {
   // --- video -----------------------------------------------------------------
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasOs) {
+      drawRomNotice(ctx, this.displayWidth, this.displayHeight, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.backCanvas) {
       this.backCanvas = document.createElement('canvas');
       this.backCanvas.width = ATARI_DISPLAY_WIDTH;

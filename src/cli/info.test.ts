@@ -20,6 +20,18 @@ describe('describing a machine', () => {
         expect(machine.programRamBytes, dialect.id).toBeGreaterThan(0);
       }
       expect(machine.keywords.length, dialect.id).toBeGreaterThan(0);
+      // The part of the key vocabulary every registered machine has, so a
+      // schedule naming a letter, a digit, space, enter or shift runs anywhere.
+      const keys = new Set(machine.keys);
+      expect(
+        [
+          ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+          'SPACE',
+          'ENTER',
+          'SHIFT',
+        ].filter((name) => !keys.has(name)),
+        `${dialect.id} does not offer these key names`,
+      ).toEqual([]);
       expect(machine.buildTargets.length, dialect.id).toBeGreaterThan(0);
       expect(machine.basic.letterCase, dialect.id).not.toBeNull();
     }
@@ -30,6 +42,8 @@ describe('describing a machine', () => {
       const text = formatMachineDescription(describeMachine(dialect.id));
       expect(text, dialect.id).toContain(dialect.name);
       expect(text, dialect.id).toContain(dialect.basicDialect);
+      // A caller finds out what a run may press from here rather than by trial.
+      expect(text, dialect.id).toContain('KEYS (');
       expect(text.endsWith('\n'), dialect.id).toBe(true);
     }
   });

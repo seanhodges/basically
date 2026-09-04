@@ -19,7 +19,10 @@ if errorlevel 1 (
 )
 
 set "BUNDLE=scripts\headless\dist\cli.mjs"
-set "SOURCES=scripts/headless src/cli src/dialects/headless"
+rem The whole of src/, not just the toolchain's own folders: the bundle inlines
+rem the dialect registry and every emulator with it, so a change to a machine is
+rem as much a stale bundle as a change to an operation.
+set "SOURCES=scripts/headless src"
 
 node -e "const fs=require('fs'),p=require('path');const newer=(d,t)=>fs.readdirSync(d,{withFileTypes:true}).some((e)=>{const f=p.join(d,e.name);return e.isDirectory()?newer(f,t):fs.statSync(f).mtimeMs>t});let stale=true;try{const t=fs.statSync(process.argv[1]).mtimeMs;stale=process.argv.slice(2).some((d)=>newer(d,t))}catch{}process.exit(stale?0:1)" "%BUNDLE%" %SOURCES%
 if not errorlevel 1 (

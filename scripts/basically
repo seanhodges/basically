@@ -6,7 +6,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 BUNDLE=scripts/headless/dist/cli.mjs
-SOURCES=(scripts/headless src/cli src/dialects/headless)
+# The whole of src/, not just the toolchain's own folders: the bundle inlines
+# the dialect registry and every emulator with it, so a change to a machine is
+# as much a stale bundle as a change to an operation - and one that went
+# unnoticed handed the caller the old machine with nothing to say it had.
+SOURCES=(scripts/headless src)
 
 needs_build() {
   [ ! -f "$BUNDLE" ] && return 0

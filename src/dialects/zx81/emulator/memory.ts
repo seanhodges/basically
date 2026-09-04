@@ -27,9 +27,16 @@ export class Zx81Memory {
   readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array, ramKb: 16 | 32 | 64) {
-    if (rom.length !== ROM_BYTES)
+    // Empty is the documented "no firmware to run" state, the same carve-out
+    // the CPC memory makes: images with no redistribution grant are meant to be
+    // removable (public/roms/ATTRIBUTION.md), and a machine given none has to
+    // construct so that the layer above can say so rather than dying inside a
+    // constructor. Any other wrong length is still refused - that is a caller
+    // handing over the wrong file, and a partly-filled ROM boots to a dead
+    // machine with nothing to explain it.
+    if (rom.length !== 0 && rom.length !== ROM_BYTES)
       throw new Error(`ZX81 ROM must be ${ROM_BYTES} bytes, got ${rom.length}`);
-    this.rom = rom;
+    this.rom = rom.length === ROM_BYTES ? rom : new Uint8Array(ROM_BYTES);
     this.ram = new Uint8Array(ramKb * 1024);
     this.ramMask = ramKb * 1024 - 1;
   }

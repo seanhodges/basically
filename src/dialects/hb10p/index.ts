@@ -53,6 +53,7 @@ const HB10P_MODEL: MsxModel = {
   keyboardId: 'international',
   // Page 3 of slot 0 answers with the main RAM on this machine; see MsxModel.
   slot0Page3: 'ram-mirror',
+  romPath: 'public/roms/msx/hb10p.rom',
 };
 
 export const hb10p: Dialect = {

@@ -16,6 +16,7 @@ import { hasRom } from '../dialects/bootHarness';
 import { findMachine } from '../dialects/headless/runListing';
 import { letterCaseFor } from '../dialects/letterCase';
 import type { LetterCaseFacts } from '../dialects/letterCase';
+import { keyVocabulary } from '../keyboard/keyNames';
 import { locateRoms } from './roms';
 import type { EditorKeyword, MemoryMap } from '../dialects/types';
 import { RunError } from '../dialects/headless/runListing';
@@ -67,6 +68,8 @@ export interface MachineDescription {
   /** The machine's address space, where it declares one. */
   memoryMap: MemoryMap | null;
   basic: BasicRules;
+  /** The key names this machine answers to when a run is given a schedule. */
+  keys: string[];
   keywords: KeywordDescription[];
   buildTargets: BuildTargetDescription[];
   /** Binary formats this machine's programs can be read back from. */
@@ -101,6 +104,7 @@ export function describeMachine(name: string): MachineDescription {
       letterCase: letterCaseFor(dialect.id) ?? null,
       operators,
     },
+    keys: keyVocabulary(dialect.keyboardLayout),
     keywords: dialect.keywords.map((k) => ({
       word: k.word,
       kind: k.kind,
@@ -177,6 +181,9 @@ export function formatMachineDescription(machine: MachineDescription): string {
   }
 
   lines.push(
+    '',
+    `KEYS (${machine.keys.length}) - what "basically run --keys" may press here`,
+    ...wrap(machine.keys),
     '',
     `KEYWORDS (${machine.keywords.length}) - --json carries each one's signature and documentation`,
     ...wrap(machine.keywords.map((k) => k.word)),

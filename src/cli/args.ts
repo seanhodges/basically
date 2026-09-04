@@ -69,6 +69,8 @@ export interface RunArgs {
   machine: string;
   frames?: number;
   maxFrames?: number;
+  /** A schedule of what to press and when, as the caller wrote it. */
+  keys?: string;
   /** Report the screen as text. */
   screenText: boolean;
   /** Where to write a picture of the screen, when one was asked for. */
@@ -250,6 +252,7 @@ function parseRun(argv: string[]): RunArgs {
   let machine: string | undefined;
   let frames: number | undefined;
   let maxFrames: number | undefined;
+  let keys: string | undefined;
   let screenshot: string | undefined;
   let screenText = false;
   let json = false;
@@ -265,6 +268,9 @@ function parseRun(argv: string[]): RunArgs {
         break;
       case '--max-frames':
         maxFrames = positiveInteger(name, value());
+        break;
+      case '--keys':
+        keys = value();
         break;
       case '--screenshot':
         screenshot = value();
@@ -282,12 +288,23 @@ function parseRun(argv: string[]): RunArgs {
         throw unknownOption('run', name);
     }
   });
+  if (keys !== undefined && maxFrames !== undefined) {
+    // A schedule already says how long to let the program run, and a driven run
+    // ends where the schedule ends rather than waiting for the program - so a
+    // cap on that wait would silently mean nothing. Refused rather than
+    // ignored, so nobody writes a schedule believing the run waits after it.
+    throw new RunError(
+      '--max-frames means nothing with --keys: the schedule says how long to ' +
+        'wait, and "WAIT END" is how it waits for the program to stop',
+    );
+  }
   return {
     operation: 'run',
     program: programFrom('run', rest),
     machine: requireMachine('run', machine),
     frames,
     maxFrames,
+    keys,
     // The screen's text is what a run reported before it could report anything
     // else, so it stays the answer for a caller who asked for no output at all.
     // Asking only for a picture is asking for the picture.

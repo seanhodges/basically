@@ -21,6 +21,7 @@ import {
   kempstonByte,
 } from '../../zxspectrum/emulator/joystick';
 import { Spectrum128Memory } from './memory128';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
 import {
   LineCostRecorder,
   PROFILE_SLICE_CYCLES,
@@ -126,6 +127,17 @@ const MENU_ITEMS = [
  *
  * ramKb from createEmulator is ignored: the 128K always allocates its own banks.
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice(
+  "Spectrum 128's 32K ROM pair",
+  'public/roms/zxspectrum128.rom',
+);
+
 export class Spectrum128Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
@@ -141,6 +153,8 @@ export class Spectrum128Machine implements MachineEmulator {
   readonly audioSampleRate = BEEPER_SAMPLES_PER_FRAME * this.frameHz;
 
   private readonly memory: Spectrum128Memory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly keyboard = new SpectrumKeyboard();
   private readonly ay = new Ay38912();
   /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
@@ -238,6 +252,7 @@ export class Spectrum128Machine implements MachineEmulator {
   private readonly deck: VfsTapeDeck | null;
 
   constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
+    this.hasRom = opts.rom.length > 0;
     this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new Spectrum128Memory(opts.rom);
     // Every hook charges the ULA before it touches the bus. The opcode fetch is
@@ -510,6 +525,11 @@ export class Spectrum128Machine implements MachineEmulator {
 
   /** Run whole frames until the 128 menu (or any ROM screen) is drawn. */
   private bootToScreen(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (this.cpu.getIFF1() === 1 && this.screenHasContent()) {
@@ -650,6 +670,11 @@ export class Spectrum128Machine implements MachineEmulator {
       tapeFiles?: readonly TapeFile[];
     },
   ): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset();
     this.bootToScreen();
     // Select 128 BASIC, which unlocks the full RAM, PLAY and long programs.
@@ -765,6 +790,10 @@ export class Spectrum128Machine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }

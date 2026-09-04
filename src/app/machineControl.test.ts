@@ -144,6 +144,70 @@ describe('pressing this machine’s keys', () => {
   });
 });
 
+describe('waiting for the program to stop', () => {
+  it('sees a program that prints and stops, well inside the cap', () => {
+    const { machine, control } = boot('10 PRINT "DONE"');
+
+    const step = control.waitForEnd(600);
+
+    expect(step.ok).toBe(true);
+    expect(step.frames).toBeLessThan(600);
+    expect(control.programState()).toBe(false);
+    // The program really did run to its end before the wait came back, rather
+    // than the wait answering about a machine that had not started yet.
+    expect(screen(machine)).toContain('DONE');
+  });
+
+  it('says a program that never stops is still running when the cap runs out', () => {
+    const { control } = boot('10 GOTO 10');
+
+    const step = control.waitForEnd(120);
+
+    // An ordinary outcome, like a wait for text that never appears: the
+    // program did not get where the schedule expected it to.
+    expect(step.ok).toBe(false);
+    expect(step.detail).toContain('still running after 120 frames');
+    expect(step.frames).toBe(120);
+    expect(control.programState()).toBe(true);
+  });
+});
+
+describe('pressing by the shared vocabulary rather than by this machine’s ids', () => {
+  it('drives a program with the names any machine answers to', () => {
+    // The same three names a schedule written for another machine would use;
+    // the ZX81's own cells behind them are Digit-and-Key ids nobody wrote here.
+    const { machine, control } = boot(
+      '10 PRINT "PRESS"\n20 IF INKEY$="" THEN GOTO 20\n30 PRINT "WENT ON"\n40 GOTO 40',
+    );
+    control.waitForText('PRESS', 400);
+
+    expect(control.pressKeys(['A']).ok).toBe(true);
+    control.advance(60);
+    expect(screen(machine)).toContain('WENT ON');
+
+    expect(control.pressKeys(['SPACE']).ok).toBe(true);
+    expect(control.pressKeys(['ENTER']).ok).toBe(true);
+  });
+
+  it('presses one cell once for a chord that names it twice', () => {
+    // PRESS SHIFT+LEFT resolves to the shift cell and then to shift-plus-a-
+    // digit; pressing and releasing one cell twice in a step is bookkeeping
+    // nobody needs.
+    const { machine, control } = boot('10 GOTO 10');
+    const pressed: string[] = [];
+    const realSetKey = machine.setKey.bind(machine);
+    machine.setKey = (token: string, down: boolean) => {
+      if (down) pressed.push(token);
+      realSetKey(token, down);
+    };
+
+    expect(control.pressKeys(['SHIFT', 'LEFT']).ok).toBe(true);
+
+    expect(pressed).toEqual([...new Set(pressed)]);
+    expect(pressed).toContain('Shift');
+  });
+});
+
 describe('the bound on a step', () => {
   it('caps how much machine time one step may spend', () => {
     const { control } = boot('10 GOTO 10');

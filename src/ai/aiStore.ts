@@ -33,17 +33,19 @@ import {
   describeDriving,
   describeScreen,
   driveToolDefinitions,
-  parseDriveScript,
   refuseUngivenMachine,
-  runDriveScript,
   DRIVE_TOOL,
   LOOK_TOOL,
   PROFILE_TOOL,
   TIME_TOOL,
   describeProfile,
   describeTiming,
-  type DriveReport,
 } from './driveTools';
+import {
+  parseDriveScript,
+  runDriveScript,
+  type DriveReport,
+} from '../app/driveScript';
 import type { Dialect } from '../dialects/types';
 import { prepareListingPhoto, type ListingPhoto } from '../app/listingPhoto';
 import {
