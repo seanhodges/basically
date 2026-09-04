@@ -62,7 +62,16 @@ await build({
   // of the bundle body; the only declarations hoisted above it are node
   // builtins, none of which touch web storage.
   banner: {
-    js: "Object.defineProperty(globalThis, 'localStorage', { value: undefined, writable: true, configurable: true });",
+    // esbuild's own `require()` shim throws for a CJS dependency's `require()`
+    // call under ESM output, because ESM has no `require` of its own - and the
+    // language server package (`vscode-languageserver`) is CJS and reaches for
+    // `require("node:util")` at its top level. A real `require`, in scope for
+    // the whole bundle, makes the shim's own `typeof require !== "undefined"`
+    // check succeed and resolve it the normal way instead.
+    js:
+      "import { createRequire as __basicallyCreateRequire } from 'node:module';\n" +
+      'const require = __basicallyCreateRequire(import.meta.url);\n' +
+      "Object.defineProperty(globalThis, 'localStorage', { value: undefined, writable: true, configurable: true });",
   },
   plugins: [rawImports],
   // esbuild's own info line names the file it wrote and how big it is.

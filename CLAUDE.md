@@ -78,6 +78,7 @@ printf '10 PRINT "HI"\n' | ./scripts/basically run -m commodore64
 # Needs the machine's ROM, and key names mean the same on every machine
 # (`info` lists the ones a machine has).
 ./scripts/basically run prog.bas -m zx81 --keys 'WAIT FOR "NAME?"; PRESS A; PRESS ENTER; WAIT END'
+./scripts/basically lsp --stdio                    # a language server for any editor that speaks LSP; no ROM
 scripts\basically.cmd machines                     # the same tool from cmd.exe or PowerShell
 
 npm run typecheck      # fast type check (tsc -b, no bundle)

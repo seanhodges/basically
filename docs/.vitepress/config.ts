@@ -91,6 +91,10 @@ export default withPwa(
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Writing BASIC', link: '/guide/writing-basic' },
             { text: 'Testing your code', link: '/guide/testing-programs' },
+            {
+              text: 'Editing in another editor',
+              link: '/guide/language-server',
+            },
             { text: 'Running on real hardware', link: '/guide/hardware' },
             {
               text: 'Programming the Z80/6502',

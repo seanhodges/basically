@@ -73,6 +73,7 @@ flowchart TB
 | **Reference data**<br>`src/reference/`                                                                                 | Structured machine reference shared by the docs and the AI  |
 | **Integration services**<br>`src/ai/` · `src/transfer/` · `src/share/` · `src/player/` · `src/audio/` · `src/storage/` | AI, hardware transfer, sharing, sound, persistence          |
 | **Headless toolchain**<br>`src/cli/` · `src/dialects/headless/` · `scripts/basically`                                  | The same toolchain outside the browser                      |
+| **Language server**<br>`src/lsp/` · `scripts/headless/lsp.mts`                                                         | The editor's own language help, served to any other editor  |
 
 ### Presentation layer
 
@@ -707,6 +708,40 @@ hands the hook a machine and its own frame advance and knows nothing about what
 a schedule is, which keeps `src/dialects/headless/` free of `src/app/`. A run
 given a schedule ends where the schedule ends, and `src/cli/drive.ts` is the
 command line's half - option text to actions, actions to that hook.
+
+### Serving an editor: the language server
+
+`lsp` starts a server instead of doing one piece of work and finishing: it
+holds its streams open and answers an editor's questions about a program until
+that editor disconnects. It is reached the same way every other operation is -
+`scripts/basically lsp --stdio` - and shares the split the rest of the
+toolchain already uses: `src/lsp/` holds pure, `process`-free handlers, and
+`scripts/headless/lsp.mts` is the shim that owns the connection.
+
+```mermaid
+flowchart TB
+  editor["An editor's language-server client"] <-->|"stdio, Content-Length framed"| shim["scripts/headless/lsp.mts<br/>connection · document sync · config"]
+  shim --> handlers["src/lsp/handlers.ts"]
+  handlers --> docs["src/lsp/documents.ts<br/>open documents, one EditorState each"]
+  handlers --> binding["src/lsp/binding.ts<br/>declared → configured → inferred → declined"]
+  docs --> editorSvc["src/editor/ · src/dialects/<name>/language.ts<br/>the browser editor's own answers"]
+```
+
+Every answer is the editor's own, reached headlessly: a document's
+`EditorState` is built from its bound dialect's `languageSupport()` under
+Node, exactly as `src/editor/completions.test.ts` already proves runs with no
+DOM, and `src/lsp/completion.ts`, `hover.ts`, `definition.ts`, `symbols.ts` and
+`references.ts` translate what `src/editor/` and the `Dialect` seam already
+answer into the protocol's shapes - no second classifier, no second reading of
+a program.
+
+What it deliberately does not reach: no ROM is read and no machine is ever
+booted, so a user with none installed gets the same help as one with every
+ROM; and none of the browser-global stand-ins `src/dialects/bootHarness.ts`
+installs around a running machine are ever put up, because nothing here runs
+one. Standard output belongs to the protocol for the server's whole life, so
+it installs the same log diversion `divertLogging()` in
+`scripts/headless/cli.mts` already uses for a single run, just for longer.
 
 ## Where to go next
 
