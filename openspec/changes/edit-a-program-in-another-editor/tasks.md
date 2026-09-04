@@ -31,16 +31,22 @@
 - [ ] 3.1 `src/lsp/binding.ts`: resolve a configured machine through the existing
       `findMachine` from `src/dialects/headless/runListing.ts`, so the server and
       `-m` accept the same spellings.
-- [ ] 3.2 Same file: `inferMachine(source)` scoring every registered dialect by
-      `fatalErrors(dialect.lint(source)).length`, returning the unique minimum
-      and declining on a tie. Never called when a machine is configured.
-- [ ] 3.3 Same file: the precedence chain — configured, then
-      `initializationOptions`, then inference, then declined — as one pure
-      function over (settings, source).
+- [ ] 3.2 Same file: `inferMachine(source)` built on `computeCompatibleDialects`
+      from `src/share/compatibility.ts` — bind when it names exactly one dialect,
+      decline on none or several. Do not write a second scorer; the share flow's
+      answer is the one the user has already been shown.
+- [ ] 3.3 Same file: the precedence chain as one pure function over (declared,
+      settings, source) — the listing's own `#MACHINE` declaration, then
+      configuration, then `initializationOptions`, then inference, then declined.
+      Read the declaration through the shared reader that
+      `say-which-machine-a-program-is-for` adds, and fall through to
+      configuration when that change has not landed, so this one does not block
+      on it.
 - [ ] 3.4 `src/lsp/binding.test.ts`: registry-driven. Every registered dialect's
-      own bundled samples infer to a machine or decline, never to a machine whose
-      `lint` reports fatal problems on them; a listing every machine reads
-      equally declines; a configured machine always wins over inference.
+      own bundled samples bind to a machine or decline, never to a machine whose
+      tokenizer rejects them; a listing every machine reads equally declines; a
+      configured machine wins over inference; a declared machine wins over
+      configuration.
 
 ## 4. Documents and positions
 
@@ -148,10 +154,13 @@
 - [ ] 10.2 `CLAUDE.md`: the commands block gains the operation, with a one-line
       example of an editor launching it.
 - [ ] 10.3 Write the user-facing page under `docs/guide/` explaining how to wire
-      the server into an editor and how to set the machine. Leave
-      `docs/.vitepress/config.ts` untouched — adding a sidebar entry needs the
-      maintainer's say-so, which is an open question in `design.md`. Ask before
-      checking this off.
+      the server into an editor, how to set the machine, and how a listing can
+      declare its own. It is an end-user page, so it names no source path, no
+      internal symbol and no `.claude/` skill, and cross-links with relative
+      links.
+- [ ] 10.4 Add that page to the `sidebar` in `docs/.vitepress/config.ts`. The
+      maintainer has asked for it — this is the one case where touching the
+      sidebar is in scope, and nothing else in it is added, removed or reordered.
 
 ## 11. Quality gates
 

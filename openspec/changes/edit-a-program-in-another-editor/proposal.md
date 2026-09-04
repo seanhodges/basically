@@ -25,11 +25,11 @@ caller of the modules the IDE already uses, not a second implementation of them.
   server that speaks the protocol over its standard streams and stays running,
   answering an editor's questions about the program being edited until the
   editor disconnects.
-- **A program gets bound to a machine.** Nothing in a listing says which machine
-  it is for, and the other operations are told with an option. An editor is told
-  by a setting instead, and where the setting is absent the server infers the
-  machine from the program and declines when it cannot tell — the caller is then
-  asked rather than guessed at.
+- **A program gets bound to a machine.** The other operations are told with an
+  option; an editor is told by the listing's own declaration where it has one, by
+  a setting otherwise, and where neither says, the server infers the machine from
+  the program and declines when it cannot tell — the user is then asked rather
+  than guessed at.
 - **Six things the IDE already answers become answerable in any editor**:
   problems as the editor's own diagnostics, completion of what the machine
   understands, a keyword's own explanation where it is written, jumping to a
@@ -85,6 +85,14 @@ caller of the modules the IDE already uses, not a second implementation of them.
 operation grammar, the pure-operation-plus-shim split, and the rule that only
 running a machine requires a ROM are all assumed rather than restated.
 
+**Depends on** `say-which-machine-a-program-is-for` for the top of the binding
+chain. A listing that declares its own machine is the only thing that serves a
+repository holding programs for several machines, which is the shape this
+project's own samples tree has. The declaration is a source-format change
+reaching every path that turns text into bytes, so it is proposed on its own
+rather than folded in here; this change reads it and works without it, binding by
+setting and inference until it lands.
+
 **A third caller for the editor modules.** The IDE's completion, outline,
 variable-usage and reference-lookup logic is already free of the browser — the
 suite that covers it runs under Node with no DOM — and the parts that are shaped
@@ -119,6 +127,13 @@ bundle: they are imported only by the server's own entry point. Writing the
 protocol by hand was considered and rejected — it is a large specification, and
 getting its framing, capability negotiation and lifecycle subtly wrong is the
 kind of bug that shows up as one editor misbehaving.
+
+**Inference is not written here.** `src/share/compatibility.ts` already answers
+which registered machines a listing tokenizes cleanly on, for the share flow. The
+server binds when that answer names exactly one machine and declines otherwise,
+rather than scoring the registry a second way — a user who has seen the product
+say a program is compatible with four machines should not then see it assert the
+program is for one of them.
 
 **Every registered machine.** The binding, the completion and the diagnostics
 have to hold for all of them, from what each declares — so the tests are

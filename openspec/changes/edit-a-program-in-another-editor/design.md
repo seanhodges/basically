@@ -91,23 +91,35 @@ entry in `src/cli/usage.ts` (`args.test.ts` loops `OPERATIONS` and requires one)
 and a case in `main()`. It is the one operation whose normal path never returns
 an exit code.
 
-### A document is bound to a machine by setting, then by inference, then not at all
+### A document is bound to a machine by declaration, then setting, then inference
 
 | Source | When |
 | --- | --- |
-| `basically.machine` from client configuration | Whenever set; always wins |
+| The listing's own `#MACHINE` directive | Whenever present; always wins |
+| `basically.machine` from client configuration | No directive in the listing |
 | `initializationOptions` | Clients that do not implement pull configuration |
-| Inference from the listing | Only when neither is set |
+| Inference from the listing | None of the above |
 | Declined | Inference cannot choose |
 
-Inference scores every registered dialect by how many fatal problems
-`dialect.lint()` reports and takes a unique minimum; a tie declines. It runs when
-a document opens, not on every keystroke, and the result is cached against the
-document. Most of these machines share most of BASIC, so ties will be common —
-that is the mechanism working. A declined binding publishes one diagnostic naming
-the setting, because silence reads as a broken server and a `window/showMessage`
-is easy to miss in a terminal editor. Re-reading configuration re-publishes
-diagnostics for every open document.
+Most specific wins, which is why the file beats the workspace: a repository
+holding programs for several machines — which this project's own samples tree is
+— cannot be described by one workspace setting, and that is the case the
+directive exists for. The directive is not this change's to add; it is proposed
+in `say-which-machine-a-program-is-for`, and this change consumes it.
+
+Inference reuses `computeCompatibleDialects` from `src/share/compatibility.ts`,
+which already answers "every registered dialect whose tokenizer accepts this
+source with zero errors" for the share flow. Exactly one compatible dialect
+binds; none or several declines. Writing a second scorer here would be a second
+answer to a question the product already answers, and the sharing capability's
+answer is the one a user has already seen.
+
+It runs when a document opens, not on every keystroke, and the result is cached
+against the document. Most of these machines share most of BASIC, so declining
+will be common — that is the mechanism working. A declined binding publishes one
+diagnostic naming what to set, because silence reads as a broken server and a
+`window/showMessage` is easy to miss in a terminal editor. Re-reading
+configuration re-publishes diagnostics for every open document.
 
 `findMachine` in `src/dialects/headless/runListing.ts` already resolves a name by
 id, then case-insensitive id, then display name; the setting uses it, so the
@@ -206,13 +218,9 @@ protocol, and no editor being targeted needs them. Adding one later is additive.
 
 ## Open Questions
 
-- **A user-facing documentation page.** Wiring the server into an editor wants a
-  page under `docs/guide/`, but `CLAUDE.md` forbids adding a sidebar entry in
-  `docs/.vitepress/config.ts` without being asked. The page can be written and
-  left out of the sidebar, or the question can be settled before the docs task is
-  done. Needs the maintainer's call.
-- **Whether `basically.machine` should also be accepted per file**, via a comment
-  directive in the listing in the shape of `#BIN`. It would let one repository
-  hold programs for several machines, which is a real thing this project's own
-  samples do. Deliberately left out here: it changes the source format, and every
-  tokenizer would have to tolerate it.
+None outstanding. Two that stood when this was first written have been settled by
+the maintainer: the user-facing guide **is** wanted in the documentation sidebar,
+so task 10.3 adds the entry rather than asking; and a per-file machine
+declaration **is** wanted, so it is proposed as
+`say-which-machine-a-program-is-for` and sits at the top of the binding chain
+above.

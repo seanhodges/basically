@@ -29,12 +29,13 @@ reach the user through the protocol's own reporting or standard error.
 
 ### Requirement: An editor is told which machine a program is for
 
-A BASIC program does not say which machine it is written for, so the server SHALL
-determine one before answering anything about it. Where the user has said which
-machine, that SHALL be used, and the machine SHALL be nameable the same way it is
-elsewhere in the product. Where the user has not said, the server SHALL infer the
-machine from the program itself, and SHALL decline to choose when the program
-does not distinguish one machine from another.
+The server SHALL determine which machine a program is for before answering
+anything about it, and SHALL take the most specific answer available: what the
+program itself declares, failing that what the user has configured, and failing
+that what the program can be inferred to be. A machine SHALL be nameable the same
+way it is everywhere else in the product. Inference SHALL decline to choose when
+the program does not distinguish one machine from another, rather than picking
+among the machines that read it equally.
 
 Where no machine can be determined, the server SHALL say so in a way the user
 will see in the editor, naming what to set, rather than answering as though some
@@ -44,8 +45,16 @@ user reopening it.
 
 #### Scenario: The user has named a machine
 
-- **WHEN** the user has configured a machine and opens a program
+- **WHEN** the user has configured a machine and opens a program that declares
+  none
 - **THEN** every answer about that program is that machine's answer
+
+#### Scenario: The program names its own machine
+
+- **WHEN** the user opens a program that declares a machine, having configured a
+  different one
+- **THEN** every answer about that program is the declared machine's answer, so
+  that programs for several machines can sit in one project
 
 #### Scenario: Inference declines
 
