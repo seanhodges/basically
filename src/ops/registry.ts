@@ -8,6 +8,7 @@
  */
 
 import { buildOp } from './build';
+import { checkOp } from './check';
 import { driveOp, lookOp, screenshotOp } from './drive';
 import { expectOp } from './expect';
 import { infoOp } from './info';
@@ -25,6 +26,7 @@ export const OPERATIONS: readonly Operation[] = [
   lintOp,
   buildOp,
   runOp,
+  checkOp,
   driveOp,
   lookOp,
   screenshotOp,

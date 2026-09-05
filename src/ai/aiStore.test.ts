@@ -89,6 +89,7 @@ import { sourceFingerprint } from './sourceFingerprint';
 import type { MachineReport } from '../dialects/types';
 import {
   noScreenViews,
+  parseExpectations,
   type ExpectationResult,
   type ScreenViewRequest,
 } from './expectations';
@@ -525,21 +526,16 @@ describe('aiStore', () => {
       for (let i = 0; i < 8; i++) await Promise.resolve();
     }
 
-    /** An expectation result as the run check would report one. */
+    /** A step of the assistant's block, as the run check would report one. */
     function expectation(
-      status: ExpectationResult['status'],
+      outcome: ExpectationResult['outcome'],
       name = 'T',
-      actual?: string,
+      detail?: string,
     ): ExpectationResult {
       return {
-        expectation: {
-          kind: 'var',
-          name,
-          expected: '42',
-          source: `VAR ${name} = 42`,
-        },
-        status,
-        ...(actual !== undefined ? { actual } : {}),
+        action: parseExpectations(`EXPECT VAR ${name} = 42`)[0]!,
+        outcome,
+        detail: detail ?? `${name} holds 42`,
       };
     }
 
@@ -685,7 +681,7 @@ describe('aiStore', () => {
     describe('a program that ran but produced the wrong answer', () => {
       it('corrects it unasked, exactly as a runtime error is corrected', async () => {
         await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('failed', 'T', '41'),
+          expectation('failed', 'T', 'T holds 41, not 42'),
         ]);
 
         expect(useAiStore.getState().busy).toBe(true);
@@ -697,7 +693,7 @@ describe('aiStore', () => {
         expect(lastRequest()).toContain('wrong result');
         expect(sentUserContent()).toContain('did not produce what you said');
         expect(sentUserContent()).toContain(
-          'you said T would be 42, but the machine reported 41',
+          'you wrote `EXPECT VAR T = 42`, and T holds 41, not 42',
         );
       });
 
@@ -714,7 +710,7 @@ describe('aiStore', () => {
         // ...so a wrong answer on the same applied block gets the banner, not a
         // third request. A per-kind allowance would let one block spend four.
         reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('failed', 'T', '41'),
+          expectation('failed', 'T', 'T holds 41, not 42'),
         ]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().pendingFix?.summary).toContain(
@@ -724,7 +720,7 @@ describe('aiStore', () => {
 
       it('only offers the fix when the program has changed since the run', async () => {
         await reportRun({ kind: 'ended-ok' }, '10 SOMETHING ELSE\n', [
-          expectation('failed', 'T', '41'),
+          expectation('failed', 'T', 'T holds 41, not 42'),
         ]);
 
         expect(h.current).toBeNull();
@@ -735,9 +731,7 @@ describe('aiStore', () => {
       });
 
       it('corrects nothing when every expectation held', async () => {
-        await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('passed'),
-        ]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [expectation('done')]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().busy).toBe(false);
         expect(useAiStore.getState().pendingFix).toBeNull();
@@ -747,16 +741,14 @@ describe('aiStore', () => {
         // Unchecked is not failed: a program nobody could judge must not be
         // sent back for a fix it may not need.
         reportRun({ kind: 'still-running' }, undefined, [
-          expectation('unchecked'),
+          expectation('unevaluated'),
         ]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().pendingFix).toBeNull();
       });
 
       it('tells the assistant on the next request that its expectations held', async () => {
-        await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('passed'),
-        ]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [expectation('done')]);
         const p = useAiStore.getState().send(params);
         h.current!.resolve('10 PRINT');
         await p;
@@ -768,8 +760,8 @@ describe('aiStore', () => {
       it('reports an unchecked expectation rather than passing it silently', async () => {
         await reportRun({ kind: 'still-running' }, undefined, [
           {
-            ...expectation('unchecked'),
-            reason: 'the screen could not be read',
+            ...expectation('unevaluated'),
+            detail: 'the screen could not be read',
           },
         ]);
         const p = useAiStore.getState().send(params);
@@ -803,13 +795,9 @@ describe('aiStore', () => {
       const visual = (
         description = 'a circle in the middle',
       ): ExpectationResult => ({
-        expectation: {
-          kind: 'visual',
-          description,
-          source: `SCREEN SHOWS ${description}`,
-        },
-        status: 'unchecked',
-        reason: 'the screen has not been looked at',
+        action: parseExpectations(`EXPECT SHOWS ${description}`)[0]!,
+        outcome: 'unevaluated',
+        detail: 'only the assistant, shown the screen, can settle this',
       });
 
       /** Run `body` with the active provider unable to be shown an image. */
@@ -891,7 +879,7 @@ describe('aiStore', () => {
         await reportRun(
           { kind: 'ended-ok' },
           undefined,
-          [expectation('passed')],
+          [expectation('done')],
           SCREEN,
           ASKED,
         );
@@ -907,9 +895,7 @@ describe('aiStore', () => {
       });
 
       it('carries nothing for a run it asked nothing about', async () => {
-        await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('passed'),
-        ]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [expectation('done')]);
         expect(h.current).toBeNull();
 
         const p = useAiStore.getState().send(params);

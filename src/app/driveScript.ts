@@ -138,13 +138,16 @@ export type ScheduleExpectation =
   | { kind: 'shows'; description: string };
 
 /**
- * One line of a schedule, already understood.
- *
- * `line` is the 1-based line of the script it was written on, so a failure can
- * be reported where the caller can find it. Several actions separated by
- * semicolons share the line they were written on.
+ * One line of a schedule, already understood, beside where it was written and
+ * how - so a failure can be reported where the caller can find it. Several
+ * actions separated by semicolons share the line they were written on.
  */
-export type DriveAction = ScheduleAction & { line: number };
+export type DriveAction = ScheduleAction & {
+  /** The 1-based line of the script it was written on. */
+  line: number;
+  /** The line as the caller wrote it, so a report can quote it back. */
+  source: string;
+};
 
 /** An action as the parser reads it, before it is placed in the script. */
 type ScheduleAction =
@@ -153,8 +156,8 @@ type ScheduleAction =
   | { kind: 'wait'; frames: number }
   | { kind: 'waitFor'; needle: string; maxFrames: number }
   | { kind: 'waitEnd'; maxFrames: number }
-  | { kind: 'expect'; expectation: ScheduleExpectation; source: string }
-  | { kind: 'malformed'; source: string };
+  | { kind: 'expect'; expectation: ScheduleExpectation }
+  | { kind: 'malformed' };
 
 const PRESS_RE = /^PRESS\s+(\S+)(?:\s+(\d+))?$/i;
 const JOY_RE = /^JOY\s+([A-Z0-9\s]+?)(?:\s+(\d+))?$/i;
@@ -287,18 +290,16 @@ export function parseDriveScript(script: string): DriveAction[] {
     if (trimmed.startsWith('#')) continue;
     const line = trimmed.replace(/[.;,]$/, '');
     if (line === '') continue;
-    const malformed: DriveAction = {
-      kind: 'malformed',
-      source: line,
-      line: at,
-    };
+    // Where it was written and how, carried by every action this line makes.
+    const at_ = { line: at, source: line };
+    const malformed: DriveAction = { kind: 'malformed', ...at_ };
 
     const waitEnd = WAIT_END_RE.exec(line);
     if (waitEnd) {
       out.push({
         kind: 'waitEnd',
         maxFrames: waitEnd[1] ? Number(waitEnd[1]) : DEFAULT_WAIT_FOR_FRAMES,
-        line: at,
+        ...at_,
       });
       continue;
     }
@@ -306,22 +307,20 @@ export function parseDriveScript(script: string): DriveAction[] {
     const waitFor = WAIT_FOR_RE.exec(line);
     if (waitFor) {
       const action = waitForAction(waitFor[1]!);
-      out.push(action ? { ...action, line: at } : malformed);
+      out.push(action ? { ...action, ...at_ } : malformed);
       continue;
     }
 
     const wait = WAIT_RE.exec(line);
     if (wait) {
-      out.push({ kind: 'wait', frames: Number(wait[1]), line: at });
+      out.push({ kind: 'wait', frames: Number(wait[1]), ...at_ });
       continue;
     }
 
     if (looksLikeExpectation(line)) {
       const stated = expectation(line);
       out.push(
-        stated
-          ? { kind: 'expect', expectation: stated, source: line, line: at }
-          : malformed,
+        stated ? { kind: 'expect', expectation: stated, ...at_ } : malformed,
       );
       continue;
     }
@@ -337,7 +336,7 @@ export function parseDriveScript(script: string): DriveAction[] {
               kind: 'press',
               names,
               ...(press[2] ? { holdFrames: Number(press[2]) } : {}),
-              line: at,
+              ...at_,
             }
           : malformed,
       );
@@ -356,7 +355,7 @@ export function parseDriveScript(script: string): DriveAction[] {
               kind: 'joystick',
               roles: roles as ControllerRole[],
               frames: joy[2] ? Number(joy[2]) : DEFAULT_JOY_FRAMES,
-              line: at,
+              ...at_,
             }
           : malformed,
       );

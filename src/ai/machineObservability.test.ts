@@ -250,8 +250,8 @@ describe('buildExpectationRules', () => {
   it('offers both forms on a machine that can report variables', () => {
     const dialect = dialects.find((d) => canReportVariables(d.id))!;
     const rules = buildExpectationRules(dialect);
-    expect(rules).toContain('VAR <name> = <value>');
-    expect(rules).toContain('SCREEN CONTAINS');
+    expect(rules).toContain('EXPECT VAR <name> = <value>');
+    expect(rules).toContain('EXPECT "<text>"');
     // The display convention, without which every expectation is written
     // against raw values.
     expect(rules).toContain('ALREADY FORMATTED');
@@ -264,9 +264,9 @@ describe('buildExpectationRules', () => {
     const dialect = dialects.find((d) => !canReportVariables(d.id))!;
     const rules = buildExpectationRules(dialect);
     expect(rules).toContain('CANNOT report its variables');
-    expect(rules).not.toContain('VAR <name> = <value>');
+    expect(rules).not.toContain('EXPECT VAR <name> = <value>');
     // The screen is always available, so it always has something to offer.
-    expect(rules).toContain('SCREEN CONTAINS');
+    expect(rules).toContain('EXPECT "<text>"');
   });
 
   it('names the fence tag and says the block is optional', () => {
@@ -293,7 +293,7 @@ describe('buildExpectationRules', () => {
   it('offers the visual form only where the screen can be shown', () => {
     for (const dialect of dialects) {
       const shown = buildExpectationRules(dialect, true);
-      expect(shown).toContain('SCREEN SHOWS <description>');
+      expect(shown).toContain('EXPECT SHOWS <description>');
       expect(shown).toContain('showing you a picture of the screen');
     }
   });
@@ -341,10 +341,10 @@ describe('buildExpectationRules', () => {
   it('forbids the visual form where the screen cannot be shown', () => {
     for (const dialect of dialects) {
       const unseen = buildExpectationRules(dialect, false);
-      expect(unseen).not.toContain('SCREEN SHOWS <description>');
-      expect(unseen).toContain('do not state `SCREEN SHOWS` expectations');
+      expect(unseen).not.toContain('EXPECT SHOWS <description>');
+      expect(unseen).toContain('do not state `EXPECT SHOWS` expectations');
       // Losing the visual form must not lose the text one.
-      expect(unseen).toContain('SCREEN CONTAINS');
+      expect(unseen).toContain('EXPECT "<text>"');
     }
   });
 });

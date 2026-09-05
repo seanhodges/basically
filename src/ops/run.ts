@@ -88,11 +88,15 @@ export interface RunOutcome {
 /**
  * The schedule read before anything boots, so a schedule the tool cannot
  * understand is the caller's mistake rather than a run that got part-way.
- * Thrown where the parser merely records, naming the line.
+ * Thrown where the parser merely records, naming the line and where it is.
  */
-export function checkSchedule(text: string): void {
+export function checkSchedule(text: string, called = '--keys'): void {
   const bad = parseDriveScript(text).find((a) => a.kind === 'malformed');
-  if (bad) throw new RunError(`cannot read this line of --keys: ${bad.source}`);
+  if (bad) {
+    throw new RunError(
+      `cannot read line ${bad.line} of ${called}: ${bad.source}`,
+    );
+  }
 }
 
 export async function runProgram(

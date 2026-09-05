@@ -200,67 +200,32 @@ export function classifyAiRunFrame(
 }
 
 /**
- * Frames between samples of the assistant's stated expectations while the check
- * is armed.
+ * Turn the schedule's steps into the run's final answer, given how the run
+ * ended.
  *
- * Sampled rather than evaluated per frame on purpose: reading the screen back as
- * text is thousands of memory reads on some machines, and the reader exists to
- * answer a question rather than to serve as a polling primitive. Roughly twice a
- * second at 50Hz is enough to catch a value that appears and is overwritten,
- * without turning every AI-checked run into a memory-scanning loop.
- */
-export const AI_CHECK_EXPECT_SAMPLE_FRAMES = 25;
-
-/**
- * Fold one sample of expectation results into what has been seen so far.
- *
- * Passes latch: the first time an expectation holds it is recorded as passed and
- * never re-evaluated. That is what makes expectations usable on the programs
- * most of these machines actually run - a game loop never returns to READY, so
- * its verdict is `still-running`, but "the score reached 100 at some point" is
- * still a fact about the program.
- *
- * A failure does not latch, because at any given instant it may only mean the
- * program has not got there yet.
- */
-export function latchExpectationSample(
-  latched: ExpectationResult[] | null,
-  sample: ExpectationResult[],
-): ExpectationResult[] {
-  if (latched === null) return sample;
-  return sample.map((next, i) => {
-    const prev = latched[i];
-    return prev?.status === 'passed' ? prev : next;
-  });
-}
-
-/**
- * Turn the latched samples into the run's final answer, given how the run ended.
- *
- * The asymmetry is the point: a pass is conclusive whenever it happens, but a
- * failure is only conclusive once the program has stopped. A program that is
- * still running may simply not have reached its result yet, and one that never
- * started plainly cannot have produced it - reporting either as a failure would
- * send the assistant to fix a program that was merely waiting.
+ * There is no longer anything to fold: the schedule was judged where it was
+ * written, so a step that failed failed at the moment the assistant named.
+ * What survives from the latch that used to live here is the one asymmetry
+ * worth keeping - a program that never started cannot have produced anything,
+ * so reporting its expectations as failures would send the assistant to fix a
+ * program that never ran.
  *
  * An error is not judged at all: the error is the failure, and it already
  * travels as a correction of its own.
  */
 export function finaliseExpectations(
-  latched: ExpectationResult[],
+  steps: readonly ExpectationResult[],
   outcome: AiRunOutcome,
 ): ExpectationResult[] {
   if (outcome.kind === 'errored') return [];
-  return latched.map((result) => {
-    if (result.status !== 'failed') return result;
-    if (outcome.kind === 'ended-ok') return result;
-    return {
-      ...result,
-      status: 'unchecked' as const,
-      reason:
-        outcome.kind === 'never-started'
-          ? 'the program never started'
-          : 'the program was still running when the check ended',
-    };
-  });
+  if (outcome.kind !== 'never-started') return [...steps];
+  return steps.map((step) =>
+    step.outcome === 'failed'
+      ? {
+          action: step.action,
+          outcome: 'unevaluated' as const,
+          detail: 'the program never started',
+        }
+      : step,
+  );
 }

@@ -19,35 +19,35 @@
 
 ## 2. Checking a program from the command line
 
-- [ ] 2.1 Declare the check as an operation in the shared layer, taking the
+- [x] 2.1 Declare the check as an operation in the shared layer, taking the
       program, the machine and the file of expectations, and returning a verdict:
       every step with its description and outcome, the failing step's line and
       detail where there is one, and the screen as it stood.
-- [ ] 2.2 Refuse a machine whose ROM is absent as the caller's mistake before
+- [x] 2.2 Refuse a machine whose ROM is absent as the caller's mistake before
       anything boots, and refuse an unreadable file or an unparsable line the same
       way, distinct from the outcome reserved for a program at fault.
-- [ ] 2.3 Give the operation its command line route and help text, referencing
+- [x] 2.3 Give the operation its command line route and help text, referencing
       the vocabulary table the schedule already documents rather than repeating
       it.
-- [ ] 2.4 Colocated tests on a machine whose ROM is present: a file that holds
+- [x] 2.4 Colocated tests on a machine whose ROM is present: a file that holds
       passes; one naming text never printed fails at that line with the screen
       attached; one with an unreadable line is refused before booting; a variable
       expectation is judged.
-- [ ] 2.5 Remove the exemption recorded against checking a program, and confirm
+- [x] 2.5 Remove the exemption recorded against checking a program, and confirm
       the parity test fails if it is left behind.
 
 ## 3. The assistant on the same vocabulary
 
-- [ ] 3.1 Move the assistant's stated expectations onto the shared vocabulary,
+- [x] 3.1 Move the assistant's stated expectations onto the shared vocabulary,
       keeping the earlier spellings accepted so a restored conversation is never
       read as malformed, and teaching only the current ones.
-- [ ] 3.2 Replace the sampling that remembered whether something was ever true
+- [x] 3.2 Replace the sampling that remembered whether something was ever true
       with the wait that says so, and update the rules the assistant is given to
       say when an expectation is judged and how to express a transient one.
-- [ ] 3.3 Keep the form only the assistant can settle working exactly as it does
+- [x] 3.3 Keep the form only the assistant can settle working exactly as it does
       today, and record it in the parity table as available to the assistant
       alone, with the reason.
-- [ ] 3.4 Tests: an expectation about text that is printed and then cleared holds
+- [x] 3.4 Tests: an expectation about text that is printed and then cleared holds
       when preceded by a wait and does not when it is not; a conversation saved in
       the earlier vocabulary restores with its expectations intact; the same file
       run through both callers reaches the same verdict.

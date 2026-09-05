@@ -54,7 +54,7 @@ function assistantRouteExists(route: AssistantRoute, name: string): boolean {
   }
   if (route.fence === 'basic-expect') {
     return parseExpectations(route.example).every(
-      (e) => e.kind !== 'malformed',
+      (a) => a.kind !== 'malformed',
     );
   }
   return false;
@@ -149,6 +149,7 @@ describe('inputs and outcomes', () => {
       info: ['info', 'zx81'],
       lint: ['lint', 'prog.bas', '-m', 'zx81'],
       build: ['build', 'prog.bas', '-m', 'zx81', '-o', '/tmp/prog.p'],
+      check: ['check', 'prog.bas', '-m', 'zx81', '-e', 'checks.txt'],
       run: [
         'run',
         'prog.bas',
@@ -171,10 +172,13 @@ describe('inputs and outcomes', () => {
       if (args.operation === 'help' || args.operation === 'lsp') {
         throw new Error(`${op.name} did not parse as itself`);
       }
-      // The program's text is read by the shim; here it stands in for it.
-      const input = withoutUndefined(
-        'program' in args ? { ...args.input, source: SOURCE } : args.input,
-      );
+      // The texts an operation reads from a file are read by the shim; here
+      // they stand in for themselves.
+      const input = withoutUndefined({
+        ...args.input,
+        ...('program' in args ? { source: SOURCE } : {}),
+        ...('expectations' in args ? { expectations: 'EXPECT "HI"' } : {}),
+      });
       expect(schemaProblem(op.input, input), op.name).toBeNull();
     }
   });
@@ -197,11 +201,12 @@ describe('inputs and outcomes', () => {
       profile: {},
       time: {},
       variables: {},
-      expect: { expectations: 'VAR A = 1' },
+      expect: { expectations: 'EXPECT VAR A = 1' },
     };
     for (const op of OPERATIONS) {
-      // Running boots a machine, and is proved to round-trip where it is run.
-      if (op.name === 'run') continue;
+      // Running and checking boot a machine, and are proved to round-trip
+      // where each is run.
+      if (op.name === 'run' || op.name === 'check') continue;
       const outcome = await op.run(inputs[op.name], ctx);
       expect(JSON.parse(JSON.stringify(outcome)), op.name).toEqual(outcome);
     }

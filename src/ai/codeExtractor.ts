@@ -1,3 +1,4 @@
+import type { DriveAction } from '../app/driveScript';
 import {
   binaryRecordInfo,
   isBinaryDirective,
@@ -11,7 +12,6 @@ import {
   parseExpectations,
   parseJudgement,
   parseScreenViews,
-  type Expectation,
   type Judgement,
   type ScreenViewRequest,
 } from './expectations';
@@ -120,11 +120,12 @@ export function isProtocolBlock(block: CodeBlock): boolean {
 }
 
 /**
- * Every expectation stated in a reply, across all of its expectation blocks.
- * Empty when the reply states none, which is the common case and behaves
- * exactly as a reply did before expectations existed.
+ * Every line of every expectation block in a reply, in order: the schedule the
+ * IDE runs against the program it just ran. Empty when the reply states none,
+ * which is the common case and behaves exactly as a reply did before
+ * expectations existed.
  */
-export function extractExpectations(markdown: string): Expectation[] {
+export function extractExpectations(markdown: string): DriveAction[] {
   return extractCodeBlocks(markdown)
     .filter((b) => b.expectations === true)
     .flatMap((b) => parseExpectations(b.code));

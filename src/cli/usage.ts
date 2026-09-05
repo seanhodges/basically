@@ -51,9 +51,10 @@ usage: basically <operation> [options]
   lint       report a program's problems without running it
   build      write a program as a file the machine loads
   run        run a program and report its screen
+  check      check a program against what it should do
   lsp        serve an editor over the Language Server Protocol
 
-Every operation but "run" works with no ROM present. Where an operation takes a
+Every operation but "run" and "check" works with no ROM present. Where an operation takes a
 program, the path may be "-", or left out, to read it from standard input.
 
 "basically <operation> --help" says what one operation takes.
@@ -148,6 +149,35 @@ Keys are named the same way on every machine - the letters, the digits, SPACE,
 ENTER and SHIFT everywhere, and DELETE, ESCAPE, CTRL, TAB, the cursor keys and
 the function keys wherever the machine has them. "basically info <machine>"
 lists the names that machine answers to.
+`.trimStart(),
+
+  check: `
+check a program against what it should do, and report a pass or a failure
+
+usage: basically check [file] -m <machine> -e <path> [--json]
+
+  [file]            the program, or "-"/nothing to read standard input
+  -m, --machine     the machine to check the program on
+  -e, --expect      the expectations to check against, or "-" to read them
+                    from standard input; needs the machine's ROM
+  --json            the verdict as JSON on standard output rather than as a
+                    readable report
+  --rom-root <dir>  read ROMs from this public/ rather than the checkout's
+
+A file of expectations is a schedule: the same actions "run --keys" takes,
+with expectations mixed in, one per line or several separated by ";". It is
+run in the order it is written, so an expectation asks what is true at that
+point - and text a program prints and then clears is waited for rather than
+expected at the end.
+
+${actionLines()}
+
+The check passes when every action was carried out and every expectation held,
+and fails at the first that did not, naming its line and showing the screen as
+it stood. An expectation nobody here can settle - "EXPECT SHOWS", or a reading
+this machine cannot give - is reported as unevaluated and counted as neither.
+A file with a line the parser cannot read, or a machine whose ROM is missing,
+is refused before anything boots.
 `.trimStart(),
 
   lsp: `

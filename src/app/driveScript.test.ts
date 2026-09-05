@@ -10,11 +10,13 @@ import {
 } from './driveScript';
 
 /**
- * The actions without the line each was written on, so the assertions below
- * stay about the grammar. Line tracking has tests of its own.
+ * The actions without where each was written, so the assertions below stay
+ * about the grammar. The line and the source have tests of their own.
  */
-function parsed(script: string): Omit<DriveAction, 'line'>[] {
-  return parseDriveScript(script).map(({ line: _line, ...rest }) => rest);
+function parsed(script: string): Omit<DriveAction, 'line' | 'source'>[] {
+  return parseDriveScript(script).map(
+    ({ line: _line, source: _source, ...rest }) => rest,
+  );
 }
 
 /** A control that says yes to everything, recording what it was asked. */
@@ -259,32 +261,20 @@ describe('the expectations a schedule states', () => {
       {
         kind: 'expect',
         expectation: { kind: 'text', needle: 'GAME OVER', negated: false },
-        source: 'EXPECT "GAME OVER"',
       },
       {
         kind: 'expect',
         expectation: { kind: 'text', needle: 'ERROR', negated: true },
-        source: 'EXPECT NOT "ERROR"',
       },
-      {
-        kind: 'expect',
-        expectation: { kind: 'state', running: false },
-        source: 'EXPECT STOPPED',
-      },
-      {
-        kind: 'expect',
-        expectation: { kind: 'state', running: true },
-        source: 'EXPECT RUNNING',
-      },
+      { kind: 'expect', expectation: { kind: 'state', running: false } },
+      { kind: 'expect', expectation: { kind: 'state', running: true } },
       {
         kind: 'expect',
         expectation: { kind: 'variable', name: 'TOTAL', value: '42' },
-        source: 'EXPECT VAR TOTAL = 42',
       },
       {
         kind: 'expect',
         expectation: { kind: 'shows', description: 'a red circle' },
-        source: 'EXPECT SHOWS a red circle',
       },
     ]);
   });
@@ -315,9 +305,13 @@ describe('the expectations a schedule states', () => {
     // being dropped and several actions sharing one line.
     expect(
       parseDriveScript('# why\nPRESS A; PRESS B\n\nEXPECT "HI"').map(
-        (a) => a.line,
+        (a) => [a.line, a.source] as const,
       ),
-    ).toEqual([2, 2, 4]);
+    ).toEqual([
+      [2, 'PRESS A'],
+      [2, 'PRESS B'],
+      [4, 'EXPECT "HI"'],
+    ]);
   });
 
   it('holds an expectation that is true, without spending a frame on it', () => {
@@ -402,6 +396,23 @@ describe('the expectations a schedule states', () => {
     ).toBe(true);
     expect(
       runDriveScript(control, parseDriveScript('EXPECT VAR T = 43')).ok,
+    ).toBe(false);
+  });
+
+  it('never matches an element against an array-shaped value', () => {
+    // An array is reported as its shape plus a truncated preview, not as its
+    // elements, so an expectation about one element cannot be satisfied at
+    // all - and quietly passing it would be worse than failing it.
+    const control = stubControl({
+      variables: () => [
+        { name: 'B()', kind: 'number-array', value: '(10) = 1, 2, 3, \u2026' },
+      ],
+    });
+    expect(
+      runDriveScript(control, parseDriveScript('EXPECT VAR B(0) = 1')).ok,
+    ).toBe(false);
+    expect(
+      runDriveScript(control, parseDriveScript('EXPECT VAR B() = 1')).ok,
     ).toBe(false);
   });
 

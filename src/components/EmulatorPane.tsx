@@ -14,8 +14,6 @@ import {
 import {
   classifyAiRunFrame,
   finaliseExpectations,
-  latchExpectationSample,
-  AI_CHECK_EXPECT_SAMPLE_FRAMES,
   AI_CHECK_SPEED,
   AI_CHECK_HIDDEN_TICK_MS,
   shouldOpenDebugSession,
@@ -24,12 +22,12 @@ import {
   type AiRunFrameCounts,
 } from '../app/aiRunCheck';
 import {
-  evaluateExpectations,
   noScreenViews,
-  type Expectation,
   type ExpectationResult,
   type ScreenViewRequest,
 } from '../ai/expectations';
+import { runDriveScript, type DriveAction } from '../app/driveScript';
+import { machineSession } from '../app/machineSession';
 import { countProgramErrors } from '../app/useProgramStats';
 import { resolveTokenize } from '../dialects/resolveListing';
 import { lintBlocks } from '../app/blockLint';
@@ -252,12 +250,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // The outcome carries it so the assistant's store can tell whether the user
   // has moved on; comparing the program that ran would always say they had.
   const aiCheckBaseRef = useRef('');
-  // What the assistant said should be true once this program has run, and how
-  // those expectations have stood up across the samples so far (null until the
-  // first sample). Sampled rather than evaluated per frame - reading the screen
-  // back is expensive - and latched, so a value that held once stays held.
-  const aiCheckExpectRef = useRef<Expectation[]>([]);
-  const aiCheckLatchRef = useRef<ExpectationResult[] | null>(null);
+  // The schedule the assistant said its program should satisfy - actions and
+  // expectations in the order it wrote them - and how each step went, once the
+  // schedule has been run.
+  //
+  // Run once, from the moment the machine is up, rather than sampled: an
+  // expectation asks what is true at the point in the schedule where it was
+  // written, and text a program prints and then clears is waited for rather
+  // than remembered on the assistant's behalf. That is what makes the IDE and
+  // the command line reach the same verdict about the same program.
+  const aiCheckExpectRef = useRef<DriveAction[]>([]);
+  const aiCheckStepsRef = useRef<ExpectationResult[] | null>(null);
   // The screen views the assistant asked to be shown for this run. What decides
   // whether the verdict is captured: the pane infers nothing about when a
   // picture is wanted, it captures what it was asked for.
@@ -609,30 +612,28 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             }
             return screenTextThisFrame;
           };
-          // Check the assistant's stated expectations on a cadence while the run
-          // is being watched, and once more at the verdict so the final state is
-          // always seen. Skipped entirely when it stated none, which is the
-          // ordinary case and must cost nothing.
-          if (aiCheckExpectRef.current.length > 0) {
-            const due =
-              verdict.done ||
-              aiCheckCountsRef.current.totalFrames %
-                AI_CHECK_EXPECT_SAMPLE_FRAMES ===
-                0;
-            if (due) {
-              aiCheckLatchRef.current = latchExpectationSample(
-                aiCheckLatchRef.current,
-                evaluateExpectations(aiCheckExpectRef.current, {
-                  variables: machine.readVariables?.() ?? null,
-                  screen: screenTextOnce(),
-                }),
-              );
-            }
+          // Run the assistant's schedule once, as soon as the machine is up -
+          // or at the verdict, for a program that was over before then. It
+          // advances the machine itself through the session's driver, so a
+          // `WAIT FOR` inside it catches text this loop would have run past.
+          // Skipped entirely when the reply stated none, which is the ordinary
+          // case and must cost nothing.
+          if (
+            aiCheckExpectRef.current.length > 0 &&
+            aiCheckStepsRef.current === null &&
+            (verdict.done ||
+              machine.readReport() !== null ||
+              machine.isProgramRunning() === true)
+          ) {
+            const session = machineSession();
+            aiCheckStepsRef.current = session
+              ? runDriveScript(session, aiCheckExpectRef.current).steps
+              : [];
           }
           if (verdict.done) {
             aiCheckActiveRef.current = false;
             const results = finaliseExpectations(
-              aiCheckLatchRef.current ?? [],
+              aiCheckStepsRef.current ?? [],
               verdict.outcome,
             );
             // Shown to the assistant only because it asked - by naming the view,
@@ -641,7 +642,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             // is worth having is a judgement only the program's author can make.
             const needsScreen =
               aiCheckViewsRef.current.image ||
-              aiCheckExpectRef.current.some((e) => e.kind === 'visual');
+              aiCheckExpectRef.current.some(
+                (a) => a.kind === 'expect' && a.expectation.kind === 'shows',
+              );
             // Render before capturing so the picture is the frame this verdict
             // was formed on, not the one before it. The tick's own render below
             // then repeats the same machine state, which costs a redraw and
@@ -911,7 +914,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         aiCheckViewsRef.current = aiCheckActiveRef.current
           ? useIdeStore.getState().aiRunViews
           : noScreenViews();
-        aiCheckLatchRef.current = null;
+        aiCheckStepsRef.current = null;
         // Start a step-through session when debug mode is armed and the machine
         // supports it; the loop then advances by debug slices instead of frames.
         // A session with no breakpoints simply never pauses and runs normally.

@@ -33,14 +33,13 @@ export const EXEMPTIONS: readonly Exemption[] = [
       "check an answer against a machine that is not the user's.",
   },
   {
-    operation: 'expect',
-    caller: 'cli',
+    operation: 'check',
+    caller: 'assistant',
     reason:
-      'The assistant states what its program should produce in a vocabulary ' +
-      'of its own, evaluated as the run goes and, for how the screen looks, ' +
-      'by the assistant looking at a picture. The command line has no route ' +
-      'to it until the two assertion vocabularies are reconciled, which is ' +
-      'the change test-a-program-from-either-caller.',
+      "Checking boots a machine and runs the program on it. The assistant's " +
+      "program is checked by the IDE on the user's own machine, against the " +
+      'expectations its reply states, and a second path would reach a ' +
+      "verdict about a machine that is not the user's.",
   },
 ];
 

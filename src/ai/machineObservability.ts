@@ -119,39 +119,45 @@ export function buildExpectationRules(
 ): string {
   const variables = canReportVariables(dialect.id);
   const forms = [
+    `- \`EXPECT "<text>"\` - text that should be on the screen at that point.`,
+    `- \`EXPECT NOT "<text>"\` - text that should not be on the screen.`,
+    `- \`EXPECT STOPPED\` / \`EXPECT RUNNING\` - whether the program should have finished.`,
     ...(variables
       ? [
-          `- \`VAR <name> = <value>\` - the value a variable should hold, written as the program names it (\`A\`, \`N$\`, \`T%\`).`,
+          `- \`EXPECT VAR <name> = <value>\` - the value a variable should hold, written as the program names it (\`A\`, \`N$\`, \`T%\`).`,
         ]
       : []),
-    `- \`SCREEN CONTAINS "<text>"\` - text that should appear somewhere on the screen.`,
     ...(canShowScreen
       ? [
-          `- \`SCREEN SHOWS <description>\` - how the screen should look once the program has run, in your own words. This is the form for what characters cannot express: a shape, a layout, a colour, something drawn.`,
+          `- \`EXPECT SHOWS <description>\` - how the screen should look, in your own words. This is the form for what characters cannot express: a shape, a layout, a colour, something drawn.`,
         ]
       : []),
+    `- \`WAIT END\`, \`WAIT FOR "<text>"\`, \`WAIT <n>\` - let the program run on before the next line is judged.`,
   ].join('\n');
 
   const variableNotes = variables
     ? `
-- Variable values are read back ALREADY FORMATTED for display: a string comes back with its quotes around it, and a number however this machine prints it. Quotes and number formatting are forgiven on both sides, so \`VAR N$ = HELLO\` and \`VAR N$ = "HELLO"\` mean the same thing, and \`42\`, \`42.0\` and \` 42\` all agree.
+- Variable values are read back ALREADY FORMATTED for display: a string comes back with its quotes around it, and a number however this machine prints it. Quotes and number formatting are forgiven on both sides, so \`EXPECT VAR N$ = HELLO\` and \`EXPECT VAR N$ = "HELLO"\` mean the same thing, and \`42\`, \`42.0\` and \` 42\` all agree.
 - An array is reported as its shape plus a truncated preview, not as its elements, so never state an expectation about a single element of an array.`
     : `
-- This machine CANNOT report its variables, so do not state \`VAR\` expectations for it. Check it on its screen instead.`;
+- This machine CANNOT report its variables, so do not state \`EXPECT VAR\` expectations for it. Check it on its screen instead.`;
 
   const visualNotes = canShowScreen
     ? `
-- A \`SCREEN SHOWS\` expectation is settled by showing you a picture of the screen and asking whether it holds, so describe what you could settle by looking at one: what is drawn and roughly where, not exact pixel positions or counts of things too small to count.`
+- An \`EXPECT SHOWS\` expectation is settled by showing you a picture of the screen and asking whether it holds, so describe what you could settle by looking at one: what is drawn and roughly where, not exact pixel positions or counts of things too small to count.`
     : `
-- The screen CANNOT be shown to you as a picture here, so do not state \`SCREEN SHOWS\` expectations. Anything you want checked must be checkable as text or as a variable.`;
+- The screen CANNOT be shown to you as a picture here, so do not state \`EXPECT SHOWS\` expectations. Anything you want checked must be checkable as text or as a variable.`;
 
   return `CHECKING YOUR OWN PROGRAM
-- After the code, you MAY add a single \`\`\`basic-expect fenced block saying what should be true once the program has run. It is optional; omit it when there is nothing cheap and definite to state.
-- One expectation per line, in exactly one of these forms:
-${forms}${variableNotes}${visualNotes}
+- After the code, you MAY add a single \`\`\`basic-expect fenced block saying what should be true of the program once it has run. It is optional; omit it when there is nothing cheap and definite to state.
+- One line per action or expectation, IN THE ORDER THEY SHOULD HAPPEN, in exactly these forms:
+${forms}
+- The lines run IN ORDER against the running machine, so an expectation asks what is true at the point you wrote it. Start almost every block with \`WAIT END\`: without it you are asking what is on the screen before the program has printed anything.
+- For text your program prints and then clears, write \`WAIT FOR "<text>"\` - it runs until that text appears and fails if it never does. After \`WAIT END\` it has gone.
+- The first line that does not hold stops the block; the lines after it are not judged.${variableNotes}${visualNotes}
 - A \`basic-expect\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it, and do not use it to explain your reasoning.
 - Screen text is matched a row at a time, ignoring how many spaces separate words, and it is case-sensitive. Do not expect text to span two rows, and do not predict where on the screen it lands.
-- State only what your program definitely produces. A program that waits for a keypress never reaches its result, and expectations that were never reached are reported as unchecked rather than as failures.
+- State only what your program definitely produces. A program that waits for a keypress never reaches its result, and expectations that could not be evaluated are reported as unchecked rather than as failures.
 - If an expectation does not hold, you will be asked to correct the program exactly as you would be for a runtime error.
 
 ${buildScreenViewRules(canShowScreen)}`;
@@ -183,14 +189,14 @@ export function buildScreenViewRules(canShowScreen: boolean): string {
     ? `
 - Ask for \`SCREEN IMAGE\` when what your program produced is not characters: something plotted, drawn, coloured, or laid out as shapes - where seeing the picture tells you what the characters cannot.
 - Asking for both is reasonable when a screen is part text and part drawing. Asking for the picture alone, for a program that only prints, is not: you would be reading words back off pixels that you could have been given as words.
-- A \`SCREEN SHOWS\` expectation already asks to be shown the picture. You do not need a \`basic-view\` block as well when you have stated one.`
+- An \`EXPECT SHOWS\` expectation already asks to be shown the picture. You do not need a \`basic-view\` block as well when you have stated one.`
     : `
 - The screen CANNOT be shown to you as a picture on this setup, so do not ask for \`SCREEN IMAGE\`. What is on the screen as characters is still available to you.`;
 
   return `SEEING THE SCREEN
 - After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line. The views are ${views}.
-- Ask for \`SCREEN TEXT\` when your program's output is words, numbers, a table, a menu, or anything else made of characters - and when seeing the whole screen would tell you something a \`SCREEN CONTAINS\` expectation would not, because it says what is actually there rather than only whether the text you predicted appeared.
-- Do NOT ask for a view merely to confirm something you already stated as an expectation: \`SCREEN CONTAINS\` and \`VAR\` are checked directly against the machine, cost nothing, and are exact. A view is for seeing what you did not predict.${pictureRules}
+- Ask for \`SCREEN TEXT\` when your program's output is words, numbers, a table, a menu, or anything else made of characters - and when seeing the whole screen would tell you something an \`EXPECT\` would not, because it says what is actually there rather than only whether the text you predicted appeared.
+- Do NOT ask for a view merely to confirm something you already stated as an expectation: \`EXPECT\` and \`EXPECT VAR\` are checked directly against the machine, cost nothing, and are exact. A view is for seeing what you did not predict.${pictureRules}
 - Naming nothing is perfectly normal and is what most replies do. If you name nothing, you will not be shown the screen - including when the program fails, where you will instead be told that the screen can be shown if you ask for it.
 - A \`basic-view\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it.`;
 }
