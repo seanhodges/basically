@@ -50,6 +50,18 @@ export const EXEMPTIONS: readonly Exemption[] = [
       "would reach a verdict about a machine that is not the user's. Again " +
       'the reason is that IDE, and holds only for a caller inside one.',
   },
+  {
+    operation: 'convert',
+    caller: 'assistant',
+    reason:
+      "The assistant's tool inputs travel as JSON matching a declared " +
+      'schema, with no path from the model to bytes sitting on the ' +
+      "user's disk - every existing tool's input is text already in the " +
+      "editor or already produced by another operation. The browser's " +
+      'own Import dialog already gives the user this exact capability ' +
+      'from inside the IDE, which is the reason this reaches no caller ' +
+      'without one.',
+  },
 ];
 
 /** Whether the operation is reachable from that caller. */

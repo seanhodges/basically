@@ -10,9 +10,10 @@ import { formatProblems } from '../../src/cli/lint';
 import { formatVerdict } from '../../src/cli/check';
 import { cliContext } from '../../src/cli/roms';
 import { findMachine } from '../../src/dialects/machineLookup';
-import { decodeBytes } from '../../src/ops/bytes';
+import { decodeBytes, encodeBytes } from '../../src/ops/bytes';
 import { buildOp } from '../../src/ops/build';
 import { checkOp, type CheckOutcome } from '../../src/ops/check';
+import { convertOp } from '../../src/ops/convert';
 import { infoOp } from '../../src/ops/info';
 import { lintOp } from '../../src/ops/lint';
 import { machinesOp } from '../../src/ops/machines';
@@ -66,6 +67,34 @@ async function readProgram(input: ProgramInput): Promise<string> {
   }
   try {
     return readFileSync(input.path, 'utf8');
+  } catch {
+    throw new RunError(`cannot read "${input.path}"`);
+  }
+}
+
+async function readBinaryStdin(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  const buffer = Buffer.concat(chunks);
+  if (buffer.length === 0) throw new RunError('no file arrived on stdin');
+  return new Uint8Array(buffer);
+}
+
+/**
+ * A binary file's bytes and name, from the path the caller named or from
+ * standard input - `readProgram`'s counterpart for a caller reading a
+ * machine's own binary rather than a BASIC listing. Standard input carries no
+ * name to infer a machine from.
+ */
+async function readBinary(
+  input: ProgramInput,
+): Promise<{ bytes: Uint8Array; fileName?: string }> {
+  if (input.kind === 'stdin') return { bytes: await readBinaryStdin() };
+  try {
+    return {
+      bytes: new Uint8Array(readFileSync(input.path)),
+      fileName: path.basename(input.path),
+    };
   } catch {
     throw new RunError(`cannot read "${input.path}"`);
   }
@@ -158,6 +187,23 @@ async function build(args: Extract<CliArgs, { operation: 'build' }>) {
     `${outcome.machine.name} ${outcome.target.label} (${outcome.target.id}), ` +
       `program ${outcome.programBytes} bytes\n`,
   );
+  return 0;
+}
+
+async function convert(args: Extract<CliArgs, { operation: 'convert' }>) {
+  const { bytes, fileName } = await readBinary(args.file);
+  const outcome = await convertOp.run(
+    { ...args.input, fileName, base64: encodeBytes(bytes) },
+    cliContext(),
+  );
+  if (args.out !== undefined) {
+    writeFileSync(args.out, outcome.source);
+    err(`wrote ${args.out}\n`);
+  } else {
+    out(outcome.source);
+  }
+  for (const warning of outcome.warnings) err(`warning: ${warning}\n`);
+  err(`${outcome.machine.name} (${outcome.machine.id})\n`);
   return 0;
 }
 
@@ -336,6 +382,9 @@ async function main(): Promise<number> {
 
     case 'check':
       return check(args);
+
+    case 'convert':
+      return convert(args);
 
     case 'lsp': {
       // A bad `-m` is the caller's mistake to fail on before anything is

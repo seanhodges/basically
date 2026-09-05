@@ -17,6 +17,7 @@
 import { RunError } from '../dialects/headless/runError';
 import type { BuildInput } from '../ops/build';
 import type { CheckInput } from '../ops/check';
+import type { ConvertInput } from '../ops/convert';
 import type { InfoInput } from '../ops/info';
 import type { LintInput } from '../ops/lint';
 import type { MachinesInput } from '../ops/machines';
@@ -29,6 +30,7 @@ export const OPERATIONS = [
   'build',
   'run',
   'check',
+  'convert',
   'lsp',
   'mcp',
 ] as const;
@@ -101,6 +103,19 @@ export interface CheckArgs {
   input: Omit<CheckInput, 'source' | 'expectations'>;
 }
 
+export interface ConvertArgs {
+  operation: 'convert';
+  /**
+   * Named `file` rather than `program`: what it reads is a machine's own
+   * binary, not a BASIC listing, and it is read as bytes rather than text.
+   */
+  file: ProgramInput;
+  /** Where the recovered BASIC is written; standard output when absent. */
+  out?: string;
+  /** `fileName` is filled in by the shim once it has read `file`. */
+  input: Omit<ConvertInput, 'base64' | 'fileName'>;
+}
+
 export interface LspArgs {
   operation: 'lsp';
   /** Serve over standard input/output; the only transport, so always set once parsed. */
@@ -137,6 +152,7 @@ export type CliArgs =
   | BuildArgs
   | RunArgs
   | CheckArgs
+  | ConvertArgs
   | LspArgs
   | McpArgs;
 
@@ -433,6 +449,31 @@ function parseCheck(argv: string[]): CheckArgs {
   };
 }
 
+function parseConvert(argv: string[]): ConvertArgs {
+  let machine: string | undefined;
+  let out: string | undefined;
+  const rest = scan(argv, (name, value) => {
+    switch (name) {
+      case '-m':
+      case '--machine':
+        machine = value();
+        break;
+      case '-o':
+      case '--out':
+        out = value();
+        break;
+      default:
+        throw unknownOption('convert', name);
+    }
+  });
+  return {
+    operation: 'convert',
+    file: programFrom('convert', rest),
+    out,
+    input: { machine },
+  };
+}
+
 /**
  * The two operations that serve rather than answer take the same arguments: a
  * transport and an optional machine. Neither takes a program, because a client
@@ -490,6 +531,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseRun(rest);
     case 'check':
       return parseCheck(rest);
+    case 'convert':
+      return parseConvert(rest);
     case 'lsp':
       return parseServer('lsp', rest);
     case 'mcp':
