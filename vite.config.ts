@@ -2,7 +2,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import { chunkFor } from './src/build/chunks';
 
 export default defineConfig({
   base: '/',
@@ -23,13 +22,6 @@ export default defineConfig({
   // would send those requests to a VitePress dev server that is not running.
   // An explicit empty map stops that inheritance.
   preview: { proxy: {} },
-  build: {
-    // Rollup's own limit is 500kB, which the app has been over for long enough
-    // that the warning stopped meaning anything. Lower it once the chunks below
-    // are named, so the next thing to cross it is news.
-    chunkSizeWarningLimit: 400,
-    rollupOptions: { output: { manualChunks: chunkFor } },
-  },
   plugins: [
     react(),
     // Service worker for the app shell. The docs site ships its own
