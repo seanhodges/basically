@@ -50,8 +50,20 @@ export default defineConfig({
               globPatterns: [
                 '**/*.{js,css,html,png,svg,ico,webmanifest,woff2,wasm}',
               ],
-              // Third-party ROMs cache at runtime.
-              globIgnores: ['**/roms/**'],
+              // Third-party ROMs cache at runtime, and so does what only the
+              // assistant reaches: three provider SDKs ship and a user picks
+              // one, and the machine and porting prose is built for a question
+              // most visits never ask. Each is reached through an `import()`
+              // and nothing else, so leaving them out costs a first visit
+              // nothing; they still cache on first use. The trade is the one
+              // the ROMs already make, and it stays inside what the offline
+              // guarantee covers, which exempts the inherently networked
+              // features.
+              globIgnores: [
+                '**/roms/**',
+                '**/assets/{anthropic,openai,gemini}-*.js',
+                '**/assets/{machineDescription,portDescription}-*.js',
+              ],
               runtimeCaching: [
                 {
                   urlPattern: ({ url }) => url.pathname.includes('/roms/'),
@@ -59,6 +71,18 @@ export default defineConfig({
                   options: {
                     cacheName: 'roms',
                     expiration: { maxEntries: 32 },
+                    cacheableResponse: { statuses: [0, 200] },
+                  },
+                },
+                {
+                  urlPattern: ({ url }) =>
+                    /\/assets\/(anthropic|openai|gemini|machineDescription|portDescription)-[^/]*\.js$/.test(
+                      url.pathname,
+                    ),
+                  handler: 'CacheFirst',
+                  options: {
+                    cacheName: 'assistant',
+                    expiration: { maxEntries: 64 },
                     cacheableResponse: { statuses: [0, 200] },
                   },
                 },

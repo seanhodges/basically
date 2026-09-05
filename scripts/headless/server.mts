@@ -28,8 +28,11 @@ import {
   type Conversation,
 } from '../../src/server/protocol';
 import { createSessions } from '../../src/server/sessions';
-import { runLsp } from './lsp.mts';
-import { runMcpServer } from './mcp.mts';
+
+// The editor and agent protocol stacks are each larger than everything else a
+// host carries, and a host serves at most one of them: `--ops` needs neither.
+// Reaching for them on the first caller that wants one keeps the other - and,
+// for an operations host, both - out of the process entirely.
 
 /**
  * The host: the toolchain outside the browser, kept running.
@@ -180,10 +183,12 @@ async function main(): Promise<number> {
     // the arrangement that existed before there was a host at all.
     const [only] = args.serving;
     if (only === 'lsp') {
+      const { runLsp } = await import('./lsp.mts');
       await runLsp(args.machine);
       return 0;
     }
     if (only === 'mcp') {
+      const { runMcpServer } = await import('./mcp.mts');
       await runMcpServer(args.machine);
       return 0;
     }
@@ -229,14 +234,18 @@ async function main(): Promise<number> {
       sessions,
       serveEditor: (connection: Duplex) => {
         life.touch();
-        void runLsp(args.machine, { input: connection, output: connection });
+        void import('./lsp.mts').then(({ runLsp }) =>
+          runLsp(args.machine, { input: connection, output: connection }),
+        );
       },
       serveAgent: (connection: Duplex) => {
         life.touch();
-        void runMcpServer(args.machine, {
-          input: connection,
-          output: connection,
-        });
+        void import('./mcp.mts').then(({ runMcpServer }) =>
+          runMcpServer(args.machine, {
+            input: connection,
+            output: connection,
+          }),
+        );
       },
       stop: () => void life.stop(),
       attach: () => {

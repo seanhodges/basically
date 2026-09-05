@@ -7,7 +7,7 @@ the editor. That means you can grab an old program off a real machine, edit and
 test it in the IDE, and export the updated version back - and if you'd rather
 make your changes on the physical hardware, you can pull those back in too.
 
-<img src="/real-machine.png" alt="A program exported from Basically running on a real machine" width="50%" />
+<img src="/real-machine.jpg" alt="A program exported from Basically running on a real machine" width="50%" />
 
 Both directions share the same three paths (which are available depends on the
 target): **cassette audio**, a **downloadable image file**, and a **serial

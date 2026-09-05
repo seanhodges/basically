@@ -15,9 +15,14 @@ SOURCES=(scripts/headless src)
 # The build's own output lives under scripts/headless, and the three bundles are
 # written one after another - so a scan that counted them would find the later
 # ones newer than the first and rebuild on every single invocation.
+#
+# Test files are skipped too: nothing bundles them (src/client/thinness.test.ts
+# holds every entry point to that), so editing one is not a stale bundle - and
+# there are more of them under src/ than there is anything else.
 needs_build() {
   [ ! -f "$BUNDLE" ] && return 0
-  [ -n "$(find "${SOURCES[@]}" -type d -name dist -prune -o \
+  [ -n "$(find "${SOURCES[@]}" \
+            \( -type d -name dist -o -name '*.test.ts' -o -name '*.test.tsx' \) -prune -o \
             -type f -newer "$BUNDLE" -print -quit)" ]
 }
 

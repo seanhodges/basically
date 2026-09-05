@@ -6,7 +6,7 @@ import type {
 } from '@codemirror/autocomplete';
 import { pickedCompletion, snippet } from '@codemirror/autocomplete';
 import { Facet } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 import type { EditorKeyword } from '../dialects/types';
 import {
   applyMapToPhysical,
