@@ -70,6 +70,7 @@ export const checkOp: Operation<CheckInput, CheckOutcome> = {
   },
   needs: 'runner',
   cli: { kind: 'operation', name: 'check' },
+  mcp: { kind: 'tool' },
   run: async (input, ctx: OpContext): Promise<CheckOutcome> => {
     const runner = ctx.runner;
     if (!runner) throw new RunError('this caller cannot run a program');

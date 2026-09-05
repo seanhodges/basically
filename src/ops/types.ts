@@ -5,15 +5,15 @@ import type { RunOptions, RunResult } from '../dialects/headless/runListing';
 /**
  * One declaration per operation, from which every caller's surface is derived.
  *
- * The command line's operations and the assistant's tool definitions are both
- * rendered from these rather than written beside each other: the name, the
- * summary and the input schema are the same artefact a tool definition already
- * carries, so one declaration is not a new abstraction so much as the
- * recognition that two surfaces were describing the same thing twice.
- * `src/ops/parity.test.ts` holds both surfaces to the list.
+ * The command line's operations, the assistant's tool definitions and the
+ * server's are all rendered from these rather than written beside each other:
+ * the name, the summary and the input schema are the same artefact a tool
+ * definition already carries, so one declaration is not a new abstraction so
+ * much as the recognition that the surfaces were describing the same thing
+ * several times over. `src/ops/parity.test.ts` holds every surface to the list.
  *
- * This layer imports neither the filesystem, the DOM nor the store, so both
- * callers can reach it; `eslint.config.js` refuses those imports here. What an
+ * This layer imports neither the filesystem, the DOM nor the store, so every
+ * caller can reach it; `eslint.config.js` refuses those imports here. What an
  * operation needs from the outside world arrives through {@link OpContext}.
  */
 
@@ -38,6 +38,15 @@ export type AssistantRoute =
    * block's parser must accept, which is what the parity test checks.
    */
   | { kind: 'block'; fence: string; example: string };
+
+/**
+ * How the server reaches an operation.
+ *
+ * One shape, because a server that both boots a machine and holds one has no
+ * reason to reach any operation another way: everything the toolchain declares
+ * is a tool a client may call.
+ */
+export type McpRoute = { kind: 'tool' };
 
 /**
  * What an operation needs in order to run.
@@ -113,6 +122,8 @@ export interface Operation<I = unknown, O = unknown> {
   cli?: CliRoute;
   /** Absent only for an operation the exemption table declares absent here. */
   assistant?: AssistantRoute;
+  /** Absent only for an operation the exemption table declares absent here. */
+  mcp?: McpRoute;
   /** From input and context to an outcome that survives being written as JSON. */
   run(input: I, ctx: OpContext): O | Promise<O>;
   /**

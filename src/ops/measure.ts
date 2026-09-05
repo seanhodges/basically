@@ -232,6 +232,7 @@ export const profileOp: Operation<Record<never, never>, ProfileOutcome> = {
   needs: 'session',
   cli: { kind: 'option', operation: 'run', option: '--profile' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: (_input, ctx: OpContext) =>
     profileFromSession(requireSession(ctx.session)),
   describe: describeProfile,
@@ -279,6 +280,7 @@ export const timeOp: Operation<Record<never, never>, TimeOutcome> = {
   needs: 'session',
   cli: { kind: 'option', operation: 'run', option: '--time' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: (_input, ctx) => {
     const timing = requireSession(ctx.session).timing();
     return {
@@ -326,6 +328,7 @@ export const variablesOp: Operation<Record<never, never>, VariablesOutcome> = {
   needs: 'session',
   cli: { kind: 'option', operation: 'run', option: '--variables' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: (_input, ctx) => {
     const variables = requireSession(ctx.session).variables();
     return {

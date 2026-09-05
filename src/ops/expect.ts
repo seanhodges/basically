@@ -68,6 +68,7 @@ export const expectOp: Operation<ExpectInput, ExpectOutcome> = {
   needs: 'session',
   cli: { kind: 'option', operation: 'check', option: '--expect' },
   assistant: { kind: 'block', fence: 'basic-expect', example: 'EXPECT "HI"' },
+  mcp: { kind: 'tool' },
   run: (input, ctx) => {
     const session = requireSession(ctx.session);
     const report = runDriveScript(

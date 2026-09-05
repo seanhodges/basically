@@ -44,6 +44,7 @@
     "@codemirror/view": "^6.36.0",
     "@google/genai": "^2.9.0",
     "@lezer/highlight": "^1.2.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "fflate": "^0.8.3",
     "jsbeeb": "1.13.1",
     "openai": "^6.44.0",

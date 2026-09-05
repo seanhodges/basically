@@ -260,6 +260,7 @@ export const runOp: Operation<RunInput, RunOutcome> = {
   },
   needs: 'runner',
   cli: { kind: 'operation', name: 'run' },
+  mcp: { kind: 'tool' },
   run: (input, ctx) => {
     if (!ctx.painting) throw new RunError('this caller cannot paint a screen');
     return runProgram(input, ctx, ctx.painting);
