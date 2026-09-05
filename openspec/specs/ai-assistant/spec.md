@@ -784,12 +784,59 @@ checking machinery in front of every reply. What the assistant wrote for the use
 - **THEN** the conversation shows the answer and its program, and not the
   expectations, which are still checked against the run
 
+### Requirement: The assistant states expectations in the vocabulary every caller writes
+
+What the assistant states about its own program SHALL be written in the same
+vocabulary any other caller of this toolchain writes an expectation in, rather
+than one of its own. A file of expectations written by one caller SHALL mean the
+same thing to the other, and an expectation SHALL be evaluated the same way
+whoever wrote it, so that two callers cannot reach different verdicts about the
+same program.
+
+One form SHALL remain the assistant's alone: an expectation about how the screen
+looks, which is settled by showing the assistant the display and asking it to
+judge its own program. Nothing but the assistant can settle one, so this SHALL be
+a declared asymmetry with that as its reason, and another caller meeting one
+SHALL report it as unevaluated rather than refusing the file.
+
+Expectations already recorded in a saved conversation SHALL stay readable when
+that conversation is restored, whatever vocabulary they were written in. A
+restored expectation SHALL NOT be reported as malformed for having been written
+before the vocabulary changed.
+
+#### Scenario: The same expectation written by either caller
+
+- **WHEN** the same expectation about the same program is written once by the
+  assistant and once by another caller
+- **THEN** both are evaluated the same way and reach the same verdict
+
+#### Scenario: An expectation only the assistant can settle
+
+- **WHEN** an expectation about how the screen looks reaches a caller that cannot
+  show a display to anyone
+- **THEN** it is reported as unevaluated, and the file it came in is not refused
+
+#### Scenario: Restoring a conversation written in the earlier vocabulary
+
+- **WHEN** the user restores a conversation whose expectations were written
+  before the vocabulary changed
+- **THEN** those expectations are still read as expectations, and none is
+  reported as malformed
+
 ### Requirement: Stated expectations are checked against the run
 
 Where the assistant has stated expectations and the IDE runs the program it
-returned, those expectations SHALL be checked once the run has been observed, and
-the result SHALL be reported back to the conversation alongside the run's
-outcome.
+returned, those expectations SHALL be checked and the result SHALL be reported
+back to the conversation alongside the run's outcome.
+
+An expectation SHALL be judged at the moment the assistant names. An expectation
+that names no moment SHALL be judged as the run was observed. Text that appears
+during a run and is then replaced SHALL be expressed by waiting for it, which
+already means "run until this appears, and fail if it never does", rather than by
+the IDE remembering on the assistant's behalf whether something was ever true.
+The assistant SHALL be told this, so that an expectation about something
+transient is written with the wait it needs rather than silently becoming an
+expectation about the end of the run.
 
 Expectations the machine can evaluate SHALL be evaluated from the machine.
 Expectations about how the screen looks SHALL be settled by showing the assistant
@@ -817,6 +864,17 @@ cannot be shown one — never as passed, and never as a failure of the program.
 
 - **WHEN** a program runs and every stated expectation holds
 - **THEN** the run is reported as having succeeded
+
+#### Scenario: Text that appears and is then replaced
+
+- **WHEN** the assistant expects text its program prints and then clears, and it
+  waits for that text before expecting it
+- **THEN** the expectation holds, and the run is reported as having succeeded
+
+#### Scenario: An expectation about the end of a run that names no moment
+
+- **WHEN** the assistant states an expectation without naming when it should hold
+- **THEN** it is judged as the run was observed
 
 #### Scenario: The program draws the wrong thing
 
