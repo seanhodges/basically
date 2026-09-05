@@ -3,10 +3,6 @@
 
 // Client for the share API (the wire contract is owned by the
 // basically-share-server repo).
-// The API lives on its own origin - GitHub Pages cannot proxy a same-origin
-// /api - so the base URL comes from VITE_SHARE_API_URL at build time. When it
-// is unset (no backend deployed), calls reject with kind 'unconfigured' so
-// callers can degrade gracefully instead of firing doomed requests.
 
 import { SHARE_ID_RE } from '../player/routes';
 import type { Block } from '../dialects/types';
@@ -47,6 +43,7 @@ export type ShareErrorKind =
   | 'not-found'
   | 'expired'
   | 'too-large'
+  | 'unauthorized'
   | 'rate-limited'
   | 'network'
   | 'server';
@@ -75,6 +72,13 @@ function apiBase(): string {
     );
   }
   return url.replace(/\/+$/, '');
+}
+
+// The write key, as headers to spread into a request. Unset in dev and in any
+// build without a key.
+function apiKeyHeader(): Record<string, string> {
+  const key = import.meta.env.VITE_BASICALLY_API_TOKEN;
+  return key ? { 'x-basically-key': key } : {};
 }
 
 async function request(url: string, init?: RequestInit): Promise<Response> {
@@ -167,9 +171,19 @@ export async function createShare(
   }
   const res = await request(`${apiBase()}/share`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...apiKeyHeader(),
+    },
     body: JSON.stringify(req),
   });
+  if (res.status === 401 || res.status === 403) {
+    throw new ShareApiError(
+      'unauthorized',
+      'This build is not authorised to publish shares',
+    );
+  }
   if (res.status === 429) {
     throw new ShareApiError(
       'rate-limited',

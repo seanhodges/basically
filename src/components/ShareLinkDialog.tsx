@@ -42,6 +42,12 @@ function describeCreateError(e: unknown): {
             'This program is too large to share - maximum size is 64 KiB.',
           retryable: false,
         };
+      case 'unauthorized':
+        return {
+          message:
+            'This build is not allowed to create share links on this server.',
+          retryable: false,
+        };
       case 'rate-limited':
         return {
           message: 'The share service is busy - try again in a moment.',

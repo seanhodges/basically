@@ -128,7 +128,7 @@ BASIC" would leave the ZX81 reader on a URL naming a machine they are not using.
 
 ### The moved URLs keep a stub, because the host has no redirects
 
-The site is built by VitePress and served by GitHub Pages, which has no
+The site is built by VitePress, which has no
 server-side redirect mechanism and no rewrite config to add one to. So each of
 the three moved addresses keeps a markdown page whose frontmatter carries a
 `meta http-equiv="refresh"` to the new URL, and whose body is a single sentence

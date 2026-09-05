@@ -54,6 +54,17 @@ describe('fetchSharedProgram', () => {
     );
   });
 
+  // Reads stay unkeyed so an already-deployed bundle, and every old share
+  // link it minted, keeps resolving whatever the publish key is set to.
+  it('never sends the write key on a read', async () => {
+    vi.stubEnv('VITE_BASICALLY_API_TOKEN', 'k1');
+    fetchMock.mockResolvedValue(jsonResponse(200, record));
+    await fetchSharedProgram('abc234');
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty(
+      'x-basically-key',
+    );
+  });
+
   it('strips a trailing slash from the configured base URL', async () => {
     vi.stubEnv('VITE_SHARE_API_URL', 'https://api.example.test/');
     fetchMock.mockResolvedValue(jsonResponse(200, record));
@@ -174,6 +185,31 @@ describe('createShare', () => {
     expect(url).toBe('https://api.example.test/share');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(req);
+  });
+
+  it('identifies the build with the x-basically-key header', async () => {
+    vi.stubEnv('VITE_BASICALLY_API_TOKEN', 'k1');
+    fetchMock.mockResolvedValue(jsonResponse(201, { id: 'xyz789' }));
+    await createShare(req);
+    expect(fetchMock.mock.calls[0][1].headers['x-basically-key']).toBe('k1');
+  });
+
+  // A build without the token still posts - the server decides whether to
+  // accept an unkeyed write - so the header is absent rather than empty.
+  it('omits the key header when no token is configured', async () => {
+    vi.stubEnv('VITE_BASICALLY_API_TOKEN', '');
+    fetchMock.mockResolvedValue(jsonResponse(201, { id: 'xyz789' }));
+    await createShare(req);
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty(
+      'x-basically-key',
+    );
+  });
+
+  it('maps 401 and 403 to unauthorized', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, {}));
+    await expectKind(createShare(req), 'unauthorized');
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, {}));
+    await expectKind(createShare(req), 'unauthorized');
   });
 
   it('posts attached memory blocks in the request body', async () => {

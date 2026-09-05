@@ -46,10 +46,7 @@ answered by the CPC page's guidance, which is written around BASIC 1.1.
 - **The Altair page is retitled "Microsoft BASIC"**, naming Altair 8K BASIC as
   the version it runs. Twelve pages where there were fourteen, one per family.
 - **BREAKING (documentation URLs only):** `/reference/zxspectrum`,
-  `/reference/apple1` and `/reference/apple2` move. The site is on GitHub Pages,
-  which has no server-side redirects, so each old URL keeps a stub page that
-  sends the reader to the new one. No application URL, share link, saved project
-  or dialect id changes.
+  `/reference/apple1` and `/reference/apple2` move.
 
 ## Non-goals
 

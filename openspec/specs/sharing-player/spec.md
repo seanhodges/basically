@@ -68,3 +68,9 @@ limited, offline) SHALL surface as distinct, user-readable outcomes.
 
 - **WHEN** the user attempts to publish in a build with no share service
 - **THEN** they are told sharing is not configured, and nothing else breaks
+
+#### Scenario: Build not authorised to publish
+
+- **WHEN** the share service refuses this build's publish request
+- **THEN** the user is told this build cannot create share links and that
+  retrying will not help, distinctly from a network or server failure

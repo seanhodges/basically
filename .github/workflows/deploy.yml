@@ -93,17 +93,13 @@ jobs:
       - run: npm ci
       # Build the app into dist/ first (vite empties dist/), then build the
       # docs into dist/docs/ so a single Pages artifact ships both.
-      # VITE_SHARE_API_URL comes from the SHARE_API_URL repo variable (the
-      # deployed basically-share-server stack's ShareApiUrl output). When the
-      # variable is unset the value is empty and the share client degrades to
-      # its 'unconfigured' path rather than firing requests at a bad origin.
       - run: npm run build
         env:
           VITE_SHARE_API_URL: ${{ vars.SHARE_API_URL }}
+          VITE_BASICALLY_API_TOKEN: ${{ secrets.BASICALLY_API_TOKEN }}
       - run: npm run docs:build
-      # GitHub Pages has no SPA rewrites; serving a copy of index.html as the
-      # 404 page lets cold deep links like /run/abc234 boot the app shell,
-      # which routes them to the standalone player.
+      # Serving a copy of index.html as the 404 page lets cold deep links
+      # like /run/abc234 boot the app shell, which routes them to the standalone player.
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
