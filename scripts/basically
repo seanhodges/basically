@@ -12,9 +12,13 @@ BUNDLE=scripts/headless/dist/cli.mjs
 # unnoticed handed the caller the old machine with nothing to say it had.
 SOURCES=(scripts/headless src)
 
+# The build's own output lives under scripts/headless, and the three bundles are
+# written one after another - so a scan that counted them would find the later
+# ones newer than the first and rebuild on every single invocation.
 needs_build() {
   [ ! -f "$BUNDLE" ] && return 0
-  [ -n "$(find "${SOURCES[@]}" -type f -newer "$BUNDLE" -print -quit)" ]
+  [ -n "$(find "${SOURCES[@]}" -type d -name dist -prune -o \
+            -type f -newer "$BUNDLE" -print -quit)" ]
 }
 
 if needs_build; then

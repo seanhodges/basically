@@ -428,9 +428,4 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
 }
 
 /** Screen text as lines, with the blank rows under the program trimmed off. */
-export function screenLines(screen: MachineScreenText | null): string[] {
-  if (!screen) return [];
-  const lines = screen.lines.map((line) => line.replace(/\s+$/, ''));
-  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  return lines;
-}
+export { screenLines } from './screenText';

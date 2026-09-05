@@ -230,7 +230,7 @@ export const profileOp: Operation<Record<never, never>, ProfileOutcome> = {
     'plainly when nothing has been measured yet.',
   input: { type: 'object', properties: {}, additionalProperties: false },
   needs: 'session',
-  cli: { kind: 'option', operation: 'run', option: '--profile' },
+  cli: { kind: 'operation', name: 'profile' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
   run: (_input, ctx: OpContext) =>
@@ -278,7 +278,7 @@ export const timeOp: Operation<Record<never, never>, TimeOutcome> = {
     'takes - is this version faster than the last one - and not by reflex.',
   input: { type: 'object', properties: {}, additionalProperties: false },
   needs: 'session',
-  cli: { kind: 'option', operation: 'run', option: '--time' },
+  cli: { kind: 'operation', name: 'time' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
   run: (_input, ctx) => {
@@ -326,7 +326,7 @@ export const variablesOp: Operation<Record<never, never>, VariablesOutcome> = {
     'Says so plainly on a machine that cannot report its variables.',
   input: { type: 'object', properties: {}, additionalProperties: false },
   needs: 'session',
-  cli: { kind: 'option', operation: 'run', option: '--variables' },
+  cli: { kind: 'operation', name: 'variables' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
   run: (_input, ctx) => {

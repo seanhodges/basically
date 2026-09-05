@@ -66,7 +66,7 @@ export const expectOp: Operation<ExpectInput, ExpectOutcome> = {
     additionalProperties: false,
   },
   needs: 'session',
-  cli: { kind: 'option', operation: 'check', option: '--expect' },
+  cli: { kind: 'operation', name: 'expect' },
   assistant: { kind: 'block', fence: 'basic-expect', example: 'EXPECT "HI"' },
   mcp: { kind: 'tool' },
   run: (input, ctx) => {

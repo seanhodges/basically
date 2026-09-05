@@ -6,9 +6,9 @@
  * `lint` operation's (`src/ops/lint.ts`).
  */
 
-import { describeProblem, type LintProblem } from '../ops/lint';
+import { describeProblem, type LintProblem } from '../ops/lintProblem';
 
-export type { LintOutcome, LintProblem } from '../ops/lint';
+export type { LintOutcome, LintProblem } from '../ops/lintProblem';
 
 /** One problem per line, placed the way a compiler places one. */
 export function formatProblems(problems: readonly LintProblem[]): string {

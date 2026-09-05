@@ -17,15 +17,19 @@ import type { RunOptions, RunResult } from '../dialects/headless/runListing';
  * operation needs from the outside world arrives through {@link OpContext}.
  */
 
-/** How the command line reaches an operation. */
+/**
+ * How the command line reaches an operation.
+ *
+ * The command line can hold a machine between commands, so what a caller
+ * holding one asks of that machine, it asks as an operation of its own. The
+ * options on `run` and `check` remain the one-shot spelling of the same
+ * capabilities, for a caller that wants an answer and no machine afterwards -
+ * they are the same operations reached the other way, not a second path.
+ */
 export type CliRoute =
   /** As an operation of its own: `basically <name>`. */
   | { kind: 'operation'; name: string }
-  /**
-   * As an option on another operation. A command line invocation holds no
-   * machine between runs, so what the assistant asks of a machine it is
-   * holding, the command line asks of a run.
-   */
+  /** As an option on another operation: `basically run --profile`. */
   | { kind: 'option'; operation: string; option: string };
 
 /** How the assistant reaches an operation. */

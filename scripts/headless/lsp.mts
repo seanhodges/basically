@@ -1,5 +1,7 @@
 import {
   createConnection,
+  StreamMessageReader,
+  StreamMessageWriter,
   TextDocumentSyncKind,
   TextDocuments,
   type Connection,
@@ -21,7 +23,7 @@ import {
   referencesForPosition,
   symbolsForDocument,
 } from '../../src/lsp/handlers';
-import { divertLogging } from './cli.mts';
+import { divertLogging } from '../../src/server/logging';
 
 /**
  * The connection: `createConnection`, document synchronisation, configuration
@@ -38,13 +40,45 @@ import { divertLogging } from './cli.mts';
 const DIAGNOSTIC_DEBOUNCE_MS = 400;
 
 /**
+ * The streams an editor is served over.
+ *
+ * A duplex socket is both, which is what lets a host serve an editor over a
+ * connection without anything below here knowing: the library builds its
+ * connection from streams rather than from `process`, so the only difference
+ * between a server the editor started and one it reached through a host is
+ * which streams they were.
+ */
+export interface EditorStreams {
+  input: NodeJS.ReadableStream;
+  output: NodeJS.WritableStream;
+}
+
+/**
  * Run the server until the editor disconnects. `defaultMachine` is the `-m`
  * the caller started the operation with, if any - the session's default
- * before any client configuration is pulled or overrides it.
+ * before any client configuration is pulled or overrides it. `streams` is the
+ * connection to serve over, and defaults to the process's own.
  */
-export function runLsp(defaultMachine: string | undefined): Promise<void> {
-  const restoreLogging = divertLogging();
-  const connection: Connection = createConnection();
+export function runLsp(
+  defaultMachine: string | undefined,
+  streams?: EditorStreams,
+): Promise<void> {
+  // Only a server that owns the process may divert its logging: one served
+  // over a socket shares the process with everything else the host is doing.
+  const restoreLogging = streams ? () => {} : divertLogging();
+  // Given raw streams, `createConnection` registers `end` and `close`
+  // handlers on the input that call `process.exit` - correct for a server that
+  // owns its process, fatal for one of several conversations a host is
+  // serving, where one editor closing its connection would take every other
+  // caller's machine with it. A reader and a writer take the same streams
+  // without that backwards-compatible path, so the connection ending is the
+  // connection ending.
+  const connection: Connection = streams
+    ? createConnection(
+        new StreamMessageReader(streams.input),
+        new StreamMessageWriter(streams.output),
+      )
+    : createConnection();
   const documents = new TextDocuments(TextDocument);
   const store = new DocumentStore();
 
@@ -180,7 +214,10 @@ export function runLsp(defaultMachine: string | undefined): Promise<void> {
     // is "the editor disconnected" and ends the server the same way.
     connection.onShutdown(() => {});
     connection.onExit(finish);
-    process.stdin.on('end', finish);
+    // The stream ending is the killed editor's only goodbye. Which stream that
+    // is depends on how this server was reached.
+    (streams?.input ?? process.stdin).on('end', finish);
+    if (streams) streams.input.on('close', finish);
     connection.listen();
   });
 }

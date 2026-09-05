@@ -53,11 +53,29 @@ usage: basically <operation> [options]
   run        run a program and report its screen
   check      check a program against what it should do
   convert    read a machine's own binary program file back into BASIC
+
+On the machine a "run --hold" left up:
+
+  drive      press keys and wait, through a schedule of actions
+  look       report what is on the screen
+  screenshot write a picture of the screen
+  profile    report where the run's time and memory went
+  time       report how long the run took and how it ended
+  variables  report what the program's variables hold
+  expect     judge the machine against written expectations
+  server     start, stop, or ask after the host these run on
+
   lsp        serve an editor over the Language Server Protocol
   mcp        serve an agent over the Model Context Protocol
 
 Every operation but "run" and "check" works with no ROM present. Where an operation takes a
 program, the path may be "-", or left out, to read it from standard input.
+
+The operations above act on one machine, held between commands: "run --hold" leaves the
+machine it booted running, and each of them acts on it until "server stop" or a
+"run --hold" for another program. The same capabilities are reachable as options on a
+single "run" - --keys, --screen-text, --screenshot, --profile, --time, --variables - for a
+caller that wants an answer and no machine afterwards.
 
 "basically <operation> --help" says what one operation takes.
 `.trimStart();
@@ -138,6 +156,9 @@ usage: basically run [file] -m <machine> [options]
   --time            report how long the run took, in the machine's own time,
                     and how it ended
   --variables       report what the program's variables hold at the end
+  --hold            leave the machine running afterwards, for "drive", "look",
+                    "profile" and the rest to act on; without it the machine is
+                    let go when the run is reported
   --json            one JSON object on standard output instead of the text
   --rom-root <dir>  read ROMs from this public/ rather than the checkout's
 
@@ -182,6 +203,96 @@ A file with a line the parser cannot read, or a machine whose ROM is missing,
 is refused before anything boots.
 `.trimStart(),
 
+  drive: `
+act on the machine that is up, through a schedule of what to press and when
+
+usage: basically drive '<schedule>' [--json]
+
+  --json   report what each action did as JSON
+
+Acts on the machine a "run --hold" left up, stopping at the first action that
+fails. Actions, separated by newlines or by semicolons outside quotes:
+
+${actionLines()}
+`,
+
+  look: `
+report what is on the screen of the machine that is up
+
+usage: basically look [--json]
+
+  --json   report the screen as JSON rather than as lines
+
+Costs no frames: reading the screen never advances the machine.
+`,
+
+  screenshot: `
+write a picture of the screen of the machine that is up
+
+usage: basically screenshot <file.png> [--json]
+
+  -o, --out <file>   where to write the picture; may also be given as the
+                     first argument
+  --json             report the picture's size and colours as JSON
+`,
+
+  profile: `
+report where the run's time and memory went, on the machine that is up
+
+usage: basically profile [--json]
+
+  --json   report the measurements as JSON
+
+Every figure is in the emulated machine's own terms, so it does not depend on
+the computer the run happened on. A machine that cannot report which line it is
+executing says so rather than reporting nothing.
+`,
+
+  time: `
+report how long the run took and how it ended, on the machine that is up
+
+usage: basically time [--json]
+
+  --json   report the timing as JSON
+`,
+
+  variables: `
+report what the program's variables hold, on the machine that is up
+
+usage: basically variables [--json]
+
+  --json   report the variables as JSON
+`,
+
+  expect: `
+judge the machine that is up against written expectations
+
+usage: basically expect <checks.txt> [--json]
+
+  -e, --expect <file>   the expectations to judge against; may also be given as
+                        the first argument, or "-" for standard input
+  --json                report the verdict as JSON
+
+The same file "check" takes: a schedule of actions with EXPECT lines mixed in.
+Unlike "check", which boots a machine of its own, this judges the machine a
+"run --hold" left up.
+`,
+
+  server: `
+start, stop, or ask after the host the toolchain runs on
+
+usage: basically server [start|stop|status] [--json]
+
+  start    start a host if none is running, and say where it listens
+  stop     stop the running host, letting go of any machine it holds
+  status   say whether a host is running, what it serves, and what it holds
+           (the default)
+  --json   report the answer as JSON
+
+A host is started for you by any command that needs one, so "start" is only for
+warming one up in advance. A host stops on its own once nothing has needed it
+for a while.
+`,
   convert: `
 read a machine's own binary program file back into the BASIC it holds
 
