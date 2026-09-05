@@ -10,7 +10,7 @@ import { MAX_ENTRY_BYTES } from './addresses';
  * Every construct, against the bytes the machine itself stores for it.
  *
  * The right-hand column is not authored. Each line was typed at the `>` prompt
- * of `public/roms/apple2.rom` booted on the vendored 6502 core, and the program
+ * of `public/roms/apple2/apple2.rom` booted on the vendored 6502 core, and the program
  * area between the zero-page pointers PP and HIMEM was read back out - so a
  * disagreement here means the tokenizer is wrong, not that the table is stale.
  *

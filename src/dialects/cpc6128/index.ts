@@ -75,7 +75,7 @@ export const cpc6128: Dialect = {
   programRamBytes: cpc464.programRamBytes,
   // The combined 32K firmware+BASIC ROM (16K OS 2.x then 16K Locomotive
   // BASIC 1.1). No AMSDOS ROM: the 6128 runs tape-only here.
-  romUrl: `${import.meta.env.BASE_URL}roms/cpc/cpc6128.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/cpc6128/cpc6128.rom`,
   romBytes: CPC_ROM_SIZE,
   // All three modes render into one 640×400 canvas (see emulator/cpc/display).
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },

@@ -1,18 +1,45 @@
+# How this folder is laid out
+
+One folder per machine, named for the dialect id it belongs to
+(`src/dialects/<id>/`), holding that machine's image or image set:
+`zx81/`, `zxspectrum128/`, `commodore64/`, `cpc464/`, `pet/`, `vic20/` and so
+on. A machine's `romUrl` in its dialect file points into its own folder, and
+nothing else reaches across. `src/dialects/romLayout.test.ts` holds every
+registered machine to that from both ends - each `romUrl` and each committed
+image - so this note and the folder cannot drift apart; the two exceptions
+below are declared in its own tables.
+
+One image is shared rather than owned: the Atari 400 and 800 ran the same
+firmware, so `atari400` and `atari800` both point at `atari/atari.rom`, a
+folder named for the pair instead of for either dialect id. Duplicating the
+bytes to satisfy the rule would be the worse answer.
+
+**The Acorn images are the exception, and must stay where they are.** `os.rom`,
+`BASIC.ROM`, `b/DFS-0.9.rom`, `master/mos3.20` and `atom/*.rom` sit at the top
+of this folder because those paths are not ours to choose: the BBC Micro, BBC
+Master and Atom run on jsbeeb, whose model table (`jsbeeb/src/models.js`) names
+each ROM by that literal path and whose loader fetches it as
+`<base>/roms/<name>`. This subtree is a copy of jsbeeb's own `public/roms/`,
+kept in the layout jsbeeb expects. Moving or renaming any of it stops those
+three machines booting in the browser — the unit tests would not catch it,
+because under node jsbeeb reads these images straight out of
+`node_modules/jsbeeb/public/roms/` instead.
+
 # Sinclair ROM attribution
 
-`zx81.rom` is the 8K Sinclair ZX81 BASIC ROM ("improved" Edition 3),
+`zx81/zx81.rom` is the 8K Sinclair ZX81 BASIC ROM ("improved" Edition 3),
 copyright © 1981 Nine Tiles Networks Ltd / Sinclair Research Ltd, with rights
 now held by Amstrad plc (acquired by Sky in 2007).
 
-`zxspectrum.rom` is the 16K Sinclair ZX Spectrum 48K BASIC ROM,
+`zxspectrum/zxspectrum.rom` is the 16K Sinclair ZX Spectrum 48K BASIC ROM,
 copyright © 1982 Sinclair Research Ltd / Nine Tiles Networks Ltd, with rights
 now held by Amstrad plc (CRC32 ddee531f — the standard 48K image).
 
-`zx80.rom` is the 4K Sinclair ZX80 BASIC ROM, copyright © 1980 Nine Tiles
+`zx80/zx80.rom` is the 4K Sinclair ZX80 BASIC ROM, copyright © 1980 Nine Tiles
 Networks Ltd / Sinclair Research Ltd, with rights now held by Amstrad plc
 (CRC32 4c7fc597 — the standard ZX80 image).
 
-`zxspectrum128.rom` is the 32K Sinclair ZX Spectrum 128K / +2 ROM, copyright
+`zxspectrum128/zxspectrum128.rom` is the 32K Sinclair ZX Spectrum 128K / +2 ROM, copyright
 © 1986 Sinclair Research Ltd / Amstrad plc, with rights now held by Amstrad plc.
 It is the standard image, formed by concatenating the two 16K halves: ROM 0 =
 the 128 editor/menu (CRC32 e76799d2) followed by ROM 1 = the 48 BASIC ROM
@@ -55,8 +82,8 @@ issue.
 
 # Commodore ROM attribution
 
-`c64/basic.bin` (Commodore BASIC v2), `c64/kernal.bin` (KERNAL) and
-`c64/chargen.bin` (character generator) are the three Commodore 64 ROMs, the
+`commodore64/basic.bin` (Commodore BASIC v2), `commodore64/kernal.bin` (KERNAL) and
+`commodore64/chargen.bin` (character generator) are the three Commodore 64 ROMs, the
 firmware originally copyright © 1982 Commodore Business Machines, with rights
 now held by Cloanto / C64 Forever.
 
@@ -96,7 +123,7 @@ issue.
 `vic20/chargen.bin` (the character generator at $8000, part 901460-03) are the
 three Commodore VIC-20 ROMs, the firmware originally copyright © 1981–1982
 Commodore Business Machines, with rights now held by Cloanto / C64 Forever.
-The filenames mirror the `c64/` naming.
+The filenames mirror the `commodore64/` naming.
 
 They are the standard VICE/MAME unexpanded PAL VIC-20 images, identified by
 their part numbers and CRC32s (`db4c43c1`, `4be07cb4`, `83e032a6`
@@ -115,17 +142,17 @@ Three 32K firmware images ship here, each formed by concatenating that machine's
 two standard 16K halves — the lower ROM (the OS/firmware) followed by the upper
 ROM (Locomotive BASIC):
 
-- `cpc/cpc464.rom` — the Amstrad CPC 464: lower ROM CRC32 `815752df`, upper ROM
+- `cpc464/cpc464.rom` — the Amstrad CPC 464: lower ROM CRC32 `815752df`, upper ROM
   (Locomotive BASIC 1.0) CRC32 `7d9a3bac`. As the machine's own boot banner
   states, it is **copyright © 1984 Amstrad Consumer Electronics plc and
   Locomotive Software Ltd**.
-- `cpc/cpc664.rom` — the Amstrad CPC 664: lower ROM (OS v2) CRC32 `3f5a6dc4`,
+- `cpc664/cpc664.rom` — the Amstrad CPC 664: lower ROM (OS v2) CRC32 `3f5a6dc4`,
   upper ROM (Locomotive BASIC 1.1) CRC32 `32fee492`. Its banner states
   **copyright © 1984 Amstrad Consumer Electronics plc and Locomotive Software
   Ltd**. Its BASIC 1.1 is an earlier revision than the 6128's and hashes
   differently; the AMSDOS ROM is not included, so the IDE runs the 664
   tape-only even though the real machine has a disc drive built in.
-- `cpc/cpc6128.rom` — the Amstrad CPC 6128: lower ROM (OS 2.x) CRC32
+- `cpc6128/cpc6128.rom` — the Amstrad CPC 6128: lower ROM (OS 2.x) CRC32
   `0219bb74`, upper ROM (Locomotive BASIC 1.1) CRC32 `ca6af63d`. Its banner
   states **copyright © 1985 Amstrad Consumer Electronics plc and Locomotive
   Software Ltd**. The AMSDOS ROM is not included: the IDE runs the 6128
@@ -171,7 +198,7 @@ removed, please open an issue and they will be taken out.
 
 # Apple ROM attribution
 
-`apple1.rom` is the Apple I firmware, copyright © 1976 Apple Computer, Inc. It is
+`apple1/apple1.rom` is the Apple I firmware, copyright © 1976 Apple Computer, Inc. It is
 two images in one file, because the machine needs both and the emulator seam
 carries one image: the first 256 bytes are the monitor PROM that lives at `$FF00`
 (the "WozMon"), and the remaining 4096 bytes are Integer BASIC, which the machine
@@ -212,7 +239,7 @@ for this machine is the full 4352 bytes, both parts.)
 If you are the rights holder and want this file removed, please open an issue and
 it will be taken out.
 
-`apple2.rom` is the Apple II firmware, copyright © 1977–1978 Apple Computer, Inc.
+`apple2/apple2.rom` is the Apple II firmware, copyright © 1977–1978 Apple Computer, Inc.
 It is the whole `$D000`–`$FFFF` window as one 12288-byte image, in address order,
 and holds four sockets:
 
@@ -257,8 +284,8 @@ for this machine is the full 12288 bytes.)
 If you are the rights holder and want this file removed, please open an issue and
 it will be taken out.
 
-`apple2plus.rom` is the Apple II Plus firmware, copyright © 1978–1979 Apple
-Computer, Inc. It is the same `$D000`–`$FFFF` window as `apple2.rom` above, as
+`apple2plus/apple2plus.rom` is the Apple II Plus firmware, copyright © 1978–1979 Apple
+Computer, Inc. It is the same `$D000`–`$FFFF` window as `apple2/apple2.rom` above, as
 one 12288-byte image in address order, and holds two parts rather than four:
 
     Applesoft II  $D000-$F7FF  10240 bytes
@@ -269,7 +296,7 @@ Programmer's Aid and no empty socket here. The monitor is the **Autostart** one
 rather than the original: its reset vector is `$FA62`, so RESET restarts BASIC
 instead of dropping into the monitor's `*` prompt, and the machine signs on in
 Applesoft with no command typed at it. That is the difference between this image
-and `apple2.rom`, and it is the one thing to check if the file is ever replaced.
+and `apple2/apple2.rom`, and it is the one thing to check if the file is ever replaced.
 
 **Applesoft II is Microsoft's code, not Apple's.** Apple licensed the interpreter
 from Microsoft in 1977 and Apple's copyright notice is what the machine prints,
@@ -307,7 +334,7 @@ it will be taken out.
 
 # MITS ROM attribution
 
-`altair8800.rom` is Altair 8K BASIC 4.0 — Microsoft's first product, written by
+`altair8800/altair8800.rom` is Altair 8K BASIC 4.0 — Microsoft's first product, written by
 Bill Gates, Paul Allen and Monte Davidoff, copyright © 1975–1976 Microsoft and
 licensed to MITS, whose own copyright notice the image prints on sign-on. It is
 not a ROM: the base Altair had no firmware at all, only an empty S-100
@@ -357,7 +384,7 @@ rather than fail.)
 
 # Tesla ROM attribution
 
-`pmd85.rom` is the Tesla PMD 85-2 firmware, copyright © 1985–1986 Tesla
+`pmd85/pmd85.rom` is the Tesla PMD 85-2 firmware, copyright © 1985–1986 Tesla
 Piešťany / Tesla Bratislava. It is two chips in one file, because the machine
 needs both and the emulator seam carries one image: the first 4096 bytes are
 Monitor 2, the PMD 85-2 operating system that lives at `0x8000`, and the
@@ -384,7 +411,7 @@ Settings ▸ Emulator.
 
 # Atari ROM attribution
 
-`atari.rom` is the Atari 400/800 firmware, and unlike every other image here it
+`atari/atari.rom` is the Atari 400/800 firmware, and unlike every other image here it
 ships on an explicit grant rather than on tolerance: both halves are clean-room
 reimplementations by Avery Lee, written for the
 [Altirra](https://www.virtualdub.org/altirra.html) emulator and offered under
@@ -440,7 +467,7 @@ ROM area, which for this machine is the full 18432 bytes, both parts.)
 
 # Sony ROM attribution
 
-`msx/hb10p.rom` is the 32K Sony HB-10P system ROM: the 16K MSX BIOS at `0x0000`
+`hb10p/hb10p.rom` is the 32K Sony HB-10P system ROM: the 16K MSX BIOS at `0x0000`
 followed by the 16K MSX BASIC 1.0 at `0x4000`, as one image in one chip exactly
 as the machine carries it. The BIOS half is copyright © 1985–1986 ASCII
 Corporation and Sony Corporation, the BASIC half copyright © 1983 Microsoft,
@@ -492,7 +519,7 @@ tests that need the ROM skip rather than fail.)
 
 # MGT ROM attribution
 
-`samcoupe.rom` is the 32K SAM Coupé ROM version 3.0, copyright © 1989-1990
+`samcoupe/samcoupe.rom` is the 32K SAM Coupé ROM version 3.0, copyright © 1989-1990
 Dr Andrew J. A. Wright (CRC32 e535c25d, SHA-256
 14d52ffc635a2ece0244aa3fd327bab5ee796f92570361aade0d6df3eba41d9f).
 
@@ -511,7 +538,7 @@ images on the same permission, and SimCoupe credits the same grant.
 The permission covers the binary. It is **not** the `samrom` repository's own
 licence, and the distinction matters here: that repository is GPL-2.0, while
 this project is GPL-3.0-or-later, and the two are incompatible for linked code.
-Nothing is linked — `samcoupe.rom` ships as a data asset under `public/roms/`,
+Nothing is linked — `samcoupe/samcoupe.rom` ships as a data asset under `public/roms/`,
 loaded at runtime by the emulator, and it travels on Dr Wright's permission
 alone. The ROM's own assembly source is published in that repository for
 anyone who wants to read what the machine is executing.

@@ -16,7 +16,7 @@
  *
  * (md5 97eead711723295e9ce4f52b300002cf, the image the SIMH AltairZ80 software
  * collection distributes as `8kbas.bin`). That is the image bundled at
- * `public/roms/altair8800.rom`, and the md5 above is what to check a
+ * `public/roms/altair8800/altair8800.rom`, and the md5 above is what to check a
  * replacement against: another Altair BASIC boots, but nothing below is
  * promised of it. Offsets are into that image, which loads at 0x0000, so an
  * image offset and a run-time address are the same number and either can be

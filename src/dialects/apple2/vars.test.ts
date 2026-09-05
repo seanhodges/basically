@@ -11,7 +11,7 @@ import { Apple2Machine } from '../../emulator/apple2/apple2Machine';
 import { integerBasicSupport } from './machineSupport';
 
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple2.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/apple2/apple2.rom')),
 );
 
 /**

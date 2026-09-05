@@ -94,7 +94,7 @@ const MAX_BOOT_FRAMES = 200;
  */
 const NO_ROM_NOTICE = noRomNotice(
   "Spectrum's 16K ROM",
-  'public/roms/zxspectrum.rom',
+  'public/roms/zxspectrum/zxspectrum.rom',
 );
 
 export class SpectrumMachine implements MachineEmulator {

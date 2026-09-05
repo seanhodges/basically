@@ -27,13 +27,13 @@ import {
 
 const ROMS = {
   zx81: {
-    file: 'zx81.rom',
+    file: 'zx81/zx81.rom',
     fontBase: 0x1e00,
     table: ZX81_GRAPHICS,
     escapes: ZX81_ESCAPES,
   },
   zx80: {
-    file: 'zx80.rom',
+    file: 'zx80/zx80.rom',
     fontBase: 0x0e00,
     table: ZX80_GRAPHICS,
     escapes: ZX80_ESCAPES,

@@ -16,7 +16,7 @@ import {
  * the ones the interpreter actually writes is in
  * src/emulator/msx/introspection.test.ts.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/msx/hb10p.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/hb10p/hb10p.rom');
 
 /** Where MSX BASIC's error messages start in the BASIC ROM half of the image. */
 const MESSAGE_TABLE = 0x3d76;

@@ -7,7 +7,9 @@ import { buildSamFile } from '../samfile';
 import { NVARS, PROG } from '../sysvars';
 
 const ROM = new Uint8Array(
-  readFileSync(path.resolve(__dirname, '../../../../public/roms/samcoupe.rom')),
+  readFileSync(
+    path.resolve(__dirname, '../../../../public/roms/samcoupe/samcoupe.rom'),
+  ),
 );
 
 /** Frames a short program is given to run to its end after the load. */

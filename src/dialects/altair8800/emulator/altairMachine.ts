@@ -108,7 +108,7 @@ const NO_IMAGE_NOTICE = [
   'NO BASIC IMAGE.',
   '',
   'The Altair had no firmware: it loaded BASIC from paper tape, and',
-  'this build has no tape to load - public/roms/altair8800.rom is',
+  'this build has no tape to load - public/roms/altair8800/altair8800.rom is',
   'missing. Restore it, or supply your own image, to start the machine.',
 ];
 
@@ -128,7 +128,7 @@ const NO_IMAGE_NOTICE = [
  * **The ROM that isn't.** `opts.rom` carries the Altair 8K BASIC object tape,
  * which the machine copies into RAM at 0x0000 rather than mapping: the base
  * Altair had no firmware, and BASIC arrived on paper tape. The image ships at
- * `public/roms/altair8800.rom`, but like every image there it may be deleted or
+ * `public/roms/altair8800/altair8800.rom`, but like every image there it may be deleted or
  * replaced, so the machine stays constructible on an empty one and says so on
  * its terminal rather than throwing.
  */
@@ -550,7 +550,7 @@ export class Altair8800Machine implements MachineEmulator {
       if (done()) return;
     }
     throw new Error(
-      `Altair 8K BASIC ${failure} - the image at public/roms/altair8800.rom ` +
+      `Altair 8K BASIC ${failure} - the image at public/roms/altair8800/altair8800.rom ` +
         'is not the 8K BASIC 4.0 paper tape this dialect expects',
     );
   }

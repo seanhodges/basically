@@ -9,7 +9,9 @@ import { encodeSpectrumNumber } from '../numbers';
 import { hasFatalErrors } from '../../types';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
+  readFileSync(
+    join(__dirname, '../../../../public/roms/zxspectrum/zxspectrum.rom'),
+  ),
 );
 
 const LET = 0xf1;

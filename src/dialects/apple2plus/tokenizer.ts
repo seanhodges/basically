@@ -12,7 +12,7 @@ import { MAX_ENTRY_BYTES, MAX_LINE, PROGRAM_BASE } from './addresses';
  * Source text -> the tokenized program Applesoft holds from `$0801`.
  *
  * Everything the scanner does below was measured by typing the construct at the
- * `]` prompt of `public/roms/apple2plus.rom` and reading the program area back
+ * `]` prompt of `public/roms/apple2plus/apple2plus.rom` and reading the program area back
  * out between TXTTAB and VARTAB; `tokenizer.test.ts` carries that corpus as its
  * expectations. Four behaviours are worth stating before the code, because
  * three of them are surprising and the fourth is what makes the third possible:

@@ -53,7 +53,7 @@ const HB10P_MODEL: MsxModel = {
   keyboardId: 'international',
   // Page 3 of slot 0 answers with the main RAM on this machine; see MsxModel.
   slot0Page3: 'ram-mirror',
-  romPath: 'public/roms/msx/hb10p.rom',
+  romPath: 'public/roms/hb10p/hb10p.rom',
 };
 
 export const hb10p: Dialect = {
@@ -81,7 +81,7 @@ export const hb10p: Dialect = {
   // carries two triggers rather than one.
   joystickModes: ['native'],
   joystickFireButtons: 2,
-  romUrl: `${import.meta.env.BASE_URL}roms/msx/hb10p.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/hb10p/hb10p.rom`,
   romBytes: 32 * 1024,
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
   fileExtensions: ['.txt', '.bas'],

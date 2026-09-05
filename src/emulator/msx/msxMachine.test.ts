@@ -11,7 +11,7 @@ import type { MsxModel } from './model';
 
 /**
  * Acceptance tests for the real Sony HB-10P system ROM. The 32K image ships at
- * public/roms/msx/hb10p.rom under the terms in public/roms/ATTRIBUTION.md; the
+ * public/roms/hb10p/hb10p.rom under the terms in public/roms/ATTRIBUTION.md; the
  * suite skips if it is absent, so a checkout with the ROM removed stays green.
  *
  * This machine costs more per boot than any other here, and not because of the
@@ -21,7 +21,7 @@ import type { MsxModel } from './model';
  * that machine in order. Everything that does not need the ROM - the VDP, the
  * bus, the PPI, the PSG and the key matrix - is tested next door for nothing.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/msx/hb10p.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/hb10p/hb10p.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 const suite = hasRom ? describe : describe.skip;

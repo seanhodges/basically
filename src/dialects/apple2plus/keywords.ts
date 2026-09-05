@@ -6,7 +6,7 @@ import type { KeywordInfo } from '../types';
 /**
  * Applesoft's tokens, walked out of the interpreter image itself.
  *
- * The table sits at `$D0D0` in `public/roms/apple2plus.rom` and is the ordinary
+ * The table sits at `$D0D0` in `public/roms/apple2plus/apple2plus.rom` and is the ordinary
  * Microsoft one: the keywords' characters in ASCII with bit 7 set on the last
  * of each, run together and closed by a `$00`. Token `$80` is the first entry
  * and each one after it is the next, which makes the order below the ROM's own

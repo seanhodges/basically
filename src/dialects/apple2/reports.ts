@@ -16,7 +16,7 @@ import { BASIC_PROMPT } from './addresses';
  * found belongs to the run just made.
  *
  * The names below are the interpreter's own, read out of the message table at
- * `$EB00` in `public/roms/apple2.rom` rather than transcribed from a manual,
+ * `$EB00` in `public/roms/apple2/apple2.rom` rather than transcribed from a manual,
  * and each was then provoked at the machine. They are *not* the Apple I's list
  * despite the same interpreter: this ROM has sixteen deep FOR and GOSUB stacks
  * where that one has eight, and spells the two reports `16 FORS` and

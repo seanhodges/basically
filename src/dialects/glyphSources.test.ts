@@ -601,7 +601,7 @@ describe('glyph sources', () => {
       // bytes that are not the glyph and the address it ends up at is RAM.
       expect(glyphLocation('samcoupe', 0x41)).toEqual({
         kind: 'packed',
-        file: 'samcoupe.rom',
+        file: 'samcoupe/samcoupe.rom',
         table: 'CHARSRC',
         index: 0x41 - 0x20,
       });
@@ -820,7 +820,7 @@ describe('glyph sources', () => {
         ],
       ];
       const rom = new Uint8Array(
-        readFileSync(join(ROM_DIR, 'c64/chargen.bin')),
+        readFileSync(join(ROM_DIR, 'commodore64/chargen.bin')),
       );
       for (const [code, name, expected] of shapes) {
         const screen = petsciiToScreen(code)!;

@@ -93,7 +93,7 @@ export const zx80: Dialect = {
     ];
   },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/zx80.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/zx80/zx80.rom`,
   romBytes: ROM_BYTES,
 
   debuggable: true,

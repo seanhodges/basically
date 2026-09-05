@@ -12,7 +12,9 @@ import { tokenizeProgram } from './tokenizer';
 import { SamMachine } from './emulator/samMachine';
 
 const ROM = new Uint8Array(
-  readFileSync(path.resolve(__dirname, '../../../public/roms/samcoupe.rom')),
+  readFileSync(
+    path.resolve(__dirname, '../../../public/roms/samcoupe/samcoupe.rom'),
+  ),
 );
 
 /** Frames the loaded program is given to print its line and stop. */

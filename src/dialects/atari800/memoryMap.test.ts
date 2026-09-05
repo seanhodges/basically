@@ -19,7 +19,7 @@ import { AtariMachine } from '../../emulator/atari/atariMachine';
  * says these addresses describe this machine rather than a plausible Atari.
  */
 
-const ROM = new Uint8Array(readFileSync('public/roms/atari.rom'));
+const ROM = new Uint8Array(readFileSync('public/roms/atari/atari.rom'));
 
 /** Frames the OS needs to size the RAM, open the screen and start BASIC. */
 const BOOT_FRAMES = 400;

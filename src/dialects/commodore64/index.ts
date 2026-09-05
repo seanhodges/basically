@@ -102,8 +102,8 @@ export const commodore64: Dialect = {
   },
 
   // Prefetched by the app for cache warming; the C64 adapter loads the full ROM
-  // set (BASIC + KERNAL + CHARGEN) itself from public/roms/c64/.
-  romUrl: `${import.meta.env.BASE_URL}roms/c64/kernal.bin`,
+  // set (BASIC + KERNAL + CHARGEN) itself from public/roms/commodore64/.
+  romUrl: `${import.meta.env.BASE_URL}roms/commodore64/kernal.bin`,
 
   displaySize: { width: C64_DISPLAY_WIDTH, height: C64_DISPLAY_HEIGHT },
 

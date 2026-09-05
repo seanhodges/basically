@@ -152,7 +152,7 @@ describe('pmd85 speaker', () => {
 
 describe('pmd85 BEEP', () => {
   const rom = new Uint8Array(
-    readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
+    readFileSync(join(__dirname, '../../../../public/roms/pmd85/pmd85.rom')),
   );
 
   it('sounds the 4kHz gate for the length of the Monitor’s sound table', () => {

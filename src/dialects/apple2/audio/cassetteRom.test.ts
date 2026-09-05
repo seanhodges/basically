@@ -58,7 +58,7 @@ const BUFFER = 0x0300;
  */
 const PHASE_SLOP = 8;
 
-const rom = new Uint8Array(readFileSync('public/roms/apple2.rom'));
+const rom = new Uint8Array(readFileSync('public/roms/apple2/apple2.rom'));
 
 /**
  * Run `WRITE` over `bytes` with `headerCount` in A, and return the gaps between

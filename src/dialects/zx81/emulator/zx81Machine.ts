@@ -70,7 +70,7 @@ const MAX_BOOT_FRAMES = 600;
  * that fails to load keeps the machine out of the picker with an offer to supply
  * another.
  */
-const NO_ROM_NOTICE = noRomNotice("ZX81's 8K ROM", 'public/roms/zx81.rom');
+const NO_ROM_NOTICE = noRomNotice("ZX81's 8K ROM", 'public/roms/zx81/zx81.rom');
 
 export class Zx81Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;

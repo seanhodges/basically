@@ -8,13 +8,13 @@ import { cpc664Samples } from '../../dialects/cpc664/samples';
 /**
  * Acceptance tests for the real CPC 664 firmware (OS v2 + Locomotive BASIC
  * 1.1), the 664 half of the cpcBoot suite. The combined 32K `cpc664.rom` ships
- * at public/roms/cpc/cpc664.rom under the terms in public/roms/ATTRIBUTION.md;
+ * at public/roms/cpc664/cpc664.rom under the terms in public/roms/ATTRIBUTION.md;
  * the suite skips if it is absent.
  *
  * The 664's BASIC 1.1 is an earlier revision than the 6128's and a different
  * image, so "1.1 works" is not inherited from the 6128 suite - these run it.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc664.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc664/cpc664.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 

@@ -5,7 +5,7 @@ import { CharsetError, type CharsetMapping } from '../types';
 
 /**
  * The PMD 85's character set, read out of the Monitor 2 character generator
- * this project ships in `public/roms/pmd85.rom`.
+ * this project ships in `public/roms/pmd85/pmd85.rom`.
  *
  * The machine is Czechoslovak, so the obvious expectation is a set with háčeks
  * and čárkas in it. The ROM says otherwise: the character generator is **plain

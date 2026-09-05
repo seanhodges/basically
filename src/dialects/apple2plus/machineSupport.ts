@@ -39,7 +39,7 @@ import { readApple2plusVariables } from './vars';
  */
 export const applesoftSupport: Apple2BasicSupport = {
   machineName: 'Apple II Plus',
-  romPath: 'public/roms/apple2plus.rom',
+  romPath: 'public/roms/apple2plus/apple2plus.rom',
   coldEntry: BASIC_COLD_ENTRY,
   // The Autostart Monitor runs the cold start out of reset, so this machine is
   // at `]` having been asked nothing. Typing `E000G` at it would find the

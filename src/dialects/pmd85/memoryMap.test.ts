@@ -20,7 +20,7 @@ import { MONITOR_BASE, MONITOR_MIRROR_BASE } from './emulator/memory';
 import { VIDEO_RAM_BASE } from './emulator/display';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/pmd85/pmd85.rom')),
 );
 
 const regions = pmd85MemoryMap.regions;

@@ -113,7 +113,7 @@ const basicVarPointers = (v: LocoSysVars) => [
  * ROM note: the firmware + BASIC ROM image is supplied to the constructor. With
  * a genuine 32K CPC ROM the machine boots to BASIC; with an absent/blank image
  * it constructs cleanly but has no firmware to run (see the dialect's romUrl and
- * public/roms/cpc/).
+ * public/roms/cpc464/ or public/roms/cpc6128/).
  */
 /**
  * Shown when this machine is constructed without its ROM - a designed state
@@ -124,7 +124,7 @@ const basicVarPointers = (v: LocoSysVars) => [
 const noRomFor = (model: CpcModel): string[] =>
   noRomNotice(
     `CPC ${model} firmware and BASIC ROM`,
-    `public/roms/cpc/cpc${model}.rom`,
+    `public/roms/cpc${model}/cpc${model}.rom`,
   );
 
 export class CpcMachine implements MachineEmulator {

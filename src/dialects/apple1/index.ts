@@ -149,7 +149,7 @@ export const apple1: Dialect = {
   },
 
   /** The monitor and Integer BASIC as one image. */
-  romUrl: `${import.meta.env.BASE_URL}roms/apple1.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/apple1/apple1.rom`,
   romBytes: FIRMWARE_BYTES,
 
   // A 40x24 terminal at the machine's own 7x8 cell.

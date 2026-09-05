@@ -46,7 +46,7 @@ const PTR_STREND = 0x40aa;
  * Microsoft BASIC, so it very likely keeps a current-line cell like the
  * Commodore machines do - but where is a fact about an image that is not here,
  * and the pointer block above carries the same caveat for the same reason.
- * Supply `public/roms/trs80.rom`, confirm the addresses against it, and this
+ * Supply `public/roms/trs80/trs80.rom`, confirm the addresses against it, and this
  * rejoins the seam.
  */
 export class Trs80Machine {

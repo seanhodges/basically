@@ -10,7 +10,7 @@ import { DEFAULT_HIMEM, DEFAULT_LOMEM, PP } from './addresses';
 import { Apple1Machine } from '../../emulator/apple1/apple1Machine';
 
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple1.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/apple1/apple1.rom')),
 );
 
 const { validRanges, reservedRanges, programArea, defaultAddress } =

@@ -79,7 +79,7 @@ const BOOT_SETTLE_FRAMES = 30;
  * ROM note: the 32KB BIOS + BASIC image is supplied to the constructor. With a
  * genuine image the machine boots to MSX BASIC; with an absent or blank one it
  * constructs cleanly and simply has nothing to run (see the dialect's romUrl
- * and public/roms/msx/).
+ * and public/roms/hb10p/).
  */
 /**
  * Shown when this machine is constructed without its ROM - a designed state

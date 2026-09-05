@@ -24,7 +24,7 @@ import type { KeyDef } from '../../keyboard/layoutSchema';
  * `src/keyboard/layoutGeometry.test.ts` own that for every machine at once.
  */
 
-const ROM_PATH = join(__dirname, '../../../public/roms/msx/hb10p.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/hb10p/hb10p.rom');
 const hasRom = existsSync(ROM_PATH);
 const romSuite = hasRom ? describe : describe.skip;
 

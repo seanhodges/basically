@@ -100,7 +100,7 @@ export const altair8800: Dialect = {
    * the exact image every address in this dialect was read off, and is the file
    * to check against if this one is ever replaced.
    */
-  romUrl: `${import.meta.env.BASE_URL}roms/altair8800.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/altair8800/altair8800.rom`,
 
   /**
    * The machine runs whatever image it is handed, so the user may replace it.

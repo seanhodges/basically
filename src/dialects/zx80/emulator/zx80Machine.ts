@@ -67,7 +67,7 @@ const EDIT_CURSOR = 0xb0;
  * that fails to load keeps the machine out of the picker with an offer to supply
  * another.
  */
-const NO_ROM_NOTICE = noRomNotice("ZX80's 4K ROM", 'public/roms/zx80.rom');
+const NO_ROM_NOTICE = noRomNotice("ZX80's 4K ROM", 'public/roms/zx80/zx80.rom');
 
 export class Zx80Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;

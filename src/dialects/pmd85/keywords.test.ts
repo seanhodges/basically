@@ -24,7 +24,7 @@ import { MONITOR_SIZE } from './romImage';
  * ran on the real machine and did the wrong thing.
  */
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/pmd85/pmd85.rom')),
 );
 
 /** The interpreter body as it sits in RAM from 0x0000, past the load header. */

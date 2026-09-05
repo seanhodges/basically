@@ -25,7 +25,7 @@ import { GRAPHIC_UNICODE } from './charset';
  */
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/zx81.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/zx81/zx81.rom')),
 );
 
 /** Key order of the ROM's tables: the matrix rows, five keys each, SHIFT aside. */

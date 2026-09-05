@@ -31,7 +31,7 @@ import {
 import { Pmd85Machine } from './pmd85Machine';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
+  readFileSync(join(__dirname, '../../../../public/roms/pmd85/pmd85.rom')),
 );
 
 function machine(files?: MachineFileStore): Pmd85Machine {

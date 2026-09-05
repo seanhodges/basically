@@ -19,7 +19,9 @@ import { buildSamFile } from './samfile';
 import { PAGE_BYTES } from './emulator/memory';
 
 const ROM = new Uint8Array(
-  readFileSync(path.resolve(__dirname, '../../../public/roms/samcoupe.rom')),
+  readFileSync(
+    path.resolve(__dirname, '../../../public/roms/samcoupe/samcoupe.rom'),
+  ),
 );
 
 /** Frames a key is held, and the frames after it the ROM's scan needs. */

@@ -31,7 +31,7 @@ import { ROM_BASE } from './addresses';
  * walks downwards and stops on a byte >= `$C0`.
  */
 
-const ROM = join(__dirname, '../../../public/roms/apple2.rom');
+const ROM = join(__dirname, '../../../public/roms/apple2/apple2.rom');
 const image = new Uint8Array(readFileSync(ROM));
 
 const at = (address: number): number => image[address - ROM_BASE]!;

@@ -15,7 +15,7 @@
  *
  * What *is* this dialect's is the framing above that - which records `SAVE`
  * writes, how long each leader is, and what the header record holds - and every
- * figure below was read off `public/roms/apple2plus.rom` by running `SAVE` at
+ * figure below was read off `public/roms/apple2plus/apple2plus.rom` by running `SAVE` at
  * `$D8B0` on the vendored 6502 core over a program the machine had actually
  * been typed (`cassetteRom.test.ts` re-derives them on every run):
  *

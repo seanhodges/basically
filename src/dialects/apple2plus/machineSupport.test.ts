@@ -62,17 +62,21 @@ describe('the Applesoft support object', () => {
   it('declares itself autostart, and names its own machine and image', () => {
     // The Autostart Monitor runs Applesoft's cold start out of reset, so
     // nothing may be typed at this machine to start BASIC - and a missing or
-    // wrong image must name apple2plus.rom rather than the sibling's.
+    // wrong image must name apple2plus/apple2plus.rom rather than the sibling's.
     expect(applesoftSupport.autostart).toBe(true);
     expect(applesoftSupport.machineName).toBe('Apple II Plus');
-    expect(applesoftSupport.romPath).toBe('public/roms/apple2plus.rom');
+    expect(applesoftSupport.romPath).toBe(
+      'public/roms/apple2plus/apple2plus.rom',
+    );
     expect(applesoftSupport.prompt).toBe(']');
   });
 
   it('watches the address the warm start jumps to', () => {
     // $E003 is `JMP $D43C` and nothing else, which is the ROM's own statement
     // that $D43C is where the interpreter waits between programs.
-    const rom = new Uint8Array(readFileSync('public/roms/apple2plus.rom'));
+    const rom = new Uint8Array(
+      readFileSync('public/roms/apple2plus/apple2plus.rom'),
+    );
     const at = (address: number) => rom[address - 0xd000]!;
     expect(at(0xe003)).toBe(0x4c);
     expect(at(0xe004) | (at(0xe005) << 8)).toBe(BASIC_COMMAND_LOOP);
@@ -309,7 +313,9 @@ describeOnRom('the Apple II Plus on its own firmware', () => {
   it('says so with this machine’s own ROM path when the image is empty', async () => {
     const machine = await bootMachine(apple2plus, { rom: new Uint8Array(0) });
     try {
-      expect(screenText(machine)).toContain('PUBLIC/ROMS/APPLE2PLUS.ROM');
+      expect(screenText(machine)).toContain(
+        'PUBLIC/ROMS/APPLE2PLUS/APPLE2PLUS.ROM',
+      );
     } finally {
       machine.dispose();
     }

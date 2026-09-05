@@ -330,7 +330,7 @@ const commodoreFont = (
  * image, loaded whole, so there is nothing per-model to parametrise.
  *
  * `CHBASE` reads `$E0` at the READY prompt on the booted ROM (`0xE0 << 8` =
- * `$E000`), 0x0800 into `public/roms/atari.rom` once the OS's own base
+ * `$E000`), 0x0800 into `public/roms/atari/atari.rom` once the OS's own base
  * (`$D800`, `OS_ROM_BASE` in `dialects/atari800/addresses.ts`) is subtracted -
  * matching the 128-glyph, 1024-byte table `memoryMap.ts`'s
  * `CHARACTER_SET_BASE`/`_TOP` already describe. ANTIC indexes it by *screen*
@@ -344,7 +344,7 @@ const commodoreFont = (
  */
 const atariFont = (): RomGlyphSource => ({
   kind: 'rom',
-  file: 'atari.rom',
+  file: 'atari/atari.rom',
   base: 0xe000,
   baseCode: 0x00,
   baseCodeIs: 'screen code',
@@ -399,7 +399,7 @@ const apple2Font = (): ChipGlyphSource => ({
  */
 const msxFont = (): RomGlyphSource => ({
   kind: 'rom',
-  file: 'msx/hb10p.rom',
+  file: 'hb10p/hb10p.rom',
   base: 0x1bbf,
   baseCode: 0x00,
   fileOffset: 0x1bbf,
@@ -421,13 +421,13 @@ const msxFont = (): RomGlyphSource => ({
  * ROM and MODE 7 from the SAA5050.
  */
 export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
-  zx80: [sinclairFont('zx80.rom', 0x0e00)],
-  zx81: [sinclairFont('zx81.rom', 0x1e00)],
+  zx80: [sinclairFont('zx80/zx80.rom', 0x0e00)],
+  zx81: [sinclairFont('zx81/zx81.rom', 0x1e00)],
 
   zxspectrum: [
     {
       kind: 'rom',
-      file: 'zxspectrum.rom',
+      file: 'zxspectrum/zxspectrum.rom',
       // CHARS (23606) holds this: the number the machine documents, and the one
       // the ROM adds 8*code to with the code counted from 0.
       base: 0x3c00,
@@ -454,7 +454,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   zxspectrum128: [
     {
       kind: 'rom',
-      file: 'zxspectrum128.rom',
+      file: 'zxspectrum128/zxspectrum128.rom',
       // As the 48K: CHARS names 0x3C00. The file offset is a whole bank higher
       // because the 48 BASIC ROM is the second 16K of the dual-ROM image.
       base: 0x3c00,
@@ -548,7 +548,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     },
   ],
 
-  commodore64: [commodoreFont('c64/chargen.bin', 0xd000, 0xff)],
+  commodore64: [commodoreFont('commodore64/chargen.bin', 0xd000, 0xff)],
   // vic20/memoryMap.ts already declares this ROM as a region at 0x8000-0x8FFF -
   // "the 4K character generator ROM (901460-03)" - so the address was in the
   // repo all along and only had to be looked up.
@@ -557,9 +557,9 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   // no character-ROM region, and the character set is not CPU-visible there.
   pet: [commodoreFont('pet/characters-2.901447-10.bin', null, 0x7f)],
 
-  cpc464: [cpcFont('cpc/cpc464.rom')],
-  cpc664: [cpcFont('cpc/cpc664.rom')],
-  cpc6128: [cpcFont('cpc/cpc6128.rom')],
+  cpc464: [cpcFont('cpc464/cpc464.rom')],
+  cpc664: [cpcFont('cpc664/cpc664.rom')],
+  cpc6128: [cpcFont('cpc6128/cpc6128.rom')],
 
   atom: [
     {
@@ -592,7 +592,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   pmd85: [
     {
       kind: 'rom',
-      file: 'pmd85.rom',
+      file: 'pmd85/pmd85.rom',
       base: 0x8600,
       baseCode: 0x20,
       fileOffset: 0x0600,
@@ -607,7 +607,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     },
     {
       kind: 'rom',
-      file: 'pmd85.rom',
+      file: 'pmd85/pmd85.rom',
       base: 0x88c0,
       baseCode: 0x60,
       fileOffset: 0x08c0,
@@ -701,7 +701,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   samcoupe: [
     {
       kind: 'packed',
-      file: 'samcoupe.rom',
+      file: 'samcoupe/samcoupe.rom',
       table: 'CHARSRC',
       unpackedBy: 'UPACK, into the RAM that CHARS then points at',
       codes: range(0x20, 0x7f),

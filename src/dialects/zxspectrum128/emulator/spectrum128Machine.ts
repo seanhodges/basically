@@ -135,7 +135,7 @@ const MENU_ITEMS = [
  */
 const NO_ROM_NOTICE = noRomNotice(
   "Spectrum 128's 32K ROM pair",
-  'public/roms/zxspectrum128.rom',
+  'public/roms/zxspectrum128/zxspectrum128.rom',
 );
 
 export class Spectrum128Machine implements MachineEmulator {

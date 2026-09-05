@@ -27,7 +27,7 @@ import { BASIC_BASE, MONITOR_BYTES } from './addresses';
  * walks downwards and stops on a byte >= `$C0`.
  */
 
-const ROM = join(__dirname, '../../../public/roms/apple1.rom');
+const ROM = join(__dirname, '../../../public/roms/apple1/apple1.rom');
 const image = new Uint8Array(readFileSync(ROM)).subarray(MONITOR_BYTES);
 
 const at = (address: number): number => image[address - BASIC_BASE]!;

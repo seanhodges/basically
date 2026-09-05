@@ -8,13 +8,13 @@ import { cpc464Samples } from '../../dialects/cpc464/samples';
 
 /**
  * Acceptance tests for the real CPC 464 firmware. The combined 32K `cpc464.rom`
- * (OS 16K + BASIC 16K) ships at public/roms/cpc/cpc464.rom under the terms in
+ * (OS 16K + BASIC 16K) ships at public/roms/cpc464/cpc464.rom under the terms in
  * public/roms/ATTRIBUTION.md; the suite still skips if it is absent, so a
  * checkout with the ROM removed stays green. With it, these are the acceptance
  * checks: the firmware boots to its BASIC banner and a tokenized program runs
  * to output.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc464/cpc464.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 

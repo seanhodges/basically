@@ -91,7 +91,7 @@ export const zxspectrum: Dialect = {
     ];
   },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum/zxspectrum.rom`,
   romBytes: ROM_BYTES,
 
   debuggable: true,

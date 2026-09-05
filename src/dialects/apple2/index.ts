@@ -134,7 +134,7 @@ export const apple2: Dialect = {
     ];
   },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/apple2.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/apple2/apple2.rom`,
   romBytes: FIRMWARE_BYTES,
 
   // The hi-res raster; the text and lo-res pages are drawn into it.

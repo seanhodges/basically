@@ -9,7 +9,9 @@ import { SpectrumMachine } from './emulator/spectrumMachine';
 import { asmEngineFor } from '../../asm/registry';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/zxspectrum.rom')),
+  readFileSync(
+    join(__dirname, '../../../public/roms/zxspectrum/zxspectrum.rom'),
+  ),
 );
 
 describe('zxspectrum sample programs', () => {

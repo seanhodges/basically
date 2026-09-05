@@ -7,7 +7,9 @@ import { buildTap } from '../tapfile';
 import { hasFatalErrors } from '../../types';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
+  readFileSync(
+    join(__dirname, '../../../../public/roms/zxspectrum/zxspectrum.rom'),
+  ),
 );
 
 describe('DEF FN parameters run on the real ROM', () => {

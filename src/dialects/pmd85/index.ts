@@ -114,7 +114,7 @@ export const pmd85: Dialect = {
    * the two halves come from. `romBytes` is declared so a user may replace the
    * pair from Settings, the way every other bundled-ROM machine here does.
    */
-  romUrl: `${import.meta.env.BASE_URL}roms/pmd85.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/pmd85/pmd85.rom`,
   romBytes: ROM_IMAGE_SIZE,
 
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },

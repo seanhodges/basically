@@ -78,7 +78,7 @@ export const cpc664: Dialect = {
   programRamBytes: cpc464.programRamBytes,
   // The combined 32K firmware+BASIC ROM (16K OS v2 then 16K Locomotive BASIC
   // 1.1). No AMSDOS ROM: the 664 runs tape-only here.
-  romUrl: `${import.meta.env.BASE_URL}roms/cpc/cpc664.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/cpc664/cpc664.rom`,
   romBytes: CPC_ROM_SIZE,
   // All three modes render into one 640×400 canvas (see emulator/cpc/display).
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },

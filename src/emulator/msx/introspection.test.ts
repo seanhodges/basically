@@ -21,7 +21,7 @@ import type { MsxModel } from './model';
  * asking a question the others cannot. The decoders themselves are tested
  * without a ROM next door, in `src/dialects/hb10p/{vars,reports}.test.ts`.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/msx/hb10p.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/hb10p/hb10p.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 const suite = hasRom ? describe : describe.skip;

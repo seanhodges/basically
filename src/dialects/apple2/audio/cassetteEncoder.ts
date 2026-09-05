@@ -5,7 +5,7 @@
  * The Apple II's cassette output: a tokenized program -> the audio `SAVE`
  * would have recorded.
  *
- * Every number below was measured off `public/roms/apple2.rom` itself, by
+ * Every number below was measured off `public/roms/apple2/apple2.rom` itself, by
  * running the monitor's `WRITE` routine at `$FECD` on the vendored 6502 core
  * and timing the accesses it makes to the cassette-output flip-flop at `$C020`
  * (`cassetteRom.test.ts` re-derives them from the ROM on every run). They are

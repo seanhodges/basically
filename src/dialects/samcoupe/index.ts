@@ -105,7 +105,7 @@ export const samcoupe: Dialect = {
     ];
   },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/samcoupe.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/samcoupe/samcoupe.rom`,
   romBytes: ROM_BYTES,
 
   createEmulator(opts) {

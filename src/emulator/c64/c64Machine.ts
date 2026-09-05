@@ -969,11 +969,11 @@ export class C64Machine implements MachineEmulator {
   }
 }
 
-/** Fetch the three C64 ROM images from public/roms/c64/ (browser path). */
+/** Fetch the three C64 ROM images from public/roms/commodore64/ (browser path). */
 async function fetchRoms(): Promise<C64Roms> {
   const base = import.meta.env.BASE_URL;
   const get = async (name: string): Promise<Uint8Array> => {
-    const r = await fetch(`${base}roms/c64/${name}`);
+    const r = await fetch(`${base}roms/commodore64/${name}`);
     if (!r.ok) throw new Error(`Failed to fetch C64 ROM ${name} (${r.status})`);
     return new Uint8Array(await r.arrayBuffer());
   };

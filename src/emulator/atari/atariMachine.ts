@@ -175,7 +175,7 @@ export interface AtariMachineOptions {
  */
 const NO_ROM_NOTICE = noRomNotice(
   "Atari's OS and BASIC ROM image",
-  'public/roms/atari.rom',
+  'public/roms/atari/atari.rom',
 );
 
 export class AtariMachine implements MachineEmulator {
@@ -559,7 +559,7 @@ export class AtariMachine implements MachineEmulator {
       if (!this.bootToReady()) {
         throw new Error(
           'Atari: BASIC did not reach its prompt - the image at ' +
-            'public/roms/atari.rom is not the firmware this dialect expects',
+            'public/roms/atari/atari.rom is not the firmware this dialect expects',
         );
       }
       this.injectProgram(image);

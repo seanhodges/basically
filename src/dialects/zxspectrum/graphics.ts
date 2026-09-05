@@ -2,7 +2,7 @@ import type { GraphicEntry } from '../../keyboard/layoutSchema';
 
 /**
  * The ZX Spectrum's graphics-mode characters and the keys that type them,
- * decoded from `K-DECODE` in `public/roms/zxspectrum.rom` rather than read off a
+ * decoded from `K-DECODE` in `public/roms/zxspectrum/zxspectrum.rom` rather than read off a
  * picture of the keyboard.
  *
  * On entry to that routine `C` holds `MODE` (0 = K/L/C, 1 = E, 2 = G), `A`/`E`

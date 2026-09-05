@@ -18,7 +18,9 @@ import { buildTap } from '../tapfile';
 import type { Block } from '../../types';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
+  readFileSync(
+    join(__dirname, '../../../../public/roms/zxspectrum/zxspectrum.rom'),
+  ),
 );
 
 /** Where the counter lives: uncontended in both runs, so only the code moves. */

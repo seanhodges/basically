@@ -7,7 +7,7 @@ import { buildPFile } from './pfile';
 import { Zx81Machine } from './emulator/zx81Machine';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/zx81.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/zx81/zx81.rom')),
 );
 
 describe('sample programs', () => {

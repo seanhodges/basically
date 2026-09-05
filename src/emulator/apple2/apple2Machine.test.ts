@@ -35,7 +35,7 @@ import {
  * keyboard or read back out of its RAM, not an expectation about the adapter.
  */
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple2.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/apple2/apple2.rom')),
 );
 
 /** Tokens for the characters these tests type at the virtual keyboard. */

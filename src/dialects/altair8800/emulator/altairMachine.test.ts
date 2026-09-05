@@ -31,14 +31,14 @@ import type { DebugStepResult } from '../../types';
  * as the interpreter is, and that lets the bus, the 2SIO, the terminal and the
  * 8080 flag corrections be tested without a copyright image.
  *
- * The second half boots the real thing. `public/roms/altair8800.rom` ships, but
+ * The second half boots the real thing. `public/roms/altair8800/altair8800.rom` ships, but
  * like every image there it is deletable (see `public/roms/ATTRIBUTION.md`), so
  * those cases skip cleanly when it is absent rather than failing a checkout
  * that has taken it out.
  */
 const ROM_PATH = path.resolve(
   __dirname,
-  '../../../../public/roms/altair8800.rom',
+  '../../../../public/roms/altair8800/altair8800.rom',
 );
 const ROM = existsSync(ROM_PATH)
   ? new Uint8Array(readFileSync(ROM_PATH))
@@ -387,7 +387,9 @@ describe('altair8800 machine', () => {
     machine.bootToReady();
     machine.loadProgram(tokenizeProgram('10 PRINT "HI"\n').program);
     expect(machine.console.contains('NO BASIC IMAGE.')).toBe(true);
-    expect(machine.console.contains('roms/altair8800.rom')).toBe(true);
+    expect(machine.console.contains('roms/altair8800/altair8800.rom')).toBe(
+      true,
+    );
 
     machine.dispose();
   });

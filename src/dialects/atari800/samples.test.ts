@@ -14,7 +14,7 @@ import { AtariMachine } from '../../emulator/atari/atariMachine';
 import { ATARI_PALETTE } from '../../emulator/atari/palette';
 import type { SampleFile } from '../types';
 
-const ROM_PATH = join(__dirname, '../../../public/roms/atari.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/atari/atari.rom');
 const hasRom = existsSync(ROM_PATH);
 
 const sample = (name: string): SampleFile =>
