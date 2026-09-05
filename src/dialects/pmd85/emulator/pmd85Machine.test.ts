@@ -25,7 +25,7 @@ import {
 import { CPU_HZ } from './clock';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
+  readFileSync(join(__dirname, '../../../../public/roms/pmd85/pmd85.rom')),
 );
 const { monitor, romModule } = splitRomImage(rom);
 

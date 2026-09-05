@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { drawRomNotice, noRomNotice, NOTICE_LINE_CHARS } from './romNotice';
 import { HeadlessCanvas } from '../dialects/headless/headlessCanvas';
+import { dialects } from '../dialects/registry';
 
 /**
  * The shared no-firmware notice.
@@ -28,13 +29,31 @@ describe('what the notice says', () => {
     }
   });
 
+  it('fits for every registered machine, not just the sample above', () => {
+    // The claim on noRomNotice is that no caller overruns a narrow display,
+    // and the paths grew when each machine's image moved into its own folder
+    // (public/roms/zxspectrum128/zxspectrum128.rom is 43 characters before
+    // anything is said about it). So measure the real ones rather than one.
+    for (const dialect of dialects) {
+      const url = dialect.romUrl;
+      if (url === undefined) continue;
+      const romPath = `public/${url.slice(url.indexOf('roms/'))}`;
+      for (const line of noRomNotice(`${dialect.name}'s ROM`, romPath)) {
+        expect(line.length, `${dialect.id}: ${line}`).toBeLessThanOrEqual(
+          NOTICE_LINE_CHARS,
+        );
+      }
+    }
+  });
+
   it('names what is missing and where to put it', () => {
-    const lines = noRomNotice('Atari OS image', 'public/roms/atari.rom').join(
-      '\n',
-    );
+    const lines = noRomNotice(
+      'Atari OS image',
+      'public/roms/atari/atari.rom',
+    ).join('\n');
     expect(lines).toContain('NO ROM IMAGE.');
     expect(lines).toContain('Atari OS image');
-    expect(lines).toContain('public/roms/atari.rom');
+    expect(lines).toContain('public/roms/atari/atari.rom');
     // The way out, not just the diagnosis: a caller with no redistributable
     // image can supply their own.
     expect(lines).toContain('Settings');

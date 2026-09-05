@@ -11,7 +11,7 @@ import { MAX_ENTRY_BYTES, MAX_LINE } from './addresses';
  * Every construct, against the bytes the machine itself stores for it.
  *
  * The right-hand column is not authored. Each program was typed at the `]`
- * prompt of `public/roms/apple2plus.rom` booted on the vendored 6502 core, and
+ * prompt of `public/roms/apple2plus/apple2plus.rom` booted on the vendored 6502 core, and
  * the program area between TXTTAB and VARTAB was read back out - so a
  * disagreement here means the tokenizer is wrong, not that the corpus is stale.
  * (VARTAB sits one byte past the zero link on this interpreter, which is why

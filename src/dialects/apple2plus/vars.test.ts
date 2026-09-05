@@ -10,7 +10,9 @@ import { applesoftSupport } from './machineSupport';
 import { ARYTAB, VARTAB } from './addresses';
 
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple2plus.rom')),
+  readFileSync(
+    join(__dirname, '../../../public/roms/apple2plus/apple2plus.rom'),
+  ),
 );
 
 /**

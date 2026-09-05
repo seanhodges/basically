@@ -17,7 +17,7 @@ import {
 } from './addresses';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/pmd85/pmd85.rom')),
 );
 
 /** Run a program to its end (or until it plainly is not going to end). */

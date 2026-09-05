@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Build `public/roms/apple1.rom` from the two images an Apple I needs.
+ * Build `public/roms/apple1/apple1.rom` from the two images an Apple I needs.
  *
  * The seam carries one image per machine, and this machine's firmware is two
  * chips' worth: the 256-byte monitor PROM that lives at $FF00, and the 4K
@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outPath = resolve(here, '../public/roms/apple1.rom');
+const outPath = resolve(here, '../public/roms/apple1/apple1.rom');
 
 /** The monitor PROM: 256 bytes at $FF00, with the 6502 vectors in its tail. */
 const MONITOR_BYTES = 0x0100;

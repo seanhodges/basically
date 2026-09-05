@@ -330,7 +330,7 @@ const commodoreFont = (
  * image, loaded whole, so there is nothing per-model to parametrise.
  *
  * `CHBASE` reads `$E0` at the READY prompt on the booted ROM (`0xE0 << 8` =
- * `$E000`), 0x0800 into `public/roms/atari.rom` once the OS's own base
+ * `$E000`), 0x0800 into `public/roms/atari/atari.rom` once the OS's own base
  * (`$D800`, `OS_ROM_BASE` in `dialects/atari800/addresses.ts`) is subtracted -
  * matching the 128-glyph, 1024-byte table `memoryMap.ts`'s
  * `CHARACTER_SET_BASE`/`_TOP` already describe. ANTIC indexes it by *screen*
@@ -344,7 +344,7 @@ const commodoreFont = (
  */
 const atariFont = (): RomGlyphSource => ({
   kind: 'rom',
-  file: 'atari.rom',
+  file: 'atari/atari.rom',
   base: 0xe000,
   baseCode: 0x00,
   baseCodeIs: 'screen code',
@@ -399,7 +399,7 @@ const apple2Font = (): ChipGlyphSource => ({
  */
 const msxFont = (): RomGlyphSource => ({
   kind: 'rom',
-  file: 'msx/hb10p.rom',
+  file: 'hb10p/hb10p.rom',
   base: 0x1bbf,
   baseCode: 0x00,
   fileOffset: 0x1bbf,
@@ -592,7 +592,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   pmd85: [
     {
       kind: 'rom',
-      file: 'pmd85.rom',
+      file: 'pmd85/pmd85.rom',
       base: 0x8600,
       baseCode: 0x20,
       fileOffset: 0x0600,
@@ -607,7 +607,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     },
     {
       kind: 'rom',
-      file: 'pmd85.rom',
+      file: 'pmd85/pmd85.rom',
       base: 0x88c0,
       baseCode: 0x60,
       fileOffset: 0x08c0,
@@ -701,7 +701,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   samcoupe: [
     {
       kind: 'packed',
-      file: 'samcoupe.rom',
+      file: 'samcoupe/samcoupe.rom',
       table: 'CHARSRC',
       unpackedBy: 'UPACK, into the RAM that CHARS then points at',
       codes: range(0x20, 0x7f),

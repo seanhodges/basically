@@ -15,7 +15,7 @@ import {
 } from './romModule';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
+  readFileSync(join(__dirname, '../../../../public/roms/pmd85/pmd85.rom')),
 );
 
 /** Point the module's address ports at `address`, as the Monitor would. */

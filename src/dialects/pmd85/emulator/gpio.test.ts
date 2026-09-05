@@ -107,7 +107,7 @@ describe('pmd85 GPIO 8255', () => {
 
 describe('pmd85 joystick from BASIC-G', () => {
   const rom = new Uint8Array(
-    readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
+    readFileSync(join(__dirname, '../../../../public/roms/pmd85/pmd85.rom')),
   );
 
   it('reads the stick through INP after the documented setup', () => {

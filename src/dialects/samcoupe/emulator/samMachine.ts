@@ -131,7 +131,7 @@ for (let d = 0; d <= 9; d++) TYPING_KEYS[String(d)] = [`Digit${d}`];
  */
 const NO_ROM_NOTICE = noRomNotice(
   "SAM Coupe's 32K ROM",
-  'public/roms/samcoupe.rom',
+  'public/roms/samcoupe/samcoupe.rom',
 );
 
 export class SamMachine implements MachineEmulator {

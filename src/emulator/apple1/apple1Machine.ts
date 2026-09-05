@@ -89,7 +89,8 @@ const NO_INTERPRETER_NOTICE = [
   'NO BASIC FITTED.',
   'THE SUPPLIED IMAGE CARRIES THE MONITOR',
   'PROM ALONE. REPLACE IT AT',
-  'PUBLIC/ROMS/APPLE1.ROM TO RUN BASIC.',
+  'PUBLIC/ROMS/APPLE1/APPLE1.ROM',
+  'TO RUN BASIC.',
 ];
 
 /** Shown when there is no monitor either, so the machine cannot even reset. */
@@ -337,7 +338,7 @@ export class Apple1Machine implements MachineEmulator {
     }
     throw new Error(
       'Apple I: Integer BASIC did not reach its prompt - the image at ' +
-        'public/roms/apple1.rom is not the firmware this dialect expects',
+        'public/roms/apple1/apple1.rom is not the firmware this dialect expects',
     );
   }
 

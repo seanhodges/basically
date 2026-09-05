@@ -13,7 +13,7 @@ import { SamMachine } from './emulator/samMachine';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/samcoupe.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/samcoupe/samcoupe.rom')),
 );
 
 const sample = (name: string) => samcoupeSamples.find((s) => s.name === name)!;

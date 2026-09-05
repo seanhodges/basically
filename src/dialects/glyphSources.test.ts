@@ -601,7 +601,7 @@ describe('glyph sources', () => {
       // bytes that are not the glyph and the address it ends up at is RAM.
       expect(glyphLocation('samcoupe', 0x41)).toEqual({
         kind: 'packed',
-        file: 'samcoupe.rom',
+        file: 'samcoupe/samcoupe.rom',
         table: 'CHARSRC',
         index: 0x41 - 0x20,
       });

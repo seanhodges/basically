@@ -18,7 +18,7 @@ import { atari800 } from '../../dialects/atari800/index';
  * grouped into as few programs as they can be.
  */
 
-const ROM = new Uint8Array(readFileSync('public/roms/atari.rom'));
+const ROM = new Uint8Array(readFileSync('public/roms/atari/atari.rom'));
 
 /** Frames a program is given to start, run and finish. */
 const RUN_FRAMES = 400;

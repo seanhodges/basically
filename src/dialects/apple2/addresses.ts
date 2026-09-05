@@ -4,7 +4,7 @@
 /**
  * Where everything lives on an Apple II, and what each number was read from.
  *
- * Every value below was read back off the running machine: `public/roms/apple2.rom`
+ * Every value below was read back off the running machine: `public/roms/apple2/apple2.rom`
  * was booted on the vendored 6502 core, driven through the monitor into Integer
  * BASIC with `E000G`, fed program lines through the keyboard latch and then
  * dumped - so the pointers, the bounds and the line format are what the

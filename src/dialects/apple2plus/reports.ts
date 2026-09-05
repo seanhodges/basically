@@ -20,7 +20,7 @@ import { BASIC_PROMPT } from './addresses';
  * found belongs to the run just made.
  *
  * The names below are the interpreter's own, read out of the message table at
- * `$D260` in `public/roms/apple2plus.rom` rather than transcribed from a
+ * `$D260` in `public/roms/apple2plus/apple2plus.rom` rather than transcribed from a
  * manual, and each was then provoked at the machine. The **printed shape is not
  * the sibling's** and the reader is not ported across: this one prints a `?`, a
  * name, ` ERROR`, and then ` IN <line>` on the same line, where Integer BASIC

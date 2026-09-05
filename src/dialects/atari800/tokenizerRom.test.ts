@@ -22,7 +22,7 @@ import { BASIC_POINTERS } from './addresses';
  * writes; where they differ, the ROM is right.
  */
 
-const ROM = new Uint8Array(readFileSync('public/roms/atari.rom'));
+const ROM = new Uint8Array(readFileSync('public/roms/atari/atari.rom'));
 
 const { LOMEM, VNTP } = BASIC_POINTERS;
 

@@ -108,7 +108,7 @@ export const apple2plus: Dialect = {
     return this.tokenize(source).errors;
   },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/apple2plus.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/apple2plus/apple2plus.rom`,
   romBytes: FIRMWARE_BYTES,
 
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },

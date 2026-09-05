@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Applesoft's addresses and figures, read off `public/roms/apple2plus.rom`
+ * Applesoft's addresses and figures, read off `public/roms/apple2plus/apple2plus.rom`
  * booted on the shared Apple II emulator rather than taken from a manual.
  *
  * Only what the interpreter decides lives here. The board is the sibling's -

@@ -124,7 +124,7 @@ const NO_FIRMWARE_NOTICE = [
   'NO ROM IMAGE.',
   '',
   'The PMD 85 needs two: Monitor 2 and the BASIC-G ROM module,',
-  'concatenated. Supply them at public/roms/pmd85.rom, or install',
+  'concatenated. Supply them at public/roms/pmd85/pmd85.rom, or install',
   'your own image from Settings.',
 ];
 
@@ -823,7 +823,7 @@ export class Pmd85Machine implements MachineEmulator {
       if (done()) return;
     }
     throw new Error(
-      `PMD 85 ${failure} - the image at public/roms/pmd85.rom is not the ` +
+      `PMD 85 ${failure} - the image at public/roms/pmd85/pmd85.rom is not the ` +
         'Monitor 2 + BASIC-G V2.0 pair this dialect expects',
     );
   }

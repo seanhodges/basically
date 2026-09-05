@@ -15,7 +15,7 @@ import type { MachineReport } from '../types';
  * to the run just made.
  *
  * The names below are the interpreter's own, read out of the message table at
- * `$EB00` in `public/roms/apple1.rom` rather than transcribed from a manual -
+ * `$EB00` in `public/roms/apple1/apple1.rom` rather than transcribed from a manual -
  * which is also why there are exactly sixteen of them. A name missing from the
  * table (a different build of the interpreter) still reports, carrying the
  * printed line as its message.

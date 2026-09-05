@@ -115,7 +115,8 @@ function noFirmwareNotice(romPath: string): string[] {
   return [
     'NO FIRMWARE.',
     'THE SUPPLIED IMAGE CARRIES NO MONITOR.',
-    `REPLACE IT AT ${romPath.toUpperCase()}.`,
+    'REPLACE IT AT',
+    `${romPath.toUpperCase()}.`,
   ];
 }
 

@@ -6,7 +6,7 @@
  * fact has exactly one definition to change.
  *
  * Every value here was read out of the interpreter image this project ships -
- * the second half of `public/roms/pmd85.rom`, BASIC-G V2.0 - rather than
+ * the second half of `public/roms/pmd85/pmd85.rom`, BASIC-G V2.0 - rather than
  * assumed from the family resemblance. The image is not addressable memory: a
  * 12-byte header (`CALL 8C00h` plus the Monitor TRANSFER routine's source
  * offset, length and destination) is followed by the interpreter body, which

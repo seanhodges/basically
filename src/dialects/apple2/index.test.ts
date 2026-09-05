@@ -8,7 +8,7 @@ import { apple2 } from './index';
 import { FIRMWARE_BYTES } from './addresses';
 
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple2.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/apple2/apple2.rom')),
 );
 
 describe('apple2 dialect', () => {

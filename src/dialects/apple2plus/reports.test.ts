@@ -11,7 +11,9 @@ import { applesoftSupport } from './machineSupport';
 import { ERROR_TABLE } from './addresses';
 
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple2plus.rom')),
+  readFileSync(
+    join(__dirname, '../../../public/roms/apple2plus/apple2plus.rom'),
+  ),
 );
 
 /** Fields a program is given to fail in; each of these fails in the first few. */

@@ -82,7 +82,7 @@ describe('pmd85 BASIC-G image', () => {
     // TXTTAB is a word inside the interpreter image itself, because the
     // interpreter is copied into RAM. Read it back out of the shipped ROM.
     const rom = new Uint8Array(
-      readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
+      readFileSync(join(__dirname, '../../../public/roms/pmd85/pmd85.rom')),
     );
     const body = rom.subarray(MONITOR_SIZE + IMAGE_BODY_OFFSET);
     expect(body[TXTTAB]! | (body[TXTTAB + 1]! << 8)).toBe(PROGRAM_BASE);

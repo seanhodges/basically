@@ -57,7 +57,9 @@ const SENTINEL = 0x2000;
 
 const SOURCE = '10 PRINT 1\n20 END\n';
 
-const rom = new Uint8Array(readFileSync('public/roms/apple2plus.rom'));
+const rom = new Uint8Array(
+  readFileSync('public/roms/apple2plus/apple2plus.rom'),
+);
 
 /** One call `SAVE` made to `WRITE`, as the routine was handed it. */
 interface WriteCall {

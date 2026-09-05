@@ -53,13 +53,19 @@ function fontPx(width: number): number {
  * firmware and BASIC ROM pair" - and `romPath` is where to put it. Kept to
  * {@link NOTICE_LINE_CHARS} a line so nothing is drawn off the edge of the
  * narrowest display here; `romNotice.test.ts` holds every caller to that.
+ *
+ * The path carries its own folder now that every machine's image sits in one
+ * (`public/roms/zxspectrum128/zxspectrum128.rom`), which is long enough that
+ * "<path> is missing." no longer fits a 256-pixel display on one line - so it
+ * takes a second line when it has to, rather than being drawn off the edge.
  */
 export function noRomNotice(what: string, romPath: string): string[] {
+  const missing = `${romPath} is missing.`;
   return [
     'NO ROM IMAGE.',
     '',
     `This build has no ${what} to run:`,
-    `${romPath} is missing.`,
+    ...(missing.length <= LINE_CHARS ? [missing] : [romPath, 'is missing.']),
     'Restore it, or install your own image from',
     'Settings.',
   ];

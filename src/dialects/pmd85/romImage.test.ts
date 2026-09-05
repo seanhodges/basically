@@ -58,7 +58,7 @@ describe('pmd85 ROM image', () => {
    */
   describe('the bundled image', () => {
     const rom = new Uint8Array(
-      readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
+      readFileSync(join(__dirname, '../../../public/roms/pmd85/pmd85.rom')),
     );
 
     it('is exactly the size the dialect declares', () => {

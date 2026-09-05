@@ -5,7 +5,7 @@
  * Where everything lives on an Apple I, and what each number was read from.
  *
  * Every value below was read back off the running machine: the firmware in
- * `public/roms/apple1.rom` was booted on the vendored 6502 core, driven through
+ * `public/roms/apple1/apple1.rom` was booted on the vendored 6502 core, driven through
  * the monitor into Integer BASIC, fed program lines through the keyboard PIA and
  * then dumped - so the pointers, the entry points and the line format are what
  * the interpreter itself does, not what a manual says it does.

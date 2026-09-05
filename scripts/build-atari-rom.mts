@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Build `public/roms/atari.rom` from the two images an Atari 400/800 needs.
+ * Build `public/roms/atari/atari.rom` from the two images an Atari 400/800 needs.
  *
  * The seam carries one image per machine, and this machine's firmware is two
  * chips' worth: the 10K operating system that lives at $D800, and the 8K Atari
@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outPath = resolve(here, '../public/roms/atari.rom');
+const outPath = resolve(here, '../public/roms/atari/atari.rom');
 
 /** The operating system: 10240 bytes at $D800, with the 6502 vectors in its tail. */
 const OS_BYTES = 0x2800;

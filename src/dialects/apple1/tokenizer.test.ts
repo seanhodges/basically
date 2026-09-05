@@ -7,7 +7,7 @@ import { tokenizeProgram } from './tokenizer';
  * Pin the tokenizer against what the interpreter itself stores.
  *
  * Every byte string in {@link STORED} was captured from the shipped firmware:
- * `public/roms/apple1.rom` was booted on the vendored 6502 core, driven through
+ * `public/roms/apple1/apple1.rom` was booted on the vendored 6502 core, driven through
  * WozMon into Integer BASIC with `E000R`, fed the line on the left through the
  * keyboard PIA and then dumped between the zero-page pointers PP and HIMEM. So
  * these are not expectations about how the tokenizer ought to behave - they are

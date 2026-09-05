@@ -26,7 +26,7 @@ import {
  * to a question asked at its keyboard, not an expectation about the adapter.
  */
 const ROM = new Uint8Array(
-  readFileSync(join(__dirname, '../../../public/roms/apple1.rom')),
+  readFileSync(join(__dirname, '../../../public/roms/apple1/apple1.rom')),
 );
 
 /** WozMon's prompt; Integer BASIC's is `>`. */

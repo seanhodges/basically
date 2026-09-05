@@ -96,7 +96,7 @@ export const atari400: Dialect = {
   memoryWrites: { forms: ['poke'] },
   memoryReads: { forms: ['peek'], calls: ['USR'] },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/atari.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/atari/atari.rom`,
   romBytes: ATARI_ROM_BYTES,
 
   // The widest playfield ANTIC can show, at two pixels a colour clock, and the
