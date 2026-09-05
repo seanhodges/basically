@@ -1,19 +1,19 @@
 ## 1. The one expectation vocabulary
 
-- [ ] 1.1 Extend the shared schedule parser with the expectation forms: text on
+- [x] 1.1 Extend the shared schedule parser with the expectation forms: text on
       screen, text not on screen, the program stopped, the program running, a
       variable holding a value, and the form only the assistant can settle. Give
       the action union an expectation variant carrying which form and what it
       names.
-- [ ] 1.2 Make an expectation a step that costs no frames: text is matched a row
+- [x] 1.2 Make an expectation a step that costs no frames: text is matched a row
       at a time with spaces collapsed exactly as waiting for text does, the
       program state is read through the machine session, and a variable is read
       the same way. A failed expectation stops the script and is reported as a
       failed action already is.
-- [ ] 1.3 Report an expectation nobody present can settle as unevaluated rather
+- [x] 1.3 Report an expectation nobody present can settle as unevaluated rather
       than as passed, failed, or unreadable, and carry that third outcome through
       the report shape.
-- [ ] 1.4 Colocated parser and runner tests: each form parses; a passing
+- [x] 1.4 Colocated parser and runner tests: each form parses; a passing
       expectation costs no frames and the script continues; a failing one stops
       the script and names itself; an unevaluable one is neither pass nor fail.
 

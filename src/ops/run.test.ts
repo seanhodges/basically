@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { stepLines } from '../app/driveScript';
 import { cliContext } from '../cli/roms';
 import { RunError } from '../dialects/headless/runError';
 import { decodeBytes } from './bytes';
@@ -75,10 +76,12 @@ describe('running a program', () => {
       }),
       cliContext(),
     );
-    expect(outcome.keys).toEqual({
-      ok: true,
-      steps: ['"PRESS A KEY" appeared', 'pressed A', '"IT WENT ON" appeared'],
-    });
+    expect(outcome.keys?.ok).toBe(true);
+    expect(stepLines(outcome.keys!.steps)).toEqual([
+      '"PRESS A KEY" appeared',
+      'pressed A',
+      '"IT WENT ON" appeared',
+    ]);
     expect(outcome.driveFrames).toBeGreaterThan(0);
     // A PNG, encoded so it travels as JSON.
     const png = decodeBytes(outcome.picture!.png);

@@ -6,7 +6,11 @@ import { runListing, screenLines } from './runListing';
 import { getDialect } from '../registry';
 import { hasRom } from '../bootHarness';
 import { createMachineControl } from '../../app/machineControl';
-import { parseDriveScript, runDriveScript } from '../../app/driveScript';
+import {
+  parseDriveScript,
+  runDriveScript,
+  stepLines,
+} from '../../app/driveScript';
 import type { DriveReport } from '../../app/driveScript';
 
 /**
@@ -84,7 +88,7 @@ describe('acting on the machine between frames', () => {
       settleFrames: 0,
     });
 
-    expect(hook.captured.report?.lines.join(' | ')).toBe(
+    expect(stepLines(hook.captured.report?.steps ?? []).join(' | ')).toBe(
       '"PRESS" appeared | pressed A | "WENT ON" appeared | the program stopped',
     );
     expect(hook.captured.report?.ok).toBe(true);

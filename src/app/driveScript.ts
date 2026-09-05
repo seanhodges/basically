@@ -1,16 +1,24 @@
 import type { ControllerRole } from '../keyboard/layoutSchema';
+import type { MachineScreenText, MachineVariable } from '../dialects/types';
 import type { MachineControl } from './machineControl';
 
 /**
- * The vocabulary a caller drives a running machine in: one action per line,
- * read into {@link DriveAction}s and run against a {@link MachineControl}.
+ * The vocabulary a caller drives a running machine in and says what it should
+ * find there: one action per line, read into {@link DriveAction}s and run
+ * against a {@link MachineControl}.
  *
  * Beside the driver rather than in the assistant's module, because the
- * assistant is not the only caller: the command line's `run --keys` reads the
- * same script, and one grammar with one parser is what makes a schedule written
- * for one caller mean the same thing to the other. Nothing here is about the
- * assistant, and nothing here touches a machine directly - the control it is
- * handed owns the machine and the clock.
+ * assistant is not the only caller: the command line's `run --keys` and
+ * `check` read the same script, and one grammar with one parser is what makes
+ * a schedule written for one caller mean the same thing to the other. Nothing
+ * here is about the assistant, and nothing here touches a machine directly -
+ * the control it is handed owns the machine and the clock.
+ *
+ * Acting and expecting are one vocabulary rather than two because the moment
+ * an expectation is judged is a thing the caller says: `WAIT FOR` already
+ * means "run until this appears, and fail if it never does", so "it printed
+ * this at some point" is a wait and "this is on screen now" is an expectation,
+ * written in the order they are meant.
  */
 
 /**
@@ -63,6 +71,44 @@ export const DRIVE_ACTIONS: readonly DriveActionDescription[] = [
     meaning: 'run until the program stops, giving up after n frames',
     example: 'WAIT END 100',
   },
+  {
+    kind: 'expect',
+    syntax: 'EXPECT "<text>"',
+    meaning: 'fail unless that text is on screen now',
+    example: 'EXPECT "GAME OVER"',
+  },
+  {
+    kind: 'expect',
+    syntax: 'EXPECT NOT "<text>"',
+    meaning: 'fail if that text is on screen now',
+    example: 'EXPECT NOT "ERROR"',
+  },
+  {
+    kind: 'expect',
+    syntax: 'EXPECT STOPPED',
+    meaning: 'fail unless the program has stopped',
+    example: 'EXPECT STOPPED',
+  },
+  {
+    kind: 'expect',
+    syntax: 'EXPECT RUNNING',
+    meaning: 'fail unless the program is still running',
+    example: 'EXPECT RUNNING',
+  },
+  {
+    kind: 'expect',
+    syntax: 'EXPECT VAR <name> = <value>',
+    meaning: 'fail unless that variable holds that value',
+    example: 'EXPECT VAR TOTAL = 42',
+  },
+  {
+    kind: 'expect',
+    syntax: 'EXPECT SHOWS <description>',
+    meaning:
+      'fail unless the screen looks like that; only the assistant, shown the ' +
+      'display, can settle one, so anyone else reports it unevaluated',
+    example: 'EXPECT SHOWS a circle in the middle of the screen',
+  },
 ];
 
 /**
@@ -76,13 +122,38 @@ export const DRIVE_ACTIONS: readonly DriveActionDescription[] = [
 export const DRIVE_SEPARATOR_RULE =
   'one action per line, or several on one line separated by ";"';
 
-/** One line of a drive script, already understood. */
-export type DriveAction =
+/** What an expectation says should be true of the machine at that moment. */
+export type ScheduleExpectation =
+  /** `needle` should be on the screen - or, negated, should not be. */
+  | { kind: 'text'; needle: string; negated: boolean }
+  /** The program should be running, or should have stopped. */
+  | { kind: 'state'; running: boolean }
+  /** A named variable should hold `value`. */
+  | { kind: 'variable'; name: string; value: string }
+  /**
+   * The screen should look like `description` - the one form no machine can
+   * evaluate, settled instead by showing the assistant the display and asking
+   * it to judge its own program.
+   */
+  | { kind: 'shows'; description: string };
+
+/**
+ * One line of a schedule, already understood.
+ *
+ * `line` is the 1-based line of the script it was written on, so a failure can
+ * be reported where the caller can find it. Several actions separated by
+ * semicolons share the line they were written on.
+ */
+export type DriveAction = ScheduleAction & { line: number };
+
+/** An action as the parser reads it, before it is placed in the script. */
+type ScheduleAction =
   | { kind: 'press'; names: string[]; holdFrames?: number }
   | { kind: 'joystick'; roles: ControllerRole[]; frames: number }
   | { kind: 'wait'; frames: number }
   | { kind: 'waitFor'; needle: string; maxFrames: number }
   | { kind: 'waitEnd'; maxFrames: number }
+  | { kind: 'expect'; expectation: ScheduleExpectation; source: string }
   | { kind: 'malformed'; source: string };
 
 const PRESS_RE = /^PRESS\s+(\S+)(?:\s+(\d+))?$/i;
@@ -92,6 +163,31 @@ const WAIT_FOR_RE = /^WAIT\s+FOR\s+(.*)$/i;
 const WAIT_RE = /^WAIT\s+(\d+)$/i;
 /** A quoted needle, and the optional frame cap after it. */
 const NEEDLE_RE = /^"([^"]*)"(?:\s+(\d+))?$/;
+
+// Each named form is recognised by its keyword alone, so `EXPECT SHOWS` with
+// nothing after it is a malformed `SHOWS` rather than an expectation that the
+// word "SHOWS" is on the screen.
+const EXPECT_NOT_RE = /^EXPECT\s+NOT\b\s*(.*)$/i;
+const EXPECT_STOPPED_RE = /^EXPECT\s+STOPPED$/i;
+const EXPECT_RUNNING_RE = /^EXPECT\s+RUNNING$/i;
+const EXPECT_VAR_RE = /^EXPECT\s+VAR\b\s*(.*)$/i;
+const EXPECT_SHOWS_RE = /^EXPECT\s+SHOWS\b\s*(.*)$/i;
+const EXPECT_TEXT_RE = /^EXPECT\s+(.*)$/i;
+/** The name and value of a variable expectation, in either spelling. */
+const VAR_BINDING_RE = /^(\S+)\s*=\s*(.*)$/;
+
+/**
+ * The spellings the assistant wrote before the two vocabularies became one.
+ *
+ * Accepted but taught to nobody: conversations already saved contain them, and
+ * a restored thread whose expectations came back as malformed would be a
+ * record the IDE had stopped being able to read. The same courtesy the
+ * machine-independent key names were given when they replaced the per-machine
+ * ones - accept what is already written, teach only what is current.
+ */
+const LEGACY_SCREEN_RE = /^SCREEN\s+CONTAINS\s+(.*)$/i;
+const LEGACY_SHOWS_RE = /^SCREEN\s+SHOWS\s+(.*)$/i;
+const LEGACY_VAR_RE = /^VAR\b\s*(.*)$/i;
 
 /** How long a joystick direction is held when the script does not say. */
 export const DEFAULT_JOY_FRAMES = 10;
@@ -116,10 +212,10 @@ function unquote(text: string): string {
 }
 
 /** `WAIT FOR` reads a quoted needle with an optional cap, else a bare needle. */
-function waitForAction(line: string, rest: string): DriveAction {
+function waitForAction(rest: string): ScheduleAction | null {
   const quoted = NEEDLE_RE.exec(rest.trim());
   const needle = quoted ? quoted[1]! : unquote(rest);
-  if (needle.trim() === '') return { kind: 'malformed', source: line };
+  if (needle.trim() === '') return null;
   return {
     kind: 'waitFor',
     needle,
@@ -127,8 +223,53 @@ function waitForAction(line: string, rest: string): DriveAction {
   };
 }
 
+/** An expectation, or null for a line that states nothing to check. */
+function expectation(line: string): ScheduleExpectation | null {
+  const not = EXPECT_NOT_RE.exec(line);
+  if (not) {
+    const needle = unquote(not[1]!);
+    return needle.trim() === ''
+      ? null
+      : { kind: 'text', needle, negated: true };
+  }
+  if (EXPECT_STOPPED_RE.test(line)) return { kind: 'state', running: false };
+  if (EXPECT_RUNNING_RE.test(line)) return { kind: 'state', running: true };
+
+  const variable = EXPECT_VAR_RE.exec(line) ?? LEGACY_VAR_RE.exec(line);
+  if (variable) {
+    const binding = VAR_BINDING_RE.exec(variable[1]!.trim());
+    // `EXPECT VAR X =` states nothing to compare against.
+    const value = binding?.[2]?.trim() ?? '';
+    return value === ''
+      ? null
+      : { kind: 'variable', name: binding![1]!.trim(), value };
+  }
+
+  const shows = EXPECT_SHOWS_RE.exec(line) ?? LEGACY_SHOWS_RE.exec(line);
+  if (shows) {
+    // Nothing described is nothing to judge.
+    const description = unquote(shows[1]!).trim();
+    return description === '' ? null : { kind: 'shows', description };
+  }
+
+  const text = LEGACY_SCREEN_RE.exec(line) ?? EXPECT_TEXT_RE.exec(line);
+  if (text) {
+    // An empty needle matches every screen, so it asserts nothing.
+    const needle = unquote(text[1]!);
+    return needle.trim() === ''
+      ? null
+      : { kind: 'text', needle, negated: false };
+  }
+  return null;
+}
+
+/** True for a line that means to be an expectation, however it turns out. */
+function looksLikeExpectation(line: string): boolean {
+  return /^(EXPECT\b|SCREEN\s+CONTAINS\b|SCREEN\s+SHOWS\b|VAR\b)/i.test(line);
+}
+
 /**
- * Read a drive script, one action per line.
+ * Read a schedule, one action per line.
  *
  * Never throws and never drops a line: an action it cannot read comes back as
  * `malformed` and is reported to the caller, because a line silently ignored
@@ -141,30 +282,47 @@ function waitForAction(line: string, rest: string): DriveAction {
  */
 export function parseDriveScript(script: string): DriveAction[] {
   const out: DriveAction[] = [];
-  for (const raw of splitActions(script)) {
+  for (const { text: raw, line: at } of splitActions(script)) {
     const trimmed = raw.trim();
     if (trimmed.startsWith('#')) continue;
     const line = trimmed.replace(/[.;,]$/, '');
     if (line === '') continue;
+    const malformed: DriveAction = {
+      kind: 'malformed',
+      source: line,
+      line: at,
+    };
 
     const waitEnd = WAIT_END_RE.exec(line);
     if (waitEnd) {
       out.push({
         kind: 'waitEnd',
         maxFrames: waitEnd[1] ? Number(waitEnd[1]) : DEFAULT_WAIT_FOR_FRAMES,
+        line: at,
       });
       continue;
     }
 
     const waitFor = WAIT_FOR_RE.exec(line);
     if (waitFor) {
-      out.push(waitForAction(line, waitFor[1]!));
+      const action = waitForAction(waitFor[1]!);
+      out.push(action ? { ...action, line: at } : malformed);
       continue;
     }
 
     const wait = WAIT_RE.exec(line);
     if (wait) {
-      out.push({ kind: 'wait', frames: Number(wait[1]) });
+      out.push({ kind: 'wait', frames: Number(wait[1]), line: at });
+      continue;
+    }
+
+    if (looksLikeExpectation(line)) {
+      const stated = expectation(line);
+      out.push(
+        stated
+          ? { kind: 'expect', expectation: stated, source: line, line: at }
+          : malformed,
+      );
       continue;
     }
 
@@ -179,8 +337,9 @@ export function parseDriveScript(script: string): DriveAction[] {
               kind: 'press',
               names,
               ...(press[2] ? { holdFrames: Number(press[2]) } : {}),
+              line: at,
             }
-          : { kind: 'malformed', source: line },
+          : malformed,
       );
       continue;
     }
@@ -197,66 +356,243 @@ export function parseDriveScript(script: string): DriveAction[] {
               kind: 'joystick',
               roles: roles as ControllerRole[],
               frames: joy[2] ? Number(joy[2]) : DEFAULT_JOY_FRAMES,
+              line: at,
             }
-          : { kind: 'malformed', source: line },
+          : malformed,
       );
       continue;
     }
 
-    out.push({ kind: 'malformed', source: line });
+    out.push(malformed);
   }
   return out;
 }
 
-/** One action per entry, split at newlines and at semicolons outside quotes. */
-function splitActions(text: string): string[] {
-  const lines: string[] = [];
-  let line = '';
+/**
+ * One action per entry, split at newlines and at semicolons outside quotes,
+ * each carrying the 1-based line of the script it was written on.
+ */
+function splitActions(text: string): { text: string; line: number }[] {
+  const actions: { text: string; line: number }[] = [];
+  let action = '';
+  let line = 1;
   let quoted = false;
   for (const ch of text) {
     if (ch === '"') quoted = !quoted;
     if ((ch === ';' || ch === '\n') && !quoted) {
-      lines.push(line);
-      line = '';
+      actions.push({ text: action, line });
+      action = '';
+      if (ch === '\n') line++;
       continue;
     }
-    line += ch;
+    action += ch;
   }
-  lines.push(line);
-  return lines;
+  actions.push({ text: action, line });
+  return actions;
 }
 
-/** What running a script produced, as its caller is told it. */
+/** How a step of a schedule went. */
+export type StepOutcome =
+  /** Carried out, or - for an expectation - held. */
+  | 'done'
+  /** Not carried out, or did not hold. The schedule stops here. */
+  | 'failed'
+  /**
+   * Nobody present could settle it. Neither a pass nor a failure, and never
+   * folded into either: a silent pass would be a claim nobody made, and a
+   * failure would fail correct programs.
+   */
+  | 'unevaluated';
+
+/** One step of a schedule, as its caller is told it. */
+export interface ScheduleStep {
+  action: DriveAction;
+  outcome: StepOutcome;
+  /** What it did, or why it did not, as a sentence. */
+  detail: string;
+}
+
+/** What running a schedule produced, as its caller is told it. */
 export interface DriveReport {
-  /** Whether every action was carried out. */
+  /** Whether every action was carried out and every expectation held. */
   ok: boolean;
-  /** One line per action, in order, saying what happened. */
-  lines: string[];
-  /** Emulated frames the whole script cost. */
+  /** One entry per step reached, in order. */
+  steps: ScheduleStep[];
+  /** Emulated frames the whole schedule cost. */
   frames: number;
   /** True when any action actually sent input, as opposed to only waiting. */
   sentInput: boolean;
 }
 
+/** A number as BASIC would print one - no hex, no leading `+.`, no bare sign. */
+const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+
 /**
- * Run a script against the machine, stopping at the first action that fails.
+ * Compare a stated value with the machine's reported one.
  *
- * Stopping rather than pressing on: the actions of a script are a sequence, and
- * every one after a failure was written for a screen that never arrived. Doing
- * them anyway would drive the machine somewhere nobody asked for.
+ * `MachineVariable.value` is documented as already formatted for display, so a
+ * string arrives carrying its own quotes and a number arrives however that
+ * machine prints it. Rather than add a raw-value channel to the seam, the
+ * comparison meets the display convention halfway: quotes are optional on both
+ * sides, and two things that both parse as numbers are compared numerically so
+ * `42`, `42.0` and a machine that pads to ` 42` all agree.
+ *
+ * Lenient in the one direction that cannot cause a false pass: it forgives
+ * formatting, never a different value.
+ */
+export function valuesAgree(expected: string, actual: string): boolean {
+  const e = unquote(expected);
+  const a = unquote(actual);
+  if (NUMBER_RE.test(e) && NUMBER_RE.test(a)) {
+    // Exact equality after parsing - no epsilon. A tolerance that suits one
+    // machine's float format is wrong for another's, and the caller can always
+    // state the printed form instead.
+    return Number(e) === Number(a);
+  }
+  return e === a;
+}
+
+/** Collapse runs of spaces so predicted text survives a machine's padding. */
+function collapseSpaces(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/** Whether the needle is on the screen, matched the way a reader would. */
+function onScreen(screen: MachineScreenText, needle: string): boolean {
+  // Matched a row at a time, never across a row boundary: a fixed-width
+  // machine breaks a line wherever its width falls, so a match that spanned
+  // rows would be a claim about the width.
+  const wanted = collapseSpaces(needle);
+  return screen.lines.some((line) => collapseSpaces(line).includes(wanted));
+}
+
+function named(
+  variables: readonly MachineVariable[],
+  name: string,
+): MachineVariable | undefined {
+  const wanted = name.trim().toUpperCase();
+  return variables.find((v) => v.name.trim().toUpperCase() === wanted);
+}
+
+/**
+ * Judge one expectation against the machine as it stands, costing no frames.
+ *
+ * Where the reading it needs cannot be had, the answer is `unevaluated` rather
+ * than a verdict: a machine that cannot report its variables has not said the
+ * variable is wrong.
+ */
+export function judgeExpectation(
+  control: Pick<MachineControl, 'readText' | 'programState' | 'variables'>,
+  expectation: ScheduleExpectation,
+): { outcome: StepOutcome; detail: string } {
+  switch (expectation.kind) {
+    case 'text': {
+      const screen = control.readText();
+      if (!screen) {
+        return { outcome: 'unevaluated', detail: 'the screen cannot be read' };
+      }
+      const there = onScreen(screen, expectation.needle);
+      const quoted = `"${expectation.needle}"`;
+      if (there === !expectation.negated) {
+        return {
+          outcome: 'done',
+          detail: expectation.negated
+            ? `${quoted} is not on the screen`
+            : `${quoted} is on the screen`,
+        };
+      }
+      return {
+        outcome: 'failed',
+        detail: expectation.negated
+          ? `${quoted} is on the screen`
+          : `${quoted} is not on the screen`,
+      };
+    }
+    case 'state': {
+      const running = control.programState();
+      if (running === null) {
+        return {
+          outcome: 'unevaluated',
+          detail: 'this machine cannot say whether the program is running',
+        };
+      }
+      const wanted = expectation.running ? 'running' : 'stopped';
+      return running === expectation.running
+        ? { outcome: 'done', detail: `the program is ${wanted}` }
+        : {
+            outcome: 'failed',
+            detail: `the program is ${running ? 'running' : 'stopped'}, not ${wanted}`,
+          };
+    }
+    case 'variable': {
+      const variables = control.variables();
+      if (variables === null) {
+        return {
+          outcome: 'unevaluated',
+          detail: 'this machine cannot report its variables',
+        };
+      }
+      const found = named(variables, expectation.name);
+      if (!found) {
+        return {
+          outcome: 'failed',
+          detail: `there is no variable called ${expectation.name}`,
+        };
+      }
+      return valuesAgree(expectation.value, found.value)
+        ? { outcome: 'done', detail: `${found.name} holds ${found.value}` }
+        : {
+            outcome: 'failed',
+            detail: `${found.name} holds ${found.value}, not ${expectation.value}`,
+          };
+    }
+    case 'shows':
+      // Never judged from the machine: no reader answers "does this look
+      // right". Settled only by showing the assistant the display, so every
+      // other caller reports it as unevaluated rather than refusing the
+      // schedule it arrived in.
+      return {
+        outcome: 'unevaluated',
+        detail: 'only the assistant, shown the screen, can settle this',
+      };
+  }
+}
+
+/**
+ * Run a schedule against the machine, stopping at the first step that fails.
+ *
+ * Stopping rather than pressing on: the steps of a schedule are a sequence,
+ * and every one after a failure was written for a screen that never arrived.
+ * Doing them anyway would drive the machine somewhere nobody asked for, and
+ * would check expectations against it.
  */
 export function runDriveScript(
   control: MachineControl,
   actions: readonly DriveAction[],
 ): DriveReport {
-  const lines: string[] = [];
+  const steps: ScheduleStep[] = [];
   let frames = 0;
   let sentInput = false;
 
   for (const action of actions) {
     if (action.kind === 'malformed') {
-      lines.push(`could not understand "${action.source}"`);
-      return { ok: false, lines, frames, sentInput };
+      steps.push({
+        action,
+        outcome: 'failed',
+        detail: `could not understand "${action.source}"`,
+      });
+      return { ok: false, steps, frames, sentInput };
+    }
+
+    // An expectation costs no frames: it asks what is true now, at the point
+    // in the schedule where it was written.
+    if (action.kind === 'expect') {
+      const judged = judgeExpectation(control, action.expectation);
+      steps.push({ action, ...judged });
+      if (judged.outcome === 'failed') {
+        return { ok: false, steps, frames, sentInput };
+      }
+      continue;
     }
 
     const step =
@@ -278,13 +614,17 @@ export function runDriveScript(
     }
 
     if (!step.ok) {
-      lines.push(step.detail ?? 'did not work');
-      return { ok: false, lines, frames, sentInput };
+      steps.push({
+        action,
+        outcome: 'failed',
+        detail: step.detail ?? 'did not work',
+      });
+      return { ok: false, steps, frames, sentInput };
     }
-    lines.push(describe(action));
+    steps.push({ action, outcome: 'done', detail: describe(action) });
   }
 
-  return { ok: true, lines, frames, sentInput };
+  return { ok: true, steps, frames, sentInput };
 }
 
 /** One carried-out action, as a sentence in the report. */
@@ -303,4 +643,13 @@ export function describe(action: DriveAction): string {
     default:
       return 'did nothing';
   }
+}
+
+/** One step per line, as a caller reading prose is shown them. */
+export function stepLines(steps: readonly ScheduleStep[]): string[] {
+  return steps.map((step) =>
+    step.outcome === 'unevaluated'
+      ? `${step.detail} (unevaluated)`
+      : step.detail,
+  );
 }

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { RunError, screenLines } from '../../src/dialects/headless/runListing';
+import { stepLines } from '../../src/app/driveScript';
 import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
 import { usage } from '../../src/cli/usage';
 import { formatMachines } from '../../src/cli/machines';
@@ -230,7 +231,7 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
     // The steps go to standard error beside the run's own figures: standard
     // output carries the screen and nothing else, so `| diff` still works on a
     // driven run.
-    for (const line of result.keys.steps) err(`  ${line}\n`);
+    for (const line of stepLines(result.keys.steps)) err(`  ${line}\n`);
     if (!result.keys.ok) {
       // The program did not reach where the schedule expected it to, which is
       // the program's fault rather than the caller's - and the screen has

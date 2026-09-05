@@ -1,28 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import { assistantTools, describeDriving } from './driveTools';
-import type { DriveReport } from '../app/driveScript';
+import type { DriveReport, ScheduleStep } from '../app/driveScript';
 import { toolOperations } from '../ops/tools';
 
 describe('what the user is told', () => {
   const report = (over: Partial<DriveReport> = {}): DriveReport => ({
     ok: true,
-    lines: [],
+    steps: [],
     frames: 0,
     sentInput: false,
     ...over,
   });
 
+  /** A step that did what it says, over an action of the given kind. */
+  const step = (kind: 'press' | 'wait', detail: string): ScheduleStep => ({
+    action:
+      kind === 'press'
+        ? { kind: 'press', names: ['KeyF'], line: 1 }
+        : { kind: 'wait', frames: 50, line: 1 },
+    outcome: 'done',
+    detail,
+  });
+
   it('says what was pressed when something was', () => {
     expect(
       describeDriving([
-        report({ sentInput: true, lines: ['pressed KeyF', 'pressed Enter'] }),
+        report({
+          sentInput: true,
+          steps: [
+            step('press', 'pressed KeyF'),
+            step('press', 'pressed Enter'),
+          ],
+        }),
       ]),
     ).toBe('Tried the program: pressed KeyF, pressed Enter.');
   });
 
   it('says nothing when the assistant only waited and looked', () => {
     // Nothing happened the user could not have seen for themselves.
-    expect(describeDriving([report({ lines: ['waited 50 frames'] })])).toBe('');
+    expect(
+      describeDriving([report({ steps: [step('wait', 'waited 50 frames')] })]),
+    ).toBe('');
   });
 
   it('says nothing at all when there was no driving', () => {

@@ -12,7 +12,7 @@
  * table says so.
  */
 
-import { parseDriveScript } from '../app/driveScript';
+import { parseDriveScript, type ScheduleStep } from '../app/driveScript';
 import { RunMeasurements } from '../app/runMeasurements';
 import type { RunObserver, RunResult } from '../dialects/headless/runListing';
 import { RunError } from '../dialects/headless/runError';
@@ -66,7 +66,7 @@ export interface RunOutcome {
   frames: number;
   driveFrames: number;
   /** What the schedule did, or null when none was given. */
-  keys: { ok: boolean; steps: string[] } | null;
+  keys: { ok: boolean; steps: ScheduleStep[] } | null;
   started: boolean;
   ended: boolean;
   screen: MachineScreenText | null;
@@ -195,7 +195,7 @@ export async function runProgram(
     programBytes: result.programBytes,
     frames: result.frames,
     driveFrames: result.driveFrames,
-    keys: drive ? { ok: drive.ok, steps: drive.lines } : null,
+    keys: drive ? { ok: drive.ok, steps: drive.steps } : null,
     started: result.started,
     ended: result.ended,
     screen: result.screen,

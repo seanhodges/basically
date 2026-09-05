@@ -112,7 +112,7 @@ describe('capability parity', () => {
 describe('the schedule vocabulary', () => {
   it('lists every action the parser accepts, and no other', () => {
     expect(new Set(DRIVE_ACTIONS.map((a) => a.kind))).toEqual(
-      new Set(['press', 'joystick', 'wait', 'waitFor', 'waitEnd']),
+      new Set(['press', 'joystick', 'wait', 'waitFor', 'waitEnd', 'expect']),
     );
     for (const action of DRIVE_ACTIONS) {
       expect(parseDriveScript(action.example).map((a) => a.kind)).toEqual([

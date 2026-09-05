@@ -33,8 +33,12 @@ import type { ToolCall, ToolDefinition, ToolResult } from './providers/types';
 export function describeDriving(reports: readonly DriveReport[]): string {
   const done = reports
     .filter((r) => r.sentInput)
-    .flatMap((r) => r.lines)
-    .filter((line) => line.startsWith('pressed') || line.startsWith('held'));
+    .flatMap((r) => r.steps)
+    .filter(
+      (step) => step.action.kind === 'press' || step.action.kind === 'joystick',
+    )
+    .filter((step) => step.outcome === 'done')
+    .map((step) => step.detail);
   return done.length ? `Tried the program: ${done.join(', ')}.` : '';
 }
 

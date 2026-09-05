@@ -1,5 +1,9 @@
 import type { ControllerRole, KeyboardLayout } from '../keyboard/layoutSchema';
-import type { MachineEmulator, MachineScreenText } from '../dialects/types';
+import type {
+  MachineEmulator,
+  MachineScreenText,
+  MachineVariable,
+} from '../dialects/types';
 import {
   resolveControllerConfig,
   resolveRoleTokens,
@@ -57,6 +61,12 @@ export interface MachineControl {
   programState(): boolean | null;
   /** The characters on screen now, or null when the machine cannot say. */
   readText(): MachineScreenText | null;
+  /**
+   * The program's variables, or null on a machine that cannot report them.
+   * Here rather than only on the session because a schedule may expect a
+   * variable to hold a value, and a schedule runs against the driver.
+   */
+  variables(): MachineVariable[] | null;
   /** Release everything this driver is holding. */
   releaseAll(): void;
 }
@@ -246,6 +256,8 @@ export function createMachineControl(deps: MachineControlDeps): MachineControl {
     programState: () => machine.isProgramRunning(),
 
     readText: () => machine.readScreenText?.() ?? null,
+
+    variables: () => machine.readVariables?.() ?? null,
 
     releaseAll() {
       for (const t of held) machine.setKey(t, false);

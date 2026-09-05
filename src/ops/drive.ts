@@ -12,6 +12,8 @@ import {
   DRIVE_SEPARATOR_RULE,
   parseDriveScript,
   runDriveScript,
+  stepLines,
+  type ScheduleStep,
 } from '../app/driveScript';
 import type { MachineScreenText } from '../dialects/types';
 import type { MachineSession } from '../app/machineSession';
@@ -23,10 +25,10 @@ export interface DriveInput {
 }
 
 export interface DriveOutcome {
-  /** Whether every action was carried out. */
+  /** Whether every action was carried out and every expectation held. */
   ok: boolean;
-  /** One line per action, in order, saying what happened. */
-  lines: string[];
+  /** One entry per step reached, in order, saying what happened. */
+  steps: ScheduleStep[];
   /** Emulated frames the whole script cost. */
   frames: number;
   /** True when any action actually sent input, as opposed to only waiting. */
@@ -86,7 +88,7 @@ export const driveOp: Operation<DriveInput, DriveOutcome> = {
   // code that may be perfectly correct.
   failed: (outcome) => !outcome.ok,
   describe: (outcome) =>
-    `${outcome.lines.join('\n')}\n\n${describeScreen(outcome.screen)}`,
+    `${stepLines(outcome.steps).join('\n')}\n\n${describeScreen(outcome.screen)}`,
 };
 
 export interface LookOutcome {
