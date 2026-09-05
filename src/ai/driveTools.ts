@@ -82,7 +82,7 @@ export const MACHINE_NOT_GIVEN =
  */
 export function browserContext(session: MachineSession | null): OpContext {
   return {
-    roms: { present: () => true },
+    roms: { canRun: () => true },
     session,
     defaultMachine: useIdeStore.getState().dialect.id,
   };

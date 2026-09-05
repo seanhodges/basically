@@ -7,7 +7,7 @@ import { CallRefused, runOperation, type CallHost } from './ops';
 
 /** A context holding nothing, as a caller with no machine up has. */
 function context(session: MachineSession | null = null): OpContext {
-  return { roms: { present: () => false }, session };
+  return { roms: { canRun: () => false }, session };
 }
 
 function host(

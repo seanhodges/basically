@@ -148,19 +148,30 @@ flowchart TB
 `getDialect(id)` throws on an unknown id; `findDialect(id)` returns
 `undefined`. Each dialect folder implements one interface:
 
-| Group, and what it is for                                                                               | Members                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Identity**<br>The machine picker, sorting and search, the docs page it shares                         | `id`, `name`, `manufacturer`, `year`, `basicDialect`, `basicFamily`, `blurb`, `docsReference`                                                                                 |
-| **Text ⇄ bytes**<br>Editor text to a loadable image and back; errors as `TokenizeError[]`, never thrown | `tokenize`, `detokenize`, `detokenizeWithReport`, `lint`, `charset`, `crunched`, `statementSeparator`                                                                         |
-| **Editor feed**<br>Highlighting, completion, line handling                                              | `keywords`, `operators`, `languageSupport()`, `completionSource`, `unnumberedLineKey`                                                                                         |
-| **Hardware I/O**<br>Native image export and import, cassette encode/decode                              | `buildTargets`, `binaryImports`, `audio`, `fileExtensions`                                                                                                                    |
-| **Memory**<br>What the memory-map viewer draws; where blocks may live; the RAM budget                   | `memoryMap`, `memoryBlocks`, `addressNotation`, `memoryWrites`, `memoryReads`, `programRamBytes`                                                                              |
-| **Machine**<br>The emulator and what the UI feature-detects on                                          | `createEmulator()`, `romUrl`, `romBytes`, `displaySize`, `displayControls`, `keyboardLayout`, `joystickModes`, `joystickFireButtons`, `capturesDataFiles`, `unwrapStoredFile` |
-| **Assistant**<br>The machine-specific prompt; bundled programs                                          | `aiProfile`, `samples`                                                                                                                                                        |
+| Group, and what it is for                                                                               | Members                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Identity**<br>The machine picker, sorting and search, the docs page it shares                         | `id`, `name`, `manufacturer`, `year`, `basicDialect`, `basicFamily`, `blurb`, `docsReference`                                                                                                        |
+| **Text ⇄ bytes**<br>Editor text to a loadable image and back; errors as `TokenizeError[]`, never thrown | `tokenize`, `detokenize`, `detokenizeWithReport`, `lint`, `charset`, `crunched`, `statementSeparator`                                                                                                |
+| **Editor feed**<br>Highlighting, completion, line handling                                              | `keywords`, `operators`, `languageSupport()`, `completionSource`, `unnumberedLineKey`                                                                                                                |
+| **Hardware I/O**<br>Native image export and import, cassette encode/decode                              | `buildTargets`, `binaryImports`, `audio`, `fileExtensions`                                                                                                                                           |
+| **Memory**<br>What the memory-map viewer draws; where blocks may live; the RAM budget                   | `memoryMap`, `memoryBlocks`, `addressNotation`, `memoryWrites`, `memoryReads`, `programRamBytes`                                                                                                     |
+| **Machine**<br>The emulator and what the UI feature-detects on                                          | `createEmulator()`, `romUrl`, `romBytes`, `emulatorSuppliesRom`, `displaySize`, `displayControls`, `keyboardLayout`, `joystickModes`, `joystickFireButtons`, `capturesDataFiles`, `unwrapStoredFile` |
+| **Assistant**<br>The machine-specific prompt; bundled programs                                          | `aiProfile`, `samples`                                                                                                                                                                               |
 
 Capability flags are optional on the type and the UI feature-detects on them:
 `romUrl` is absent for a machine that needs no ROM, `debuggable` gates the
 debugger, `supportsBinaryLines` gates `#BIN` records.
+
+Where a machine's ROM comes from is the machine's own fact, and there are three
+answers rather than two: no ROM at all (no `romUrl`), the emulator's own set
+(`emulatorSuppliesRom`), or one of the product's images under `public/roms/`.
+`canRunMachine()` in `src/dialects/bootHarness.ts` is what turns those into the
+single question every caller asks - can this installation run it? - and it is
+not the same question as `hasRom()`, whether the ROM is available. A published
+toolchain carries no images, so answering from the file alone would report
+machines that boot perfectly as unrunnable. `src/dialects/canRun.test.ts` holds
+every registered machine to the rule; `src/dialects/screenPaints.test.ts` runs
+everything that rule lets through.
 
 A listing can also declare which machine it's for, on a `#MACHINE <name>` line
 
@@ -696,6 +707,24 @@ finds no host starts one, so nobody has to know whether one is running. Both
 have a `.cmd` twin, and both are built by one `scripts/headless/build.mjs` run
 that also writes the build id keying the address they meet at - so a client
 never reaches a host built from different source.
+
+The same build emits launchers of those two names, and their `.cmd` twins,
+into the bundle directory: the `scripts/` pair without the rebuild-when-stale
+scan, which is what a checkout wants and an installation has no use for. They
+are emitted rather than left to an installer to generate because the client
+looks for its host beside itself, under exactly the name `basically-server`
+(`src/client/discover.ts`) - shims generated elsewhere would leave it finding
+none and quietly running a host as its own child, losing the machine between
+commands. `scripts/headless/package.json` publishes that directory as
+`@basically/cli` and points its entry points at those launchers;
+`src/client/packaging.test.ts` holds the names, the pinned `jsbeeb`, and what
+the tarball may carry.
+
+Where ROMs are read from can be said once for an installation, in
+`BASICALLY_ROM_ROOT`. `src/cli/romRoot.ts` resolves it in the client, against
+the directory the user typed it in, so no relative path crosses to a host
+running somewhere else; `--rom-root` on a single run wins over it, and both win
+over the upward walk `findRomRoot()` does.
 
 The client carries none of the toolchain: it reaches neither the dialect
 registry nor any emulator nor either protocol library, and `basically lsp` and

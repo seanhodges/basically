@@ -56,14 +56,29 @@ export type McpRoute = { kind: 'tool' };
  * What an operation needs in order to run.
  *
  * `nothing` is pure over the registry and the program text; `roms` asks whether
- * a ROM is present without reading it; `session` acts on a machine that is up;
+ * whether a machine can be run without reading a ROM; `session` acts on a
+ * machine that is up;
  * `runner` boots a machine and runs a program on it.
  */
 export type OpNeeds = 'nothing' | 'roms' | 'session' | 'runner';
 
-/** Whether a machine's ROM is here, answered without reading it. */
+/**
+ * Whether this installation can run a machine, answered without reading a ROM
+ * or booting anything.
+ *
+ * Not the same question as whether an image is filed here, and the difference
+ * is the point: a machine whose emulator carries its own ROM set runs on an
+ * installation with no images at all, and one that needs no ROM runs anywhere.
+ * A caller reads this to know what it can attempt before attempting it.
+ */
 export interface RomProbe {
-  present(dialect: Dialect): boolean;
+  /**
+   * `romRoot` is where the caller keeps its own images, when it named one;
+   * without it the probe looks where the toolchain was installed. Asked here
+   * as well as on the run so that what a caller is told it can run is decided
+   * against the same directory the run will read.
+   */
+  canRun(dialect: Dialect, romRoot?: string): boolean;
 }
 
 /** Runs a program on a booted machine; the headless runner's own shape. */

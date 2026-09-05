@@ -94,6 +94,9 @@ export const bbcmaster: Dialect = {
   // Prefetched for cache warming; the jsbeeb adapter loads the full Master ROM
   // set itself through the same base URL.
   romUrl: `${import.meta.env.BASE_URL}roms/master/mos3.20`,
+  // ...and out of the emulator package when there is no base URL to fetch
+  // from, so this machine runs on an installation carrying no images.
+  emulatorSuppliesRom: true,
 
   displaySize: { width: BBC_DISPLAY_WIDTH, height: BBC_DISPLAY_HEIGHT },
 

@@ -72,6 +72,9 @@ export const atom: Dialect = {
   // The jsbeeb adapter loads the full Atom ROM set (Kernel + FloatingPoint +
   // Basic) itself; this URL is only the app's cache-warming prefetch.
   romUrl: `${import.meta.env.BASE_URL}roms/atom/Atom_Basic.rom`,
+  // It loads that set out of the emulator package when there is no base URL to
+  // fetch from, so this machine runs on an installation carrying no images.
+  emulatorSuppliesRom: true,
 
   // displaySize omitted: the Atom's 256x192 (CLEAR 4) matches the app default.
 

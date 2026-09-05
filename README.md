@@ -48,6 +48,27 @@ Micro**, and many more.
   standalone. On phone-sized screens the UI is locked to portrait due to vertical screen size constraints; tablets and
   larger screens support both portrait and landscape.
 
+## Installing the toolchain
+
+Everything the IDE does outside the browser — describe a machine, check a
+listing, build one into a file the machine loads, run one and report its
+screen, serve an editor over LSP or an agent over MCP — installs as a
+command-line tool. Node 22 or newer, and nothing else:
+
+```bash
+npm install -g @basically/cli
+
+basically machines                # every machine, and whether it runs here
+printf '10 PRINT "HI"
+' | basically run -m bbcmicro --screen-text
+```
+
+No ROM images ship with it. Describing, checking and building work for every
+machine without one; running works out of the box for the machines whose
+emulator carries its own ROM set and for those whose BASIC needs no ROM at
+all. Point `BASICALLY_ROM_ROOT` at a directory of your own images to run the
+rest. See [docs/guide/installing.md](docs/guide/installing.md).
+
 ## Writing BASIC (ZX81 example)
 
 One numbered line per statement, keywords as words. Specials: block graphics

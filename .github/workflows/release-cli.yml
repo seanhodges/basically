@@ -1,0 +1,144 @@
+# Publishing @basically/cli.
+#
+# THE NAME OF THIS FILE IS PART OF THE TRUST CONFIGURATION. The registry is
+# configured to trust `release-cli.yml` in this repository, and matches it
+# exactly - case included - when this job asks to publish. Renaming or moving
+# the file produces a job that runs, builds, and is refused at the last step, so
+# if it has to move, the trusted publisher on the registry has to move with it.
+#
+# What decides whether there is anything to publish is the build id: the hash
+# `scripts/headless/build.mjs` writes over every file it emits. It exists to key
+# the address a host listens on, and that is the question a release gate asks -
+# are these the same bytes? A push that does not reach the bundles (the website,
+# the documentation, a test) leaves it alone and publishes nothing; one that
+# does, even a change no path filter could see, moves it and is a version of its
+# own. The release boundary and the compatibility boundary are the same fact,
+# which is why one number serves both.
+#
+# The build in hand is compared against the build the published version records,
+# rather than against anything remembered here, so a deleted tag or a rewritten
+# history cannot make this publish twice.
+
+name: Release @basically/cli
+
+on:
+  push:
+    branches: [main]
+  # By hand, for the first release and for a release whose tag did not land.
+  workflow_dispatch:
+
+# One release at a time. Two pushes landing together would otherwise read the
+# same published version and both claim the next number; the second publish is
+# refused, and the change it carried would wait for another push rather than
+# for the run after this one.
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish when the toolchain has changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Trusted publishing: the registry authenticates this job by OIDC, so
+      # there is no token to hold, rotate or leak, and provenance is attached
+      # without being asked for.
+      id-token: write
+      # For the tag that records the release.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tags say whether a person has asked for a minor or a major.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Trusted publishing needs npm 11.5.1 or newer, and the Node pinned above
+      # carries an older one.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      # Built here rather than trusted to be fresh: a publish that shipped
+      # bundles from one build and a build id from another would install a
+      # client and a host that listen at different addresses and never meet.
+      - name: Build the toolchain
+        run: node scripts/headless/build.mjs
+
+      # An absent package is a difference rather than an error - there is
+      # nothing published, so what is in hand is new - which is why `npm view`
+      # is allowed to fail here.
+      - name: Ask the registry what is published
+        id: published
+        run: |
+          npm view @basically/cli --json > published.json 2>/dev/null || echo '{}' > published.json
+
+      - name: Decide whether to publish, and what version
+        id: gate
+        run: node .github/workflows/release-cli.mjs
+        env:
+          PUBLISHED: published.json
+          BUNDLE_DIR: scripts/headless/dist
+          MANIFEST: scripts/headless/package.json
+
+      # The version is set in the working tree and never committed, which keeps
+      # this workflow out of `main` entirely. Bumping and committing back would
+      # need write access to a protected branch, would have to be excused from
+      # the checks it just triggered, and would leave release commits in a
+      # history that is otherwise about the product.
+      #
+      # The build id goes in as a field of its own, so what is published records
+      # the build it came from and the gate above has something to ask for.
+      - name: Stamp the version and the build id
+        if: steps.gate.outputs.changed == 'true'
+        run: node .github/workflows/release-cli.mjs --stamp
+        env:
+          PUBLISHED: published.json
+          BUNDLE_DIR: scripts/headless/dist
+          MANIFEST: scripts/headless/package.json
+
+      # A scoped package is private unless the publish says otherwise, and a
+      # first release that silently went out private would look like a
+      # successful publish nobody could install.
+      #
+      # `--ignore-scripts` is deliberate: `prepack` would rebuild, and what is
+      # published has to be the bundles the build id was taken over.
+      - name: Publish
+        if: steps.gate.outputs.changed == 'true'
+        run: npm publish --access public --ignore-scripts
+        working-directory: scripts/headless
+
+      # Only once the publish has succeeded. A tag must never exist for a
+      # version that is not on the registry: the next run reads a tag ahead of
+      # the registry as a person asking for that number, so a tag for a publish
+      # that failed would spend it for good. Publishing first makes the worst
+      # case a release that happened without being tagged - a hole a person can
+      # close by hand rather than a corrupted record.
+      - name: Tag the commit this was built from
+        if: steps.gate.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.gate.outputs.version }}
+          BUILD_ID: ${{ steps.gate.outputs.built }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "cli-v$VERSION" -m "@basically/cli $VERSION (build $BUILD_ID)"
+          git push origin "cli-v$VERSION"
+
+      - name: Say what happened
+        env:
+          CHANGED: ${{ steps.gate.outputs.changed }}
+          VERSION: ${{ steps.gate.outputs.version }}
+          BUILT: ${{ steps.gate.outputs.built }}
+          LATEST: ${{ steps.gate.outputs.latest }}
+        run: |
+          if [ "$CHANGED" = 'true' ]; then
+            echo "Published @basically/cli $VERSION (build $BUILT)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nothing to publish: ${LATEST:-nothing} already carries build $BUILT." >> "$GITHUB_STEP_SUMMARY"
+          fi

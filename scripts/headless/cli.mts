@@ -5,6 +5,7 @@ import { screenLines } from '../../src/dialects/headless/screenText';
 import { stepLines } from '../../src/app/driveScript';
 import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
 import { usage } from '../../src/cli/usage';
+import { withRomRoot } from '../../src/cli/romRoot';
 import { formatMachines } from '../../src/cli/machines';
 import { formatMachineDescription } from '../../src/cli/info';
 import { formatProblems } from '../../src/cli/lint';
@@ -114,15 +115,14 @@ async function readBinary(
 }
 
 /**
- * A ROM root as the host will read it.
+ * A ROM root as the host will read it: what this run named, else what the
+ * installation was told once, resolved either way.
  *
  * Resolved here because a relative path means what it means in the directory
  * the user typed it in, and the host is somewhere else entirely.
  */
-function absoluteRomRoot<T extends { romRoot?: string }>(input: T): T {
-  return input.romRoot === undefined
-    ? input
-    : { ...input, romRoot: path.resolve(input.romRoot) };
+function romRootOf<T extends { romRoot?: string }>(input: T): T {
+  return withRomRoot(input, process.env);
 }
 
 /** The run's figures, for the reader deciding whether to trust the picture. */
@@ -143,7 +143,7 @@ function report(result: RunOutcome, wrote: string | null): void {
       `load ${ms(timings.loadMs)}  run ${ms(timings.runMs)}  ` +
       `render ${ms(timings.renderMs)}  total ${ms(timings.totalMs)}\n`,
   );
-  if (!machine.romPresent) {
+  if (!machine.canRun) {
     err(
       'this installation carries no ROM for that machine, so it drew its ' +
         'missing-image notice rather than running anything\n',
@@ -246,7 +246,7 @@ async function run(
 ) {
   const source = await readProgram(args.program);
   const { value, notes: said } = await host.call('run', {
-    ...absoluteRomRoot(args.input),
+    ...romRootOf(args.input),
     source,
   });
   const result = value as RunOutcome;
@@ -345,7 +345,7 @@ async function check(
   const expectations = await readProgram(args.expectations);
 
   const { value, notes: said } = await host.call('check', {
-    ...absoluteRomRoot(args.input),
+    ...romRootOf(args.input),
     source,
     expectations,
   });
@@ -580,14 +580,14 @@ async function main(): Promise<number> {
   try {
     switch (args.operation) {
       case 'machines': {
-        const { value } = await host.call('machines', args.input);
+        const { value } = await host.call('machines', romRootOf(args.input));
         if (args.json) json(value);
         else out(`${formatMachines(value as never)}\n`);
         return 0;
       }
 
       case 'info': {
-        const { value } = await host.call('info', args.input);
+        const { value } = await host.call('info', romRootOf(args.input));
         if (args.json) json(value);
         else out(formatMachineDescription(value as never));
         return 0;

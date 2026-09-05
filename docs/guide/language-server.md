@@ -14,6 +14,9 @@ Basically's command-line tool has an operation for this:
 basically lsp --stdio
 ```
 
+If you don't have that command yet, [installing the toolchain](./installing) is
+one line and needs no ROM — the language server never runs a program.
+
 It doesn't finish and print something back - it holds the connection open and
 answers your editor's questions until you close the file or quit the editor.
 Point your editor's language-client configuration at this command; most

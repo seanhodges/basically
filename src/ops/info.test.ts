@@ -90,8 +90,8 @@ describe('describing a machine', () => {
   });
 
   it('asks the context whether the ROM is here', () => {
-    const absent = pureContext({ roms: { present: () => false } });
-    expect(describeMachine({ machine: 'zx81' }, absent).romPresent).toBe(false);
-    expect(describeMachine({ machine: 'zx81' }, ctx).romPresent).toBe(true);
+    const absent = pureContext({ roms: { canRun: () => false } });
+    expect(describeMachine({ machine: 'zx81' }, absent).canRun).toBe(false);
+    expect(describeMachine({ machine: 'zx81' }, ctx).canRun).toBe(true);
   });
 });

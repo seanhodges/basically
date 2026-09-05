@@ -1299,6 +1299,23 @@ export interface Dialect {
    */
   romUrl?: string;
   /**
+   * Whether this machine's ROM comes from the emulator behind it rather than
+   * from the product's own images.
+   *
+   * The jsbeeb-backed machines set it: their core resolves its own ROM set out
+   * of the emulator package and ignores whatever {@link romUrl} named, so the
+   * machine runs on an installation that carries no images at all. Every other
+   * machine leaves it absent - either it needs no ROM (a pure interpreter, which
+   * declares no {@link romUrl}) or its image is one of the product's, and
+   * whether that file is there is the whole question.
+   *
+   * Read wherever "can this installation run the machine?" is asked, which is
+   * not the same question as "is there a file here for it?" - a published
+   * toolchain carries no images, and a machine reported unrunnable is one a
+   * caller will not try.
+   */
+  emulatorSuppliesRom?: boolean;
+  /**
    * Exact size, in bytes, of the ROM image this dialect's {@link createEmulator}
    * runs from `opts.rom`. Doubles as the app's test for "can the user replace
    * this machine's ROM?", so the offer and the fit cannot disagree; a supplied

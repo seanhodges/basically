@@ -47,6 +47,12 @@ export default tseslint.config(
       },
     },
   },
+  // The build and the release gate are plain node scripts, run by node rather
+  // than bundled - so `process` and `console` are theirs to use.
+  {
+    files: ['**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     plugins: {

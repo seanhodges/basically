@@ -93,9 +93,35 @@ export function romFor(romUrl: string | undefined): Uint8Array {
     : new Uint8Array(0);
 }
 
-/** Whether this dialect's bundled ROM is present in this checkout. */
+/**
+ * Whether the ROM this dialect runs on is available to this installation.
+ *
+ * Two ways for that to be true, and only one of them is a file being here: a
+ * machine whose core resolves its own ROM set out of the emulator package has
+ * its ROM wherever that package is installed, which is anywhere the toolchain
+ * is. The published toolchain carries no images at all, so answering from the
+ * file alone would report machines that boot perfectly as ROM-less - and a
+ * caller reading that answer, an agent included, would not try them.
+ *
+ * False for a machine that needs no ROM: it has none, which is a different
+ * thing from being unable to run. {@link canRunMachine} is the question a
+ * caller deciding what to attempt should ask.
+ */
 export function hasRom(dialect: Dialect): boolean {
+  if (dialect.emulatorSuppliesRom === true) return true;
   return dialect.romUrl !== undefined && existsSync(romPath(dialect.romUrl));
+}
+
+/**
+ * Whether this installation can run this machine, without booting it.
+ *
+ * A machine runs when it needs no ROM at all - the interpreter-backed dialects
+ * declare no `romUrl` - or when the ROM it does need is available. Nothing here
+ * reads an image or constructs a machine: this is what a caller asks before
+ * trying, and it has to be answerable on an installation carrying no ROMs.
+ */
+export function canRunMachine(dialect: Dialect): boolean {
+  return dialect.romUrl === undefined || hasRom(dialect);
 }
 
 /**

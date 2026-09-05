@@ -46,7 +46,7 @@ the Basically toolchain, outside the browser
 
 usage: basically <operation> [options]
 
-  machines   list every machine, and whether its ROM is here
+  machines   list every machine, and whether this installation can run it
   info       describe one machine: its memory, rules, keywords and formats
   lint       report a program's problems without running it
   build      write a program as a file the machine loads
@@ -77,16 +77,27 @@ machine it booted running, and each of them acts on it until "server stop" or a
 single "run" - --keys, --screen-text, --screenshot, --profile, --time, --variables - for a
 caller that wants an answer and no machine afterwards.
 
+Only "run" and "check" need a ROM, and only for a machine that needs one - a
+machine whose emulator carries its own ROM set runs anywhere. Set
+BASICALLY_ROM_ROOT to a directory holding a "roms/" tree to say once, for this
+installation, where images of your own are read from; "--rom-root" on a single
+run overrides it.
+
 "basically <operation> --help" says what one operation takes.
 `.trimStart();
 
 const OPERATION_USAGE: Record<Operation, string> = {
   machines: `
-list every registered machine
+list every registered machine, and whether this installation can run it
 
 usage: basically machines [--json]
 
   --json   report the machines as JSON rather than a table
+
+A machine runs here when it needs no ROM at all, when its emulator carries its
+own ROM set, or when this installation has the image it needs. Set
+BASICALLY_ROM_ROOT to a directory holding a "roms/" tree to say where images of
+your own are read from.
 `.trimStart(),
 
   info: `
@@ -160,7 +171,9 @@ usage: basically run [file] -m <machine> [options]
                     "profile" and the rest to act on; without it the machine is
                     let go when the run is reported
   --json            one JSON object on standard output instead of the text
-  --rom-root <dir>  read ROMs from this public/ rather than the checkout's
+  --rom-root <dir>  read ROMs from this directory rather than from where the
+                    toolchain was installed; overrides BASICALLY_ROM_ROOT,
+                    which says the same thing once for the installation
 
 A schedule is one action per line, or several separated by ";". A run given one
 ends where the schedule ends, so the screen reported is the one the last action
@@ -185,7 +198,9 @@ usage: basically check [file] -m <machine> -e <path> [--json]
                     from standard input; needs the machine's ROM
   --json            the verdict as JSON on standard output rather than as a
                     readable report
-  --rom-root <dir>  read ROMs from this public/ rather than the checkout's
+  --rom-root <dir>  read ROMs from this directory rather than from where the
+                    toolchain was installed; overrides BASICALLY_ROM_ROOT,
+                    which says the same thing once for the installation
 
 A file of expectations is a schedule: the same actions "run --keys" takes,
 with expectations mixed in, one per line or several separated by ";". It is
