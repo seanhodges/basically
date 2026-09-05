@@ -222,6 +222,7 @@ is a decision somebody wrote down.
 | **Per-line profile**<br>`lineProfiling.test.ts`                      | Always-on, charged in the machine's own cycles (`src/emulator/lineCostRecorder.ts`)                                                                                                            |
 | **A debug slice equals a frame**<br>`debugEquivalence.test.ts`       | See below                                                                                                                                                                                      |
 | **Come up without its ROM**<br>`romImage.test.ts`                    | A machine handed an empty image loads, runs and renders rather than throwing, and draws a notice saying the image is missing (`src/emulator/romNotice.ts`). See below                          |
+| **File its ROM where the scheme says**<br>`romLayout.test.ts`        | `public/roms/<dialect id>/`, checked from both ends - every `romUrl` and every committed image. jsbeeb's literal paths and one image two machines share are declared exceptions in the test    |
 
 **A missing ROM is a state, not a crash.** The images with no redistribution
 grant are meant to be removable (`public/roms/ATTRIBUTION.md`), so a checkout

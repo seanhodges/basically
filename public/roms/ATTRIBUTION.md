@@ -4,7 +4,10 @@ One folder per machine, named for the dialect id it belongs to
 (`src/dialects/<id>/`), holding that machine's image or image set:
 `zx81/`, `zxspectrum128/`, `commodore64/`, `cpc464/`, `pet/`, `vic20/` and so
 on. A machine's `romUrl` in its dialect file points into its own folder, and
-nothing else reaches across.
+nothing else reaches across. `src/dialects/romLayout.test.ts` holds every
+registered machine to that from both ends - each `romUrl` and each committed
+image - so this note and the folder cannot drift apart; the two exceptions
+below are declared in its own tables.
 
 One image is shared rather than owned: the Atari 400 and 800 ran the same
 firmware, so `atari400` and `atari800` both point at `atari/atari.rom`, a
