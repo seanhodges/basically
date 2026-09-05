@@ -34,6 +34,8 @@ import { prepareListingPhoto, type ListingPhoto } from '../app/listingPhoto';
 import {
   applyJudgement,
   leaveUnjudged,
+  isVisual,
+  visualDescriptions,
   type ExpectationResult,
 } from './expectations';
 import {
@@ -918,10 +920,7 @@ function judgeScreen(
   drive: boolean,
 ): void {
   const ai = useAiStore.getState();
-  const visuals = results
-    .map((r) => r.expectation)
-    .filter((e) => e.kind === 'visual');
-  const judge = buildScreenJudgeRequest(ranSource, visuals);
+  const judge = buildScreenJudgeRequest(ranSource, visualDescriptions(results));
   const { dialect, ...request } = context;
 
   // The turn that judges the screen is also the only turn where driving is
@@ -1118,7 +1117,7 @@ function settleJudgement(
   }
 
   const judged = applyJudgement(results, extractJudgement(reply.content));
-  if (!judged.some((r) => r.status === 'failed')) {
+  if (!judged.some((r) => r.outcome === 'failed')) {
     pendingRunNote = buildRunNote(outcome, judged);
     showFinishedWork(latestFinalScreen ?? undefined);
     return;
@@ -1353,7 +1352,7 @@ useIdeStore.subscribe((state) => {
   // spend twice over.
   const wrongResult =
     run.outcome.kind !== 'errored' &&
-    run.expectations.some((r) => r.status === 'failed');
+    run.expectations.some((r) => r.outcome === 'failed');
 
   const ai = useAiStore.getState();
   // Correcting a program the user has edited since would be answering a question
@@ -1381,9 +1380,7 @@ useIdeStore.subscribe((state) => {
   // settle. They arrive unchecked and are settled by showing the assistant what
   // its program drew - if there is a screen, somewhere to show it, and an
   // automatic request still going spare.
-  const visuals = run.expectations.filter(
-    (r) => r.expectation.kind === 'visual',
-  );
+  const visuals = run.expectations.filter(isVisual);
   // Driving is the other reason to make this turn, and it stands on its own:
   // an answer may need the machine worked before there is anything worth
   // saying about it, without ever having stated how the screen should look.

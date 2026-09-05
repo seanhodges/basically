@@ -26,9 +26,14 @@ export interface HeadlessSessionDeps {
   source: string;
   /** The run's measurements, or null when the run is not measuring. */
   measurements: RunMeasurements | null;
-  /** Paint the display now. */
-  paint: () => PaintedFrame;
-  encodePng: (
+  /**
+   * Paint the display now, where this caller can. Absent for one that cannot
+   * or has no use for a picture - a check's product is its verdict - and the
+   * session then reports that no picture can be taken, which is what its
+   * contract already says such a session does.
+   */
+  paint?: () => PaintedFrame;
+  encodePng?: (
     rgba: Uint8ClampedArray,
     width: number,
     height: number,
@@ -53,6 +58,7 @@ export function createHeadlessSession(
   return {
     ...control,
     capture: () => {
+      if (!deps.paint || !deps.encodePng) return null;
       const frame = deps.paint();
       return {
         width: frame.width,
@@ -67,6 +73,5 @@ export function createHeadlessSession(
       capabilities: outlineCapabilities(dialect.keywords),
     }),
     timing: () => measurements?.timing() ?? null,
-    variables: () => machine.readVariables?.() ?? null,
   };
 }

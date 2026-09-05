@@ -784,12 +784,59 @@ checking machinery in front of every reply. What the assistant wrote for the use
 - **THEN** the conversation shows the answer and its program, and not the
   expectations, which are still checked against the run
 
+### Requirement: The assistant states expectations in the vocabulary every caller writes
+
+What the assistant states about its own program SHALL be written in the same
+vocabulary any other caller of this toolchain writes an expectation in, rather
+than one of its own. A file of expectations written by one caller SHALL mean the
+same thing to the other, and an expectation SHALL be evaluated the same way
+whoever wrote it, so that two callers cannot reach different verdicts about the
+same program.
+
+One form SHALL remain the assistant's alone: an expectation about how the screen
+looks, which is settled by showing the assistant the display and asking it to
+judge its own program. Nothing but the assistant can settle one, so this SHALL be
+a declared asymmetry with that as its reason, and another caller meeting one
+SHALL report it as unevaluated rather than refusing the file.
+
+Expectations already recorded in a saved conversation SHALL stay readable when
+that conversation is restored, whatever vocabulary they were written in. A
+restored expectation SHALL NOT be reported as malformed for having been written
+before the vocabulary changed.
+
+#### Scenario: The same expectation written by either caller
+
+- **WHEN** the same expectation about the same program is written once by the
+  assistant and once by another caller
+- **THEN** both are evaluated the same way and reach the same verdict
+
+#### Scenario: An expectation only the assistant can settle
+
+- **WHEN** an expectation about how the screen looks reaches a caller that cannot
+  show a display to anyone
+- **THEN** it is reported as unevaluated, and the file it came in is not refused
+
+#### Scenario: Restoring a conversation written in the earlier vocabulary
+
+- **WHEN** the user restores a conversation whose expectations were written
+  before the vocabulary changed
+- **THEN** those expectations are still read as expectations, and none is
+  reported as malformed
+
 ### Requirement: Stated expectations are checked against the run
 
 Where the assistant has stated expectations and the IDE runs the program it
-returned, those expectations SHALL be checked once the run has been observed, and
-the result SHALL be reported back to the conversation alongside the run's
-outcome.
+returned, those expectations SHALL be checked and the result SHALL be reported
+back to the conversation alongside the run's outcome.
+
+An expectation SHALL be judged at the moment the assistant names. An expectation
+that names no moment SHALL be judged as the run was observed. Text that appears
+during a run and is then replaced SHALL be expressed by waiting for it, which
+already means "run until this appears, and fail if it never does", rather than by
+the IDE remembering on the assistant's behalf whether something was ever true.
+The assistant SHALL be told this, so that an expectation about something
+transient is written with the wait it needs rather than silently becoming an
+expectation about the end of the run.
 
 Expectations the machine can evaluate SHALL be evaluated from the machine.
 Expectations about how the screen looks SHALL be settled by showing the assistant
@@ -817,6 +864,17 @@ cannot be shown one — never as passed, and never as a failure of the program.
 
 - **WHEN** a program runs and every stated expectation holds
 - **THEN** the run is reported as having succeeded
+
+#### Scenario: Text that appears and is then replaced
+
+- **WHEN** the assistant expects text its program prints and then clears, and it
+  waits for that text before expecting it
+- **THEN** the expectation holds, and the run is reported as having succeeded
+
+#### Scenario: An expectation about the end of a run that names no moment
+
+- **WHEN** the assistant states an expectation without naming when it should hold
+- **THEN** it is judged as the run was observed
 
 #### Scenario: The program draws the wrong thing
 
@@ -1403,6 +1461,57 @@ picture the request carries.
 - **THEN** that report is carried with the photograph, as it would be with any
   other request
 
+### Requirement: The assistant can do what any other caller of this toolchain can do
+
+What the assistant is able to do to a program or a machine SHALL be the same set
+any other caller of this toolchain is able to do, held to one account of that
+set rather than maintained beside it. The assistant SHALL NOT lack an operation
+another caller has, nor hold one no other caller can reach, unless that
+asymmetry is declared with its reason.
+
+Where the chosen provider cannot be given tools at all, that SHALL be a stated
+property of the provider, on the same terms as being shown a screen and being
+given the machine already are. It SHALL NOT be read as the assistant lacking any
+particular operation, and every other part of the assistant SHALL behave
+identically on such a provider.
+
+#### Scenario: An operation another caller gains
+
+- **WHEN** an operation becomes available elsewhere in the toolchain
+- **THEN** the assistant can perform it too, unless it is declared as one the
+  assistant deliberately does not have
+
+#### Scenario: A provider that cannot be given tools
+
+- **WHEN** the user selects a provider that cannot be given tools
+- **THEN** the assistant has none, that is stated as a property of the provider,
+  and the assistant otherwise works exactly as before
+
+### Requirement: What the assistant is offered does not vary within a conversation
+
+The set of operations the assistant is offered SHALL be the same on every turn
+of a conversation, and SHALL NOT vary with what happens to be possible at that
+moment. An operation whose circumstances are not met SHALL still be offered and
+SHALL report that it could not be carried out when it is called.
+
+This is what already holds for driving, where the machine is given on one turn
+and not on others, and it SHALL hold for every operation for the same two
+reasons: a set that comes and goes costs the conversation the work already done
+on it, and an attempt that vanishes reads to the assistant as an attempt that
+worked.
+
+#### Scenario: An operation whose circumstances are not met
+
+- **WHEN** the assistant performs an operation on a turn where it cannot be
+  carried out
+- **THEN** it is told the attempt was refused and why, rather than the attempt
+  being passed over as though it had worked
+
+#### Scenario: The same set on every turn
+
+- **WHEN** a conversation runs over several turns whose circumstances differ
+- **THEN** the assistant is offered the same operations on each of them
+
 ### Requirement: The assistant can drive the program it wrote
 
 Alongside the code it returns, the assistant MAY ask to be given the machine once
@@ -1724,3 +1833,32 @@ every other tool it is given.
 - **THEN** whether the assistant is offered timing stays as it was for the rest
   of that conversation
 
+
+### Requirement: The assistant can check and build a program without running it
+
+The assistant SHALL be able to check a program for problems without running it,
+and to ask what that program builds into for the machine it is written for — its
+size as the machine's memory counts it, and which of the machine's file formats
+it was built as.
+
+It SHALL be able to ask this of a program it is about to offer, so a problem it
+could have found itself is found before the user is asked to look at it, rather
+than after the program has been applied and run.
+
+A built program's bytes SHALL NOT be shown to the assistant. What it is told is
+what it can act on.
+
+#### Scenario: Checking a program before offering it
+
+- **WHEN** the assistant checks a program it is about to return
+- **THEN** it is told that program's problems, without the program being run
+
+#### Scenario: Asking what a program builds to
+
+- **WHEN** the assistant asks what its program builds into
+- **THEN** it is told the size and the format, and not the bytes
+
+#### Scenario: A program that cannot be built
+
+- **WHEN** the assistant asks what a program with a fatal problem builds into
+- **THEN** it is told the problem rather than a size

@@ -23,6 +23,49 @@ exist SHALL say so rather than guess at one.
 - **WHEN** the user invokes the command line with no operation, or asks it for help
 - **THEN** it names every operation it offers and what each is for
 
+### Requirement: The command line offers what the assistant offers
+
+Every operation the assistant can perform on a program or a machine SHALL be
+reachable from the command line, and every operation the command line offers
+SHALL be reachable by the assistant. Neither caller SHALL gain a capability the
+other silently lacks.
+
+Parity is of capability, not of invocation. How a caller reaches an operation
+MAY differ, because their circumstances differ: an invocation of the command
+line holds no machine between runs, so what the assistant asks of a machine it
+is holding, the command line asks of a run — as an option on that run or as an
+action within it. What SHALL be equal is what can be asked, not how it is
+spelled.
+
+Where a caller deliberately lacks an operation, that absence SHALL be declared
+together with the reason for it, so that an asymmetry is a decision on record
+rather than something discovered by trying. A declared absence SHALL stop being
+declared once it stops being true, so the record cannot decay into a list of
+things nobody rechecked.
+
+#### Scenario: An operation one caller gains
+
+- **WHEN** an operation becomes available to the assistant
+- **THEN** the same capability is reachable from the command line, whether as an
+  operation of its own, as an option on running a program, or as an action
+  within a run
+
+#### Scenario: An operation the other caller gains
+
+- **WHEN** an operation becomes available on the command line
+- **THEN** the same capability is available to the assistant
+
+#### Scenario: An asymmetry that is intended
+
+- **WHEN** an operation is deliberately not offered to one of the callers
+- **THEN** that absence is declared, and the reason for it is stated
+
+#### Scenario: An asymmetry that stops being true
+
+- **WHEN** an operation previously declared unavailable to a caller becomes
+  available to it
+- **THEN** it is no longer declared as unavailable
+
 ### Requirement: A program is named as a file, and a pipe still works
 
 Every operation that reads a program SHALL take the path of a file holding it. A
@@ -127,6 +170,113 @@ the run rather than ending it.
   of it
 - **THEN** the picture is written where the user asked and the screen's text is
   reported, from the same run
+
+### Requirement: A run can be measured from the command line
+
+Where a run's time and memory went SHALL be reportable outside the browser, on
+the same terms the IDE reports it: the costliest lines of the program as shares
+of the run, those shares summed over the program's routines, and what the run
+did to the machine's BASIC memory. How long a run took SHALL be reportable
+alongside how that run ended, because a duration whose ending is unknown says
+nothing — the seconds a program ran before it was stopped are not the time it
+takes. What a variable holds at the end of a run SHALL be reportable in the same
+way.
+
+Every figure SHALL be in the emulated machine's own terms, so what is reported
+does not depend on the computer the run happened on or on how fast it was
+emulated.
+
+A machine that cannot report which line it is executing, cannot account for its
+memory, or cannot report its variables SHALL say so plainly rather than
+reporting nothing, since nothing reads as a program that took no time, used no
+memory, or held no variables.
+
+#### Scenario: Asking where a run's time went
+
+- **WHEN** a program is run from the command line and its measurements are asked
+  for
+- **THEN** the costliest lines are reported as shares of the run, summed over
+  its routines as well
+
+#### Scenario: Asking how long a run took
+
+- **WHEN** a run's timing is asked for
+- **THEN** the duration is reported in the machine's own time, together with how
+  that run ended
+
+#### Scenario: A machine that cannot be measured
+
+- **WHEN** measurements are asked of a machine that cannot report which line it
+  is executing
+- **THEN** it is stated that runs on that machine are not measured, rather than
+  an empty measurement being reported
+
+#### Scenario: The same run measured on a faster computer
+
+- **WHEN** the same program is run on computers of differing speed, or at
+  differing emulation speeds
+- **THEN** the measurements reported are the same
+
+### Requirement: A program's behaviour can be checked against a written expectation
+
+The user SHALL be able to run a program against a written expectation — the same
+actions a schedule may hold, together with expectations that named text is on the
+screen, that named text is not on the screen, that the program has stopped, that
+it is still running, or that a named variable holds a named value — and receive a
+pass or a failure.
+
+The check SHALL pass only when every action is carried out and every expectation
+holds. It SHALL fail at the first that does not, and SHALL report which
+expectation or action it was, by its line, what was expected, and what the screen
+actually held at that moment. A failure SHALL count as the program's failure,
+distinct from an expectation the tool cannot read, which SHALL be the caller's
+mistake and refused before the machine is started.
+
+An expectation that could not be evaluated SHALL be reported as unevaluated
+rather than as passed or as failed, and SHALL NOT be folded into the verdict as
+though it had held. An expectation whose form only the assistant can settle SHALL
+be reported this way rather than refused, so that one file of expectations can be
+written for either caller.
+
+The verdict SHALL be available as structured data on request.
+
+#### Scenario: An expectation that holds
+
+- **WHEN** the user checks a program against a file whose every action succeeds
+  and whose every expectation holds
+- **THEN** the check passes
+
+#### Scenario: An expectation that does not hold
+
+- **WHEN** the user checks a program against an expectation that names text the
+  program never prints
+- **THEN** the check fails, reporting that expectation by its line and the text
+  expected, shows the screen as it stood, and exits with the outcome reserved for
+  a program at fault
+
+#### Scenario: An expectation about a variable
+
+- **WHEN** the user checks a program against an expectation naming a variable and
+  the value it should hold
+- **THEN** the check reports whether that variable holds that value
+
+#### Scenario: An expectation nothing here can settle
+
+- **WHEN** a file of expectations contains one that only the assistant can judge
+- **THEN** it is reported as unevaluated, and the check neither passes nor fails
+  on account of it
+
+#### Scenario: A file that cannot be read
+
+- **WHEN** the user checks a program against a file holding a line the parser
+  cannot understand
+- **THEN** it is refused as the caller's mistake before any machine is started
+
+#### Scenario: A verdict read by a program
+
+- **WHEN** a caller asks for the verdict as structured data
+- **THEN** standard output holds the verdict, every step and how it went, the
+  failing step where there was one, and the screen, and nothing else
 
 ### Requirement: The tool can serve an editor instead of finishing
 
@@ -307,6 +457,27 @@ find out what a machine has without guessing.
 - **WHEN** the user asks for a machine's description
 - **THEN** it lists the key names that machine answers to
 
+### Requirement: Every action a schedule accepts is described to every caller
+
+The actions a schedule of input accepts SHALL be described identically to
+whoever writes one. An action the schedule accepts but describes to nobody SHALL
+NOT exist, and neither SHALL an action described to one caller and refused when
+the other writes it — including how one action is separated from the next.
+
+A caller that writes an action it was told about SHALL have it carried out
+rather than refused.
+
+#### Scenario: An action the schedule accepts
+
+- **WHEN** a schedule accepts an action
+- **THEN** that action is described to every caller that may write one
+
+#### Scenario: A schedule written by one caller, read for the other
+
+- **WHEN** a schedule written for one caller is given to the other, separators
+  and all
+- **THEN** it means the same thing and is carried out the same way
+
 ### Requirement: Driving a machine requires its ROM
 
 A run given a schedule SHALL require the machine's ROM to be present, and SHALL
@@ -320,4 +491,17 @@ of the run rather than refusing.
   present
 - **THEN** the run is refused as the caller's mistake, saying the ROM is missing,
   and no action is carried out
+
+### Requirement: Checking a program requires its ROM
+
+Checking a program SHALL require the machine's ROM to be present, and SHALL
+refuse a machine whose ROM is absent as the caller's mistake before any action is
+taken — a verdict from a machine that ran nothing would say nothing about the
+program.
+
+#### Scenario: Checking without the ROM
+
+- **WHEN** the user checks a program on a machine whose ROM is not present
+- **THEN** the check is refused as the caller's mistake, saying the ROM is
+  missing, and no action is carried out
 

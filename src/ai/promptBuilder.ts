@@ -2,7 +2,6 @@ import type { Dialect, MachineReport, TokenizeError } from '../dialects/types';
 import type { AiRunOutcome } from '../app/store';
 import {
   JUDGE_FENCE_TAG,
-  type Expectation,
   type ExpectationResult,
   type ScreenViewRequest,
 } from './expectations';
@@ -267,22 +266,22 @@ export function buildRunNote(
 
   // A failure gets a correction of its own rather than a note (see
   // buildExpectationFix), so anything reaching here held or could not be judged.
-  const passed = expectations.filter((r) => r.status === 'passed');
-  const unchecked = expectations.filter((r) => r.status === 'unchecked');
+  const passed = expectations.filter((r) => r.outcome === 'done');
+  const unchecked = expectations.filter((r) => r.outcome === 'unevaluated');
   let note = base;
   if (passed.length > 0) {
     note +=
       passed.length === expectations.length
         ? ' Everything you said should be true of it held.'
         : ` These things you said should be true of it held: ${passed
-            .map((r) => r.expectation.source)
+            .map((r) => r.action.source)
             .join('; ')}.`;
   }
   if (unchecked.length > 0) {
     // Reported rather than quietly counted as passing: an expectation nobody
     // could judge is not evidence the program worked.
     note += ` I could not check ${unchecked
-      .map((r) => `${r.expectation.source} (${r.reason ?? 'not evaluated'})`)
+      .map((r) => `${r.action.source} (${r.detail})`)
       .join('; ')}.`;
   }
   return `${note}${shownNote}${viewNote}`;
@@ -356,12 +355,10 @@ const SCREEN_ATTACHED_NOTE =
  */
 export function buildScreenJudgeRequest(
   source: string,
-  visuals: readonly Expectation[],
+  visuals: readonly string[],
 ): { userContent: string; displayRequest: string } {
   const stated = visuals
-    .map(
-      (e, i) => `${i + 1}. ${e.kind === 'visual' ? e.description : e.source}`,
-    )
+    .map((description, i) => `${i + 1}. ${description}`)
     .join('\n');
   let userContent = '';
   const trimmed = source.trim();
@@ -382,24 +379,16 @@ export function buildScreenJudgeRequest(
   };
 }
 
-/** How one failed expectation reads when it goes back to the assistant. */
+/**
+ * How one failed step reads when it goes back to the assistant: the line it
+ * wrote, and what the machine said about it.
+ *
+ * Both halves come from the one evaluation path, so what the assistant is told
+ * about its own program is what any other caller would have been told about
+ * the same program.
+ */
 function describeFailure(result: ExpectationResult): string {
-  const e = result.expectation;
-  if (e.kind === 'var') {
-    return result.actual !== undefined
-      ? `you said ${e.name} would be ${e.expected}, but the machine reported ${result.actual}`
-      : `you said ${e.name} would be ${e.expected}, but ${result.reason ?? 'it was not there'}`;
-  }
-  if (e.kind === 'screen') {
-    return `you said the screen would contain "${e.needle}", but it did not`;
-  }
-  if (e.kind === 'visual') {
-    // Its own verdict, quoted back: it judged this from the screen itself.
-    return result.actual !== undefined
-      ? `you said the screen would show ${e.description}, and looking at it you found ${result.actual}`
-      : `you said the screen would show ${e.description}, and looking at it you found it did not`;
-  }
-  return e.source;
+  return `you wrote \`${result.action.source}\`, and ${result.detail}`;
 }
 
 /**
@@ -417,7 +406,7 @@ export function buildExpectationFix(
   /** A screen could have been shown, and the assistant did not ask for one. */
   screenOffered = false,
 ): PendingFix {
-  const failed = expectations.filter((r) => r.status === 'failed');
+  const failed = expectations.filter((r) => r.outcome === 'failed');
   const detail = failed.map(describeFailure).join('; ');
   let userContent = '';
   const trimmed = source.trim();

@@ -42,10 +42,10 @@ import { profileStillApplies, type RunProfile } from './runProfile';
 import type { PauseInterval, RunTiming } from './runTiming';
 import {
   noScreenViews,
-  type Expectation,
   type ExpectationResult,
   type ScreenViewRequest,
 } from '../ai/expectations';
+import type { DriveAction } from './driveScript';
 import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
 import { readMachineDirective } from '../dialects/machineDirective';
@@ -463,11 +463,12 @@ interface IdeState {
    */
   aiRunBase: string;
   /**
-   * What the assistant said should be true once the program it just handed over
-   * has run (see `../ai/expectations`). Set by the apply that armed the check;
-   * empty when the reply stated none, which is the ordinary case.
+   * The schedule the assistant said its program should satisfy once the
+   * program it just handed over has run (see `../ai/expectations`) - actions
+   * and expectations in the order it wrote them. Set by the apply that armed
+   * the check; empty when the reply stated none, which is the ordinary case.
    */
-  aiRunExpectations: Expectation[];
+  aiRunExpectations: DriveAction[];
   /**
    * The views of the screen the assistant asked to be shown when the program it
    * just handed over runs (see `../ai/expectations`). Set by the apply that
@@ -486,9 +487,9 @@ interface IdeState {
     seq: number;
     outcome: AiRunOutcome;
     /**
-     * How the assistant's stated expectations held up, one entry per stated
-     * expectation. Empty when none were stated, or when the run errored - an
-     * error is the failure, and it travels on its own.
+     * How the assistant's schedule held up, one entry per step it reached.
+     * Empty when none were stated, or when the run errored - an error is the
+     * failure, and it travels on its own.
      *
      * Deliberately a sibling of `outcome` rather than a fifth kind of outcome:
      * a wrong answer is a judgement layered over a run that ended fine, not a
@@ -1027,7 +1028,7 @@ interface IdeState {
   requestAiRun(opts: {
     candidate: string;
     baseSource: string;
-    expectations?: Expectation[];
+    expectations?: DriveAction[];
     views?: ScreenViewRequest;
   }): void;
   /**

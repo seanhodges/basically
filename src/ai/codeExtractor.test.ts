@@ -339,11 +339,19 @@ describe('expectation blocks', () => {
   });
 
   it('extracts the stated expectations from a whole reply', () => {
+    // In the earlier spelling, which is still read: this reply could as
+    // easily have come back out of a saved conversation.
     expect(extractExpectations(reply)).toEqual([
-      { kind: 'var', name: 'T', expected: '42', source: 'VAR T = 42' },
       {
-        kind: 'screen',
-        needle: '42',
+        kind: 'expect',
+        expectation: { kind: 'variable', name: 'T', value: '42' },
+        line: 1,
+        source: 'VAR T = 42',
+      },
+      {
+        kind: 'expect',
+        expectation: { kind: 'text', needle: '42', negated: false },
+        line: 2,
         source: 'SCREEN CONTAINS "42"',
       },
     ]);

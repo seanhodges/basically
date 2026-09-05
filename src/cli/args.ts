@@ -16,6 +16,7 @@
 
 import { RunError } from '../dialects/headless/runError';
 import type { BuildInput } from '../ops/build';
+import type { CheckInput } from '../ops/check';
 import type { InfoInput } from '../ops/info';
 import type { LintInput } from '../ops/lint';
 import type { MachinesInput } from '../ops/machines';
@@ -27,6 +28,7 @@ export const OPERATIONS = [
   'lint',
   'build',
   'run',
+  'check',
   'lsp',
 ] as const;
 
@@ -89,6 +91,15 @@ export interface RunArgs {
   input: Omit<RunInput, 'source'>;
 }
 
+export interface CheckArgs {
+  operation: 'check';
+  program: ProgramInput;
+  /** Where the expectations come from; the input's `expectations`. */
+  expectations: ProgramInput;
+  json: boolean;
+  input: Omit<CheckInput, 'source' | 'expectations'>;
+}
+
 export interface LspArgs {
   operation: 'lsp';
   /** Serve over standard input/output; the only transport, so always set once parsed. */
@@ -110,6 +121,7 @@ export type CliArgs =
   | LintArgs
   | BuildArgs
   | RunArgs
+  | CheckArgs
   | LspArgs;
 
 function isOperation(word: string): word is Operation {
@@ -359,6 +371,52 @@ function parseRun(argv: string[]): RunArgs {
   };
 }
 
+function parseCheck(argv: string[]): CheckArgs {
+  let machine: string | undefined;
+  let expectations: string | undefined;
+  let json = false;
+  let romRoot: string | undefined;
+  const rest = scan(argv, (name, value) => {
+    switch (name) {
+      case '-m':
+      case '--machine':
+        machine = value();
+        break;
+      case '-e':
+      case '--expect':
+        expectations = value();
+        break;
+      case '--json':
+        json = true;
+        break;
+      case '--rom-root':
+        romRoot = value();
+        break;
+      default:
+        throw unknownOption('check', name);
+    }
+  });
+  if (expectations === undefined) {
+    throw new RunError(
+      'check wants expectations to check against: -e <path>, or "-" to read ' +
+        'them from standard input',
+    );
+  }
+  return {
+    operation: 'check',
+    program: programFrom('check', rest),
+    // "-" is standard input here exactly as it is for a program, so a check
+    // can be piped either its program or its expectations - but not both, and
+    // the shim is where that is refused, since only it reads them.
+    expectations:
+      expectations === '-'
+        ? { kind: 'stdin' }
+        : { kind: 'file', path: expectations },
+    json,
+    input: { machine: requireMachine('check', machine), romRoot },
+  };
+}
+
 function parseLsp(argv: string[]): LspArgs {
   let machine: string | undefined;
   let stdio = false;
@@ -406,6 +464,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseBuild(rest);
     case 'run':
       return parseRun(rest);
+    case 'check':
+      return parseCheck(rest);
     case 'lsp':
       return parseLsp(rest);
   }

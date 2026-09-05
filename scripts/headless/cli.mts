@@ -1,15 +1,18 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { RunError, screenLines } from '../../src/dialects/headless/runListing';
+import { stepLines } from '../../src/app/driveScript';
 import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
 import { usage } from '../../src/cli/usage';
 import { formatMachines } from '../../src/cli/machines';
 import { formatMachineDescription } from '../../src/cli/info';
 import { formatProblems } from '../../src/cli/lint';
+import { formatVerdict } from '../../src/cli/check';
 import { cliContext } from '../../src/cli/roms';
 import { findMachine } from '../../src/dialects/machineLookup';
 import { decodeBytes } from '../../src/ops/bytes';
 import { buildOp } from '../../src/ops/build';
+import { checkOp, type CheckOutcome } from '../../src/ops/check';
 import { infoOp } from '../../src/ops/info';
 import { lintOp } from '../../src/ops/lint';
 import { machinesOp } from '../../src/ops/machines';
@@ -230,7 +233,7 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
     // The steps go to standard error beside the run's own figures: standard
     // output carries the screen and nothing else, so `| diff` still works on a
     // driven run.
-    for (const line of result.keys.steps) err(`  ${line}\n`);
+    for (const line of stepLines(result.keys.steps)) err(`  ${line}\n`);
     if (!result.keys.ok) {
       // The program did not reach where the schedule expected it to, which is
       // the program's fault rather than the caller's - and the screen has
@@ -240,6 +243,47 @@ async function run(args: Extract<CliArgs, { operation: 'run' }>) {
     }
   }
   return 0;
+}
+
+async function check(args: Extract<CliArgs, { operation: 'check' }>) {
+  if (args.program.kind === 'stdin' && args.expectations.kind === 'stdin') {
+    // Standard input is one stream: reading the program from it leaves nothing
+    // for the expectations, and a check against no expectations is not one.
+    throw new RunError(
+      'the program and the expectations cannot both come from standard input',
+    );
+  }
+  // Both read before anything boots, so an unreadable file is the caller's
+  // mistake rather than a check that got part-way.
+  const source = await readProgram(args.program);
+  const expectations = await readProgram(args.expectations);
+
+  const restoreLogging = divertLogging();
+  let outcome: CheckOutcome;
+  try {
+    outcome = await checkOp.run(
+      { ...args.input, source, expectations },
+      cliContext(args.input.romRoot),
+    );
+  } finally {
+    restoreLogging();
+  }
+
+  reportErrors(outcome.errors);
+  if (outcome.errors.some((e) => e.fatal !== false)) return EXIT_BAD_PROGRAM;
+
+  // The verdict is the check's product, so it goes to standard output; the
+  // machine's own figures go to standard error beside it.
+  if (args.json) json(outcome);
+  else out(`${formatVerdict(outcome)}\n`);
+  err(
+    `${outcome.machine.name} (${outcome.machine.id}), ` +
+      `program ${outcome.programBytes} bytes, ${outcome.frames} frame` +
+      `${outcome.frames === 1 ? '' : 's'}\n`,
+  );
+  // A failing expectation is the program not doing what was written, which is
+  // the program at fault rather than the caller.
+  return outcome.passed ? 0 : EXIT_BAD_PROGRAM;
 }
 
 async function main(): Promise<number> {
@@ -288,6 +332,9 @@ async function main(): Promise<number> {
 
     case 'run':
       return run(args);
+
+    case 'check':
+      return check(args);
 
     case 'lsp': {
       // A bad `-m` is the caller's mistake to fail on before anything is

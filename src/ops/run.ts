@@ -12,7 +12,7 @@
  * table says so.
  */
 
-import { parseDriveScript } from '../app/driveScript';
+import { parseDriveScript, type ScheduleStep } from '../app/driveScript';
 import { RunMeasurements } from '../app/runMeasurements';
 import type { RunObserver, RunResult } from '../dialects/headless/runListing';
 import { RunError } from '../dialects/headless/runError';
@@ -66,7 +66,7 @@ export interface RunOutcome {
   frames: number;
   driveFrames: number;
   /** What the schedule did, or null when none was given. */
-  keys: { ok: boolean; steps: string[] } | null;
+  keys: { ok: boolean; steps: ScheduleStep[] } | null;
   started: boolean;
   ended: boolean;
   screen: MachineScreenText | null;
@@ -88,11 +88,15 @@ export interface RunOutcome {
 /**
  * The schedule read before anything boots, so a schedule the tool cannot
  * understand is the caller's mistake rather than a run that got part-way.
- * Thrown where the parser merely records, naming the line.
+ * Thrown where the parser merely records, naming the line and where it is.
  */
-export function checkSchedule(text: string): void {
+export function checkSchedule(text: string, called = '--keys'): void {
   const bad = parseDriveScript(text).find((a) => a.kind === 'malformed');
-  if (bad) throw new RunError(`cannot read this line of --keys: ${bad.source}`);
+  if (bad) {
+    throw new RunError(
+      `cannot read line ${bad.line} of ${called}: ${bad.source}`,
+    );
+  }
 }
 
 export async function runProgram(
@@ -195,7 +199,7 @@ export async function runProgram(
     programBytes: result.programBytes,
     frames: result.frames,
     driveFrames: result.driveFrames,
-    keys: drive ? { ok: drive.ok, steps: drive.lines } : null,
+    keys: drive ? { ok: drive.ok, steps: drive.steps } : null,
     started: result.started,
     ended: result.ended,
     screen: result.screen,

@@ -1,7 +1,6 @@
 import type { MachineControl } from './machineControl';
 import type { RunProfile } from './runProfile';
 import type { RunTiming } from './runTiming';
-import type { MachineVariable } from '../dialects/types';
 import type { OutlineCapabilities } from '../editor/programOutline';
 
 /**
@@ -27,8 +26,6 @@ export interface MachineSession extends MachineControl {
   measurements(): SessionMeasurements;
   /** The timing of the run, or null when nothing has been timed. */
   timing(): RunTiming | null;
-  /** The program's variables, or null on a machine that cannot report them. */
-  variables(): MachineVariable[] | null;
 }
 
 /** A picture of the display, encoded so it survives being written as JSON. */

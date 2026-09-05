@@ -66,7 +66,7 @@ const PROMPT_CEILINGS: Record<string, number> = {
   cpc6128: 34_000,
   altair8800: 30_000,
   pmd85: 39_000,
-  apple1: 33_000,
+  apple1: 33_500,
   apple2: 41_000,
   apple2plus: 49_000,
   atari800: 42_000,
@@ -85,7 +85,7 @@ const PROMPT_CEILINGS: Record<string, number> = {
   // around a hundred and eighty rows, Beta BASIC's structured keywords and the
   // machine's screen, palette, sound and disk vocabulary on top of a Sinclair
   // core.
-  samcoupe: 50_000,
+  samcoupe: 51_000,
 };
 
 /**
@@ -139,7 +139,7 @@ const SECTION_CEILINGS: Record<string, number> = {
 const PART_CEILINGS: Record<string, number> = {
   'the machine notes': 5_400,
   'the code rules': 1_200,
-  'the checking rules': 4_500,
+  'the checking rules': 4_700,
   'the driving rules': 2_600,
 };
 

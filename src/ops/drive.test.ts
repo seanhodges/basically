@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { stepLines } from '../app/driveScript';
 import { describeScreen, driveOp, lookOp, screenshotOp } from './drive';
 import { pureContext, stubSession } from './testSupport';
 
@@ -9,11 +10,8 @@ describe('driving through the operation', () => {
       { script: 'WAIT FOR "GO"; PRESS A' },
       pureContext({ session }),
     );
-    expect(outcome).toMatchObject({
-      ok: true,
-      lines: ['"GO" appeared', 'pressed A'],
-      sentInput: true,
-    });
+    expect(outcome).toMatchObject({ ok: true, sentInput: true });
+    expect(stepLines(outcome.steps)).toEqual(['"GO" appeared', 'pressed A']);
     expect(session.pressed).toEqual(['A']);
     expect(driveOp.failed!(outcome)).toBe(false);
     expect(driveOp.describe(outcome)).toContain('pressed A');

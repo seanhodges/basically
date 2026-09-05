@@ -66,11 +66,12 @@ npm run e2e:headed     # same as e2e, with a visible browser
 npm run e2e:report     # open the last Playwright HTML report
 
 # The toolchain outside the browser: describe a machine, check a listing, build
-# one into a file the machine loads, or run one and report its screen. Builds
-# its bundle when stale. `--help` names every operation, `<operation> --help`
-# its options. Only `run` needs a ROM. `-m` is optional for `lint`/`build` when
-# the program declares its own machine with a `#MACHINE <machine>` line; naming
-# one anyway overrides the declaration.
+# one into a file the machine loads, run one and report its screen, or check
+# one against what it should do. Builds its bundle when stale. `--help` names
+# every operation, `<operation> --help` its options. Only `run` and `check`
+# need a ROM. `-m` is optional for `lint`/`build` when the program declares its
+# own machine with a `#MACHINE <machine>` line; naming one anyway overrides the
+# declaration.
 ./scripts/basically machines                       # every machine, and whether its ROM is here
 ./scripts/basically info commodore64               # memory, BASIC rules, keywords, formats (--json for all of it)
 ./scripts/basically lint prog.bas -m zx81          # problems on stdout, no emulator; exit 2 if any is fatal
@@ -84,6 +85,11 @@ printf '10 PRINT "HI"\n' | ./scripts/basically run -m commodore64
 # --profile, --time and --variables report the run's measurements, its timing
 # and its variables, on the same terms the IDE and the assistant read them.
 ./scripts/basically run prog.bas -m zx81 --profile --time --variables
+# check runs a file of expectations - the same schedule --keys takes, with
+# EXPECT lines mixed in - and exits 0 when every one held, 2 at the first that
+# did not. Needs the machine's ROM. `check --help` lists the forms.
+printf 'WAIT END\nEXPECT "READY"\n' > /tmp/checks.txt
+./scripts/basically check prog.bas -m zx81 -e /tmp/checks.txt
 ./scripts/basically lsp --stdio                    # a language server for any editor that speaks LSP; no ROM
 scripts\basically.cmd machines                     # the same tool from cmd.exe or PowerShell
 
