@@ -1,6 +1,6 @@
 @echo off
-rem The Basically toolchain in command-line form. Rebuilds the bundle when it is stale,
-rem so there is one command to remember rather than a build step and a run step.
+rem The Basically toolchain, kept running. Rebuilds the bundle when it is stale,
+rem so the client and the host are never built from different source.
 
 setlocal
 
@@ -8,17 +8,17 @@ rem Look for node on PATH, which is required to run the toolchain. Node 22 or ne
 rem is required because the toolchain uses ES modules and top-level await.
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [basically] Node.js was not found on PATH. Install Node 22 or newer.>&2
+  echo [basically-server] Node.js was not found on PATH. Install Node 22 or newer.>&2
   exit /b 1
 )
 
 pushd "%~dp0.."
 if errorlevel 1 (
-  echo [basically] Could not enter the repository root.>&2
+  echo [basically-server] Could not enter the repository root.>&2
   exit /b 1
 )
 
-set "BUNDLE=scripts\headless\dist\cli.mjs"
+set "BUNDLE=scripts\headless\dist\server.mjs"
 rem The whole of src/, not just the toolchain's own folders: the bundle inlines
 rem the dialect registry and every emulator with it, so a change to a machine is
 rem as much a stale bundle as a change to an operation.
@@ -29,7 +29,7 @@ rem the three bundles are written one after another - so counting them would fin
 rem the later ones newer than the first and rebuild on every single invocation.
 node -e "const fs=require('fs'),p=require('path');const newer=(d,t)=>fs.readdirSync(d,{withFileTypes:true}).some((e)=>{if(e.name==='dist')return false;const f=p.join(d,e.name);return e.isDirectory()?newer(f,t):fs.statSync(f).mtimeMs>t});let stale=true;try{const t=fs.statSync(process.argv[1]).mtimeMs;stale=process.argv.slice(2).some((d)=>newer(d,t))}catch{}process.exit(stale?0:1)" "%BUNDLE%" %SOURCES%
 if not errorlevel 1 (
-  echo [basically] Building %BUNDLE%...>&2
+  echo [basically-server] Building %BUNDLE%...>&2
   node scripts\headless\build.mjs >&2
   if errorlevel 1 (
     popd

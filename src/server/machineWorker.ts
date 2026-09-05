@@ -174,10 +174,12 @@ export function serveMachineWorker(
  * it returns has to answer a `WorkerRequest` with a `WorkerReply`, and whether
  * that is a thread or a stand-in is not this module's business.
  */
-export function createWorkerHolder(spawn: () => {
-  port: MessageChannelLike;
-  terminate(): Promise<void> | void;
-}): MachineHolder {
+export function createWorkerHolder(
+  spawn: () => {
+    port: MessageChannelLike;
+    terminate(): Promise<void> | void;
+  },
+): MachineHolder {
   let worker: ReturnType<typeof spawn> | null = null;
   let nextId = 1;
   const waiting = new Map<
@@ -239,7 +241,8 @@ export function createWorkerHolder(spawn: () => {
       ask<CallOutcome>({ kind: 'call', operation, input }),
     // Asked of a worker that was never started, the answer is that nothing is
     // held - which is true, and cheaper than starting one to be told so.
-    held: () => (worker ? ask<string | null>({ kind: 'held' }) : Promise.resolve(null)),
+    held: () =>
+      worker ? ask<string | null>({ kind: 'held' }) : Promise.resolve(null),
     dispose: async () => {
       const started = worker;
       if (!started) return;

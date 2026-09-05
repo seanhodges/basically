@@ -72,7 +72,9 @@ describe('framing a message', () => {
 
   it('refuses a header with no length', () => {
     expect(() =>
-      new FrameReader().push(Buffer.from('Content-Type: json\r\n\r\n', 'ascii')),
+      new FrameReader().push(
+        Buffer.from('Content-Type: json\r\n\r\n', 'ascii'),
+      ),
     ).toThrow(/no length/);
   });
 

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CallRefused } from './ops';
 import { encodeFrame, FrameReader, type Conversation } from './protocol';
 import { serveConnection, type HostServices } from './listener';
+import type { HostSession } from './sessions';
 
 /**
  * A connection with both ends in reach: `client` is what a caller writes to and
@@ -34,21 +35,31 @@ function connected() {
   };
 }
 
+/** A sessions stub where `shared` and `open` are the same one session. */
+function sessionsOf(
+  session: Partial<HostSession> = {},
+): HostServices['sessions'] {
+  const one: HostSession = {
+    id: 1,
+    call: (operation: string) =>
+      Promise.resolve({ outcome: { operation }, notes: [], failed: false }),
+    held: () => Promise.resolve('ZX81'),
+    release: () => Promise.resolve(),
+    close: () => Promise.resolve(),
+    ...session,
+  };
+  return {
+    shared: () => one,
+    open: () => one,
+    openCount: 1,
+    closeAll: () => Promise.resolve(),
+  };
+}
+
 function services(over: Partial<HostServices> = {}): HostServices {
   return {
     serving: ['ops', 'lsp', 'mcp'] as Conversation[],
-    sessions: {
-      open: () => ({
-        id: 1,
-        call: (operation: string) =>
-          Promise.resolve({ outcome: { operation }, notes: [], failed: false }),
-        held: () => Promise.resolve('ZX81'),
-        release: () => Promise.resolve(),
-        close: () => Promise.resolve(),
-      }),
-      openCount: 0,
-      closeAll: () => Promise.resolve(),
-    },
+    sessions: sessionsOf(),
     serveEditor: () => {},
     serveAgent: () => {},
     stop: () => {},
@@ -129,16 +140,9 @@ describe('routing a connection', () => {
     serveConnection(
       link.connection,
       services({
-        sessions: {
-          ...services().sessions,
-          open: () => ({
-            id: 1,
-            call: () => Promise.reject(new CallRefused('nope', 'program')),
-            held: () => Promise.resolve(null),
-            release: () => Promise.resolve(),
-            close: () => Promise.resolve(),
-          }),
-        },
+        sessions: sessionsOf({
+          call: () => Promise.reject(new CallRefused('nope', 'program')),
+        }),
       }),
     );
     link.say({ kind: 'hello', conversation: 'ops', buildId: 'x' });
@@ -159,16 +163,9 @@ describe('routing a connection', () => {
       link.connection,
       services({
         note,
-        sessions: {
-          ...services().sessions,
-          open: () => ({
-            id: 1,
-            call: () => Promise.reject(new TypeError('a bug')),
-            held: () => Promise.resolve(null),
-            release: () => Promise.resolve(),
-            close: () => Promise.resolve(),
-          }),
-        },
+        sessions: sessionsOf({
+          call: () => Promise.reject(new TypeError('a bug')),
+        }),
       }),
     );
     link.say({ kind: 'hello', conversation: 'ops', buildId: 'x' });
@@ -221,7 +218,9 @@ describe('routing a connection', () => {
     link.say({ kind: 'hello', conversation: 'ops', buildId: 'x' });
     link.say({ kind: 'hello', conversation: 'ops', buildId: 'x' });
     await link.heard();
-    expect(note).toHaveBeenCalledWith('a caller said hello twice on one connection');
+    expect(note).toHaveBeenCalledWith(
+      'a caller said hello twice on one connection',
+    );
   });
 
   it('ends a connection whose framing it can no longer trust', async () => {
@@ -237,23 +236,12 @@ describe('routing a connection', () => {
     expect(note).toHaveBeenCalledWith(expect.stringMatching(/no length/));
   });
 
-  it('lets the caller machine go when the connection closes', async () => {
+  it('tells the session the connection has closed, and lets it decide', async () => {
     const close = vi.fn(() => Promise.resolve());
     const link = connected();
     serveConnection(
       link.connection,
-      services({
-        sessions: {
-          ...services().sessions,
-          open: () => ({
-            id: 1,
-            call: () => Promise.resolve({ outcome: null, notes: [], failed: false }),
-            held: () => Promise.resolve(null),
-            release: () => Promise.resolve(),
-            close,
-          }),
-        },
-      }),
+      services({ sessions: sessionsOf({ close }) }),
     );
     link.say({ kind: 'hello', conversation: 'ops', buildId: 'x' });
     await link.heard();

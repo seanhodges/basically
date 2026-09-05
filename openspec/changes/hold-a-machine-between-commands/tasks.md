@@ -53,39 +53,39 @@
 
 ## 4. The client
 
-- [ ] 4.1 Add `src/client/connect.ts`: resolve the address, connect, and on
+- [x] 4.1 Add `src/client/connect.ts`: resolve the address, connect, and on
       failure locate a server beside the client then on `PATH`, start it
       detached, and retry with bounded backoff. Recognise and clear the remains
       of a stopped host; treat a lost bind race as "connect to the winner".
       Colocated tests for the race, the stale address, and a host that can be
       neither reached nor started being reported as its own failure.
-- [ ] 4.2 Add `src/client/call.ts`: the framed client, a bounded timeout per
+- [x] 4.2 Add `src/client/call.ts`: the framed client, a bounded timeout per
       call, and the mapping from an answer or an error class to the exit code the
       command line already uses. Colocated tests for each of the three outcomes
       and for the timeout.
-- [ ] 4.3 Rewrite `scripts/headless/cli.mts` as the client shim: parse with the
+- [x] 4.3 Rewrite `scripts/headless/cli.mts` as the client shim: parse with the
       existing `parseArgs`, read the program and expectations, resolve any ROM
       root to an absolute path, call, render with the existing `src/cli/`
       renderers, write `-o` and `--screenshot` from the outcome's base64, and set
       the exit code. Keep the in-process path as the fallback when no host can be
       started.
-- [ ] 4.4 Add `scripts/basically-server` and `scripts/basically-server.cmd`,
+- [x] 4.4 Add `scripts/basically-server` and `scripts/basically-server.cmd`,
       mirroring the existing pair and sharing the stale-bundle rebuild; extend
       `scripts/headless/build.mjs` to build the second entry point.
 
 ## 5. The operations that act on a held machine
 
-- [ ] 5.1 Change the command line's declared route for `drive`, `look`,
+- [x] 5.1 Change the command line's declared route for `drive`, `look`,
       `screenshot`, `profile`, `time` and `variables` from an option to an
       operation of its own, keeping the `run` options as the one-shot spelling;
       do the same for `expect` against `check`. Update `src/ops/types.ts`'s
       `CliRoute` documentation, which currently justifies option-routing by the
       command line holding no machine between runs.
-- [ ] 5.2 Extend `src/cli/args.ts` and `src/cli/usage.ts` with the new
+- [x] 5.2 Extend `src/cli/args.ts` and `src/cli/usage.ts` with the new
       operations, with the option asking a run to leave its machine up, and with
       `server start` / `server stop` / `server status`. Extend `args.test.ts`
       accordingly.
-- [ ] 5.3 Confirm `src/ops/parity.ts` gains no `Caller` and no exemption, and
+- [x] 5.3 Confirm `src/ops/parity.ts` gains no `Caller` and no exemption, and
       that `src/ops/parity.test.ts` passes with the new routes — it fails in both
       directions, so this is the check that the change is not half-made.
 

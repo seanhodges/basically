@@ -9,7 +9,11 @@ import {
   currentEnvironment,
   readBuildId,
 } from '../../src/server/environment';
-import { AddressInUse, listenOn, serveConnection } from '../../src/server/listener';
+import {
+  AddressInUse,
+  listenOn,
+  serveConnection,
+} from '../../src/server/listener';
 import { IDLE_MS, watchLifetime } from '../../src/server/lifetime';
 import { divertLogging } from '../../src/server/logging';
 import {
@@ -18,7 +22,11 @@ import {
   type MachineHolder,
   type MessageChannelLike,
 } from '../../src/server/machineWorker';
-import { CONVERSATIONS, isConversation, type Conversation } from '../../src/server/protocol';
+import {
+  CONVERSATIONS,
+  isConversation,
+  type Conversation,
+} from '../../src/server/protocol';
 import { createSessions } from '../../src/server/sessions';
 import { runLsp } from './lsp.mts';
 import { runMcpServer } from './mcp.mts';
@@ -122,7 +130,10 @@ function parseArgs(argv: string[]): Args | 'help' | 'address' {
 }
 
 /** A machine in a worker of its own, started from the bundle beside this one. */
-function workerHolder(directory: string, defaultMachine?: string): MachineHolder {
+function workerHolder(
+  directory: string,
+  defaultMachine?: string,
+): MachineHolder {
   return createWorkerHolder(() => {
     const worker = new Worker(path.join(directory, 'machineWorker.mjs'), {
       workerData: defaultMachine === undefined ? {} : { defaultMachine },
@@ -160,7 +171,8 @@ async function main(): Promise<number> {
   if (args.machine !== undefined && !findMachine(args.machine)) {
     throw new RunError(`no registered machine "${args.machine}"`);
   }
-  const options = args.machine === undefined ? {} : { defaultMachine: args.machine };
+  const options =
+    args.machine === undefined ? {} : { defaultMachine: args.machine };
 
   if (args.stdio) {
     // One caller, over this process's own streams. The machine stays in this
@@ -195,9 +207,13 @@ async function main(): Promise<number> {
     stopped = resolve;
   });
 
+  // Connections, not sessions: the command line's session outlives each of its
+  // commands, so counting sessions would keep the host alive forever.
+  let connections = 0;
+
   const life = watchLifetime(
     {
-      connected: () => sessions.openCount,
+      connected: () => connections,
       shutdown: async () => {
         await sessions.closeAll();
         await listening?.close();
@@ -217,9 +233,22 @@ async function main(): Promise<number> {
       },
       serveAgent: (connection: Duplex) => {
         life.touch();
-        void runMcpServer(args.machine, { input: connection, output: connection });
+        void runMcpServer(args.machine, {
+          input: connection,
+          output: connection,
+        });
       },
       stop: () => void life.stop(),
+      attach: () => {
+        connections += 1;
+        life.touch();
+        return () => {
+          connections -= 1;
+          // The wait starts from the last caller leaving, not from the last
+          // one arriving.
+          life.touch();
+        };
+      },
       note: (message) => err(`[basically-server] ${message}\n`),
     });
   } catch (error) {

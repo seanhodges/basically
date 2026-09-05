@@ -20,6 +20,8 @@ import type { CheckInput } from '../ops/check';
 import type { InfoInput } from '../ops/info';
 import type { LintInput } from '../ops/lint';
 import type { MachinesInput } from '../ops/machines';
+import type { DriveInput } from '../ops/drive';
+import type { ExpectInput } from '../ops/expect';
 import type { RunInput } from '../ops/run';
 
 export const OPERATIONS = [
@@ -29,6 +31,17 @@ export const OPERATIONS = [
   'build',
   'run',
   'check',
+  // The operations that act on the machine a `run --hold` left up. Each is the
+  // same operation the options on `run` and `check` reach; what differs is
+  // whether there is a machine afterwards.
+  'drive',
+  'look',
+  'screenshot',
+  'profile',
+  'time',
+  'variables',
+  'expect',
+  'server',
   'lsp',
   'mcp',
 ] as const;
@@ -85,6 +98,12 @@ export interface BuildArgs {
 
 export interface RunArgs {
   operation: 'run';
+  /**
+   * Leave the machine this run booted still running, for the operations that
+   * act on one. Without it the machine is let go when the run is reported,
+   * which is what a run has always done.
+   */
+  hold: boolean;
   program: ProgramInput;
   json: boolean;
   /** Where to write a picture of the screen, when one was asked for. */
@@ -99,6 +118,54 @@ export interface CheckArgs {
   expectations: ProgramInput;
   json: boolean;
   input: Omit<CheckInput, 'source' | 'expectations'>;
+}
+
+/**
+ * An operation acting on the machine the command line is holding.
+ *
+ * None of them names a machine or reads a program: the machine is the one a
+ * `run --hold` left up, and a command line holding none is told so rather than
+ * booting one behind the caller's back.
+ */
+export interface DriveArgs {
+  operation: 'drive';
+  json: boolean;
+  input: DriveInput;
+}
+
+export interface LookArgs {
+  operation: 'look';
+  json: boolean;
+  input: Record<never, never>;
+}
+
+export interface ScreenshotArgs {
+  operation: 'screenshot';
+  json: boolean;
+  /** Where the picture goes; the outcome carries its bytes for the shim. */
+  out?: string;
+  input: Record<never, never>;
+}
+
+export interface MeasureArgs {
+  operation: 'profile' | 'time' | 'variables';
+  json: boolean;
+  input: Record<never, never>;
+}
+
+export interface ExpectArgs {
+  operation: 'expect';
+  /** Where the expectations come from. */
+  expectations: ProgramInput;
+  json: boolean;
+  input: Omit<ExpectInput, 'expectations'>;
+}
+
+/** Asking after the host itself rather than after a program or a machine. */
+export interface ServerArgs {
+  operation: 'server';
+  action: 'status' | 'stop' | 'start';
+  json: boolean;
 }
 
 export interface LspArgs {
@@ -137,6 +204,12 @@ export type CliArgs =
   | BuildArgs
   | RunArgs
   | CheckArgs
+  | DriveArgs
+  | LookArgs
+  | ScreenshotArgs
+  | MeasureArgs
+  | ExpectArgs
+  | ServerArgs
   | LspArgs
   | McpArgs;
 
@@ -210,6 +283,109 @@ function requireMachine(
     );
   }
   return machine;
+}
+
+/**
+ * `--json` and nothing else, for an operation whose whole input is the machine
+ * that is already up.
+ */
+function takeJson(argv: string[], operation: Operation): boolean {
+  let json = false;
+  const rest = scan(argv, (name) => {
+    if (name !== '--json') throw unknownOption(operation, name);
+    json = true;
+  });
+  if (rest.length > 0) {
+    throw new RunError(`${operation} takes no arguments, got "${rest[0]}"`);
+  }
+  return json;
+}
+
+function parseDrive(argv: string[]): DriveArgs {
+  let json = false;
+  const rest = scan(argv, (name) => {
+    if (name !== '--json') throw unknownOption('drive', name);
+    json = true;
+  });
+  if (rest.length !== 1) {
+    throw new RunError('drive wants one schedule of actions to carry out');
+  }
+  return { operation: 'drive', json, input: { script: rest[0]! } };
+}
+
+function parseScreenshot(argv: string[]): ScreenshotArgs {
+  let json = false;
+  let out: string | undefined;
+  const rest = scan(argv, (name, value) => {
+    switch (name) {
+      case '--json':
+        json = true;
+        break;
+      case '-o':
+      case '--out':
+        out = value();
+        break;
+      default:
+        throw unknownOption('screenshot', name);
+    }
+  });
+  // The path may be written as `screenshot a.png` as readily as `-o a.png`.
+  if (rest.length > 1) {
+    throw new RunError(
+      `screenshot takes one file to write, got ${rest.length}`,
+    );
+  }
+  out ??= rest[0];
+  return { operation: 'screenshot', json, out, input: {} };
+}
+
+function parseExpect(argv: string[]): ExpectArgs {
+  let json = false;
+  let expectations: string | undefined;
+  const rest = scan(argv, (name, value) => {
+    switch (name) {
+      case '--json':
+        json = true;
+        break;
+      case '-e':
+      case '--expect':
+        expectations = value();
+        break;
+      default:
+        throw unknownOption('expect', name);
+    }
+  });
+  expectations ??= rest[0];
+  if (rest.length > 1) {
+    throw new RunError(
+      `expect takes one file of expectations, got ${rest.length}`,
+    );
+  }
+  return {
+    operation: 'expect',
+    expectations:
+      expectations === undefined || expectations === '-'
+        ? { kind: 'stdin' }
+        : { kind: 'file', path: expectations },
+    json,
+    input: {},
+  };
+}
+
+function parseServerCommand(argv: string[]): ServerArgs {
+  let json = false;
+  const rest = scan(argv, (name) => {
+    if (name !== '--json') throw unknownOption('server', name);
+    json = true;
+  });
+  const action = rest[0] ?? 'status';
+  if (action !== 'status' && action !== 'stop' && action !== 'start') {
+    throw new RunError(`server takes start, stop or status, not "${action}"`);
+  }
+  if (rest.length > 1) {
+    throw new RunError(`server takes one action, got "${rest[1]}"`);
+  }
+  return { operation: 'server', action, json };
 }
 
 function parseMachines(argv: string[]): MachinesArgs {
@@ -310,12 +486,16 @@ function parseRun(argv: string[]): RunArgs {
   let time = false;
   let variables = false;
   let json = false;
+  let hold = false;
   let romRoot: string | undefined;
   const rest = scan(argv, (name, value) => {
     switch (name) {
       case '-m':
       case '--machine':
         machine = value();
+        break;
+      case '--hold':
+        hold = true;
         break;
       case '--frames':
         frames = positiveInteger(name, value());
@@ -365,6 +545,7 @@ function parseRun(argv: string[]): RunArgs {
     operation: 'run',
     program: programFrom('run', rest),
     json,
+    hold,
     screenshot,
     input: {
       machine: requireMachine('run', machine),
@@ -490,6 +671,20 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseRun(rest);
     case 'check':
       return parseCheck(rest);
+    case 'drive':
+      return parseDrive(rest);
+    case 'look':
+      return { operation: 'look', json: takeJson(rest, 'look'), input: {} };
+    case 'screenshot':
+      return parseScreenshot(rest);
+    case 'profile':
+    case 'time':
+    case 'variables':
+      return { operation: first, json: takeJson(rest, first), input: {} };
+    case 'expect':
+      return parseExpect(rest);
+    case 'server':
+      return parseServerCommand(rest);
     case 'lsp':
       return parseServer('lsp', rest);
     case 'mcp':

@@ -133,7 +133,16 @@ describe('a connection handed on to another protocol', () => {
     let handedOn: Buffer | null = null;
     const host: HostServices = {
       serving: ['ops', 'lsp', 'mcp'],
-      sessions: { open: () => { throw new Error('not this route'); }, openCount: 0, closeAll: () => Promise.resolve() },
+      sessions: {
+        shared: () => {
+          throw new Error('not this route');
+        },
+        open: () => {
+          throw new Error('not this route');
+        },
+        openCount: 0,
+        closeAll: () => Promise.resolve(),
+      },
       serveEditor: (given) => {
         given.on('data', (chunk: Buffer) => {
           handedOn = handedOn ? Buffer.concat([handedOn, chunk]) : chunk;

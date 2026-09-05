@@ -10,7 +10,10 @@ function context(session: MachineSession | null = null): OpContext {
   return { roms: { present: () => false }, session };
 }
 
-function host(ctx: OpContext = context(), held: CallHost['heldMachine'] = () => null): CallHost {
+function host(
+  ctx: OpContext = context(),
+  held: CallHost['heldMachine'] = () => null,
+): CallHost {
   return { context: () => ctx, heldMachine: held };
 }
 
@@ -18,9 +21,9 @@ const reachesAll = () => true;
 
 describe('dispatching a call', () => {
   it('refuses an operation nobody declares, in the words the caller uses', async () => {
-    await expect(runOperation('teleport', {}, host(), reachesAll)).rejects.toThrow(
-      'there is no operation called "teleport"',
-    );
+    await expect(
+      runOperation('teleport', {}, host(), reachesAll),
+    ).rejects.toThrow('there is no operation called "teleport"');
     await expect(
       runOperation('teleport', {}, host(), reachesAll, 'tool'),
     ).rejects.toThrow('there is no tool called "teleport"');
@@ -44,9 +47,9 @@ describe('dispatching a call', () => {
     const needsSession = OPERATIONS.filter((op) => op.needs === 'session');
     expect(needsSession.length).toBeGreaterThan(0);
     for (const op of needsSession) {
-      await expect(runOperation(op.name, {}, host(), reachesAll)).rejects.toThrow(
-        /No machine is up/,
-      );
+      await expect(
+        runOperation(op.name, {}, host(), reachesAll),
+      ).rejects.toThrow(/No machine is up/);
     }
   });
 

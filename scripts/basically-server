@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# The Basically toolchain in command-line form. Rebuilds the bundle when it is stale,
-# so there is one command to remember rather than a build step and a run step.
+# The Basically toolchain, kept running. Rebuilds the bundle when it is stale,
+# so the client and the host are never built from different source.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-BUNDLE=scripts/headless/dist/cli.mjs
+BUNDLE=scripts/headless/dist/server.mjs
 # The whole of src/, not just the toolchain's own folders: the bundle inlines
 # the dialect registry and every emulator with it, so a change to a machine is
 # as much a stale bundle as a change to an operation - and one that went
@@ -22,7 +22,7 @@ needs_build() {
 }
 
 if needs_build; then
-  echo "[basically] Building $BUNDLE..." >&2
+  echo "[basically-server] Building $BUNDLE..." >&2
   node scripts/headless/build.mjs >&2
 fi
 

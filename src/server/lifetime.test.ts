@@ -53,7 +53,11 @@ describe('when a host lets itself go', () => {
   it('starts the wait again each time it is wanted', async () => {
     const shutdown = vi.fn(() => Promise.resolve());
     const time = fakeClock();
-    const life = watchLifetime({ connected: () => 0, shutdown }, 1000, time.clock);
+    const life = watchLifetime(
+      { connected: () => 0, shutdown },
+      1000,
+      time.clock,
+    );
     for (let i = 0; i < 5; i++) {
       time.advance(900);
       life.touch();
@@ -78,7 +82,11 @@ describe('when a host lets itself go', () => {
   it('stops when asked, whatever the clock says', async () => {
     const shutdown = vi.fn(() => Promise.resolve());
     const time = fakeClock();
-    const life = watchLifetime({ connected: () => 3, shutdown }, 1000, time.clock);
+    const life = watchLifetime(
+      { connected: () => 3, shutdown },
+      1000,
+      time.clock,
+    );
     await life.stop();
     expect(shutdown).toHaveBeenCalledOnce();
   });
@@ -86,7 +94,11 @@ describe('when a host lets itself go', () => {
   it('stops only once, however many times it is asked', async () => {
     const shutdown = vi.fn(() => Promise.resolve());
     const time = fakeClock();
-    const life = watchLifetime({ connected: () => 0, shutdown }, 1000, time.clock);
+    const life = watchLifetime(
+      { connected: () => 0, shutdown },
+      1000,
+      time.clock,
+    );
     await life.stop();
     await life.stop();
     time.advance(5000);
@@ -108,7 +120,11 @@ describe('when a host lets itself go', () => {
   it('does not re-arm after it has been cancelled', () => {
     const shutdown = vi.fn(() => Promise.resolve());
     const time = fakeClock();
-    const life = watchLifetime({ connected: () => 0, shutdown }, 1000, time.clock);
+    const life = watchLifetime(
+      { connected: () => 0, shutdown },
+      1000,
+      time.clock,
+    );
     life.cancel();
     life.touch();
     time.advance(5000);

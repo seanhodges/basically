@@ -184,11 +184,26 @@ describe('inputs and outcomes', () => {
         '--time',
         '--variables',
       ],
+      // The operations that act on the machine a `run --hold` left up. None
+      // names a machine or reads a program: the machine is the one that is
+      // already there.
+      drive: ['drive', 'PRESS A'],
+      look: ['look'],
+      screenshot: ['screenshot', 'a.png'],
+      profile: ['profile'],
+      time: ['time'],
+      variables: ['variables'],
+      expect: ['expect', 'checks.txt'],
     };
     for (const op of OPERATIONS) {
       if (op.cli?.kind !== 'operation') continue;
       const args = parseArgs(argv[op.name]!);
-      if (args.operation === 'help' || args.operation === 'lsp') {
+      if (
+        args.operation === 'help' ||
+        args.operation === 'lsp' ||
+        args.operation === 'mcp' ||
+        args.operation === 'server'
+      ) {
         throw new Error(`${op.name} did not parse as itself`);
       }
       // The texts an operation reads from a file are read by the shim; here

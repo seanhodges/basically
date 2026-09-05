@@ -45,6 +45,14 @@ export interface HostServices {
   serveAgent(connection: Duplex): void;
   /** Stop the whole host; what a caller asking it to stop reaches. */
   stop(): void;
+  /**
+   * A connection has arrived; the returned function says it has gone.
+   *
+   * What keeps a host alive is a caller connected to it, which is not the same
+   * as a session existing: the command line's session outlives every one of its
+   * connections, and a host that counted it would never let itself go.
+   */
+  attach?(): () => void;
   /** Something happened worth recording, somewhere that is not a connection. */
   note?(message: string): void;
 }
@@ -67,10 +75,7 @@ function asClientMessage(value: unknown): ClientMessage | null {
  * one, and closed however the connection ends - cleanly, by error, or by a
  * caller that simply disappeared - so a machine is never left behind.
  */
-export function serveConnection(
-  connection: Duplex,
-  host: HostServices,
-): void {
+export function serveConnection(connection: Duplex, host: HostServices): void {
   const reader = new FrameReader();
   let session: HostSession | null = null;
   let routed = false;
@@ -80,14 +85,18 @@ export function serveConnection(
     if (!connection.writableEnded) connection.write(encodeFrame(message));
   };
 
+  const detach = host.attach?.();
+
   const finish = () => {
     if (finished) return;
     finished = true;
     // A caller that is killed closes the stream without saying anything, which
-    // reaches here the same way a clean disconnection does - and lets go of the
-    // machine either way.
+    // reaches here the same way a clean disconnection does. Whether that lets
+    // go of the machine is the session's to decide: an agent's does, and the
+    // command line's does not, because the next command is coming.
     void session?.close();
     session = null;
+    detach?.();
   };
 
   const fail = (message: string) => {
@@ -133,7 +142,9 @@ export function serveConnection(
       else host.serveAgent(connection);
       return;
     }
-    session = host.sessions.open();
+    // The command line's session, shared across its connections: each command
+    // is a connection of its own, and the machine has to outlive one command.
+    session = host.sessions.shared();
     send({ kind: 'welcome', serving: host.serving });
   };
 
@@ -169,13 +180,17 @@ export function serveConnection(
       }
       // A bug rather than a bad request. The caller is told, so it is not left
       // waiting, and the host goes on serving everyone else.
-      host.note?.(error instanceof Error ? error.stack ?? error.message : String(error));
+      host.note?.(
+        error instanceof Error ? (error.stack ?? error.message) : String(error),
+      );
       send({
         kind: 'error',
         id: request.id,
         failure: 'request',
         message:
-          error instanceof Error ? error.message : 'the host failed unexpectedly',
+          error instanceof Error
+            ? error.message
+            : 'the host failed unexpectedly',
       });
     }
   };

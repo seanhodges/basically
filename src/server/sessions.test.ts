@@ -9,7 +9,11 @@ function stubHolder(name: string | null = null) {
   const holder: MachineHolder = {
     call: (operation) => {
       calls.push(operation);
-      return Promise.resolve({ outcome: { operation, name }, notes: [], failed: false });
+      return Promise.resolve({
+        outcome: { operation, name },
+        notes: [],
+        failed: false,
+      });
     },
     held: () => Promise.resolve(name),
     dispose: () => {
@@ -119,5 +123,61 @@ describe('the callers a host is serving', () => {
     await session.close();
     await expect(session.close()).resolves.toBeUndefined();
     expect(one.disposed()).toBe(1);
+  });
+});
+
+describe('the session the command line shares', () => {
+  it('is the same session every time, so a machine survives between commands', async () => {
+    const newHolder = vi.fn(() => stubHolder('ZX81').holder);
+    const sessions = createSessions(newHolder);
+    await sessions.shared().call('run', {});
+    await sessions.shared().call('look', {});
+    expect(newHolder).toHaveBeenCalledTimes(1);
+    expect(await sessions.shared().held()).toBe('ZX81');
+  });
+
+  it('keeps its machine when one command ends', async () => {
+    // Each command is a connection of its own; closing one is not the command
+    // line going away, and the next command has to find the machine still up.
+    const one = stubHolder('ZX81');
+    const sessions = createSessions(() => one.holder);
+    await sessions.shared().call('run', {});
+    await sessions.shared().close();
+    expect(one.disposed()).toBe(0);
+    expect(await sessions.shared().held()).toBe('ZX81');
+  });
+
+  it('lets its machine go when told to release it', async () => {
+    const one = stubHolder('ZX81');
+    const sessions = createSessions(() => one.holder);
+    await sessions.shared().call('run', {});
+    await sessions.shared().release();
+    expect(one.disposed()).toBe(1);
+    expect(await sessions.shared().held()).toBeNull();
+  });
+
+  it('lets its machine go when the host stops', async () => {
+    const one = stubHolder('ZX81');
+    const sessions = createSessions(() => one.holder);
+    await sessions.shared().call('run', {});
+    await sessions.closeAll();
+    expect(one.disposed()).toBe(1);
+  });
+
+  it('is not the session a caller holding its own connection gets', async () => {
+    const made: ReturnType<typeof stubHolder>[] = [];
+    const sessions = createSessions(() => {
+      const one = stubHolder('ZX81');
+      made.push(one);
+      return one.holder;
+    });
+    await sessions.shared().call('run', {});
+    const mine = sessions.open();
+    await mine.call('run', {});
+    expect(made).toHaveLength(2);
+    await mine.close();
+    // The one that went with its connection is gone; the shared one is not.
+    expect(made[1].disposed()).toBe(1);
+    expect(made[0].disposed()).toBe(0);
   });
 });

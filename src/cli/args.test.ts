@@ -85,6 +85,7 @@ describe('the command line grammar', () => {
       operation: 'run',
       program: { kind: 'file', path: 'prog.bas' },
       json: false,
+      hold: false,
       screenshot: '/tmp/bbc.png',
       input: {
         machine: 'bbcmicro',
@@ -218,6 +219,89 @@ describe('the command line grammar', () => {
     expect(() => parseArgs(['commodore64'])).toThrow(/no such operation/);
     expect(() => parseArgs(['zx81', 'png', '--png', '/tmp/a.png'])).toThrow(
       RunError,
+    );
+  });
+});
+
+describe('holding a machine between commands', () => {
+  it('leaves the machine up only when asked to', () => {
+    const plain = parseArgs(['run', 'prog.bas', '-m', 'zx81']);
+    const held = parseArgs(['run', 'prog.bas', '-m', 'zx81', '--hold']);
+    expect(plain).toMatchObject({ operation: 'run', hold: false });
+    expect(held).toMatchObject({ operation: 'run', hold: true });
+  });
+
+  it('parses each operation that acts on the machine that is up', () => {
+    expect(parseArgs(['look'])).toEqual({
+      operation: 'look',
+      json: false,
+      input: {},
+    });
+    expect(parseArgs(['drive', 'PRESS A; WAIT END'])).toEqual({
+      operation: 'drive',
+      json: false,
+      input: { script: 'PRESS A; WAIT END' },
+    });
+    expect(parseArgs(['profile', '--json'])).toEqual({
+      operation: 'profile',
+      json: true,
+      input: {},
+    });
+    expect(parseArgs(['screenshot', 'shot.png'])).toEqual({
+      operation: 'screenshot',
+      json: false,
+      out: 'shot.png',
+      input: {},
+    });
+    expect(parseArgs(['expect', 'checks.txt'])).toEqual({
+      operation: 'expect',
+      json: false,
+      expectations: { kind: 'file', path: 'checks.txt' },
+      input: {},
+    });
+  });
+
+  it('takes the picture path either way round', () => {
+    expect(parseArgs(['screenshot', '-o', 'a.png'])).toMatchObject({
+      out: 'a.png',
+    });
+    expect(parseArgs(['screenshot', 'a.png'])).toMatchObject({ out: 'a.png' });
+  });
+
+  it('reads expectations from standard input when asked', () => {
+    expect(parseArgs(['expect', '-'])).toMatchObject({
+      expectations: { kind: 'stdin' },
+    });
+    expect(parseArgs(['expect'])).toMatchObject({
+      expectations: { kind: 'stdin' },
+    });
+  });
+
+  it('refuses an operation on a machine an argument it has no use for', () => {
+    expect(() => parseArgs(['look', 'prog.bas'])).toThrow(/takes no arguments/);
+    expect(() => parseArgs(['profile', '-m', 'zx81'])).toThrow();
+    expect(() => parseArgs(['drive'])).toThrow(/wants one schedule/);
+  });
+});
+
+describe('asking after the host', () => {
+  it('defaults to reporting its status', () => {
+    expect(parseArgs(['server'])).toEqual({
+      operation: 'server',
+      action: 'status',
+      json: false,
+    });
+  });
+
+  it('takes start, stop and status', () => {
+    for (const action of ['start', 'stop', 'status'] as const) {
+      expect(parseArgs(['server', action])).toMatchObject({ action });
+    }
+  });
+
+  it('refuses anything else, naming what it takes', () => {
+    expect(() => parseArgs(['server', 'restart'])).toThrow(
+      /takes start, stop or status/,
     );
   });
 });

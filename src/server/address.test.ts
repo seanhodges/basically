@@ -23,13 +23,17 @@ const windows: AddressEnvironment = {
 
 describe('the address a host is found at', () => {
   it('puts a POSIX socket in the runtime directory when there is one', () => {
-    expect(hostAddress(BUILD, posix)).toBe('/run/user/1000/basically/a1b2c3d4e5f6.sock');
+    expect(hostAddress(BUILD, posix)).toBe(
+      '/run/user/1000/basically/a1b2c3d4e5f6.sock',
+    );
     expect(addressDirectory(posix)).toBe('/run/user/1000/basically');
   });
 
   it('falls back to a directory of its own under the temporary one', () => {
     const env = { ...posix, runtimeDir: undefined };
-    expect(hostAddress(BUILD, env)).toBe('/tmp/basically-1000/a1b2c3d4e5f6.sock');
+    expect(hostAddress(BUILD, env)).toBe(
+      '/tmp/basically-1000/a1b2c3d4e5f6.sock',
+    );
     expect(addressDirectory(env)).toBe('/tmp/basically-1000');
   });
 
@@ -39,7 +43,9 @@ describe('the address a host is found at', () => {
   });
 
   it('names a Windows pipe rather than a path, and has no directory', () => {
-    expect(hostAddress(BUILD, windows)).toBe('\\\\.\\pipe\\basically-ada-a1b2c3d4e5f6');
+    expect(hostAddress(BUILD, windows)).toBe(
+      '\\\\.\\pipe\\basically-ada-a1b2c3d4e5f6',
+    );
     expect(addressDirectory(windows)).toBeNull();
   });
 
@@ -50,7 +56,11 @@ describe('the address a host is found at', () => {
 
   it('separates two users sharing one machine', () => {
     expect(hostAddress(BUILD, posix)).not.toBe(
-      hostAddress(BUILD, { ...posix, user: '1001', runtimeDir: '/run/user/1001' }),
+      hostAddress(BUILD, {
+        ...posix,
+        user: '1001',
+        runtimeDir: '/run/user/1001',
+      }),
     );
     expect(hostAddress(BUILD, windows)).not.toBe(
       hostAddress(BUILD, { ...windows, user: 'grace' }),
@@ -60,7 +70,10 @@ describe('the address a host is found at', () => {
   it('keeps every POSIX socket path inside the sun_path limit', () => {
     // 104 bytes including the terminator is the smaller of the two limits
     // (macOS); anything at or under 100 clears it on every supported system.
-    const deep = { ...posix, runtimeDir: `/run/user/1000/${'nested/'.repeat(20)}` };
+    const deep = {
+      ...posix,
+      runtimeDir: `/run/user/1000/${'nested/'.repeat(20)}`,
+    };
     const address = hostAddress(BUILD, deep);
     expect(address.length).toBeLessThanOrEqual(100);
     expect(address).toBe('/tmp/bsly-1000-a1b2c3d4e5f6.sock');

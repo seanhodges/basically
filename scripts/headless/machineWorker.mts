@@ -1,5 +1,8 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import { serveMachineWorker, type MessageChannelLike } from '../../src/server/machineWorker';
+import {
+  serveMachineWorker,
+  type MessageChannelLike,
+} from '../../src/server/machineWorker';
 import { divertLogging } from '../../src/server/logging';
 
 /**
