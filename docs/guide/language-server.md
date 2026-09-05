@@ -83,3 +83,10 @@ See [Writing BASIC](/guide/writing-basic) for what these features look like
 inside the IDE, and
 [File formats ▸ Declaring the machine](/reference/file-formats#declaring-the-machine)
 for more on the `#MACHINE` line.
+
+## Serving an AI agent instead
+
+An editor isn't the only thing that can be handed the toolchain. If you'd
+rather have an AI agent work on a program — running it, looking at the screen,
+pressing keys and looking again — there's a server for that too, described in
+[Serving an agent](../reference/mcp-server).

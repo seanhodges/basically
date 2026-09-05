@@ -11,23 +11,25 @@ import { PROVIDERS } from '../ai/providers/registry';
 import { driveOp } from './drive';
 import { EXEMPTIONS, exemptionFor, reachable, type Caller } from './parity';
 import { OPERATIONS, findOperation } from './registry';
+import { mcpToolDefinitions } from '../mcp/tools';
 import { schemaProblem, withoutUndefined } from './schema';
 import { toolDefinitions } from './tools';
 import { pureContext, stubSession } from './testSupport';
 import type { AssistantRoute, CliRoute } from './types';
 
 /**
- * Both callers held to one list.
+ * Every caller held to one list.
  *
- * Every declared operation is reachable from the command line and from the
- * assistant, or carries a declared exemption with its reason - and an
- * exemption for an operation that is in fact reachable fails too, so the table
- * cannot decay into a list of things nobody rechecked. The route each
- * declaration names is checked against the real surface: the command line's
- * grammar and help, the assistant's tool block and its fenced-block parsers.
+ * Every declared operation is reachable from the command line, from the
+ * assistant and from the server, or carries a declared exemption with its
+ * reason - and an exemption for an operation that is in fact reachable fails
+ * too, so the table cannot decay into a list of things nobody rechecked. The
+ * route each declaration names is checked against the real surface: the
+ * command line's grammar and help, the assistant's tool block and its
+ * fenced-block parsers, and the server's own tool listing.
  */
 
-const CALLERS: Caller[] = ['cli', 'assistant'];
+const CALLERS: Caller[] = ['cli', 'assistant', 'mcp'];
 
 /** Whether the command line really has this route: the grammar takes it and the help names it. */
 function cliRouteExists(route: CliRoute): boolean {
@@ -60,8 +62,13 @@ function assistantRouteExists(route: AssistantRoute, name: string): boolean {
   return false;
 }
 
+/** Whether the server really offers this operation: it is in what it lists. */
+function mcpRouteExists(name: string): boolean {
+  return mcpToolDefinitions().some((t) => t.name === name);
+}
+
 describe('capability parity', () => {
-  it('reaches every operation from both callers, or declares why not', () => {
+  it('reaches every operation from every caller, or declares why not', () => {
     for (const op of OPERATIONS) {
       for (const caller of CALLERS) {
         const exemption = exemptionFor(op, caller);
@@ -70,7 +77,9 @@ describe('capability parity', () => {
           const exists =
             caller === 'cli'
               ? cliRouteExists(op.cli!)
-              : assistantRouteExists(op.assistant!, op.name);
+              : caller === 'assistant'
+                ? assistantRouteExists(op.assistant!, op.name)
+                : mcpRouteExists(op.name);
           expect(exists, `${op.name} on the ${caller}`).toBe(true);
           // And wiring it up forces its exemption out.
           expect(
@@ -92,6 +101,16 @@ describe('capability parity', () => {
     for (const e of EXEMPTIONS) {
       expect(findOperation(e.operation), e.operation).toBeDefined();
     }
+  });
+
+  it('carries no exemption for the caller that both boots a machine and holds one', () => {
+    // The two absences on record are the assistant's, and both are because
+    // the IDE around it runs the program on the user's own machine. A caller
+    // with no IDE is not described by that reason, so nothing is withheld
+    // here - and the emptiness is the assertion, because an operation this
+    // caller could not serve would have to say why.
+    expect(EXEMPTIONS.filter((e) => e.caller === 'mcp')).toEqual([]);
+    expect(OPERATIONS.every((op) => reachable(op, 'mcp'))).toBe(true);
   });
 
   it('reads a provider without tools as a property of the provider, not of any operation', () => {
@@ -121,7 +140,7 @@ describe('the schedule vocabulary', () => {
     }
   });
 
-  it('is described to both callers identically, separators included', () => {
+  it('is described to the shell and to a model identically, separators included', () => {
     const toModel = driveOp.description!;
     // The help wraps a meaning over two lines; the words are what must agree.
     const toShell = usage('run').replace(/\s+/g, ' ');

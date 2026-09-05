@@ -72,9 +72,10 @@ flowchart TB
 | **Editor services**<br>`src/editor/`                                                                                   | CodeMirror language, completion, lint and analysis builders |
 | **Reference data**<br>`src/reference/`                                                                                 | Structured machine reference shared by the docs and the AI  |
 | **Integration services**<br>`src/ai/` · `src/transfer/` · `src/share/` · `src/player/` · `src/audio/` · `src/storage/` | AI, hardware transfer, sharing, sound, persistence          |
-| **Operation layer**<br>`src/ops/`                                                                                      | One declaration per operation; both callers derive from it  |
+| **Operation layer**<br>`src/ops/`                                                                                      | One declaration per operation; every caller derives from it |
 | **Headless toolchain**<br>`src/cli/` · `src/dialects/headless/` · `scripts/basically`                                  | The same toolchain outside the browser                      |
 | **Language server**<br>`src/lsp/` · `scripts/headless/lsp.mts`                                                         | The editor's own language help, served to any other editor  |
+| **Agent server**<br>`src/mcp/` · `scripts/headless/mcp.mts`                                                            | The whole toolchain served to an agent, over a held machine |
 
 ### Presentation layer
 
@@ -685,21 +686,23 @@ the screen, the measurements of the run, and what its variables hold. Only
 `run` needs a ROM. `scripts/basically.cmd` is the same entry point for cmd.exe
 and PowerShell, and has to stay in step with it.
 
-### One operation layer, two callers
+### One operation layer, every caller
 
-The command line and the AI assistant are two callers of one set of
-operations. Each operation is declared once in `src/ops/` - its name, a
+The command line, the AI assistant and the agent server are callers of one set
+of operations. Each operation is declared once in `src/ops/` - its name, a
 summary, an input schema, what it needs in order to run, how each caller
 reaches it, and a function from input and context to an outcome that survives
-being written as JSON - and both surfaces are derived from the declaration:
-the command line's shims call `run()` and render the outcome in their own
-columns, and the assistant's tool definitions are rendered from the name, the
-description and the schema (`src/ops/tools.ts`). The layer imports neither the
-filesystem, the DOM nor the store; `eslint.config.js` refuses those imports
-under `src/ops/`, and what an operation needs from either world arrives through
-its context (`OpContext` in `src/ops/types.ts`): whether a ROM is present, the
-machine session the caller holds, and - for the command line only - the
-headless runner and a painter.
+being written as JSON - and every surface is derived from the declaration: the
+command line's shims call `run()` and render the outcome in their own columns,
+and each caller that offers tools renders its own definitions from the name,
+the description and the schema (`src/ops/tools.ts` for the assistant,
+`src/mcp/tools.ts` for the server; separately, because the assistant's must be
+the same bytes on every turn and the server's are under no such constraint).
+The layer imports neither the filesystem, the DOM nor the store;
+`eslint.config.js` refuses those imports under `src/ops/`, and what an
+operation needs from either world arrives through its context (`OpContext` in
+`src/ops/types.ts`): whether a ROM is present, the machine session the caller
+holds, and - for a caller that can boot one - a runner and a painter.
 
 ```mermaid
 flowchart TB
@@ -707,6 +710,8 @@ flowchart TB
   grammar --> ops["src/ops/<br/>one declaration per operation"]
   ai["src/ai/aiStore.ts<br/>the assistant's turn"] --> tools["src/ops/tools.ts<br/>tool definitions · runToolCall"]
   tools --> ops
+  mcp["scripts/headless/mcp.mts<br/>an agent's connection"] --> mtools["src/mcp/<br/>tools · content · session"]
+  mtools --> ops
   ops --> session{{"MachineSession<br/>src/app/machineSession.ts"}}
   session --> browser["src/app/browserSession.ts<br/>the pane's machine · the store's readings"]
   session --> headless["src/ops/headlessSession.ts<br/>the runner's machine · RunMeasurements"]
@@ -715,20 +720,24 @@ flowchart TB
 ```
 
 **Parity is over capabilities, not over invocation.** A command line
-invocation holds no machine between runs, so what the assistant asks of a
-machine it is holding - press these keys, look, measure - the command line asks
-of one run, as an option on `run`. Each declaration names its route on each
-caller: an operation of its own, an option on another, a tool, or a line of
-the fenced block the assistant's reply carries. An operation deliberately
-absent from one caller is an entry in the exemption table (`src/ops/parity.ts`)
-with its reason. `src/ops/parity.test.ts` is the registry-driven check that
-holds both surfaces to the one list: it fails on an operation missing from a
-surface with no entry, on an entry for an operation that is in fact reachable
-from both, on a route the grammar or the block parsers do not actually take, on
-an outcome that does not survive JSON, and on an action the schedule accepts
-that either caller's description omits. A provider that cannot be given tools
-at all gates the assistant's whole surface and is read as a property of the
-provider, never as an operation being absent.
+invocation holds no machine between runs, so what a caller that is holding a
+machine asks of that machine - press these keys, look, measure - the command
+line asks of one run, as an option on `run`. Each declaration names its route
+on each caller: an operation of its own, an option on another, a tool, or a
+line of the fenced block the assistant's reply carries. An operation
+deliberately absent from one caller is an entry in the exemption table
+(`src/ops/parity.ts`) with its reason, and a reason is particular to the caller
+it is claimed of: an absence that holds because of the circumstances one caller
+works in is not carried over to a caller those circumstances do not describe,
+so adding a caller widens what the toolchain offers rather than inheriting what
+was withheld. `src/ops/parity.test.ts` is the registry-driven check that holds
+every surface to the one list: it fails on an operation missing from a surface
+with no entry, on an entry for an operation that is in fact reachable, on a
+route the grammar, the block parsers or the served tool listing do not actually
+take, on an outcome that does not survive JSON, and on an action the schedule
+accepts that a caller's description omits. A provider that cannot be given
+tools at all gates the assistant's whole surface and is read as a property of
+the provider, never as an operation being absent.
 
 **A machine session is one interface over a running machine.** `MachineSession`
 is the driver (`src/app/machineControl.ts`: press keys, work the joystick,
@@ -820,6 +829,51 @@ installs around a running machine are ever put up, because nothing here runs
 one. Standard output belongs to the protocol for the server's whole life, so
 it installs the same log diversion `divertLogging()` in
 `scripts/headless/cli.mts` already uses for a single run, just for longer.
+
+### Serving an agent: the toolchain over MCP
+
+`mcp` starts a server on the same terms `lsp` does - `scripts/basically mcp
+--stdio`, streams held open until the client disconnects - and offers every
+operation the toolchain declares as a tool of the Model Context Protocol. The
+split is the one the rest of the toolchain uses: `src/mcp/` decides what is
+offered and what an answer is, and `scripts/headless/mcp.mts` owns the
+connection and the held machine's lifetime against it.
+
+What is new here is that the machine stays up. `src/mcp/session.ts` is a
+`ListingRunner` of its own rather than a change to
+`src/dialects/headless/runListing.ts`: that runner disposes the machine in a
+`finally`, which is exactly right for an invocation that is ending and exactly
+wrong for a server. The pieces underneath are shared - `installNodeRomLoading`
+and `installCanvasGlobals` from `src/dialects/bootHarness.ts`, `bootMachine`,
+`resolveTokenize`, `createHeadlessSession` - so the machine an agent drives is
+the machine `basically run` would have booted.
+
+```mermaid
+flowchart TB
+  client["An agent's protocol client"] <-->|"stdio, JSON-RPC"| shim["scripts/headless/mcp.mts<br/>connection · lifetime"]
+  shim --> surface["src/mcp/tools.ts<br/>definitions · one call dispatched"]
+  surface --> content["src/mcp/content.ts<br/>prose · the display as an image"]
+  surface --> machine["src/mcp/session.ts<br/>the held machine · one RunMeasurements"]
+  machine --> held{{"MachineSession<br/>held between requests"}}
+```
+
+Three consequences follow, and each is a rule the tests pin:
+
+- **The stand-ins are installed on the process, not on the machine**, so one
+  machine is held at a time: running a second program lets the first go, before
+  a second set is ever installed.
+- **Frames are spent by requests.** Nothing advances the machine between them,
+  so a read costs nothing, an action costs what it costs, and a measurement is
+  in the machine's own time however long the client took to think.
+- **A run is folded once.** Draining a machine's per-line costs takes them, so
+  a second `RunMeasurements` over the same run would see nothing; the server
+  owns the one fold and answers a run's `profile`/`time` off the machine it
+  left up, which is also what a later `profile` call reads.
+
+Standard output belongs to the protocol for the server's whole life, so it
+installs the same `divertLogging()` diversion, and whatever machine is up goes
+with the connection - a client that is killed strands neither a machine nor the
+stand-ins under it.
 
 ## Where to go next
 

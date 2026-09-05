@@ -199,6 +199,7 @@ export const infoOp: Operation<InfoInput, MachineDescription> = {
   needs: 'roms',
   cli: { kind: 'operation', name: 'info' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: describeMachine,
   describe: describeMachineForModel,
 };

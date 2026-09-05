@@ -196,6 +196,7 @@ export const buildOp: Operation<BuildInput, BuildOutcome> = {
   needs: 'nothing',
   cli: { kind: 'operation', name: 'build' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: buildListing,
   failed: (outcome) => outcome.target === null,
   describe: (outcome) => {

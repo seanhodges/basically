@@ -98,19 +98,26 @@ describe('the command line grammar', () => {
         romRoot: '/elsewhere/public',
       },
     });
-    expect(parseArgs(['lsp', '--stdio', '-m', 'zx81'])).toEqual({
-      operation: 'lsp',
-      stdio: true,
-      machine: 'zx81',
-    });
+    for (const operation of ['lsp', 'mcp'] as const) {
+      expect(parseArgs([operation, '--stdio', '-m', 'zx81'])).toEqual({
+        operation,
+        stdio: true,
+        machine: 'zx81',
+      });
+    }
   });
 
-  it('takes no machine at all for lsp, since the editor may name one later', () => {
-    expect(parseArgs(['lsp', '--stdio'])).toEqual({
-      operation: 'lsp',
-      stdio: true,
-      machine: undefined,
-    });
+  it('takes no machine at all for a server, since its client may name one later', () => {
+    // The editor sets `basically.machine` once it has started; an agent says
+    // which machine it means on the request. Neither is the caller's mistake
+    // at the point the server is started.
+    for (const operation of ['lsp', 'mcp'] as const) {
+      expect(parseArgs([operation, '--stdio'])).toEqual({
+        operation,
+        stdio: true,
+        machine: undefined,
+      });
+    }
   });
 
   it('takes no machine for lint/build, leaving it to the program to declare one', () => {
@@ -167,6 +174,8 @@ describe('the command line grammar', () => {
       ['an unknown option', ['lint', '-m', 'zx81', '--loudly']],
       ['an unknown option on lsp', ['lsp', '--stdio', '--loudly']],
       ['a positional argument on lsp', ['lsp', '--stdio', 'prog.bas']],
+      ['an unknown option on mcp', ['mcp', '--stdio', '--loudly']],
+      ['a positional argument on mcp', ['mcp', '--stdio', 'prog.bas']],
       ['a missing machine on run', ['run', 'prog.bas']],
       ['a missing output path', ['build', 'prog.bas', '-m', 'zx81']],
       ['a non-numeric frame count', ['run', '-m', 'zx81', '--frames', 'lots']],

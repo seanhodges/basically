@@ -19,6 +19,7 @@ import { machinesOp } from '../../src/ops/machines';
 import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
 import { runOp, type RunOutcome } from '../../src/ops/run';
 import { runLsp } from './lsp.mts';
+import { runMcpServer } from './mcp.mts';
 
 /**
  * The Basically toolchain outside the browser.
@@ -348,6 +349,19 @@ async function main(): Promise<number> {
       // The server has no verdict on a program to report - it served until
       // the editor disconnected, which is success whatever the programs it
       // served turned out to have.
+      return 0;
+    }
+
+    case 'mcp': {
+      // As for `lsp`: a machine that is not registered is refused before
+      // anything is served, and naming none is not a mistake, since the
+      // client may say which machine it means on each request.
+      if (args.machine !== undefined && !findMachine(args.machine)) {
+        throw new RunError(`no registered machine "${args.machine}"`);
+      }
+      await runMcpServer(args.machine);
+      // Served until the client disconnected, which is success whatever the
+      // programs it served turned out to have.
       return 0;
     }
   }

@@ -45,6 +45,7 @@ export const machinesOp: Operation<MachinesInput, MachineSummary[]> = {
   needs: 'roms',
   cli: { kind: 'operation', name: 'machines' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: (_input, ctx) => listMachines(ctx),
   describe: (machines) =>
     machines

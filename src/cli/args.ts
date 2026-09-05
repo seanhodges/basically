@@ -30,6 +30,7 @@ export const OPERATIONS = [
   'run',
   'check',
   'lsp',
+  'mcp',
 ] as const;
 
 export type Operation = (typeof OPERATIONS)[number];
@@ -114,6 +115,20 @@ export interface LspArgs {
   machine?: string;
 }
 
+export interface McpArgs {
+  operation: 'mcp';
+  /** Serve over standard input/output; the only transport, so always set once parsed. */
+  stdio: boolean;
+  /**
+   * The machine a program-reading request defaults to when it names none and
+   * the program declares none, absent when the client is expected to say on
+   * each request. Optional for the same reason it is optional for `lsp`: the
+   * server outlives any one request, and a client may work on a machine it
+   * only decides on later.
+   */
+  machine?: string;
+}
+
 export type CliArgs =
   | HelpArgs
   | MachinesArgs
@@ -122,7 +137,8 @@ export type CliArgs =
   | BuildArgs
   | RunArgs
   | CheckArgs
-  | LspArgs;
+  | LspArgs
+  | McpArgs;
 
 function isOperation(word: string): word is Operation {
   return (OPERATIONS as readonly string[]).includes(word);
@@ -417,7 +433,15 @@ function parseCheck(argv: string[]): CheckArgs {
   };
 }
 
-function parseLsp(argv: string[]): LspArgs {
+/**
+ * The two operations that serve rather than answer take the same arguments: a
+ * transport and an optional machine. Neither takes a program, because a client
+ * sends its own.
+ */
+function parseServer<T extends 'lsp' | 'mcp'>(
+  operation: T,
+  argv: string[],
+): { operation: T; stdio: boolean; machine?: string } {
   let machine: string | undefined;
   let stdio = false;
   const rest = scan(argv, (name, value) => {
@@ -430,13 +454,13 @@ function parseLsp(argv: string[]): LspArgs {
         stdio = true;
         break;
       default:
-        throw unknownOption('lsp', name);
+        throw unknownOption(operation, name);
     }
   });
   if (rest.length > 0) {
-    throw new RunError(`lsp takes no arguments, got "${rest[0]}"`);
+    throw new RunError(`${operation} takes no arguments, got "${rest[0]}"`);
   }
-  return { operation: 'lsp', stdio, machine };
+  return { operation, stdio, machine };
 }
 
 export function parseArgs(argv: string[]): CliArgs {
@@ -467,6 +491,8 @@ export function parseArgs(argv: string[]): CliArgs {
     case 'check':
       return parseCheck(rest);
     case 'lsp':
-      return parseLsp(rest);
+      return parseServer('lsp', rest);
+    case 'mcp':
+      return parseServer('mcp', rest);
   }
 }

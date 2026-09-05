@@ -97,6 +97,7 @@ export const lintOp: Operation<LintInput, LintOutcome> = {
   needs: 'nothing',
   cli: { kind: 'operation', name: 'lint' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: lintListing,
   describe: (outcome) => {
     const count = outcome.problems.length;

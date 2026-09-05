@@ -53,6 +53,7 @@ usage: basically <operation> [options]
   run        run a program and report its screen
   check      check a program against what it should do
   lsp        serve an editor over the Language Server Protocol
+  mcp        serve an agent over the Model Context Protocol
 
 Every operation but "run" and "check" works with no ROM present. Where an operation takes a
 program, the path may be "-", or left out, to read it from standard input.
@@ -199,6 +200,33 @@ generic LSP client config might read:
 
 The server holds its streams open for the conversation and has no verdict to
 report, so it exits 0 when the editor disconnects; starting it with a bad
+option, or a machine that is not registered, exits 1 without serving anything.
+`.trimStart(),
+
+  mcp: `
+serve an agent over the Model Context Protocol
+
+usage: basically mcp --stdio [-m <machine>]
+
+  --stdio           the only transport; required
+  -m, --machine     a machine every request defaults to, when it names none
+                    and the program declares none; optional, since a client
+                    may say which machine it means on each request
+
+Every operation this command line has is offered to the client, and one machine
+is held between requests: running a program leaves it up, so the client can
+look at it, act on it, measure it and check it without running the program
+again. Running a second program lets the first machine go, and disconnecting
+lets go of whatever is up.
+
+Point your client's server configuration at this command - most clients run a
+server as a child process over stdio. For example, a generic client config
+might read:
+
+  { "command": "basically", "args": ["mcp", "--stdio"] }
+
+The server holds its streams open for the conversation and has no verdict to
+report, so it exits 0 when the client disconnects; starting it with a bad
 option, or a machine that is not registered, exits 1 without serving anything.
 `.trimStart(),
 };

@@ -78,6 +78,7 @@ export const driveOp: Operation<DriveInput, DriveOutcome> = {
   needs: 'session',
   cli: { kind: 'option', operation: 'run', option: '--keys' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: (input, ctx) => {
     const session = requireSession(ctx.session);
     const report = runDriveScript(session, parseDriveScript(input.script));
@@ -104,6 +105,7 @@ export const lookOp: Operation<Record<never, never>, LookOutcome> = {
   needs: 'session',
   cli: { kind: 'option', operation: 'run', option: '--screen-text' },
   assistant: { kind: 'tool' },
+  mcp: { kind: 'tool' },
   run: (_input, ctx) => ({ screen: requireSession(ctx.session).readText() }),
   describe: (outcome) => describeScreen(outcome.screen),
 };
@@ -115,11 +117,13 @@ export interface ScreenshotOutcome {
 /**
  * A picture of the display.
  *
- * The assistant's route is its view block rather than a tool: a tool's answer
- * is text, and a picture reaches a model only as an image on a turn, which is
- * what `SCREEN IMAGE` in a `basic-view` block asks for. Whether the picture
- * can be shown at all is a property of the provider, on the same terms as
- * being given tools.
+ * The assistant's route is its view block rather than a tool, because the
+ * answer to one of its tool calls is text and a picture reaches a model only
+ * as an image on a turn - which is what `SCREEN IMAGE` in a `basic-view` block
+ * asks for. Whether the picture can be shown at all is a property of the
+ * provider, on the same terms as being given tools. A caller whose own
+ * protocol carries an image in a tool's answer has no such difficulty and
+ * reaches this as a tool.
  */
 export const screenshotOp: Operation<
   Record<never, never>,
@@ -131,6 +135,7 @@ export const screenshotOp: Operation<
   needs: 'session',
   cli: { kind: 'option', operation: 'run', option: '--screenshot' },
   assistant: { kind: 'block', fence: 'basic-view', example: 'SCREEN IMAGE' },
+  mcp: { kind: 'tool' },
   run: (_input, ctx) => ({ picture: requireSession(ctx.session).capture() }),
   describe: (outcome) =>
     outcome.picture

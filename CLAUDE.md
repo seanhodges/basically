@@ -91,6 +91,9 @@ printf '10 PRINT "HI"\n' | ./scripts/basically run -m commodore64
 printf 'WAIT END\nEXPECT "READY"\n' > /tmp/checks.txt
 ./scripts/basically check prog.bas -m zx81 -e /tmp/checks.txt
 ./scripts/basically lsp --stdio                    # a language server for any editor that speaks LSP; no ROM
+# mcp serves the whole toolchain to an agent over MCP, and holds one machine
+# between requests: run a program, look at the screen, press a key, look again.
+./scripts/basically mcp --stdio -m zx81            # -m optional; the client may name a machine per request
 scripts\basically.cmd machines                     # the same tool from cmd.exe or PowerShell
 
 npm run typecheck      # fast type check (tsc -b, no bundle)
