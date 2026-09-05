@@ -24,6 +24,7 @@ import {
   EXIT_BAD_REQUEST,
   exitCodeFor,
   HostRefused,
+  HostUnreachable,
   inProcessClient,
   openClient,
   type HostClient,
@@ -618,7 +619,11 @@ main()
       err(`${error.message}\n`);
       process.exit(EXIT_BAD_REQUEST);
     }
-    if (error instanceof HostRefused) {
+    // A host that cannot be reached, or that stopped mid-call, is the caller's
+    // failure to report plainly - never a program's, because nothing was ever
+    // asked about a program. Left unhandled it reached the user as a stack
+    // trace, which says nothing they can act on.
+    if (error instanceof HostRefused || error instanceof HostUnreachable) {
       err(`${error.message}\n`);
       process.exit(exitCodeFor(error));
     }

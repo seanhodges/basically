@@ -56,8 +56,22 @@ export function exitCodeFor(error: unknown): number {
     : EXIT_BAD_REQUEST;
 }
 
-/** How long a call may take before the host is presumed wedged. */
+/**
+ * How long a call may take before the host is presumed wedged.
+ *
+ * Generous, because a call can legitimately be a long one: running a program to
+ * its frame cap on a slow machine is work, not a hang.
+ */
 export const CALL_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
+ * How long the handshake may take.
+ *
+ * Much shorter, because it is not work: a host that has accepted a connection
+ * and not said hello has nothing to be busy with, so waiting the length of a
+ * call would only make a wedged host look like a slow one.
+ */
+export const HANDSHAKE_TIMEOUT_MS = 15 * 1000;
 
 export interface HostClient {
   /** Run one operation and return its outcome, its notes and whether it failed. */
@@ -87,6 +101,7 @@ export function openClient(
   conversation: Conversation,
   buildId: string,
   timeoutMs = CALL_TIMEOUT_MS,
+  handshakeMs = HANDSHAKE_TIMEOUT_MS,
 ): Promise<HostClient> {
   const reader = new FrameReader();
   const waiting = new Map<
@@ -202,8 +217,14 @@ export function openClient(
 
   return new Promise<HostClient>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new HostUnreachable('the host did not answer the handshake'));
-    }, timeoutMs);
+      reject(
+        new HostUnreachable(
+          `the host accepted a connection but did not answer within ` +
+            `${Math.round(handshakeMs / 1000)}s; stop it with ` +
+            '"basically server stop" and try again',
+        ),
+      );
+    }, handshakeMs);
     welcomed = () => {
       clearTimeout(timer);
       resolve(client);

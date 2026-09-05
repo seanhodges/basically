@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { encodeFrame, FrameReader } from '../server/protocol';
 import type { Connection } from './connect';
 import {
+  CALL_TIMEOUT_MS,
   EXIT_BAD_PROGRAM,
   EXIT_BAD_REQUEST,
   exitCodeFor,
+  HANDSHAKE_TIMEOUT_MS,
   HostRefused,
   HostUnreachable,
   openClient,
@@ -71,13 +73,6 @@ describe('opening a conversation', () => {
       /does not serve "mcp"; it serves ops/,
     );
   });
-
-  it('gives up rather than waiting forever for a handshake', async () => {
-    const over = link();
-    await expect(openClient(over.connection, 'ops', 'b', 5)).rejects.toThrow(
-      /did not answer the handshake/,
-    );
-  });
 });
 
 describe('asking for an operation', () => {
@@ -130,7 +125,7 @@ describe('asking for an operation', () => {
 
   it('gives up on a host that never answers', async () => {
     const over = link();
-    const opening = openClient(over.connection, 'ops', 'b', 20);
+    const opening = openClient(over.connection, 'ops', 'b', 20, 60_000);
     over.say({ kind: 'welcome', serving: ['ops'] });
     const client = await opening;
     await expect(client.call('machines', {})).rejects.toThrow(
@@ -190,5 +185,34 @@ describe('the verdict a caller reports', () => {
       EXIT_BAD_REQUEST,
     );
     expect(exitCodeFor(new Error('anything else'))).toBe(EXIT_BAD_REQUEST);
+  });
+});
+
+describe('a host that accepted a connection but will not speak', () => {
+  it('gives up on the handshake long before it gives up on a call', async () => {
+    // A call can legitimately take minutes - running a program to its frame cap
+    // is work. A handshake cannot: a host that has accepted a connection and
+    // not said hello has nothing to be busy with, so waiting the length of a
+    // call would make a wedged host look like a slow one.
+    expect(HANDSHAKE_TIMEOUT_MS).toBeLessThan(CALL_TIMEOUT_MS);
+  });
+
+  it('says so in a sentence, naming how to recover', async () => {
+    const over = link();
+    const error = await openClient(
+      over.connection,
+      'ops',
+      'b',
+      60_000,
+      5,
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HostUnreachable);
+    expect((error as HostUnreachable).message).toMatch(/basically server stop/);
+  });
+
+  it('is the caller failure, never a program at fault', () => {
+    // Nothing was ever asked about a program, so the code reserved for one
+    // would be a lie a script could act on.
+    expect(exitCodeFor(new HostUnreachable('wedged'))).toBe(EXIT_BAD_REQUEST);
   });
 });
