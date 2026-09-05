@@ -758,11 +758,11 @@ carries the bytes base64-encoded and the shim decodes them before writing.
 its ROM, load the image, read the screen back. The runner shares
 `src/dialects/bootHarness.ts` with the registry-driven unit tests.
 
-`run --keys` and the assistant's `drive` tool drive a running machine through
-one driver and one script vocabulary: `src/app/driveScript.ts` reads the
-grammar (`PRESS`/`JOY`/`WAIT`/`WAIT FOR`/`WAIT END`, `#` comments, actions
+`run --keys`, `check` and the assistant's `drive` tool drive a running machine
+through one driver and one script vocabulary: `src/app/driveScript.ts` reads
+the grammar (`PRESS`/`JOY`/`WAIT`/`WAIT FOR`/`WAIT END`, `#` comments, actions
 separated by newlines or by semicolons outside quotes) and runs it against the
-session, stopping at the first action that fails. The actions are a declared
+session, stopping at the first step that fails. The actions are a declared
 list (`DRIVE_ACTIONS`) that the command line's help and the assistant's tool
 description both render from, so an action the parser accepts is described to
 every caller. Key names are the shared vocabulary above. `RunOptions.drive` is
@@ -770,6 +770,22 @@ the seam on the runner's side: it hands the hook a machine and its own frame
 advance and knows nothing about what a schedule is, which keeps
 `src/dialects/headless/` free of `src/app/` and of the operation layer. A run
 given a schedule ends where the schedule ends.
+
+**Expectations are part of that vocabulary, not a second one.** The same
+schedule carries `EXPECT` lines saying what should be on the screen, what
+should not, whether the program should have stopped or still be running, what a
+variable should hold, and how the screen should look. An expectation costs no
+frames and asks what is true at the point in the schedule where it was written,
+so "it printed this at some point" is the wait that already says so. Each step
+of the report carries its action, the line it was written on and one of three
+outcomes: an expectation nobody present can settle - how the screen looks, or a
+reading the machine cannot give - is `unevaluated` rather than a pass or a
+failure. `check` is the operation whose product is that verdict, and the
+assistant's ` ```basic-expect ` block is the same schedule judged by the same
+`expect` operation against the machine the IDE has up; how the screen looks is
+settled only by showing the assistant the display, which is why `check` carries
+an exemption against the assistant and that form is reported unevaluated
+everywhere else.
 
 ### Serving an editor: the language server
 

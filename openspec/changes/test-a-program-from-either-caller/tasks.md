@@ -54,23 +54,23 @@
 
 ## 4. Documentation
 
-- [ ] 4.1 Update the commands section of `CLAUDE.md` with one example of checking
+- [x] 4.1 Update the commands section of `CLAUDE.md` with one example of checking
       a program, noting that it needs a ROM.
-- [ ] 4.2 Update `docs/contributing/architecture.md`: the check joins the
+- [x] 4.2 Update `docs/contributing/architecture.md`: the check joins the
       operations, and the sentence about the shared driving vocabulary extends to
       say expectations are part of it. No machine lists, no counts.
 
 ## 5. Quality gates
 
-- [ ] 5.1 `npx vitest run src/app/ src/ops/ src/cli/ src/ai/` — the grown
+- [x] 5.1 `npx vitest run src/app/ src/ops/ src/cli/ src/ai/` — the grown
       vocabulary, the new operation, and the assistant paths that consume both.
-- [ ] 5.2 `npm run typecheck`, `npm run lint`, `npm run format:check`
-- [ ] 5.3 `npm run docs:build`, because `docs/contributing/architecture.md`
+- [x] 5.2 `npm run typecheck`, `npm run lint`, `npm run format:check`
+- [x] 5.3 `npm run docs:build`, because `docs/contributing/architecture.md`
       changes.
-- [ ] 5.4 `npx openspec validate --specs`
-- [ ] 5.5 `npm run e2e:chromium -- e2e/ai-assistant`, because what the assistant
+- [x] 5.4 `npx openspec validate --specs`
+- [x] 5.5 `npm run e2e:chromium -- e2e/ai-assistant`, because what the assistant
       states and how a failed expectation is reported are visible in the panel.
-- [ ] 5.6 By hand, with the bundle rebuilt: a file whose actions and expectations
+- [x] 5.6 By hand, with the bundle rebuilt: a file whose actions and expectations
       all hold exits 0; one naming text never printed exits with the program-at-
       fault outcome, naming the failing line; one with a bad line is refused
       before any boot; the structured verdict says the same as the readable one;
