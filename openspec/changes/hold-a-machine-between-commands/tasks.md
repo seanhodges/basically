@@ -1,15 +1,15 @@
 ## 1. The wire and the host's own pieces
 
-- [ ] 1.1 Add `src/server/address.ts`: the host's address from the user and the
+- [x] 1.1 Add `src/server/address.ts`: the host's address from the user and the
       toolchain's build version, branching to a Unix domain socket path on
       macOS/Linux and a named pipe on Windows. Colocated tests for each branch,
       for two versions never colliding, and for the address being derivable
       without touching the filesystem.
-- [ ] 1.2 Add `src/server/protocol.ts`: the handshake and the operations
+- [x] 1.2 Add `src/server/protocol.ts`: the handshake and the operations
       conversation as types plus the `Content-Length` framing over a duplex
       stream. Colocated tests for framing round trips, split and coalesced
       chunks, and an oversized frame being refused rather than buffered.
-- [ ] 1.3 Add `src/server/ops.ts`: one call named by operation with its input,
+- [x] 1.3 Add `src/server/ops.ts`: one call named by operation with its input,
       validated on arrival with the existing `schemaProblem()` and dispatched
       through `findOperation()`, answered with the outcome or with the error
       class the caller needs to choose an exit code. Colocated tests for an
@@ -18,13 +18,13 @@
 
 ## 2. Machines held in a worker
 
-- [ ] 2.1 Add `src/server/machineWorker.ts`: a worker thread that owns one
+- [x] 2.1 Add `src/server/machineWorker.ts`: a worker thread that owns one
       machine-holding session over the existing `createServerMachine()` and
       `serverContext()`, started only when a machine is first wanted and let go
       with its session. Colocated tests that the stand-ins are installed inside
       the worker and not in the host, and that two workers hold two machines
       without either seeing the other's.
-- [ ] 2.2 Add `src/server/sessions.ts`: the sessions a host holds, each with at
+- [x] 2.2 Add `src/server/sessions.ts`: the sessions a host holds, each with at
       most one machine, released on disconnect and on a caller that disappears.
       Colocated tests for release, for a dropped connection releasing, and for a
       request needing a machine when none is held being answered with how to

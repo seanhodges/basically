@@ -177,7 +177,7 @@ describe('a machine held between calls', () => {
     );
     expect(text(second)).toContain('SECOND');
     expect(text(second)).toMatch(/has been let go/);
-    expect(text(second)).toMatch(/one machine at a time/);
+    expect(text(second)).toMatch(/one machine is held at a time/);
     expect(text(await runMcpCall('look', {}, server))).not.toContain('FIRST');
   }, 40_000);
 
