@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
-import type { Duplex } from 'node:stream';
+import { Duplex } from 'node:stream';
 import { RunError } from '../../src/dialects/headless/runError';
 import { findMachine } from '../../src/dialects/machineLookup';
 import { addressDirectory, hostAddress } from '../../src/server/address';
@@ -272,14 +272,25 @@ async function main(): Promise<number> {
   return 0;
 }
 
-/** The operations conversation over this process's own streams. */
+/**
+ * The operations conversation over this process's own streams.
+ *
+ * Standard input and output are two streams and a connection is one, so they
+ * are joined into a duplex here: reads come from the one and writes go to the
+ * other. Built with `Duplex.from` rather than by adding a `write` to
+ * `process.stdin`, which would mutate a stream the whole process shares.
+ *
+ * The machine stays in this process rather than in a worker: there is only ever
+ * one caller here to hold one for, which is the arrangement that existed before
+ * there was a host at all.
+ */
 function serveOverStdio(options: { defaultMachine?: string }): Promise<void> {
   const sessions = createSessions(() => createInProcessHolder(options));
   return new Promise<void>((resolve) => {
-    const connection = Object.assign(process.stdin, {
-      write: (chunk: Buffer | string) => process.stdout.write(chunk),
-      writableEnded: false,
-    }) as unknown as Duplex;
+    const connection = Duplex.from({
+      readable: process.stdin,
+      writable: process.stdout,
+    });
     serveConnection(connection, {
       serving: ['ops'],
       sessions,

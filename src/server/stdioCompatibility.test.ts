@@ -134,6 +134,46 @@ describe.skipIf(!built)('starting the toolchain for one caller', () => {
     expect((reply.result as { serverInfo: unknown }).serverInfo).toBeTruthy();
   }, 60_000);
 
+  it('serves the operations conversation over its own streams too', async () => {
+    // Standard input and output are two streams and a connection is one; this
+    // is the check that joining them carries a whole request and its answer.
+    const body = JSON.stringify({
+      kind: 'call',
+      id: 1,
+      operation: 'machines',
+      input: {},
+    });
+    const hello = JSON.stringify({
+      kind: 'hello',
+      conversation: 'ops',
+      buildId: 'x',
+    });
+    const framed = (text: string) =>
+      `Content-Length: ${Buffer.byteLength(text)}\r\n\r\n${text}`;
+    const reply = await new Promise<string>((resolve, reject) => {
+      const child = spawn(process.execPath, [host, '--ops', '--stdio'], {
+        cwd: root,
+      });
+      let seen = '';
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error(`nothing answered; saw: ${seen}`));
+      }, 40_000);
+      child.stdout.on('data', (chunk: Buffer) => {
+        seen += chunk.toString('utf8');
+        if (seen.includes('"result"')) {
+          clearTimeout(timer);
+          child.kill();
+          resolve(seen);
+        }
+      });
+      child.on('error', reject);
+      child.stdin.write(framed(hello) + framed(body));
+    });
+    expect(reply).toMatch(/"kind":"welcome"/);
+    expect(reply).toMatch(/zx81/);
+  }, 60_000);
+
   it('refuses to serve several conversations over one pair of streams', async () => {
     // One pair of streams carries one conversation; naming two is the caller's
     // mistake, and is said rather than half-done.

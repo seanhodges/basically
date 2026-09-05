@@ -119,7 +119,7 @@
 
 - [x] 8.1 `npm run typecheck`
 - [x] 8.2 `npx vitest run src/server/ src/client/ src/ops/ src/cli/ src/mcp/ src/lsp/`
-- [ ] 8.3 `npm test` — this change reaches the shared operation layer and every
+- [x] 8.3 `npm test` — this change reaches the shared operation layer and every
       caller derived from it, which is the cross-cutting case where the full
       suite is the right gate rather than a targeted run.
 - [x] 8.4 `npm run lint`
