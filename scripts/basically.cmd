@@ -27,7 +27,9 @@ set "SOURCES=scripts/headless src"
 rem "dist" is skipped: the build's own output lives under scripts/headless, and
 rem the three bundles are written one after another - so counting them would find
 rem the later ones newer than the first and rebuild on every single invocation.
-node -e "const fs=require('fs'),p=require('path');const newer=(d,t)=>fs.readdirSync(d,{withFileTypes:true}).some((e)=>{if(e.name==='dist')return false;const f=p.join(d,e.name);return e.isDirectory()?newer(f,t):fs.statSync(f).mtimeMs>t});let stale=true;try{const t=fs.statSync(process.argv[1]).mtimeMs;stale=process.argv.slice(2).some((d)=>newer(d,t))}catch{}process.exit(stale?0:1)" "%BUNDLE%" %SOURCES%
+rem Test files are skipped for the same reason they are in scripts/basically:
+rem nothing bundles them, so editing one is not a stale bundle.
+node -e "const fs=require('fs'),p=require('path');const newer=(d,t)=>fs.readdirSync(d,{withFileTypes:true}).some((e)=>{if(e.name==='dist'||/\.test\.tsx?$/.test(e.name))return false;const f=p.join(d,e.name);return e.isDirectory()?newer(f,t):fs.statSync(f).mtimeMs>t});let stale=true;try{const t=fs.statSync(process.argv[1]).mtimeMs;stale=process.argv.slice(2).some((d)=>newer(d,t))}catch{}process.exit(stale?0:1)" "%BUNDLE%" %SOURCES%
 if not errorlevel 1 (
   echo [basically] Building %BUNDLE%...>&2
   node scripts\headless\build.mjs >&2

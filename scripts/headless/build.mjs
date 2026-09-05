@@ -1,6 +1,6 @@
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -51,6 +51,12 @@ const outdir = resolve(here, 'dist');
 /** The command line, the host, and the thread a machine runs in. */
 const ENTRY_POINTS = ['cli.mts', 'server.mts', 'machineWorker.mts'];
 
+// esbuild writes into `outdir` without clearing it, and a chunk's name carries
+// a hash of its contents - so chunks from earlier builds would accumulate, and
+// the digest below (which reads whatever is in the directory) would hash files
+// nothing imports.
+await rm(outdir, { recursive: true, force: true });
+
 await build({
   entryPoints: ENTRY_POINTS.map((name) => resolve(here, name)),
   outdir,
@@ -59,6 +65,15 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
+  // Shared code between the three entry points is hoisted into chunks beside
+  // them rather than copied into each - the host and the worker both carry the
+  // dialect registry and every emulator, which is most of what they weigh.
+  splitting: true,
+  minify: true,
+  // Minification is free to rename anything it likes except the names the code
+  // reads back: `RunError` and the charset errors are recognised by class name
+  // when they cross the socket to the client.
+  keepNames: true,
   // The app is served from the site root, so this is the base every dialect's
   // `romUrl` is built from; the ROM loader only reads the `roms/...` tail.
   define: { 'import.meta.env': JSON.stringify({ BASE_URL: '/' }) },
@@ -97,9 +112,17 @@ await build({
  * the same host, and any change that reaches any of the three entry points
  * moves every one of them to a new address. Written once beside them so the
  * client and the host read the same answer rather than each deriving one.
+ *
+ * Over every emitted file, not just the three entry points: most of what the
+ * host runs now lives in the shared chunks beside them, so hashing only the
+ * entry points would give two builds with different machines in them the same
+ * address, and a client would meet a host running code it did not expect.
  */
+const emitted = (await readdir(outdir))
+  .filter((n) => n !== 'buildId.txt')
+  .sort();
 const digest = createHash('sha256');
-for (const name of ENTRY_POINTS.map((n) => n.replace(/\.mts$/, '.mjs'))) {
+for (const name of emitted) {
   digest.update(name);
   digest.update(await readFile(resolve(outdir, name)));
 }

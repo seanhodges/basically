@@ -412,10 +412,9 @@ export default withPwa(
       workbox: {
         // Precache the pages, the minisearch index, CSS and JS so the whole
         // site (including search) reads offline from first load. Screenshots
-        // are deliberately NOT precached: docs/public/ is 2.6MB of PNG/JPG
-        // (real-machine.png alone is 857KB), and pulling that down in the
-        // background on first load competes with the navigation the reader is
-        // waiting for. They cache at runtime on first view instead - the same
+        // are deliberately NOT precached: docs/public/ is megabytes of PNG and
+        // JPEG, and pulling that down in the background on first load competes
+        // with the navigation the reader is waiting for. They cache at runtime on first view instead - the same
         // trade the app makes for ROM images (see the `roms` route in the
         // repo-root vite.config.ts). Same for the Cyrillic/Greek/Vietnamese
         // Inter subsets: most of the font bytes, and an English-language site
@@ -427,6 +426,17 @@ export default withPwa(
         // them - and the reference pages draw a machine's block graphics rather
         // than missing-glyph boxes offline too.
         globPatterns: ['**/*.{js,css,html,json,svg,ico}', '**/*-latin.*.woff2'],
+        // Mermaid registers every diagram type it knows as its own lazy chunk,
+        // and one page here draws diagrams - flowcharts, sequences and a state
+        // chart. The rest of that catalogue, and the graph-layout and maths
+        // libraries only some of them need, is about a quarter of what a first
+        // visit would otherwise fetch and no page asks for any of it. The three
+        // kinds actually used come down with the page that draws them, at
+        // runtime, like the screenshots above.
+        globIgnores: [
+          'assets/chunks/{mermaid,cytoscape,cynefin,katex,cose-bilkent,dagre,khroma,rough,elkjs,layout-*}*.js',
+          'assets/chunks/*[Dd]iagram*.js',
+        ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {

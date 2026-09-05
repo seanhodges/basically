@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   useIdeStore,
   useBlocks,
@@ -38,15 +46,35 @@ import {
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { asmEngineFor } from '../asm/registry';
 import { AsmEditor } from './AsmEditor';
-import { ByteEditor } from './ByteEditor';
 import { CodeMirrorHost } from './CodeMirrorHost';
 import { EditorTabBar } from './EditorTabBar';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
-import { AiPanel } from './AiPanel';
-import { MemoryMapPanel } from './MemoryMapPanel';
-import { SettingsForm } from './SettingsForm';
 import { UnsupportedBlockNotice } from './UnsupportedBlockNotice';
 import styles from './Workspace.module.css';
+
+/**
+ * The panes that are not the editor.
+ *
+ * Each already renders only when its own condition holds - the assistant and
+ * the settings form on the phone layouts or when opened, the memory map from a
+ * menu, the byte editor for a block that has no assembler - so each is a chunk
+ * that arrives with the first use rather than with the app.
+ *
+ * The assembly editor stays eager: `asmEngineFor` decides here whether to show
+ * it at all, so its engine registry is in the graph either way.
+ */
+const AiPanel = lazy(() =>
+  import('./AiPanel').then((m) => ({ default: m.AiPanel })),
+);
+const MemoryMapPanel = lazy(() =>
+  import('./MemoryMapPanel').then((m) => ({ default: m.MemoryMapPanel })),
+);
+const SettingsForm = lazy(() =>
+  import('./SettingsForm').then((m) => ({ default: m.SettingsForm })),
+);
+const ByteEditor = lazy(() =>
+  import('./ByteEditor').then((m) => ({ default: m.ByteEditor })),
+);
 
 const DIVIDER_WIDTH = 6;
 
@@ -328,14 +356,18 @@ export function Workspace() {
             (asmEngine !== null ? (
               <AsmEditor block={activeBlock} engine={asmEngine} />
             ) : byteEditable ? (
-              <ByteEditor block={activeBlock} inputRef={editorInputRef} />
+              <Suspense fallback={null}>
+                <ByteEditor block={activeBlock} inputRef={editorInputRef} />
+              </Suspense>
             ) : (
               <UnsupportedBlockNotice block={activeBlock} />
             ))}
           {/* A saved file reaches the same byte view, read-only and counting
               from its own first byte - it has no address to show. */}
           {activeBlock === null && activeDataBlock !== null && (
-            <ByteEditor block={activeDataBlock} inputRef={editorInputRef} />
+            <Suspense fallback={null}>
+              <ByteEditor block={activeDataBlock} inputRef={editorInputRef} />
+            </Suspense>
           )}
           {tabbed && mobileTab === 'editor' && (
             <button
@@ -366,12 +398,16 @@ export function Workspace() {
       </div>
       {tabbed && (
         <div className={`${styles.settingsPane} ${hidden('settings')}`}>
-          <SettingsForm />
+          <Suspense fallback={null}>
+            <SettingsForm />
+          </Suspense>
         </div>
       )}
       {(aiPanelOpen || tabbed) && (
         <div className={`${styles.aiHost} ${hidden('ai')} ${slotHidden('ai')}`}>
-          <AiPanel />
+          <Suspense fallback={null}>
+            <AiPanel />
+          </Suspense>
         </div>
       )}
       {/* The memory map shares the right-hand slot like the AI panel; on the split
@@ -384,7 +420,9 @@ export function Workspace() {
             memoryMapOnLeft ? styles.memoryLeft : slotHidden('memory')
           }`}
         >
-          <MemoryMapPanel getMachine={getMachineStable} />
+          <Suspense fallback={null}>
+            <MemoryMapPanel getMachine={getMachineStable} />
+          </Suspense>
         </div>
       )}
       {/* A single full-width keyboard overlay for every layout, routed to the

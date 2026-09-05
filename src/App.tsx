@@ -1,25 +1,82 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { useIdeStore, persistAutosave } from './app/store';
 import { Toolbar } from './components/Toolbar';
 import { Workspace } from './components/Workspace';
-import { AiSettingsDialog } from './components/AiSettingsDialog';
-import { TransferDialog } from './components/TransferDialog';
-import { ShareLinkDialog } from './components/ShareLinkDialog';
-import { ImportDialog } from './components/ImportDialog';
 import { TargetMachineDialog } from './components/TargetMachineDialog';
-import { SwitchTargetDialog } from './components/SwitchTargetDialog';
-import { DeleteBlockDialog } from './components/DeleteBlockDialog';
-import { DeleteDataFileDialog } from './components/DeleteDataFileDialog';
-import { BlockSettingsDialog } from './components/BlockSettingsDialog';
-import { ProcedureListDialog } from './components/ProcedureListDialog';
-import { RunProfileDialog } from './components/RunProfileDialog';
-import { WelcomeDialog } from './components/WelcomeDialog';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
+
+/**
+ * A dialog nobody has opened is a chunk nobody has to download.
+ *
+ * Each of these renders nothing until the store says it is open, so the shell
+ * below mounts it only then and the module arrives with the first opening. The
+ * three above are not in the list: the machine pickers hand `open` to a shared
+ * dialog rather than returning early, and the docs drawer listens for messages
+ * from its iframe whether or not it is showing.
+ *
+ * `then` rather than a default export, so the components and their tests keep
+ * the named exports they have.
+ */
+const TransferDialog = lazy(() =>
+  import('./components/TransferDialog').then((m) => ({
+    default: m.TransferDialog,
+  })),
+);
+const ShareLinkDialog = lazy(() =>
+  import('./components/ShareLinkDialog').then((m) => ({
+    default: m.ShareLinkDialog,
+  })),
+);
+const ImportDialog = lazy(() =>
+  import('./components/ImportDialog').then((m) => ({
+    default: m.ImportDialog,
+  })),
+);
+const BlockSettingsDialog = lazy(() =>
+  import('./components/BlockSettingsDialog').then((m) => ({
+    default: m.BlockSettingsDialog,
+  })),
+);
+const ProcedureListDialog = lazy(() =>
+  import('./components/ProcedureListDialog').then((m) => ({
+    default: m.ProcedureListDialog,
+  })),
+);
+const RunProfileDialog = lazy(() =>
+  import('./components/RunProfileDialog').then((m) => ({
+    default: m.RunProfileDialog,
+  })),
+);
+const WelcomeDialog = lazy(() =>
+  import('./components/WelcomeDialog').then((m) => ({
+    default: m.WelcomeDialog,
+  })),
+);
+const AiSettingsDialog = lazy(() =>
+  import('./components/confirmDialogs').then((m) => ({
+    default: m.AiSettingsDialog,
+  })),
+);
+const SwitchTargetDialog = lazy(() =>
+  import('./components/confirmDialogs').then((m) => ({
+    default: m.SwitchTargetDialog,
+  })),
+);
+const DeleteBlockDialog = lazy(() =>
+  import('./components/confirmDialogs').then((m) => ({
+    default: m.DeleteBlockDialog,
+  })),
+);
+const DeleteDataFileDialog = lazy(() =>
+  import('./components/confirmDialogs').then((m) => ({
+    default: m.DeleteDataFileDialog,
+  })),
+);
 import { getHasSeenWelcome } from './storage/settings';
 import {
   isMobileViewport,
@@ -37,6 +94,21 @@ import styles from './App.module.css';
 
 export default function App() {
   const runRequest = useIdeStore((s) => s.runRequest);
+
+  // What each lazy dialog used to read for itself. Hoisted so the shell knows
+  // whether to mount it at all, which is what defers its chunk; the dialogs
+  // keep their own gates, so nothing changes for them.
+  const settingsOpen = useIdeStore((s) => s.settingsOpen);
+  const transferOpen = useIdeStore((s) => s.transferOpen);
+  const shareLinkOpen = useIdeStore((s) => s.shareLinkOpen);
+  const importOpen = useIdeStore((s) => s.importOpen);
+  const pendingDialectId = useIdeStore((s) => s.pendingDialectId);
+  const pendingDeleteBlockId = useIdeStore((s) => s.pendingDeleteBlockId);
+  const pendingDeleteDataFile = useIdeStore((s) => s.pendingDeleteDataFile);
+  const blockSettingsId = useIdeStore((s) => s.blockSettingsId);
+  const procedureListOpen = useIdeStore((s) => s.procedureListOpen);
+  const runProfileOpen = useIdeStore((s) => s.runProfileOpen);
+  const welcomeOpen = useIdeStore((s) => s.welcomeOpen);
 
   // A touch phone in landscape gets a dedicated layout (left rail, no status bar);
   // every other form factor keeps the column shell.
@@ -106,20 +178,24 @@ export default function App() {
       {/* The status bar is dropped in the phone-landscape layout; its toggles
           move to the left rail / emulator pane. */}
       {!landscape && <StatusBar />}
-      <AiSettingsDialog />
-      <TransferDialog />
-      <ShareLinkDialog />
-      <ImportDialog />
       <TargetMachineDialog />
-      <SwitchTargetDialog />
-      <DeleteBlockDialog />
-      <DeleteDataFileDialog />
-      <BlockSettingsDialog />
-      <ProcedureListDialog />
-      <RunProfileDialog />
-      <WelcomeDialog />
       <NewProjectDialog />
       <DocsDrawer />
+      {/* A modal is its own loading indicator: until its chunk lands there is
+          nothing to show, which is what the page already looked like. */}
+      <Suspense fallback={null}>
+        {settingsOpen && <AiSettingsDialog />}
+        {transferOpen && <TransferDialog />}
+        {shareLinkOpen && <ShareLinkDialog />}
+        {importOpen && <ImportDialog />}
+        {pendingDialectId !== null && <SwitchTargetDialog />}
+        {pendingDeleteBlockId !== null && <DeleteBlockDialog />}
+        {pendingDeleteDataFile !== null && <DeleteDataFileDialog />}
+        {blockSettingsId !== null && <BlockSettingsDialog />}
+        {procedureListOpen && <ProcedureListDialog />}
+        {runProfileOpen && <RunProfileDialog />}
+        {welcomeOpen && <WelcomeDialog />}
+      </Suspense>
     </div>
   );
 }

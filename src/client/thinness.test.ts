@@ -43,11 +43,11 @@ const rawImports = {
   },
 };
 
-/** Every module the client would bundle, entry included. */
-async function clientModules(): Promise<string[]> {
+/** Every module an entry point would bundle, itself included. */
+async function bundledModules(entry: string): Promise<string[]> {
   const result = await build({
-    entryPoints: [path.join(root, 'scripts/headless/cli.mts')],
-    outfile: path.join(root, 'scripts/headless/dist/.thinness-probe.mjs'),
+    entryPoints: [path.join(root, entry)],
+    outdir: path.join(root, 'scripts/headless/dist'),
     bundle: true,
     platform: 'node',
     format: 'esm',
@@ -60,6 +60,18 @@ async function clientModules(): Promise<string[]> {
   });
   return Object.keys(result.metafile.inputs);
 }
+
+/** Every module the client would bundle, entry included. */
+function clientModules(): Promise<string[]> {
+  return bundledModules('scripts/headless/cli.mts');
+}
+
+/** The three entry points `scripts/headless/build.mjs` emits. */
+const ENTRY_POINTS = [
+  'scripts/headless/cli.mts',
+  'scripts/headless/server.mts',
+  'scripts/headless/machineWorker.mts',
+];
 
 describe('what the client carries', () => {
   it('reaches neither the dialect registry nor any emulator', async () => {
@@ -97,4 +109,42 @@ describe('what the client carries', () => {
     const modules = await clientModules();
     expect(modules.length).toBeLessThan(80);
   }, 60_000);
+});
+
+describe('what the toolchain bundles', () => {
+  it('bundles no test file, which is why the launcher can skip them', async () => {
+    // `scripts/basically` prunes `*.test.ts` from the staleness scan it runs
+    // before every command, on the strength of this. If a test file ever does
+    // reach a bundle, that scan stops noticing a change that matters.
+    for (const entry of ENTRY_POINTS) {
+      const tests = (await bundledModules(entry)).filter((file) =>
+        /\.test\.tsx?$/.test(file),
+      );
+      expect(
+        tests,
+        `${entry} bundles a test file; the launcher's staleness scan prunes ` +
+          'those, so it would no longer rebuild when this one changed',
+      ).toEqual([]);
+    }
+  }, 120_000);
+
+  it('carries the browser editor once, not once per machine', async () => {
+    // The host and the machine thread both reach `@codemirror/*`, and there is
+    // no import to delete that would stop them: every dialect's `language.ts`
+    // builds its completion source at module scope, so the registry pulls in
+    // `@codemirror/autocomplete`, which depends on `language`, which depends on
+    // `view`. Removing it means moving the editor off `Dialect` entirely.
+    //
+    // What can be held is that it arrives once. Before the bundles were split
+    // it was copied into each of them.
+    for (const entry of ENTRY_POINTS.slice(1)) {
+      const view = (await bundledModules(entry)).filter((file) =>
+        file.includes('@codemirror/view/'),
+      );
+      expect(
+        view.length,
+        `${entry} resolves @codemirror/view more than once`,
+      ).toBeLessThanOrEqual(1);
+    }
+  }, 120_000);
 });
