@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { RunError, screenLines } from '../../src/dialects/headless/runListing';
+import { RunError } from '../../src/dialects/headless/runError';
+import { screenLines } from '../../src/dialects/headless/screenText';
 import { stepLines } from '../../src/app/driveScript';
 import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
 import { usage } from '../../src/cli/usage';
@@ -25,11 +26,10 @@ import {
   exitCodeFor,
   HostRefused,
   HostUnreachable,
-  inProcessClient,
   openClient,
   type HostClient,
 } from '../../src/client/call';
-import { realWorld } from '../../src/client/world';
+import { dialChildServer, realWorld } from '../../src/client/world';
 
 /**
  * The Basically toolchain outside the browser, as a client of the host that
@@ -468,7 +468,7 @@ async function main(): Promise<number> {
   // than over a connection to somewhere else. The host serves them too, for a
   // caller that reaches it over a socket.
   if (args.operation === 'lsp' || args.operation === 'mcp') {
-    return serveOverOwnStreams(args.operation, args.machine);
+    return serveOverOwnStreams(args.operation, args.machine, directory);
   }
 
   const connect = async (neverStart = false): Promise<HostClient> => {
@@ -487,25 +487,27 @@ async function main(): Promise<number> {
   };
 
   /**
-   * A host if one can be had, and this process if not.
+   * A host if one can be had, and one of our own as a child if not.
    *
-   * Somewhere that will not let a process be spawned, every operation still
-   * has to work; what is lost is only the machine between commands, and the
-   * notice says so rather than leaving the caller to wonder why the machine
-   * they held is gone.
+   * Somewhere that will not let a process be detached, every operation still
+   * has to work. The child is the same host program speaking the same
+   * conversation, so nothing about an answer differs; what is lost is only the
+   * machine between commands, because this host goes when the command does -
+   * and the notice says so rather than leaving the caller to wonder where the
+   * machine they held went.
    */
   const connectOrDoItHere = async (): Promise<HostClient> => {
     try {
       return await connect();
     } catch (error) {
       if (!(error instanceof NoHost)) throw error;
+      const bundle = path.join(directory, 'server.mjs');
+      if (!existsSync(bundle)) throw error;
       err(`${error.message}\n`);
-      err('running it here instead; no machine will be held afterwards\n');
-      const { divertLogging } = await import('../../src/server/logging');
-      const { createInProcessHolder } =
-        await import('../../src/server/machineWorker');
-      divertLogging();
-      return inProcessClient(createInProcessHolder());
+      err(
+        'running one as a child instead; no machine will be held afterwards\n',
+      );
+      return openClient(await dialChildServer(bundle), 'ops', buildId);
     }
   };
 
@@ -579,33 +581,44 @@ async function main(): Promise<number> {
 }
 
 /**
- * Serve one editor or one agent over this process's own streams.
+ * Hand this process's streams to the host, serving one editor or one agent.
  *
- * Imported only when one is asked for: the shims pull in the protocol
- * libraries, and a `lint` should not pay for them.
+ * The spellings stay exactly as they were, so nothing anyone has configured
+ * breaks - but the server behind them is the host's, reached by handing it
+ * these streams rather than by carrying a second copy of it here. That is what
+ * keeps the protocol libraries, the dialect registry and every emulator out of
+ * a program whose job is to parse arguments and render an answer.
  */
 async function serveOverOwnStreams(
   which: 'lsp' | 'mcp',
   machine: string | undefined,
+  directory: string,
 ): Promise<number> {
-  const { findMachine } = await import('../../src/dialects/machineLookup');
-  // A bad `-m` is the caller's mistake to fail on before anything is served,
-  // exactly as every other operation refuses one; naming none at all is fine
-  // here, unlike every other operation, since the client may say later.
-  if (machine !== undefined && !findMachine(machine)) {
-    throw new RunError(`no registered machine "${machine}"`);
+  const bundle = path.join(directory, 'server.mjs');
+  if (!existsSync(bundle)) {
+    throw new RunError(
+      `cannot serve ${which}: no host was found beside this program at ${bundle}`,
+    );
   }
-  if (which === 'lsp') {
-    const { runLsp } = await import('./lsp.mts');
-    await runLsp(machine);
-  } else {
-    const { runMcpServer } = await import('./mcp.mts');
-    await runMcpServer(machine);
-  }
-  // The server has no verdict on a program to report - it served until the
-  // client disconnected, which is success whatever the programs it served
-  // turned out to have.
-  return 0;
+  const { spawn } = await import('node:child_process');
+  // The streams are inherited, so the editor or the agent is talking to the
+  // host directly; this process only waits to report how it ended. A machine
+  // that is not registered is refused by the host, as it is for every other
+  // way of reaching one.
+  const child = spawn(
+    process.execPath,
+    [
+      bundle,
+      `--${which}`,
+      '--stdio',
+      ...(machine === undefined ? [] : ['-m', machine]),
+    ],
+    { stdio: 'inherit' },
+  );
+  return new Promise<number>((resolve, reject) => {
+    child.on('error', reject);
+    child.on('exit', (code) => resolve(code ?? 0));
+  });
 }
 
 main()

@@ -59,3 +59,39 @@ export function realWorld(
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
 }
+
+/**
+ * A host of this build's own, as a child of this process, spoken to over its
+ * pipes.
+ *
+ * The fallback for a caller that cannot start a host that outlives it - a
+ * sandbox that will not let a process be detached, say. It is the same host
+ * program, speaking the same conversation, so every operation works and
+ * nothing about an answer differs; what is lost is only the machine between
+ * commands, because this host goes when the command does.
+ *
+ * Preferred over the client doing the work itself, which would mean carrying a
+ * second copy of the whole toolchain - the dialect registry and every emulator
+ * under it - in a program whose job is to parse arguments and render an answer.
+ */
+export function dialChildServer(bundle: string): Promise<Connection> {
+  return import('node:child_process').then(({ spawn }) => {
+    const child = spawn(process.execPath, [bundle, '--ops', '--stdio'], {
+      // Its standard error is ours: a notice it has about itself belongs on the
+      // same stream every other notice goes to.
+      stdio: ['pipe', 'pipe', 'inherit'],
+    });
+    const connection: Connection = {
+      write: (bytes) => void child.stdin.write(bytes),
+      on(event: 'data' | 'close', listener: (chunk: Buffer) => void): void {
+        // Reads come from the child's output; the connection closing is the
+        // child ending, which is the same event either way.
+        if (event === 'data') child.stdout.on('data', listener);
+        else child.on('close', () => listener(Buffer.alloc(0)));
+      },
+      end: () => child.stdin.end(),
+      destroy: () => void child.kill(),
+    };
+    return connection;
+  });
+}

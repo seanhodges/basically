@@ -8,32 +8,18 @@
  */
 
 import { hasFatalErrors } from '../dialects/types';
+import { describeProblem, type LintOutcome } from './lintProblem';
 import { remapErrors } from '../dialects/resolveListing';
 import { resolveProgram } from './resolve';
 import type { OpContext, Operation } from './types';
 
-export interface LintProblem {
-  /** 1-based line. */
-  line: number;
-  /** 0-based column, when the dialect knows it. */
-  column?: number;
-  /** 0-based column just past the offending token, when the dialect knows it. */
-  endColumn?: number;
-  message: string;
-  /**
-   * Whether this problem stops the program being built or run. Advisory
-   * problems - a statement shape the machine would happily store and only
-   * complain about when the line executes - are false.
-   */
-  fatal: boolean;
-}
-
-export interface LintOutcome {
-  machine: { id: string; name: string };
-  problems: LintProblem[];
-  /** True when at least one problem is fatal. */
-  fatal: boolean;
-}
+// Re-exported so a caller that already has the operation need not know the
+// shape moved; a caller that only renders one imports the leaf directly.
+export {
+  describeProblem,
+  type LintOutcome,
+  type LintProblem,
+} from './lintProblem';
 
 export interface LintInput {
   /** The program's text. */
@@ -59,15 +45,6 @@ export function lintListing(input: LintInput, ctx: OpContext): LintOutcome {
     })),
     fatal: hasFatalErrors(errors),
   };
-}
-
-/** One problem as a sentence, placed the way a compiler places one. */
-export function describeProblem(p: LintProblem): string {
-  // Columns are 0-based on the seam and 1-based to a reader, as they are in
-  // the editor's own gutter.
-  const where =
-    p.column === undefined ? `${p.line}` : `${p.line}:${p.column + 1}`;
-  return `${where}: ${p.fatal ? 'error' : 'warning'}: ${p.message}`;
 }
 
 export const lintOp: Operation<LintInput, LintOutcome> = {

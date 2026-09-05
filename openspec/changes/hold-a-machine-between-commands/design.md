@@ -171,7 +171,25 @@ connects to the winner. An address that exists but refuses connection is a dead
 server's leftover: unlink and retry once. On Windows a named pipe disappears with
 its process, so that case does not arise there.
 
-### 8. Exit codes and stream purity are the client's, as they always were
+### 8. The client carries no toolchain
+
+Measured over the dependency graph rather than guessed at: four things dragged
+the dialect registry — and every emulator under it — into a program that boots
+no machine. `describeProblem` and `screenLines` moved to leaf modules
+(`src/ops/lintProblem.ts`, `src/dialects/headless/screenText.ts`), and `RunError`
+was already in one. The other two were the editor's and the agent's servers,
+which the client had its own copy of: it now hands the host its streams instead,
+which is what "the protocol servers are the host's" ought to have meant all
+along. The fallback for a caller that cannot start a detached host is a host of
+its own **as a child**, over pipes, rather than a second toolchain compiled into
+the client.
+
+`DRIVE_ACTIONS` did not need moving; `src/app/driveScript.ts` is already a leaf.
+
+`src/client/thinness.test.ts` holds the line, over the real graph, so a failure
+names the import that broke it rather than a size that moved.
+
+### 9. Exit codes and stream purity are the client's, as they always were
 
 The three outcomes the spec separates — it worked, the caller asked for something
 impossible, the program is at fault — are decided by the client from the outcome
@@ -214,13 +232,6 @@ single-shot invocation honest on a machine where starting one is not possible.
 
 ## Open Questions
 
-- **Should the client bundle be genuinely separate?** The thin-client win is real
-  — `lint` currently loads every emulator to answer a question that boots none —
-  but reaching it means moving `describeProblem` out of `src/ops/lint.ts` and
-  `DRIVE_ACTIONS` out of `src/app/driveScript.ts` into leaf modules, since the
-  renderers under `src/cli/` are otherwise type-only imports. One bundle with two
-  entry points is enough to ship this change; the separation is a follow-up worth
-  measuring first.
 - **How long is idle?** A shell user wants the next command warm; a laptop wants
   the process gone. The spec states that a server lets itself go when nothing has
   needed it for a while, and leaves the duration to be chosen and tuned.

@@ -697,6 +697,15 @@ have a `.cmd` twin, and both are built by one `scripts/headless/build.mjs` run
 that also writes the build id keying the address they meet at - so a client
 never reaches a host built from different source.
 
+The client carries none of the toolchain: it reaches neither the dialect
+registry nor any emulator nor either protocol library, and `basically lsp` and
+`basically mcp` hand the host their streams rather than serving an editor or an
+agent themselves. What it needs of an answer's shape comes from leaf modules
+that import nothing (`src/ops/lintProblem.ts`,
+`src/dialects/headless/screenText.ts`, `src/dialects/headless/runError.ts`).
+`src/client/thinness.test.ts` checks this over the real dependency graph,
+because one convenience import puts the whole toolchain back.
+
 Because the host outlives a command, **the command line holds a machine between
 commands**: `run --hold` leaves the machine it booted running, and `drive`,
 `look`, `screenshot`, `profile`, `time`, `variables` and `expect` act on it
