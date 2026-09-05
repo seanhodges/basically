@@ -41,7 +41,7 @@ You can name a machine when you start it:
 basically mcp --stdio -m zx81
 ```
 
-That machine is then what a request works on when it names none and the program
+That machine is then what a request works on when nothing is specified and the program
 doesn't declare one with a `#MACHINE` line. Naming none is fine too — unlike an
 operation on a program, which needs to know its machine before it can do
 anything, a server outlives any one request and the client may say which machine

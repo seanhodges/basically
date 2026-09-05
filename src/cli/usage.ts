@@ -209,9 +209,8 @@ serve an agent over the Model Context Protocol
 usage: basically mcp --stdio [-m <machine>]
 
   --stdio           the only transport; required
-  -m, --machine     a machine every request defaults to, when it names none
-                    and the program declares none; optional, since a client
-                    may say which machine it means on each request
+  -m, --machine     a machine every request defaults to, when nothing is
+                    specified by the program or caller; optional
 
 Every operation this command line has is offered to the client, and one machine
 is held between requests: running a program leaves it up, so the client can

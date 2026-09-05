@@ -120,7 +120,7 @@ export interface McpArgs {
   /** Serve over standard input/output; the only transport, so always set once parsed. */
   stdio: boolean;
   /**
-   * The machine a program-reading request defaults to when it names none and
+   * The machine a program-reading request defaults to when nothing is specified and
    * the program declares none, absent when the client is expected to say on
    * each request. Optional for the same reason it is optional for `lsp`: the
    * server outlives any one request, and a client may work on a machine it
