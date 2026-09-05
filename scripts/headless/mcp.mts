@@ -1,3 +1,4 @@
+import type { Readable, Writable } from 'node:stream';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -7,7 +8,7 @@ import {
 import { SERVER_INFO } from '../../src/mcp/identity';
 import { createServerMachine } from '../../src/mcp/session';
 import { mcpToolDefinitions, runMcpCall } from '../../src/mcp/tools';
-import { divertLogging } from './cli.mts';
+import { divertLogging } from '../../src/server/logging';
 
 /**
  * The transport: the protocol's own streams and lifecycle, and nothing that
@@ -24,14 +25,28 @@ import { divertLogging } from './cli.mts';
  */
 
 /**
+ * The streams a client is served over. As for the editor's server: the
+ * transport is built from streams rather than from `process`, so a socket
+ * serves a client without anything below here knowing it is not standard input.
+ */
+export interface AgentStreams {
+  input: NodeJS.ReadableStream;
+  output: NodeJS.WritableStream;
+}
+
+/**
  * Run the server until the client disconnects. `defaultMachine` is the `-m`
  * the caller started the operation with, if any - the machine a request
- * naming none, on a program declaring none, is read as.
+ * naming none, on a program declaring none, is read as. `streams` is the
+ * connection to serve over, and defaults to the process's own.
  */
 export function runMcpServer(
   defaultMachine: string | undefined,
+  streams?: AgentStreams,
 ): Promise<void> {
-  const restoreLogging = divertLogging();
+  // Only a server that owns the process may divert its logging; one served
+  // over a socket shares the process with everything else the host is doing.
+  const restoreLogging = streams ? () => {} : divertLogging();
   const held = createServerMachine();
   const server = new Server(SERVER_INFO, { capabilities: { tools: {} } });
 
@@ -62,8 +77,15 @@ export function runMcpServer(
     // the stream. Either way is "the client disconnected", and ends the
     // server the same way.
     server.onclose = finish;
-    process.stdin.on('end', finish);
-    server.connect(new StdioServerTransport()).catch((error: unknown) => {
+    (streams?.input ?? process.stdin).on('end', finish);
+    if (streams) streams.input.on('close', finish);
+    const transport = streams
+      ? new StdioServerTransport(
+          streams.input as unknown as Readable,
+          streams.output as unknown as Writable,
+        )
+      : new StdioServerTransport();
+    server.connect(transport).catch((error: unknown) => {
       if (finished) return;
       finished = true;
       held.dispose();

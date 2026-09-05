@@ -32,21 +32,21 @@
 
 ## 3. Listening, routing and lifetime
 
-- [ ] 3.1 Add `src/server/listener.ts`: `net.createServer()` on the resolved
+- [x] 3.1 Add `src/server/listener.ts`: `net.createServer()` on the resolved
       address, the handshake per connection, refusal naming what is served when a
       caller asks for a conversation this host was not started for, and routing a
       connection to the operations, editor or agent handler. Colocated tests for
       each route and for the refusal.
-- [ ] 3.2 Route the editor's and the agent's conversations by handing the
+- [x] 3.2 Route the editor's and the agent's conversations by handing the
       connection's socket to the existing shims as their streams
       (`createConnection(input, output)` and `StdioServerTransport(in, out)`).
       `src/lsp/` and `src/mcp/` must not change; a test asserts a socket-served
       client is offered the same tool definitions as a stdio-served one.
-- [ ] 3.3 Add `src/server/lifetime.ts`: idle-exit when no caller is connected and
+- [x] 3.3 Add `src/server/lifetime.ts`: idle-exit when no caller is connected and
       nothing has been asked for a while, explicit shutdown, and releasing every
       held machine on the way out. Colocated tests that a connected caller
       prevents idle-exit and that shutdown releases machines.
-- [ ] 3.4 Add `scripts/headless/server.mts`: the host's process shell — which
+- [x] 3.4 Add `scripts/headless/server.mts`: the host's process shell — which
       conversations to serve (any, or all by default), `--stdio` for one caller
       over the process's own streams, and the host's own log going nowhere near a
       caller's channel.

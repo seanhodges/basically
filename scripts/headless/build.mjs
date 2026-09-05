@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
-import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +18,12 @@ import { fileURLToPath } from 'node:url';
  * The output stays inside the repository because the bundle still resolves
  * jsbeeb's ROM list through `createRequire` at runtime, which walks up from its
  * own location to `node_modules`.
+ *
+ * Three entry points come out of one build: the command line, the host it talks
+ * to, and the worker a caller's machine runs in. They are built together
+ * because they have to agree - the build id written beside them is over all
+ * three, and it is what keys the address a client looks for a host at. A client
+ * and a host from different builds therefore never meet.
  */
 
 /**
@@ -39,11 +46,15 @@ const rawImports = {
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outfile = resolve(here, 'dist/cli.mjs');
+const outdir = resolve(here, 'dist');
+
+/** The command line, the host, and the thread a machine runs in. */
+const ENTRY_POINTS = ['cli.mts', 'server.mts', 'machineWorker.mts'];
 
 await build({
-  entryPoints: [resolve(here, 'cli.mts')],
-  outfile,
+  entryPoints: ENTRY_POINTS.map((name) => resolve(here, name)),
+  outdir,
+  outExtension: { '.js': '.mjs' },
   bundle: true,
   platform: 'node',
   format: 'esm',
@@ -74,6 +85,22 @@ await build({
       "Object.defineProperty(globalThis, 'localStorage', { value: undefined, writable: true, configurable: true });",
   },
   plugins: [rawImports],
-  // esbuild's own info line names the file it wrote and how big it is.
+  // esbuild's own info line names each file it wrote and how big it is.
   logLevel: 'info',
 });
+
+/**
+ * What this build is, for the address a host listens on.
+ *
+ * Taken over the bundles themselves rather than over the sources, so it is a
+ * fact about what will actually run: two builds whose output is identical are
+ * the same host, and any change that reaches any of the three entry points
+ * moves every one of them to a new address. Written once beside them so the
+ * client and the host read the same answer rather than each deriving one.
+ */
+const digest = createHash('sha256');
+for (const name of ENTRY_POINTS.map((n) => n.replace(/\.mts$/, '.mjs'))) {
+  digest.update(name);
+  digest.update(await readFile(resolve(outdir, name)));
+}
+await writeFile(resolve(outdir, 'buildId.txt'), digest.digest('hex'), 'utf8');

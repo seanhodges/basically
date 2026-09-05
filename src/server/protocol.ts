@@ -147,6 +147,22 @@ export class FrameReader {
   private buffer: Buffer = Buffer.alloc(0);
   private expected: number | null = null;
 
+  /**
+   * The bytes read but not yet consumed by a frame.
+   *
+   * A connection that is handed to another protocol takes its stream with it,
+   * and anything this reader had already taken off that stream would otherwise
+   * be lost. A caller that pipelines - its first protocol message in the same
+   * packet as the handshake - is exactly the case that loses it, and the
+   * symptom would be a client that simply hangs.
+   */
+  rest(): Buffer {
+    if (this.expected === null) return this.buffer;
+    // Mid-frame, the header has already been consumed, so what is left cannot
+    // be handed on as a stream of another protocol.
+    throw new Error('a frame was still being read');
+  }
+
   /** Every whole message the chunk completed, in order. */
   push(chunk: Buffer): unknown[] {
     this.buffer = Buffer.concat([this.buffer, chunk]);

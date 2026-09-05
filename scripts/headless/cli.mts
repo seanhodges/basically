@@ -11,6 +11,7 @@ import { formatVerdict } from '../../src/cli/check';
 import { cliContext } from '../../src/cli/roms';
 import { findMachine } from '../../src/dialects/machineLookup';
 import { decodeBytes } from '../../src/ops/bytes';
+import { divertLogging } from '../../src/server/logging';
 import { buildOp } from '../../src/ops/build';
 import { checkOp, type CheckOutcome } from '../../src/ops/check';
 import { infoOp } from '../../src/ops/info';
@@ -69,23 +70,6 @@ async function readProgram(input: ProgramInput): Promise<string> {
   } catch {
     throw new RunError(`cannot read "${input.path}"`);
   }
-}
-
-/**
- * Send anything the machines log to stderr for the duration of a run.
- *
- * jsbeeb announces each ROM it loads on `console.log`, which would otherwise
- * land in the middle of the screen text on stdout and make the output useless
- * to anything reading it. Restored afterwards so a later throw still reports.
- */
-export function divertLogging(): () => void {
-  const kept = { log: console.log, info: console.info, debug: console.debug };
-  const toStderr = (...parts: unknown[]) =>
-    err(`${parts.map(String).join(' ')}\n`);
-  console.log = toStderr;
-  console.info = toStderr;
-  console.debug = toStderr;
-  return () => Object.assign(console, kept);
 }
 
 /** The run's figures, for the reader deciding whether to trust the picture. */
