@@ -99,6 +99,14 @@ describe('the command line grammar', () => {
         romRoot: '/elsewhere/public',
       },
     });
+    expect(
+      parseArgs(['convert', 'game.p', '-m', 'zx81', '-o', '/tmp/game.bas']),
+    ).toEqual({
+      operation: 'convert',
+      file: { kind: 'file', path: 'game.p' },
+      out: '/tmp/game.bas',
+      input: { machine: 'zx81' },
+    });
     for (const operation of ['lsp', 'mcp'] as const) {
       expect(parseArgs([operation, '--stdio', '-m', 'zx81'])).toEqual({
         operation,
@@ -151,6 +159,17 @@ describe('the command line grammar', () => {
         program: { kind: 'stdin' },
       });
     }
+    // Convert's own field is named `file`, not `program`: what it reads is a
+    // machine's binary, not a BASIC listing.
+    for (const argv of [
+      ['convert', '-', '-m', 'zx81'],
+      ['convert', '-m', 'zx81'],
+    ]) {
+      const args = parseArgs(argv);
+      expect(args, argv.join(' ')).toMatchObject({
+        file: { kind: 'stdin' },
+      });
+    }
   });
 
   it('reports the screen as text unless only something else was asked for', () => {
@@ -173,6 +192,7 @@ describe('the command line grammar', () => {
     const cases: [string, string[]][] = [
       ['an unknown operation', ['dance', '-m', 'zx81']],
       ['an unknown option', ['lint', '-m', 'zx81', '--loudly']],
+      ['an unknown option on convert', ['convert', 'game.p', '--loudly']],
       ['an unknown option on lsp', ['lsp', '--stdio', '--loudly']],
       ['a positional argument on lsp', ['lsp', '--stdio', 'prog.bas']],
       ['an unknown option on mcp', ['mcp', '--stdio', '--loudly']],

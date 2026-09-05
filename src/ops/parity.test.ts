@@ -8,7 +8,9 @@ import {
 } from '../app/driveScript';
 import { parseExpectations, parseScreenViews } from '../ai/expectations';
 import { PROVIDERS } from '../ai/providers/registry';
+import { getDialect } from '../dialects/registry';
 import { driveOp } from './drive';
+import { encodeBytes } from './bytes';
 import { EXEMPTIONS, exemptionFor, reachable, type Caller } from './parity';
 import { OPERATIONS, findOperation } from './registry';
 import { mcpToolDefinitions } from '../mcp/tools';
@@ -161,6 +163,7 @@ describe('the schedule vocabulary', () => {
 
 describe('inputs and outcomes', () => {
   const SOURCE = '10 PRINT "HI"\n';
+  const CONVERT_BASE64 = encodeBytes(getDialect('zx81').tokenize(SOURCE).image);
 
   it("accepts the input the command line's parser produces for each operation", () => {
     const argv: Record<string, string[]> = {
@@ -169,6 +172,7 @@ describe('inputs and outcomes', () => {
       lint: ['lint', 'prog.bas', '-m', 'zx81'],
       build: ['build', 'prog.bas', '-m', 'zx81', '-o', '/tmp/prog.p'],
       check: ['check', 'prog.bas', '-m', 'zx81', '-e', 'checks.txt'],
+      convert: ['convert', 'prog.p', '-m', 'zx81'],
       run: [
         'run',
         'prog.bas',
@@ -212,6 +216,7 @@ describe('inputs and outcomes', () => {
         ...args.input,
         ...('program' in args ? { source: SOURCE } : {}),
         ...('expectations' in args ? { expectations: 'EXPECT "HI"' } : {}),
+        ...('file' in args ? { base64: CONVERT_BASE64 } : {}),
       });
       expect(schemaProblem(op.input, input), op.name).toBeNull();
     }
@@ -229,6 +234,7 @@ describe('inputs and outcomes', () => {
       info: {},
       lint: { source: SOURCE },
       build: { source: SOURCE },
+      convert: { base64: CONVERT_BASE64, machine: 'zx81' },
       drive: { script: 'PRESS A' },
       look: {},
       screenshot: {},

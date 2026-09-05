@@ -9,8 +9,9 @@ import { formatMachines } from '../../src/cli/machines';
 import { formatMachineDescription } from '../../src/cli/info';
 import { formatProblems } from '../../src/cli/lint';
 import { formatVerdict } from '../../src/cli/check';
-import { decodeBytes } from '../../src/ops/bytes';
+import { decodeBytes, encodeBytes } from '../../src/ops/bytes';
 import type { CheckOutcome } from '../../src/ops/check';
+import type { ConvertOutcome } from '../../src/ops/convert';
 import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
 import type { RunOutcome } from '../../src/ops/run';
 import { hostAddress } from '../../src/server/address';
@@ -79,6 +80,34 @@ async function readProgram(input: ProgramInput): Promise<string> {
   }
   try {
     return readFileSync(input.path, 'utf8');
+  } catch {
+    throw new RunError(`cannot read "${input.path}"`);
+  }
+}
+
+async function readBinaryStdin(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  const buffer = Buffer.concat(chunks);
+  if (buffer.length === 0) throw new RunError('no file arrived on stdin');
+  return new Uint8Array(buffer);
+}
+
+/**
+ * A binary file's bytes and name, from the path the caller named or from
+ * standard input - `readProgram`'s counterpart for a caller reading a
+ * machine's own binary rather than a BASIC listing. Standard input carries no
+ * name to infer a machine from.
+ */
+async function readBinary(
+  input: ProgramInput,
+): Promise<{ bytes: Uint8Array; fileName?: string }> {
+  if (input.kind === 'stdin') return { bytes: await readBinaryStdin() };
+  try {
+    return {
+      bytes: new Uint8Array(readFileSync(input.path)),
+      fileName: path.basename(input.path),
+    };
   } catch {
     throw new RunError(`cannot read "${input.path}"`);
   }
@@ -182,6 +211,32 @@ async function build(
     `${outcome.machine.name} ${outcome.target.label} (${outcome.target.id}), ` +
       `program ${outcome.programBytes} bytes\n`,
   );
+  return 0;
+}
+
+async function convert(
+  args: Extract<CliArgs, { operation: 'convert' }>,
+  host: HostClient,
+) {
+  // The bytes are read here and cross as base64, which is what the operation
+  // takes anyway: a file's contents are the client's to read, and the name is
+  // sent alongside because it is what the machine is inferred from.
+  const { bytes, fileName } = await readBinary(args.file);
+  const { value, notes: said } = await host.call('convert', {
+    ...args.input,
+    fileName,
+    base64: encodeBytes(bytes),
+  });
+  const outcome = value as ConvertOutcome;
+  notes(said);
+  if (args.out !== undefined) {
+    writeFileSync(args.out, outcome.source);
+    err(`wrote ${args.out}\n`);
+  } else {
+    out(outcome.source);
+  }
+  for (const warning of outcome.warnings) err(`warning: ${warning}\n`);
+  err(`${outcome.machine.name} (${outcome.machine.id})\n`);
   return 0;
 }
 
@@ -571,6 +626,9 @@ async function main(): Promise<number> {
 
       case 'check':
         return await check(args, host);
+
+      case 'convert':
+        return await convert(args, host);
 
       default:
         return await onTheHeldMachine(args, host);

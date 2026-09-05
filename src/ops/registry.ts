@@ -9,6 +9,7 @@
 
 import { buildOp } from './build';
 import { checkOp } from './check';
+import { convertOp } from './convert';
 import { driveOp, lookOp, screenshotOp } from './drive';
 import { expectOp } from './expect';
 import { infoOp } from './info';
@@ -34,6 +35,7 @@ export const OPERATIONS: readonly Operation[] = [
   timeOp,
   variablesOp,
   expectOp,
+  convertOp,
 ] as Operation[];
 
 /** The operation of that name, or undefined. */

@@ -52,6 +52,7 @@ usage: basically <operation> [options]
   build      write a program as a file the machine loads
   run        run a program and report its screen
   check      check a program against what it should do
+  convert    read a machine's own binary program file back into BASIC
 
 On the machine a "run --hold" left up:
 
@@ -292,6 +293,25 @@ A host is started for you by any command that needs one, so "start" is only for
 warming one up in advance. A host stops on its own once nothing has needed it
 for a while.
 `,
+  convert: `
+read a machine's own binary program file back into the BASIC it holds
+
+usage: basically convert [file] [-m <machine>] [-o <path>]
+
+  [file]            the machine's own program file, or "-"/nothing to read
+                     standard input
+  -m, --machine     the machine the file belongs to; optional when the
+                     file's own extension matches exactly one registered
+                     machine, and overrides that inference when both settle it
+  -o, --out         where to write the recovered BASIC; standard output when
+                     absent
+
+Where the file's format matches more than one machine, the machine must be
+named: the operation declines rather than guess. Anything the conversion
+could not carry over - a warning, a block of bytes that is not BASIC, an
+auto-start line - is reported on standard error rather than dropped. This is
+the reverse of "basically build"; that is where the other direction lives.
+`.trimStart(),
 
   lsp: `
 serve an editor over the Language Server Protocol: no ROM, no emulator
