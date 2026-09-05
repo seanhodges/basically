@@ -128,6 +128,34 @@ describe('what the toolchain bundles', () => {
     }
   }, 120_000);
 
+  it('carries nothing that exists for the browser alone', async () => {
+    // The website and the toolchain share a `package.json`, so a dependency
+    // added for one is installed for both and only a check like this says
+    // which was meant. The editor packages are deliberately absent from the
+    // list: every dialect's `language.ts` reaches them, so they are shared
+    // whether or not that is desirable.
+    const browserOnly = [
+      'react',
+      'react-dom',
+      'zustand',
+      'rxdb',
+      '@anthropic-ai/sdk',
+      '@google/genai',
+      'openai',
+    ];
+    for (const entry of ENTRY_POINTS) {
+      const modules = await bundledModules(entry);
+      const found = browserOnly.filter((pkg) =>
+        modules.some((file) => file.startsWith(`node_modules/${pkg}/`)),
+      );
+      expect(
+        found,
+        `${entry} bundles a package the toolchain has no use for; it renders ` +
+          'no UI and talks to no model',
+      ).toEqual([]);
+    }
+  }, 120_000);
+
   it('carries the browser editor once, not once per machine', async () => {
     // The host and the machine thread both reach `@codemirror/*`, and there is
     // no import to delete that would stop them: every dialect's `language.ts`
