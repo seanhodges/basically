@@ -64,7 +64,25 @@ the toolchain uses everywhere else:
 
 There is nothing here the command line cannot also do, and nothing the command
 line can do that isn't here. The two are the same operations, reached
-differently.
+differently — including keeping a machine up between requests, which the command
+line now does too.
+
+### Sharing one server
+
+`basically mcp --stdio` starts a server of your own, for your client alone, and
+that is the arrangement most clients expect. There is another: a host that keeps
+running and serves whoever asks it, so an agent, an editor and a shell all reach
+one warm copy of the toolchain rather than starting three.
+
+```bash
+basically-server          # serves everything, and stops when nothing needs it
+basically-server --mcp    # or just this
+basically server stop     # stop it
+```
+
+You are offered the same tools and answered the same way either way, and the
+machine your client is working on is yours: nothing else reaching that host can
+see it or disturb it. A client that starts the server itself needs no change.
 
 Most of these need no ROM. Running a program and checking one do, because they
 boot the machine; the rest work whether or not the machine's ROM is installed.

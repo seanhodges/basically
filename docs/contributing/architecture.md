@@ -62,20 +62,22 @@ flowchart TB
   svc --> persist
 ```
 
-| Layer                                                                                                                  | Responsibility                                              |
-| ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **Presentation**<br>`src/components/` · `src/keyboard/`                                                                | React UI shell, dialogs, virtual input                      |
-| **Application state**<br>`src/app/`                                                                                    | Single store, request counters, run loop helpers, profiler  |
-| **Language toolchain**<br>`src/dialects/`                                                                              | The `Dialect` seam, registry and one folder per machine     |
-| **Emulation**<br>`src/dialects/<name>/emulator/` · `src/emulator/`                                                     | Machines, vendored CPU cores, shared chips                  |
-| **Assembler**<br>`src/asm/`                                                                                            | Paired assembler/disassembler engines per CPU               |
-| **Editor services**<br>`src/editor/`                                                                                   | CodeMirror language, completion, lint and analysis builders |
-| **Reference data**<br>`src/reference/`                                                                                 | Structured machine reference shared by the docs and the AI  |
-| **Integration services**<br>`src/ai/` · `src/transfer/` · `src/share/` · `src/player/` · `src/audio/` · `src/storage/` | AI, hardware transfer, sharing, sound, persistence          |
-| **Operation layer**<br>`src/ops/`                                                                                      | One declaration per operation; every caller derives from it |
-| **Headless toolchain**<br>`src/cli/` · `src/dialects/headless/` · `scripts/basically`                                  | The same toolchain outside the browser                      |
-| **Language server**<br>`src/lsp/` · `scripts/headless/lsp.mts`                                                         | The editor's own language help, served to any other editor  |
-| **Agent server**<br>`src/mcp/` · `scripts/headless/mcp.mts`                                                            | The whole toolchain served to an agent, over a held machine |
+| Layer                                                                                                                  | Responsibility                                                   |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Presentation**<br>`src/components/` · `src/keyboard/`                                                                | React UI shell, dialogs, virtual input                           |
+| **Application state**<br>`src/app/`                                                                                    | Single store, request counters, run loop helpers, profiler       |
+| **Language toolchain**<br>`src/dialects/`                                                                              | The `Dialect` seam, registry and one folder per machine          |
+| **Emulation**<br>`src/dialects/<name>/emulator/` · `src/emulator/`                                                     | Machines, vendored CPU cores, shared chips                       |
+| **Assembler**<br>`src/asm/`                                                                                            | Paired assembler/disassembler engines per CPU                    |
+| **Editor services**<br>`src/editor/`                                                                                   | CodeMirror language, completion, lint and analysis builders      |
+| **Reference data**<br>`src/reference/`                                                                                 | Structured machine reference shared by the docs and the AI       |
+| **Integration services**<br>`src/ai/` · `src/transfer/` · `src/share/` · `src/player/` · `src/audio/` · `src/storage/` | AI, hardware transfer, sharing, sound, persistence               |
+| **Operation layer**<br>`src/ops/`                                                                                      | One declaration per operation; every caller derives from it      |
+| **Headless toolchain**<br>`src/cli/` · `src/dialects/headless/` · `scripts/basically`                                  | The same toolchain outside the browser                           |
+| **The host**<br>`src/server/` · `scripts/basically-server`                                                             | The toolchain kept running, serving every caller over one socket |
+| **The client**<br>`src/client/` · `scripts/headless/cli.mts`                                                           | Finds a host or starts one, does the file I/O, renders           |
+| **Language server**<br>`src/lsp/` · `scripts/headless/lsp.mts`                                                         | The editor's own language help, served to any other editor       |
+| **Agent server**<br>`src/mcp/` · `scripts/headless/mcp.mts`                                                            | The whole toolchain served to an agent, over a held machine      |
 
 ### Presentation layer
 
@@ -686,6 +688,21 @@ the screen, the measurements of the run, and what its variables hold. Only
 `run` needs a ROM. `scripts/basically.cmd` is the same entry point for cmd.exe
 and PowerShell, and has to stay in step with it.
 
+It is two programs. `scripts/basically-server` is a host that keeps running and
+holds what is expensive to prepare - the toolchain, the ROMs, and a machine;
+`scripts/basically` is a client that parses what the user asked for, reads and
+writes the files involved, and asks the host to do the work. A command that
+finds no host starts one, so nobody has to know whether one is running. Both
+have a `.cmd` twin, and both are built by one `scripts/headless/build.mjs` run
+that also writes the build id keying the address they meet at - so a client
+never reaches a host built from different source.
+
+Because the host outlives a command, **the command line holds a machine between
+commands**: `run --hold` leaves the machine it booted running, and `drive`,
+`look`, `screenshot`, `profile`, `time`, `variables` and `expect` act on it
+until it is released. The options on `run` and `check` remain the one-shot
+spelling of those same capabilities.
+
 ### One operation layer, every caller
 
 The command line, the AI assistant and the agent server are callers of one set
@@ -706,12 +723,15 @@ holds, and - for a caller that can boot one - a runner and a painter.
 
 ```mermaid
 flowchart TB
-  cli["scripts/basically · .cmd<br/>(rebuilds its bundle when stale)"] --> grammar["src/cli/<br/>args · usage · renderers · roms"]
-  grammar --> ops["src/ops/<br/>one declaration per operation"]
+  cli["scripts/basically · .cmd<br/>parses · reads files · renders"] --> grammar["src/cli/<br/>args · usage · renderers"]
+  grammar --> client["src/client/<br/>find a host or start one"]
+  client -->|"socket · named pipe"| host["src/server/<br/>listen · route · sessions"]
+  host --> dispatch["src/server/ops.ts<br/>one call dispatched"]
+  dispatch --> ops["src/ops/<br/>one declaration per operation"]
   ai["src/ai/aiStore.ts<br/>the assistant's turn"] --> tools["src/ops/tools.ts<br/>tool definitions · runToolCall"]
   tools --> ops
   mcp["scripts/headless/mcp.mts<br/>an agent's connection"] --> mtools["src/mcp/<br/>tools · content · session"]
-  mtools --> ops
+  mtools --> dispatch
   ops --> session{{"MachineSession<br/>src/app/machineSession.ts"}}
   session --> browser["src/app/browserSession.ts<br/>the pane's machine · the store's readings"]
   session --> headless["src/ops/headlessSession.ts<br/>the runner's machine · RunMeasurements"]
@@ -719,12 +739,15 @@ flowchart TB
   hl --> seam["Dialect → MachineEmulator"]
 ```
 
-**Parity is over capabilities, not over invocation.** A command line
-invocation holds no machine between runs, so what a caller that is holding a
-machine asks of that machine - press these keys, look, measure - the command
-line asks of one run, as an option on `run`. Each declaration names its route
-on each caller: an operation of its own, an option on another, a tool, or a
-line of the fenced block the assistant's reply carries. An operation
+**Parity is over capabilities, not over invocation.** Where a caller can hold a
+machine between one request and the next, what is asked of that machine - press
+these keys, look, measure - is an operation in its own right; the command line
+can, now that a host outlives a command, and the options on `run` and `check`
+are the same capabilities reached the one-shot way. Each declaration names its
+route on each caller: an operation of its own, an option on another, a tool, or a
+line of the fenced block the assistant's reply carries. The host is not itself a caller: it offers no operation of its own and declares
+no absence of its own, and every operation reaches it as one of the three
+callers it serves. An operation
 deliberately absent from one caller is an entry in the exemption table
 (`src/ops/parity.ts`) with its reason, and a reason is particular to the caller
 it is claimed of: an absence that holds because of the circumstances one caller

@@ -340,12 +340,12 @@ async function onTheHeldMachine(
   if (args.json) {
     json(value);
   } else if (args.operation === 'screenshot') {
-    const picture = value as {
-      png: string;
-      width: number;
-      height: number;
-    } | null;
+    const { picture } = value as {
+      picture: { png: string; width: number; height: number } | null;
+    };
     if (!picture) {
+      // A machine whose display cannot be pictured says so, rather than
+      // writing a file that is not one.
       err('this machine cannot be pictured\n');
       return EXIT_BAD_REQUEST;
     }
@@ -417,7 +417,17 @@ async function server(
     return 0;
   }
 
-  const client = await connect(args.action === 'status');
+  // Asking whether a host is running must not start one, and must not fail
+  // when the answer is that none is: "there is none" is an answer.
+  let client: HostClient;
+  try {
+    client = await connect(true);
+  } catch (error) {
+    if (!(error instanceof NoHost)) throw error;
+    if (args.json) json({ running: false, address });
+    else out(`no host is running (it would listen on ${address})\n`);
+    return 0;
+  }
   const status = await client.ask('status');
   client.close();
   if (args.json) {

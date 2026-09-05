@@ -29,7 +29,23 @@ goes - it's the same shape whatever editor you use, because that's the whole
 point of the protocol: nothing here is written for one editor in particular.
 
 No ROM is needed. The server never runs a program, so it works exactly the
-same whether or not you have the machine's ROM installed.
+same whether or not you have the machine's ROM installed — and that stays true
+however busy the machine is otherwise, because nothing your editor asks for
+waits on a program someone else is running.
+
+### Sharing one server
+
+The command above starts a server for your editor alone, which is what most
+editors expect. If you also use the command line or an AI agent, they can share
+one copy instead of each starting their own:
+
+```bash
+basically-server          # serves an editor, an agent and the command line
+basically server stop     # stop it
+```
+
+Your editor is served the same way and given the same answers either way, so
+nothing in its configuration needs to change.
 
 ## Telling it which machine
 

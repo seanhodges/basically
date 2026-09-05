@@ -91,41 +91,41 @@
 
 ## 6. End to end
 
-- [ ] 6.1 An end-to-end test starting a host on a temporary address, running
+- [x] 6.1 An end-to-end test starting a host on a temporary address, running
       `machines`, `lint` and `build` through the client, and asserting the output
       is byte-identical to the in-process path's.
-- [ ] 6.2 An end-to-end test of a machine held between commands: run leaving the
+- [x] 6.2 An end-to-end test of a machine held between commands: run leaving the
       machine up, then press, then look, then release — across separate client
       invocations against one host — asserting the screen is the one the keypress
       left and that a read costs no frames.
-- [ ] 6.3 An end-to-end test that `--stdio` still serves one editor and one agent
+- [x] 6.3 An end-to-end test that `--stdio` still serves one editor and one agent
       exactly as today, and that `basically lsp --stdio` and `basically mcp
       --stdio` remain valid spellings.
 
 ## 7. Documentation
 
-- [ ] 7.1 Update `docs/contributing/architecture.md` §"The toolchain outside the
+- [x] 7.1 Update `docs/contributing/architecture.md` §"The toolchain outside the
       browser": the host and client in the layout table, the two mermaid diagrams
       (keep them `flowchart TB` and under ~1100px intrinsic width), the parity
       paragraph now that the command line holds a machine, and a note that the
       stand-ins being process-global is why a machine lives in a worker.
-- [ ] 7.2 Update `docs/reference/mcp-server.md` and
+- [x] 7.2 Update `docs/reference/mcp-server.md` and
       `docs/guide/language-server.md` with the shared host as a way to be served,
       keeping the existing stdio instructions as the default. No `src/…`,
       `CLAUDE.md` or `.claude/` references on these published pages.
-- [ ] 7.3 Do not touch the sidebar in `docs/.vitepress/config.ts`.
+- [x] 7.3 Do not touch the sidebar in `docs/.vitepress/config.ts`.
 
 ## 8. Quality gates
 
-- [ ] 8.1 `npm run typecheck`
-- [ ] 8.2 `npx vitest run src/server/ src/client/ src/ops/ src/cli/ src/mcp/ src/lsp/`
+- [x] 8.1 `npm run typecheck`
+- [x] 8.2 `npx vitest run src/server/ src/client/ src/ops/ src/cli/ src/mcp/ src/lsp/`
 - [ ] 8.3 `npm test` — this change reaches the shared operation layer and every
       caller derived from it, which is the cross-cutting case where the full
       suite is the right gate rather than a targeted run.
-- [ ] 8.4 `npm run lint`
-- [ ] 8.5 `npm run format:check` (or `npm run format`)
-- [ ] 8.6 `npm run docs:build` — required because `docs/` changes in task group 7.
-- [ ] 8.7 No e2e run is required: nothing in this change is visible in the
+- [x] 8.4 `npm run lint`
+- [x] 8.5 `npm run format:check` (or `npm run format`)
+- [x] 8.6 `npm run docs:build` — required because `docs/` changes in task group 7.
+- [x] 8.7 No e2e run is required: nothing in this change is visible in the
       browser. Confirm by checking that no file under `src/app/`,
       `src/components/`, `src/editor/` or `src/player/` was modified; if any was,
       run `npm run e2e:chromium -- e2e/<capability>` for each affected capability
