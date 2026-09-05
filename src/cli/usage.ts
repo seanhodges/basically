@@ -52,6 +52,7 @@ usage: basically <operation> [options]
   build      write a program as a file the machine loads
   run        run a program and report its screen
   check      check a program against what it should do
+  convert    read a machine's own binary program file back into BASIC
   lsp        serve an editor over the Language Server Protocol
   mcp        serve an agent over the Model Context Protocol
 
@@ -179,6 +180,26 @@ it stood. An expectation nobody here can settle - "EXPECT SHOWS", or a reading
 this machine cannot give - is reported as unevaluated and counted as neither.
 A file with a line the parser cannot read, or a machine whose ROM is missing,
 is refused before anything boots.
+`.trimStart(),
+
+  convert: `
+read a machine's own binary program file back into the BASIC it holds
+
+usage: basically convert [file] [-m <machine>] [-o <path>]
+
+  [file]            the machine's own program file, or "-"/nothing to read
+                     standard input
+  -m, --machine     the machine the file belongs to; optional when the
+                     file's own extension matches exactly one registered
+                     machine, and overrides that inference when both settle it
+  -o, --out         where to write the recovered BASIC; standard output when
+                     absent
+
+Where the file's format matches more than one machine, the machine must be
+named: the operation declines rather than guess. Anything the conversion
+could not carry over - a warning, a block of bytes that is not BASIC, an
+auto-start line - is reported on standard error rather than dropped. This is
+the reverse of "basically build"; that is where the other direction lives.
 `.trimStart(),
 
   lsp: `
