@@ -22,7 +22,7 @@
  * exactly the ZX Spectrum loader model (`src/dialects/zxspectrum/loader.ts`).
  */
 
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
 
@@ -37,7 +37,7 @@ export type LoaderDevice = 1 | 8;
  */
 export function loaderSource(
   programName: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   device: LoaderDevice = 1,
 ): string {
   const main = programName.toUpperCase();
@@ -61,7 +61,7 @@ export function loaderSource(
  */
 export function loaderProgramBytes(
   programName: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
   device: LoaderDevice = 1,
 ): Uint8Array {
   const { program, errors } = tokenizeProgram(

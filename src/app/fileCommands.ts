@@ -8,7 +8,7 @@
  * dialog toggles reachable directly on the store, so they aren't wrapped here.
  */
 
-import { useIdeStore } from './store';
+import { useIdeStore, hydrateScratchBuffers } from './store';
 import {
   openDocumentFile,
   saveProjectZip,
@@ -16,23 +16,52 @@ import {
   PROJECT_EXTENSIONS,
 } from '../storage/files';
 import { importProgram, importStatusMessage } from './importProgram';
+import { isPictureFile } from './listingPhoto';
+import { useAiStore } from '../ai/aiStore';
 import {
   serializeProjectZip,
   parseProjectZip,
   type ParsedProject,
 } from '../storage/projectFile';
 import { findDialect } from '../dialects/registry';
+import { readMachineDirective } from '../dialects/machineDirective';
+import { findMachine } from '../dialects/machineLookup';
+import type { Dialect } from '../dialects/types';
 
 const textDecoder = new TextDecoder();
+
+/**
+ * The dialect a freshly opened `.bas`/`.txt` document should switch to, per
+ * its own `#MACHINE` declaration - null when it declares nothing, names a
+ * machine this build doesn't register, or names the machine already active
+ * (opening a document that declares a machine makes it the active target;
+ * see `openspec/specs/dialect-toolchain/spec.md`).
+ */
+function declaredDialect(source: string, active: Dialect): Dialect | null {
+  const { name } = readMachineDirective(source);
+  if (name === undefined) return null;
+  const found = findMachine(name);
+  return found && found.id !== active.id ? found : null;
+}
 
 /**
  * True when it's safe to replace the current document - nothing unsaved, an
  * empty document, or the user confirms discarding. Mirrors the guard the sample
  * loader uses.
+ *
+ * Scratch buffers are a second trigger of their own: editing one deliberately
+ * never marks the document dirty, yet replacing the document now destroys them,
+ * so without this a snippet would vanish with no warning at all.
  */
 export function confirmDiscard(): boolean {
-  const { dirty, source } = useIdeStore.getState();
-  return !dirty || !source.trim() || window.confirm('Discard unsaved changes?');
+  const { dirty, source, scratchBuffers } = useIdeStore.getState();
+  const unsavedDocument = dirty && source.trim() !== '';
+  if (!unsavedDocument && scratchBuffers.length === 0) return true;
+  return window.confirm(
+    unsavedDocument
+      ? 'Discard unsaved changes?'
+      : 'Discard your scratch buffers?',
+  );
 }
 
 /**
@@ -52,13 +81,15 @@ export function newDocument(): void {
  * unzipped and parsed, installing its source and memory blocks atomically and
  * switching to the dialect it was saved under (see {@link installParsedProject});
  * a plain `.bas`/`.txt` (or any other extension) loads as plain source with no
- * blocks.
+ * blocks, switching to the machine it declares (see {@link declaredDialect})
+ * when that differs from the one already active.
  */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
   const opened = await openDocumentFile();
   if (!opened) return;
-  const { replaceDocument, setStatusNotice } = useIdeStore.getState();
+  const { dialect, replaceDocument, openProject, setStatusNotice } =
+    useIdeStore.getState();
   const ext = fileExtension(opened.name);
   if (isProjectExtension(ext)) {
     try {
@@ -70,7 +101,18 @@ export async function openDocument(): Promise<void> {
     }
     return;
   }
-  replaceDocument(textDecoder.decode(opened.bytes), opened.name);
+  const text = textDecoder.decode(opened.bytes);
+  const declared = declaredDialect(text, dialect);
+  if (declared) {
+    openProject({
+      dialectId: declared.id,
+      source: text,
+      fileName: opened.name,
+    });
+    setStatusNotice(`Switched to ${declared.name} to match this program.`);
+    return;
+  }
+  replaceDocument(text, opened.name);
 }
 
 /**
@@ -94,6 +136,8 @@ function installParsedProject(parsed: ParsedProject, fileName: string): void {
       tapeFiles: parsed.tapeFiles,
       bootDisc: parsed.bootDisc,
     });
+    // No buffers here: they hold code in a dialect the active machine does not
+    // speak, the same reasoning that discards them on a machine switch.
     setStatusNotice(unknownDialectNotice(parsed.dialect, dialect.id));
     return;
   }
@@ -107,6 +151,7 @@ function installParsedProject(parsed: ParsedProject, fileName: string): void {
     autoStart: parsed.autoStart,
     tapeFiles: parsed.tapeFiles,
     bootDisc: parsed.bootDisc,
+    scratch: hydrateScratchBuffers(parsed.scratch),
   });
   if (switched) {
     setStatusNotice(`Switched to ${target.name} to match this project.`);
@@ -129,6 +174,7 @@ export async function saveDocument(): Promise<void> {
     autoStart,
     tapeFiles,
     bootDisc,
+    scratchBuffers,
     dialect,
     markSaved,
   } = useIdeStore.getState();
@@ -140,6 +186,7 @@ export async function saveDocument(): Promise<void> {
     tapeFiles,
     listingBlockMeta,
     bootDisc,
+    scratchBuffers,
   );
   const saved = await saveProjectZip(toProjectFileName(fileName), zip);
   if (saved !== null) markSaved(saved);
@@ -160,7 +207,7 @@ function isProjectExtension(ext: string): boolean {
  * Status notice for a project saved under a dialect this build doesn't ship:
  * the document loads under `activeDialectId` instead, and its memory blocks
  * (addressed for the missing machine) may not work. A warning only - the source
- * still loads.
+ * still loads, without the project's scratch buffers.
  */
 function unknownDialectNotice(
   parsedDialect: string,
@@ -172,21 +219,30 @@ function unknownDialectNotice(
 /**
  * Open a file dropped onto the editor. A project bundle (a `.zip`, or a legacy
  * `.bproj`) is unzipped and installs its source and memory blocks atomically,
- * like File → Open; a plain `.txt`/`.bas` file loads as a named document; a file
- * whose extension matches one of the current dialect's binary import formats
- * (e.g. `.prg`, `.tap`) is detokenized back into the editor exactly like Import
- * - including the block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`,
- * `.dsk`), which bring the program back with its memory blocks. All
- * document-replacing paths are guarded by {@link confirmDiscard}, so the user is
- * warned before losing unsaved changes (adding a block isn't destructive, so it
- * isn't). Unsupported types and read/detokenize/parse failures surface a
+ * like File → Open; a plain `.txt`/`.bas` file loads as a named document,
+ * switching to the machine it declares (see {@link declaredDialect}) when
+ * that differs from the one already active; a file whose extension matches
+ * one of the current dialect's binary import formats (e.g. `.prg`, `.tap`) is
+ * detokenized back into the editor exactly like Import - including the
+ * block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`, `.dsk`), which
+ * bring the program back with its memory blocks; a picture is a photograph or
+ * scan of a printed listing and goes to the AI assistant, which reports its
+ * own outcome in the panel. All document-replacing paths are guarded by
+ * {@link confirmDiscard}, so the user is warned before losing unsaved changes
+ * (adding a block isn't destructive, so it isn't, and neither is attaching a
+ * picture). Unsupported types and read/detokenize/parse failures surface a
  * status-bar notice. A project bundle switches to the dialect it was saved under
  * (see {@link installParsedProject}).
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
-  const { dialect, replaceDocument, loadUnsavedDocument, setStatusNotice } =
-    store;
+  const {
+    dialect,
+    replaceDocument,
+    openProject,
+    loadUnsavedDocument,
+    setStatusNotice,
+  } = store;
   const ext = fileExtension(file.name);
   const binaryFmt = dialect.binaryImports?.find(
     (f) => f.extension.toLowerCase() === ext,
@@ -198,7 +254,18 @@ export async function openDroppedFile(file: File): Promise<void> {
       installParsedProject(parsed, file.name);
     } else if (ext === '.bas' || ext === '.txt') {
       if (!confirmDiscard()) return;
-      replaceDocument(await file.text(), file.name);
+      const text = await file.text();
+      const declared = declaredDialect(text, dialect);
+      if (declared) {
+        openProject({
+          dialectId: declared.id,
+          source: text,
+          fileName: file.name,
+        });
+        setStatusNotice(`Switched to ${declared.name} to match this program.`);
+      } else {
+        replaceDocument(text, file.name);
+      }
     } else if (binaryFmt) {
       if (!confirmDiscard()) return;
       const bytes = new Uint8Array(await file.arrayBuffer());
@@ -214,6 +281,15 @@ export async function openDroppedFile(file: File): Promise<void> {
         bootDisc,
       });
       setStatusNotice(importStatusMessage(file.name, warnings));
+    } else if (isPictureFile(file.name, file.type)) {
+      // The one branch here that must NOT run the discard guard: attaching a
+      // picture to the assistant replaces nothing. What the assistant makes of
+      // it lands through the apply actions, which guard themselves.
+      //
+      // A HEIC counts as a picture on purpose (see `isPictureFile`), so it
+      // reaches the preparer and earns a sentence saying what to do about it
+      // rather than falling through to "unsupported file type" below.
+      await useAiStore.getState().attachPhoto(file);
     } else {
       setStatusNotice(`Can't open ${file.name} - unsupported file type.`);
     }

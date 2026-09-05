@@ -12,7 +12,7 @@ import {
   RETURNING_CODE_RULES,
   unavailableViews,
 } from './promptBuilder';
-import type { Expectation, ExpectationResult } from './expectations';
+import { parseExpectations, type ExpectationResult } from './expectations';
 import { dialects } from '../dialects/registry';
 import type { MachineReport } from '../dialects/types';
 
@@ -49,19 +49,17 @@ describe('buildSystemPrompt', () => {
    */
   const REFERENCE = 'THIS MACHINE\n- A test machine.';
 
-  // Nothing referenced aiProfile in any test before this change, so the 13
-  // prompts were entirely unverified.
   it('gives every registered dialect the shared rules exactly once', () => {
     expect(dialects.length).toBeGreaterThan(0);
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
       expect(prompt.split(RETURNING_CODE_RULES).length - 1).toBe(1);
     }
   });
 
   it('keeps each dialect its own machine-specific rules', () => {
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
       expect(prompt).toContain(dialect.aiProfile.systemPrompt);
       expect(prompt).toContain('OUTPUT FORMAT');
     }
@@ -69,7 +67,7 @@ describe('buildSystemPrompt', () => {
 
   it('carries the machine reference, ahead of the dialect prose', () => {
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
       expect(prompt).toContain(REFERENCE);
       expect(prompt.indexOf(REFERENCE)).toBeLessThan(
         prompt.indexOf(dialect.aiProfile.systemPrompt),
@@ -79,7 +77,7 @@ describe('buildSystemPrompt', () => {
 
   it('keeps the four blocks in order', () => {
     const dialect = dialects[0]!;
-    const prompt = buildSystemPrompt(dialect, REFERENCE);
+    const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
     expect(prompt.indexOf(dialect.aiProfile.systemPrompt)).toBeLessThan(
       prompt.indexOf(RETURNING_CODE_RULES),
     );
@@ -90,11 +88,11 @@ describe('buildSystemPrompt', () => {
 
   it('composes the real reference into the prompt it sends', async () => {
     const dialect = dialects.find((d) => d.id === 'zx81')!;
-    const prompt = await loadSystemPrompt(dialect);
+    const prompt = await loadSystemPrompt(dialect, false, false);
     expect(prompt).toContain('EVERY COMMAND, FUNCTION AND OPERATOR');
     expect(prompt).toContain(dialect.aiProfile.systemPrompt);
     expect(prompt).toContain(RETURNING_CODE_RULES);
-    expect(prompt).toBe(await loadSystemPrompt(dialect));
+    expect(prompt).toBe(await loadSystemPrompt(dialect, false, false));
   });
 
   // The old per-dialect bullet forbade fragments outright; leaving a copy
@@ -109,8 +107,8 @@ describe('buildSystemPrompt', () => {
 
   it('is byte-stable for a given dialect, so the cached prefix holds', () => {
     for (const dialect of dialects) {
-      expect(buildSystemPrompt(dialect, REFERENCE)).toBe(
-        buildSystemPrompt(dialect, REFERENCE),
+      expect(buildSystemPrompt(dialect, REFERENCE, false, false)).toBe(
+        buildSystemPrompt(dialect, REFERENCE, false, false),
       );
     }
   });
@@ -162,22 +160,25 @@ describe('buildRunFix', () => {
 });
 
 /** A variable expectation result, as the run check reports one. */
+/** One step of the assistant's block, as the check hands it back. */
+function step(
+  outcome: ExpectationResult['outcome'],
+  line: string,
+  detail: string,
+): ExpectationResult {
+  return { action: parseExpectations(line)[0]!, outcome, detail };
+}
+
 function varResult(
-  status: ExpectationResult['status'],
-  opts: { name?: string; actual?: string; reason?: string } = {},
+  outcome: ExpectationResult['outcome'],
+  opts: { name?: string; detail?: string } = {},
 ): ExpectationResult {
   const name = opts.name ?? 'T';
-  return {
-    expectation: {
-      kind: 'var',
-      name,
-      expected: '42',
-      source: `VAR ${name} = 42`,
-    },
-    status,
-    ...(opts.actual !== undefined ? { actual: opts.actual } : {}),
-    ...(opts.reason !== undefined ? { reason: opts.reason } : {}),
-  };
+  return step(
+    outcome,
+    `EXPECT VAR ${name} = 42`,
+    opts.detail ?? `${name} holds 42`,
+  );
 }
 
 describe('buildRunNote with expectations', () => {
@@ -191,28 +192,28 @@ describe('buildRunNote with expectations', () => {
   });
 
   it('says so when everything the assistant expected held', () => {
-    const note = buildRunNote({ kind: 'ended-ok' }, [varResult('passed')]);
+    const note = buildRunNote({ kind: 'ended-ok' }, [varResult('done')]);
     expect(note).toContain('finished without reporting an error');
     expect(note).toContain('Everything you said should be true of it held');
   });
 
   it('names which held when only some could be judged', () => {
     const note = buildRunNote({ kind: 'still-running' }, [
-      varResult('passed', { name: 'SCORE' }),
-      varResult('unchecked', {
+      varResult('done', { name: 'SCORE' }),
+      varResult('unevaluated', {
         name: 'T',
-        reason: 'the program was still running',
+        detail: 'the program was still running',
       }),
     ]);
-    expect(note).toContain('VAR SCORE = 42');
+    expect(note).toContain('EXPECT VAR SCORE = 42');
     expect(note).toContain('I could not check');
     expect(note).toContain('the program was still running');
   });
 
   it('reports an unchecked expectation rather than counting it as a pass', () => {
     const note = buildRunNote({ kind: 'ended-ok' }, [
-      varResult('unchecked', {
-        reason: 'this machine cannot report its variables',
+      varResult('unevaluated', {
+        detail: 'this machine cannot report its variables',
       }),
     ]);
     expect(note).not.toContain('Everything you said');
@@ -234,11 +235,12 @@ describe('buildRunNote with expectations', () => {
 describe('buildExpectationFix', () => {
   it('says what was expected and what the machine reported', () => {
     const fix = buildExpectationFix('10 LET T=41\n', [
-      varResult('failed', { actual: '41' }),
+      varResult('failed', { detail: 'T holds 41, not 42' }),
     ]);
     expect(fix.userContent).toContain('10 LET T=41');
+    // The line it wrote, and what the one evaluation path said about it.
     expect(fix.userContent).toContain(
-      'you said T would be 42, but the machine reported 41',
+      'you wrote `EXPECT VAR T = 42`, and T holds 41, not 42',
     );
     expect(fix.userContent).toContain('return a corrected program');
     expect(fix.summary).toContain('Wrong result');
@@ -246,50 +248,43 @@ describe('buildExpectationFix', () => {
 
   it('describes a screen expectation in its own terms', () => {
     const fix = buildExpectationFix('10 PRINT "HI"\n', [
-      {
-        expectation: {
-          kind: 'screen',
-          needle: 'GAME OVER',
-          source: 'SCREEN CONTAINS "GAME OVER"',
-        },
-        status: 'failed',
-      },
+      step('failed', 'EXPECT "GAME OVER"', '"GAME OVER" is not on the screen'),
     ]);
     expect(fix.userContent).toContain(
-      'you said the screen would contain "GAME OVER", but it did not',
+      'you wrote `EXPECT "GAME OVER"`, and "GAME OVER" is not on the screen',
     );
   });
 
   it('explains a variable that was never there', () => {
     const fix = buildExpectationFix('10 PRINT\n', [
-      varResult('failed', { reason: 'no variable of that name' }),
+      varResult('failed', { detail: 'there is no variable called T' }),
     ]);
-    expect(fix.userContent).toContain('no variable of that name');
+    expect(fix.userContent).toContain('there is no variable called T');
   });
 
   it('reports only the expectations that failed', () => {
     const fix = buildExpectationFix('10 PRINT\n', [
-      varResult('passed', { name: 'A' }),
-      varResult('failed', { name: 'B', actual: '0' }),
-      varResult('unchecked', { name: 'C' }),
+      varResult('done', { name: 'A' }),
+      varResult('failed', { name: 'B', detail: 'B holds 0, not 42' }),
+      varResult('unevaluated', { name: 'C' }),
     ]);
-    expect(fix.userContent).toContain('you said B would be 42');
-    expect(fix.userContent).not.toContain('A would be');
-    expect(fix.userContent).not.toContain('C would be');
+    expect(fix.userContent).toContain('EXPECT VAR B = 42');
+    expect(fix.userContent).not.toContain('EXPECT VAR A = 42');
+    expect(fix.userContent).not.toContain('EXPECT VAR C = 42');
     expect(fix.displayRequest).toContain('1 expectation did not hold');
   });
 
   it('pluralises the thread label for more than one failure', () => {
     const fix = buildExpectationFix('10 PRINT\n', [
-      varResult('failed', { name: 'A', actual: '0' }),
-      varResult('failed', { name: 'B', actual: '0' }),
+      varResult('failed', { name: 'A', detail: 'A holds 0, not 42' }),
+      varResult('failed', { name: 'B', detail: 'B holds 0, not 42' }),
     ]);
     expect(fix.displayRequest).toContain('2 expectations did not hold');
   });
 
   it('omits the program block when the editor is empty', () => {
     const fix = buildExpectationFix('   ', [
-      varResult('failed', { actual: '41' }),
+      varResult('failed', { detail: 'T holds 41, not 42' }),
     ]);
     expect(fix.userContent).not.toContain('```basic');
     expect(fix.userContent).toContain('did not produce what you said');
@@ -298,15 +293,12 @@ describe('buildExpectationFix', () => {
 
 describe('showing the assistant the screen', () => {
   /** A visual expectation as the run check carries one: never yet judged. */
-  const visual = (description: string): ExpectationResult => ({
-    expectation: {
-      kind: 'visual',
-      description,
-      source: `SCREEN SHOWS ${description}`,
-    },
-    status: 'unchecked',
-    reason: 'the screen has not been looked at',
-  });
+  const visual = (description: string): ExpectationResult =>
+    step(
+      'unevaluated',
+      `EXPECT SHOWS ${description}`,
+      'only the assistant, shown the screen, can settle this',
+    );
 
   it('says nothing about a screen when none is attached', () => {
     expect(buildUserMessage('make it faster', '10 PRINT', [])).not.toContain(
@@ -322,7 +314,7 @@ describe('showing the assistant the screen', () => {
 
   it('tells the assistant what it is looking at when one is', () => {
     expect(
-      buildUserMessage('why is it blank?', '10 PRINT', [], true),
+      buildUserMessage('why is it blank?', '10 PRINT', [], 'screen'),
     ).toContain("my machine's screen, as the last program you gave me left it");
     const runFix = buildRunFix(
       '10 PRINT',
@@ -352,26 +344,21 @@ describe('showing the assistant the screen', () => {
   it('describes a failed visual expectation in the words it judged with', () => {
     const fix = buildExpectationFix(
       '10 PLOT 1,1',
-      [{ ...visual('a circle'), status: 'failed', actual: 'an egg' }],
+      [{ ...visual('a circle'), outcome: 'failed', detail: 'an egg' }],
       true,
     );
+    // Its own verdict, quoted back: it judged this from the screen itself.
     expect(fix.userContent).toContain(
-      'you said the screen would show a circle, and looking at it you found an egg',
+      'you wrote `EXPECT SHOWS a circle`, and an egg',
     );
   });
 });
 
 describe('buildScreenJudgeRequest', () => {
-  const visualExpectation = (description: string): Expectation => ({
-    kind: 'visual',
-    description,
-    source: `SCREEN SHOWS ${description}`,
-  });
-
   it('numbers what was stated and asks for a verdict per line', () => {
     const req = buildScreenJudgeRequest('10 PLOT 1,1\n', [
-      visualExpectation('a circle in the middle'),
-      visualExpectation('a score at the top'),
+      'a circle in the middle',
+      'a score at the top',
     ]);
     expect(req.userContent).toContain('10 PLOT 1,1');
     expect(req.userContent).toContain('1. a circle in the middle');
@@ -382,9 +369,7 @@ describe('buildScreenJudgeRequest', () => {
   });
 
   it('asks for the correction in the same reply, so judging costs one request', () => {
-    const req = buildScreenJudgeRequest('10 PLOT 1,1\n', [
-      visualExpectation('a circle'),
-    ]);
+    const req = buildScreenJudgeRequest('10 PLOT 1,1\n', ['a circle']);
     expect(req.userContent).toContain('also return a corrected program');
     // ...and for no code at all when nothing is wrong.
     expect(req.userContent).toContain('do not return code');
@@ -448,5 +433,47 @@ describe('asking to be shown the screen', () => {
     );
     expect(fix.userContent).toContain('attached');
     expect(fix.userContent).not.toContain('```basic-view');
+  });
+});
+
+describe('showing the assistant a photographed listing', () => {
+  const listing = (request = 'type this in'): string =>
+    buildUserMessage(request, '10 PRINT', [], 'listing');
+
+  it('says what the picture is, and how printed listings mislead', () => {
+    const msg = listing();
+    expect(msg).toContain('photograph or scan of a printed BASIC listing');
+    // The glyph pairs, the machine's own characters, the wrap, the margin, the
+    // fidelity rule and the named gap - the six things the machine's own
+    // reference tables cannot supply.
+    expect(msg).toContain('O and 0');
+    expect(msg).toContain('Never substitute a lookalike ASCII character');
+    expect(msg).toContain('continues the line above it');
+    expect(msg).toContain('is not part of the program');
+    expect(msg).toContain('Do not modernise it');
+    expect(msg).toContain('list it by line number underneath the code');
+    // The request itself is still the ask, and comes last.
+    expect(msg.endsWith('type this in')).toBe(true);
+  });
+
+  it('overrides the usual choice of block, so page two merges onto page one', () => {
+    const msg = listing();
+    expect(msg).toContain('whatever the RETURNING CODE rules would otherwise');
+    expect(msg).toContain('```basic-partial');
+  });
+
+  it('never says a screen and a listing at once', () => {
+    const msg = listing();
+    expect(msg).not.toContain("my machine's screen");
+    expect(
+      buildUserMessage('why is it blank?', '10 PRINT', [], 'screen'),
+    ).not.toContain('printed BASIC listing');
+  });
+
+  it('says neither when no picture rides', () => {
+    const msg = buildUserMessage('make it faster', '10 PRINT', []);
+    expect(msg).not.toContain('printed BASIC listing');
+    expect(msg).not.toContain("my machine's screen");
+    expect(msg).toContain('make it faster');
   });
 });

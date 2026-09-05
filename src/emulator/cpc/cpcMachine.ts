@@ -10,8 +10,9 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { locoSysVars, type LocoSysVars } from '../../dialects/cpc464/sysvars';
 import {
@@ -19,8 +20,15 @@ import {
   type LocoMemPort,
 } from '../../dialects/cpc464/vars';
 import { readLocoReport } from '../../dialects/cpc464/reports';
-import { Ay38912, AY_SAMPLE_RATE, AY_CLOCK_CPC } from '../ay';
+import {
+  Ay38912,
+  AY_SAMPLE_RATE,
+  AY_SAMPLES_PER_FRAME,
+  AY_CLOCK_CPC,
+} from '../ay';
 import { CpcMemory, type CpcModel } from './memory';
+import { drawRomNotice, noRomNotice } from '../romNotice';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { GateArray } from './gateArray';
 import { Crtc } from './crtc';
 import { Ppi, type PpiHost } from './ppi';
@@ -28,13 +36,46 @@ import { CpcKeyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { cpcFontSignatures, readCpcScreenText } from './screenText';
 import type { GlyphSignatures } from '../fontMatcher';
+import { createMachineLoop } from '../machineLoop';
+import { CpcCassette, type CasResult } from './cassette';
 
+const CPU_HZ = 4_000_000;
 /** 4MHz Z80, 64µs (256 T-state) scanlines, 312 lines → ~50.08Hz. */
 const TSTATES_PER_LINE = 256;
 /** Frames to run the firmware before giving up on reaching the command loop. */
 const MAX_BOOT_FRAMES = 300;
 /** Frames to settle after the boot screen draws, so the input loop is ready. */
 const BOOT_SETTLE_FRAMES = 40;
+/**
+ * The firmware cassette jumpblock, where a program's data file I/O is caught.
+ *
+ * These live in central RAM (&4000-&BFFF has no ROM overlay), so they are the
+ * same addresses on every model and need no paging awareness. Locomotive BASIC
+ * calls them directly on both machines - OPENOUT is `CALL &D273` / `CALL &F637`
+ * / `JP &BC8C` on the 464 - which is what makes catching the program counter
+ * here sufficient.
+ *
+ * CAS IN DIRECT (&BC83), CAS OUT DIRECT (&BC98) and CAS CATALOG (&BC9B) are
+ * deliberately absent: whole-file SAVE and CAT are not serviced from the store,
+ * so they run the real firmware. The whole-file *read* needs no entry here -
+ * LOAD and CHAIN reach a stored file through CAS IN OPEN and CAS IN CHAR, which
+ * are trapped for OPENIN anyway.
+ */
+const CAS_IN_OPEN = 0xbc77;
+const CAS_IN_CLOSE = 0xbc7a;
+const CAS_IN_ABANDON = 0xbc7d;
+const CAS_IN_CHAR = 0xbc80;
+const CAS_RETURN = 0xbc86;
+const CAS_TEST_EOF = 0xbc89;
+const CAS_OUT_OPEN = 0xbc8c;
+const CAS_OUT_CLOSE = 0xbc8f;
+const CAS_OUT_ABANDON = 0xbc92;
+const CAS_OUT_CHAR = 0xbc95;
+
+/** The span the trap check compares against before it looks any closer. */
+const CAS_FIRST = CAS_IN_OPEN;
+const CAS_LAST = CAS_OUT_CHAR;
+
 /**
  * Locomotive BASIC's end-of-program / start-of-variables / start-of-arrays /
  * end-of-arrays pointers. On a freshly injected program (no variables yet) all
@@ -51,10 +92,12 @@ const basicVarPointers = (v: LocoSysVars) => [
 ];
 
 /**
- * The Amstrad CPC as one machine, parameterised by model so the CPC 6128 reuses
- * it wholesale (its extra 64K hooks in through {@link CpcMemory.setRamConfig}
- * and Locomotive BASIC 1.1 through a different upper ROM). Over the vendored
- * Z80 core it wires:
+ * The Amstrad CPC as one machine, parameterised by model so the CPC 664 and
+ * CPC 6128 reuse it wholesale (Locomotive BASIC 1.1 comes in through a
+ * different upper ROM on both; the 6128's extra 64K hooks in through
+ * {@link CpcMemory.setRamConfig}, and the 664 needs nothing else - its
+ * divergence from the 464 is firmware and a disc drive the IDE does not model).
+ * Over the vendored Z80 core it wires:
  *
  *   - {@link CpcMemory}  64K RAM + firmware/BASIC ROM overlays
  *   - {@link GateArray}  palette, screen mode, ROM paging, the 300Hz interrupt
@@ -72,28 +115,90 @@ const basicVarPointers = (v: LocoSysVars) => [
  * it constructs cleanly but has no firmware to run (see the dialect's romUrl and
  * public/roms/cpc464/ or public/roms/cpc6128/).
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const noRomFor = (model: CpcModel): string[] =>
+  noRomNotice(
+    `CPC ${model} firmware and BASIC ROM`,
+    `public/roms/cpc${model}/cpc${model}.rom`,
+  );
+
 export class CpcMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
-  readonly audioSampleRate = AY_SAMPLE_RATE;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. A getter rather than a constant because the
+   * CRTC sets the frame length and a program can reprogram it mid-run; the host
+   * re-reads this on every push, so the stream stays matched either way.
+   */
+  get audioSampleRate(): number {
+    return AY_SAMPLES_PER_FRAME * this.frameHz;
+  }
 
   private readonly memory: CpcMemory;
+  /** False when the machine was handed no image; see {@link noRomFor}. */
+  private readonly hasRom: boolean;
+  private readonly model: CpcModel;
   private readonly gateArray = new GateArray();
   private readonly crtc = new Crtc();
   private readonly keyboard = new CpcKeyboard();
   private readonly ay = new Ay38912(AY_CLOCK_CPC);
   private readonly ppi: Ppi;
   private readonly cpu: Z80Core;
+  /**
+   * Where a program's own data files go, when the IDE hands the machine a
+   * store. Null without one, which is the shape a bare boot sees.
+   */
+  private readonly cassette: CpcCassette | null;
 
   /** Which AY register the PPI last latched (for the reg-14 keyboard read). */
   private aySelected = 0;
-  private speed = 1;
+  /** Next CRTC scanline still to be started this frame (see {@link beginScanlinesTo}). */
+  private nextScanline = 0;
+  /**
+   * Frame and debug slice, from one walk over the budget - here the whole
+   * frame's T-states, with the scanlines started off the position reached
+   * rather than run one budget at a time. The overrun is carried across
+   * scanlines *and* across frames: a Z80 instruction is a large fraction of a
+   * 256 T-state line, so a debt reset per line - 312 times a frame - is the
+   * difference between the CPU running at 4MHz and a few percent above it.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: () => TSTATES_PER_LINE * this.crtc.linesPerFrame(),
+    onSliceStart: () => {
+      this.nextScanline = 0;
+    },
+    step: (elapsed) => {
+      this.beginScanlinesTo(elapsed);
+      // A halted CPU executes nothing, so the BASIC line cannot have changed.
+      const idle = this.cpu.isHalted();
+      return { cycles: this.stepInstruction(), idle };
+    },
+    onSliceEnd: () => this.renderFrame(),
+    currentLine: () => this.currentLine(),
+  });
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
   private disposed = false;
 
   /**
    * Locomotive workspace pointers for program injection and runtime
    * introspection (variables, report, memory stats), keyed by the model's BASIC
-   * variant: 1.0 on the 464, 1.1 on the 6128.
+   * variant: 1.0 on the 464, 1.1 on the 664 and the 6128.
    */
   private readonly sysvars: LocoSysVars;
   /** Side-effect-free RAM view the introspection readers walk. */
@@ -112,12 +217,19 @@ export class CpcMachine implements MachineEmulator {
     files?: MachineFileStore;
   }) {
     const model = opts.model ?? '464';
+    this.model = model;
+    this.hasRom = opts.rom.length > 0;
     this.memory = new CpcMemory(opts.rom, model);
     this.sysvars = locoSysVars(model === '464' ? 'basic10' : 'basic11');
     this.memPort = {
       read: (addr) => this.memory.readScreen(addr),
       readWord: (addr) => this.memory.readWord(addr),
     };
+    this.cassette = opts.files
+      ? // Raw RAM, not the paged read: a filename lives in the program area
+        // from &0170, which is under the lower ROM's window.
+        new CpcCassette(opts.files, { read: this.memory.readScreen })
+      : null;
 
     const host: PpiHost = {
       aySelectRegister: (reg) => {
@@ -156,6 +268,10 @@ export class CpcMachine implements MachineEmulator {
     this.ay.reset();
     this.aySelected = 0;
     this.vsync = false;
+    // Discard rather than flush: the session that had the file open is over,
+    // so storing a part-written buffer now would look like a file the program
+    // closed.
+    this.cassette?.closeAll(false);
     this.cpu.reset();
   }
 
@@ -202,33 +318,130 @@ export class CpcMachine implements MachineEmulator {
     return 0xff;
   };
 
-  runFrame(): void {
-    const lines = this.crtc.linesPerFrame();
-    for (let line = 0; line < lines; line++) this.runScanline(line);
-    this.renderFrame();
+  /**
+   * Unlike every other machine here this is not a constant: the CRTC's vertical
+   * registers set the frame length, and Locomotive BASIC programs reprogram them
+   * (a `BORDER`-style split, an overscan demo) while running.
+   */
+  get frameHz(): number {
+    return CPU_HZ / (TSTATES_PER_LINE * this.crtc.linesPerFrame());
   }
 
-  /** Emulate one CRTC scanline: clock the interrupt, then run its T-states. */
-  private runScanline(line: number): void {
-    this.beginScanline(line);
-    const budget = TSTATES_PER_LINE * this.speed;
-    let t = 0;
-    while (t < budget) {
-      if (this.cpu.isHalted()) {
-        // Idle until the next interrupt; burn a NOP's worth of time.
-        t += 4;
-        continue;
-      }
-      t += this.cpu.run_instruction();
+  runFrame(): void {
+    this.loop.runFrame();
+  }
+
+  /**
+   * Start every CRTC scanline the frame has now reached. Called before each
+   * instruction, so a line whose whole 256 T-states one long instruction
+   * straddles is still started - the Gate Array counts its interrupts off
+   * HSYNC, and a line that never began would lose one.
+   */
+  private beginScanlinesTo(elapsed: number): void {
+    while (this.nextScanline * TSTATES_PER_LINE <= elapsed) {
+      this.beginScanline(this.nextScanline);
+      this.nextScanline++;
     }
+  }
+
+  /**
+   * One instruction, or a NOP's worth of idle time while the CPU is halted
+   * waiting for the next interrupt, returning the T-states it took. This is the
+   * machine loop's step, so a run and a debug slice charge the profile
+   * identically - and so a run the IDE performs to check an
+   * assistant answer, which deliberately opens no debug session, is measured
+   * like any other.
+   */
+  private stepInstruction(): number {
+    if (this.cassette && !this.cpu.isHalted()) {
+      const pc = this.cpu.getPC();
+      // One compare on the ordinary path; the switch only runs on the handful
+      // of addresses the whole jumpblock spans.
+      if (pc >= CAS_FIRST && pc <= CAS_LAST && this.serviceCassette(pc)) {
+        // Serviced in place of the routine, so no instruction ran and no
+        // T-states were consumed - the machine loop carries its debt across
+        // steps, so a zero here simply takes another step this frame.
+        return 0;
+      }
+    }
+    const t = this.cpu.isHalted() ? 4 : this.cpu.run_instruction();
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return t;
+  }
+
+  /**
+   * Offer one firmware cassette-manager call to the VFS, returning whether it
+   * was serviced. Declined calls (an address that is not a data-file entry, a
+   * file the store does not hold) return false and the real firmware runs.
+   *
+   * The entry conventions are Locomotive BASIC's own, read off the shipped
+   * ROMs: both opens arrive with HL = the filename and B = its length, and
+   * BASIC has already set its own open-file state before the call, so nothing
+   * here has to fill the firmware's 2K buffer or synthesise a header.
+   */
+  private serviceCassette(pc: number): boolean {
+    const cas = this.cassette!;
+    const st = this.cpu.getState();
+    let res: CasResult;
+    switch (pc) {
+      case CAS_OUT_OPEN:
+        res = cas.openOut(cas.readName((st.h << 8) | st.l, st.b));
+        break;
+      case CAS_OUT_CHAR:
+        res = cas.outChar(st.a);
+        break;
+      case CAS_OUT_CLOSE:
+        res = cas.closeOut();
+        break;
+      case CAS_OUT_ABANDON:
+        res = cas.abandonOut();
+        break;
+      case CAS_IN_OPEN:
+        res = cas.openIn(cas.readName((st.h << 8) | st.l, st.b));
+        break;
+      case CAS_IN_CHAR:
+        res = cas.inChar();
+        break;
+      case CAS_RETURN:
+        res = cas.casReturn();
+        break;
+      case CAS_TEST_EOF:
+        res = cas.testEof();
+        break;
+      case CAS_IN_CLOSE:
+        res = cas.closeIn();
+        break;
+      case CAS_IN_ABANDON:
+        res = cas.abandonIn();
+        break;
+      default:
+        return false;
+    }
+    if (!res.handled) return false;
+
+    // Complete the call as the firmware would: return to the caller with the
+    // result in carry, and A where the routine yields one. Zero is always
+    // cleared - BASIC reads Z set after these calls as ESC and jumps to its
+    // break handler.
+    const ret = this.memory.readWord(st.sp);
+    st.sp = (st.sp + 2) & 0xffff;
+    st.pc = ret;
+    st.flags.C = res.carry ? 1 : 0;
+    st.flags.Z = 0;
+    if (res.a !== undefined) st.a = res.a;
+    this.cpu.setState(st);
+    return true;
   }
 
   /**
    * Start a scanline: sample VSYNC, clock the Gate Array interrupt counter off
    * HSYNC, and deliver a pending interrupt when the CPU has them enabled (this
-   * also lifts a HALT the firmware parks in waiting for frame flyback). Shared by
-   * {@link runScanline} and {@link debugStep} so run and debug keep identical
-   * timing.
+   * also lifts a HALT the firmware parks in waiting for frame flyback). Driven
+   * from the machine loop's step, so run and debug keep identical timing.
    */
   private beginScanline(line: number): void {
     this.vsync = this.crtc.inVsync(line);
@@ -250,6 +463,10 @@ export class CpcMachine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, noRomFor(this.model));
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
@@ -274,12 +491,17 @@ export class CpcMachine implements MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
     },
   ): void {
     this.reset();
     this.bootToReady();
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
 
     // The tokenized image is the raw program area (line records terminated by a
     // zero length word); drop it in at the model's program base (&0170).
@@ -332,6 +554,11 @@ export class CpcMachine implements MachineEmulator {
    * period so the "Ready" prompt and key-input loop are fully up.
    */
   private bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (this.cpu.getIFF1() === 1 && this.screenHasContent()) {
@@ -378,10 +605,6 @@ export class CpcMachine implements MachineEmulator {
     this.keyboard.setKey('JoyRight', state.right);
     this.keyboard.setKey('JoyFire1', state.fire1);
     this.keyboard.setKey('JoyFire2', state.fire2);
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   /** Live BASIC variables walked from the Locomotive variable storage. */
@@ -464,38 +687,15 @@ export class CpcMachine implements MachineEmulator {
    * `fromLine`-arming semantics (shared with the other steppable dialects).
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    // In run mode, ignore breakpoints until execution has left the resumed-from
-    // line, so Continue off a breakpointed line doesn't immediately re-trigger.
-    let armed = opts.fromLine === null;
-    const lines = this.crtc.linesPerFrame();
-    for (let line = 0; line < lines; line++) {
-      this.beginScanline(line);
-      const budget = TSTATES_PER_LINE * this.speed;
-      let t = 0;
-      while (t < budget) {
-        if (this.cpu.isHalted()) {
-          t += 4;
-          continue;
-        }
-        t += this.cpu.run_instruction();
-        const cur = this.currentLine();
-        if (cur === null) continue;
-        if (opts.mode === 'step') {
-          if (opts.fromLine === null || cur !== opts.fromLine) {
-            this.renderFrame();
-            return { paused: true, line: cur };
-          }
-        } else {
-          if (!armed && cur !== opts.fromLine) armed = true;
-          if (armed && opts.breakpoints.has(cur)) {
-            this.renderFrame();
-            return { paused: true, line: cur };
-          }
-        }
-      }
-    }
-    this.renderFrame();
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

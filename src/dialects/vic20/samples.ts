@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import breakout from './samples/breakout.bas?raw';
@@ -22,15 +23,7 @@ export const VIC20_KALEIDO_BLOCK = {
  * bytes, and are offered when creating a new project; `circles` plots PETSCII
  * characters since the VIC-20 has no bitmap mode from BASIC.
  */
-export const vic20Samples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [VIC20_KALEIDO_BLOCK],
-  },
-];
+export const vic20Samples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: VIC20_KALEIDO_BLOCK },
+);

@@ -2,12 +2,13 @@ import type { Dialect, MachineReport, TokenizeError } from '../dialects/types';
 import type { AiRunOutcome } from '../app/store';
 import {
   JUDGE_FENCE_TAG,
-  type Expectation,
   type ExpectationResult,
   type ScreenViewRequest,
 } from './expectations';
 import { buildDriveRules, buildExpectationRules } from './machineObservability';
 import { loadMachineReference } from './machineReference';
+import { getProvider } from './providers/registry';
+import type { AiProviderId } from './providers/types';
 
 /**
  * A correction the assistant is offering after an apply/run turned up problems.
@@ -34,8 +35,8 @@ export const FORMAT_RETRY_MESSAGE =
 /**
  * How much code to send, and how to label it. Machine-independent by design:
  * the choice between a fragment and a whole listing must not vary by which
- * machine happens to be selected, so it lives here rather than in thirteen
- * per-dialect copies that would drift. Each dialect's own OUTPUT FORMAT section
+ * machine happens to be selected, so it lives here rather than in a
+ * per-dialect copy each that would drift. Each dialect's own OUTPUT FORMAT section
  * still owns how a line is written, which genuinely does differ per machine.
  *
  * A single constant, so the composed prompt stays byte-stable per dialect -
@@ -49,8 +50,11 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
 - In a \`\`\`basic-partial block, a line consisting of ONLY a line number deletes that line - exactly as you would delete it at the keyboard. That is the only way to remove a line, and the only reason to write a bare line number.`;
 
 /**
- * The system prompt stays byte-stable per dialect (good for prompt caching);
- * volatile context - current program, lint errors - rides in the user turn.
+ * The system prompt is a constant per (dialect, provider), which is what prefix
+ * caching needs. The current program and its lint errors ride in the user turn,
+ * and stay there: a turn once sent is replayed exactly as it was sent (see
+ * `aiStore`), so the whole prefix - this prompt and the history behind it - is
+ * the same bytes on every turn of a conversation.
  *
  * `machineReference` is the machine's own language definition, composed from the
  * shared reference data - every command it has, its language rules and hardware
@@ -65,14 +69,15 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
 export function buildSystemPrompt(
   dialect: Dialect,
   machineReference: string,
-  canShowScreen = false,
-  canDrive = false,
+  canShowScreen: boolean,
+  canDrive: boolean,
 ): string {
-  // The expectation rules vary by machine (two of them cannot report their
-  // variables) and by whether the chosen backend can be shown the screen - but
-  // only by those, so the composed prompt is still byte-stable per
-  // (dialect, provider), which is what prefix caching needs: neither changes
-  // within a conversation without starting a different request path anyway.
+  // The composed prompt varies by (dialect, canShowScreen, canDrive) and by
+  // nothing else. The two flags describe what the chosen backend can do, so
+  // neither can change without the user changing provider - which starts a
+  // different conversation anyway. Both are required rather than defaulted:
+  // a caller that omitted one would compose a different prompt from its
+  // neighbour and silently rewrite the cached prefix on every turn.
   return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect, canShowScreen)}\n\n${buildDriveRules(dialect, canDrive)}`;
 }
 
@@ -86,8 +91,8 @@ export function buildSystemPrompt(
  */
 export async function loadSystemPrompt(
   dialect: Dialect,
-  canShowScreen = false,
-  canDrive = false,
+  canShowScreen: boolean,
+  canDrive: boolean,
 ): Promise<string> {
   return buildSystemPrompt(
     dialect,
@@ -97,12 +102,81 @@ export async function loadSystemPrompt(
   );
 }
 
+/**
+ * The system prompt for this machine on this backend - the form every request
+ * uses.
+ *
+ * The one place the capability flags are resolved. They are properties of the
+ * chosen provider, not of the code path raising the request, so resolving them
+ * here is what makes every turn of a conversation compose the same prompt: the
+ * user's, the continuation, the correction after a failed run, and the
+ * judgement all pass through this. A caller that answered them for itself would
+ * put a different system prompt in the cached prefix and pay to write the whole
+ * thing again.
+ */
+export async function loadSystemPromptFor(
+  dialect: Dialect,
+  providerId: AiProviderId,
+): Promise<string> {
+  const provider = getProvider(providerId);
+  return loadSystemPrompt(
+    dialect,
+    provider.acceptsImages,
+    provider.supportsTools,
+  );
+}
+
+/**
+ * Which picture rides with a request, if any.
+ *
+ * One statement rather than a flag per kind, so "a screen and a listing at once"
+ * is not something a request can write down: one picture rides one request, and
+ * the two are read completely differently.
+ */
+export type AttachedPicture = 'none' | 'screen' | 'listing';
+
+/**
+ * Said, not left to be noticed: a model told what it is looking at reads the
+ * picture as evidence rather than as decoration.
+ */
+const SCREEN_ATTACHED_STATEMENT = `The attached picture is my machine's screen, as the last program you gave me left it.`;
+
+/**
+ * What reading a printed listing needs and the machine's own reference tables
+ * cannot supply.
+ *
+ * Deliberately per-turn text rather than part of the system prompt. That prompt
+ * is composed identically per (dialect, provider capability) so the provider's
+ * cache matches from the front, and `./promptStability.test.ts` pins a measured
+ * character budget per machine: guidance relevant to one turn in fifty would
+ * move every machine's budget, invalidate every cached prefix once, and be paid
+ * for on every request that carries no picture at all.
+ *
+ * The tables already say what this BASIC accepts. What they do not say is that a
+ * printed listing is a hostile document - which is all this adds.
+ *
+ * The last bullet deliberately overrides RETURNING CODE, and is what makes
+ * page-by-page transcription work: that rule chooses a fragment or a whole
+ * listing by how much of the *existing program* a change affects, which reads
+ * exactly backwards here. Page two of a listing is a small part of a large
+ * program and would be judged a whole one, replacing page one instead of merging
+ * onto it.
+ */
+export const LISTING_TRANSCRIPTION_GUIDANCE = `The attached picture is a photograph or scan of a printed BASIC listing. Type it in for me as a program for this machine. Reading print is not like reading a file, so:
+- Many listing fonts print O and 0, 1 and I and l, 5 and S, 8 and B, 2 and Z, and a comma and a full stop almost identically. Settle each one by which reading is valid BASIC for this machine - a line number in sequence, a variable used elsewhere, a keyword this machine actually has - and never by which shape it looks closest to.
+- A character that is not on a typewriter is this machine's own: a block or line graphic, an arrow, a currency sign, an inverse character. Write it the way this machine spells it, exactly as the reference above gives it. Never substitute a lookalike ASCII character for it.
+- A listing set in narrow columns wraps. A run of text with no line number of its own continues the line above it, however the page lays it out.
+- A checksum, byte count or line-length figure printed down the margin is not part of the program. Leave it out.
+- Transcribe what is printed. Do not modernise it, tidy it, rename anything, or correct a fault that is on the page: transcribe the fault as printed and say what you think is wrong underneath the code.
+- Where the picture genuinely cannot settle a character, transcribe your best reading and then list it by line number underneath the code, so I can check it against the paper. A stated gap is a question I can answer in a sentence; a silent guess is a bug in a program I did not write.
+- The picture decides which kind of block you return, whatever the RETURNING CODE rules would otherwise choose: if it shows only part of a listing, return what you read as a \`\`\`basic-partial block even though that is most of a program, so the next page merges onto this one by line number. Only a picture showing a listing from its first line to its last is a whole program.`;
+
 export function buildUserMessage(
   request: string,
   currentSource: string,
   errors: TokenizeError[],
-  /** The machine's display, from the thread, rides with this request. */
-  screenAttached = false,
+  /** Which picture rides with this request - see {@link AttachedPicture}. */
+  picture: AttachedPicture = 'none',
 ): string {
   let msg = '';
   const source = currentSource.trim();
@@ -116,10 +190,11 @@ export function buildUserMessage(
     }
     msg += '\n';
   }
-  if (screenAttached) {
-    // Said, not left to be noticed: a model told what it is looking at reads
-    // the picture as evidence rather than as decoration.
-    msg += `The attached picture is my machine's screen, as the last program you gave me left it.\n\n`;
+  if (picture === 'screen') {
+    msg += `${SCREEN_ATTACHED_STATEMENT}\n\n`;
+  }
+  if (picture === 'listing') {
+    msg += `${LISTING_TRANSCRIPTION_GUIDANCE}\n\n`;
   }
   msg += request;
   return msg;
@@ -191,22 +266,22 @@ export function buildRunNote(
 
   // A failure gets a correction of its own rather than a note (see
   // buildExpectationFix), so anything reaching here held or could not be judged.
-  const passed = expectations.filter((r) => r.status === 'passed');
-  const unchecked = expectations.filter((r) => r.status === 'unchecked');
+  const passed = expectations.filter((r) => r.outcome === 'done');
+  const unchecked = expectations.filter((r) => r.outcome === 'unevaluated');
   let note = base;
   if (passed.length > 0) {
     note +=
       passed.length === expectations.length
         ? ' Everything you said should be true of it held.'
         : ` These things you said should be true of it held: ${passed
-            .map((r) => r.expectation.source)
+            .map((r) => r.action.source)
             .join('; ')}.`;
   }
   if (unchecked.length > 0) {
     // Reported rather than quietly counted as passing: an expectation nobody
     // could judge is not evidence the program worked.
     note += ` I could not check ${unchecked
-      .map((r) => `${r.expectation.source} (${r.reason ?? 'not evaluated'})`)
+      .map((r) => `${r.action.source} (${r.detail})`)
       .join('; ')}.`;
   }
   return `${note}${shownNote}${viewNote}`;
@@ -280,12 +355,10 @@ const SCREEN_ATTACHED_NOTE =
  */
 export function buildScreenJudgeRequest(
   source: string,
-  visuals: readonly Expectation[],
+  visuals: readonly string[],
 ): { userContent: string; displayRequest: string } {
   const stated = visuals
-    .map(
-      (e, i) => `${i + 1}. ${e.kind === 'visual' ? e.description : e.source}`,
-    )
+    .map((description, i) => `${i + 1}. ${description}`)
     .join('\n');
   let userContent = '';
   const trimmed = source.trim();
@@ -306,24 +379,16 @@ export function buildScreenJudgeRequest(
   };
 }
 
-/** How one failed expectation reads when it goes back to the assistant. */
+/**
+ * How one failed step reads when it goes back to the assistant: the line it
+ * wrote, and what the machine said about it.
+ *
+ * Both halves come from the one evaluation path, so what the assistant is told
+ * about its own program is what any other caller would have been told about
+ * the same program.
+ */
 function describeFailure(result: ExpectationResult): string {
-  const e = result.expectation;
-  if (e.kind === 'var') {
-    return result.actual !== undefined
-      ? `you said ${e.name} would be ${e.expected}, but the machine reported ${result.actual}`
-      : `you said ${e.name} would be ${e.expected}, but ${result.reason ?? 'it was not there'}`;
-  }
-  if (e.kind === 'screen') {
-    return `you said the screen would contain "${e.needle}", but it did not`;
-  }
-  if (e.kind === 'visual') {
-    // Its own verdict, quoted back: it judged this from the screen itself.
-    return result.actual !== undefined
-      ? `you said the screen would show ${e.description}, and looking at it you found ${result.actual}`
-      : `you said the screen would show ${e.description}, and looking at it you found it did not`;
-  }
-  return e.source;
+  return `you wrote \`${result.action.source}\`, and ${result.detail}`;
 }
 
 /**
@@ -341,7 +406,7 @@ export function buildExpectationFix(
   /** A screen could have been shown, and the assistant did not ask for one. */
   screenOffered = false,
 ): PendingFix {
-  const failed = expectations.filter((r) => r.status === 'failed');
+  const failed = expectations.filter((r) => r.outcome === 'failed');
   const detail = failed.map(describeFailure).join('; ');
   let userContent = '';
   const trimmed = source.trim();

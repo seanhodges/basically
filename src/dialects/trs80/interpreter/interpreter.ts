@@ -139,8 +139,9 @@ export class Interpreter implements Ctx {
   }
 
   reset(): void {
-    // Discard (don't flush) open files: reset starts a fresh session and the
-    // IDE has just cleared the VFS - a late flush would resurrect stale data.
+    // Discard (don't flush) open files: a reset abandons the session that had
+    // them open, and a half-written buffer stored now would look like a file
+    // the program closed.
     this.seqFiles.closeAll(false);
     this.vars.clearAll();
     this.mem.fill(0);
@@ -869,7 +870,7 @@ export class Interpreter implements Ctx {
    * Write one byte into the emulated address space, routing 0x3C00-0x3FFF to
    * video RAM and everything else to main memory - exactly what the BASIC
    * {@link poke} does, but public so a host machine can inject {@link
-   * MemoryBlock} bytes after {@link load} has reset (and zeroed) memory.
+   * Block} bytes after {@link load} has reset (and zeroed) memory.
    */
   writeMemory(addr: number, value: number): void {
     this.poke(addr, value);

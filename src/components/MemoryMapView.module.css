@@ -1,0 +1,497 @@
+/* The memory map itself: the scrolling band column, the write/load markers, the
+   address scale, the per-kind tints and the region detail. Rendered by
+   MemoryMapView, which the IDE's docked panel and the porting guide's
+   side-by-side comparison both host - so nothing here may assume the panel's
+   chrome around it.
+
+   The custom properties read below (--bg-panel, --border, --text, --text-dim,
+   --accent, --mono, --warn and the --mm-* palette) come from src/styles.css in
+   the app. The documentation site cannot reach those across the iframe, so its
+   wrapper redeclares them at the same values - the pattern MachinePicker.vue
+   already established for the machine picker. */
+.body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px 12px;
+}
+
+/* The scrolling map column, the full width of the body; the region detail
+   overlays it on demand (see .detailOverlay). `pan-y` keeps one-finger vertical
+   scrolling while still delivering the multi-touch pointer events pinch needs. */
+.mapScroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 6px;
+  touch-action: pan-y;
+}
+
+/* The positioning context for everything drawn over the bands, including the
+   host's own overlay (the IDE passes its live-activity canvas in as a child). */
+.map {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Proportional: every band is exactly its share of the address space, so the
+   gap has to go too - three pixels per band accumulate, and a machine with more
+   regions would end up with a taller column than its neighbour. Memory is
+   contiguous anyway; the bands' own borders separate them. See `proportional`
+   in MemoryMapView.tsx. */
+.mapProportional {
+  gap: 0;
+}
+
+/* Everything that would stop a band being exactly its own share of the address
+   space, removed.
+
+   A band could not render shorter than 10px - `border-box` still cannot squeeze
+   a box below its own padding and borders (4px + 4px of padding, 1px + 1px of
+   border). Small regions therefore rendered too tall, by an amount that depended
+   on how many of them a machine had, so a machine with more regions ended up
+   with a taller column than its neighbour: exactly the misalignment
+   proportional mode exists to prevent.
+   
+   So the vertical padding and the horizontal borders go, and the separator is
+   drawn with an inset shadow instead, which occupies no layout height at all.
+   The 4px left border stays - it is horizontal, it costs nothing vertically, and
+   it is what makes a region's class readable at a glance in both panes. Bands
+   too short for their label don't draw one (MIN_LABEL_PX), and `overflow:
+   hidden` clips whatever is left. */
+.mapProportional .band {
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-width: 0;
+  border-bottom-width: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* The selection ring has to beat the separator shadow, being the same property. */
+.mapProportional .band.selected {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.band {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 5px;
+  text-align: left;
+  color: var(--text);
+  overflow: hidden;
+  transition:
+    filter 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.band:hover:not(:disabled) {
+  filter: brightness(1.15);
+  border-color: var(--border);
+}
+
+.bandMain {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bandLabel {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bandAddr {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.bandPct {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
+.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* A POKE target: a warning-coloured line across the band at the byte's position,
+   with the address labelled at the right (in the current notation). Painted above
+   the band text; the label carries its own fill so it stays legible. */
+.pokeMarker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--warn);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* An approximate base (address worked out at runtime): dashed and muted so it
+   reads as a region estimate rather than an exact byte. */
+.pokeMarkerApprox {
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+
+/* The span a loop POKE covers, shaded between its start and end lines in the
+   same warning hue, semi-transparent. Sits above the band tint and scale ticks
+   (z0) but below the marker lines (z2) and the band label (also z1, drawn later
+   in the DOM), so the lines and text stay legible on top. */
+.pokeFill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--warn) 25%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* An approximate range: fainter, so it reads as an estimated footprint. */
+.pokeFillApprox {
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
+.pokeLabel {
+  position: absolute;
+  right: 3px;
+  top: 0;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  color: #12141a;
+  background: var(--warn);
+  border-radius: 3px;
+  padding: 1px 3px;
+  white-space: nowrap;
+}
+
+/* Where a program LOADs binary code: the same marker/fill/label shapes as the
+   POKE write markers above, but in blue (--mm-load) so a code load reads
+   distinctly from a byte write. */
+.loadMarker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--mm-load);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.loadMarkerApprox {
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+
+.loadFill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--mm-load) 25%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.loadFillApprox {
+  background: color-mix(in srgb, var(--mm-load) 12%, transparent);
+}
+
+.loadLabel {
+  position: absolute;
+  right: 3px;
+  top: 0;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  color: #12141a;
+  background: var(--mm-load);
+  border-radius: 3px;
+  padding: 1px 3px;
+  white-space: nowrap;
+}
+
+/* Where a program reads memory back: the same shapes again, in violet
+   (--mm-read), so a read is visibly not a write. Only the porting guide draws
+   these — a read damages nothing on the machine the program was written for,
+   and it is the *other* machine's layout that makes it a finding. */
+.readMarker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--mm-read);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.readMarkerApprox {
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+
+.readFill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--mm-read) 25%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.readFillApprox {
+  background: color-mix(in srgb, var(--mm-read) 12%, transparent);
+}
+
+.readLabel {
+  position: absolute;
+  right: 3px;
+  top: 0;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  color: #12141a;
+  background: var(--mm-read);
+  border-radius: 3px;
+  padding: 1px 3px;
+  white-space: nowrap;
+}
+
+/* Address scale inside a region once it is drawn tall enough (see memoryScale).
+   Faint dashed lines behind everything, with a small label in the current
+   notation, anchored to the right so it clears the region label on the left. */
+.scaleTick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed var(--border);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.scaleLabel {
+  position: absolute;
+  right: 3px;
+  top: 0;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+/* ---- Per-kind band tints: the region hue mixed into the panel surface. ----
+
+   The hue always says what a region is FOR, and it never varies by machine: ROM
+   is the same violet on the ZX81 as on the C64, so switching dialects doesn't
+   make the user relearn the map. That is also what makes the porting guide's
+   two panes readable side by side: the same class of region is the same colour
+   on both machines, so a difference in the picture is a difference in the
+   layout rather than in the palette.
+
+   The strength of the mix says which GROUP a region belongs to. When the user
+   zooms in and a band opens into its sub-regions, each successive sibling is
+   drawn a step stronger (--mm-shade counts 0, 1, 2 … within the group), so they
+   read as one family while staying individually distinguishable. The ramp is
+   clamped so a long run can't march off into full saturation, and the left
+   border stays the undiluted hue at every step - that edge is what makes a run
+   read as a family even where two siblings' fills are close.
+
+   Only the mix percentage changes: a sub-region can never be mistaken for a
+   different kind. Where a leaf's kind differs from its group-mates' (the ZX81's
+   printer buffer inside its system-variables group) it keeps its own hue, and
+   that is deliberate - hue wins over grouping. */
+.band {
+  /* 14% base, +10% per sibling, clamped so a long run can't reach saturation:
+     14 / 24 / 34 / 44 / 44 … The step was chosen by eye against a 26px band (the
+     minimum height a band shrinks to), not by arithmetic - 7% was legible when
+     compared side by side but too close to read at a glance. */
+  --mm-tint: clamp(14%, calc(14% + var(--mm-shade, 0) * 10%), 44%);
+}
+.rom {
+  background: color-mix(in srgb, var(--mm-rom) var(--mm-tint), var(--bg-panel));
+  border-left-color: var(--mm-rom);
+}
+.screen {
+  background: color-mix(
+    in srgb,
+    var(--mm-screen) var(--mm-tint),
+    var(--bg-panel)
+  );
+  border-left-color: var(--mm-screen);
+}
+.attributes {
+  background: color-mix(
+    in srgb,
+    var(--mm-attributes) var(--mm-tint),
+    var(--bg-panel)
+  );
+  border-left-color: var(--mm-attributes);
+}
+.buffer {
+  background: color-mix(
+    in srgb,
+    var(--mm-buffer) var(--mm-tint),
+    var(--bg-panel)
+  );
+  border-left-color: var(--mm-buffer);
+}
+.system {
+  background: color-mix(
+    in srgb,
+    var(--mm-system) var(--mm-tint),
+    var(--bg-panel)
+  );
+  border-left-color: var(--mm-system);
+}
+.program {
+  background: color-mix(
+    in srgb,
+    var(--mm-program) var(--mm-tint),
+    var(--bg-panel)
+  );
+  border-left-color: var(--mm-program);
+}
+.reserved {
+  background: color-mix(
+    in srgb,
+    var(--mm-reserved) var(--mm-tint),
+    var(--bg-panel)
+  );
+  border-left-color: var(--mm-reserved);
+}
+
+/* ---- Detail panel ----
+   Popped up in front of the map by the Show Details toggle, rather than taking
+   permanent width beside it - so the map (and its controls) get the full panel. */
+.detailOverlay {
+  position: absolute;
+  inset: 0 12px 12px;
+  z-index: 5;
+  overflow-y: auto;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
+}
+
+/* With nothing selected the overlay says "select a region" while covering the
+   only thing that can be selected - so while it is saying that, it lets clicks
+   through to the bands underneath. It fills, and starts catching clicks again,
+   the moment one is picked. */
+.detailOverlayEmpty {
+  pointer-events: none;
+}
+
+.detail {
+  min-width: 0;
+}
+
+.detailTitle {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.detailGrid dt {
+  color: var(--text-dim);
+}
+
+.detailGrid dd {
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.leafList {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.pokedBox {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-panel));
+}
+
+.pokedTitle {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pokedList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pokedExpr {
+  color: var(--text-dim);
+}
+
+.pokedCaveat {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}

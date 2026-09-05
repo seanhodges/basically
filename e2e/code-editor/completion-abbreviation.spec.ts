@@ -23,7 +23,12 @@ async function clearEditor(page: Page) {
   await page.keyboard.press('Delete');
 }
 
-test('typing "." accepts the top autocomplete suggestion', async ({ page }) => {
+test('typing "." accepts the top suggestion, or inserts a period with no popup', async ({
+  page,
+}) => {
+  // Both halves of the same rule, in one editor: whether the period is the
+  // abbreviation marker or an ordinary character is decided by whether a
+  // completion is open, so the two cases are worth seeing back to back.
   await open(page);
   await clearEditor(page);
 
@@ -41,15 +46,11 @@ test('typing "." accepts the top autocomplete suggestion', async ({ page }) => {
   await expect(content).toContainText('PRINT');
   await expect(content).not.toContainText('.');
   await expect(popup).toBeHidden();
-});
-
-test('"." with no popup open inserts a literal period', async ({ page }) => {
-  await open(page);
-  await clearEditor(page);
 
   // A bare period on an empty line: no completion is active, so it is inserted.
+  await clearEditor(page);
   await page.keyboard.type('.');
-  await expect(page.locator('.cm-content')).toContainText('.');
+  await expect(content).toContainText('.');
 });
 
 /**
@@ -66,7 +67,7 @@ function vkKey(page: Page, keyId: string) {
   return page.locator(`.virtual-keyboard [data-keyid="${keyId}"]`);
 }
 
-test('on-screen keyboard: "." accepts the top autocomplete suggestion', async ({
+test('on-screen keyboard: "." accepts the top suggestion, or inserts a period', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 800 });
@@ -85,25 +86,21 @@ test('on-screen keyboard: "." accepts the top autocomplete suggestion', async ({
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('PRINT');
 
-  // Tap "." - it accepts the suggestion and is consumed, not inserted.
-  await vkKey(page, 'Period').click();
+  // Tap "." - now a SYM-mode cell (the M slot) - it accepts the suggestion
+  // and is consumed, not inserted. Selecting the mode tab preventDefaults,
+  // so the editor keeps focus and the popup stays open across the switch.
+  await page
+    .getByRole('radiogroup', { name: 'Input mode' })
+    .getByRole('radio', { name: 'SYM' })
+    .click();
+  await vkKey(page, 'KeyM').click();
   const content = page.locator('.cm-content');
   await expect(content).toContainText('PRINT');
   await expect(content).not.toContainText('.');
   await expect(popup).toBeHidden();
-});
 
-test('on-screen keyboard: "." with no popup open inserts a literal period', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 800 });
-  await open(page);
-
-  await page.getByTestId('input-overlay-toggle').click();
-  await expect(page.locator('.virtual-keyboard')).toBeVisible();
+  // No completion active, so the cell falls through to a literal period.
   await clearEditor(page);
-
-  // No completion active, so the keycap falls through to a literal period.
-  await vkKey(page, 'Period').click();
-  await expect(page.locator('.cm-content')).toContainText('.');
+  await vkKey(page, 'KeyM').click();
+  await expect(content).toContainText('.');
 });

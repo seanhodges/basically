@@ -7,7 +7,7 @@ import { detokenizeBbcDiscWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 import { buildBbcDisc, type BbcFile } from '../../emulator/bbc/bbcDisc';
 import { isBbcDisc } from '../../emulator/bbc/bbcDisc';
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 
 const SOURCE = '10 PRINT "HELLO"\n20 CALL &2E00\n';
 
@@ -20,7 +20,7 @@ function basicFile(name: string): BbcFile {
   return { name, load: PAGE, exec: PAGE, bytes };
 }
 
-const BLOCK: MemoryBlock = {
+const BLOCK: Block = {
   id: 'b1',
   name: 'sprite',
   address: 0x2e00,

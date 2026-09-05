@@ -4,9 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { loaderSource, loaderProgramBytes } from './loader';
 import { detokenizeProgram } from './detokenizer';
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 
-function block(name: string, address: number): MemoryBlock {
+function block(name: string, address: number): Block {
   return { id: name, name, address, bytes: Uint8Array.of(0x60), kind: 'code' };
 }
 

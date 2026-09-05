@@ -143,10 +143,27 @@ const FN_DETAIL: Record<string, string> = {
   MIN: 'smallest of its arguments',
   HEX$: 'number as a hex string',
   BIN$: 'number as a binary string',
+  OCT$: 'number as octal digits',
+  VPEEK: 'read a byte of video RAM',
+  LPOS: 'printer column',
   LOWER$: 'lower-case copy of a string',
   UPPER$: 'upper-case copy of a string',
   JOY: 'read a joystick',
+  ADR: 'address of a string',
+  PADDLE: 'paddle position',
+  STICK: 'joystick direction',
+  PTRIG: 'paddle trigger',
+  STRIG: 'joystick trigger',
   TEST: 'ink at a graphics point',
+  PDL: 'paddle position',
+  SCRN: 'colour of a lo-res block',
+  SIN: 'sine of an angle in radians',
+  COS: 'cosine of an angle in radians',
+  TAN: 'tangent of an angle in radians',
+  ATN: 'arctangent, in radians',
+  EXP: 'e raised to a power',
+  LOG: 'natural logarithm',
+  SQR: 'square root',
 };
 
 /**
@@ -373,6 +390,62 @@ const TRS80: ConstructTemplate[] = [
 ];
 
 /**
+ * MSX BASIC 1.0. Microsoft's language with the MSX standard's hardware
+ * statements bolted on, so the Level II set is here plus the screen, sprite,
+ * sound and video-RAM words the machine adds.
+ */
+export const MSX_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('MERGE', 'merge "filename"'),
+  stringCmd('CLOAD', 'load "filename" from cassette'),
+  stringCmd('CSAVE', 'save "filename" to cassette'),
+  stringCmd('PLAY', 'play a music string'),
+  stringCmd('DRAW', 'draw a graphics string'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['BIN$', 'n'],
+    ['CDBL', 'n'],
+    ['CHR$', 'n'],
+    ['CINT', 'n'],
+    ['CSNG', 'n'],
+    ['EOF', 'n'],
+    ['FIX', 'n'],
+    ['FRE', 'n'],
+    ['HEX$', 'n'],
+    ['INP', 'n'],
+    ['INSTR', 'ss'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['LPOS', 'n'],
+    ['MID$', 'sn'],
+    ['OCT$', 'n'],
+    ['PEEK', 'n'],
+    ['POINT', 'nn'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['SPACE$', 'n'],
+    ['STICK', 'n'],
+    ['STR$', 'n'],
+    ['STRIG', 'n'],
+    ['STRING$', 'nn'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+    ['VARPTR', 'n'],
+    ['VPEEK', 'n'],
+  ]),
+];
+
+/**
  * Altair 8K BASIC - the ancestor of the C64's and the TRS-80's BASIC, and a
  * smaller language than either. No ELSE, no INSTR, no disc commands, and the
  * only file commands are the cassette pair CSAVE/CLOAD, which take a *single
@@ -407,6 +480,117 @@ const ALTAIR: ConstructTemplate[] = [
 ];
 
 /** Locomotive BASIC has real ELSE, WHILE…WEND loops and MERGE/CHAIN. */
+/**
+ * BASIC-G. The Microsoft core the Altair also has, plus this machine's own
+ * drawing statements, which are what a PMD 85 program is mostly made of.
+ * `DISP` and its `_` twin print into the dialogue line rather than the screen,
+ * so they earn their own string templates alongside PRINT.
+ */
+/**
+ * Integer BASIC's blocks. Deliberately short: there is no ELSE, no WHILE and no
+ * multi-line IF, and the functions all take one numeric argument except LEN,
+ * whose argument is a string.
+ */
+export const APPLE1_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  ...fns([
+    ['ABS', 'n'],
+    ['LEN', 's'],
+    ['PEEK', 'n'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+  ]),
+];
+
+/**
+ * Apple II Integer BASIC's blocks: the Apple I's short set, plus the lo-res
+ * drawing statements the hardware brought - which are most of what an Integer
+ * BASIC program does on screen. Still no ELSE, no WHILE and no multi-line IF.
+ */
+export const APPLE2_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  {
+    label: 'GR',
+    lines: ['GR', 'COLOR=${1:colour}'],
+    detail: 'open the lo-res screen',
+  },
+  {
+    label: 'PLOT',
+    lines: ['PLOT ${1:x},${2:y}'],
+    detail: 'light one lo-res block',
+  },
+  {
+    label: 'HLIN',
+    lines: ['HLIN ${1:x1},${2:x2} AT ${3:y}'],
+    detail: 'draw a lo-res row',
+  },
+  {
+    label: 'VLIN',
+    lines: ['VLIN ${1:y1},${2:y2} AT ${3:x}'],
+    detail: 'draw a lo-res column',
+  },
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['LEN', 's'],
+    ['PDL', 'n'],
+    ['PEEK', 'n'],
+    ['RND', 'n'],
+    ['SCRN', 'nn'],
+    ['SGN', 'n'],
+  ]),
+];
+
+const PMD85: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('DISP', 'print into the dialogue line'),
+  stringCmd('LABEL', 'plot a string on the graphics screen'),
+  {
+    label: 'PLOT',
+    lines: ['PLOT ${1:x},${2:y}'],
+    detail: 'draw to a point',
+  },
+  {
+    label: 'MOVE',
+    lines: ['MOVE ${1:x},${2:y}'],
+    detail: 'move without drawing',
+  },
+  {
+    label: 'SCALE',
+    lines: ['SCALE ${1:x1},${2:x2},${3:y1},${4:y2}'],
+    detail: 'set the plotting window',
+  },
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['HEX$', 'n'],
+    ['INP', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['MID$', 'sn'],
+    ['PEEK', 'n'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
 const CPC: ConstructTemplate[] = [
   ifThen(),
   {
@@ -470,6 +654,182 @@ const CPC: ConstructTemplate[] = [
 ];
 
 /** Construct templates per dialect id (see {@link Dialect.id}). */
+/**
+ * Atari BASIC. `NEXT` needs its control variable, and there is no `ELSE`, so
+ * the shared `IF … THEN` and `FOR … NEXT` shapes carry over unchanged.
+ */
+const ATARI_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "D:filename"'),
+  stringCmd('SAVE', 'save "D:filename"'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ADR', 's'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['INT', 'n'],
+    ['LEN', 's'],
+    ['PADDLE', 'n'],
+    ['PEEK', 'n'],
+    ['PTRIG', 'n'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STICK', 'n'],
+    ['STR$', 'n'],
+    ['STRIG', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
+/**
+ * Applesoft. Shares the machine with {@link APPLE2_CONSTRUCTS} and almost none
+ * of its statement shapes: this interpreter has hi-res, error trapping, defined
+ * functions and a blocking `GET`, and the lo-res `HLIN`/`VLIN … AT` pair is the
+ * only place the two sets meet.
+ */
+export const APPLE2PLUS_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  {
+    label: 'HGR',
+    lines: ['HGR', 'HCOLOR= ${1:colour}'],
+    detail: 'open the hi-res screen',
+  },
+  {
+    label: 'HPLOT',
+    lines: ['HPLOT ${1:x1},${2:y1} TO ${3:x2},${4:y2}'],
+    detail: 'draw a hi-res line',
+  },
+  {
+    label: 'GR',
+    lines: ['GR', 'COLOR= ${1:colour}'],
+    detail: 'open the lo-res screen',
+  },
+  {
+    label: 'PLOT',
+    lines: ['PLOT ${1:x},${2:y}'],
+    detail: 'light one lo-res block',
+  },
+  {
+    label: 'HLIN',
+    lines: ['HLIN ${1:x1},${2:x2} AT ${3:y}'],
+    detail: 'draw a lo-res row',
+  },
+  {
+    label: 'VLIN',
+    lines: ['VLIN ${1:y1},${2:y2} AT ${3:x}'],
+    detail: 'draw a lo-res column',
+  },
+  {
+    label: 'ONERR',
+    lines: ['ONERR GOTO ${1:line}'],
+    detail: 'trap errors to a handler',
+  },
+  {
+    label: 'DEF FN',
+    lines: ['DEF FN ${1:name}(${2:x}) = ${3:expr}'],
+    detail: 'define a function',
+  },
+  { label: 'GET', lines: ['GET ${1:A$}'], detail: 'wait for one keypress' },
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 's,n'],
+    ['LEN', 's'],
+    ['MID$', 's,i,n'],
+    ['PDL', 'n'],
+    ['PEEK', 'n'],
+    ['RIGHT$', 's,n'],
+    ['RND', 'n'],
+    ['SCRN', 'x,y'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
+/**
+ * SAM BASIC's blocks. Beta BASIC's structured keywords are the point of the
+ * machine's language, so DO/LOOP and DEF PROC/END PROC earn their place beside
+ * the IF and FOR every dialect has. The bracketed functions list with no space
+ * before the bracket - the ROM prints its immediate functions with neither a
+ * leading nor a trailing space - unlike the Spectrum's.
+ */
+export const SAMCOUPE_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  {
+    label: 'DO',
+    lines: ['DO', '${0}', 'LOOP'],
+    detail: 'DO \u2026 LOOP loop',
+  },
+  gosub('GO SUB'),
+  {
+    label: 'DEF PROC',
+    lines: ['DEF PROC ${1:name}', '${0}', 'END PROC'],
+    detail: 'define a procedure',
+  },
+  {
+    label: 'DEF FN',
+    lines: ['DEF FN ${1:f}(${2:x})=${0}'],
+    detail: 'define a function',
+  },
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('MERGE', 'merge "filename"'),
+  stringCmd('VERIFY', 'verify "filename"'),
+  ...fns([
+    ['POINT', 'nn'],
+    ['SCREEN$', 'nn'],
+    ['ATTR', 'nn'],
+    ['INSTR', 'ss'],
+    ['STRING$', 'ns'],
+    ['LENGTH', 'ns'],
+  ]),
+];
+
+/**
+ * Dartmouth BASIC, February 1965 - the smallest block set here, because the
+ * language is the smallest. `THEN` takes a line number and nothing else, so the
+ * IF template ends in one rather than in a statement; `LET` earns a template of
+ * its own, since this BASIC has no bare assignment to fall back on; and the
+ * functions are the four of the library that are not pure trigonometry, which
+ * every other machine here omits for the same reason - `SIN(` types itself.
+ */
+export const GE235_CONSTRUCTS: ConstructTemplate[] = [
+  {
+    label: 'IF',
+    lines: ['IF ${1:condition} THEN ${0:line}'],
+    detail: 'IF \u2026 THEN line',
+  },
+  forNext(),
+  gosub('GOSUB'),
+  {
+    label: 'LET',
+    lines: ['LET ${1:A}=${0}'],
+    detail: 'assign a value',
+  },
+  stringCmd('PRINT', 'print a string'),
+  ...fns([
+    ['ABS', 'n'],
+    ['EXP', 'n'],
+    ['INT', 'n'],
+    ['RND', 'n'],
+  ]),
+];
+
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   zx81: ZX81,
   zx80: ZX80,
@@ -485,9 +845,21 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   atom: ATOM,
   trs80: TRS80,
   altair8800: ALTAIR,
+  pmd85: PMD85,
+  apple1: APPLE1_CONSTRUCTS,
+  apple2: APPLE2_CONSTRUCTS,
+  apple2plus: APPLE2PLUS_CONSTRUCTS,
   cpc464: CPC,
-  // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's blocks are the 464's.
+  // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 664's and the
+  // 6128's blocks are the 464's.
+  cpc664: CPC,
   cpc6128: CPC,
+  // The 400 and 800 share Atari BASIC exactly; the same blocks apply.
+  atari800: ATARI_CONSTRUCTS,
+  atari400: ATARI_CONSTRUCTS,
+  hb10p: MSX_CONSTRUCTS,
+  ge235: GE235_CONSTRUCTS,
+  samcoupe: SAMCOUPE_CONSTRUCTS,
 };
 
 /**

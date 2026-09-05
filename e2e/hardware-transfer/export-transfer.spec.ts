@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '../fixtures';
 import {
+  addMemoryBlock,
   fileMenu,
   forceFallbackFilePickers,
   installDialogHandler,
@@ -57,17 +58,45 @@ test('unsaved program exports immediately under the PROGRAM name', async ({
   expect(download.suggestedFilename()).toBe('program.p');
 });
 
-test('cassette playback starts from the click and stops on demand', async ({
+test('the cassette exports play through the speakers and download as .wav', async ({
   page,
 }) => {
+  // The two things done with the same encoded tape, on one saved document:
+  // played out loud, and written to a file at both densities.
+  test.setTimeout(60_000); // encoding the tape twice over is the long part
+
   await openExportOnSavedDoc(page);
+
+  const normalDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download .wav' }).click();
+  const normal = await readFile(await (await normalDownload).path());
+
+  await page.getByLabel(/Robust mode/).check();
+
+  const robustDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download .wav' }).click();
+  const robust = await readFile(await (await robustDownload).path());
+
+  // Robust mode is a slower encoding, so the same program is a longer tape.
+  expect(robust.length).toBeGreaterThan(normal.length);
+
+  await page.getByLabel(/Robust mode/).uncheck();
+
   // Playwright's WebKit build on Windows/Linux ships without Web Audio, so
-  // playback can't start there. Feature-detect rather than skip by browser so
-  // the test still runs where WebKit has it (e.g. macOS).
-  test.skip(
-    await page.evaluate(() => typeof AudioContext === 'undefined'),
-    'Web Audio unavailable in this WebKit build',
+  // playback can't start there. Feature-detected rather than skipped by browser
+  // so it still runs where WebKit has it (e.g. macOS) - and as a branch rather
+  // than test.skip, which would take the .wav half above with it.
+  const hasWebAudio = await page.evaluate(
+    () => typeof AudioContext !== 'undefined',
   );
+  if (!hasWebAudio) {
+    test.info().annotations.push({
+      type: 'not exercised',
+      description: 'cassette playback: Web Audio missing from this build',
+    });
+    return;
+  }
+
   await page.getByRole('button', { name: '▶ Play through speakers' }).click();
   // The status must reach "Playing …s" - on Safari-like engines this guards
   // the suspended-AudioContext hang fixed in src/transfer/audioPlayer.ts.
@@ -111,8 +140,8 @@ async function openC64WithBlock(page: Page) {
   await expect(page.locator('.cm-content').first()).toBeVisible();
   // Add a memory block so the document holds something the .prg can't carry.
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await addMemoryBlock(page);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
 }
 
 test('C64 .d64 export carries blocks; .prg warns before dropping them', async ({
@@ -143,21 +172,4 @@ test('C64 .d64 export carries blocks; .prg warns before dropping them', async ({
   const prgDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export anyway' }).click();
   expect((await prgDownload).suggestedFilename()).toMatch(/\.prg$/);
-});
-
-test('robust mode produces a longer cassette recording', async ({ page }) => {
-  test.setTimeout(120_000);
-  await openExportOnSavedDoc(page);
-
-  const normalDownload = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download .wav' }).click();
-  const normal = await readFile(await (await normalDownload).path());
-
-  await page.getByLabel(/Robust mode/).check();
-
-  const robustDownload = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download .wav' }).click();
-  const robust = await readFile(await (await robustDownload).path());
-
-  expect(robust.length).toBeGreaterThan(normal.length);
 });

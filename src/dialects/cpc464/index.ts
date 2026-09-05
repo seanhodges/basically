@@ -32,8 +32,9 @@ import { CPC_ROM_SIZE } from '../../emulator/cpc/memory';
  * Locomotive BASIC program-area byte layout - binary numeric constants and all
  * - and that tokenized program is the dialect's "image", loadable at &170. The
  * AMSDOS `.bas` container (basfile.ts) wraps/unwraps it for file import/export.
- * The machine lives in `src/emulator/cpc/`, shared with the CPC 6128 sibling
- * (../cpc6128/), which delegates to this dialect.
+ * The machine lives in `src/emulator/cpc/`, shared with the two siblings that
+ * delegate to this dialect: the CPC 664 (../cpc664/) and the CPC 6128
+ * (../cpc6128/), both of which take the BASIC 1.1 half of the variant seam.
  */
 export const cpc464: Dialect = {
   id: 'cpc464',
@@ -41,6 +42,8 @@ export const cpc464: Dialect = {
   manufacturer: 'Amstrad',
   year: 1984,
   blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
+  basicDialect: 'Locomotive BASIC 1.0',
+  basicFamily: 'Locomotive BASIC',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',
@@ -50,15 +53,22 @@ export const cpc464: Dialect = {
   memoryBlocks: cpc464MemoryBlocks,
   // POKE addr,val with &-hex addresses drives the memory-map viewer's markers.
   memoryWrites: { forms: ['poke'], hexPrefix: '&' },
+  memoryReads: { forms: ['peek'], calls: ['CALL'] },
   // The emulator introspects the current BASIC line (currentLine/debugStep), so
   // the toolbar offers the step debugger.
   debuggable: true,
+  // The firmware cassette jumpblock, for the data-file entries: OPENIN/OPENOUT
+  // and the character calls either side of them reach the IDE's file store.
+  capturesDataFiles: true,
   // Joystick 0 is matrix line 9, read through the AY like the keyboard; the CPC
   // port exposes two independent fire buttons.
   joystickModes: ['native'],
   joystickFireButtons: 2,
-  // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).
-  programRamBytes: 42619,
+  // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS): the program area
+  // from &0170 up to HIMEM, which the firmware leaves at &AB7F with no disc
+  // ROM below it. Fitting AMSDOS drops HIMEM to &A67B and this to the 42,249
+  // a disc-equipped machine reports.
+  programRamBytes: 43535,
   // The combined 32K firmware+BASIC ROM (16K OS then 16K Locomotive BASIC 1.0).
   romUrl: `${import.meta.env.BASE_URL}roms/cpc464/cpc464.rom`,
   romBytes: CPC_ROM_SIZE,

@@ -62,6 +62,57 @@ While the popup is open you can also accept the top suggestion by typing a
 The dot is the trigger and is not inserted, so typing `PR.` completes to
 `PRINT`, and `P.` completes to whatever `P…` currently tops the list.
 
+### Finding where a variable is used
+
+Click - or tap - a variable name anywhere in your program. A small menu opens
+just under the name, the same place a completion popup would appear; choose
+**Usages**.
+
+![The Usages menu open under a variable name in the editor, with every use of that name highlighted and the usages bar at the foot of the editor](/variable-usages.png)
+
+Every place that variable is used lights up, with the one you clicked marked as
+the current usage, and a bar appears at the foot of the editor naming it and
+counting them - `SCORE · 4 usages (1/4)`. Use **‹** and **›** to step through
+them: the cursor moves to each usage in turn and the editor scrolls to bring it
+into view, so it works just as well on a program longer than the screen. **✕**
+(or **Escape**) clears the highlights, and so does typing - once you edit the
+program the answer may no longer be true, so ask again.
+
+This is not a text search: usages are matched the way the machine you are
+targeting matches them. That is why the program above writes `SCORE` seven times
+and the bar counts four - the mentions in the REM lines and inside the printed
+string are not uses of the variable.
+
+The rest follows the machine too. Whether upper and lower case are the same name
+depends on the ROM: on the BBC machines and the PMD 85 `score` and `SCORE` are
+two variables, on the others they are one. So does how much of a name the machine keeps - where
+only the first two characters are significant, `HPX` and `HPY` are the same
+variable, and both light up. An array and a plain variable of the same name are
+always separate, and on machines with named procedures a name local to a
+procedure stays inside it. The [porting guide](../reference/compare) sets out
+these naming rules machine by machine.
+
+The usages bar and the **Find/Replace** panel share the foot of the editor, so
+opening one closes the other.
+
+### Looking up a keyword
+
+The same menu answers the other question you might have about a word in your
+program: what it does. Click a command, a function or an operator and choose
+**Reference** - the documentation opens beside your program at that keyword's
+entry on the reference page for the machine you are targeting.
+
+It follows the machine, just as usages do. Only what your machine reads as a
+keyword offers the choice, so the `PRINT` inside a string or a REM comment does
+not, and neither does the punctuation that separates the parts of a line.
+
+Keywords spelled short count too, on the machines that accept them. Pasting a
+listing written the way it was typed at the machine's own keyboard — `P.` on a
+BBC, `pO` or `?` on a Commodore — the editor reads each spelling as the keyword
+it stands for: it is coloured as that keyword rather than as a variable name,
+it is not counted as a variable, and choosing **Reference** opens the entry for
+the keyword itself rather than for the abbreviation.
+
 ### Automatic line numbering
 
 With **Automatic line numbering** on, pressing **Enter** at the end of a line
@@ -89,6 +140,73 @@ naming of functions and jump points.
 The sections that appear depend on the dialect: a machine with `PROC`/`FN`
 definitions lists **Procedures** and **Functions**, and every dialect groups the
 lines its `GOSUB`s and `GOTO`s jump to under **Subroutines** and **GOTOs**.
+
+### The tab strip
+
+The strip above the editor holds your **BASIC** program, one tab per
+[machine-code block](./machine-code), one per scratch buffer, and one per file a
+running program has saved. It shows as many of them as it has room for and does
+not scroll: the **BASIC** tab is pinned first, so the way back to your program is
+never hidden, and the width left over goes to the tabs you have used most
+recently. A tab you have just opened, and a file your program has just written,
+both count as recent, so they appear without your asking.
+
+Anything that does not fit is listed by a count button at the end of the strip -
+**+2**, **+7** - and choosing a tab from it brings that tab into view. Widen the
+window and the tabs come back on their own. The tabs that show always keep their
+usual order, so a tab never moves under the pointer as you use it.
+
+### Scratch buffers
+
+To try something out without editing your program, press **+** after the last
+tab and choose **New scratch buffer**. Open as many as you like and click a tab
+to switch; each one is edited exactly like the program.
+
+**▶ Play runs the buffer you are looking at** - the button names it, so it reads
+**▶ Play Scratch 1** - and a snippet takes your
+[machine-code blocks](./machine-code) with it, which makes a scratch buffer a
+good place to test a `RANDOMIZE USR` or `SYS` call. Breakpoints belong to the
+buffer they were set on.
+
+Scratch buffers belong to the program they sit beside. They are kept when you
+save your project and come back when you open it again, and they survive a
+reload the same way your program does - though breakpoints, in a buffer as in
+the program, last only for the session that set them. Starting a new project or
+loading another program clears them along with the program they were written
+for, and you are warned first, so download anything you want to keep -
+right-click the buffer's tab and choose **Download .bas** - before you move on.
+
+They go where your program goes. Switching the target machine and choosing
+**Keep my code** brings every buffer to the new machine with it; choosing
+**Start new** leaves them behind with the program they were written for.
+
+### Strict characters
+
+Every machine holds only the characters its own set has, and where your program
+uses one it has not, the IDE converts it — most often folding a lower-case
+letter onto its capital. The program still runs; what changes is that the
+listing on screen is no longer the listing the machine holds, so typing it into
+the real thing would not reproduce it. The status bar counts those characters
+for you.
+
+**Strict characters** turns that count into a refusal. Switch it on and every
+character the machine would store as a different one is marked as an error where
+it stands, exactly like any other error in the editor — which means the program
+will not run, and cannot be shared, until you change it. Exporting to tape or to
+a native file is unaffected.
+
+On a machine with no lower case at all — the Sinclairs, the Apple I, the Atom,
+the TRS-80, the Altair — the editor also stops producing what it would only
+refuse: letters arrive in upper case however you enter them, typed, pasted or
+tapped on the on-screen keyboard, and that keyboard drops its shift key, since
+there is no other case to reach. Nothing else goes with it: every symbol,
+graphics character and key combination the keyboard offered is still there.
+Escapes, raw bytes and short keyword spellings are left exactly as written —
+their case is part of the notation, not text the machine stores.
+
+The setting is **off by default**, and with it off nothing behaves differently:
+the character is converted, the program builds, and the status bar reports the
+count as before. Turn it off again at any time to get that back.
 
 ## Keeping an eye on memory as you write
 

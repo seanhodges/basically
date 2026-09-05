@@ -42,13 +42,13 @@ export type ShortcutId =
   | 'run.continue'
   | 'run.reset'
   | 'run.mute'
+  | 'run.screenshot'
   | 'view.ai'
   | 'view.settings'
   | 'view.docs'
   | 'view.keyboard'
   | 'view.watcher'
   | 'view.controller'
-  | 'view.vfsInspector'
   | 'view.escape';
 
 export type ShortcutCategory = 'File' | 'Edit' | 'Run' | 'View';
@@ -210,7 +210,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: 'run.continue',
-    label: 'Continue',
+    label: 'Pause / Resume',
     category: 'Run',
     keys: [c('F8')],
     debugOnly: true,
@@ -226,6 +226,12 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Mute audio',
     category: 'Run',
     keys: [c('KeyM', { mod: true, alt: true })],
+  },
+  {
+    id: 'run.screenshot',
+    label: 'Save a screenshot',
+    category: 'Run',
+    keys: [c('KeyS', { mod: true, alt: true })],
   },
 
   // View / panels
@@ -264,12 +270,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Game controller',
     category: 'View',
     keys: [c('KeyG', { mod: true, alt: true })],
-  },
-  {
-    id: 'view.vfsInspector',
-    label: 'Emulator files',
-    category: 'View',
-    keys: [c('KeyF', { mod: true, alt: true })],
   },
   {
     // Not `native`: the emulator-release half is handled by the pane itself,

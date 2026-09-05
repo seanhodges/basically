@@ -11,10 +11,16 @@ import { z80AssemblyReference } from '../../src/reference/z80-assembly';
 Every documented Z80 instruction, plus the assembler directives, understood by
 the built-in assembly editor. This one reference covers every Z80 machine
 Basically supports — the **ZX81**, **ZX80**, **ZX Spectrum** (48K & 128K),
-**TRS-80** and **Amstrad CPC** all share the identical instruction set and
-assembler syntax. What differs between them is only the memory map (where a
-block may live and the entry addresses you call), which stays on each machine's
-own hardware page.
+**TRS-80**, **Amstrad CPC**, **Sony HB-10P** and the **SAM Coupé** all share the
+identical instruction set and assembler syntax. What differs between them is only
+the memory map (where a block may live and the entry addresses you call), which
+stays on each machine's own hardware page.
+
+The **Altair 8800** uses this reference too, though its processor is the earlier
+Intel 8080: the Z80 was designed to run 8080 code, so every 8080 instruction is
+here under its Z80 name and assembles to the same bytes. Only the reverse is a
+trap — an instruction the Z80 added will run on the emulated Altair but would
+not have run on the real machine.
 
 Use the search box to filter by mnemonic, the buttons to show only
 **Instructions** or **Directives**, and the **Name** / **Kind** headers to
@@ -72,9 +78,11 @@ Four pseudo-ops control layout and data:
 
 The address ranges a routine may occupy, the default load address, and the entry
 points you call from BASIC are machine-specific — see the **Memory** section on
-each machine's hardware page: [ZX81](./zx81/hardware),
-[ZX80](./zx80/hardware), [ZX Spectrum](./zxspectrum/hardware),
-[TRS-80](./trs80/hardware) and [Amstrad CPC](./cpc/hardware).
+each machine's hardware page: [ZX81](./sinclair/hardware),
+[ZX80](./zx80/hardware), [ZX Spectrum](./sinclair/hardware),
+[TRS-80](./trs80/hardware), [Amstrad CPC](./cpc/hardware),
+[Sony HB-10P](./msx/hardware), [SAM Coupé](./samcoupe/hardware) and
+[Altair 8800](./altair8800/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

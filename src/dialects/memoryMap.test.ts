@@ -29,15 +29,28 @@ const blocked = dialects.filter((d) => d.memoryBlocks);
 
 /**
  * Machines whose BASIC text pointer sits one byte above the start of the map's
- * program region. The Commodore ROMs store a zero link byte at the foot of BASIC
- * RAM and begin the first line record after it, so the region legitimately
- * starts one byte below TXTTAB. Any other dialect must match exactly.
+ * program region. The Microsoft 6502 ROMs store a zero link byte at the foot of
+ * BASIC RAM and begin the first line record after it, so the region legitimately
+ * starts one byte below TXTTAB - the three Commodores each at their own base,
+ * and Applesoft at $0800/$0801. Any other dialect must match exactly.
  */
 const LINK_BYTE_OFFSET: Record<string, number> = {
   commodore64: 1,
   pet: 1,
   vic20: 1,
+  apple2plus: 1,
 };
+
+/**
+ * Machines offered as BASIC only, which ship no memory blocks and so have no
+ * program base for the map to agree with.
+ *
+ * Named rather than inferred from the absence, which is what "this machine
+ * cannot place code at an address" and "nobody wired the blocks up" look like
+ * from the outside. The GE-235's BASIC has no PEEK, no POKE, no USR and no
+ * assembler: a compiled program there cannot name an address at all.
+ */
+const NO_CODE_AT_AN_ADDRESS = new Set(['ge235']);
 
 /**
  * Where the dialect says its BASIC program begins. `programArea()` is documented
@@ -53,6 +66,49 @@ function programBase(d: Dialect): number | undefined {
 describe('every dialect that ships a memory map', () => {
   it('has at least one mapped dialect to check', () => {
     expect(mapped.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Every byte-addressed machine here spans the same 64K, and the porting guide
+   * draws two of their maps against one shared address scale so that a position
+   * in one pane is the same address in the other.
+   *
+   * The GE-235 is the machine that made that claim need a boundary. Its store
+   * is 8,192 twenty-bit *words*, so its unit is not a byte and its column is a
+   * different length. The guide still draws it correctly - both panes are drawn
+   * at the same pixels per unit, so a shorter column is a shorter column - but
+   * a line across the two panes is no longer one address on both machines, and
+   * a reader must not take it for one.
+   *
+   * So the assertion is not "every machine is the same" but "every
+   * byte-addressed machine is". A map that counts something else says so on
+   * `addressUnit`, which is what the comparison labels its pane with; a
+   * byte-addressed one that drifts off 64K still fails here by name.
+   */
+  it('spans the same address space on every byte-addressed machine, which the side-by-side comparison assumes', () => {
+    const spaces = new Map<number, string[]>();
+    const otherUnit: Dialect[] = [];
+    for (const d of mapped) {
+      if ((d.memoryMap!.addressUnit ?? 'byte') !== 'byte') {
+        otherUnit.push(d);
+        continue;
+      }
+      const space = d.memoryMap!.addressSpace;
+      spaces.set(space, [...(spaces.get(space) ?? []), d.id]);
+    }
+    expect(
+      [...spaces].map(
+        ([space, ids]) => `0x${space.toString(16)}: ${ids.join(', ')}`,
+      ),
+    ).toHaveLength(1);
+    // And declaring another unit is not a way out of the check: a map that
+    // claims one has to genuinely span something else, or it belongs above.
+    for (const d of otherUnit) {
+      expect(
+        [...spaces.keys()],
+        `${d.id} spans what every byte-addressed machine does, so its unit changes nothing`,
+      ).not.toContain(d.memoryMap!.addressSpace);
+    }
   });
 });
 
@@ -165,6 +221,20 @@ describe.each(mapped.map((d) => [d.id, d] as const))(
 
     it('starts the program region where the dialect says the program begins', () => {
       const base = programBase(dialect);
+      // A machine offered as BASIC only has no memory blocks and so no base to
+      // agree with. The exemption still asserts something rather than skipping:
+      // that this dialect genuinely cannot place code at an address.
+      if (NO_CODE_AT_AN_ADDRESS.has(id)) {
+        expect(
+          dialect.memoryBlocks,
+          `${id} ships memory blocks after all, so it has a base to agree with`,
+        ).toBeUndefined();
+        expect(
+          base,
+          `${id} reaches a program base from somewhere`,
+        ).toBeUndefined();
+        return;
+      }
       // Asserted rather than skipped: a dialect that ships a map but no
       // reachable program base would otherwise pass this check by doing nothing.
       expect(

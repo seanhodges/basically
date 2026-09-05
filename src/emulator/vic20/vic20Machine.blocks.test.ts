@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Vic20Machine } from './vic20Machine';
 import type { Vic20Roms } from './memory';
-import type { MemoryBlock } from '../../dialects/types';
+import type { Block } from '../../dialects/types';
 import { tokenizeProgram } from '../../dialects/vic20/tokenizer';
 
 const ROOT = join(__dirname, '../../../public/roms/vic20');
@@ -27,12 +27,12 @@ describe('Vic20Machine memory blocks', () => {
     'writes a block into RAM before RUN, readable back at its address',
     async () => {
       const bytes = [0xde, 0xad, 0xbe, 0xef];
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'blk1',
         name: 'data1',
         address: 0x1c00,
         bytes: Uint8Array.from(bytes),
-        kind: 'data',
+        kind: 'memory',
       };
       const m = new Vic20Machine({ roms });
       await m.whenReady();

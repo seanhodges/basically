@@ -1,11 +1,14 @@
 import type { BuildTarget } from '../types';
-import { fatalErrors } from '../types';
+import {
+  buildImageOrThrow,
+  cassetteWavTarget,
+  fileTarget,
+} from '../targetHelpers';
 import { tokenizeProgram } from './tokenizer';
 import type { LocoBasicVariant } from './keywords';
 import { buildBasFile } from './basfile';
 import { buildCdt } from './cdt';
 import { buildCassetteSamples, CASSETTE_SAMPLE_RATE } from './audio/cassette';
-import { samplesToWav } from '../../transfer/wav';
 
 /**
  * Tokenize `source` to the program image (line records + the `0x0000` end
@@ -13,20 +16,9 @@ import { samplesToWav } from '../../transfer/wav';
  * than silently exported.
  */
 function programImage(source: string, variant: LocoBasicVariant): Uint8Array {
-  const { bytes, errors } = tokenizeProgram(source, variant);
-  const fatal = fatalErrors(errors);
-  if (fatal.length > 0) {
-    throw new Error(
-      `Program has ${fatal.length} error(s) - fix them before building`,
-    );
-  }
   // A bare 0x0000 end marker means the program has no lines.
-  if (bytes.length <= 2) throw new Error('Program is empty');
-  return bytes;
+  return buildImageOrThrow(tokenizeProgram(source, variant), 2);
 }
-
-const octet = (bytes: Uint8Array) =>
-  new Blob([bytes as BlobPart], { type: 'application/octet-stream' });
 
 /**
  * Hardware-export targets: an AMSDOS-headered `.bas` (the on-disc tokenized
@@ -44,47 +36,26 @@ export function locoBuildTargets(
   variant: LocoBasicVariant,
 ): BuildTarget[] {
   return [
-    {
-      id: `${dialectId}-bas`,
-      label: 'Export .bas (AMSDOS)',
-      fileExtension: 'bas',
-      build: (source, { programName }) =>
-        Promise.resolve([
-          {
-            fileName: `${programName.toLowerCase()}.bas`,
-            blob: octet(
-              buildBasFile(programImage(source, variant), programName),
-            ),
-          },
-        ]),
-    },
-    {
-      id: `${dialectId}-cdt`,
-      label: 'Export .cdt tape',
-      fileExtension: 'cdt',
-      build: (source, { programName }) =>
-        Promise.resolve([
-          {
-            fileName: `${programName.toLowerCase()}.cdt`,
-            blob: octet(buildCdt(programImage(source, variant), programName)),
-          },
-        ]),
-    },
-    {
+    fileTarget(
+      `${dialectId}-bas`,
+      'Export .bas (AMSDOS)',
+      'bas',
+      (source, { programName }) =>
+        buildBasFile(programImage(source, variant), programName),
+    ),
+    fileTarget(
+      `${dialectId}-cdt`,
+      'Export .cdt tape',
+      'cdt',
+      (source, { programName }) =>
+        buildCdt(programImage(source, variant), programName),
+    ),
+    cassetteWavTarget({
       id: `${dialectId}-wav`,
-      label: 'Export cassette .wav',
-      fileExtension: 'wav',
-      build: (source, { programName }) =>
-        Promise.resolve([
-          {
-            fileName: `${programName.toLowerCase()}.wav`,
-            blob: samplesToWav(
-              buildCassetteSamples(source, programName, false, variant),
-              CASSETTE_SAMPLE_RATE,
-            ),
-          },
-        ]),
-    },
+      sampleRate: CASSETTE_SAMPLE_RATE,
+      buildSamples: (source, { programName }) =>
+        buildCassetteSamples(source, programName, false, variant),
+    }),
   ];
 }
 

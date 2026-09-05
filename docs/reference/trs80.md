@@ -10,26 +10,36 @@ import { trs80Reference } from '../../src/reference/trs80';
 
 Every command, function and operator in TRS-80 Level II BASIC.
 
-**In this reference:** [Hardware](./trs80/hardware) · [Escape codes](./trs80/escapes) · [File formats](./trs80/formats)
+**In this reference:** [Hardware](./trs80/hardware) · [Escape codes](./trs80/escapes) · [File formats](./trs80/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 
+- `?` stands for `PRINT` and `'` opens a comment as `REM` does. Both are shown
+  beside their keyword in the table below, and the search box finds a keyword by
+  either.
 - Multiple statements per line are allowed with `:`; `?` is shorthand for
   `PRINT` and `'` for `REM`.
 - Variable names may be any length but only the first two characters are
   significant, with `$` (string), `%` (integer), `!` (single) and `#` (double)
   type suffixes; `DEFSTR`/`DEFINT`/`DEFSNG`/`DEFDBL` set the default type per
   initial letter.
+- The power operator is `↑`, with the caret key accepted for it when typing. It
+  folds left to right, so `2↑3↑2` is `64`.
+- `AND`, `OR` and `NOT` combine their operands bit by bit — `5 AND 3` is `1` —
+  and a true comparison is `-1`. There is no integer-division, remainder or
+  exclusive-OR operator: use `INT(a/b)` and `a-b*INT(a/b)`.
 - `PRINT @ n,` moves the cursor to one of the 1024
   [screen cells](./trs80/hardware) before printing, and `PRINT USING` formats
   values against a template. The E-notation marker in a `USING` template is four
   carets (`^^^^`): the up-arrow the manuals draw is the power operator, and the
   machine has no character for it to store inside a string.
 
+<ReferenceTable :data="trs80Reference" />
+
 ## What this machine does not run
 
 The TRS-80 runs on a BASIC interpreter rather than an emulated CPU, so a few
-keywords are accepted but have nothing behind them:
+keywords are accepted but do nothing:
 
 - **Error trapping** — `ON ERROR GOTO`, `RESUME` and `ERROR` do not take effect,
   and `ERL`/`ERR` read as zero. A runtime error stops the program and is
@@ -46,5 +56,3 @@ keywords are accepted but have nothing behind them:
 - **Editing and listing commands** — `LIST`, `EDIT`, `AUTO`, `DELETE`, `NEW`,
   `CONT`, `TRON` and `TROFF` belong to the machine's own prompt; use the IDE's
   editor and debugger instead.
-
-<ReferenceTable :data="trs80Reference" />

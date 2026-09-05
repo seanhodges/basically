@@ -28,6 +28,8 @@ const layout: KeyboardLayout = {
   layers: [
     { id: 'main', position: 'center', activeWhen: [] },
     { id: 'shift', position: 'tr', activeWhen: ['shift'] },
+    // Pinned by a mode rather than a modifier, like a real CURSOR mode.
+    { id: 'cursor', position: 'br', activeWhen: [] },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows: [
@@ -37,25 +39,35 @@ const layout: KeyboardLayout = {
         spanX: 1,
         emits: ['Shift'],
         modifier: 'shift',
-        labels: [{ text: 'SHIFT' }, null],
+        labels: [{ text: 'SHIFT' }, null, null],
       },
       {
         id: 'KeyP',
         spanX: 1,
         emits: ['KeyP'],
-        labels: [{ text: 'P' }, { text: '"' }],
+        // A cursor legend whose tokens are a chord sharing SHIFT with the
+        // modifier - the Sinclair machines' arrangement.
+        labels: [
+          { text: 'P' },
+          { text: '"' },
+          { text: '←', editor: { action: 'left' }, emits: ['Shift', 'KeyP'] },
+        ],
       },
       {
         id: 'KeyH',
         spanX: 1,
         emits: ['KeyH'],
-        labels: [{ text: 'H' }, { text: '**' }],
+        labels: [
+          { text: 'H' },
+          { text: '**' },
+          { text: '↑', editor: { action: 'up' }, emits: ['ArrowUp'] },
+        ],
       },
       {
         id: 'x-quote',
         spanX: 1,
         emits: ['Shift', 'KeyP'],
-        labels: [{ text: '"' }, null],
+        labels: [{ text: '"' }, null, null],
       },
     ],
   ],
@@ -77,6 +89,55 @@ function frames(engine: KeyboardInputEngine, n: number) {
 }
 
 describe('KeyboardInputEngine', () => {
+  it("presses the pinned layer's own tokens instead of the key's", () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    engine.pointerDown('KeyH', 1);
+    // The cursor legend's key, not the letter underneath it.
+    expect(machine.down.has('ArrowUp')).toBe(true);
+    expect(machine.down.has('KeyH')).toBe(false);
+    frames(engine, 5);
+    engine.pointerUp(1);
+    expect(machine.down.size).toBe(0);
+  });
+
+  it('leaves a key alone on a layer whose legend names no tokens', () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    // 'x-quote' has no cursor legend, so it keeps its own tokens.
+    engine.pointerDown('x-quote', 1);
+    expect(machine.down.has('Shift')).toBe(true);
+    expect(machine.down.has('KeyP')).toBe(true);
+  });
+
+  it("releases the tokens it actually pressed, not the key's own", () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    engine.pointerDown('KeyH', 1);
+    frames(engine, 5);
+    // The mode changes while the key is still held - the release must still
+    // free ArrowUp rather than the letter the key would emit now.
+    engine.setPinnedLayer(null);
+    engine.pointerUp(1);
+    expect(machine.down.has('ArrowUp')).toBe(false);
+    expect(machine.down.has('KeyH')).toBe(false);
+  });
+
+  it('refcounts a cursor chord that shares a token with a held modifier', () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    engine.pointerDown('Shift', 1); // held, not tapped
+    expect(machine.down.has('Shift')).toBe(true);
+    engine.pointerDown('KeyP', 2); // chord is Shift + KeyP
+    frames(engine, 5);
+    engine.pointerUp(2);
+    // SHIFT is still physically held, so the chord's release must not drop it.
+    expect(machine.down.has('Shift')).toBe(true);
+    expect(machine.down.has('KeyP')).toBe(false);
+    engine.pointerUp(1);
+    expect(machine.down.has('Shift')).toBe(false);
+  });
+
   it('defers release of a too-fast tap until minHoldFrames have elapsed', () => {
     const { machine, engine } = setup();
     engine.pointerDown('KeyH', 1);
@@ -227,6 +288,16 @@ describe('KeyboardInputEngine', () => {
     expect(machine.down.size).toBe(0);
   });
 
+  it('cancelAll leaves the machine alone when it was holding nothing', () => {
+    // The keyboard overlay is built and torn down whenever focus moves between
+    // the editor and the emulator, which on the tab layout is exactly when a
+    // run starts. `releaseAllKeys` resets every key state the machine has, so
+    // an overlay that never pressed a key must not send one on its way out.
+    const { machine, engine } = setup();
+    engine.cancelAll();
+    expect(machine.releaseAllCalls).toBe(0);
+  });
+
   it('pointercancel on a held modifier releases it without going sticky', () => {
     const { machine, engine } = setup();
     engine.pointerDown('Shift', 1);
@@ -290,5 +361,156 @@ describe('KeyboardInputEngine (editor target)', () => {
     engine.pointerDown('KeyP', 1);
     engine.pointerEnter('KeyH', 1);
     expect(presses.map((p) => p.keyId)).toEqual(['KeyP', 'KeyH']);
+  });
+});
+
+describe('KeyboardInputEngine case lock', () => {
+  /**
+   * The test layout with the case lock on its shift, as a machine with one
+   * has: the lock is the shift key's second tap, not a keycap of its own.
+   * `releaseEmits` differs from `emits` the way the Atari's does, so the two
+   * halves of the latch cannot be confused for each other.
+   */
+  const cased: KeyboardLayout = {
+    ...layout,
+    powerOnCase: 'upper',
+    modifiers: [
+      {
+        id: 'shift',
+        emits: ['Shift'],
+        sticky: true,
+        lockable: true,
+        caseLock: { emits: ['CapsLock'], releaseEmits: ['Shift', 'CapsLock'] },
+      },
+    ],
+  };
+
+  /** Tap the shift keycap once, as a pointer down and up on it. */
+  function tapShift(engine: KeyboardInputEngine, pointerId: number) {
+    engine.pointerDown('Shift', pointerId);
+    engine.pointerUp(pointerId);
+  }
+
+  function casedSetup() {
+    const cases: string[] = [];
+    const engine = new KeyboardInputEngine(cased, {
+      kind: 'editor',
+      onKeyPress: (_key, _layer, letterCase) => cases.push(letterCase),
+    });
+    return { cases, engine };
+  }
+
+  it('starts in the layout\u2019s power-on case', () => {
+    const { engine } = casedSetup();
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+
+  it('shifts on one tap and locks the case on the second', () => {
+    const { engine } = casedSetup();
+    tapShift(engine, 1);
+    // One tap is the ordinary sticky shift: the next key is shifted, and the
+    // case the letters type has not moved.
+    expect(engine.getModifierState('shift')).toBe('sticky');
+    expect(engine.getActiveLayer().id).toBe('shift');
+    expect(engine.getLetterCase()).toBe('upper');
+
+    tapShift(engine, 2);
+    expect(engine.getModifierState('shift')).toBe('locked');
+    expect(engine.getLetterCase()).toBe('lower');
+    // A latched lock pins no layer: the letters have already changed case, and
+    // drawing the shift legends over them would show one case and type another.
+    expect(engine.getActiveLayer().id).toBe('main');
+  });
+
+  it('stays locked after other keys, and unlocks on a further tap', () => {
+    // The lock lives in the machine, so a key pressed under it must not undo
+    // it - which is exactly what a held modifier would have done.
+    const { engine } = casedSetup();
+    tapShift(engine, 1);
+    tapShift(engine, 2);
+    engine.pointerDown('KeyP', 3);
+    engine.pointerUp(3);
+    expect(engine.getLetterCase()).toBe('lower');
+    expect(engine.getModifierState('shift')).toBe('locked');
+
+    tapShift(engine, 4);
+    expect(engine.getModifierState('shift')).toBe('off');
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+
+  it('hands the case in force to the editor callback', () => {
+    const { cases, engine } = casedSetup();
+    engine.pointerDown('KeyP', 1);
+    engine.pointerUp(1);
+    tapShift(engine, 2);
+    tapShift(engine, 3);
+    engine.pointerDown('KeyP', 4);
+    engine.pointerUp(4);
+    // Only the letter presses reach the callback - a modifier is not a key
+    // press - and the second reports the case the lock has just switched to.
+    expect(cases).toEqual(['upper', 'lower']);
+  });
+
+  it('taps the machine\u2019s own case key and lets the shift up', () => {
+    const machine = new FakeMachine();
+    const engine = new KeyboardInputEngine(cased, {
+      kind: 'machine',
+      getMachine: () => machine as unknown as MachineEmulator,
+    });
+    tapShift(engine, 1);
+    expect(machine.down.has('Shift')).toBe(true);
+
+    tapShift(engine, 2);
+    // The shift cell comes back up - the lock is latched in the ROM, not held
+    // down - and the machine's own case key goes down in its place.
+    frames(engine, 3);
+    expect(machine.down.has('Shift')).toBe(false);
+    expect(machine.down.has('CapsLock')).toBe(true);
+    // Held long enough for a ROM keyboard scan to see it, then released.
+    frames(engine, 2);
+    expect(machine.down.has('CapsLock')).toBe(false);
+    expect(engine.getLetterCase()).toBe('lower');
+
+    // Unlocking presses the machine's other route back, not the same one.
+    tapShift(engine, 3);
+    expect(machine.down.has('Shift')).toBe(true);
+    expect(machine.down.has('CapsLock')).toBe(true);
+    frames(engine, 5);
+    expect(machine.down.size).toBe(0);
+    expect(engine.getLetterCase()).toBe('upper');
+  });
+
+  it('keeps the latch when everything else is released', () => {
+    // Blur, stop, machine swap: a latched case lock holds no matrix cell, so
+    // there is nothing here to release, and clearing it would draw an unlocked
+    // shift over a machine that is still in the other case.
+    const { engine } = casedSetup();
+    tapShift(engine, 1);
+    tapShift(engine, 2);
+    engine.cancelAll();
+    expect(engine.getModifierState('shift')).toBe('locked');
+    expect(engine.getLetterCase()).toBe('lower');
+  });
+
+  it('locks a modifier without a case lock the way it always did', () => {
+    // The plain lockable modifier: the second tap pins its cell down, and its
+    // layer stays the active one.
+    const { engine, machine } = setup();
+    engine.pointerDown('Shift', 1);
+    engine.pointerUp(1);
+    engine.pointerDown('Shift', 2);
+    engine.pointerUp(2);
+    expect(engine.getModifierState('shift')).toBe('locked');
+    expect(engine.getActiveLayer().id).toBe('shift');
+    expect(machine.down.has('Shift')).toBe(true);
+  });
+
+  it('reports upper case on a layout that declares no power-on case', () => {
+    // A machine with no lower case has one case to be in, and this is it.
+    const engine = new KeyboardInputEngine(layout, {
+      kind: 'editor',
+      onKeyPress: () => {},
+    });
+    expect(engine.getLetterCase()).toBe('upper');
   });
 });

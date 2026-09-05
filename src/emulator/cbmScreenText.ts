@@ -26,20 +26,25 @@ import type { CbmScreenLayout } from './c64/reports';
 export type CbmCharSet = 'graphics' | 'text';
 
 /**
- * The PETSCII code a screen code stands for in the active set.
+ * The letter a screen code draws while the text set is in force, or null where
+ * it draws something else.
  *
- * In the graphics set (the boot default) screen codes 0x01-0x1A are the
- * upper-case letters, and {@link screenToPetscii} maps them straight. The text
- * set moves upper case to 0x41-0x5A and puts lower case where upper case was,
- * so those two ranges swap.
+ * Answered here rather than by going round through {@link screenToPetscii} and
+ * {@link petsciiToText}, because that pair speaks for the *graphics* set and
+ * cannot speak for this one. The codes are the same bytes in both sets; only
+ * the shapes differ. Screen codes 0x01-0x1A draw `A`-`Z` in the graphics set
+ * and `a`-`z` here, and 0x41-0x5A draw graphics there and `A`-`Z` here - and
+ * PETSCII has no code at all that means "the lower-case letter", because on
+ * this machine one stored character draws either case depending on the set.
+ * Routing a text-set letter through the shared table therefore lands on a
+ * graphics code, which has no single character, and the letter used to read
+ * back as a blank.
  */
-function petsciiFor(screenCode: number, set: CbmCharSet): number | undefined {
+function textSetLetter(screenCode: number): string | null {
   const c = screenCode & 0x7f;
-  if (set === 'text') {
-    if (c >= 0x01 && c <= 0x1a) return c + 0x60; // lower-case a-z
-    if (c >= 0x41 && c <= 0x5a) return c; // upper-case A-Z
-  }
-  return screenToPetscii(c);
+  if (c >= 0x01 && c <= 0x1a) return String.fromCharCode(c + 0x60); // a-z
+  if (c >= 0x41 && c <= 0x5a) return String.fromCharCode(c); // A-Z
+  return null;
 }
 
 /**
@@ -51,7 +56,11 @@ function petsciiFor(screenCode: number, set: CbmCharSet): number | undefined {
  * apply to codes with no printable form.
  */
 export function cbmScreenChar(screenCode: number, set: CbmCharSet): string {
-  const petscii = petsciiFor(screenCode, set);
+  if (set === 'text') {
+    const letter = textSetLetter(screenCode);
+    if (letter !== null) return letter;
+  }
+  const petscii = screenToPetscii(screenCode & 0x7f);
   if (petscii === undefined) return ' ';
   const text = petsciiToText(petscii);
   return [...text].length === 1 ? text : ' ';

@@ -3,10 +3,15 @@
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const trs80Reference: BasicReferenceTableData = {
+const trs80Table: BasicReferenceTableData = {
   title: 'TRS-80 Level II BASIC',
   machines: ['TRS-80 Model I (Level II BASIC)'],
+  placeholders: [
+    { id: 'cell', meaning: 'one of the 1024 screen cells, 0 to 1023' },
+    { id: 'record', meaning: 'a record number in a random-access file' },
+  ],
   entries: [
     {
       name: 'END',
@@ -28,7 +33,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'RESET',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'RESET(<number>, <number>)',
+      syntax: 'RESET(<x>, <y>)',
       description:
         'Clears the block-graphics cell at (x, y) - x 0–127, y 0–47 on the 128×48 grid. SET lights it; POINT tests it.',
     },
@@ -36,7 +41,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'SET',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'SET(<number>, <number>)',
+      syntax: 'SET(<x>, <y>)',
       description:
         'Lights the block-graphics cell at (x, y) - x 0–127, y 0–47 on the 128×48 grid (each 64×16 text cell is a 2×3 block). RESET clears it; POINT tests it.',
     },
@@ -84,7 +89,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'INPUT',
       kind: 'command',
       domain: 'input',
-      syntax: 'INPUT [<string>;] <var>[, <var>]…',
+      syntax: 'INPUT [<prompt>;] <var>[, <var>]…',
       description:
         'Prints a "?" prompt (with optional message) and halts until the user types values and presses ENTER. Multiple variables are filled from comma-separated input.',
     },
@@ -92,7 +97,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'DIM',
       kind: 'command',
       domain: 'data',
-      syntax: 'DIM <var>(<int>[, <int>]…)[, …]',
+      syntax: 'DIM <var>(<number>[, <number>]…)',
       description:
         'Declares one or more arrays with the given upper bounds; subscripts start at 0, so DIM A(10) gives 11 elements. Undeclared arrays default to a bound of 10.',
     },
@@ -108,7 +113,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'LET',
       kind: 'command',
       domain: 'data',
-      syntax: '[LET] <var> = <number>|<string>',
+      syntax: '[LET] <var> = <number> | <string>',
       description:
         'Assigns a value to a variable. The keyword is optional in Level II, so X=5 and LET X=5 are equivalent.',
     },
@@ -163,7 +168,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'REM',
       kind: 'command',
       domain: 'program-editing',
-      syntax: 'REM <text>',
+      syntax: 'REM <comment>',
       description:
         "Marks a comment; everything to the end of the line is ignored. The apostrophe ' is a shorthand for REM.",
     },
@@ -179,7 +184,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'ELSE',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'ELSE <statement>|<line>',
+      syntax: 'IF <number> THEN <statement> | <line> ELSE <statement> | <line>',
       description:
         'Supplies the alternative branch of an IF…THEN, run when the condition is false.',
     },
@@ -250,7 +255,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'ERROR',
       kind: 'command',
       domain: 'error-handling',
-      syntax: 'ERROR <int>',
+      syntax: 'ERROR <number>',
       description:
         'Forces the error with the given code, as if it had really occurred - handy for testing an ON ERROR routine.',
     },
@@ -266,7 +271,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'OUT',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'OUT <int>, <int>',
+      syntax: 'OUT <port>, <byte>',
       description:
         'Sends a byte (0–255) to the given Z80 I/O port (0–255) for direct hardware access.',
     },
@@ -274,7 +279,8 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'ON',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'ON <number> GOTO|GOSUB <line>[, <line>]…',
+      syntax:
+        'ON <number> GOTO <line>[, <line>]… | ON <number> GOSUB <line>[, <line>]…',
       description:
         'Branches to the n-th line in the list based on the value of the expression (1 selects the first); falls through if the value is 0 or past the end. ON ERROR GOTO sets an error handler.',
     },
@@ -282,7 +288,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'OPEN',
       kind: 'command',
       domain: 'storage',
-      syntax: 'OPEN <string>, <file>, <string>',
+      syntax: 'OPEN <string>, <file>, <filename>',
       description:
         'Opens a disk file under a buffer number for input, output, or random access (Disk BASIC); the mode is "I", "O", or "R".',
     },
@@ -290,7 +296,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'FIELD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'FIELD <file>, <int> AS <strvar>[, <int> AS <strvar>]…',
+      syntax: 'FIELD <file>, <length> AS <strvar>[, <length> AS <strvar>]…',
       description:
         'Divides a random-access file buffer into named string fields of fixed width for GET/PUT (Disk BASIC).',
     },
@@ -298,7 +304,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'GET',
       kind: 'command',
       domain: 'storage',
-      syntax: 'GET <file>[, <int>]',
+      syntax: 'GET <file>[, <record>]',
       description:
         'Reads a record from a random-access file into its buffer; an optional record number selects which (Disk BASIC).',
     },
@@ -306,7 +312,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'PUT',
       kind: 'command',
       domain: 'storage',
-      syntax: 'PUT <file>[, <int>]',
+      syntax: 'PUT <file>[, <record>]',
       description:
         'Writes the buffer of a random-access file out as a record; an optional record number selects which (Disk BASIC).',
     },
@@ -322,7 +328,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'LOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'LOAD <string>',
+      syntax: 'LOAD <filename>',
       description:
         'Loads a BASIC program from disk, replacing the current program (Disk BASIC).',
     },
@@ -330,7 +336,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'MERGE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'MERGE <string>',
+      syntax: 'MERGE <filename>',
       description:
         'Loads a program from disk and merges its lines into the program in memory, overwriting any with matching line numbers (Disk BASIC).',
     },
@@ -369,7 +375,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'SAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'SAVE <string>',
+      syntax: 'SAVE <filename>',
       description:
         'Saves the current program to disk; add ,A to save as plain ASCII text (Disk BASIC).',
     },
@@ -401,7 +407,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'POKE',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'POKE <int>, <int>',
+      syntax: 'POKE <addr>, <byte>',
       description:
         'Writes a byte (0–255) to the given memory address (0–65535) for direct memory or hardware manipulation.',
     },
@@ -409,7 +415,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'PRINT [@ <number>,] [<expr>][;|,]…',
+      syntax: 'PRINT [@ <cell>,] [<expr>][;|,]…',
       description:
         'Writes to the screen; "PRINT @ n," positions output at screen cell n (0–1023 on the 64×16 display). "," advances to the next print zone, ";" joins items. "?" is shorthand for PRINT.',
     },
@@ -449,7 +455,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'AUTO',
       kind: 'command',
       domain: 'program-editing',
-      syntax: 'AUTO [<int>][, <int>]',
+      syntax: 'AUTO [<line>][, <number>]',
       description:
         'Turns on automatic line numbering, generating numbers from a start value by an increment (both default to 10) as you type; BREAK stops it.',
     },
@@ -457,7 +463,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'CLEAR',
       kind: 'command',
       domain: 'data',
-      syntax: 'CLEAR [<int>]',
+      syntax: 'CLEAR [<number>]',
       description:
         'Erases all variables and arrays; an optional argument sets how many bytes are reserved for string storage (default 50).',
     },
@@ -465,7 +471,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'CLOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CLOAD [<string>]',
+      syntax: 'CLOAD [<filename>]',
       description:
         'Loads a BASIC program from cassette; an optional one-letter file name selects which program on the tape.',
     },
@@ -473,7 +479,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'CSAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CSAVE <string>',
+      syntax: 'CSAVE <filename>',
       description:
         'Saves the current program to cassette under a one-letter file name.',
     },
@@ -529,7 +535,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR(<number>)',
+      syntax: 'USR(<addr>)',
       description:
         'Calls a user machine-code routine at the address set up by POKE/DEF USR, passing the argument and returning its result.',
     },
@@ -553,7 +559,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'STRING$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'STRING$(<number>, <number>|<string>)',
+      syntax: 'STRING$(<length>, <number> | <string>)',
       description:
         'Builds a string of n copies of a character, given either as an ASCII code or as the first character of a string - handy for drawing bars and rules.',
     },
@@ -561,7 +567,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'INSTR',
       kind: 'function',
       domain: 'strings',
-      syntax: 'INSTR([<number>,] <string>, <string>)',
+      syntax: 'INSTR([<start>,] <string>, <string>)',
       description:
         'Returns the position of the first occurrence of the second string within the first (starting at an optional offset), or 0 if not found.',
     },
@@ -569,7 +575,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'POINT',
       kind: 'function',
       domain: 'graphics',
-      syntax: 'POINT(<number>, <number>)',
+      syntax: 'POINT(<x>, <y>)',
       description:
         'Returns true (-1) if the block-graphics cell at (x, y) is lit, false (0) otherwise - used for reading the screen back, e.g. collision detection.',
     },
@@ -727,7 +733,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'FRE',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'FRE(<number>|<string>)',
+      syntax: 'FRE(<number> | <string>)',
       description:
         'Returns free memory: with a numeric argument the free bytes, with a string argument the free string space (also forces string garbage collection).',
     },
@@ -735,7 +741,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'INP',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'INP(<int>)',
+      syntax: 'INP(<port>)',
       description:
         'Reads and returns a byte (0–255) from the given Z80 I/O port (0–255).',
     },
@@ -809,7 +815,7 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'PEEK',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'PEEK(<int>)',
+      syntax: 'PEEK(<addr>)',
       description:
         'Returns the byte (0–255) stored at the given memory address (0–65535).',
     },
@@ -961,23 +967,54 @@ export const trs80Reference: BasicReferenceTableData = {
       name: 'LEFT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'LEFT$(<string>, <number>)',
+      syntax: 'LEFT$(<string>, <length>)',
       description: 'Returns the leftmost n characters of a string.',
     },
     {
       name: 'RIGHT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'RIGHT$(<string>, <number>)',
+      syntax: 'RIGHT$(<string>, <length>)',
       description: 'Returns the rightmost n characters of a string.',
     },
     {
       name: 'MID$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'MID$(<string>, <number>[, <number>])',
+      syntax: 'MID$(<string>, <start>[, <length>])',
       description:
         'Returns a substring starting at position i (1-based) for n characters; without n it returns the rest of the string.',
     },
+    {
+      name: '<=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <= <number> | <string> <= <string>',
+      description: 'Less than or equal.',
+    },
+    {
+      name: '>=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> >= <number> | <string> >= <string>',
+      description: 'Greater than or equal.',
+    },
+    {
+      name: '<>',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <> <number> | <string> <> <string>',
+      description: 'Not equal.',
+    },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const trs80Reference: BasicReferenceTableData = withAbbreviations(
+  'trs80',
+  trs80Table,
+);

@@ -20,6 +20,41 @@
   display: flex;
   align-items: center;
   padding: 0 0.2em;
+  position: relative; /* the cost bar and its hover target are laid over this */
+}
+
+/* How much of a measured run a line accounted for, as a bar down the gutter's
+   inside edge. Drawn on the edge rather than in the centre so it never competes
+   with the lint and breakpoint dots, which share the centre between them; the
+   ramp runs from a cool, low-contrast band for a line incidental to the run to a
+   saturated one for the line that dominated it. Banding is relative to the
+   hottest line - see lineHeat in ../app/runProfile. */
+.heat1 {
+  box-shadow: inset -3px 0 0 0 rgb(253 224 71 / 55%);
+}
+
+.heat2 {
+  box-shadow: inset -3px 0 0 0 rgb(250 204 21 / 75%);
+}
+
+.heat3 {
+  box-shadow: inset -3px 0 0 0 rgb(249 155 22 / 85%);
+}
+
+.heat4 {
+  box-shadow: inset -3px 0 0 0 rgb(234 88 12 / 90%);
+}
+
+.heat5 {
+  box-shadow: inset -3px 0 0 0 rgb(190 24 24 / 95%);
+}
+
+/* Transparent hover target over the whole gutter element, so the bar can carry
+   the line's share as a tooltip without occupying width the dots need. Clicks
+   fall through to the gutter's own breakpoint toggle by bubbling. */
+.heatHit {
+  position: absolute;
+  inset: 0;
 }
 
 /* Blue breakpoint marker: same 1em circle as the lint marker, blue instead of red. */

@@ -13,38 +13,51 @@ export const commodoreEscapes: EscapeTableData = {
     {
       id: 'colour',
       label: 'Colours',
+      class: 'colour',
     },
     {
       id: 'cursor',
       label: 'Cursor',
+      class: 'cursor',
     },
     {
       id: 'editing',
       label: 'Editing',
+      class: 'editing',
     },
     {
       id: 'mode',
       label: 'Modes',
+      class: 'mode',
     },
     {
       id: 'keys',
       label: 'Function keys',
+      class: 'function-keys',
     },
     {
       id: 'control',
       label: 'Control',
+      class: 'control',
     },
     {
+      // {space} and {shift-space} are two ordinary PETSCII characters that need
+      // an escape only because their glyphs cannot be told apart in the editor.
       id: 'character',
       label: 'Characters',
+      class: 'literal',
     },
     {
+      // The CBM/SHIFT keycap shapes - the same class as the Sinclair and Atom
+      // block graphics, though nothing outside the Commodore family draws them.
       id: 'key-graphics',
       label: 'Key graphics',
+      class: 'block-graphics',
     },
     {
       id: 'raw',
       label: 'Raw bytes',
+      class: 'raw-byte',
     },
   ],
   entries: [
@@ -356,7 +369,9 @@ export const commodoreEscapes: EscapeTableData = {
       escape: '{rvon}',
       bytes: '0x12',
       category: 'mode',
-      description: 'Reverse video on (CHR$ 18).',
+      description:
+        'Reverse video on: characters print with their foreground and background swapped from here to the end of the line, or until reverse video is turned off (CHR$ 18).',
+      aliases: ['{rvson}', '{rvs on}'],
       example: {
         source: '{rvon}',
         bytes: [18],
@@ -367,8 +382,9 @@ export const commodoreEscapes: EscapeTableData = {
       escape: '{rvoff}',
       bytes: '0x92',
       category: 'mode',
-      description: 'Reverse video off (CHR$ 146).',
-      aliases: ['{rvof}'],
+      description:
+        'Reverse video off: characters print normally again (CHR$ 146).',
+      aliases: ['{rvof}', '{rvsoff}', '{rvs off}'],
       example: {
         source: '{rvoff}',
         bytes: [146],
@@ -834,6 +850,61 @@ export const commodoreEscapes: EscapeTableData = {
       parseOnly: true,
     },
     {
+      escape: '{CBM-+}',
+      bytes: '0xA6',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the + key (▒).',
+      example: {
+        source: '{CBM-+}',
+        bytes: [166],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM--}',
+      bytes: '0xDC',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the - key (🮌).',
+      example: {
+        source: '{CBM--}',
+        bytes: [220],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM-@}',
+      bytes: '0xA4',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the @ key (▁).',
+      example: {
+        source: '{CBM-@}',
+        bytes: [164],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM-£}',
+      bytes: '0xA8',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the £ key (🮏).',
+      example: {
+        source: '{CBM-£}',
+        bytes: [168],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{CBM-*}',
+      bytes: '0xDF',
+      category: 'key-graphics',
+      description: 'Block graphic on the C= face of the * key (◥).',
+      example: {
+        source: '{CBM-*}',
+        bytes: [223],
+      },
+      parseOnly: true,
+    },
+    {
       escape: '{SHIFT-a}',
       bytes: '0xC1',
       category: 'key-graphics',
@@ -1121,11 +1192,78 @@ export const commodoreEscapes: EscapeTableData = {
       parseOnly: true,
     },
     {
+      escape: '{SHIFT-+}',
+      bytes: '0xDB',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the + key (┼).',
+      example: {
+        source: '{SHIFT-+}',
+        bytes: [219],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT--}',
+      bytes: '0xDD',
+      category: 'key-graphics',
+      description:
+        'Graphic on the SHIFT face of the - key (│). This code is a hardware duplicate glyph, so it decodes back as a raw {$dd} escape.',
+      example: {
+        source: '{SHIFT--}',
+        bytes: [221],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-@}',
+      bytes: '0xBA',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the @ key (⌟).',
+      example: {
+        source: '{SHIFT-@}',
+        bytes: [186],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-£}',
+      bytes: '0xA9',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the £ key (◤).',
+      example: {
+        source: '{SHIFT-£}',
+        bytes: [169],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-*}',
+      bytes: '0xC0',
+      category: 'key-graphics',
+      description: 'Graphic on the SHIFT face of the * key (─).',
+      example: {
+        source: '{SHIFT-*}',
+        bytes: [192],
+      },
+      parseOnly: true,
+    },
+    {
+      escape: '{SHIFT-↑}',
+      bytes: '0xFF',
+      category: 'key-graphics',
+      description: 'Pi (CHR$ 255), on the SHIFT face of the ↑ key (π).',
+      example: {
+        source: '{SHIFT-↑}',
+        bytes: [255],
+      },
+      parseOnly: true,
+    },
+    {
       escape: '{$xx}',
       bytes: 'any',
       category: 'raw',
       description:
-        'Any raw byte as one or two hex digits - unassigned control codes, the shifted-bank text range $60-$7F, $E0-$FE and the hardware-duplicate glyph codes ($AA, $B4, $C3, $DD, $DE). The lower-case display bank and keyword abbreviations are not yet modelled.',
+        'Any raw byte as one or two hex digits - unassigned control codes, the shifted-bank text range $60-$7F, $E0-$FE and the hardware-duplicate glyph codes ($AA, $B4, $C3, $DD, $DE). The lower-case display bank is not yet modelled.',
       example: {
         source: '{$60}',
         bytes: [96],

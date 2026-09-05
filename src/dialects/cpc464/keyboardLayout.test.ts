@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { cpc464KeyboardLayout as layout } from './keyboardLayout';
 import { cpcCharset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import { CONTROLLER_ROLES } from '../../keyboard/controllerConfig';
 import {
   CpcKeyboard,
@@ -54,14 +57,26 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Del')!, 'base')).toEqual({
       action: 'backspace',
     });
-    // SHIFT and SYM layers surface the punctuation as editor inserts.
+    // SHIFT types nothing different in the editor - symbols are SYM's alone.
     expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
       {
-        insert: '!',
+        insert: '1',
       },
     );
-    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'sym')).toEqual({
-      insert: '^',
+    expect(resolveEditorAction(layout, byId.get('W')!, 'symbols')).toEqual({
+      insert: '!',
+    });
+    // The '^' slot (G on page 1) shows and inserts the CPC's own ↑ form.
+    expect(resolveEditorAction(layout, byId.get('G')!, 'symbols')).toEqual({
+      insert: '↑',
+    });
+    // '[' sits on the O slot and presses the CPC's own bracket key.
+    expect(resolveEditorAction(layout, byId.get('O')!, 'symbols')).toEqual({
+      insert: '[',
+    });
+    // £ lives on page 1 (the Y slot), pressing SHIFT plus the caret key.
+    expect(resolveEditorAction(layout, byId.get('Y')!, 'symbols')).toEqual({
+      insert: '£',
     });
     // CURSOR mode overlays the caret moves onto W/A/S/D.
     expect(resolveEditorAction(layout, byId.get('W')!, 'cursor')).toEqual({
@@ -76,11 +91,10 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('D')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster falls back to typing itself in CURSOR
-    // mode (only W/A/S/D carry the overlay).
-    expect(resolveEditorAction(layout, byId.get('F')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode
+    // (only W/A/S/D carry the overlay).
+    expect(resolveEditorAction(layout, byId.get('F')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('F')!, 'cursor')).toEqual([]);
     // The bottom-row quote key inserts a double quote.
     expect(resolveEditorAction(layout, byId.get('Quote')!, 'base')).toEqual({
       insert: '"',
@@ -91,7 +105,14 @@ describe('cpc464 keyboard layout', () => {
 describe('cpc464 keyboard matrix coverage', () => {
   const matrixTokens = new Set<string>();
   for (const line of MATRIX) for (const t of line) if (t) matrixTokens.add(t);
-  const virtualTokens = new Set(allKeys.flatMap((k) => k.emits));
+  // A legend may name its own tokens in place of the key's (the CURSOR
+  // arrows over WASD), so the union has to include those too.
+  const virtualTokens = new Set(
+    allKeys.flatMap((k) => [
+      ...k.emits,
+      ...k.labels.flatMap((l) => l?.emits ?? []),
+    ]),
+  );
   const physicalTokens = new Set(Object.values(CODE_TO_TOKEN));
 
   it('only emits tokens that are real matrix cells the emulator decodes', () => {

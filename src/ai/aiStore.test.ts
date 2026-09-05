@@ -3,7 +3,12 @@ import type {
   StopReason,
   StreamOptions,
   StreamResult,
+  ToolCall,
+  ToolResult,
 } from './providers/types';
+
+/** Mirrors `aiClient`'s runner type, which the mock below stands in for. */
+type ToolRunner = (call: ToolCall) => Promise<ToolResult>;
 
 // Install storage stubs and a shared streaming handle BEFORE the modules under
 // test are imported (aiStore reads the stored conversation at module init).
@@ -32,6 +37,10 @@ const h = vi.hoisted(() => {
     },
     /** The history handed to the most recent attempt. */
     sent: null as null | StreamOptions,
+    /** Every attempt, in order - the tool set has to match across them. */
+    everySent: [] as StreamOptions[],
+    /** How the most recent attempt would run a tool the model called. */
+    runTool: null as null | ToolRunner,
   };
 });
 
@@ -40,8 +49,11 @@ vi.mock('./aiClient', () => ({
     _providerId: string,
     opts: StreamOptions,
     onText: (d: string) => void,
+    runTool?: ToolRunner,
   ) => {
     h.sent = opts;
+    h.everySent.push(opts);
+    h.runTool = runTool ?? null;
     let resolve!: (t: string, stop?: StopReason) => void;
     let reject!: (e: unknown) => void;
     const done = new Promise<StreamResult>((res, rej) => {
@@ -63,6 +75,7 @@ vi.mock('./aiClient', () => ({
 }));
 
 import { unsentScreen, useAiStore, type DisplayMessage } from './aiStore';
+import { assistantTools, MACHINE_NOT_GIVEN } from './driveTools';
 import { loadMachineReference } from './machineReference';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
@@ -76,6 +89,7 @@ import { sourceFingerprint } from './sourceFingerprint';
 import type { MachineReport } from '../dialects/types';
 import {
   noScreenViews,
+  parseExpectations,
   type ExpectationResult,
   type ScreenViewRequest,
 } from './expectations';
@@ -113,6 +127,8 @@ describe('aiStore', () => {
     sessionStorage.clear();
     h.current = null;
     h.sent = null;
+    h.everySent = [];
+    h.runTool = null;
   });
 
   it('send appends the turn, finalizes, and persists', async () => {
@@ -129,7 +145,13 @@ describe('aiStore', () => {
     ]);
     expect(useAiStore.getState().busy).toBe(false);
     expect(loadAiConversation()).toEqual([
-      { role: 'user', content: 'make breakout' },
+      // The panel's short form and the wire's full one, both kept: a restored
+      // thread has to replay what was sent, not what was shown.
+      {
+        role: 'user',
+        content: 'make breakout',
+        sentContent: 'full context',
+      },
       {
         role: 'assistant',
         content: '10 PRINT',
@@ -504,21 +526,16 @@ describe('aiStore', () => {
       for (let i = 0; i < 8; i++) await Promise.resolve();
     }
 
-    /** An expectation result as the run check would report one. */
+    /** A step of the assistant's block, as the run check would report one. */
     function expectation(
-      status: ExpectationResult['status'],
+      outcome: ExpectationResult['outcome'],
       name = 'T',
-      actual?: string,
+      detail?: string,
     ): ExpectationResult {
       return {
-        expectation: {
-          kind: 'var',
-          name,
-          expected: '42',
-          source: `VAR ${name} = 42`,
-        },
-        status,
-        ...(actual !== undefined ? { actual } : {}),
+        action: parseExpectations(`EXPECT VAR ${name} = 42`)[0]!,
+        outcome,
+        detail: detail ?? `${name} holds 42`,
       };
     }
 
@@ -664,7 +681,7 @@ describe('aiStore', () => {
     describe('a program that ran but produced the wrong answer', () => {
       it('corrects it unasked, exactly as a runtime error is corrected', async () => {
         await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('failed', 'T', '41'),
+          expectation('failed', 'T', 'T holds 41, not 42'),
         ]);
 
         expect(useAiStore.getState().busy).toBe(true);
@@ -676,7 +693,7 @@ describe('aiStore', () => {
         expect(lastRequest()).toContain('wrong result');
         expect(sentUserContent()).toContain('did not produce what you said');
         expect(sentUserContent()).toContain(
-          'you said T would be 42, but the machine reported 41',
+          'you wrote `EXPECT VAR T = 42`, and T holds 41, not 42',
         );
       });
 
@@ -693,7 +710,7 @@ describe('aiStore', () => {
         // ...so a wrong answer on the same applied block gets the banner, not a
         // third request. A per-kind allowance would let one block spend four.
         reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('failed', 'T', '41'),
+          expectation('failed', 'T', 'T holds 41, not 42'),
         ]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().pendingFix?.summary).toContain(
@@ -703,7 +720,7 @@ describe('aiStore', () => {
 
       it('only offers the fix when the program has changed since the run', async () => {
         await reportRun({ kind: 'ended-ok' }, '10 SOMETHING ELSE\n', [
-          expectation('failed', 'T', '41'),
+          expectation('failed', 'T', 'T holds 41, not 42'),
         ]);
 
         expect(h.current).toBeNull();
@@ -714,9 +731,7 @@ describe('aiStore', () => {
       });
 
       it('corrects nothing when every expectation held', async () => {
-        await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('passed'),
-        ]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [expectation('done')]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().busy).toBe(false);
         expect(useAiStore.getState().pendingFix).toBeNull();
@@ -726,16 +741,14 @@ describe('aiStore', () => {
         // Unchecked is not failed: a program nobody could judge must not be
         // sent back for a fix it may not need.
         reportRun({ kind: 'still-running' }, undefined, [
-          expectation('unchecked'),
+          expectation('unevaluated'),
         ]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().pendingFix).toBeNull();
       });
 
       it('tells the assistant on the next request that its expectations held', async () => {
-        await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('passed'),
-        ]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [expectation('done')]);
         const p = useAiStore.getState().send(params);
         h.current!.resolve('10 PRINT');
         await p;
@@ -747,8 +760,8 @@ describe('aiStore', () => {
       it('reports an unchecked expectation rather than passing it silently', async () => {
         await reportRun({ kind: 'still-running' }, undefined, [
           {
-            ...expectation('unchecked'),
-            reason: 'the screen could not be read',
+            ...expectation('unevaluated'),
+            detail: 'the screen could not be read',
           },
         ]);
         const p = useAiStore.getState().send(params);
@@ -782,13 +795,9 @@ describe('aiStore', () => {
       const visual = (
         description = 'a circle in the middle',
       ): ExpectationResult => ({
-        expectation: {
-          kind: 'visual',
-          description,
-          source: `SCREEN SHOWS ${description}`,
-        },
-        status: 'unchecked',
-        reason: 'the screen has not been looked at',
+        action: parseExpectations(`EXPECT SHOWS ${description}`)[0]!,
+        outcome: 'unevaluated',
+        detail: 'only the assistant, shown the screen, can settle this',
       });
 
       /** Run `body` with the active provider unable to be shown an image. */
@@ -870,7 +879,7 @@ describe('aiStore', () => {
         await reportRun(
           { kind: 'ended-ok' },
           undefined,
-          [expectation('passed')],
+          [expectation('done')],
           SCREEN,
           ASKED,
         );
@@ -886,9 +895,7 @@ describe('aiStore', () => {
       });
 
       it('carries nothing for a run it asked nothing about', async () => {
-        await reportRun({ kind: 'ended-ok' }, undefined, [
-          expectation('passed'),
-        ]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [expectation('done')]);
         expect(h.current).toBeNull();
 
         const p = useAiStore.getState().send(params);
@@ -1122,6 +1129,81 @@ describe('aiStore', () => {
         await p;
         expect(sentUserContent()).toContain('already used up');
       });
+
+      describe('a photograph of a printed listing', () => {
+        const PHOTO = {
+          mediaType: 'image/jpeg' as const,
+          base64: 'JPEGDATA',
+        };
+
+        it('takes the picture slot ahead of a caller-supplied screen', async () => {
+          const p = useAiStore.getState().send({
+            ...params,
+            image: { mediaType: 'image/png', base64: 'USERSHOT' },
+            photo: PHOTO,
+          });
+          h.current!.resolve('10 PRINT');
+          await p;
+          expect(sentImage()?.base64).toBe('JPEGDATA');
+        });
+
+        it('defers the asked-for screen and the words that describe it', async () => {
+          await reportRun({ kind: 'ended-ok' }, undefined, [], SCREEN, ASKED);
+
+          const first = useAiStore.getState().send({ ...params, photo: PHOTO });
+          h.current!.resolve('10 PRINT');
+          await first;
+          expect(sentImage()?.base64).toBe('JPEGDATA');
+          // The note's own words claim the screen is attached, so sending it
+          // here would print that beside a photograph of a magazine.
+          expect(sentUserContent()).not.toContain('screen you asked to see');
+
+          const second = useAiStore.getState().send(params);
+          h.current!.resolve('20 PRINT');
+          await second;
+          // Both, on the very next request: they wait together or travel
+          // together, and the screen is not lost for having been displaced.
+          expect(sentImage()?.base64).toBe('PNGDATA');
+          expect(sentUserContent()).toContain('screen you asked to see');
+        });
+
+        it('still carries a note that has no picture of its own', async () => {
+          await reportRun({ kind: 'ended-ok' });
+
+          const p = useAiStore.getState().send({ ...params, photo: PHOTO });
+          h.current!.resolve('10 PRINT');
+          await p;
+          expect(sentImage()?.base64).toBe('JPEGDATA');
+          expect(sentUserContent()).toContain('finished without reporting');
+        });
+
+        it('marks the turn as a photograph, and stores a marker with no pixels', async () => {
+          const p = useAiStore.getState().send({ ...params, photo: PHOTO });
+          h.current!.resolve('10 PRINT');
+          await p;
+
+          const turn = useAiStore.getState().messages[0]!;
+          expect(turn.photoShown).toBe(true);
+          expect(turn.screenShown).toBeUndefined();
+          const stored = loadAiConversation();
+          expect(stored[0]!.photoShown).toBe(true);
+          expect(stored[0]!.screenShown).toBeUndefined();
+          expect(JSON.stringify(stored)).not.toContain('JPEGDATA');
+        });
+
+        it('is cleared along with the conversation', () => {
+          useAiStore.setState({
+            attachment: {
+              ...PHOTO,
+              name: 'page.jpg',
+              width: 100,
+              height: 100,
+            },
+          });
+          useAiStore.getState().reset();
+          expect(useAiStore.getState().attachment).toBeNull();
+        });
+      });
     });
   });
 
@@ -1166,6 +1248,7 @@ describe('aiStore', () => {
       expect(stored[0]).toEqual({
         role: 'user',
         content: 'make breakout',
+        sentContent: 'full context',
         screenShown: true,
       });
       expect(JSON.stringify(stored)).not.toContain('PNGDATA');
@@ -1633,6 +1716,104 @@ describe('aiStore', () => {
       for (let i = 0; i < 8; i++) await Promise.resolve();
       // No request was made: continuing is offered for the length limit only.
       expect(h.current).toBe(before);
+    });
+  });
+
+  /**
+   * The prefix the provider's cache matches on. Every one of these is silent
+   * when broken - the answers stay right and the bill goes up - which is why
+   * they are pinned here rather than left to the comments that assert them.
+   */
+  describe('the prefix a conversation sends', () => {
+    it('replays an earlier turn as it was sent, not as the panel shows it', async () => {
+      const first = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await first;
+
+      const second = useAiStore.getState().send({
+        ...params,
+        userContent: 'more context',
+        displayRequest: 'now',
+      });
+      h.current!.resolve('20 PRINT');
+      await second;
+
+      // Byte-for-byte what turn one said, in front of turn two - the whole
+      // point: a prefix that differs here is a prefix rewritten from here on.
+      expect(h.sent!.messages.map(plain)).toEqual([
+        { role: 'user', content: 'full context' },
+        { role: 'assistant', content: '10 PRINT' },
+        { role: 'user', content: 'more context' },
+      ]);
+      // And the panel still shows what the user actually typed.
+      expect(useAiStore.getState().messages.map(plain)).toEqual([
+        { role: 'user', content: 'make breakout' },
+        { role: 'assistant', content: '10 PRINT' },
+        { role: 'user', content: 'now' },
+        { role: 'assistant', content: '20 PRINT' },
+      ]);
+    });
+
+    it('replays it the same way after a reload', async () => {
+      const first = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await first;
+
+      // What a restored thread starts from. Persisting only the shown form
+      // would reproduce the defect the moment the page came back.
+      useAiStore.setState({
+        messages: loadAiConversation() as DisplayMessage[],
+      });
+      const second = useAiStore.getState().send(params);
+      h.current!.resolve('20 PRINT');
+      await second;
+
+      expect(h.sent!.messages[0]!.content).toBe('full context');
+    });
+
+    it('offers the same tools on every turn, including the turns that use none', async () => {
+      const first = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await first;
+      const second = useAiStore.getState().send(params);
+      h.current!.resolve('20 PRINT');
+      await second;
+
+      // Tools render ahead of the system prompt, so a set that came and went
+      // would invalidate everything behind it on the turn after every drive.
+      const offered = h.everySent.map((o) => JSON.stringify(o.tools));
+      expect(offered).toHaveLength(2);
+      expect(new Set(offered).size).toBe(1);
+      expect(offered[0]).toBe(JSON.stringify(assistantTools()));
+    });
+
+    it('offers none to a backend that cannot be given them', async () => {
+      const p = useAiStore
+        .getState()
+        .send({ ...params, providerId: 'openai', model: 'gpt-4o' });
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      expect(h.sent!.tools).toBeUndefined();
+    });
+
+    it('refuses a call made on a turn that was given no machine', async () => {
+      const p = useAiStore.getState().send(params);
+      const answered = await h.runTool!({
+        id: 'c1',
+        name: 'drive',
+        input: { script: 'PRESS KeyA' },
+      });
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      // Answered rather than dropped: a call that vanishes reads to the model
+      // as a call that worked, and it reports on a program it never tried.
+      expect(answered).toEqual({
+        callId: 'c1',
+        content: MACHINE_NOT_GIVEN,
+        isError: true,
+      });
     });
   });
 });

@@ -1,249 +1,65 @@
-import type { MachineScreenText, MachineVariable } from '../dialects/types';
+import {
+  parseDriveScript,
+  type DriveAction,
+  type ScheduleStep,
+} from '../app/driveScript';
 
 /**
- * What the assistant says should be true once its program has run.
+ * What the assistant says should be true of its program, and how the one form
+ * no machine can settle is settled.
  *
- * Stated in a ` ```basic-expect ` block alongside the code, one expectation per
- * line, in a deliberately tiny two-form grammar:
+ * Stated in a ` ```basic-expect ` block alongside the code, in the vocabulary
+ * every caller of this toolchain writes an expectation in
+ * (`src/app/driveScript.ts`) - the same lines a file of expectations on the
+ * command line holds, read by the same parser and judged by the same
+ * evaluator, so the two cannot reach different verdicts about one program.
  *
- * ```
- * VAR TOTAL = 42
- * SCREEN CONTAINS "GAME OVER"
- * ```
+ * The block is a schedule rather than a list, which is what makes the moment
+ * an expectation is judged something the assistant says rather than something
+ * the IDE assumes: `WAIT FOR "<text>"` means "run until this appears", so text
+ * a program prints and then clears is waited for, and an expectation on its
+ * own asks what is true at the point it was written.
  *
- * The grammar is small because the failure this exists to catch is "the program
- * computed the wrong answer", not "the program is subtly mis-shaped". Ordering
- * comparisons and position-anchored screen assertions both invite the assistant
- * to predict things that depend on the machine rather than on its own program,
- * which turns correct programs into failures.
+ * What stays the assistant\'s alone is {@link JUDGE_FENCE_TAG}: an expectation
+ * about how the screen looks is settled by showing it the display and asking
+ * it to judge its own program, and nothing else can settle one.
  */
-export type Expectation =
-  /** A named variable should hold `expected` once the program has run. */
-  | { kind: 'var'; name: string; expected: string; source: string }
-  /** `needle` should appear somewhere on the screen. */
-  | { kind: 'screen'; needle: string; source: string }
-  /**
-   * The screen should look like `description` - the one form no machine can
-   * evaluate, settled instead by showing the assistant the display and asking
-   * it to judge its own program (see {@link parseJudgement}).
-   */
-  | { kind: 'visual'; description: string; source: string }
-  /**
-   * A line that parses as neither. Kept rather than dropped: a malformed
-   * expectation the assistant can see reported back is one it can rewrite,
-   * where a silently discarded one reads as having passed.
-   */
-  | { kind: 'malformed'; source: string };
 
 /** The fence tag that marks a block of expectations. */
 export const EXPECT_FENCE_TAG = 'basic-expect';
 
-const VAR_RE = /^VAR\s+(\S+)\s*=\s*(.*)$/i;
-const SCREEN_RE = /^SCREEN\s+CONTAINS\s+(.*)$/i;
-const VISUAL_RE = /^SCREEN\s+SHOWS\s+(.*)$/i;
-
-/** Strip one layer of surrounding double quotes, if present. */
-function unquote(text: string): string {
-  const t = text.trim();
-  return t.length >= 2 && t.startsWith('"') && t.endsWith('"')
-    ? t.slice(1, -1)
-    : t;
-}
-
 /**
- * Parse one ` ```basic-expect ` block into expectations, one per non-blank line.
+ * Parse one ` ```basic-expect ` block: the shared schedule vocabulary, one
+ * action or expectation per line.
  *
  * Never throws and never drops a line: anything unrecognised comes back as
- * `malformed` so it can be reported as unchecked.
+ * `malformed` so it can be reported as unchecked, and the spellings the
+ * assistant wrote before the two vocabularies became one are still read, so a
+ * restored conversation is never reported as malformed.
  */
-export function parseExpectations(block: string): Expectation[] {
-  const out: Expectation[] = [];
-  for (const raw of block.split('\n')) {
-    const line = raw.trim();
-    if (line === '') continue;
-
-    const varMatch = VAR_RE.exec(line);
-    if (varMatch) {
-      const expected = varMatch[2]!.trim();
-      // `VAR X =` states nothing to compare against.
-      if (expected === '') {
-        out.push({ kind: 'malformed', source: line });
-        continue;
-      }
-      out.push({
-        kind: 'var',
-        name: varMatch[1]!.trim(),
-        expected,
-        source: line,
-      });
-      continue;
-    }
-
-    const screenMatch = SCREEN_RE.exec(line);
-    if (screenMatch) {
-      const needle = unquote(screenMatch[1]!);
-      // An empty needle matches every screen, so it asserts nothing.
-      if (needle.trim() === '') {
-        out.push({ kind: 'malformed', source: line });
-        continue;
-      }
-      out.push({ kind: 'screen', needle, source: line });
-      continue;
-    }
-
-    const visualMatch = VISUAL_RE.exec(line);
-    if (visualMatch) {
-      const description = unquote(visualMatch[1]!).trim();
-      // Nothing described is nothing to judge.
-      if (description === '') {
-        out.push({ kind: 'malformed', source: line });
-        continue;
-      }
-      out.push({ kind: 'visual', description, source: line });
-      continue;
-    }
-
-    out.push({ kind: 'malformed', source: line });
-  }
-  return out;
+export function parseExpectations(block: string): DriveAction[] {
+  return parseDriveScript(block);
 }
 
-/** How one expectation stands against what the machine reported. */
-export type ExpectationStatus = 'passed' | 'failed' | 'unchecked';
+/** How one line of the block stood against the machine. */
+export type ExpectationResult = ScheduleStep;
 
-export interface ExpectationResult {
-  expectation: Expectation;
-  status: ExpectationStatus;
-  /**
-   * What the machine actually reported, when it reported something. Absent when
-   * there was nothing to compare against (no such variable, or nothing to read).
-   */
-  actual?: string;
-  /** Why an `unchecked` expectation could not be evaluated. */
-  reason?: string;
+/** True for the one form only the assistant, shown the display, can settle. */
+export function isVisual(step: ScheduleStep): boolean {
+  return (
+    step.action.kind === 'expect' && step.action.expectation.kind === 'shows'
+  );
 }
 
-/** What the machine said about itself, as the evaluator sees it. */
-export interface MachineReadings {
-  /** `machine.readVariables()`, or null when the machine cannot report them. */
-  variables: MachineVariable[] | null;
-  /** `machine.readScreenText()`, or null when there is nothing to read. */
-  screen: MachineScreenText | null;
-}
-
-/** A number as BASIC would print one - no hex, no leading `+.`, no bare sign. */
-const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
-
-/**
- * Compare a stated value with the machine's reported one.
- *
- * `MachineVariable.value` is documented as already formatted for display, so a
- * string arrives carrying its own quotes and a number arrives however that
- * machine prints it. Rather than add a raw-value channel to the seam, the
- * comparison meets the display convention halfway: quotes are optional on both
- * sides, and two things that both parse as numbers are compared numerically so
- * `42`, `42.0` and a machine that pads to ` 42` all agree.
- *
- * Lenient in the one direction that cannot cause a false pass: it forgives
- * formatting, never a different value.
- */
-function valuesAgree(expected: string, actual: string): boolean {
-  const e = unquote(expected);
-  const a = unquote(actual);
-  if (NUMBER_RE.test(e) && NUMBER_RE.test(a)) {
-    // Exact equality after parsing - no epsilon. A tolerance that suits one
-    // machine's float format is wrong for another's, and the assistant can
-    // always state the printed form instead.
-    return Number(e) === Number(a);
-  }
-  return e === a;
-}
-
-/** Collapse runs of spaces so predicted text survives a machine's padding. */
-function collapseSpaces(text: string): string {
-  return text.replace(/ +/g, ' ').trim();
-}
-
-/**
- * Check expectations against one reading of the machine.
- *
- * Pure: it takes the readings, never the machine, so the rules are testable
- * without an emulator and the expensive reads stay under the caller's control.
- *
- * `failed` here means "did not hold at this instant", which is not yet a verdict
- * on the program - a value may not have been computed yet. Turning that into a
- * final answer is the latch's job (see `latchExpectationSample` and
- * `finaliseExpectations` in `../app/aiRunCheck`).
- */
-export function evaluateExpectations(
-  expectations: readonly Expectation[],
-  readings: MachineReadings,
-): ExpectationResult[] {
-  return expectations.map((expectation): ExpectationResult => {
-    if (expectation.kind === 'malformed') {
-      return {
-        expectation,
-        status: 'unchecked',
-        reason: 'not a recognised expectation',
-      };
-    }
-
-    if (expectation.kind === 'visual') {
-      // Never judged from the machine: no reader answers "does this look
-      // right". It stays unchecked here and is settled by the assistant, shown
-      // the display (see `applyJudgement`) - or stays unchecked for good when
-      // there is nothing to show it or no way to show it.
-      return {
-        expectation,
-        status: 'unchecked',
-        reason: 'the screen has not been looked at',
-      };
-    }
-
-    if (expectation.kind === 'var') {
-      if (readings.variables === null) {
-        return {
-          expectation,
-          status: 'unchecked',
-          reason: 'this machine cannot report its variables',
-        };
-      }
-      const wanted = expectation.name.trim().toUpperCase();
-      const found = readings.variables.find(
-        (v) => v.name.trim().toUpperCase() === wanted,
-      );
-      if (!found) {
-        return {
-          expectation,
-          status: 'failed',
-          reason: 'no variable of that name',
-        };
-      }
-      return {
-        expectation,
-        status: valuesAgree(expectation.expected, found.value)
-          ? 'passed'
-          : 'failed',
-        actual: found.value,
-      };
-    }
-
-    if (readings.screen === null) {
-      return {
-        expectation,
-        status: 'unchecked',
-        reason: 'the screen could not be read',
-      };
-    }
-    // Matched row by row, never across a row boundary: a fixed-width machine
-    // breaks a line wherever its width falls, so an assertion that spanned rows
-    // would be an assertion about the width.
-    const needle = collapseSpaces(expectation.needle);
-    const hit = readings.screen.lines.some((line) =>
-      collapseSpaces(line).includes(needle),
-    );
-    return { expectation, status: hit ? 'passed' : 'failed' };
-  });
+/** What a visual expectation asked, as the assistant is reminded of it. */
+export function visualDescriptions(
+  results: readonly ExpectationResult[],
+): string[] {
+  return results.flatMap((step) =>
+    step.action.kind === 'expect' && step.action.expectation.kind === 'shows'
+      ? [step.action.expectation.description]
+      : [],
+  );
 }
 
 /** The fence tag the assistant names the views it wants to be shown in. */
@@ -265,20 +81,17 @@ export interface ScreenViewRequest {
    * The screen as the characters on it.
    *
    * Ungated by provider, unlike {@link image}: it travels as text like every
-   * other part of a request, so there is no backend that can be sent one and
-   * not the other. It is also the cheaper answer by an order of magnitude - a
-   * character grid costs a fraction of what a picture of the same screen does -
-   * and an exact one, where a picture of a bitmap machine is something the
-   * model has to read back off pixels.
+   * other part of a request. It is also an order of magnitude cheaper than a
+   * picture of the same screen, and exact - a picture of a bitmap machine has
+   * to be read back off pixels.
    */
   text: boolean;
   /**
    * The machine itself, to drive before it is looked at.
    *
-   * Named alongside the views rather than in a block of its own because it is
-   * the same kind of decision and only the assistant can make it: nothing about
-   * a program's text distinguishes one that prints its answer from one that
-   * waits at a prompt for the input that would produce it.
+   * Only the assistant can decide this: nothing about a program's text
+   * distinguishes one that prints its answer from one that waits at a prompt
+   * for the input that would produce it.
    */
   drive: boolean;
   /**
@@ -399,8 +212,8 @@ export function leaveUnjudged(
   reason: string,
 ): ExpectationResult[] {
   return results.map((result) =>
-    result.expectation.kind === 'visual'
-      ? { expectation: result.expectation, status: 'unchecked', reason }
+    isVisual(result)
+      ? { action: result.action, outcome: 'unevaluated', detail: reason }
       : result,
   );
 }
@@ -419,17 +232,19 @@ export function applyJudgement(
 ): ExpectationResult[] {
   let next = 0;
   return results.map((result) => {
-    if (result.expectation.kind !== 'visual') return result;
+    if (!isVisual(result)) return result;
     const judgement = judgements[next++];
     if (!judgement) {
-      return { ...result, status: 'unchecked', reason: 'it was not judged' };
+      return { ...result, outcome: 'unevaluated', detail: 'it was not judged' };
     }
-    return judgement.held
-      ? { expectation: result.expectation, status: 'passed' }
-      : {
-          expectation: result.expectation,
-          status: 'failed',
-          ...(judgement.detail ? { actual: judgement.detail } : {}),
-        };
+    return {
+      action: result.action,
+      outcome: judgement.held ? 'done' : 'failed',
+      detail:
+        judgement.detail ||
+        (judgement.held
+          ? 'the screen shows it'
+          : 'the screen does not show it'),
+    };
   });
 }

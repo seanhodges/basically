@@ -49,11 +49,32 @@ export interface Surface {
    * has this.
    */
   autoShown?(s: StoreState): boolean;
+  /**
+   * True when this surface is how the user types into the editor rather than
+   * something raised over it, so opening it must not retire the editor's
+   * transient popups (see {@link editorPopupsRetired}). Only the on-screen
+   * input overlays have this.
+   */
+  editorInput?: boolean;
 }
 
 /** Whether a surface value counts as open. */
 export function isOpenValue(v: SurfaceValue): boolean {
   return v !== null && v !== false;
+}
+
+/**
+ * Whether anything raised over the editor is open, so the editor's transient
+ * popups - the completion list, the picked-token menu - are stale and should go.
+ *
+ * Read from {@link SURFACES} rather than from a list of its own, so a dialog
+ * registered later retires them without anyone remembering to ask: the default
+ * is to retire, and the exceptions carry `editorInput`.
+ */
+export function editorPopupsRetired(s: StoreState, isMobile: boolean): boolean {
+  return SURFACES.some(
+    (surface) => !surface.editorInput && isOpenValue(surface.read(s, isMobile)),
+  );
 }
 
 /**
@@ -93,6 +114,7 @@ export const SURFACES: readonly Surface[] = [
     key: 'keyboard',
     read: (s) => s.keyboardEnabled,
     write: (s, v) => s.setKeyboardEnabled(v === true),
+    editorInput: true,
     // A keyboard that popped up because a pane took focus was not asked for, so
     // Back must fall through to whatever the user opened themselves.
     autoShown: (s) =>
@@ -102,6 +124,7 @@ export const SURFACES: readonly Surface[] = [
     key: 'controller',
     read: (s) => s.controllerEnabled,
     write: (s, v) => s.setControllerEnabled(v === true),
+    editorInput: true,
   },
   {
     // The remap picker sits on top of the controller: while it is up the
@@ -113,6 +136,7 @@ export const SURFACES: readonly Surface[] = [
       s.setControllerRemapRole(
         typeof v === 'string' ? (v as ControllerRole) : null,
       ),
+    editorInput: true,
   },
 
   // --- Drawer ---
@@ -145,14 +169,14 @@ export const SURFACES: readonly Surface[] = [
     write: (s, v) => s.setShareLinkOpen(v === true),
   },
   {
-    key: 'vfs',
-    read: (s) => s.vfsInspectorOpen,
-    write: (s, v) => s.setVfsInspectorOpen(v === true),
-  },
-  {
     key: 'outline',
     read: (s) => s.procedureListOpen,
     write: (s, v) => s.setProcedureListOpen(v === true),
+  },
+  {
+    key: 'runProfile',
+    read: (s) => s.runProfileOpen,
+    write: (s, v) => s.setRunProfileOpen(v === true),
   },
   {
     key: 'memoryMap',

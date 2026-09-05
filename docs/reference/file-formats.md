@@ -20,9 +20,18 @@ full.
 
 Plain UTF-8 text, one BASIC line per text line: a line number followed by
 exactly one statement. Keywords are written as words (`PRINT`, `GOTO`,
-`INKEY$`, `**` for power). Lowercase input is folded to uppercase. The legal
-line-number range and statement rules are dialect-specific (see each dialect's
-language reference page).
+`INKEY$`, `**` for power).
+
+What a machine does with lower case is its own business, and the machines
+disagree. Several store a lower-case letter as the capital, so a listing
+written in lower case comes back in capitals; others keep both cases apart, and
+on the BBC machines and the PMD 85 the case is even part of a variable's name.
+Where the target machine will change a character, the status bar says so and
+how many — the program still runs, but the listing on screen is no longer the
+listing the machine holds. Turn on
+[Strict characters](../guide/writing-basic) to be held to what the machine can
+store instead. The legal line-number range and statement rules are
+dialect-specific (see each dialect's language reference page).
 
 To download the BASIC listing on its own, right-click (or long-press) the
 **BASIC** tab above the editor and choose **Download .bas**. A machine-code or
@@ -30,6 +39,28 @@ data block tab offers the same for its own `.asm` (assembly source) and `.bin`
 (raw bytes) files. Loading a plain `.bas` or `.txt` opens it straight into the
 editor as source, so listings — including those saved by earlier versions —
 still open unchanged.
+
+### Declaring the machine
+
+A listing can say which machine it's written for, on a line of its own:
+
+```
+#MACHINE zx81
+10 PRINT "HELLO"
+```
+
+The name works the same way it does anywhere else in the IDE — a machine's id
+or its full name, either case. The line contributes nothing to the program: it
+costs no bytes, isn't part of the BASIC, and no machine ever sees it — the same
+way a `#BIN` line (see [Machine code & data blocks](#machine-code-data-blocks))
+carries a fact without being one. A declaring listing can be checked, built or
+run without separately naming a machine; naming one anyway is honoured and
+takes precedence. A name that isn't registered, or a second declaration in the
+same listing, is reported like any other problem with the program.
+
+Opening a document that declares a machine switches the IDE to it; switching
+the target machine keeps an existing declaration in step, and never adds one
+to a listing that had none.
 
 ## Project bundle (.zip)
 
@@ -62,35 +93,59 @@ Every dialect's charset is **total**: each byte 0x00–0xFF has a text form
 that tokenizes back to the same byte, so imported programs never lose data
 silently. Bytes with no printable glyph round-trip through dialect-styled
 escapes (Sinclair `\{NN}`, Spectrum/BBC/TRS-80/Atom `{0xNN}`, C64 `{$xx}`,
-plus named forms like `{INK 2}`, `{RED}` or `{clr}`), recognised in the
+GE-235 `{0oNN}` in octal, plus named forms like `{INK 2}`, `{RED}` or
+`{clr}`), recognised in the
 literal contexts where raw bytes live in a real program. Characters outside a
 machine's set remain tokenizer errors.
 
 Each dialect's full notation is a searchable table on its escape-codes
 reference page:
 
-- [ZX81 escape codes](./zx81/escapes) (zxtext2p-compatible where practical)
-- [ZX80 escape codes](./zx80/escapes)
-- [ZX Spectrum escape codes](./zxspectrum/escapes) (48K & 128K)
+- [Sinclair BASIC escape codes](./sinclair/escapes) — the ZX81's
+  (zxtext2p-compatible where practical) and the Spectrums' (48K & 128K)
+- [ZX80 escape codes](./zx80/escapes) — the ZX81's spellings, remapped
 - [BBC escape codes](./bbc/escapes) (Micro & Master, teletext names)
-- [Commodore 64 escape codes](./commodore/escapes) (petcat-interoperable)
+- [Commodore PETSCII escape codes](./commodore/escapes) (petcat-interoperable)
 - [TRS-80 escape codes](./trs80/escapes)
 - [Acorn Atom escape codes](./atom/escapes)
+- [Amstrad CPC escape codes](./cpc/escapes) — the firmware's text VDU controls
+- [Altair 8800 escape codes](./altair8800/escapes) — raw `{0xNN}` only; a serial
+  terminal has no display to control
+- [PMD 85 escape codes](./pmd85/escapes) — raw `{0xNN}` only
+- [Integer BASIC escape codes](./integer-basic/escapes) — the Apple I's and the
+  Apple II's, badged per machine
+- [Applesoft BASIC escape codes](./applesoft/escapes) — `{INV<c>}` and
+  `{FLASH<c>}` for the video modes
+- [Atari escape codes](./atari/escapes) — the fourteen ATASCII cursor and screen
+  controls
+- [MSX escape codes](./msx/escapes)
+- [SAM Coupé escape codes](./samcoupe/escapes)
+- [GE-235 escape codes](./dartmouth/escapes) — seven codes, written `{0oNN}` in
+  octal
 
 ## Native binary formats
 
-| Dialect            | Export         | Import         | What it is                                                         |
-| ------------------ | -------------- | -------------- | ------------------------------------------------------------------ |
-| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                         |
-| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                         |
-| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                          |
-| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks     |
-| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                        |
-| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                        |
-| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                        |
-| TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
-| Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
-| Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
+| Dialect            | Export                 | Import                 | What it is                                                                                        |
+| ------------------ | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
+| ZX81               | `.P`                   | `.P`                   | RAM dump 0x4009 → E_LINE-1                                                                        |
+| ZX80               | `.O`                   | `.O`                   | RAM dump 0x4000 → E_LINE-1                                                                        |
+| ZX Spectrum / 128  | `.TAP`                 | `.TAP`                 | header + data tape blocks                                                                         |
+| BBC Micro / Master | `.bbc`, `.ssd`         | `.bbc`, `.ssd`         | tokenized program from PAGE; `.ssd` disc adds code/data blocks                                    |
+| Commodore 64       | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $0801                                                       |
+| Commodore VIC-20   | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $1001                                                       |
+| Commodore PET      | `.prg`, `.d64`         | `.prg`, `.d64`         | load address + tokenized program from $0401                                                       |
+| TRS-80             | `.cas`, `.dsk`         | `.cas`, `.dsk`         | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks                                    |
+| Acorn Atom         | `.atm`, `.dsk`         | `.atm`, `.dsk`         | 22-byte header + `#2900` image; `.dsk` disc adds code blocks                                      |
+| Amstrad CPC        | `.bas`, `.cdt`         | `.bas`, `.cdt`         | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape                                |
+| MITS Altair 8800   | `.bin`, `.txt`         | `.bin`, `.txt`         | `CSAVE` image: three `0xD3` markers, a one-character name, program; `.txt` the paper-tape listing |
+| Tesla PMD 85       | `.ptp`, `.pmd`         | `.ptp`, `.pmd`         | header + body tape blocks; `.ptp` puts a length in front of each                                  |
+| Apple I            | `.bin`                 | `.bin`                 | cassette dump: the zero-page housekeeping block, then the workspace                               |
+| Apple II           | `.bin`                 | `.bin`                 | cassette record: the two-byte program length, then the program text                               |
+| Apple II Plus      | `.bin`                 | `.bin`                 | tokenized program from $0801; the tape puts a header record in front of it                        |
+| Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records                        |
+| Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks                             |
+| MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read                                    |
+| GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a plain-ASCII paper tape                                         |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -100,14 +155,24 @@ the active dialect.
 Each machine's native binary, disc image and cassette encoding are documented in
 full on its own page:
 
-- [ZX81 file formats](./zx81/formats) — `.P`
+- [Sinclair BASIC file formats](./sinclair/formats) — the ZX81's `.P` and the
+  Spectrums' `.TAP` (48K & 128K)
 - [ZX80 file formats](./zx80/formats) — `.O`
-- [ZX Spectrum file formats](./zxspectrum/formats) — `.TAP` (48K & 128K)
 - [BBC Micro / Master file formats](./bbc/formats) — `.bbc`, `.ssd`
 - [Commodore 64 / VIC-20 / PET file formats](./commodore/formats) — `.prg`, `.d64`
 - [TRS-80 file formats](./trs80/formats) — `.cas`, `.dsk`
 - [Acorn Atom file formats](./atom/formats) — `.atm`, `.dsk`
 - [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
+- [Altair 8800 file formats](./altair8800/formats) — `.bin`, paper tape `.txt`
+- [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
+- [Integer BASIC file formats](./integer-basic/formats) — the Apple I's `.bin`
+  cassette dump and the Apple II's `.bin` cassette record
+- [Applesoft file formats](./applesoft/formats) — `.bin` program, Apple II Plus
+- [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
+- [MSX file formats](./msx/formats) — `.bas`, `.cas`
+- [SAM Coupé file formats](./samcoupe/formats) — `.tap`
+- [GE-235 file formats](./dartmouth/formats) — the paper tape `.txt`, and why there
+  is nothing else
 
 ## Machine code & data blocks
 
@@ -115,10 +180,10 @@ Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-zip) and through
-[share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`,
+[share links](../guide/publishing). The ZX Spectrum `.TAP` (48K & 128K), the Commodore `.d64`,
 the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
 **both directions** (see each machine's page —
-[`.TAP`](./zxspectrum/formats#zx-spectrum-tap),
+[`.TAP`](./sinclair/formats#zx-spectrum-tap),
 [`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64),
 [`.ssd`](./bbc/formats#bbc-micro-master-ssd),
 [Atom `.dsk`](./atom/formats#acorn-atom-dsk),
@@ -145,6 +210,11 @@ native formats carry blocks on **import** only:
   address records as a block (the entry-point address stays with the block
   that contains it), and machine code trailing a BASIC program on the tape
   imports as a block at the address it followed the program.
+- **Altair `.bin`** — a `CSAVE` image with bytes after its end-of-program
+  marker imports the program plus those bytes, the bytes as a block at the
+  address they followed the program at.
+- **PMD 85 `.ptp` / `.pmd`** — bytes found past the end of the tokenized
+  program import as a block at the address they followed the program at.
 
 A block can carry an **entry address** recovered with it (an Atom `.atm`'s
 exec address, a TRS-80 SYSTEM tape's entry record). When a document holds no
@@ -155,13 +225,21 @@ When you Run, the IDE checks each block against the machine's memory: a block
 that would overlap the BASIC program is refused (Run reports which block), and a
 block over live hardware such as the screen is allowed but flagged.
 
-Every block-capable machine carries its blocks inside a container in **both
-directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
+The machines with a container roomy enough for them carry their blocks in
+**both directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
 as inline assembly in the `.bbc`), the Commodore in a
 [`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
-[`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
+[`.TAP`](./sinclair/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
 machine code inside the listing as `#BIN` REM records.
+
+::: warning An export can leave your blocks behind
+Every other machine exports the BASIC program only — the Amstrad CPCs, the
+Altair, the PMD 85, the SAM Coupé, the Atari, the MSX and all three Apples.
+The Transfer dialog names the blocks that would be left behind before it writes
+the file. Use the [project bundle](#project-bundle-zip) to keep a program and
+its blocks together.
+:::
 
 ## Cassette audio
 
@@ -182,10 +260,10 @@ is immune to playback / clock speed drift, resampling and sample-rate mismatch.
 Each machine's tape encoding is described in the **Cassette audio** section of
 its format page:
 
-- [ZX81](./zx81/formats#cassette-audio) / [ZX80](./zx80/formats#cassette-audio) —
+- [ZX81](./sinclair/formats#zx81-cassette-audio) / [ZX80](./zx80/formats#cassette-audio) —
   bytes MSB-first, 4/9-pulse bits; the ZX81 prefixes a program-name header, the
   ZX80 has no named files.
-- [ZX Spectrum / 128](./zxspectrum/formats#cassette-audio) — the standard ROM
+- [ZX Spectrum / 128](./sinclair/formats#spectrum-cassette-audio) — the standard ROM
   tape format, derived from the same two blocks the `.TAP` export uses.
 - [BBC Micro / Master](./bbc/formats#cassette-audio) — the cassette filing
   system (CFS) over Kansas City Standard FSK at 1200 baud.
@@ -196,3 +274,25 @@ its format page:
   scheme.
 - [Acorn Atom](./atom/formats#cassette-audio) — the Acorn cassette filing system
   over Kansas City Standard FSK at 300 baud.
+- [Amstrad CPC](./cpc/formats#cassette-audio) — the firmware scheme: pilot tone,
+  sync bit, then CRC'd segments MSB-first at 2000 baud.
+- [Sony HB-10P](./msx/formats#cassette-audio) — Kansas City Standard at 1200
+  baud, with the MSX's own byte framing.
+- [SAM Coupé](./samcoupe/formats#cassette-audio) — the Spectrum's two-pulse
+  scheme, on a timing the ROM builds from a delay loop.
+- [Atari 800 / 400](./atari/formats#cassette-audio) — plain FSK at 600 baud off
+  POKEY's clock, 5327 Hz a mark and 3995 Hz a space.
+- [Altair 8800](./altair8800/formats#cassette-audio) — the MITS 88-ACR board's
+  own FSK, 2400 Hz against 1850 Hz at 300 baud rather than Kansas City Standard.
+- [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
+  whose phase carries the bit, eleven bit periods to a byte.
+- [Apple I](./integer-basic/formats#apple-i-cassette-audio) — the cassette card's square wave,
+  where a bit's duration is its value: a 2 kHz cycle for a zero, 1 kHz for a
+  one, behind ten seconds of leader per memory range.
+- [Apple II](./integer-basic/formats#apple-ii-cassette-audio) — the same square wave from the
+  ROM rather than a card, with a checksum byte closing each record: the program
+  goes out as two records, its length and then its text.
+- [Apple II Plus](./applesoft/formats#cassette-audio) — the same ROM routine
+  again, byte for byte, and two records again; what differs is that Applesoft
+  gives both of them the long leader rather than only the first, and that its
+  header record is three bytes rather than two.

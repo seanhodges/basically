@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { countProgramErrors, ramDisplay, ramSeverity } from './useProgramStats';
+import {
+  convertedDisplay,
+  countProgramErrors,
+  ramDisplay,
+  ramSeverity,
+} from './useProgramStats';
 import { commodore64 } from '../dialects/commodore64';
+import { zx81 } from '../dialects/zx81';
+import { convertedCharacters } from './convertedCharacters';
+import { computeCompatibleDialects } from '../share/compatibility';
+import { hasFatalErrors } from '../dialects/types';
 
 describe('countProgramErrors', () => {
   it('includes editor-lint diagnostics beyond tokenize errors', () => {
@@ -59,6 +68,16 @@ describe('ramDisplay (estimate mode)', () => {
     const d = ramDisplay(12288, 15360, null); // exactly 80%
     expect(d.severity).toBe('warn');
   });
+
+  it('shows the size alone on a machine that declares no byte budget', () => {
+    // Not a missing figure: the GE-235 counts twenty-bit words, so it has no
+    // byte budget for a percentage to be a share of, and "100% of 0K" would
+    // report every program as overflowing a memory the machine does not have.
+    const d = ramDisplay(291, 0, null);
+    expect(d.text).toBe('291 bytes');
+    expect(d.pct).toBe(0);
+    expect(d.severity).toBe('ok');
+  });
 });
 
 describe('ramDisplay (live mode)', () => {
@@ -84,5 +103,33 @@ describe('ramDisplay (live mode)', () => {
     const d = ramDisplay(0, 15360, { used: 0, free: 0 });
     expect(d.pct).toBe(0);
     expect(d.severity).toBe('ok');
+  });
+});
+
+describe('the characters the machine will change', () => {
+  it('names the conversion rather than only counting it', () => {
+    expect(convertedDisplay(1)).toBe('1 character changed to fit the machine');
+    expect(convertedDisplay(4)).toBe('4 characters changed to fit the machine');
+  });
+
+  it('says nothing at all where the machine changes nothing', () => {
+    // Nothing, not a report of none: a clean program's status bar stays as
+    // short as it was.
+    expect(convertedDisplay(0)).toBeNull();
+  });
+
+  it('blocks nothing it counts', () => {
+    // The advisory must never become a gate. A ZX81 folds every lower-case
+    // letter, so this program has plenty to report - and still builds, still
+    // runs, still exports and still shares.
+    const source = '10 PRINT "hello"';
+    expect(convertedCharacters(source, zx81).count).toBe(5);
+    const built = zx81.tokenize(source);
+    expect(hasFatalErrors(built.errors)).toBe(false);
+    expect(built.image.length).toBeGreaterThan(0);
+    // The Run gate and the status-bar error count read the same figure.
+    expect(countProgramErrors(zx81, source)).toBe(0);
+    // …and the share-compatibility filter, which counts tokenizer errors.
+    expect(computeCompatibleDialects(source)).toContain('zx81');
   });
 });

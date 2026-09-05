@@ -8,7 +8,7 @@ import { useDismiss } from '../app/useDismiss';
 import { vocabularyReply } from '../app/programVocabulary';
 import { convertSource, dialectForMachineId } from './convertMessage';
 import { useAiStore } from '../ai/aiStore';
-import { loadSystemPrompt } from '../ai/promptBuilder';
+import { loadSystemPromptFor } from '../ai/promptBuilder';
 import { buildConversionMessage } from '../ai/portReport';
 import { aiCredentials } from '../ai/credentials';
 import { GearsSpinner } from './GearsSpinner';
@@ -54,6 +54,11 @@ type CompareConvertMessage = Partial<
  * a program's vocabulary is what a particular BASIC finds in its text, and the
  * guide is about the language being left, not whichever machine the IDE
  * currently has selected. Sent on mount and again whenever that machine changes.
+ *
+ * `to` names the machine being ported *to*, for the one thing the guide cannot
+ * work out from the vocabulary: what the program measures on the target, which
+ * only the target's own tokenizer can say. Sent alongside `from` and re-sent
+ * whenever either machine changes.
  */
 export const PROGRAM_VOCABULARY_REQUEST =
   'basically:program-vocabulary-request';
@@ -74,17 +79,38 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'status',
   'dialectId',
   'keywords',
+  'spellings',
+  'variables',
+  'divides',
+  'fractionalLiteral',
+  'largeNumbers',
   'escapeCodes',
+  'characters',
+  'writeSites',
+  'readSites',
+  'callSites',
+  'codeBlocks',
+  'targetSize',
+  'lineNumbers',
+  'multiStatementLines',
+  'extraStatements',
+  'screenModes',
+  'positions',
+  'emptyLoopLines',
 ] as const;
 
-type ProgramVocabularyRequest = { from?: unknown };
+type ProgramVocabularyRequest = { from?: unknown; to?: unknown };
 
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
 
-/** The machine id a vocabulary request names, or null when it names none. */
-function readDialectId(data: ProgramVocabularyRequest): string | null {
-  return typeof data.from === 'string' ? data.from : null;
+/** The machine id a vocabulary request names in `field`, or null for none. */
+function readDialectId(
+  data: ProgramVocabularyRequest,
+  field: 'from' | 'to',
+): string | null {
+  const value = data[field];
+  return typeof value === 'string' ? value : null;
 }
 
 /** How long editing settles before the guide is re-told what the program uses. */
@@ -131,9 +157,10 @@ function ChevronLeftIcon() {
 
 interface DocsDrawerProps {
   /**
-   * Optional docs sub-path to open to (e.g. `reference/zx81#print`). Falls back
-   * to the store's `docsTopic`, then to the docs home. This prop is the seam for
-   * a future context-aware help feature; no keyword detection happens here yet.
+   * Optional docs sub-path to open to (e.g. `reference/zx81?q=PRINT`). Falls
+   * back to the store's `docsTopic`, then to the docs home. Only tests pass it;
+   * the app routes through the store so the drawer's topic survives dismissal
+   * and restores from the URL.
    */
   topic?: string;
 }
@@ -183,7 +210,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
       } else if (data.type === COMPARE_CONVERT_MESSAGE) {
         convertProgram(data);
       } else if (data.type === PROGRAM_VOCABULARY_REQUEST) {
-        vocabularyFrom.current = readDialectId(data);
+        vocabularyFrom.current = readDialectId(data, 'from');
+        vocabularyTo.current = readDialectId(data, 'to');
         requested.current = true;
         postVocabulary();
       }
@@ -195,10 +223,12 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeDocs]);
 
-  // What the porting guide last asked to have the program read as, and whether
-  // it has asked at all. The reply is only ever sent in response to a request,
-  // so a drawer sitting on a reference page costs nothing.
+  // What the porting guide last asked to have the program read as, what it last
+  // asked to have the program sized for, and whether it has asked at all. The
+  // reply is only ever sent in response to a request, so a drawer sitting on a
+  // reference page costs nothing.
   const vocabularyFrom = useRef<string | null>(null);
+  const vocabularyTo = useRef<string | null>(null);
   const requested = useRef(false);
 
   /** Answer the guide's request; see {@link vocabularyReply} for the decision. */
@@ -207,7 +237,15 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     iframeRef.current?.contentWindow?.postMessage(
       {
         type: PROGRAM_VOCABULARY_MESSAGE,
-        ...vocabularyReply(state.source, state.dialect, vocabularyFrom.current),
+        ...vocabularyReply(
+          state.source,
+          state.dialect,
+          vocabularyFrom.current,
+          vocabularyTo.current,
+          // The document's own blocks: machine code the guide reports as work to
+          // re-achieve rather than as bytes to carry across.
+          state.blocks,
+        ),
       },
       window.location.origin,
     );
@@ -219,13 +257,14 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // page that does not listen.
   const source = useIdeStore((s) => s.source);
   const dialect = useIdeStore((s) => s.dialect);
+  const blocks = useIdeStore((s) => s.blocks);
   useEffect(() => {
     if (!open || !requested.current) return;
     const t = setTimeout(postVocabulary, VOCABULARY_DEBOUNCE_MS);
     return () => clearTimeout(t);
     // postVocabulary only reads refs and the live store, so it is deliberately
     // not a dependency; the effect re-runs on what it is actually watching.
-  }, [open, source, dialect]);
+  }, [open, source, dialect, blocks]);
 
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result
@@ -260,8 +299,9 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         to: target,
         toLabel: label,
         source: original,
+        blocks: useIdeStore.getState().blocks,
       }),
-      loadSystemPrompt(target),
+      loadSystemPromptFor(target, creds.providerId),
     ]);
     if (!message.ok) {
       // Before the drawer closes, before the switch and before the panel opens,
@@ -287,10 +327,10 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     });
   };
 
-  // Open to the same context-aware topic as the toolbar book button: the porting
-  // comparison offered for the open program where there is one, else the current
-  // dialect's reference page anchored to the selected keyword. Read the
-  // selection imperatively so this component doesn't re-render as the cursor moves.
+  // Open to the same topic as the toolbar book button: the porting comparison
+  // offered for the open program where there is one, else the CPU's page while
+  // a machine-code block tab is open, else the docs home. Read imperatively so
+  // this component doesn't re-render as the active tab changes.
   const openContextual = () => {
     const topic = openingTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
@@ -402,8 +442,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         type="button"
         className={styles.openHandle}
         onClick={openContextual}
-        title="Open documentation"
-        aria-label="Open documentation"
+        title="Open the documentation panel"
+        aria-label="Open the documentation panel"
         // Keep it out of the tab order (and unclickable) while the drawer is open,
         // when it's hidden behind the drawer.
         tabIndex={open ? -1 : 0}
@@ -423,8 +463,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
           onClick={closeDocs}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
-          title="Close documentation"
-          aria-label="Close documentation"
+          title="Close the documentation panel"
+          aria-label="Close the documentation panel"
           // The drawer is hidden off-screen when closed; keep its controls out of
           // the tab order so they aren't focusable behind the app.
           tabIndex={open ? 0 : -1}

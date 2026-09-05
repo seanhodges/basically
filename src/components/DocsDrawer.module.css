@@ -9,9 +9,9 @@
   background: var(--bg-panel);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 24px rgb(0 0 0 / 35%);
-  /* Below the modal dialogs (z-index 100 in Dialog.module.css) so Settings /
-     Welcome still overlay the drawer. */
-  z-index: 90;
+  /* Below the modal dialogs so Settings / Welcome still overlay the drawer -
+     see the overlay scale in src/styles.css. */
+  z-index: var(--z-drawer);
   transform: translateX(100%);
   transition: transform 280ms ease;
 }
@@ -41,15 +41,15 @@
    points at, where the documentation was not opened outright because it would
    have covered the whole screen. Vertically centred on the 32x64px handle.
 
-   z-index sits in the free 91-99 band - above the drawer and its handle (90/89)
-   so it is never covered, below the modal dialog backdrops (100) so a dialog
-   still overlays it. */
+   z-index sits between the drawer and the modal dialog backdrops - above the
+   drawer and its handle so it is never covered, below a dialog so one still
+   overlays it (see the overlay scale in src/styles.css). */
 .hint {
   position: fixed;
   right: 36px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 95;
+  z-index: var(--z-drawer-hint);
   max-width: min(16rem, calc(100vw - 4rem));
   animation: hintIn 180ms ease;
 }
@@ -110,8 +110,8 @@
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  /* Just under the drawer (z-index 90) so the drawer covers it once open. */
-  z-index: 89;
+  /* Just under the drawer so the drawer covers it once open. */
+  z-index: var(--z-drawer-handle);
   width: 32px;
   height: 64px;
   display: flex;

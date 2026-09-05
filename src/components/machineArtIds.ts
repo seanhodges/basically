@@ -24,8 +24,18 @@ export const MACHINE_ART_IDS = [
   'pet',
   'trs80',
   'cpc464',
+  'cpc664',
   'cpc6128',
   'altair8800',
+  'pmd85',
+  'apple1',
+  'apple2',
+  'apple2plus',
+  'atari800',
+  'atari400',
+  'hb10p',
+  'ge235',
+  'samcoupe',
 ] as const;
 
 export type MachineArtId = (typeof MACHINE_ART_IDS)[number];

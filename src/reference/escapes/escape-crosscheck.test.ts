@@ -30,19 +30,13 @@
 import { describe, expect, it } from 'vitest';
 import type { EscapeEntry, EscapeTableData } from '../types';
 
-import { zx81Escapes } from './zx81';
-import { zx80Escapes } from './zx80';
-import { zxspectrumEscapes } from './zxspectrum';
-import { bbcEscapes } from './bbc';
-import { commodoreEscapes } from './commodore';
-import { trs80Escapes } from './trs80';
-import { atomEscapes } from './atom';
-import { cpcEscapes } from './cpc';
-import { altair8800Escapes } from './altair8800';
+import { escapePages } from '../pages';
 import { dialects } from '../../dialects/registry';
+import { referencePageOf } from '../../dialects/referencePage';
 
 import {
   CHARSET_PROBES,
+  codeCountOf,
   type CharsetProbe,
 } from '../../dialects/charsetProbes';
 import {
@@ -89,45 +83,55 @@ function floatParserFor(
 }
 
 /**
- * What the shared charset probes don't carry: the docs table each family is
- * pinned against, and the float-override probe where the page documents one.
- * Keyed by charset-probe id, so a new probe without a table fails loudly below
- * rather than silently going unchecked.
+ * What neither the shared charset probes nor the shared page map carries: the
+ * float-override probe, for the two pages whose docs carry float rows. Keyed by
+ * charset-probe id, which is the page slug the tables are keyed by too.
  */
-const EXTRAS: Record<string, { data: EscapeTableData; float?: FloatProbe }> = {
+const FLOATS: Record<string, FloatProbe> = {
   zx81: {
-    data: zx81Escapes,
-    float: {
-      parse: floatParserFor(zx81ParseFloat),
-      notation: zx81FloatNotation,
-    },
+    parse: floatParserFor(zx81ParseFloat),
+    notation: zx81FloatNotation,
   },
-  zx80: { data: zx80Escapes },
   zxspectrum: {
-    data: zxspectrumEscapes,
-    float: {
-      parse: floatParserFor(spectrumParseFloat),
-      notation: spectrumFloatNotation,
-    },
+    parse: floatParserFor(spectrumParseFloat),
+    notation: spectrumFloatNotation,
   },
-  bbc: { data: bbcEscapes },
-  commodore: { data: commodoreEscapes },
-  trs80: { data: trs80Escapes },
-  atom: { data: atomEscapes },
-  cpc: { data: cpcEscapes },
-  altair8800: { data: altair8800Escapes },
 };
 
 type Adapter = CharsetProbe & { data: EscapeTableData; float?: FloatProbe };
 
+/**
+ * The rows of `page` that belong to one charset family: those scoped to a
+ * machine the family covers, plus the unscoped ones every machine on the page
+ * has.
+ *
+ * A page covers a family of BASIC and a charset is a property of the machine,
+ * so two families can share a page - the Apple I and the Apple II share the
+ * Integer BASIC page, the ZX81 and the Spectrums the Sinclair one - and each
+ * probe must be read against its own rows. Running a probe over the whole page
+ * would ask an Apple I to parse `{INVA}`.
+ */
+export function rowsForFamily(
+  page: EscapeTableData,
+  dialectIds: readonly string[],
+): EscapeTableData {
+  return {
+    ...page,
+    entries: page.entries.filter(
+      (e) => !e.onlyOn || e.onlyOn.some((id) => dialectIds.includes(id)),
+    ),
+  };
+}
+
 const ADAPTERS: [string, Adapter][] = CHARSET_PROBES.map((probe) => {
-  const extra = EXTRAS[probe.id];
-  if (!extra) {
+  const page = escapePages[probe.page ?? probe.id];
+  if (!page) {
     throw new Error(
-      `charset probe "${probe.id}" has no escape table registered in EXTRAS`,
+      `charset probe "${probe.id}" has no escape table in src/reference/pages.ts`,
     );
   }
-  return [probe.id, { ...probe, ...extra }];
+  const data = rowsForFamily(page, probe.dialects);
+  return [probe.id, { ...probe, data, float: FLOATS[probe.id] }];
 });
 
 describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
@@ -187,7 +191,7 @@ describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
         }
       }
     }
-    for (let b = 0; b < 256; b++) {
+    for (let b = 0; b < codeCountOf(adapter); b++) {
       const text = adapter.decode(b);
       const needsEscape = adapter.isEscapeForm(text);
       const claim = claimed.get(b);
@@ -214,7 +218,7 @@ describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
 
 describe('escape cross-check: table-driven extras', () => {
   it('every BBC teletext name has a row', () => {
-    const spellings = new Set(bbcEscapes.entries.map((e) => e.escape));
+    const spellings = new Set(escapePages.bbc!.entries.map((e) => e.escape));
     for (const name of Object.values(TELETEXT_NAMES)) {
       expect(spellings.has(`{${name}}`), name).toBe(true);
     }
@@ -222,24 +226,31 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every petcat alias appears as a C64 row or alias', () => {
     const spellings = new Set(
-      commodoreEscapes.entries.flatMap((e) => [e.escape, ...(e.aliases ?? [])]),
+      escapePages.commodore!.entries.flatMap((e) => [
+        e.escape,
+        ...(e.aliases ?? []),
+      ]),
     );
     for (const name of Object.keys(PETCAT_ALIASES)) {
       expect(spellings.has(`{${name}}`), name).toBe(true);
     }
   });
 
-  it('every C64 letter-key graphic has a {CBM-x}/{SHIFT-x} row', () => {
-    const spellings = new Set(commodoreEscapes.entries.map((e) => e.escape));
+  it('every C64 key graphic has a {CBM-x}/{SHIFT-x} row', () => {
+    const spellings = new Set(
+      escapePages.commodore!.entries.map((e) => e.escape),
+    );
+    // Both faces of the symbol keys count too, not just the letters: the
+    // charset accepts {SHIFT-*} and {CBM-+} exactly as it accepts {SHIFT-a}.
     // A graphic printed on no key (`key` is optional - the CPC and TRS-80
     // printed none) has no {CBM-x} spelling to look for.
     for (const { key } of C64_COMMODORE_GRAPHICS) {
-      if (key && /^[A-Z]$/.test(key)) {
+      if (key) {
         expect(spellings.has(`{CBM-${key.toLowerCase()}}`), key).toBe(true);
       }
     }
     for (const { key } of C64_SHIFT_GRAPHICS) {
-      if (key && /^[A-Z]$/.test(key)) {
+      if (key) {
         expect(spellings.has(`{SHIFT-${key.toLowerCase()}}`), key).toBe(true);
       }
     }
@@ -247,8 +258,14 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every Sinclair backslash escape has a row, with its glyph as alias', () => {
     for (const [table, escapes, graphics] of [
-      [zx81Escapes, ZX81_ESCAPES, ZX81_GRAPHICS],
-      [zx80Escapes, ZX80_ESCAPES, ZX80_GRAPHICS],
+      // The ZX81's share of the Sinclair page: the Spectrums' backslash rows on
+      // it are UDGs, spelled from a different table entirely.
+      [
+        rowsForFamily(escapePages.sinclair!, ['zx81']),
+        ZX81_ESCAPES,
+        ZX81_GRAPHICS,
+      ],
+      [escapePages.zx80!, ZX80_ESCAPES, ZX80_GRAPHICS],
     ] as const) {
       const byEscape = new Map(table.entries.map((e) => [e.escape, e]));
       for (const [key, code] of Object.entries(escapes)) {
@@ -287,15 +304,12 @@ describe('escape cross-check: table-driven extras', () => {
  * row.
  */
 describe('escape machine scoping', () => {
-  const pageOf = (d: { id: string; docsReference?: string }) =>
-    d.docsReference ?? d.id;
-
   it('every onlyOn names a machine the page covers', () => {
-    for (const [id, adapter] of ADAPTERS) {
+    for (const [id, page] of Object.entries(escapePages)) {
       const onPage = new Set(
-        dialects.filter((d) => pageOf(d) === id).map((d) => d.id),
+        dialects.filter((d) => referencePageOf(d) === id).map((d) => d.id),
       );
-      for (const entry of adapter.data.entries) {
+      for (const entry of page.entries) {
         for (const scoped of entry.onlyOn ?? []) {
           expect(
             onPage,
@@ -318,14 +332,46 @@ describe('escape machine scoping', () => {
     }
   });
 
-  // Pins the enumeration this change is built on, so a future scoping has to be
-  // a deliberate act rather than a quiet one.
-  it('scopes only the Spectrum UDG rows that a 128K reads as tokens', () => {
-    const scoped = ADAPTERS.flatMap(([id, adapter]) =>
+  // Two quite different scopings live on these pages, and only one of them is
+  // interesting.
+  //
+  // A page split across charset families scopes nearly every row, because a row
+  // is a property of one generator: that is bookkeeping, and pinning the
+  // hundred-odd spellings it produces would say nothing. What matters is a row
+  // scoped *within* a family - one machine of a family reading a code its
+  // relatives do not - because that is a claim about the hardware, and the
+  // enumeration below is what makes it a deliberate act rather than a quiet
+  // one.
+  it('scopes only the rows a machine genuinely reads differently', () => {
+    const withinFamily = ADAPTERS.flatMap(([id, adapter]) =>
       adapter.data.entries
-        .filter((e) => e.onlyOn)
+        .filter(
+          (e) =>
+            e.onlyOn && adapter.dialects.some((d) => !e.onlyOn!.includes(d)),
+        )
         .map((e) => `${id}:${e.escape}`),
     );
-    expect(scoped.sort()).toEqual(['zxspectrum:\\t', 'zxspectrum:\\u']);
+    expect(withinFamily.sort()).toEqual(['zxspectrum:\\t', 'zxspectrum:\\u']);
+  });
+
+  // The other half of the same rule: on a page whose machines do not share a
+  // charset, every row that names a code must say whose it is. Only the
+  // catch-alls may stand unscoped, and each of those is scoped anyway.
+  it('leaves no row unattributed on a page split across charsets', () => {
+    const familiesOn = new Map<string, number>();
+    for (const [, adapter] of ADAPTERS) {
+      const page = adapter.page ?? adapter.id;
+      familiesOn.set(page, (familiesOn.get(page) ?? 0) + 1);
+    }
+    for (const [page, families] of familiesOn) {
+      if (families < 2) continue;
+      const unscoped = escapePages[page]!.entries.filter((e) => !e.onlyOn);
+      for (const row of unscoped) {
+        expect(
+          row.codes,
+          `${page}: ${row.escape} names a code but no machine`,
+        ).toBe('rest');
+      }
+    }
   });
 });

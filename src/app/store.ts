@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { asmEngineFor } from '../asm/registry';
 import type { AsmEngine } from '../asm/types';
 import { formatWord } from '../asm/format';
+import type { ByteField } from './byteProjection';
 import { getDialect, dialects } from '../dialects/registry';
 import type {
   TapeFile,
@@ -11,7 +12,8 @@ import type {
   MachineReport,
   MachineScreenText,
   MachineVariable,
-  MemoryBlock,
+  MemoryBlocksSupport,
+  Block,
 } from '../dialects/types';
 import {
   serializeBlocks,
@@ -34,15 +36,19 @@ import {
   type ControllerOverrides,
   type GamepadMode,
 } from '../keyboard/controllerConfig';
+import { retainBlocksAcross } from './blockRetention';
 import { materializeSampleBlocks } from './sampleBlocks';
+import { profileStillApplies, type RunProfile } from './runProfile';
+import type { PauseInterval, RunTiming } from './runTiming';
 import {
   noScreenViews,
-  type Expectation,
   type ExpectationResult,
   type ScreenViewRequest,
 } from '../ai/expectations';
+import type { DriveAction } from './driveScript';
 import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
+import { readMachineDirective } from '../dialects/machineDirective';
 import {
   listCustomRoms,
   saveCustomRom as persistCustomRom,
@@ -53,6 +59,7 @@ import {
 import {
   loadAutosave,
   saveAutosave,
+  saveAutosaveScratch,
   clearAutosave,
   getDialectId,
   setDialectId as persistDialectId,
@@ -60,6 +67,7 @@ import {
   getLineNumberIncrement,
   getShowLineNumberGutter,
   getFullCodeCompletion,
+  getStrictCharacters,
   getCrtEffect,
   getRunGateLint,
   getSplitRatio,
@@ -89,7 +97,12 @@ import {
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
   setFullCodeCompletion as persistFullCodeCompletion,
+  setStrictCharacters as persistStrictCharacters,
   setCrtEffect as persistCrtEffect,
+  getMachinePickerQuery,
+  setMachinePickerQuery as persistMachinePickerQuery,
+  getMachinePickerSort,
+  setMachinePickerSort as persistMachinePickerSort,
   setRunGateLint as persistRunGateLint,
   setEmulatorSpeed as persistEmulatorSpeed,
   setKeyboardAutoShow as persistKeyboardAutoShow,
@@ -101,9 +114,109 @@ import {
   setEmulatorMuted as persistEmulatorMuted,
   UNTITLED_FILE_NAME,
 } from '../storage/settings';
+import {
+  DEFAULT_MACHINE_SORT,
+  type MachineSort,
+} from '../components/machinePicker';
+import { emulatorVfs } from '../storage/vfs/vfsStore';
+import { blockNameFromFileName } from './blockEdit';
+import { selectDataBlocks } from './dataBlocks';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
+import {
+  basicBufferKey,
+  blockBufferKey,
+  blockBytesBufferKey,
+  bufferHistories,
+} from '../editor/bufferHistory';
 
 export type EmulatorStatus = 'stopped' | 'running' | 'paused';
+/**
+ * A disposable BASIC buffer held alongside the program: somewhere to write and
+ * run a snippet without touching the document. Part of the document that holds
+ * it - autosaved and written into the project bundle, so it survives a reload
+ * and reopens with the project - but never carried by a share link, which is a
+ * program on its own.
+ */
+export interface ScratchBuffer {
+  id: string;
+  /** Shown on the tab; generated (`Scratch 1`…) and renameable. Not unique -
+   *  nothing resolves a buffer by name. */
+  name: string;
+  text: string;
+  /**
+   * This buffer's breakpointed BASIC line numbers. Per-buffer because the sets
+   * are keyed by line number, and line 20 of a snippet has nothing to do with
+   * line 20 of the program. Closing the tab drops them with it.
+   */
+  breakpoints: ReadonlySet<number>;
+}
+/** Which tab the editor pane is showing: the program, a block, a scratch
+ *  buffer, or a file a running program saved. */
+export type ActiveTab =
+  | { kind: 'basic' }
+  | { kind: 'block'; id: string }
+  | { kind: 'scratch'; id: string }
+  // Keyed by the file's own name, which is what the file store is keyed by;
+  // data files have no id of the document's making because they are not part
+  // of it.
+  | { kind: 'data'; name: string };
+/** The BASIC source tab - the tab every reset falls back to. */
+export const BASIC_TAB: ActiveTab = { kind: 'basic' };
+/** The active block's id, or `null` when a non-block tab is showing. */
+export function activeBlockIdOf(tab: ActiveTab): string | null {
+  return tab.kind === 'block' ? tab.id : null;
+}
+/**
+ * Which BASIC buffer the single mounted editor holds for a tab: a scratch
+ * buffer's id, or `null` for the program. A block tab leaves the program in the
+ * editor (it is hidden, not unmounted), so it answers `null` too - which is what
+ * makes a block → BASIC switch need no document push.
+ */
+export function editorBufferOf(tab: ActiveTab): string | null {
+  return tab.kind === 'scratch' ? tab.id : null;
+}
+/**
+ * One key per tab, which `ActiveTab`'s union has no single field for. The tab
+ * strip's recency map and its fit selector are both keyed by it.
+ */
+export function tabKey(tab: ActiveTab): string {
+  switch (tab.kind) {
+    case 'basic':
+      return 'basic';
+    case 'block':
+      return `block:${tab.id}`;
+    case 'scratch':
+      return `scratch:${tab.id}`;
+    case 'data':
+      return `data:${tab.name}`;
+  }
+}
+
+/**
+ * Stamp a tab as just used, for the strip's fit rule.
+ *
+ * `Date.now()` rather than a counter because the stamps share a scale with a
+ * saved file's own `updatedAt`: a file the running program has just written
+ * ranks against a tab the user last opened without needing a second rule for
+ * the tabs that arrive on their own.
+ */
+function touched(
+  map: Readonly<Record<string, number>>,
+  tab: ActiveTab,
+): Record<string, number> {
+  return { ...map, [tabKey(tab)]: Date.now() };
+}
+
+/** Drop a destroyed tab's stamp. Same object back when there is none to drop. */
+function untouched(
+  map: Readonly<Record<string, number>>,
+  key: string,
+): Readonly<Record<string, number>> {
+  if (!(key in map)) return map;
+  const next = { ...map };
+  delete next[key];
+  return next;
+}
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
 export type SettingsTab = 'editor' | 'emulator' | 'input' | 'ai';
 /** Editor operations the toolbar's Edit menu asks CodeMirrorHost to run. */
@@ -154,13 +267,14 @@ interface IdeState {
   source: string;
   /**
    * Memory blocks attached to the current document (raw bytes at a fixed
-   * address, alongside the BASIC source). Invisible in the UI for now - this
-   * is pure document-model state that survives autosave and Save/Open
-   * (as a `.zip` bundle) like `source` does. Reset whenever a different
-   * program becomes active (New/Open/Sample/Import/dialect switch/player
-   * boot), same as breakpoints.
+   * address, alongside the BASIC source). Document-model state that survives
+   * autosave and Save/Open (as a `.zip` bundle) like `source` does. Reset
+   * whenever a different program becomes active (New/Open/Sample/Import/player
+   * boot), same as breakpoints. A target switch that keeps the program keeps
+   * the blocks the new machine can hold (see `retainBlocksAcross`); one that
+   * starts a new program resets them like any other replacement.
    */
-  blocks: readonly MemoryBlock[];
+  blocks: readonly Block[];
   /**
    * User-assigned overrides (name / code-vs-data kind / comment) for the
    * derived listing blocks of an `inListing` dialect (ZX80/ZX81), keyed by
@@ -168,16 +282,42 @@ interface IdeState {
    * blocks themselves are re-derived from `source` (see `selectBlocks`); this
    * carries only what the `#BIN` record can't. Empty and unused for
    * fixed-address dialects. Document-model state: reset when a different program
-   * becomes active, and persisted alongside `source`.
+   * becomes active, kept alongside the kept text when a switch between two
+   * listing machines keeps the program, and persisted alongside `source`.
    */
   listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   /**
-   * The block whose tab is active in the editor pane, or `null` for the
-   * BASIC source tab. Reset to `null` whenever a different program becomes
+   * The tab active in the editor pane: the BASIC source, a memory block, or a
+   * scratch buffer. Reset to the BASIC tab whenever a different program becomes
    * active (same rule as `blocks`), and fixed up by `setBlocks`/`removeBlock`
    * when the active block disappears.
    */
-  activeBlockId: string | null;
+  activeTab: ActiveTab;
+  /**
+   * When each tab was last shown, by {@link tabKey}. Drives which tabs the
+   * strip has room for: the most recently used win the width left over once the
+   * BASIC tab, which is pinned, has taken its own.
+   *
+   * Transient UI state, like `asmErrorBlocks` - a view of one window width at
+   * one moment, so it is neither autosaved nor carried in a project bundle, and
+   * it clears wherever `activeTab` resets. A saved data file gets no entry until
+   * it is shown: a file arrives on its own, and ranks by its own `updatedAt`
+   * until the user picks it.
+   */
+  tabTouchedAt: Readonly<Record<string, number>>;
+  /**
+   * Disposable BASIC buffers alongside the program (see {@link ScratchBuffer}).
+   * Owned by the document: autosaved, saved into the project bundle, and
+   * restored from both.
+   *
+   * Their lifecycle is the one `blocks` follows - any replacement of the
+   * document replaces them, so New/Open/Sample/Import clear them and opening a
+   * project installs its own, and player boot starts without any. An in-place
+   * assistant apply edits the program rather than replacing the document, so it
+   * leaves them standing. A target switch takes them where it takes the
+   * program: kept when the user keeps their code, cleared when they start new.
+   */
+  scratchBuffers: readonly ScratchBuffer[];
   /**
    * Ids of code blocks whose assembly source currently fails to assemble -
    * transient UI state driving the error dot on the block's tab. Reset with
@@ -188,9 +328,17 @@ interface IdeState {
    * Id of a block the user asked to delete (via the tab context menu) that
    * awaits confirmation. Drives the DeleteBlockDialog; null when no deletion
    * is pending. Reset whenever a different program becomes active (same rule
-   * as `activeBlockId`).
+   * as `activeTab`).
    */
   pendingDeleteBlockId: string | null;
+  /**
+   * Name of a saved data file the user asked to delete that awaits
+   * confirmation. Drives the DeleteDataFileDialog; null when no deletion is
+   * pending. Same reset rule as `pendingDeleteBlockId`: a dialog left standing
+   * across a document change would offer to delete a file that went with the
+   * previous program.
+   */
+  pendingDeleteDataFile: string | null;
   /**
    * Id of the block whose metadata is open in the BlockSettingsDialog (via
    * the tab context menu's "Settings"), or null. Same reset rule as
@@ -228,7 +376,19 @@ interface IdeState {
    * and every non-disc document.
    */
   bootDisc: Uint8Array | null;
-  /** Bump seq to push text INTO the editor (file load, AI apply). */
+  /**
+   * Bump seq to replace the *contents* of the buffer the editor is showing:
+   * a file load, a sample, an AI apply, a listing-backed block written back
+   * into the program. Those are edits to a buffer, so they arrive as ordinary
+   * editor transactions and stay undoable.
+   *
+   * Not the channel for changing which buffer is shown: showing a different
+   * buffer is not a change to any buffer's contents, and pushing one buffer's
+   * text into the editor to make the switch put both buffers into one history -
+   * an undo straight after a switch then pulled the outgoing buffer's text into
+   * the incoming one and wrote it back here. The editor swaps its whole state
+   * for the incoming buffer's instead (see `src/editor/bufferHistory.ts`).
+   */
   docOverride: { text: string; seq: number };
   /**
    * Bumped whenever a *different* program becomes active (New, Open, Sample,
@@ -245,6 +405,39 @@ interface IdeState {
    * to the tokenized-size estimate).
    */
   liveMemory: MachineMemoryStats | null;
+  /**
+   * What the most recent run measured, or null when nothing has been measured.
+   *
+   * Held against the buffer that produced it, the way breakpoints are, because
+   * the costs are keyed by BASIC line number: line 20 of a snippet has nothing
+   * to do with line 20 of the program, and one buffer's costs must never be
+   * drawn against another's lines (see {@link selectVisibleProfile}).
+   *
+   * Session-only and single-run: starting a run replaces it, and editing the
+   * program so its lines no longer correspond discards it, so a figure always
+   * describes one execution of one program.
+   */
+  runProfile: RunProfile | null;
+  /**
+   * How long the current run has taken and how that timing ended, or null when
+   * nothing has been timed.
+   *
+   * Held against the buffer that produced it for the same reason the profile is
+   * (see {@link selectVisibleTiming}), and on the same single-run terms: a new
+   * run replaces it, so a duration always describes one execution.
+   *
+   * Unlike the profile this is kept on every machine, including the ones that
+   * report no per-line costs: a run's elapsed time is the machine's frame rate
+   * and nothing else, so a machine that cannot say which line it is executing
+   * can still be timed.
+   */
+  runTiming: RunTiming | null;
+  /**
+   * The stretch of emulated machine time the debugged run took to reach its
+   * latest pause, or null when it has not paused. Replaced at every pause and
+   * discarded when a run starts.
+   */
+  pauseInterval: PauseInterval | null;
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
   runRequest: number;
   /**
@@ -270,11 +463,12 @@ interface IdeState {
    */
   aiRunBase: string;
   /**
-   * What the assistant said should be true once the program it just handed over
-   * has run (see `../ai/expectations`). Set by the apply that armed the check;
-   * empty when the reply stated none, which is the ordinary case.
+   * The schedule the assistant said its program should satisfy once the
+   * program it just handed over has run (see `../ai/expectations`) - actions
+   * and expectations in the order it wrote them. Set by the apply that armed
+   * the check; empty when the reply stated none, which is the ordinary case.
    */
-  aiRunExpectations: Expectation[];
+  aiRunExpectations: DriveAction[];
   /**
    * The views of the screen the assistant asked to be shown when the program it
    * just handed over runs (see `../ai/expectations`). Set by the apply that
@@ -293,9 +487,9 @@ interface IdeState {
     seq: number;
     outcome: AiRunOutcome;
     /**
-     * How the assistant's stated expectations held up, one entry per stated
-     * expectation. Empty when none were stated, or when the run errored - an
-     * error is the failure, and it travels on its own.
+     * How the assistant's schedule held up, one entry per step it reached.
+     * Empty when none were stated, or when the run errored - an error is the
+     * failure, and it travels on its own.
      *
      * Deliberately a sibling of `outcome` rather than a fifth kind of outcome:
      * a wrong answer is a judgement layered over a run that ended fine, not a
@@ -355,11 +549,20 @@ interface IdeState {
   } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
+  /**
+   * Bumped to ask the emulator pane to hold the running machine still. Paused
+   * runs are carried on with {@link continueRequest}, whichever way they were
+   * paused - there is no separate request for continuing a pause the user took.
+   */
+  pauseRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
   /**
-   * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
-   * they survive edits and renumbering. Cleared when a different program loads.
+   * The *program's* breakpointed BASIC line numbers. Keyed by line number (not
+   * editor row) so they survive edits and renumbering. Cleared when a different
+   * program loads. A scratch buffer keeps its own set on the buffer; read
+   * whichever belongs to the buffer on screen through
+   * {@link selectActiveBreakpoints}.
    */
   breakpoints: ReadonlySet<number>;
   /**
@@ -368,9 +571,20 @@ interface IdeState {
    * the emulator pane on pause/resume.
    */
   debugLine: number | null;
+  /**
+   * Which buffer `debugLine` belongs to - a scratch buffer's id, or `null` for
+   * the program. The pause belongs to the buffer that was running, so the
+   * highlight and the "paused at line N" status are shown only while that
+   * buffer is the one on screen (see {@link selectVisibleDebugLine}); otherwise
+   * pausing a snippet would mark an unrelated line of the user's program.
+   */
+  debugBufferId: string | null;
   /** Bumped to ask the emulator pane to run to the next BASIC line. */
   stepRequest: number;
-  /** Bumped to ask the emulator pane to continue to the next breakpoint. */
+  /**
+   * Bumped to ask the emulator pane to carry a paused run on: to the next
+   * breakpoint where a debug session is armed, freely otherwise.
+   */
   continueRequest: number;
   /** Emulation speed multiplier (0.25, 0.5, 0.75, 1, 2, 4 or 8). */
   emulatorSpeed: number;
@@ -425,9 +639,9 @@ interface IdeState {
   keyboardSound: boolean;
   /** Haptic buzz on virtual key presses (where supported). */
   keyboardHaptics: boolean;
-  /** Virtual-keyboard keycap legends: every legend ('authentic') or only the
+  /** Virtual-keyboard keycap legends: every legend ('layered') or only the
    *  active mode's character, centered and larger ('compact'). */
-  keyboardKeyDisplay: 'authentic' | 'compact';
+  keyboardKeyDisplay: 'layered' | 'compact';
   /** Master enable for run-time emulator sound (default on). */
   emulatorAudio: boolean;
   /** Whether the Run gate counts editor lint errors too (default on). */
@@ -441,20 +655,17 @@ interface IdeState {
   /** Whether the emulator screen currently has focus (drives auto-show). */
   emulatorFocused: boolean;
   /**
-   * Mirror of the editor's current main-selection text ('' when the selection
-   * is empty). CodeMirror is the source of truth; pushed from CodeMirrorHost's
-   * update listener. Read imperatively (not via a selector) so it never causes
-   * re-renders on cursor movement - e.g. the docs button uses it to open
-   * context-aware help for the selected keyword.
-   */
-  editorSelection: string;
-  /**
    * Mirror of the CodeMirror find/replace panel's open state (CodeMirror is the
    * source of truth). Lets other panes dismiss the panel on interaction.
    */
   findReplaceOpen: boolean;
   /** Active tab in the mobile (portrait) layout. */
   mobileTab: MobileTab;
+  /**
+   * Which of the byte editor's two views is showing where there is only room
+   * for one. Ignored on a layout wide enough to show both.
+   */
+  byteViewTab: ByteField;
   /** Editor/monitor split position on desktop (fraction of workspace width). */
   splitRatio: number;
   aiPanelOpen: boolean;
@@ -464,8 +675,6 @@ interface IdeState {
    * the Toolbar's `openShare` handler already means the Export/Transfer dialog.
    */
   shareLinkOpen: boolean;
-  /** The emulator virtual-filesystem inspector dialog (Emulator files). */
-  vfsInspectorOpen: boolean;
   importOpen: boolean;
   settingsOpen: boolean;
   /** Active tab within the settings form (dialog on desktop, tab pane on mobile). */
@@ -482,14 +691,17 @@ interface IdeState {
   romChangeRequest: number;
   /** Program outline dialog (Edit ▸ Outline). */
   procedureListOpen: boolean;
+  /** Profiler report dialog (Edit ▸ Profiler report) - where a run's time and
+   * memory went. */
+  runProfileOpen: boolean;
   /** Memory-map viewer dialog. */
   memoryMapOpen: boolean;
   /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
   docsDrawerOpen: boolean;
   /**
-   * Optional docs sub-path the drawer should open to (e.g. a future
-   * context-aware "help for keyword under cursor" target). `null` opens the
-   * docs home. Detection of the target is not implemented yet.
+   * Optional docs sub-path the drawer should open to - the keyword picked in
+   * the editor, the CPU page a machine-code block tab implies, or a porting
+   * comparison. `null` opens the docs home.
    */
   docsTopic: string | null;
   /**
@@ -521,6 +733,14 @@ interface IdeState {
    */
   machinePickerOpen: boolean;
   /**
+   * How the machine list was last narrowed and arranged. Held here, rather than
+   * per dialog, because the toolbar's picker and the New-project dialog's show
+   * one list: narrowing it in one is narrowing it in the other. Persisted, so a
+   * reload reopens it as the user left it.
+   */
+  machinePickerQuery: string;
+  machinePickerSort: MachineSort;
+  /**
    * Transient notice shown in the status bar (e.g. a failed `?open=` shared
    * program load). Null when there is nothing to report. Not persisted.
    */
@@ -543,6 +763,13 @@ interface IdeState {
    * inserted (the original completion behaviour).
    */
   fullCodeCompletion: boolean;
+  /**
+   * Strict characters: report every character the target machine would store as
+   * a different one as an error, and type upper case on a machine that has no
+   * lower case, rather than converting silently. Off by default, where nothing
+   * in the editor, the keyboard or the build behaves differently.
+   */
+  strictCharacters: boolean;
   /**
    * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to run an
    * Edit-menu command. Shaped like docOverride: name + monotonic seq.
@@ -568,7 +795,7 @@ interface IdeState {
      * Already validated/unique at the share seam (`fetchSharedProgram` →
      * `parseBlocks`), so installed as-is; omitted for a pure-BASIC share.
      */
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
   }): void;
   /**
    * Open a shared program in the IDE (the player's "See the Code" handover).
@@ -581,7 +808,7 @@ interface IdeState {
   openSharedInIde(args: {
     dialectId: string;
     source: string;
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
   }): void;
   /**
    * Create a brand-new project from the New-project dialog: switch to the
@@ -603,7 +830,7 @@ interface IdeState {
     dialectId: string;
     source: string;
     fileName: string;
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
   }): void;
   /**
    * Open a saved `.zip` project bundle. Unlike {@link replaceDocument} (which
@@ -622,11 +849,13 @@ interface IdeState {
     dialectId: string;
     source: string;
     fileName: string;
-    blocks?: readonly MemoryBlock[];
+    blocks?: readonly Block[];
     listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
     autoStart?: number | null;
     tapeFiles?: readonly TapeFile[];
     bootDisc?: Uint8Array | null;
+    /** The bundle's scratch buffers; omitted or `[]` opens the project with none. */
+    scratch?: readonly ScratchBuffer[];
   }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
@@ -649,7 +878,7 @@ interface IdeState {
     text: string,
     fileName?: string,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
@@ -669,14 +898,15 @@ interface IdeState {
    * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
    * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
    * re-validating. Sound today because the only caller (import) runs its
-   * blocks through the Stage-4 sanitizer, which guarantees valid unique names;
-   * any future load path must pre-validate the same way.
+   * blocks through `sanitizeBlockNames` in `src/dialects/importBlocks.ts`,
+   * which guarantees valid unique names; any future load path must pre-validate
+   * the same way.
    */
   loadUnsavedDocument(
     text: string,
     opts?: {
       dirty?: boolean;
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
@@ -685,9 +915,9 @@ interface IdeState {
   ): void;
   markSaved(fileName: string): void;
   /** Replace every memory block on the current document (sets `dirty`). */
-  setBlocks(blocks: readonly MemoryBlock[]): void;
+  setBlocks(blocks: readonly Block[]): void;
   /** Insert, or update by `id`, one memory block (sets `dirty`). */
-  upsertBlock(block: MemoryBlock): void;
+  upsertBlock(block: Block): void;
   /** Remove one memory block by `id` (sets `dirty`). */
   removeBlock(id: string): void;
   /**
@@ -711,17 +941,55 @@ interface IdeState {
    * set to `undefined` are removed. No-op for fixed-address dialects.
    */
   setListingBlockMeta(ordinal: number, patch: ListingBlockMeta): void;
-  /** Switch the editor pane to a block's tab (`null` = the BASIC tab). */
-  setActiveBlock(id: string | null): void;
+  /**
+   * Switch the editor pane to a tab. When the incoming tab holds a different
+   * BASIC buffer than the outgoing one, its text is pushed through the editor's
+   * `docOverride` channel - the same channel file-load and AI-apply drive.
+   */
+  setActiveTab(tab: ActiveTab): void;
+  /**
+   * Create a scratch buffer (named `Scratch <n>` for the first free `n`) and
+   * switch to its tab. Never touches the document.
+   */
+  addScratchBuffer(): void;
+  /** Rename a scratch buffer. A blank name is ignored; unknown ids are no-ops. */
+  renameScratchBuffer(id: string, name: string): void;
+  /**
+   * Mirror the editor's text into a scratch buffer. Deliberately not
+   * {@link setSource}, which carries document semantics (dirty, the boot-disc
+   * clear, the untitled-and-empty rule) a scratch must not trigger.
+   */
+  setScratchText(id: string, text: string): void;
+  /**
+   * Discard a scratch buffer and its breakpoints, with no confirmation. Closing
+   * the active one falls back to the BASIC tab, as closing the active block does.
+   */
+  closeScratchBuffer(id: string): void;
   /** Flag or clear a block's does-not-assemble state (tab error dot). */
   setBlockAsmError(id: string, hasError: boolean): void;
   /**
-   * Create a machine-code block with defaults - first free `block<n>` name,
-   * the dialect's suggested address, a one-instruction return stub as both
-   * `asmSource` and assembled `bytes` - and switch to its tab (sets `dirty`).
-   * No-op when the dialect declares no `memoryBlocks` capability.
+   * Create a block with defaults - first free `block<n>` name, the dialect's
+   * suggested address - and switch to its tab (sets `dirty`). A `'code'` block
+   * starts as a one-instruction return stub, held as both `asmSource` and
+   * assembled `bytes`; a `'memory'` block starts as a single zero byte with no
+   * assembly source, so the byte editor has a row to open on. No-op when the
+   * dialect declares no `memoryBlocks` capability.
    */
-  addBlock(): void;
+  addBlock(kind?: Block['kind']): void;
+  /**
+   * Copy a file a running program saved into a `'memory'` block: the bytes the
+   * file's tab shows (the machine's container already stripped), at the
+   * dialect's suggested address, under a block name derived from the file's.
+   * Selects the new block's tab and opens its settings on it in one update,
+   * because the address is a suggestion the user has yet to make a decision
+   * about (sets `dirty`).
+   *
+   * The file itself is untouched - a running program can still load it, and the
+   * copy is a block of the document rather than a second claim on the file.
+   * No-op when the file is gone, or when the dialect has no fixed-address
+   * blocks (those dialects wire no file store, so they never show a data tab).
+   */
+  addBlockFromDataFile(name: string): void;
   /**
    * Ask to delete a block (opens the DeleteBlockDialog). Unknown ids are
    * ignored, so the BASIC tab - which has no block id - can never be deleted.
@@ -731,6 +999,19 @@ interface IdeState {
   confirmRemoveBlock(): void;
   /** Dismiss the pending deletion, keeping the block. */
   cancelRemoveBlock(): void;
+  /**
+   * Ask to delete a saved data file (opens the DeleteDataFileDialog). Names
+   * the file store does not hold are ignored, as unknown block ids are.
+   */
+  requestDeleteDataFile(name: string): void;
+  /**
+   * Confirm the pending deletion. The file is gone for good - it is kept for
+   * the machine that wrote it, and running again does not recreate it - and
+   * the editor falls back to the program if that file was showing.
+   */
+  confirmDeleteDataFile(): void;
+  /** Dismiss the pending deletion, keeping the file. */
+  cancelDeleteDataFile(): void;
   /** Open the block-metadata dialog for a block; unknown ids are ignored. */
   openBlockSettings(id: string): void;
   /** Close the block-metadata dialog. */
@@ -747,7 +1028,7 @@ interface IdeState {
   requestAiRun(opts: {
     candidate: string;
     baseSource: string;
-    expectations?: Expectation[];
+    expectations?: DriveAction[];
     views?: ScreenViewRequest;
   }): void;
   /**
@@ -779,16 +1060,22 @@ interface IdeState {
    */
   showEmulator(): void;
   requestStop(): void;
+  /** Ask the emulator pane to hold the running machine still. */
+  requestPause(): void;
   requestReset(): void;
-  /** Toggle a breakpoint on a BASIC line number. */
+  /** Toggle a breakpoint on a BASIC line number, in the buffer on screen. */
   toggleBreakpoint(lineNo: number): void;
-  /** Remove every breakpoint. */
+  /** Remove every breakpoint from the buffer on screen. */
   clearBreakpoints(): void;
-  /** Record the BASIC line the debugger is paused on (pane → store). */
-  setDebugLine(line: number | null): void;
+  /**
+   * Record the BASIC line the debugger is paused on (pane → store), and which
+   * buffer that pause belongs to (a scratch buffer's id, or `null` for the
+   * program).
+   */
+  setDebugLine(line: number | null, bufferId?: string | null): void;
   /** Ask the debugger to run to the next BASIC line. */
   requestStep(): void;
-  /** Ask the debugger to continue to the next breakpoint. */
+  /** Ask a paused run to carry on, however it was paused. */
   requestContinue(): void;
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
@@ -821,23 +1108,25 @@ interface IdeState {
   setControllerRemapRole(role: ControllerRole | null): void;
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
-  setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void;
+  setKeyboardKeyDisplay(v: 'layered' | 'compact'): void;
   setEmulatorAudio(on: boolean): void;
   setRunGateLint(on: boolean): void;
   setEmulatorVolume(n: number): void;
   setEmulatorMuted(on: boolean): void;
   setEditorFocused(on: boolean): void;
   setEmulatorFocused(on: boolean): void;
-  setEditorSelection(text: string): void;
   setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
+  setByteViewTab(field: ByteField): void;
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
+  setRunProfile(profile: RunProfile | null): void;
+  setRunTiming(timing: RunTiming | null): void;
+  setPauseInterval(interval: PauseInterval | null): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
-  setVfsInspectorOpen(open: boolean): void;
   setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
@@ -856,6 +1145,7 @@ interface IdeState {
   /** Drop a machine's custom ROM so it runs its bundled image again. */
   clearCustomRom(dialectId: string): void;
   setProcedureListOpen(open: boolean): void;
+  setRunProfileOpen(open: boolean): void;
   setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
   /**
@@ -866,6 +1156,8 @@ interface IdeState {
   dismissWelcome(): void;
   setNewProjectOpen(open: boolean): void;
   setMachinePickerOpen(open: boolean): void;
+  setMachinePickerQuery(query: string): void;
+  setMachinePickerSort(sort: MachineSort): void;
   setStatusNotice(text: string | null): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
   openDocs(topic?: string): void;
@@ -876,6 +1168,7 @@ interface IdeState {
   setLineNumberIncrement(n: number): void;
   setShowLineNumberGutter(on: boolean): void;
   setFullCodeCompletion(on: boolean): void;
+  setStrictCharacters(on: boolean): void;
   requestEditorCommand(name: EditorCommandName): void;
 }
 
@@ -935,16 +1228,15 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
 }
 
 /**
- * Enforce the per-document {@link MemoryBlock} invariants (see the type's doc
+ * Enforce the per-document {@link Block} invariants (see the type's doc
  * comment) on a full block set: every `name` must match the required
  * pattern, and no two blocks may share one. Throws a descriptive `Error`
  * otherwise. Called from `setBlocks`/`upsertBlock` - the only paths that can
- * introduce a block today (there is no block editor yet; this is exercised
- * from the dev console per the plan) - so a mistake is caught immediately at
- * the point of entry, rather than silently persisting and then being dropped
- * wholesale by autosave's defensive parse on the next reload.
+ * introduce a block - so a mistake is caught immediately at the point of entry,
+ * rather than silently persisting and then being dropped wholesale by
+ * autosave's defensive parse on the next reload.
  */
-function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
+function assertValidBlocks(blocks: readonly Block[]): void {
   for (const b of blocks) {
     if (!isValidBlockName(b.name)) {
       throw new Error(
@@ -961,16 +1253,44 @@ function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
   }
 }
 
+/** The BASIC text a tab shows: a scratch buffer's own, else the program. */
+function bufferTextOf(s: IdeState, tab: ActiveTab): string {
+  if (tab.kind !== 'scratch') return s.source;
+  return s.scratchBuffers.find((b) => b.id === tab.id)?.text ?? '';
+}
+
+/**
+ * The state delta that rewrites the breakpoint set of the buffer on screen.
+ * A scratch buffer's set lives on the buffer, the program's on the store, and
+ * the toggles must never reach across: the sets are keyed by BASIC line number,
+ * so line 20 of a snippet and line 20 of the program are unrelated.
+ */
+function withBreakpoints(
+  s: IdeState,
+  edit: (current: ReadonlySet<number>) => ReadonlySet<number>,
+): Partial<IdeState> {
+  const bufferId = editorBufferOf(s.activeTab);
+  if (bufferId === null) return { breakpoints: edit(s.breakpoints) };
+  return {
+    scratchBuffers: s.scratchBuffers.map((b) =>
+      b.id === bufferId ? { ...b, breakpoints: edit(b.breakpoints) } : b,
+    ),
+  };
+}
+
 /**
  * The state delta that removes one block: the shared body of `removeBlock`
  * and `confirmRemoveBlock`. The active tab falls back to BASIC when the
  * removed block was showing, and its error dot is pruned.
  */
 function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
+  bufferHistories.drop(blockBufferKey(id));
+  bufferHistories.drop(blockBytesBufferKey(id));
   return {
     blocks: s.blocks.filter((b) => b.id !== id),
     dirty: true,
-    ...(s.activeBlockId === id ? { activeBlockId: null } : {}),
+    ...(activeBlockIdOf(s.activeTab) === id ? { activeTab: BASIC_TAB } : {}),
+    tabTouchedAt: untouched(s.tabTouchedAt, tabKey({ kind: 'block', id })),
     ...(s.asmErrorBlocks.has(id)
       ? {
           asmErrorBlocks: new Set(
@@ -992,23 +1312,35 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
   if (ordinal === null) return {};
   const source = removeListingBlock(s.source, ordinal);
   if (source === s.source) return {};
+  // The program's text is being rewritten and the block is going: neither
+  // buffer's parked history describes what it will hold.
+  bufferHistories.drop(basicBufferKey(null));
+  bufferHistories.drop(blockBufferKey(id));
+  bufferHistories.drop(blockBytesBufferKey(id));
   const meta: Record<number, ListingBlockMeta> = {};
   for (const [k, v] of Object.entries(s.listingBlockMeta)) {
     const key = Number(k);
     if (key === ordinal) continue;
     meta[key > ordinal ? key - 1 : key] = v;
   }
-  let activeBlockId = s.activeBlockId;
+  let activeTab = s.activeTab;
+  const activeBlockId = activeBlockIdOf(activeTab);
   const activeOrd = activeBlockId ? listingOrdinal(activeBlockId) : null;
   if (activeOrd !== null) {
-    if (activeOrd === ordinal) activeBlockId = null;
-    else if (activeOrd > ordinal) activeBlockId = `listing-${activeOrd - 1}`;
+    if (activeOrd === ordinal) activeTab = BASIC_TAB;
+    else if (activeOrd > ordinal)
+      activeTab = { kind: 'block', id: `listing-${activeOrd - 1}` };
   }
   return {
     source,
     docOverride: { text: source, seq: s.docOverride.seq + 1 },
     listingBlockMeta: meta,
-    activeBlockId,
+    activeTab,
+    // Listing block ids are ordinals, so a removal renames every block past the
+    // gap and the stamps left behind belong to the ids they used to be. Stamping
+    // the tab that ends up showing is what stops it from landing in the strip's
+    // overflow under a stamp it inherited.
+    tabTouchedAt: touched(s.tabTouchedAt, activeTab),
     dirty: true,
     ...(s.asmErrorBlocks.has(id)
       ? {
@@ -1027,8 +1359,20 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))} ${autosaved.bootDisc?.length ?? ''}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))} ${autosaved.bootDisc?.length ?? ''}\u0000${scratchSignature(autosaved.scratch)}`
   : '';
+
+/**
+ * The scratch buffers' contribution to the autosave signature. Buffers never
+ * mark the document dirty, so a scratch-only edit changes nothing else the
+ * signature covers - without this the 2s poll would skip the write and the
+ * snippet would never reach storage.
+ */
+function scratchSignature(
+  buffers: readonly { name: string; text: string }[],
+): string {
+  return JSON.stringify(buffers.map((b) => [b.name, b.text]));
+}
 
 /**
  * Mirror the current document to autosave, or empty it. Autosave holds only
@@ -1059,6 +1403,7 @@ export function persistAutosave(): void {
     autoStart,
     tapeFiles,
     bootDisc,
+    scratchBuffers,
     dirty,
   } = useIdeStore.getState();
   // A named document the user hasn't touched since creating it: keep it, name
@@ -1073,9 +1418,13 @@ export function persistAutosave(): void {
     tapeFiles.length === 0 &&
     bootDisc === null &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
-  const sig = pristine
+  const docSig = pristine
     ? ''
     : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))} ${JSON.stringify(listingBlockMeta)}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))} ${bootDisc?.length ?? ''}`;
+  // Scratch buffers join the signature: they never mark the document dirty, so
+  // a scratch-only edit changes nothing else the signature covers and the poll
+  // would otherwise skip the write.
+  const sig = `${docSig}\u0000${scratchSignature(scratchBuffers)}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
@@ -1089,6 +1438,13 @@ export function persistAutosave(): void {
       tapeFiles,
       bootDisc,
     );
+  // The buffer key is written after that branch rather than inside it, because
+  // buffers are retained on their own terms: a blank untitled document can
+  // clear its document autosave while the snippets beside it stay. They are
+  // deliberately not folded into `pristine` either - "has buffers" there would
+  // keep a named file the user emptied on purpose, and emptying the editor is
+  // how you make the IDE forget a program.
+  saveAutosaveScratch(scratchBuffers);
 }
 
 /** Docs topic for the porting comparison between two machines. */
@@ -1109,6 +1465,26 @@ function compareTopic(fromId: string, toId: string): string {
  * Spread into the three sites that bump `aiResetSeq`, which already enumerate
  * exactly "a different program became active".
  */
+/**
+ * The state delta that drops a held profile once the buffer it was measured on
+ * no longer has the lines it was measured against.
+ *
+ * Per-line costs are keyed by BASIC line number, so they stay meaningful
+ * through an edit that leaves the same lines in place - retyping a statement,
+ * changing a constant - and stop meaning anything the moment a line is added,
+ * removed or renumbered. Shown against the edited program they would point at
+ * lines that no longer correspond, which is worse than showing nothing.
+ */
+function withoutStaleProfile(
+  s: IdeState,
+  bufferId: string | null,
+  text: string,
+): Partial<IdeState> {
+  const profile = s.runProfile;
+  if (!profile || profile.bufferId !== bufferId) return {};
+  return profileStillApplies(profile, text) ? {} : { runProfile: null };
+}
+
 function clearProgramDocs(s: IdeState): Partial<IdeState> {
   const showingIt =
     s.docsProgramTopic !== null &&
@@ -1121,16 +1497,57 @@ function clearProgramDocs(s: IdeState): Partial<IdeState> {
 }
 
 /**
+ * Rewrite a document's `#MACHINE` declaration to name `dialectId`, so a
+ * program kept across a target switch does not carry a lie about which
+ * machine it is for. A document with no declaration gets none added - a
+ * switch never turns an undeclared document into a declared one.
+ */
+function withDeclaredMachine(source: string, dialectId: string): string {
+  const { line } = readMachineDirective(source);
+  if (line === undefined) return source;
+  const lines = source.split('\n');
+  lines[line - 1] = `#MACHINE ${dialectId}`;
+  return lines.join('\n');
+}
+
+/**
  * State patch that performs an actual target switch: persist the choice, swap
  * the dialect, push `text` into the (rebuilt) editor, and stop the emulator.
  * Shared by the immediate path and the confirmation dialog.
+ *
+ * `retain` is the user keeping their program rather than starting a new one on
+ * the new machine: the workbench that program came with - its blocks, its
+ * scratch buffers and its undo history - moves with it. Everything else this
+ * does is the same either way, including discarding the files a run saved.
+ * Only the two keep paths pass it; every document load leaves it unset.
  */
 function applyDialectSwitch(
   s: IdeState,
   next: Dialect,
   text: string,
+  { retain = false }: { retain?: boolean } = {},
 ): Partial<IdeState> {
   persistDialectId(next.id);
+  const kept = retain
+    ? retainBlocksAcross(s.dialect, next, s.blocks, s.listingBlockMeta)
+    : { blocks: [], listingBlockMeta: {} };
+  if (retain) {
+    // A block the new machine cannot hold takes its parked editor state with
+    // it, so no snapshot outlives the block it belongs to.
+    for (const b of s.blocks) {
+      if (kept.blocks.includes(b)) continue;
+      bufferHistories.drop(blockBufferKey(b.id));
+      bufferHistories.drop(blockBytesBufferKey(b.id));
+    }
+  } else {
+    // A different program on a different machine: nothing to undo back into.
+    bufferHistories.clear();
+  }
+  // The files a program saved belong to that program and that machine, and
+  // nothing about the emulator takes them away, so the document taking them
+  // with it has to be said here. The new machine id retags the store, so what
+  // it saves is not filed under the machine being left.
+  emulatorVfs.clear(next.id);
   return {
     dialect: next,
     pendingDialectId: null,
@@ -1146,19 +1563,31 @@ function applyDialectSwitch(
     // stopRequest so any in-flight run loop is explicitly halted.
     emulatorStatus: 'stopped',
     liveMemory: null,
+    runProfile: null,
+    runTiming: null,
+    pauseInterval: null,
     stopRequest: s.stopRequest + 1,
     // Breakpoints are keyed by line number, which belongs to the old program;
     // start the new target with a clean slate and no paused line.
     breakpoints: new Set<number>(),
     debugLine: null,
-    // Memory blocks belong to the old machine's address space; a dialect
-    // switch always starts with none (Stage 1: blocks aren't re-targeted
-    // across machines yet).
-    blocks: [],
-    listingBlockMeta: {},
-    activeBlockId: null,
+    debugBufferId: null,
+    // Scratch buffers are the workbench of the program beside them, so they go
+    // where that program goes: kept when the user keeps their code, discarded
+    // when a different program becomes active. This helper serves both - a real
+    // target switch and the document loads (New/Open/Shared) that route through
+    // it to get the teardown semantics - so the reset is gated on the machine
+    // actually changing rather than folded into the shared reset above.
+    ...(!retain && next.id !== s.dialect.id ? { scratchBuffers: [] } : {}),
+    // A kept block keeps the address it was given: nothing here re-targets it
+    // for the new machine, and the block linter reports one that no longer
+    // fits. What survives which switch is `retainBlocksAcross`'s to say.
+    ...kept,
+    activeTab: BASIC_TAB,
+    tabTouchedAt: {},
     asmErrorBlocks: new Set<string>(),
     pendingDeleteBlockId: null,
+    pendingDeleteDataFile: null,
     blockSettingsId: null,
     tapeFiles: [],
     autoStart: null,
@@ -1184,7 +1613,7 @@ export function initialDocument(
   saved: {
     name: string;
     text: string;
-    blocks: MemoryBlock[];
+    blocks: Block[];
     listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
     autoStart?: number | null;
     tapeFiles?: TapeFile[];
@@ -1193,7 +1622,7 @@ export function initialDocument(
 ): {
   fileName: string;
   text: string;
-  blocks: MemoryBlock[];
+  blocks: Block[];
   listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   autoStart: number | null;
   tapeFiles: TapeFile[];
@@ -1226,10 +1655,57 @@ const startupDoc = initialDocument(autosaved);
 const startupText = startupDoc.text;
 
 /**
+ * Rebuild scratch buffers from a persisted name/text pair list (autosave or a
+ * project bundle). Ids are re-minted by ordinal rather than stored, matching
+ * how a loaded block's id is synthesised from its name, and matching
+ * `addScratchBuffer`'s first-free-`scratch-<n>` rule so the next new buffer
+ * takes the next free number. Breakpoints are session state and come back
+ * empty.
+ */
+export function hydrateScratchBuffers(
+  saved: readonly { name: string; text: string }[],
+): ScratchBuffer[] {
+  return saved.map((b, i) => ({
+    id: `scratch-${i + 1}`,
+    name: b.name,
+    text: b.text,
+    breakpoints: new Set<number>(),
+  }));
+}
+
+const startupScratch = hydrateScratchBuffers(autosaved?.scratch ?? []);
+
+/**
  * The listing-record layout when this dialect keeps its blocks inside the BASIC
  * listing as `#BIN` records (ZX80/ZX81), else `null`. The gate the block
  * mutation actions and `selectBlocks` branch on.
  */
+/**
+ * A new machine code block: a one-instruction return stub held as both
+ * `asmSource` and assembled `bytes`, so the two start in sync. Both engines
+ * exist for every `MemoryBlocksSupport.cpu`, so the fallback byte (the CPU's
+ * return opcode) is defensive only.
+ */
+function buildCodeBlock(
+  name: string,
+  address: number,
+  cpu: MemoryBlocksSupport['cpu'],
+): Block {
+  const ret = cpu === 'z80' ? 'RET' : 'RTS';
+  const asmSource = `; ${name} - machine code at ${formatWord(address)}\n${ret}\n`;
+  const assembled = asmEngineFor(cpu)?.assemble(asmSource, address);
+  return {
+    id: `block-${name}`,
+    name,
+    address,
+    bytes: assembled?.ok
+      ? assembled.bytes
+      : new Uint8Array([cpu === 'z80' ? 0xc9 : 0x60]),
+    kind: 'code',
+    asmSource,
+  };
+}
+
 function listingLayoutOf(dialect: Dialect): ListingLayout | null {
   const support = dialect.memoryBlocks;
   return support?.inListing && support.listing ? support.listing : null;
@@ -1253,6 +1729,9 @@ function romChanged(s: { romChangeRequest: number }) {
     romChangeRequest: s.romChangeRequest + 1,
     emulatorStatus: 'stopped' as const,
     liveMemory: null,
+    runProfile: null,
+    runTiming: null,
+    pauseInterval: null,
   };
 }
 
@@ -1263,9 +1742,12 @@ export const useIdeStore = create<IdeState>((set) => ({
   source: startupText,
   blocks: startupDoc.blocks,
   listingBlockMeta: startupDoc.listingBlockMeta ?? {},
-  activeBlockId: null,
+  activeTab: BASIC_TAB,
+  tabTouchedAt: {},
+  scratchBuffers: startupScratch,
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
+  pendingDeleteDataFile: null,
   blockSettingsId: null,
   tapeFiles: startupDoc.tapeFiles,
   bootDisc: startupDoc.bootDisc,
@@ -1275,6 +1757,9 @@ export const useIdeStore = create<IdeState>((set) => ({
   dirty: false,
   emulatorStatus: 'stopped',
   liveMemory: null,
+  runProfile: null,
+  runTiming: null,
+  pauseInterval: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
   aiRunSource: '',
@@ -1283,9 +1768,11 @@ export const useIdeStore = create<IdeState>((set) => ({
   aiRunViews: noScreenViews(),
   runOutcome: null,
   stopRequest: 0,
+  pauseRequest: 0,
   resetRequest: 0,
   breakpoints: new Set<number>(),
   debugLine: null,
+  debugBufferId: null,
   stepRequest: 0,
   continueRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
@@ -1311,7 +1798,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   keyboardHaptics:
     typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
   keyboardKeyDisplay:
-    typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'authentic',
+    typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'layered',
   emulatorAudio:
     typeof localStorage !== 'undefined' ? getEmulatorAudio() : true,
   runGateLint: typeof localStorage !== 'undefined' ? getRunGateLint() : true,
@@ -1321,24 +1808,30 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getEmulatorMuted() : false,
   editorFocused: false,
   emulatorFocused: false,
-  editorSelection: '',
   findReplaceOpen: false,
   mobileTab: 'editor',
+  byteViewTab: 'hex',
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
   transferOpen: false,
   shareLinkOpen: false,
-  vfsInspectorOpen: false,
   importOpen: false,
   settingsOpen: false,
   settingsTab: 'editor',
   customRoms: typeof localStorage !== 'undefined' ? listCustomRoms() : {},
   romChangeRequest: 0,
   procedureListOpen: false,
+  runProfileOpen: false,
   memoryMapOpen: false,
   welcomeOpen: false,
   newProjectOpen: false,
   machinePickerOpen: false,
+  machinePickerQuery:
+    typeof localStorage !== 'undefined' ? getMachinePickerQuery() : '',
+  machinePickerSort:
+    typeof localStorage !== 'undefined'
+      ? getMachinePickerSort()
+      : DEFAULT_MACHINE_SORT,
   statusNotice: null,
   docsDrawerOpen: false,
   docsTopic: null,
@@ -1353,6 +1846,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getShowLineNumberGutter() : false,
   fullCodeCompletion:
     typeof localStorage !== 'undefined' ? getFullCodeCompletion() : true,
+  strictCharacters:
+    typeof localStorage !== 'undefined' ? getStrictCharacters() : false,
   editorCommand: { name: 'renumber', seq: 0 },
 
   setDialect: (id) => {
@@ -1396,14 +1891,19 @@ export const useIdeStore = create<IdeState>((set) => ({
       // A highly compatible target - one whose tokenizer accepts the code with
       // zero errors, the same bar the share/player boundary uses - runs the
       // program as-is, so switch straight to it and keep the code without the
-      // "may not run" prompt. Restricted to block-free documents: memory blocks
-      // are dropped on any switch (Stage 1), a loss the user should still
-      // confirm.
+      // "may not run" prompt. Restricted to block-free documents: a block keeps
+      // its address across a switch, which the new machine's memory map may
+      // refuse, and that is worth confirming rather than discovering.
       if (
         s.blocks.length === 0 &&
         computeCompatibleDialects(s.source, [], [next]).length > 0
       ) {
-        return applyDialectSwitch(s, next, s.source);
+        return applyDialectSwitch(
+          s,
+          next,
+          withDeclaredMachine(s.source, next.id),
+          { retain: true },
+        );
       }
 
       // The user's own code that the target may not run: defer to the
@@ -1417,6 +1917,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   playerBoot: ({ dialectId, source, fileName, blocks }) =>
     set((s) => {
       const next = getDialect(dialectId);
+      // A shared program arriving: as for a load, nothing to undo back into,
+      // and no saved files from whatever the shell held before.
+      bufferHistories.clear();
+      emulatorVfs.clear(next.id);
       // Not applyDialectSwitch: that persists the dialect choice and flips
       // mobileTab to 'editor' on mobile - both wrong for the player.
       return {
@@ -1429,13 +1933,18 @@ export const useIdeStore = create<IdeState>((set) => ({
         dirty: false,
         emulatorStatus: 'stopped',
         liveMemory: null,
+        runProfile: null,
+        runTiming: null,
+        pauseInterval: null,
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
         listingBlockMeta: {},
-        activeBlockId: null,
+        activeTab: BASIC_TAB,
+        tabTouchedAt: {},
         asmErrorBlocks: new Set<string>(),
         pendingDeleteBlockId: null,
+        pendingDeleteDataFile: null,
         blockSettingsId: null,
         // A shared program is a single BASIC program with no preserved tape.
         tapeFiles: [],
@@ -1445,6 +1954,10 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
         debugLine: null,
+        debugBufferId: null,
+        // The player has no tab strip, so a scratch buffer seeded from an IDE
+        // session would be unreachable code the run path could still pick up.
+        scratchBuffers: [],
         // The emulator is the player's only surface; useInputOverlays and
         // EmulatorPane's landscape ⌨ toggle key off the preview tab.
         mobileTab: 'preview' as MobileTab,
@@ -1474,6 +1987,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       // this is a clean-slate load of a different program even when the chosen
       // machine is the active one.
       ...applyDialectSwitch(s, getDialect(dialectId), source),
+      // A clean slate takes the buffers with it. Needed on top of
+      // applyDialectSwitch, which clears them only when the dialect changes -
+      // a new project on the active machine would otherwise inherit them.
+      scratchBuffers: [],
       fileName,
       // Nothing has been typed yet, so there is nothing unsaved to warn about.
       dirty: false,
@@ -1498,6 +2015,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     autoStart,
     tapeFiles,
     bootDisc,
+    scratch,
   }) => {
     set((s) => ({
       // applyDialectSwitch so teardown / AI-reset / breakpoint semantics (and
@@ -1515,6 +2033,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       autoStart: autoStart ?? null,
       tapeFiles: tapeFiles ?? [],
       bootDisc: bootDisc ?? null,
+      // The bundle's buffers replace whatever was open, so a project saved
+      // without any opens without any.
+      scratchBuffers: scratch ?? [],
     }));
     // A saved file is real content: mirror it to autosave so it survives reload.
     persistAutosave();
@@ -1542,7 +2063,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       // `isMobileViewport()` applyDialectSwitch uses for `mobileTab`.
       const narrow = isMobileViewport();
       return {
-        ...applyDialectSwitch(s, next, s.source),
+        ...applyDialectSwitch(s, next, withDeclaredMachine(s.source, next.id), {
+          retain: true,
+        }),
         docsProgramTopic: topic,
         ...(narrow
           ? { docsHintRequest: s.docsHintRequest + 1 }
@@ -1570,12 +2093,27 @@ export const useIdeStore = create<IdeState>((set) => ({
         source: text,
         dirty: !emptyDraft,
         ...(clearDisc ? { bootDisc: null } : {}),
+        ...withoutStaleProfile(s, null, text),
       };
     }),
   replaceDocument: (text, fileName, opts) => {
+    // A named load (Open) is a different document, so undo must not reach back
+    // across it. An in-place apply (AI Replace/Merge) passes no name: it is an
+    // edit to the program the user already has, and stays undoable.
+    if (fileName !== undefined) {
+      bufferHistories.clear();
+      // A different program, so the files its predecessor saved go with it.
+      emulatorVfs.clear();
+    }
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
+      // The push above lands in the one mounted editor whatever tab is showing,
+      // so a scratch buffer has to give the editor back: leaving it selected
+      // would show the program under a scratch tab, and the next keystroke
+      // would type the program into the snippet. A *block* tab may stay - it
+      // hides the editor rather than sharing it.
+      ...(s.activeTab.kind === 'scratch' ? { activeTab: BASIC_TAB } : {}),
       ...(fileName !== undefined ? { fileName } : {}),
       // A named load (Open) is a different program - clear the AI thread and any
       // breakpoints (their line numbers belong to the old program), and either
@@ -1584,14 +2122,23 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...(fileName !== undefined
         ? {
             aiResetSeq: s.aiResetSeq + 1,
-            // A different program: a comparison offered for the old one is void.
+            // A different program: a comparison offered for the old one is void,
+            // and so are the measurements taken of it.
             ...clearProgramDocs(s),
             breakpoints: new Set<number>(),
+            runProfile: null,
+            runTiming: null,
+            pauseInterval: null,
             blocks: opts?.blocks ?? [],
             listingBlockMeta: opts?.listingBlockMeta ?? {},
-            activeBlockId: null,
+            // The buffers belonged to the document being replaced, so they go
+            // with it - an in-place apply, which passes no name, keeps them.
+            scratchBuffers: [],
+            activeTab: BASIC_TAB,
+            tabTouchedAt: {},
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
+            pendingDeleteDataFile: null,
             blockSettingsId: null,
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
@@ -1621,6 +2168,9 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistAutosave();
   },
   loadUnsavedDocument: (text, opts) => {
+    // Sample / New / Import: always a different program (see replaceDocument).
+    bufferHistories.clear();
+    emulatorVfs.clear();
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
@@ -1631,14 +2181,21 @@ export const useIdeStore = create<IdeState>((set) => ({
       aiResetSeq: s.aiResetSeq + 1,
       ...clearProgramDocs(s),
       breakpoints: new Set<number>(),
+      runProfile: null,
+      runTiming: null,
+      pauseInterval: null,
       dirty: opts?.dirty ?? false,
       // Always a different program, so blocks reset unless the caller installs
       // its own (a project-bundle-shaped import).
       blocks: opts?.blocks ?? [],
       listingBlockMeta: opts?.listingBlockMeta ?? {},
-      activeBlockId: null,
+      // As for Open: the buffers belonged to the document being replaced.
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+      tabTouchedAt: {},
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
+      pendingDeleteDataFile: null,
       blockSettingsId: null,
       tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
@@ -1665,12 +2222,18 @@ export const useIdeStore = create<IdeState>((set) => ({
     assertValidBlocks(blocks);
     set((s) => {
       const ids = new Set(blocks.map((b) => b.id));
+      for (const b of s.blocks) {
+        if (!ids.has(b.id)) {
+          bufferHistories.drop(blockBufferKey(b.id));
+          bufferHistories.drop(blockBytesBufferKey(b.id));
+        }
+      }
       return {
         blocks,
         dirty: true,
         // The active tab and error dots follow the surviving blocks.
-        ...(s.activeBlockId !== null && !ids.has(s.activeBlockId)
-          ? { activeBlockId: null }
+        ...(s.activeTab.kind === 'block' && !ids.has(s.activeTab.id)
+          ? { activeTab: BASIC_TAB }
           : {}),
         asmErrorBlocks: new Set(
           [...s.asmErrorBlocks].filter((id) => ids.has(id)),
@@ -1715,6 +2278,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       if (sourceChanged) {
         patch.source = source;
         patch.docOverride = { text: source, seq: s.docOverride.seq + 1 };
+        // The program's text is being replaced; a parked snapshot of it would
+        // describe the listing before this block's bytes were written back.
+        bufferHistories.drop(basicBufferKey(null));
       }
       if (metaChanged) {
         patch.listingBlockMeta = {
@@ -1737,8 +2303,66 @@ export const useIdeStore = create<IdeState>((set) => ({
       else next[ordinal] = merged;
       return { listingBlockMeta: next, dirty: true };
     }),
-  setActiveBlock: (id) => set({ activeBlockId: id }),
-  addBlock: () =>
+  setActiveTab: (tab) =>
+    set((s) => ({
+      activeTab: tab,
+      tabTouchedAt: touched(s.tabTouchedAt, tab),
+    })),
+  addScratchBuffer: () =>
+    set((s) => {
+      // First free ordinal, mirroring addBlock's first-free-`block<n>` rule, so
+      // closing a buffer frees its number again.
+      const taken = new Set(s.scratchBuffers.map((b) => b.id));
+      let n = 1;
+      while (taken.has(`scratch-${n}`)) n++;
+      const buffer: ScratchBuffer = {
+        id: `scratch-${n}`,
+        name: `Scratch ${n}`,
+        text: '',
+        breakpoints: new Set<number>(),
+      };
+      return {
+        scratchBuffers: [...s.scratchBuffers, buffer],
+        activeTab: { kind: 'scratch', id: buffer.id },
+        tabTouchedAt: touched(s.tabTouchedAt, {
+          kind: 'scratch',
+          id: buffer.id,
+        }),
+      };
+    }),
+  renameScratchBuffer: (id, name) =>
+    set((s) => {
+      const trimmed = name.trim();
+      if (trimmed === '') return {};
+      return {
+        scratchBuffers: s.scratchBuffers.map((b) =>
+          b.id === id ? { ...b, name: trimmed } : b,
+        ),
+      };
+    }),
+  setScratchText: (id, text) =>
+    set((s) => ({
+      scratchBuffers: s.scratchBuffers.map((b) =>
+        b.id === id ? { ...b, text } : b,
+      ),
+      ...withoutStaleProfile(s, id, text),
+    })),
+  closeScratchBuffer: (id) =>
+    set((s) => {
+      if (!s.scratchBuffers.some((b) => b.id === id)) return {};
+      const scratchBuffers = s.scratchBuffers.filter((b) => b.id !== id);
+      // The buffer's breakpoints live on the buffer, so they go with it; its
+      // edit history is the one thing held elsewhere, so drop that here.
+      bufferHistories.drop(basicBufferKey(id));
+      const tabTouchedAt = untouched(
+        s.tabTouchedAt,
+        tabKey({ kind: 'scratch', id }),
+      );
+      if (editorBufferOf(s.activeTab) !== id)
+        return { scratchBuffers, tabTouchedAt };
+      return { scratchBuffers, tabTouchedAt, activeTab: BASIC_TAB };
+    }),
+  addBlock: (kind = 'code') =>
     set((s) => {
       const support = s.dialect.memoryBlocks;
       if (!support) return {};
@@ -1748,10 +2372,28 @@ export const useIdeStore = create<IdeState>((set) => ({
       const layout = listingLayoutOf(s.dialect);
       if (layout) {
         const { source, ordinal } = insertListingBlock(s.source, layout);
+        bufferHistories.drop(basicBufferKey(null));
         return {
           source,
+          // Always pushed, whatever the outgoing tab was: the record was
+          // appended to the program, and the hidden editor must hold it.
           docOverride: { text: source, seq: s.docOverride.seq + 1 },
-          activeBlockId: `listing-${ordinal}`,
+          // A listing block's kind lives in the per-listing metadata the
+          // settings dialog writes, since the record itself carries only bytes.
+          // `'code'` is the derived default, so only `'memory'` is recorded.
+          ...(kind === 'memory'
+            ? {
+                listingBlockMeta: {
+                  ...s.listingBlockMeta,
+                  [ordinal]: { ...s.listingBlockMeta[ordinal], kind },
+                },
+              }
+            : {}),
+          activeTab: { kind: 'block', id: `listing-${ordinal}` },
+          tabTouchedAt: touched(s.tabTouchedAt, {
+            kind: 'block',
+            id: `listing-${ordinal}`,
+          }),
           dirty: true,
         };
       }
@@ -1760,30 +2402,64 @@ export const useIdeStore = create<IdeState>((set) => ({
       while (taken.has(`block${n}`)) n++;
       const name = `block${n}`;
       const address = support.defaultAddress;
-      const ret = support.cpu === 'z80' ? 'RET' : 'RTS';
-      const asmSource = `; ${name} - machine code at ${formatWord(address)}\n${ret}\n`;
-      // Assemble the stub so bytes and asmSource start in sync; both engines
-      // exist for every MemoryBlocksSupport.cpu, so the fallback byte (the
-      // CPU's return opcode) is defensive only.
-      const assembled = asmEngineFor(support.cpu)?.assemble(asmSource, address);
-      const bytes = assembled?.ok
-        ? assembled.bytes
-        : new Uint8Array([support.cpu === 'z80' ? 0xc9 : 0x60]);
-      const block: MemoryBlock = {
-        id: `block-${name}`,
-        name,
-        address,
-        bytes,
-        kind: 'code',
-        asmSource,
-      };
+      const block =
+        kind === 'memory'
+          ? // One zero byte rather than none: the byte editor opens on a row,
+            // and the block has a length the pre-run lint can judge. The
+            // editor's own overwrite-and-extend rules take it from there.
+            ({
+              id: `block-${name}`,
+              name,
+              address,
+              bytes: new Uint8Array(1),
+              kind: 'memory',
+            } satisfies Block)
+          : buildCodeBlock(name, address, support.cpu);
       const blocks = [...s.blocks, block];
       assertValidBlocks(blocks);
       // Authoring a block turns a preserved boot-disc document into an
       // editable one, so drop the verbatim image (as a source edit does).
       return {
         blocks,
-        activeBlockId: block.id,
+        activeTab: { kind: 'block', id: block.id },
+        tabTouchedAt: touched(s.tabTouchedAt, { kind: 'block', id: block.id }),
+        dirty: true,
+        ...(s.bootDisc !== null ? { bootDisc: null } : {}),
+      };
+    }),
+  addBlockFromDataFile: (name) =>
+    set((s) => {
+      const support = s.dialect.memoryBlocks;
+      // Guarded on a fixed-address block being possible at all. The listing
+      // dialects wire no file store, so this is a guard against a case that
+      // cannot arise rather than one anyone will meet.
+      if (!support || listingLayoutOf(s.dialect)) return {};
+      // Through the same projection the tab strip renders, so the block holds
+      // the bytes the user was shown rather than the raw stored image.
+      const file = selectDataBlocks(s.dialect).find((f) => f.name === name);
+      if (!file) return {};
+      const blockName = blockNameFromFileName(
+        name,
+        s.blocks.map((b) => b.name),
+      );
+      const block: Block = {
+        id: `block-${blockName}`,
+        name: blockName,
+        address: support.defaultAddress,
+        // A copy: the projection memoizes its arrays, so sharing one would let
+        // a byte edit reach back into what the file's tab shows.
+        bytes: new Uint8Array(file.bytes),
+        kind: 'memory',
+      };
+      const blocks = [...s.blocks, block];
+      assertValidBlocks(blocks);
+      return {
+        blocks,
+        activeTab: { kind: 'block', id: block.id },
+        tabTouchedAt: touched(s.tabTouchedAt, { kind: 'block', id: block.id }),
+        // In the same update as the tab, so the dialog and the tab it belongs
+        // to arrive together rather than in two renders.
+        blockSettingsId: block.id,
         dirty: true,
         ...(s.bootDisc !== null ? { bootDisc: null } : {}),
       };
@@ -1803,10 +2479,35 @@ export const useIdeStore = create<IdeState>((set) => ({
               ? withListingBlockRemoved(s, s.pendingDeleteBlockId)
               : withBlockRemoved(s, s.pendingDeleteBlockId)),
             pendingDeleteBlockId: null,
+            pendingDeleteDataFile: null,
             blockSettingsId: null,
           },
     ),
   cancelRemoveBlock: () => set({ pendingDeleteBlockId: null }),
+  requestDeleteDataFile: (name) =>
+    set(() =>
+      // Checked against the store the file lives in, as a block deletion is
+      // checked against the blocks: a menu can outlive the file it names.
+      emulatorVfs.list().some((f) => f.name === name && !f.mounted)
+        ? { pendingDeleteDataFile: name }
+        : {},
+    ),
+  confirmDeleteDataFile: () =>
+    set((s) => {
+      const name = s.pendingDeleteDataFile;
+      if (name === null) return {};
+      emulatorVfs.delete(name);
+      return {
+        pendingDeleteDataFile: null,
+        // In the same commit as the deletion, so the tab strip never renders a
+        // tab for a file that has gone.
+        ...(s.activeTab.kind === 'data' && s.activeTab.name === name
+          ? { activeTab: BASIC_TAB }
+          : {}),
+        tabTouchedAt: untouched(s.tabTouchedAt, tabKey({ kind: 'data', name })),
+      };
+    }),
+  cancelDeleteDataFile: () => set({ pendingDeleteDataFile: null }),
   openBlockSettings: (id) =>
     set((s) =>
       selectBlocks(s).some((b) => b.id === id) ? { blockSettingsId: id } : {},
@@ -1865,16 +2566,20 @@ export const useIdeStore = create<IdeState>((set) => ({
   showEmulator: () =>
     set({ aiPanelOpen: false, memoryMapOpen: false, mobileTab: 'preview' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
+  requestPause: () => set((s) => ({ pauseRequest: s.pauseRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
   toggleBreakpoint: (lineNo) =>
-    set((s) => {
-      const next = new Set(s.breakpoints);
-      if (next.has(lineNo)) next.delete(lineNo);
-      else next.add(lineNo);
-      return { breakpoints: next };
-    }),
-  clearBreakpoints: () => set({ breakpoints: new Set<number>() }),
-  setDebugLine: (line) => set({ debugLine: line }),
+    set((s) =>
+      withBreakpoints(s, (set_) => {
+        const next = new Set(set_);
+        if (next.has(lineNo)) next.delete(lineNo);
+        else next.add(lineNo);
+        return next;
+      }),
+    ),
+  clearBreakpoints: () => set((s) => withBreakpoints(s, () => new Set())),
+  setDebugLine: (line, bufferId = null) =>
+    set({ debugLine: line, debugBufferId: bufferId }),
   requestStep: () => set((s) => ({ stepRequest: s.stepRequest + 1 })),
   requestContinue: () =>
     set((s) => ({ continueRequest: s.continueRequest + 1 })),
@@ -1964,17 +2669,19 @@ export const useIdeStore = create<IdeState>((set) => ({
   },
   setEditorFocused: (on) => set({ editorFocused: on }),
   setEmulatorFocused: (on) => set({ emulatorFocused: on }),
-  setEditorSelection: (text) => set({ editorSelection: text }),
   setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),
   setMobileTab: (tab) => set({ mobileTab: tab }),
+  setByteViewTab: (field) => set({ byteViewTab: field }),
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
+  setRunProfile: (profile) => set({ runProfile: profile }),
+  setRunTiming: (timing) => set({ runTiming: timing }),
+  setPauseInterval: (interval) => set({ pauseInterval: interval }),
   toggleAiPanel: () =>
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),
   setShareLinkOpen: (open) => set({ shareLinkOpen: open }),
-  setVfsInspectorOpen: (open) => set({ vfsInspectorOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsTab: (tab) => set({ settingsTab: tab }),
@@ -2000,6 +2707,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     });
   },
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
+  setRunProfileOpen: (open) => set({ runProfileOpen: open }),
   // Opening the memory map closes the AI panel: both share the right-hand slot,
   // and the map takes priority, so leaving the AI flag set would make its toolbar
   // toggle appear dead until the map is closed.
@@ -2016,6 +2724,14 @@ export const useIdeStore = create<IdeState>((set) => ({
   },
   setNewProjectOpen: (open) => set({ newProjectOpen: open }),
   setMachinePickerOpen: (open) => set({ machinePickerOpen: open }),
+  setMachinePickerQuery: (query) => {
+    persistMachinePickerQuery(query);
+    set({ machinePickerQuery: query });
+  },
+  setMachinePickerSort: (sort) => {
+    persistMachinePickerSort(sort);
+    set({ machinePickerSort: sort });
+  },
   setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),
   closeDocs: () => set({ docsDrawerOpen: false }),
@@ -2037,6 +2753,10 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistFullCodeCompletion(on);
     set({ fullCodeCompletion: on });
   },
+  setStrictCharacters: (on) => {
+    persistStrictCharacters(on);
+    set({ strictCharacters: on });
+  },
   requestEditorCommand: (name) =>
     set((s) => ({ editorCommand: { name, seq: s.editorCommand.seq + 1 } })),
 }));
@@ -2051,7 +2771,7 @@ export const useIdeStore = create<IdeState>((set) => ({
  */
 let blocksCache: {
   key: string;
-  blocks: readonly MemoryBlock[];
+  blocks: readonly Block[];
 } | null = null;
 
 function blockBytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -2071,17 +2791,17 @@ function blockBytesEqual(a: Uint8Array, b: Uint8Array): boolean {
  * by an inserted block - it is dropped and the editor falls back to disassembly.
  */
 function overlayListingAsmSource(
-  block: MemoryBlock,
+  block: Block,
   asmSource: string | undefined,
   engine: AsmEngine | null,
-): MemoryBlock {
+): Block {
   if (asmSource === undefined || !engine) return block;
   const result = engine.assemble(asmSource, block.address);
   if (!result.ok || !blockBytesEqual(result.bytes, block.bytes)) return block;
   return { ...block, asmSource };
 }
 
-export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
+export function selectBlocks(s: IdeState): readonly Block[] {
   const layout = listingLayoutOf(s.dialect);
   if (!layout) return s.blocks;
   const key = `${s.dialect.id} ${s.source} ${JSON.stringify(s.listingBlockMeta)}`;
@@ -2102,5 +2822,119 @@ export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
 }
 
 /** Subscribe to the document's blocks (derived for `inListing` dialects). */
-export const useBlocks = (): readonly MemoryBlock[] =>
-  useIdeStore(selectBlocks);
+export const useBlocks = (): readonly Block[] => useIdeStore(selectBlocks);
+
+/** The BASIC text of the buffer on screen: a scratch buffer's, else the program. */
+export function selectActiveSource(s: IdeState): string {
+  return bufferTextOf(s, s.activeTab);
+}
+
+/** No breakpoints - a shared empty set, so the gutter's identity check holds. */
+const NO_LINES: ReadonlySet<number> = new Set<number>();
+
+/**
+ * The breakpoints of a named buffer: a scratch buffer's own set, or the
+ * program's for `null`. A buffer that has since been closed answers with no
+ * breakpoints rather than falling back to the program's, so a session pinned to
+ * a discarded buffer stops pausing instead of pausing on unrelated lines.
+ */
+export function selectBufferBreakpoints(
+  s: IdeState,
+  bufferId: string | null,
+): ReadonlySet<number> {
+  if (bufferId === null) return s.breakpoints;
+  return (
+    s.scratchBuffers.find((b) => b.id === bufferId)?.breakpoints ?? NO_LINES
+  );
+}
+
+/** The breakpoints of the buffer on screen, for the gutter and the toggles. */
+export function selectActiveBreakpoints(s: IdeState): ReadonlySet<number> {
+  return selectBufferBreakpoints(s, editorBufferOf(s.activeTab));
+}
+
+/**
+ * The measurements of the last run, but only while the buffer they were taken
+ * on is the one on screen.
+ *
+ * Costs are keyed by BASIC line number, so a profile shown against another
+ * buffer would mark whichever of its lines happened to share a number - the
+ * same reason breakpoints and the paused line are held per buffer.
+ */
+export function selectVisibleProfile(s: IdeState): RunProfile | null {
+  if (s.runProfile === null) return null;
+  return editorBufferOf(s.activeTab) === s.runProfile.bufferId
+    ? s.runProfile
+    : null;
+}
+
+/**
+ * The timing of the last run, but only while the buffer it was taken on is the
+ * one on screen.
+ *
+ * The same rule the profile follows, for the same reason: how long a snippet
+ * took is not how long the user's program took, and a duration shown against the
+ * wrong program is a measurement of nothing.
+ */
+export function selectVisibleTiming(s: IdeState): RunTiming | null {
+  if (s.runTiming === null) return null;
+  return editorBufferOf(s.activeTab) === s.runTiming.bufferId
+    ? s.runTiming
+    : null;
+}
+
+/**
+ * The paused BASIC line, but only while the buffer that is running is the one
+ * on screen. A pause belongs to the buffer that started the run, so looking at
+ * another one must not mark a line of it as paused.
+ */
+export function selectVisibleDebugLine(s: IdeState): number | null {
+  if (s.debugLine === null) return null;
+  return editorBufferOf(s.activeTab) === s.debugBufferId ? s.debugLine : null;
+}
+
+/**
+ * The name of the scratch buffer the run control would run, or `null` when Run
+ * means the program. What the run controls say, so it is clear before pressing
+ * one that a snippet and not the program is about to boot.
+ */
+export function selectRunTargetName(s: IdeState): string | null {
+  if (s.activeTab.kind !== 'scratch') return null;
+  const tab = s.activeTab;
+  return s.scratchBuffers.find((b) => b.id === tab.id)?.name ?? null;
+}
+
+/** What a run request resolves to: which text runs, and on whose behalf. */
+export interface RunTarget {
+  /** The BASIC to tokenize and boot. */
+  source: string;
+  /** The IDE is checking an answer the assistant just returned. */
+  checking: boolean;
+  /** A scratch buffer is being run rather than the document. */
+  scratch: boolean;
+  /** The buffer the run belongs to (a scratch id, or `null` for the program). */
+  bufferId: string | null;
+}
+
+/**
+ * Resolve what a given `runRequest` should run. An assistant's answer-check
+ * keeps precedence over everything - it runs a program the editor deliberately
+ * does not hold - and every other run takes the buffer on screen.
+ */
+export function selectRunTarget(s: IdeState, runRequest: number): RunTarget {
+  if (s.aiRunCheckSeq === runRequest) {
+    return {
+      source: s.aiRunSource,
+      checking: true,
+      scratch: false,
+      bufferId: null,
+    };
+  }
+  const bufferId = editorBufferOf(s.activeTab);
+  return {
+    source: selectActiveSource(s),
+    checking: false,
+    scratch: bufferId !== null,
+    bufferId,
+  };
+}

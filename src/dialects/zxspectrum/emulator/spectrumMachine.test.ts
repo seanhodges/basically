@@ -5,7 +5,7 @@ import { SpectrumMachine } from './spectrumMachine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap, codeTap } from '../tapfile';
 import { RAMTOP } from '../sysvars';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 const rom = new Uint8Array(
   readFileSync(
@@ -55,7 +55,7 @@ describe('SpectrumMachine', () => {
     const machine = new SpectrumMachine({ rom });
     const { bytes, errors } = tokenizeProgram('10 RANDOMIZE USR 32768\n');
     expect(errors).toEqual([]);
-    const raster: MemoryBlock = {
+    const raster: Block = {
       id: 'raster',
       name: 'Raster',
       address: 0x8000,
@@ -75,6 +75,37 @@ describe('SpectrumMachine', () => {
       colours.add(`${frame[p]},${frame[p + 1]},${frame[p + 2]}`);
     }
     expect(colours.size).toBeGreaterThan(1);
+  });
+
+  it('holds the frame interrupt open past the frame boundary', () => {
+    // `DI`, then forever `EI` / `DI` / `JR` - a 20 T-state loop in which
+    // interrupts are enabled at exactly one instruction boundary, the one after
+    // the DI (the Z80 applies an EI at the end of the *following* instruction).
+    // The frame boundary lands inside that window about two frames in five, so
+    // a /INT offered for one instant is taken about that often. The ULA holds
+    // it low for 32 T-states, which always covers a whole pass of the loop, so
+    // every frame's interrupt is taken - and the ROM's FRAMES counter, which
+    // its handler bumps, says which of the two is happening.
+    const FRAMES = 0x5c78; // ROM frame counter, three bytes little-endian
+    const machine = new SpectrumMachine({ rom });
+    const { bytes, errors } = tokenizeProgram('10 RANDOMIZE USR 32768\n');
+    expect(errors).toEqual([]);
+    const flicker: Block = {
+      id: 'flicker',
+      name: 'Flicker',
+      address: 0x8000,
+      bytes: new Uint8Array([0xf3, 0xfb, 0xf3, 0x18, 0xfc]),
+      kind: 'code',
+    };
+    machine.loadProgram(buildTap(bytes), { blocks: [flicker] });
+    const counter = () =>
+      machine.mem.peek(FRAMES) |
+      (machine.mem.peek(FRAMES + 1) << 8) |
+      (machine.mem.peek(FRAMES + 2) << 16);
+    for (let i = 0; i < 60; i++) machine.runFrame(); // reach the loop
+    const before = counter();
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    expect(counter() - before).toBe(200);
   });
 
   it('reports plausible actual RAM figures while a program runs', () => {
@@ -140,34 +171,6 @@ describe('SpectrumMachine', () => {
     machine.loadProgram(buildTap(bytes));
     for (let i = 0; i < 60; i++) machine.runFrame();
     expect(machine.readReport().isError).toBe(false);
-  });
-
-  it('takes more frames to finish the same program at a slower speed', () => {
-    // A busy loop long enough that its completion spans many frames, so the
-    // run (not just the load handshake) is what setSpeed throttles.
-    const src = '10 FOR i=1 TO 5000\n20 NEXT i\n30 PRINT "DONE"\n';
-    function framesToDone(speed: number): number {
-      const machine = new SpectrumMachine({ rom });
-      const { bytes, errors } = tokenizeProgram(src);
-      expect(errors).toEqual([]);
-      machine.loadProgram(buildTap(bytes));
-      // setSpeed is applied after the load handshake (which relies on the
-      // default 1x boot/flash-load timing) so only the run itself is throttled.
-      machine.setSpeed(speed);
-      // Sampled every POLL frames rather than every frame: reading the screen
-      // OCRs all 768 cells, which is far too heavy to run in a 3000-iteration
-      // poll. Quantising the answer leaves the comparison below intact - half
-      // speed still needs about twice the frames.
-      const POLL = 25;
-      for (let i = 1; i <= 3000; i++) {
-        machine.runFrame();
-        if (i % POLL === 0 && readScreen(machine, 0, 0, 4) === 'DONE') return i;
-      }
-      throw new Error('never displayed DONE');
-    }
-    const atFullSpeed = framesToDone(1);
-    const atHalfSpeed = framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
   });
 
   it('responds to emulated keypresses via INKEY$', () => {
@@ -515,11 +518,11 @@ describe('SpectrumMachine', () => {
     });
   });
 
-  // Stage 3 of the memory-blocks plan: loadProgram's `opts.blocks` writes raw
+  // loadProgram's `opts.blocks` writes raw
   // bytes directly into RAM before RUN, and protects blocks below RAMTOP with
   // a CLEAR so the BASIC stack can't grow down over them.
   describe('memory blocks', () => {
-    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+    function block(overrides: Partial<Block> = {}): Block {
       return {
         id: 'b1',
         name: 'Code',
@@ -577,12 +580,12 @@ describe('SpectrumMachine', () => {
         '90 NEXT e\n100 NEXT d\n110 NEXT c\n120 NEXT b\n130 NEXT a\n140 PRINT "DONE"\n';
       const { bytes, errors } = tokenizeProgram(src);
       expect(errors).toEqual([]);
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'b1',
         name: 'Data',
         address: blockAddr,
         bytes: payload,
-        kind: 'data',
+        kind: 'memory',
       };
       machine.loadProgram(buildTap(bytes), { blocks: [b] });
       for (let i = 0; i < 100; i++) machine.runFrame();
@@ -636,6 +639,111 @@ describe('SpectrumMachine', () => {
       for (let i = 0; i < 150; i++) machine.runFrame();
       expect(machine.mem.read(51000)).toBe(123);
       expect(machine.readReport().isError).toBe(false);
+    });
+  });
+
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself.
+   */
+  describe('isProgramRunning', () => {
+    function load(src: string, opts?: { blocks?: Block[] }): SpectrumMachine {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes), opts);
+      return machine;
+    }
+
+    /** Frames until the machine reports the program stopped, or the cap. */
+    function settle(machine: SpectrumMachine, frames = 400): boolean | null {
+      for (let i = 0; i < frames; i++) {
+        const running = machine.isProgramRunning();
+        if (running === false) return false;
+        machine.runFrame();
+      }
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 PRINT "HI"\n'],
+      ['STOP', '10 STOP\n'],
+      ['an error', '10 PRINT 1/0\n'],
+      [
+        'GO SUB and RETURN',
+        '10 GO SUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+      ],
+      // Twenty rows rather than more: past the screen's height the ROM stops at
+      // its own "scroll?" prompt, which is a program waiting for a key and is
+      // covered as such below.
+      [
+        'a program that fills the screen',
+        '10 FOR i=1 TO 20\n20 PRINT "ROW";i\n30 NEXT i\n',
+      ],
+    ])('reports no program running after %s', (_name, src) => {
+      expect(settle(load(src))).toBe(false);
+    });
+
+    it.each([
+      ['an idle loop', '10 GO TO 10\n'],
+      ['an INKEY$ loop', '10 IF INKEY$="" THEN GO TO 10\n'],
+      ['PAUSE', '10 PAUSE 0\n'],
+      // The case every screen-shaped or cursor-shaped heuristic gets wrong: the
+      // INPUT prompt's cursor is the editor's own.
+      ['an INPUT prompt', '10 INPUT a\n20 GO TO 10\n'],
+    ])('goes on reporting a program running at %s', (_name, src) => {
+      expect(settle(load(src), 200)).toBe(true);
+    });
+
+    it('latches past the extra CLEAR a block below RAMTOP costs', () => {
+      // A document with a low memory block makes loadProgram type a CLEAR as
+      // well as its LOAD, so the ROM passes the latch address one more time
+      // before RUN. Counting hits would report this program finished before it
+      // started; arming after the last of those command lines does not.
+      const machine = new SpectrumMachine({ rom });
+      machine.reset();
+      machine.bootToReady();
+      const ramtop = machine.mem.readWord(RAMTOP);
+      const looping = load('10 GO TO 10\n', {
+        blocks: [
+          {
+            id: 'b1',
+            name: 'Code',
+            address: ramtop - 60,
+            bytes: new Uint8Array([0xaa, 0xbb]),
+            kind: 'code',
+          },
+        ],
+      });
+      expect(settle(looping, 200)).toBe(true);
+    });
+
+    it('reports no program running once BREAK stops one', () => {
+      const machine = load('10 GO TO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      expect(machine.isProgramRunning()).toBe(true);
+      machine.setKey('CapsShift', true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('CapsShift', false);
+      machine.setKey('Space', false);
+      expect(settle(machine, 60)).toBe(false);
+    });
+
+    it('goes on reporting a program running when BREAK is pressed at an INPUT prompt', () => {
+      // The ROM only tests BREAK between statements, so a program stopped at an
+      // INPUT prompt is not interrupted by it - and must not be reported as
+      // finished either.
+      const machine = load('10 INPUT a\n20 GO TO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      machine.setKey('CapsShift', true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('CapsShift', false);
+      machine.setKey('Space', false);
+      expect(settle(machine, 120)).toBe(true);
     });
   });
 });

@@ -110,11 +110,61 @@ describe('C64 PETSCII table', () => {
     }
   });
 
+  it('accepts every spelling of the reverse-video pair', () => {
+    // petcat writes {rvon}/{rvof} and reads {rvs on}/{rvs off}; CBM prg Studio
+    // and most forum listings use the spaceless {rvson}/{rvsoff}. All parse.
+    const on = ['{rvon}', '{rvson}', '{rvs on}', '{RVS ON}', '{RvsOn}'];
+    const off = ['{rvoff}', '{rvof}', '{rvsoff}', '{rvs off}', '{RVS OFF}'];
+    for (const text of on) {
+      expect(parseC64Char(text, 0), text).toEqual({
+        code: 0x12,
+        length: text.length,
+      });
+    }
+    for (const text of off) {
+      expect(parseC64Char(text, 0), text).toEqual({
+        code: 0x92,
+        length: text.length,
+      });
+    }
+    // Decode stays on the canonical names, so the round-trip is unaffected.
+    expect(petsciiToText(0x12)).toBe('{rvon}');
+    expect(petsciiToText(0x92)).toBe('{rvoff}');
+  });
+
   it('accepts {CBM-x} / {SHIFT-x} key-graphic names', () => {
     // The C= and SHIFT graphic on the A key: $B0 and $C1 respectively.
     expect(parseC64Char('{CBM-A}', 0).code).toBe(0xb0);
     expect(parseC64Char('{SHIFT-A}', 0).code).toBe(0xc1);
     expect(parseC64Char('{shift-z}', 0).code).toBe(0xda);
+  });
+
+  it('accepts the front faces of the symbol keys, not just the letters', () => {
+    // The six symbol keys carry front-face graphics too, so `x` is any keycap:
+    // SHIFT * draws the horizontal line $C0, C= * the filled corner $DF.
+    expect(parseC64Char('{shift-*}', 0)).toEqual({ code: 0xc0, length: 9 });
+    expect(parseC64Char('{SHIFT-*}', 0).code).toBe(0xc0);
+    expect(parseC64Char('{cbm-*}', 0).code).toBe(0xdf);
+    expect(parseC64Char('{shift-+}', 0).code).toBe(0xdb);
+    expect(parseC64Char('{cbm-+}', 0).code).toBe(0xa6);
+    // The minus key's two faces spell with a doubled hyphen.
+    expect(parseC64Char('{shift--}', 0).code).toBe(0xdd);
+    expect(parseC64Char('{cbm--}', 0).code).toBe(0xdc);
+    expect(parseC64Char('{shift-@}', 0).code).toBe(0xba);
+    expect(parseC64Char('{cbm-@}', 0).code).toBe(0xa4);
+    expect(parseC64Char('{shift-£}', 0).code).toBe(0xa9);
+    expect(parseC64Char('{cbm-£}', 0).code).toBe(0xa8);
+    // The up-arrow key prints pi on its SHIFT face and no C= graphic at all.
+    expect(parseC64Char('{shift-↑}', 0).code).toBe(0xff);
+    expect(() => parseC64Char('{cbm-↑}', 0)).toThrow();
+  });
+
+  it('parses a {shift-*} escape inside a run of text', () => {
+    // The escape stands in for a glyph, so it consumes one PETSCII byte and
+    // leaves the surrounding characters alone.
+    expect([...c64Charset.toMachine('A{shift-*}B')]).toEqual([
+      0x41, 0xc0, 0x42,
+    ]);
   });
 
   it('accepts decimal {nnn} codes and rejects out-of-range ones', () => {

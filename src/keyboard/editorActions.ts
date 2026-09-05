@@ -1,4 +1,11 @@
-import type { EditorKeyAction, KeyDef, KeyboardLayout } from './layoutSchema';
+import type {
+  EditorKeyAction,
+  EditorModeDef,
+  KeyDef,
+  KeyboardLayout,
+  LayerDef,
+} from './layoutSchema';
+import { inLetterCase, type LetterCase } from './legendKit';
 
 /**
  * Resolve what a key does when the keyboard targets the text editor, on the
@@ -48,7 +55,73 @@ function resolveOnLayer(
   return undefined;
 }
 
+/**
+ * `action` as the keyboard's current letter case would type it.
+ *
+ * A transform *over* the resolved action rather than a branch inside
+ * {@link resolveEditorAction}, which stays the pure data lookup its tests pin:
+ * the case is engine state, not layout data, and the virtual keyboard composes
+ * the two at its own call site.
+ *
+ * Only a single-letter insert changes - a keyword legend, a symbol and every
+ * editing action are what they are whatever case the machine is in.
+ */
+export function inEditorLetterCase(
+  action: EditorKeyAction | null,
+  letterCase: LetterCase,
+): EditorKeyAction | null {
+  if (!action || !('insert' in action)) return action;
+  const insert = inLetterCase(action.insert, letterCase);
+  return insert === action.insert ? action : { insert };
+}
+
 /** Actions that auto-repeat while the key is held (editor target only). */
 export function isRepeatable(action: EditorKeyAction): boolean {
   return 'action' in action && action.action !== 'newline';
+}
+
+/**
+ * The layer a non-base editor mode pins, or null when the mode's layer is the
+ * base layer (there the engaged modifier drives the layer instead). A mode
+ * with a `shiftedLayer` carries two legend sets: pinning a `modeOnly` layer
+ * (the SYM pages), the flip is the UI page toggle - `pageTwo` - because the
+ * second page's legends carry their own machine combinations and holding the
+ * real shift would corrupt them; otherwise the flip follows the engaged SHIFT
+ * modifier (the layer the machine is really in).
+ */
+export function modePinnedLayerId(
+  layout: KeyboardLayout,
+  mode: EditorModeDef | null,
+  baseLayerId: string,
+  activeLayer: LayerDef,
+  pageTwo: boolean,
+): string | null {
+  if (!mode || mode.layer === baseLayerId) return null;
+  if (mode.shiftedLayer) {
+    const pinned = layout.layers.find((l) => l.id === mode.layer);
+    const flipped = pinned?.modeOnly
+      ? pageTwo
+      : activeLayer.activeWhen.includes('shift');
+    if (flipped) return mode.shiftedLayer;
+  }
+  return mode.layer;
+}
+
+/**
+ * The machine tokens a key presses on the given layer: the layer's legend may
+ * carry its own (a cursor legend over a letter key), otherwise the key's own.
+ * Pure data lookup, like {@link resolveEditorAction} - the tokens themselves
+ * are opaque to everything above the machine.
+ *
+ * No base-layer fallback: `key.emits` already is the unmodified meaning, so a
+ * layer that says nothing about tokens leaves them alone.
+ */
+export function resolveEmits(
+  layout: KeyboardLayout,
+  key: KeyDef,
+  layerId: string,
+): string[] {
+  const layerIdx = layout.layers.findIndex((l) => l.id === layerId);
+  const label = layerIdx >= 0 ? key.labels[layerIdx] : undefined;
+  return label?.emits ?? key.emits;
 }

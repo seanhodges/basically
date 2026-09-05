@@ -35,12 +35,30 @@ describe('zxspectrum tokenizer', () => {
     expect(a[4]).toBe(0xec); // GO TO token
   });
 
-  it('keeps lowercase and rejects line-leading non-commands', () => {
+  it('reports a line-leading non-command like any other statement', () => {
     expect(bytes('10 PRINT "abc"\n').slice(4)).toEqual([
       0xf5, 0x22, 0x61, 0x62, 0x63, 0x22, 0x0d,
     ]);
-    const { errors } = tokenizeProgram('10 x=5\n');
+    // Reported once, non-fatally, and the line is still stored: the ROM would
+    // hold it and object only at RUN, exactly as for a statement after a colon.
+    const { errors, bytes: image } = tokenizeProgram('10 x=5\n');
     expect(errors.length).toBe(1);
+    expect(errors[0]).toMatchObject({ column: 3, endColumn: 4, fatal: false });
+    expect(errors[0]!.message).toContain('LET');
+    expect(image.length).toBeGreaterThan(0);
+  });
+
+  it('reports each bad statement opener once, first or later', () => {
+    // The same typo either side of a colon reads the same way round.
+    for (const src of ['10 PRNT 1\n', '10 SIN(1)\n', '10 "hi"\n']) {
+      const { errors, bytes: image } = tokenizeProgram(src);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.fatal).toBe(false);
+      expect(image.length).toBeGreaterThan(0);
+    }
+    const { errors } = tokenizeProgram('10 a=1: b=2\n');
+    expect(errors).toHaveLength(2);
+    expect(errors.map((e) => e.column)).toEqual([3, 8]);
   });
 
   it('handles multi-statement lines with colons', () => {
@@ -111,13 +129,20 @@ describe('zxspectrum tokenizer', () => {
     expect(tokenizeProgram('9007 {BRIGHT 0}\n').errors).toEqual([]);
   });
 
-  it('still rejects a leading string or bare number with no statement', () => {
+  it('still reports a leading string or bare number with no statement', () => {
     // Only control-code / graphics escapes are the lone-content exception; a
-    // string or numeric literal with no statement keyword stays "nonsense".
-    expect(tokenizeProgram('10 "hi"\n').errors).toHaveLength(1);
-    expect(tokenizeProgram('10 {=5}\n').errors).toHaveLength(1);
-    // A control code followed by real content that isn't a keyword still fails.
-    expect(tokenizeProgram('10 {INK 2}"hi"\n').errors).toHaveLength(1);
+    // string or numeric literal with no statement keyword stays "nonsense",
+    // reported once at the offending character.
+    for (const src of ['10 "hi"\n', '10 {=5}\n', '10 {INK 2}"hi"\n']) {
+      const { errors } = tokenizeProgram(src);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.fatal).toBe(false);
+    }
+    // A line of nothing but separators never opens a statement at all, and
+    // cannot be framed: that one stays fatal.
+    const bare = tokenizeProgram('10 :\n');
+    expect(bare.errors).toHaveLength(1);
+    expect(hasFatalErrors(bare.errors)).toBe(true);
   });
 
   it('keeps a non-directive brace a literal outside strings', () => {
@@ -189,8 +214,9 @@ describe('zxspectrum tokenizer', () => {
   });
 
   // Every statement on a line gets the command-keyword check, not just the
-  // first. The first statement keeps its own (fatal) reporting - see the
-  // "rejects line-leading non-commands" cases above, which must not double up.
+  // first, and each offending statement is reported once - see the
+  // "reports a line-leading non-command like any other statement" cases above,
+  // which must not double up.
   describe('statements after the first on a line', () => {
     it('flags a bad statement after a colon', () => {
       const { errors } = tokenizeProgram('10 PRINT 1: PRNT 2\n');
@@ -276,8 +302,6 @@ describe('zxspectrum tokenizer', () => {
       const { errors, bytes: image } = tokenizeProgram('10 PRINT 1: PRNT 2\n');
       expect(hasFatalErrors(errors)).toBe(false);
       expect(image.length).toBeGreaterThan(0);
-      // The first statement's check is unchanged and still blocks the image.
-      expect(hasFatalErrors(tokenizeProgram('10 x=5\n').errors)).toBe(true);
     });
 
     it('round-trips multi-statement lines through the detokenizer', () => {

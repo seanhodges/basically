@@ -1,4 +1,4 @@
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 /** The direct-write surface {@link injectBlocks} needs - both `SpectrumMemory`
  * and `Spectrum128Memory` satisfy it. */
@@ -12,7 +12,7 @@ export interface WritableMemory {
  * writing anything to decide whether a protective CLEAR is needed (see its
  * comment for why CLEAR must run before the bytes are written, not after).
  */
-export function minBlockAddress(blocks: readonly MemoryBlock[]): number | null {
+export function minBlockAddress(blocks: readonly Block[]): number | null {
   let minAddr: number | null = null;
   for (const block of blocks) {
     if (block.bytes.length === 0) continue;
@@ -23,7 +23,7 @@ export function minBlockAddress(blocks: readonly MemoryBlock[]): number | null {
 }
 
 /**
- * Write each {@link MemoryBlock}'s bytes directly into RAM - the same
+ * Write each {@link Block}'s bytes directly into RAM - the same
  * direct-write pattern the machines already use for boot-time setup (see
  * `clearScreen` in spectrumMachine.ts/spectrum128Machine.ts). Used by
  * `loadProgram` to place machine code / data at fixed addresses once the
@@ -32,7 +32,7 @@ export function minBlockAddress(blocks: readonly MemoryBlock[]): number | null {
  */
 export function injectBlocks(
   memory: WritableMemory,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
 ): void {
   for (const block of blocks) {
     for (let i = 0; i < block.bytes.length; i++) {

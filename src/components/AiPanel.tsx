@@ -8,10 +8,13 @@ import {
   type DisplayMessage,
 } from '../ai/aiStore';
 import {
-  loadSystemPrompt,
+  loadSystemPromptFor,
   buildUserMessage,
   buildEditorFix,
 } from '../ai/promptBuilder';
+import { isPictureFile } from '../app/listingPhoto';
+import { resolveLint } from '../dialects/resolveListing';
+import { openImageFile } from '../storage/files';
 import {
   classifyBlock,
   extractCodeBlocks,
@@ -58,6 +61,16 @@ function asCommand(text: string): Command | null {
     ? (candidate as Command)
     : null;
 }
+
+/**
+ * What a photograph with nothing typed asks for.
+ *
+ * The composer refuses an empty request, and a picture with no words is not one
+ * - it is the clearest possible statement of what is wanted. Used both on the
+ * wire and in the thread, so the two say the same thing and the turn is not a
+ * blank bubble.
+ */
+const TRANSCRIBE_REQUEST = 'Please type in the listing in this picture.';
 
 /** Unchanged lines kept either side of a change, for orientation. */
 const DIFF_CONTEXT_LINES = 2;
@@ -156,9 +169,9 @@ function MergeDiff({ rows }: { rows: MergeRow[] }) {
  * What to say about a code block that stops mid-program, and whether there is
  * anything to be done about it.
  *
- * One sentence for all three used to mean an answer that outgrew its budget read
- * as though the user had stopped it - and the advice, "ask again", threw the
- * partial away and re-ran into the same ceiling.
+ * The three cases are worded separately: one sentence for all of them reads as
+ * though the user stopped an answer that in fact outgrew its budget, and the
+ * advice "ask again" throws the partial away and re-runs into the same ceiling.
  */
 function cutOffNote(
   reason: CutOffReason | undefined,
@@ -210,17 +223,23 @@ function AiCodeBlock({
   onApply: (text: string, run: boolean) => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
-  const kind = classifyBlock(block, source);
+  // Lines the active machine takes without a line number must survive a merge:
+  // a fragment cannot address one, so it must not be able to drop one either.
+  const unnumbered = useIdeStore((s) => s.dialect.unnumberedLineKey);
+  const kind = classifyBlock(block, source, unnumbered);
   // A whole listing replaces outright, so a stray bare number in it must not
   // read as a deletion.
   const allowDeletes = kind !== 'full';
   const rows = useMemo(
     () =>
-      kind === 'full' ? null : mergePlan(source, block.code, { allowDeletes }),
-    [kind, source, block.code, allowDeletes],
+      kind === 'full'
+        ? null
+        : mergePlan(source, block.code, { allowDeletes, unnumbered }),
+    [kind, source, block.code, allowDeletes, unnumbered],
   );
 
-  const merged = () => mergeBasicLines(source, block.code, { allowDeletes });
+  const merged = () =>
+    mergeBasicLines(source, block.code, { allowDeletes, unnumbered });
   const whole = () =>
     block.code.endsWith('\n') ? block.code : block.code + '\n';
 
@@ -312,6 +331,14 @@ export function AiPanel() {
   const busy = useAiStore((s) => s.busy);
   const error = useAiStore((s) => s.error);
   const pendingFix = useAiStore((s) => s.pendingFix);
+  // A photograph waiting to be sent. In the store rather than here so it
+  // survives this panel unmounting, and so `/clear` takes it with the thread.
+  const attachment = useAiStore((s) => s.attachment);
+
+  // Whether the chosen backend can be shown a picture at all. Read on every
+  // render rather than held: it changes only when the user picks another
+  // provider in settings, which is a different conversation anyway.
+  const canShowPictures = getProvider(getAiProvider()).acceptsImages;
 
   // The AI providers all require the network; there is no offline fallback, so
   // when the browser goes offline we block sending and tell the user in-panel.
@@ -363,16 +390,21 @@ export function AiPanel() {
    */
   const send = async (text?: string) => {
     const fromComposer = text === undefined;
-    const request = (text ?? input).trim();
+    const typed = (text ?? input).trim();
     // Before the guards below, deliberately: a command has to work precisely
     // when the assistant is busy, offline or was never given a key - which is
     // when the user most wants one.
-    const command = fromComposer ? asCommand(request) : null;
+    const command = fromComposer ? asCommand(typed) : null;
     if (command) {
       setInput('');
       runCommand(command);
       return;
     }
+    // A photograph rides only the request the user is composing; the thread's
+    // own "ask again" is putting an earlier request afresh, and attaching a
+    // picture to it would answer a different question.
+    const photo = fromComposer ? attachment : null;
+    const request = typed === '' && photo ? TRANSCRIBE_REQUEST : typed;
     if (request === '' || busy || !online) return;
     const providerId = getAiProvider();
     const provider = getProvider(providerId);
@@ -381,20 +413,43 @@ export function AiPanel() {
       openSettings('ai');
       return;
     }
-    if (fromComposer) setInput('');
-    const screen = provider.acceptsImages ? threadScreen : null;
-    const errors = dialect.lint(source);
+    if (fromComposer) {
+      setInput('');
+      if (photo) useAiStore.getState().clearAttachment();
+    }
+    // One picture rides one request, and a photograph is what the user is
+    // asking about. The screen the thread is showing simply is not carried this
+    // turn: whether one is waiting is derived from the thread, so it is still
+    // waiting for the next request rather than lost.
+    const screen = photo || !provider.acceptsImages ? null : threadScreen;
+    const errors = resolveLint(dialect, source);
     void useAiStore.getState().send({
       providerId,
       apiKey,
       model: provider.defaultModel,
       ...resolveAiTuning(providerId),
-      system: await loadSystemPrompt(dialect, provider.acceptsImages),
-      userContent: buildUserMessage(request, source, errors, screen !== null),
+      system: await loadSystemPromptFor(dialect, providerId),
+      userContent: buildUserMessage(
+        request,
+        source,
+        errors,
+        photo ? 'listing' : screen ? 'screen' : 'none',
+      ),
       displayRequest: request,
       ...(screen ? { image: screen } : {}),
+      ...(photo ? { photo } : {}),
       baseSource: source,
     });
+  };
+
+  /**
+   * Attach a picture from the composer's own control. The picker, the paste and
+   * the drop on the editor all end in the store's `attachPhoto`, so the same
+   * file cannot be answered differently depending on the gesture.
+   */
+  const attach = async () => {
+    const file = await openImageFile();
+    if (file) await useAiStore.getState().attachPhoto(file);
   };
 
   const stop = () => useAiStore.getState().stop();
@@ -403,7 +458,7 @@ export function AiPanel() {
   // tokenizer errors become a one-tap fix prompt (and surface the panel).
   // Returns whether the new text has editor errors.
   const checkEditorErrors = (text: string): boolean => {
-    const errors = dialect.lint(text);
+    const errors = resolveLint(dialect, text);
     if (errors.length > 0) {
       useAiStore.getState().setPendingFix(buildEditorFix(text, errors));
       showAiPanel();
@@ -451,7 +506,7 @@ export function AiPanel() {
       apiKey,
       model: provider.defaultModel,
       ...resolveAiTuning(providerId),
-      system: await loadSystemPrompt(dialect, provider.acceptsImages),
+      system: await loadSystemPromptFor(dialect, providerId),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
       baseSource: source,
@@ -462,12 +517,16 @@ export function AiPanel() {
     if (msg.role === 'user') {
       return (
         <div key={idx} className={`${styles.aiMsg} ${styles.aiUser}`}>
-          {/* Which request carried the screen, said rather than shown again:
-              the picture it carried is the one in the thread just above it, and
-              two identical thumbnails a few lines apart read as two different
-              screens. The same words serve a turn restored from storage, which
-              kept the marker and not the pixels. */}
-          {msg.image || msg.screenShown ? (
+          {/* Which picture this request carried, said rather than shown again:
+              a screen it carried is the one in the thread just above it, and two
+              identical thumbnails a few lines apart read as two different
+              screens. A photograph is named as one, so a turn never reads as
+              having shown the machine when it showed a page of print. The same
+              words serve a turn restored from storage, which kept the marker and
+              not the pixels. */}
+          {msg.photoShown ? (
+            <div className={styles.aiScreenNote}>Photo of a listing shown</div>
+          ) : msg.image || msg.screenShown ? (
             <div className={styles.aiScreenNote}>Screen shown</div>
           ) : null}
           {msg.content}
@@ -650,13 +709,42 @@ export function AiPanel() {
       )}
       {!online && (
         <div className={styles.aiOffline}>
-          You’re offline - the AI assistant needs an internet connection and is
-          unavailable until you reconnect.
+          You’re offline - the AI assistant needs a connection.
         </div>
       )}
       {messages.length > 0 && (
         <div className={styles.aiCommandHint}>
           <code>/clear</code> starts over · <code>/hide</code> closes this
+        </div>
+      )}
+      {attachment && (
+        <div className={styles.aiAttachment}>
+          {/* The prepared bytes themselves, not the file the user picked: this
+              is what will be sent, so seeing it is how they know the listing is
+              in frame and the right way up before spending a request. */}
+          <img
+            className={styles.aiAttachmentThumb}
+            src={`data:${attachment.mediaType};base64,${attachment.base64}`}
+            alt={`Attached photo of a printed listing: ${attachment.name}`}
+          />
+          <div className={styles.aiAttachmentText}>
+            <span className={styles.aiAttachmentName}>{attachment.name}</span>
+            {/* Said only where something is actually displaced. A screen not
+                carried this turn is carried by the next request rather than
+                lost, but the user should not have to work that out. */}
+            {threadScreen && (
+              <span className={styles.aiAttachmentNote}>
+                The {dialect.name} screen stays behind - one picture goes with a
+                message.
+              </span>
+            )}
+          </div>
+          <button
+            className="linklike"
+            onClick={() => useAiStore.getState().clearAttachment()}
+          >
+            Remove
+          </button>
         </div>
       )}
       <div className={styles.aiInput}>
@@ -670,6 +758,18 @@ export function AiPanel() {
               : 'AI assistant unavailable while offline'
           }
           onChange={(e) => setInput(e.target.value)}
+          onPaste={(e) => {
+            // The clipboard's *files*, not its items: the item list also
+            // reports an image for copied HTML, so reading items would silently
+            // attach the first picture of any web page pasted as text. An
+            // ordinary text paste falls through untouched.
+            const file = Array.from(e.clipboardData.files).find((f) =>
+              isPictureFile(f.name, f.type),
+            );
+            if (!file) return;
+            e.preventDefault();
+            void useAiStore.getState().attachPhoto(file);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -677,15 +777,31 @@ export function AiPanel() {
             }
           }}
         />
+        {/* Hidden on a backend that cannot be shown a picture - a courtesy, not
+            the guarantee: the panel does not re-render the instant the provider
+            changes, so the refusal inside the attach path is what holds. */}
+        {canShowPictures && (
+          <button
+            className={styles.aiAttach}
+            aria-label="Attach a photo of a printed listing"
+            title="Attach a photo of a printed listing to type it in"
+            disabled={!online}
+            onClick={() => void attach()}
+          >
+            <span aria-hidden="true">📷</span>
+          </button>
+        )}
         {busy ? (
           <button onClick={stop}>Stop</button>
         ) : (
           <button
             onClick={() => void send()}
-            // A command is answered here rather than sent, so being offline is
-            // no reason to refuse it.
+            // A photograph with nothing typed is a request in itself, so Send
+            // takes it. A command is answered here rather than sent, so being
+            // offline is no reason to refuse it.
             disabled={
-              input.trim() === '' || (!online && asCommand(input) === null)
+              (input.trim() === '' && !attachment) ||
+              (!online && asCommand(input) === null)
             }
           >
             Send

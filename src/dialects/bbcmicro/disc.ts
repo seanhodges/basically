@@ -11,7 +11,7 @@
  * `exportD64Entries` + `buildD64` split.
  */
 
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 import { fatalErrors } from '../types';
 import { buildBbcDisc, composeDiscFiles } from '../../emulator/bbc/bbcDisc';
 import { tokenizeProgram } from './tokenizer';
@@ -43,7 +43,7 @@ function programImage(source: string, variant?: BbcVariant): Uint8Array {
 export function buildBbcDiscImage(
   source: string,
   programName: string,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   loader = false,
   variant?: BbcVariant,
 ): Uint8Array {

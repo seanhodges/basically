@@ -5,7 +5,12 @@
 //
 // Cells are keyed by (target, capability) and never by pair: a target-anchored
 // note like "the ZX81 has no pixel graphics, rescale to the 64x44 block grid"
-// is equally correct arriving from a CPC, a BBC or a Spectrum. `summary`
+// is equally correct arriving from a CPC, a BBC or a Spectrum. The target is a
+// machine, not the reference page it reads from: a cell is a paragraph written
+// *to* a machine, and two machines on one page needing different advice is the
+// ordinary case - the ZX81 and the Spectrum share the Sinclair page and share
+// almost none of this. Machines that do share a cell are named together through
+// the lists in porting.ts. `summary`
 // renders only in the "newly available" brief (what this machine offers
 // here); `instead` renders only against a lost-capability group (what to do
 // instead); the two are never shown together. Completeness is enforced from
@@ -16,6 +21,15 @@
 // Edit by hand, grounded in each dialect's real reference table and hardware
 // page — the same discipline porting.ts and facts.ts already follow.
 import type { KeywordDomain } from './domains';
+import {
+  ATARIS,
+  BBCS,
+  COMMODORE_V2S,
+  COMMODORES,
+  CPCS,
+  LOCOMOTIVE_1_1S,
+  SPECTRUMS,
+} from './porting';
 
 /** A short worked example of how a job is done on the target machine. */
 export interface DomainGuidanceExample {
@@ -27,8 +41,12 @@ export interface DomainGuidanceExample {
 
 /** Advice for one (target dialect, capability) pair. */
 export interface DomainGuidance {
-  /** Target page slug this cell advises for. */
-  to: string;
+  /**
+   * The machine this cell advises for, or the machines it reads the same for.
+   * Several are named only where the advice is genuinely shared, never because
+   * they share a reference page.
+   */
+  to: string | readonly string[];
   /** The capability domain this cell covers. */
   domain: KeywordDomain;
   /** How well the target covers this capability on its own. */
@@ -361,9 +379,9 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
-  // ---------------------------------------------------------- zxspectrum --
+  // ----------------------------------------------------------- SPECTRUMS --
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'control-flow',
     support: 'partial',
     summary:
@@ -377,7 +395,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['FOR', 'GO TO', 'GO SUB'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'data',
     support: 'full',
     summary:
@@ -387,7 +405,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'READ', 'DIM'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -397,7 +415,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SIN', 'SQR', 'RND'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'strings',
     support: 'partial',
     summary:
@@ -411,7 +429,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['CODE', 'LEN', 'STR$'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'text-screen',
     support: 'full',
     summary:
@@ -421,7 +439,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['AT', 'SCREEN$', 'TAB'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'graphics',
     support: 'full',
     summary:
@@ -431,7 +449,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DRAW', 'CIRCLE', 'PLOT'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'colour',
     support: 'full',
     summary:
@@ -440,22 +458,39 @@ export const domainGuidance: DomainGuidance[] = [
       'No per-pixel colour: one ink/paper pair applies to a whole 8×8 cell, so redesign artwork that relies on finer colour granularity.',
     reachFor: ['INK', 'PAPER', 'FLASH'],
   },
+  // Split from the Spectrums' shared cell: PLAY and the AY chip arrived with the
+  // 128, so a 48K reader offered them is sent to a command their machine has
+  // never had. The two share nothing here but BEEP.
   {
     to: 'zxspectrum',
     domain: 'sound',
     support: 'partial',
     summary:
-      'BEEP plays a tone at a given duration and pitch on a single channel, with PLAY for simple tunes.',
+      'BEEP plays a tone at a given duration and pitch, on the one beeper channel the 48K has.',
     instead:
       'No multi-channel envelope like SOUND/ENVELOPE: BEEP duration,pitch plays one note at a time — sequence several for a tune.',
     example: {
       caption: 'A tune from sequential BEEPs',
       code: ['10 BEEP .2,0', '20 BEEP .2,4'],
     },
+    reachFor: ['BEEP'],
+  },
+  {
+    to: 'zxspectrum128',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP sounds one tone on the beeper; PLAY drives the AY chip’s three channels from music strings.',
+    instead:
+      'No SOUND/ENVELOPE register control: BEEP duration,pitch for one note, or hand PLAY one music string per channel.',
+    example: {
+      caption: 'Three channels with PLAY',
+      code: ['10 PLAY "cdefg", "eg", "c"'],
+    },
     reachFor: ['BEEP', 'PLAY'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'input',
     support: 'full',
     summary:
@@ -465,7 +500,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INKEY$', 'INPUT'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'storage',
     support: 'full',
     summary:
@@ -475,7 +510,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SAVE', 'VERIFY', 'CAT'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -485,7 +520,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PEEK', 'POKE', 'IN'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'program-editing',
     support: 'partial',
     summary:
@@ -496,7 +531,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LIST', 'RUN', 'CONTINUE'],
   },
   {
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     domain: 'error-handling',
     support: 'none',
     summary:
@@ -513,9 +548,9 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
-  // ----------------------------------------------------------------- bbc --
+  // ---------------------------------------------------------------- BBCS --
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'control-flow',
     support: 'full',
     summary:
@@ -525,7 +560,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PROC', 'REPEAT', 'ON'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'data',
     support: 'full',
     summary:
@@ -535,7 +570,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'DIM', 'READ'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -545,7 +580,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SQR', 'LOG', 'RND'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'strings',
     support: 'full',
     summary:
@@ -555,7 +590,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LEFT$', 'MID$', 'INSTR'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'text-screen',
     support: 'full',
     summary:
@@ -565,7 +600,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['VDU', 'TAB', 'WIDTH'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'graphics',
     support: 'full',
     summary:
@@ -575,7 +610,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DRAW', 'PLOT', 'POINT'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'colour',
     support: 'full',
     summary:
@@ -585,7 +620,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['COLOUR', 'GCOL'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'sound',
     support: 'full',
     summary:
@@ -595,7 +630,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SOUND', 'ENVELOPE'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'input',
     support: 'full',
     summary:
@@ -605,7 +640,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INKEY', 'GET', 'ADVAL'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'storage',
     support: 'full',
     summary:
@@ -615,7 +650,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPENIN', 'BPUT', 'CHAIN'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -625,7 +660,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['CALL', 'USR', 'OSCLI'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'program-editing',
     support: 'full',
     summary:
@@ -635,7 +670,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['AUTO', 'RENUMBER', 'TRACE'],
   },
   {
-    to: 'bbc',
+    to: BBCS,
     domain: 'error-handling',
     support: 'full',
     summary:
@@ -644,9 +679,9 @@ export const domainGuidance: DomainGuidance[] = [
       'No RESUME to continue at the failing line: the handler must GOTO back explicitly, since ON ERROR does not resume on its own.',
     reachFor: ['ERROR', 'ERR', 'REPORT'],
   },
-  // ------------------------------------------------------------ commodore --
+  // ---------------------------------------------------------- COMMODORES --
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'control-flow',
     support: 'partial',
     summary:
@@ -665,7 +700,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['FOR', 'GOSUB', 'ON'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'data',
     support: 'full',
     summary:
@@ -675,7 +710,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'READ', 'RESTORE'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -685,7 +720,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SQR', 'LOG', 'RND'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'strings',
     support: 'full',
     summary:
@@ -695,7 +730,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LEFT$', 'MID$', 'ASC'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'text-screen',
     support: 'partial',
     summary:
@@ -709,7 +744,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['PRINT', 'TAB('],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'graphics',
     support: 'none',
     summary:
@@ -722,7 +757,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'colour',
     support: 'none',
     summary:
@@ -735,7 +770,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'sound',
     support: 'none',
     summary:
@@ -748,7 +783,7 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'input',
     support: 'full',
     summary:
@@ -757,8 +792,11 @@ export const domainGuidance: DomainGuidance[] = [
       'No INKEY$-named function: GET A$ is the equivalent — it returns an empty string immediately when no key is waiting.',
     reachFor: ['GET', 'INPUT'],
   },
+  // Split from the Commodores' shared cell: DSAVE, DLOAD and CATALOG are BASIC
+  // 4.0, so only the PET has them - a VIC-20 or C64 reader sent to them is sent
+  // to commands their machine answers with a syntax error.
   {
-    to: 'commodore',
+    to: 'pet',
     domain: 'storage',
     support: 'full',
     summary:
@@ -768,7 +806,17 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPEN', 'DSAVE', 'CATALOG'],
   },
   {
-    to: 'commodore',
+    to: COMMODORE_V2S,
+    domain: 'storage',
+    support: 'full',
+    summary:
+      'OPEN/PRINT#/INPUT# give full sequential file I/O, with LOAD, SAVE and VERIFY for whole files.',
+    instead:
+      'No disk commands and no RECORD: OPEN a channel on the drive and drive it with PRINT#/INPUT#, or move whole files with LOAD and SAVE.',
+    reachFor: ['OPEN', 'PRINT#', 'INPUT#'],
+  },
+  {
+    to: COMMODORES,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -778,7 +826,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['SYS', 'USR', 'PEEK'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'program-editing',
     support: 'partial',
     summary:
@@ -789,7 +837,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LIST', 'RUN', 'CONT'],
   },
   {
-    to: 'commodore',
+    to: COMMODORES,
     domain: 'error-handling',
     support: 'none',
     summary:
@@ -1119,9 +1167,9 @@ export const domainGuidance: DomainGuidance[] = [
       'No REPORT-style plain-English error text: read the numeric ERR and ERL and look the code up in the manual.',
     reachFor: ['RESUME', 'ERL', 'ERR'],
   },
-  // ----------------------------------------------------------------- cpc --
+  // ---------------------------------------------------------------- CPCS --
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'control-flow',
     support: 'full',
     summary:
@@ -1131,7 +1179,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['WHILE', 'ELSE', 'AFTER'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'data',
     support: 'full',
     summary:
@@ -1141,7 +1189,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DATA', 'DEFINT', 'DIM'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'numeric',
     support: 'full',
     summary:
@@ -1151,7 +1199,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['ROUND', 'LOG10', 'MAX'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'strings',
     support: 'full',
     summary:
@@ -1161,7 +1209,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['LOWER$', 'UPPER$', 'INSTR'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'text-screen',
     support: 'full',
     summary:
@@ -1170,8 +1218,20 @@ export const domainGuidance: DomainGuidance[] = [
       "No POS-only report: POS(#stream) reports the column for any window, and VPOS the row — read both, they're not one call.",
     reachFor: ['LOCATE', 'WINDOW', 'ZONE'],
   },
+  // Split from the CPCs' shared cell: FILL and MASK came with Locomotive BASIC
+  // 1.1, so the 464 has neither.
   {
-    to: 'cpc',
+    to: 'cpc464',
+    domain: 'graphics',
+    support: 'full',
+    summary:
+      'DRAW/DRAWR/PLOT/PLOTR with relative and absolute forms give rich vector graphics, with no separate CIRCLE.',
+    instead:
+      'No named CIRCLE: approximate one with a short loop of PLOT points at computed offsets around the centre, or several DRAWR segments.',
+    reachFor: ['DRAW', 'DRAWR', 'PLOTR'],
+  },
+  {
+    to: LOCOMOTIVE_1_1S,
     domain: 'graphics',
     support: 'full',
     summary:
@@ -1181,7 +1241,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['DRAWR', 'FILL', 'MASK'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'colour',
     support: 'full',
     summary:
@@ -1191,7 +1251,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['INK', 'PAPER', 'BORDER'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'sound',
     support: 'full',
     summary:
@@ -1201,7 +1261,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['ENV', 'ENT', 'SOUND'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'input',
     support: 'full',
     summary:
@@ -1211,7 +1271,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['JOY', 'INKEY', 'KEY DEF'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'storage',
     support: 'full',
     summary:
@@ -1221,7 +1281,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['OPENIN', 'MERGE', 'CAT'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'memory-hardware',
     support: 'full',
     summary:
@@ -1231,7 +1291,7 @@ export const domainGuidance: DomainGuidance[] = [
     reachFor: ['CALL', 'OUT', 'DI'],
   },
   {
-    to: 'cpc',
+    to: CPCS,
     domain: 'program-editing',
     support: 'full',
     summary:
@@ -1240,8 +1300,19 @@ export const domainGuidance: DomainGuidance[] = [
       'No OLD-style undelete after NEW: keep an external copy before clearing, since a cleared program cannot be recovered.',
     reachFor: ['AUTO', 'RENUM', 'TRON'],
   },
+  // Split for the same reason: DERR and ON BREAK CONT are 1.1 additions.
   {
-    to: 'cpc',
+    to: 'cpc464',
+    domain: 'error-handling',
+    support: 'full',
+    summary:
+      'ON ERROR GOTO with RESUME, plus ON BREAK GOSUB and ON BREAK STOP, give full error and break trapping.',
+    instead:
+      'No REPORT-style plain-English error text: read the numeric ERR code and look it up, or trap specific codes you expect.',
+    reachFor: ['RESUME', 'ON ERROR GOTO', 'ERR'],
+  },
+  {
+    to: LOCOMOTIVE_1_1S,
     domain: 'error-handling',
     support: 'full',
     summary:
@@ -1456,5 +1527,1564 @@ export const domainGuidance: DomainGuidance[] = [
         '40 PRINT "CANNOT DIVIDE"',
       ],
     },
+  },
+
+  // --------------------------------------------------------------- pmd85 --
+  {
+    to: 'pmd85',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, ON...GOTO/GOSUB and DEF FNC cover jumps, loops and single-expression functions.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. The function keyword is FNC, and its name is a separate word: FNC A(X).',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'DATA/READ/RESTORE for constants, DIM for arrays and LET for assignment, with CLEAR to erase the variables.',
+    instead:
+      'No CLR or DEFINT/DEFSTR, and no type tag but $: every number is single-precision floating point. CLEAR takes no size - string space is a fixed region of its own.',
+    example: {
+      caption: 'CLEAR takes no argument',
+      code: ['10 CLEAR', '20 DIM A(20)', '30 READ A(1)', '40 DATA 42'],
+    },
+    reachFor: ['DATA', 'READ', 'DIM', 'CLEAR'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Single-precision maths in full: SQR, LOG, EXP, the four trig functions, RND, INT, ABS, SGN, BIT and the ^ operator, with DEG and RAD choosing the angle unit.',
+    instead:
+      'No PI, MOD, DIV, MIN or MAX: write PI out as a constant, and take a remainder with A-INT(A/B)*B. DEG saves converting degrees by hand.',
+    example: {
+      caption: 'PI written out; degrees with DEG',
+      code: ['10 P=3.14159265', '20 DEG', '30 PRINT SIN(45)'],
+    },
+    reachFor: ['SQR', 'RND', 'INT', 'DEG'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, LEFT$, RIGHT$, MID$, ASC, CHR$, STR$, VAL and HEX$, with + joining two strings.',
+    instead:
+      'No INSTR, STRING$, SPACE$ or UPPER$: search with a MID$ loop and build a run of characters by concatenating. MID$ is a function only and cannot be assigned to.',
+    example: {
+      caption: 'Search a string with MID$',
+      code: [
+        '10 FOR I=1 TO LEN(A$)',
+        '20 IF MID$(A$,I,1)="X" THEN 50',
+        '30 NEXT I',
+        '40 PRINT "NOT FOUND"',
+      ],
+    },
+    reachFor: ['MID$', 'LEN', 'CHR$', 'HEX$'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT with TAB( and SPC( onto a 48x26 text area, DISP onto the dialogue line at the foot of the screen, and POS to read the column back.',
+    instead:
+      'No CLS or LOCATE: GCLEAR clears the whole screen, and TAB( is the reliable way to reach a column. The AT keyword exists but what it positions is not established here.',
+    example: {
+      caption: 'Clear, then lay out with TAB(',
+      code: ['10 GCLEAR', '20 PRINT TAB(10);"SCORE"'],
+    },
+    reachFor: ['PRINT', 'TAB(', 'DISP', 'POS'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'A real drawing set: SCALE sets a coordinate window, MOVE and PLOT draw lines in it, AXES draws axes, LABEL plots text and FILL an enlarged bit pattern.',
+    instead:
+      'No circle, arc or paint: draw a curve as a run of PLOT points, and fill an area with a loop of lines. BPLOT writes bytes straight into screen memory for a sprite.',
+    example: {
+      caption: 'A line, in a scaled window',
+      code: ['10 SCALE 0,100,0,100', '20 MOVE 0,0', '30 PLOT 100,100'],
+    },
+    reachFor: ['PLOT', 'MOVE', 'SCALE', 'FILL'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'The screen is monochrome. PEN and INK( set the two attribute bits each six-pixel cell carries: blink and reduced brightness.',
+    instead:
+      'No palette, ink or paper colours and no border: a program that distinguishes things by colour has to distinguish them by brightness, by blinking, or by position instead.',
+    example: {
+      caption: 'Attributes, not colours',
+      code: ['10 PEN 2', '20 PLOT 50,50', '30 PRINT INK(1);"ALERT"'],
+    },
+    reachFor: ['PEN', 'INK('],
+  },
+  {
+    to: 'pmd85',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP, and nothing else: one fixed tone on the motherboard speaker, with no pitch, length or channel to give it.',
+    instead:
+      'No SOUND, PLAY or ENVELOPE. A tune has to be driven by OUT to the speaker bit of the motherboard 8255, timed by the program itself.',
+    example: {
+      caption: 'The whole sound repertoire',
+      code: ['10 BEEP', '20 PAUSE 200', '30 BEEP'],
+    },
+    reachFor: ['BEEP'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT takes a whole typed line; INKEY reports which of the twelve function keys K0-K11 is held, or 255 for none.',
+    instead:
+      'No INKEY$ or GET for the letter keys: a real-time program is driven by the function-key row, and anything else waits for a whole line through INPUT.',
+    example: {
+      caption: 'Poll the function keys',
+      code: ['10 K=INKEY', '20 IF K=255 THEN 10', '30 PRINT "KEY";K'],
+    },
+    reachFor: ['INPUT', 'INKEY', '_'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'Cassette only: SAVE and LOAD for programs, DSAVE and DLOAD for an array, and CHECK to verify a recording against memory.',
+    instead:
+      'No named files, no disc and no OPEN/CLOSE: every tape command takes a file NUMBER, so SAVE 1 not SAVE "PROG". A sequential data file becomes a DSAVE array, and its separator is a semicolon.',
+    example: {
+      caption: 'A data file is an array, by number',
+      code: ['10 DSAVE 2;A(0)', '20 DLOAD 2;B(0)'],
+    },
+    reachFor: ['SAVE', 'LOAD', 'DSAVE', 'CHECK'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK/POKE, APEEK/APOKE for 16-bit words, INP/OUT and WAIT for ports, ADR for a variable address, and USR to call machine code at an address.',
+    instead:
+      'USR takes the address itself rather than a poked vector, so there is no SYS or CALL to replace. No VARPTR: ADR gives a variable’s address, and CODE assembles hex and calls it.',
+    example: {
+      caption: 'USR calls the address directly',
+      code: ["10 A=USR('7000)", "20 PRINT PEEK('7010)"],
+    },
+    reachFor: ['PEEK', 'POKE', 'USR', 'ADR'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'RUN, LIST, NEW, CONT and REM, with AUTO numbering entered lines and LLIST recalling one into the dialogue line for editing.',
+    instead:
+      'No RENUM, DELETE, TRON or MERGE: renumber by retyping, and trace by adding PRINT lines. LLIST is a line editor here, not a printer command.',
+    example: {
+      caption: 'AUTO numbers as you type',
+      code: ['AUTO 100,10'],
+    },
+    reachFor: ['LIST', 'AUTO', 'REM', 'CONT'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ON ERR GOTO traps an error and jumps to a line instead of stopping the program.',
+    instead:
+      'No ERR value, ERL line number or RESUME: the handler cannot ask what went wrong or where, so guard what can fail and use the trap as a last resort.',
+    example: {
+      caption: 'Trap, then guard anyway',
+      code: ['10 ON ERR GOTO 90', '20 IF D=0 THEN 90', '30 PRINT N/D'],
+    },
+    reachFor: ['ERR'],
+  },
+  // -------------------------------------------------------------- apple1 --
+  {
+    to: 'apple1',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN and a GOTO whose target may be an expression.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. GOTO takes an expression, which is the only computed jump there is.',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'GOTO'],
+  },
+  {
+    to: 'apple1',
+    domain: 'data',
+    support: 'partial',
+    summary: 'DIM for arrays and strings, LET for assignment, CLR to discard.',
+    instead:
+      'No DATA, READ or RESTORE: assign the values in a loop, or hold them in a string and read it a position at a time.',
+    example: {
+      caption: 'A table without DATA',
+      code: ['10 DIM T(4)', '20 FOR I=1 TO 4', '30 T(I)=I*I', '40 NEXT I'],
+    },
+    reachFor: ['DIM', 'LET', 'CLR'],
+  },
+  {
+    to: 'apple1',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'ABS, SGN, RND and MOD over 16-bit signed integers, -32767 to 32767.',
+    instead:
+      'No fractions and no maths library: no SQR, LOG, EXP or trig, and no power operator. Rescale to whole units - work in tenths and divide at the end - and write SQR as a search.',
+    example: {
+      caption: 'Rescale instead of using fractions',
+      code: [
+        '10 REM 3.75 AS TENTHS',
+        '20 T=375',
+        '30 PRINT T/100;".";T MOD 100',
+      ],
+    },
+    reachFor: ['ABS', 'RND', 'SGN', 'MOD'],
+  },
+  {
+    to: 'apple1',
+    domain: 'strings',
+    support: 'partial',
+    summary: 'LEN, and A$(first,last) to read a substring of a DIMed string.',
+    instead:
+      'No CHR$, ASC, MID$, STR$ or VAL, and no concatenation. Build a string left to right by assigning at each position, which truncates what follows.',
+    example: {
+      caption: 'Build a line a character at a time',
+      code: ['10 DIM A$(8)', '20 FOR I=1 TO 8', '30 A$(I)="*"', '40 NEXT I'],
+    },
+    reachFor: ['LEN'],
+  },
+  {
+    to: 'apple1',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT, and TAB to move the print column - which counts from 1 and moves right only.',
+    instead:
+      'No cursor addressing, no CLS and no screen memory: the display decodes carriage return and nothing else. Print a picture again rather than changing part of it.',
+    example: {
+      caption: 'TAB is a statement of its own',
+      code: ['10 TAB 10', '20 PRINT "HELLO"'],
+    },
+    reachFor: ['PRINT', 'TAB'],
+  },
+  {
+    to: 'apple1',
+    domain: 'input',
+    support: 'partial',
+    summary: 'INPUT, which reads a whole typed line and takes a prompt.',
+    instead:
+      'No key-at-a-time read, and none can be built: any keypress stops a running program, so the interpreter has the key before the program could. One turn per typed line.',
+    example: {
+      caption: 'One typed line per turn',
+      code: ['10 DIM K$(4)', '20 INPUT "MOVE",K$', '30 IF K$="Q" THEN 50'],
+    },
+    reachFor: ['INPUT'],
+  },
+  {
+    to: 'apple1',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE and CALL, plus HIMEM= and LOMEM= to move the ends of the workspace.',
+    instead:
+      'No hex literals anywhere: every address is signed decimal, which is why an I/O address is written negative. There is no port I/O - the hardware is memory-mapped.',
+    example: {
+      caption: 'An I/O address, written negative',
+      code: ['10 PRINT PEEK(-12272)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM='],
+  },
+  {
+    to: 'apple1',
+    domain: 'program-editing',
+    support: 'partial',
+    summary: 'LIST, DEL, AUTO with OFF, and SCR to erase the program.',
+    instead:
+      'These are direct-mode commands: typed inside a numbered line every one answers *** SYNTAX ERR, so a program cannot edit or list itself.',
+    example: {
+      caption: 'Direct mode only',
+      code: ['10 REM LIST HERE IS A SYNTAX ERR'],
+    },
+    reachFor: ['LIST', 'DEL', 'AUTO', 'SCR'],
+  },
+  {
+    to: 'apple1',
+    domain: 'graphics',
+    support: 'none',
+    summary: 'None: the machine has no graphics hardware and no glyphs for it.',
+    instead:
+      'No graphics of any kind, and no block characters either. Plot on the text grid with the 64 characters there are, sizing the picture 8 columns to 7 rows so it reads round.',
+    example: {
+      caption: 'Plot with characters',
+      code: ['10 TAB 20', '20 PRINT "*"'],
+    },
+  },
+  {
+    to: 'apple1',
+    domain: 'colour',
+    support: 'none',
+    summary:
+      'None: the display is monochrome, and inverse video does not exist.',
+    instead:
+      'No colour and nothing standing in for it. Drop the colour, or say in words what it meant.',
+    example: { caption: 'Say it instead', code: ['10 PRINT "WARNING"'] },
+  },
+  {
+    to: 'apple1',
+    domain: 'sound',
+    support: 'none',
+    summary: 'None: no speaker, no bell, no port to click at.',
+    instead:
+      'No sound keywords and no hardware under them: drop the effect, or print a message in its place.',
+    example: { caption: 'Print instead of a beep', code: ['10 PRINT "BEEP"'] },
+  },
+  {
+    to: 'apple1',
+    domain: 'storage',
+    support: 'none',
+    summary: 'None from BASIC: saving is done from the monitor, not a program.',
+    instead:
+      'No LOAD, SAVE or file commands. A program is saved by leaving BASIC for the monitor and dumping two memory ranges through the cassette interface.',
+    example: {
+      caption: 'Saved from the monitor, not from BASIC',
+      code: ['10 REM C100R THEN 4A.FF W AND 800.FFF W'],
+    },
+  },
+  {
+    to: 'apple1',
+    domain: 'error-handling',
+    support: 'none',
+    summary: 'None: an error stops the program and prints its own report.',
+    instead:
+      'No ON ERROR and nothing to resume with: test for the condition before the statement that would fail, and jump past it.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF D=0 THEN 40',
+        '20 PRINT N/D',
+        '30 GOTO 50',
+        '40 PRINT "NO"',
+      ],
+    },
+  },
+
+  // -------------------------------------------------------------- apple2 --
+  // The Apple 1's interpreter with graphics, a cursor and a tape behind it.
+  // Most of what a reader expects of "Apple II BASIC" is Applesoft, which is
+  // the other ROM: no floating point, no hi-res, no string functions but two.
+  {
+    to: 'apple2',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN with POP, and a GOTO whose target may be an expression.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. POP drops a return address where a subroutine must not return to its caller.',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'GOTO'],
+  },
+  {
+    to: 'apple2',
+    domain: 'data',
+    support: 'partial',
+    summary: 'DIM for arrays and strings, LET for assignment, CLR to discard.',
+    instead:
+      'No DATA, READ or RESTORE: fill a table in a loop, or hold it in a string and read a position at a time. Arrays are numeric, one-dimensional and indexed from 0.',
+    example: {
+      caption: 'A table without DATA',
+      code: ['10 DIM T(4)', '20 FOR I=0 TO 4', '30 T(I)=I*I', '40 NEXT I'],
+    },
+    reachFor: ['DIM', 'LET', 'CLR'],
+  },
+  {
+    to: 'apple2',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'ABS, SGN, RND and MOD over 16-bit signed integers, -32767 to 32767, and ^ raises to a power.',
+    instead:
+      'No fractions and no maths library: no SQR, LOG, EXP, trig or INT. Rescale to whole units - work in tenths and divide at the end - and write SQR as a search.',
+    example: {
+      caption: 'Rescale instead of using fractions',
+      code: [
+        '10 REM 3.75 AS HUNDREDTHS',
+        '20 T=375',
+        '30 PRINT T/100;".";T MOD 100',
+      ],
+    },
+    reachFor: ['ABS', 'RND', 'SGN', 'MOD'],
+  },
+  {
+    to: 'apple2',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN and ASC, and A$(first,last) to read a substring of a DIMed string.',
+    instead:
+      'No CHR$, MID$, STR$ or VAL, and no concatenation: append by assigning past the end. ASC( answers with bit 7 set, which is how this machine stores a character.',
+    example: {
+      caption: 'Append by assigning past the end',
+      code: ['10 DIM A$(8)', '20 A$="AB"', '30 A$(LEN(A$)+1)="CD"'],
+    },
+    reachFor: ['LEN', 'ASC'],
+  },
+  {
+    to: 'apple2',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT, with TAB and VTAB putting the cursor anywhere on the 40 by 24 screen.',
+    instead:
+      'No CLS or HOME statement: CALL -936 is the monitor call that clears the screen. TAB and VTAB are statements of their own rather than print formatters.',
+    example: {
+      caption: 'Clear, then write in place',
+      code: ['10 CALL -936', '20 VTAB 5', '30 TAB 10', '40 PRINT "SCORE"'],
+    },
+    reachFor: ['PRINT', 'TAB', 'VTAB'],
+  },
+  {
+    to: 'apple2',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'GR gives a 40 by 40 grid of coloured blocks; PLOT, HLIN and VLIN draw, and SCRN( reads one back.',
+    instead:
+      "No hi-res from BASIC - HGR, HPLOT and DRAW are Applesoft's, and the 280 by 192 page is reachable only by CALL. Redraw the shape in lo-res blocks instead.",
+    example: {
+      caption: 'Draw in lo-res blocks',
+      code: ['10 GR', '20 COLOR=13', '30 PLOT 20,20', '40 HLIN 0,39 AT 39'],
+    },
+    reachFor: ['GR', 'PLOT', 'HLIN', 'SCRN'],
+  },
+  {
+    to: 'apple2',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'COLOR= picks one of sixteen colours for the lo-res page, and SCRN( reads a block back.',
+    instead:
+      'Colour belongs to the lo-res page and never to text: there is no ink, paper or border, and nothing PRINT writes can be coloured. Draw the coloured part as blocks.',
+    example: {
+      caption: 'Colour a block, not a string',
+      code: ['10 GR', '20 COLOR=9', '30 PLOT 0,0'],
+    },
+    reachFor: ['COLOR='],
+  },
+  {
+    to: 'apple2',
+    domain: 'sound',
+    support: 'none',
+    summary: 'None: the speaker is one bit, and no keyword reaches it.',
+    instead:
+      'No sound keywords at all. Touching address -16336 moves the speaker cone once, so a tone is that PEEK in a loop and the loop is what sets the pitch.',
+    example: {
+      caption: 'A click train, in place of a note',
+      code: ['10 FOR I=1 TO 50', '20 X=PEEK(-16336)', '30 NEXT I'],
+    },
+  },
+  {
+    to: 'apple2',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a whole typed line, and PDL( reads a paddle, 0 to 255.',
+    instead:
+      'No GET or INKEY$, but the keyboard can be polled without stopping: PEEK(-16384) is the latch, over 127 means a key is waiting, and POKE -16368,0 clears the strobe.',
+    example: {
+      caption: 'Poll the keyboard without stopping',
+      code: ['10 K=PEEK(-16384)', '20 IF K<128 THEN 10', '30 POKE -16368,0'],
+    },
+    reachFor: ['INPUT', 'PDL'],
+  },
+  {
+    to: 'apple2',
+    domain: 'storage',
+    support: 'partial',
+    summary: 'LOAD and SAVE, which read and write the program on cassette.',
+    instead:
+      'The tape carries the program and nothing else: no data files, no OPEN or PRINT#, and no disk. Keep the data in the listing, or in a memory block beside it.',
+    example: {
+      caption: 'Data in the listing, not in a file',
+      code: ['10 DIM T(3)', '20 T(0)=5', '30 T(1)=9'],
+    },
+    reachFor: ['LOAD', 'SAVE'],
+  },
+  {
+    to: 'apple2',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE and CALL, with HIMEM: and LOMEM: moving the ends of the workspace.',
+    instead:
+      'No hex literals anywhere: every address is signed decimal, so anything above 32767 is written negative. The hardware is memory-mapped and there is no port I/O.',
+    example: {
+      caption: 'An I/O address, written negative',
+      code: ['10 PRINT PEEK(-16384)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM:'],
+  },
+  {
+    to: 'apple2',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'LIST, DEL, AUTO with MAN, NEW and CON, plus TRACE and DSP for watching a run.',
+    instead:
+      'All of these but LIST are prompt commands: inside a numbered line each answers *** SYNTAX ERR. LIST is the exception, so a program really can list itself.',
+    example: {
+      caption: 'LIST is the one a program may run',
+      code: ['10 LIST 10', '20 END'],
+    },
+    reachFor: ['LIST', 'DEL', 'TRACE', 'DSP'],
+  },
+  {
+    to: 'apple2',
+    domain: 'error-handling',
+    support: 'none',
+    summary: 'None: an error stops the program and prints its own report.',
+    instead:
+      'No ON ERROR and nothing a program can resume with - CON works only at the prompt. Test for the condition first and jump past the statement that would fail.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF D=0 THEN 40',
+        '20 PRINT N/D',
+        '30 GOTO 50',
+        '40 PRINT "NO"',
+      ],
+    },
+  },
+
+  // ---------------------------------------------------------- apple2plus --
+  {
+    to: 'apple2plus',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF…THEN, FOR…NEXT with a fractional STEP, GOSUB/RETURN with POP, ON…GOTO and ON…GOSUB, and DEF FN.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. Write the condition as a comparison — IF A THEN reads as IF, AT and HEN.',
+    example: {
+      caption: 'No ELSE, and a comparison rather than a bare name',
+      code: [
+        '10 IF X<>0 THEN 40',
+        '20 PRINT "ZERO"',
+        '30 GOTO 50',
+        '40 PRINT "NONZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'DIM for arrays of any shape and either type, DATA/READ/RESTORE for constants, LET to assign and CLEAR to discard.',
+    instead:
+      'No ERASE and no DEFINT: an array lives until CLEAR, and a variable’s type is its name — a % suffix makes it a whole number and a $ makes it a string.',
+    example: {
+      caption: 'Constants in DATA, read into an array',
+      code: [
+        '10 DIM T(3)',
+        '20 FOR I=0 TO 3:READ T(I):NEXT I',
+        '30 DATA 5,9,2,7',
+      ],
+    },
+    reachFor: ['DIM', 'DATA', 'READ', 'LET'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Floating point to nine digits, with SQR, LOG, EXP, the trig functions, ^, and RND giving a fraction below 1.',
+    instead:
+      'AND, OR and NOT are logical rather than bitwise: 5 AND 3 is 1. There is no MOD, DIV or XOR — take a remainder with INT, and do bit work by arithmetic.',
+    example: {
+      caption: 'A remainder without MOD',
+      code: ['10 R=A-INT(A/B)*B', '20 PRINT R'],
+    },
+    reachFor: ['SQR', 'RND', 'INT', 'ABS'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEFT$, RIGHT$ and MID$ slice, + joins, and LEN, ASC, CHR$, STR$ and VAL convert. A string holds up to 255 characters.',
+    instead:
+      'No INSTR, UPPER$ or HEX$: search with a MID$ loop. Nothing assigns into the middle of a string either — rebuild it by joining the parts on both sides of the change.',
+    example: {
+      caption: 'Search without INSTR',
+      code: [
+        '10 FOR I=1 TO LEN(A$)',
+        '20 IF MID$(A$,I,1)="X" THEN 40',
+        '30 NEXT I',
+        '40 PRINT I',
+      ],
+    },
+    reachFor: ['MID$', 'LEN', 'CHR$', 'VAL'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT with TAB( and SPC(, HTAB and VTAB to reach any cell of the 40 by 24 screen, and HOME to clear it.',
+    instead:
+      'No PRINT USING, WINDOW or LOCATE: pad with SPC( to line a column up, and place text with HTAB and VTAB. The text window is narrowed by poking locations 32 to 35.',
+    example: {
+      caption: 'Place text with HTAB and VTAB',
+      code: ['10 HOME', '20 VTAB 5:HTAB 10', '30 PRINT "SCORE"'],
+    },
+    reachFor: ['PRINT', 'HTAB', 'VTAB', 'HOME'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'Lo-res blocks with GR, PLOT, HLIN, VLIN and SCRN(, and 280 by 192 hi-res with HGR, HPLOT and the shape table.',
+    instead:
+      'No CIRCLE, FILL or MODE: draw a curve as a run of HPLOTs and fill a region with HPLOT lines. A hi-res dot cannot be read back either — SCRN( is lo-res only.',
+    example: {
+      caption: 'A circle as a run of HPLOTs',
+      code: [
+        '10 HGR:HCOLOR=3',
+        '20 FOR A=0 TO 6.3 STEP .05',
+        '30 HPLOT 140+40*COS(A),80+40*SIN(A)',
+        '40 NEXT A',
+      ],
+    },
+    reachFor: ['HGR', 'HPLOT', 'PLOT', 'SCRN('],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'COLOR= picks one of sixteen colours for the lo-res page, and HCOLOR= one of eight for hi-res.',
+    instead:
+      'Colour belongs to the graphics pages and never to text: no ink, paper or border, and nothing PRINT writes can be coloured. INVERSE and FLASH are all the text screen has.',
+    example: {
+      caption: 'Colour a block, not a string',
+      code: ['10 GR', '20 COLOR=9', '30 PLOT 0,0'],
+    },
+    reachFor: ['COLOR=', 'HCOLOR='],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'sound',
+    support: 'none',
+    summary:
+      'None: the speaker is one bit, and Applesoft has no keyword that reaches it.',
+    instead:
+      'No sound keywords at all. Touching address -16336 moves the speaker cone once, so a note is that PEEK in a loop and the loop’s period is what sets the pitch.',
+    example: {
+      caption: 'A click train, in place of a note',
+      code: ['10 FOR I=1 TO 50', '20 X=PEEK(-16336)', '30 NEXT I'],
+    },
+  },
+  {
+    to: 'apple2plus',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a whole typed line, GET waits for one key, and PDL( reads a paddle, 0 to 255.',
+    instead:
+      'GET blocks until a key comes, so a loop that must keep moving polls the latch instead: PEEK(-16384) over 127 means a key is waiting, and POKE -16368,0 clears the strobe.',
+    example: {
+      caption: 'Poll the keyboard without stopping',
+      code: [
+        '10 K=PEEK(-16384)',
+        '20 IF K<128 THEN 10',
+        '30 POKE -16368,0',
+        '40 K=K-128',
+      ],
+    },
+    reachFor: ['INPUT', 'GET', 'PDL'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'LOAD and SAVE move the program on cassette; STORE and RECALL move an array, and SHLOAD a shape table.',
+    instead:
+      'Cassette and nothing else: no OPEN, no PRINT# and no disk, and nothing is wired to the tape port while a program runs. Keep data in DATA statements, or in a memory block beside the program.',
+    example: {
+      caption: 'Data in the listing, not in a file',
+      code: [
+        '10 DIM T(3)',
+        '20 FOR I=0 TO 3:READ T(I):NEXT I',
+        '30 DATA 5,9,2,7',
+      ],
+    },
+    reachFor: ['LOAD', 'SAVE', 'STORE', 'RECALL'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE, CALL and USR reach memory and machine code; HIMEM: and LOMEM: move the ends of the workspace.',
+    instead:
+      'No hex literals and no port I/O: the hardware is memory-mapped, and an address above 32767 is written negative — so the keyboard latch is read as PEEK(-16384).',
+    example: {
+      caption: 'An I/O address, written negative',
+      code: ['10 PRINT PEEK(-16384)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'CALL', 'HIMEM:'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'LIST, DEL, NEW and CONT edit and restart, and TRACE prints each line number as the program reaches it.',
+    instead:
+      'No RENUM, AUTO or EDIT: retype a line to change it, and leave gaps in the numbering. LIST puts its own spacing back, the interpreter having thrown the typed spacing away.',
+    example: {
+      caption: 'Watch a run with TRACE',
+      code: ['10 TRACE', '20 GOSUB 100', '30 NOTRACE'],
+    },
+    reachFor: ['LIST', 'DEL', 'TRACE', 'NEW'],
+  },
+  {
+    to: 'apple2plus',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ONERR GOTO traps every error, and RESUME goes back to the statement that raised it.',
+    instead:
+      'No ERR or ERL keyword: the code of the error is in location 222 and its line in 218 and 219, so a handler PEEKs them. RESUME retries the statement, so fix the cause or it loops.',
+    example: {
+      caption: 'Read the error code with PEEK',
+      code: [
+        '10 ONERR GOTO 100',
+        '20 READ X:GOTO 20',
+        '100 PRINT "ERR";PEEK(222)',
+      ],
+    },
+    reachFor: ['ONERR', 'RESUME'],
+  },
+
+  // -------------------------------------------------------------- ATARIS --
+  {
+    to: ATARIS,
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF…THEN, FOR…NEXT with STEP, GOTO/GOSUB and ON…GOTO cover jumps and loops; POP unwinds a GOSUB left early.',
+    instead:
+      'No ELSE, no WHILE and no REPEAT. Everything after THEN belongs to the THEN, so put the negative case on the next line and jump past the positive one.',
+    example: {
+      caption: 'No ELSE: split into two lines',
+      code: [
+        '10 IF X=0 THEN GOTO 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: ATARIS,
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'LET, DIM, DATA/READ/RESTORE and CLR hold constants and declare arrays and strings.',
+    instead:
+      'No type declarations and no ERASE: a name is typed by its spelling, a trailing $ making it a string, and DIM sizes it once and for good until CLR.',
+    example: {
+      caption: 'Sizes are fixed at DIM and never grow',
+      code: ['10 DIM A(10),N$(20)', '20 N$="BASICALLY"', '30 PRINT LEN(N$)'],
+    },
+    reachFor: ['DIM', 'DATA', 'READ', 'CLR'],
+  },
+  {
+    to: ATARIS,
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Ten-digit decimal floating point with the usual roots, logs and trig, and DEG and RAD to choose the angle unit.',
+    instead:
+      'No TAN, no PI and no integer division: TAN is SIN/COS, PI is 3.14159265, and A DIV B is INT(A/B) with A-B*INT(A/B) for the remainder.',
+    example: {
+      caption: 'TAN, PI and integer division by hand',
+      code: ['10 P=3.14159265', '20 T=SIN(X)/COS(X)', '30 D=INT(A/B):R=A-B*D'],
+    },
+    reachFor: ['SIN', 'SQR', 'INT', 'RND'],
+  },
+  {
+    to: ATARIS,
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, ASC, CHR$, STR$ and VAL convert between strings and numbers.',
+    instead:
+      'No LEFT$/MID$/RIGHT$ and no string arrays: slice with A$(from,to), and join by assigning past the end with A$(LEN(A$)+1)=B$.',
+    example: {
+      caption: 'Slice and join by subscript',
+      code: [
+        '10 DIM A$(20),B$(10)',
+        '20 A$="HELLO":B$=" THERE"',
+        '30 A$(LEN(A$)+1)=B$',
+        '40 PRINT A$(1,5)',
+      ],
+    },
+    reachFor: ['LEN', 'ASC', 'CHR$', 'VAL'],
+  },
+  {
+    to: ATARIS,
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT and POSITION write anywhere on the 40x24 screen; PUT sends a byte to a channel and LPRINT to the printer.',
+    instead:
+      'No CLS, TAB or SPC: clear by printing the {clear} escape or re-selecting GRAPHICS 0, and space text out with POSITION. Never print into column 39.',
+    example: {
+      caption: 'Clear and place text without CLS or TAB',
+      code: ['10 PRINT "{clear}"', '20 POSITION 10,5:PRINT "SCORE";S'],
+    },
+    reachFor: ['PRINT', 'POSITION', 'PUT', 'LPRINT'],
+  },
+  {
+    to: ATARIS,
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'GRAPHICS picks one of twelve modes, PLOT and DRAWTO draw in the register COLOR selected, and LOCATE reads a point back.',
+    instead:
+      'No MOVE, CLG or FILL keyword: PLOT sets where a line starts, GRAPHICS clears the screen as it selects a mode, and XIO 18 fills an outlined area.',
+    example: {
+      caption: 'Move, clear and fill the Atari way',
+      code: [
+        '10 GRAPHICS 7+16:COLOR 1',
+        '20 PLOT 10,10:DRAWTO 80,40',
+        '30 POSITION 10,10',
+        '40 XIO 18,#6,0,0,"S:"',
+      ],
+    },
+    reachFor: ['GRAPHICS', 'PLOT', 'DRAWTO', 'LOCATE'],
+  },
+  {
+    to: ATARIS,
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'SETCOLOR loads one of five registers with a hue and a brightness; COLOR picks which register drawing uses next.',
+    instead:
+      'No INK, PAPER or BORDER: register 2 is the background, 1 the text luminance and 4 the border, and a pixel names a register rather than a colour.',
+    example: {
+      caption: 'Background, text and border by register',
+      code: ['10 SETCOLOR 2,9,4', '20 SETCOLOR 1,9,14', '30 SETCOLOR 4,0,0'],
+    },
+    reachFor: ['SETCOLOR', 'COLOR'],
+  },
+  {
+    to: ATARIS,
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'SOUND plays a tone on one of four voices and holds it until the voice is changed or the program ends.',
+    instead:
+      'No ENVELOPE, BEEP or PLAY: shape a note by changing its volume in a loop, and silence a voice by giving it a volume of 0.',
+    example: {
+      caption: 'Fade a note instead of an envelope',
+      code: [
+        '10 FOR V=15 TO 0 STEP -1',
+        '20 SOUND 0,121,10,V',
+        '30 FOR W=1 TO 20:NEXT W',
+        '40 NEXT V',
+        '50 SOUND 0,0,0,0',
+      ],
+    },
+    reachFor: ['SOUND'],
+  },
+  {
+    to: ATARIS,
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a line, GET waits for a byte on a channel, and STICK, STRIG, PADDLE and PTRIG read the controller ports.',
+    instead:
+      'No INKEY$: PEEK(764) holds the last key’s hardware code, 255 for none, and keeps it until the program POKEs 764,255 to clear it.',
+    example: {
+      caption: 'Poll a key without waiting',
+      code: [
+        '10 K=PEEK(764)',
+        '20 IF K=255 THEN GOTO 10',
+        '30 POKE 764,255',
+        '40 PRINT "KEY ";K',
+      ],
+    },
+    reachFor: ['INPUT', 'GET', 'STICK', 'STRIG'],
+  },
+  {
+    to: ATARIS,
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'OPEN, CLOSE, GET, PUT and XIO reach any device by name; SAVE, LOAD, CSAVE and CLOAD move whole programs.',
+    instead:
+      'No BGET/BPUT and no CHAIN: OPEN a channel on "C:" or "D:NAME" and move bytes with GET and PUT, and RUN "D:NEXT" chains to another program.',
+    example: {
+      caption: 'Open a channel and move bytes',
+      code: ['10 OPEN #1,8,0,"D:SCORES"', '20 PUT #1,ASC("A")', '30 CLOSE #1'],
+    },
+    reachFor: ['OPEN', 'CLOSE', 'XIO', 'SAVE'],
+  },
+  {
+    to: ATARIS,
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK and POKE reach any address in decimal, USR calls machine code, ADR finds a string’s bytes and FRE(0) reports free memory.',
+    instead:
+      'No CALL and no indirection operators: USR(address) is the only way in, and the routine must PLA the argument count USR pushed before anything else.',
+    example: {
+      caption: 'Call machine code with USR',
+      code: [
+        '10 FOR I=0 TO 3:READ B',
+        '20 POKE 1536+I,B:NEXT I',
+        '30 X=USR(1536)',
+        '40 DATA 104,169,7,96',
+      ],
+    },
+    reachFor: ['PEEK', 'POKE', 'USR', 'FRE'],
+  },
+  {
+    to: ATARIS,
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'LIST, NEW, RUN and CONT drive the session, REM comments a line, and BYE leaves BASIC for the Memo Pad.',
+    instead:
+      'No AUTO, RENUMBER, DELETE or TRACE: typing a line number on its own deletes that line, and retyping a line replaces it. Leave gaps to insert into.',
+    example: {
+      caption: 'Editing without AUTO or RENUMBER',
+      code: [
+        '10 REM leave gaps to insert later',
+        '20 REM typing 20 alone deletes it',
+      ],
+    },
+    reachFor: ['LIST', 'NEW', 'RUN', 'CONT'],
+  },
+  {
+    to: ATARIS,
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'TRAP sends the next error to a line instead of stopping, and the code and line it failed on are read back with PEEK.',
+    instead:
+      'No ERR, ERL or RESUME: PEEK(195) is the error code and PEEK(187)*256+PEEK(186) the line. TRAP clears itself, so the handler has to set it again.',
+    example: {
+      caption: 'Read the error back after a TRAP',
+      code: [
+        '10 TRAP 100',
+        '20 X=VAL(A$)',
+        '30 END',
+        '100 E=PEEK(195)',
+        '110 PRINT "ERROR ";E:TRAP 100',
+      ],
+    },
+    reachFor: ['TRAP'],
+  },
+
+  // ---------------------------------------------------------------- hb10p --
+  {
+    to: 'hb10p',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF…THEN…ELSE, FOR…NEXT with STEP, GOSUB/RETURN and ON…GOTO, plus ON INTERVAL and ON KEY event traps.',
+    instead:
+      'No WHILE/WEND, REPEAT/UNTIL or named procedures in MSX BASIC 1.0: write the test as an IF at the foot of the loop and GOTO back, and number subroutines rather than naming them.',
+    example: {
+      caption: 'A WHILE loop as IF and GOTO',
+      code: ['10 I=1', '20 IF I>10 THEN 50', '30 PRINT I', '40 I=I+1:GOTO 20'],
+    },
+    reachFor: ['FOR', 'GOSUB', 'ELSE', 'ON'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'data',
+    support: 'full',
+    summary:
+      'DATA/READ/RESTORE, DIM for arrays, SWAP and ERASE, and DEFINT/DEFSNG/DEFDBL/DEFSTR to type a whole letter range.',
+    instead:
+      'No separate real type to declare: DEFSNG and DEFDBL are the two floating-point widths, and values are double precision until one of them says otherwise.',
+    reachFor: ['DATA', 'READ', 'DIM', 'DEFINT'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'numeric',
+    support: 'full',
+    summary:
+      'A full trig and log set, integer division with \\ and MOD, and the bitwise AND/OR/XOR/EQV/IMP family.',
+    instead:
+      'No PI, LN or degree mode: write 3.14159265358979 out, LOG is already the natural logarithm, and convert degrees by multiplying by PI/180 yourself.',
+    reachFor: ['SIN', 'LOG', 'MOD', 'RND'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'strings',
+    support: 'full',
+    summary:
+      'LEFT$/RIGHT$/MID$ with INSTR to search, STRING$ and SPACE$ to build, and HEX$/OCT$/BIN$ to convert.',
+    instead:
+      'No UPPER$ or LOWER$: fold a string with a loop over ASC and CHR$. String space is 200 bytes until a program says CLEAR n, so build long strings only after one.',
+    reachFor: ['MID$', 'INSTR', 'STRING$', 'CHR$'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'LOCATE positions the cursor by column and row from zero, WIDTH sets the line length, and PRINT USING formats a number.',
+    instead:
+      'No PRINT AT and no windows: LOCATE is a statement of its own before the PRINT, and it takes the column first. Neither text screen opens at its full width, so follow SCREEN with WIDTH.',
+    example: {
+      caption: 'LOCATE takes the column first',
+      code: ['10 SCREEN 0:WIDTH 40', '20 LOCATE 10,5', '30 PRINT "HERE"'],
+    },
+    reachFor: ['LOCATE', 'WIDTH', 'CLS', 'USING'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'PSET, LINE, CIRCLE, PAINT and DRAW on a 256×192 screen, with hardware sprites through SPRITE$ and PUT SPRITE.',
+    instead:
+      'No MOVE/PLOT pair and no graphics origin: LINE -(x,y) continues from the last point, and coordinates are always absolute with 0,0 at the top left.',
+    example: {
+      caption: 'Draw from the last point',
+      code: ['10 SCREEN 2', '20 PSET (10,10),15', '30 LINE -(100,80),15'],
+    },
+    reachFor: ['PSET', 'LINE', 'CIRCLE', 'PAINT'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'COLOR foreground,background,border picks from 16 fixed colours, one of which is transparent.',
+    instead:
+      'No INK, PAPER or palette command: the 16 colours cannot be redefined, and one COLOR statement recolours the whole SCREEN 1 text screen rather than the next thing printed.',
+    example: {
+      caption: 'Colour is set for the screen, not the line',
+      code: ['10 SCREEN 1', '20 COLOR 15,4,4', '30 PRINT "WHITE ON BLUE"'],
+    },
+    reachFor: ['COLOR'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP for a click, PLAY for music strings on three channels (which run in the background), SOUND to write the PSG directly.',
+    instead:
+      'No envelope commands: shape a note by writing the PSG volume registers with SOUND, or by putting a V level into the PLAY string.',
+    example: {
+      caption: 'A tune that plays while the program runs',
+      code: ['10 PLAY "V15O4CDEFG"', '20 PRINT "STILL RUNNING"'],
+    },
+    reachFor: ['PLAY', 'SOUND', 'BEEP'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INKEY$ polls without waiting, INPUT reads a line, and STICK/STRIG read the cursor keys or a joystick as a direction and a trigger.',
+    instead:
+      'No key-number test and no LINE INPUT: INKEY$ gives the character rather than the key, and a line with commas in it has to be read into one string and split with INSTR and MID$.',
+    example: {
+      caption: 'Poll the pad without stopping',
+      code: ['10 D=STICK(1)', '20 IF D=3 THEN X=X+1', '30 GOTO 10'],
+    },
+    reachFor: ['INKEY$', 'STICK', 'STRIG', 'INPUT'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'storage',
+    support: 'full',
+    summary:
+      'CSAVE and CLOAD for programs on tape, and OPEN/CLOSE with FIELD, GET and PUT for records in a file.',
+    instead:
+      'No CHAIN and no catalogue: MERGE reads a second program in from an ASCII save, and a program that must run another CLOADs it and RUNs it.',
+    reachFor: ['CSAVE', 'CLOAD', 'OPEN', 'MERGE'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK and POKE reach the Z80’s RAM, VPEEK and VPOKE the VDP’s separate 16K, and INP/OUT the I/O ports.',
+    instead:
+      'No SYS or CALL to an address: DEFUSR=&Hnnnn sets the entry and USR(0) runs it, with CLEAR n,&Hnnnn first to keep BASIC out of the memory it sits in. The screen is not POKEable at all - it is VPOKE.',
+    example: {
+      caption: 'Machine code goes through DEFUSR',
+      code: ['10 CLEAR 200,&HDFFF', '20 DEFUSR=&HE000', '30 A=USR(0)'],
+    },
+    reachFor: ['POKE', 'VPOKE', 'USR', 'PEEK'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'program-editing',
+    support: 'full',
+    summary:
+      'AUTO numbers lines as they are typed, RENUM renumbers a finished program, and TRON/TROFF trace it as it runs.',
+    instead:
+      'No full-screen EDIT command: LIST the line and type over it with the cursor keys, which is what the machine’s own screen editor is for.',
+    reachFor: ['AUTO', 'RENUM', 'TRON', 'LIST'],
+  },
+  {
+    to: 'hb10p',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ON ERROR GOTO sends an error to a handler, ERR and ERL say what failed and where, and RESUME goes back.',
+    instead:
+      'No BREAK trap and no error message from a code: ERR is a number, so a handler that reports anything prints its own text. ON ERROR GOTO 0 hands the error back to BASIC.',
+    example: {
+      caption: 'Report the error and carry on',
+      code: [
+        '10 ON ERROR GOTO 100',
+        '20 X=VAL(A$)',
+        '30 END',
+        '100 PRINT "ERROR";ERR;"AT";ERL',
+        '110 RESUME NEXT',
+      ],
+    },
+    reachFor: ['ERROR', 'ERR', 'ERL', 'RESUME'],
+  },
+  // ---------------------------------------------------------------- ge235 --
+  {
+    to: 'ge235',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, DEF FN for a one-line function, and STOP or END to finish.',
+    instead:
+      'THEN takes a line number, never a statement, and there is no ELSE and no ON...GOTO: invert the test, jump, and let the line below be the other branch. END must be the last line.',
+    example: {
+      caption: 'THEN jumps; the branches are lines',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+        '50 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'DEF'],
+  },
+  {
+    to: 'ge235',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'LET assigns, DIM declares an array of one or two subscripts, and DATA/READ walk a table of constants.',
+    instead:
+      'LET is required on every assignment, and the DATA pointer never rewinds - there is no RESTORE. A table read twice is READ into an array first and indexed afterwards.',
+    example: {
+      caption: 'READ once into an array, then index',
+      code: [
+        '10 DIM A(3)',
+        '20 FOR I=1 TO 3',
+        '30 READ A(I)',
+        '40 NEXT I',
+        '50 DATA 7,8,9',
+      ],
+    },
+    reachFor: ['LET', 'DIM', 'READ', 'DATA'],
+  },
+  {
+    to: 'ge235',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Floating point throughout: ABS, INT, SQR, LOG, EXP, RND, the four trig functions, and ↑ to raise to a power.',
+    instead:
+      'No SGN, no PI and no integer division: test the sign with two IFs, write PI out as a constant, and use INT(A/B) where a whole quotient is meant.',
+    example: {
+      caption: 'The sign of X, as two jumps',
+      code: [
+        '10 LET S=0',
+        '20 IF X<0 THEN 50',
+        '30 IF X>0 THEN 60',
+        '40 GOTO 70',
+        '50 LET S=-1',
+      ],
+    },
+    reachFor: ['ABS', 'INT', 'SQR', 'RND'],
+  },
+  {
+    to: 'ge235',
+    domain: 'strings',
+    support: 'none',
+    summary:
+      'None. A variable holds a number, and the only text is the literal inside PRINT.',
+    instead:
+      'There is no string variable, so text is held as numbers - one code to an array element - and printed a piece at a time. Anything that compares or searches words has to be rethought as arithmetic.',
+    example: {
+      caption: 'A word as numbers in an array',
+      code: [
+        '10 DIM W(3)',
+        '20 FOR I=1 TO 3',
+        '30 READ W(I)',
+        '40 NEXT I',
+        '50 DATA 8,9,10',
+      ],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT writes to a 72-column Teletype, with a comma stepping to the next of five fifteen-column zones.',
+    instead:
+      'Nothing positions the carriage and nothing clears paper: a comma or a semicolon is the only spacing, and a trailing one holds the line open. Print blank lines where a port would clear the screen.',
+    example: {
+      caption: 'Zones with a comma, no gap with a semicolon',
+      code: ['10 PRINT "A","B"', '20 PRINT "C";"D"', '30 PRINT', '40 END'],
+    },
+    reachFor: ['PRINT'],
+  },
+  {
+    to: 'ge235',
+    domain: 'graphics',
+    support: 'none',
+    summary: 'None. The output device is a Teletype printing on a paper roll.',
+    instead:
+      'There is nothing to plot to. Build the picture in an array and PRINT it a character to a column, one row at a time - and remember a row printed cannot be changed afterwards.',
+    example: {
+      caption: 'A row of the picture, printed as characters',
+      code: [
+        '10 FOR C=1 TO 20',
+        '20 IF P(C)=0 THEN 40',
+        '30 PRINT "*";',
+        '40 NEXT C',
+        '50 PRINT',
+      ],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'colour',
+    support: 'none',
+    summary: 'None. The Teletype prints black type on white paper.',
+    instead:
+      'Nothing here has a colour. Where a port used colour to tell things apart, use a different character - the set has 57 printable ones - or print a label beside the value.',
+    example: {
+      caption: 'Tell things apart by character',
+      code: [
+        '10 IF H=0 THEN 40',
+        '20 PRINT "*";',
+        '30 GOTO 50',
+        '40 PRINT ".";',
+      ],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'sound',
+    support: 'none',
+    summary:
+      'None. The Teletype has a bell, and this BASIC has no way to ring it.',
+    instead:
+      'There is no sound of any kind and no code a program can send to reach the bell. Where a port made a noise to mark an event, print a line saying what happened instead.',
+    example: {
+      caption: 'Say it rather than sound it',
+      code: ['10 IF L>0 THEN 30', '20 PRINT "GAME OVER."', '30 END'],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a comma-separated list of numbers from the Teletype and waits for the carriage return.',
+    instead:
+      'Nothing reads a key as it is pressed, and INPUT takes no prompt string and no text - only numbers. PRINT the question first, and let a number stand for each choice a port made with a keypress.',
+    example: {
+      caption: 'Prompt with PRINT, then read a number',
+      code: ['10 PRINT "1=LEFT 2=RIGHT"', '20 INPUT D', '30 IF D=1 THEN 60'],
+    },
+    reachFor: ['INPUT'],
+  },
+  {
+    to: 'ge235',
+    domain: 'storage',
+    support: 'none',
+    summary:
+      'None from inside the language: a program is punched to paper tape by the Teletype, not by a statement.',
+    instead:
+      'There is no SAVE, LOAD or file of any kind. Data a port kept between runs has to be written into DATA lines and edited by hand, which is what the era did.',
+    example: {
+      caption: 'Kept data lives in DATA lines',
+      code: ['10 READ H', '20 PRINT "BEST";H', '30 DATA 1200', '40 END'],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'memory-hardware',
+    support: 'none',
+    summary:
+      'None. There is no PEEK, no POKE and no USR: a compiled program cannot name an address at all.',
+    instead:
+      'Nothing reaches outside the language, so a port that read or wrote memory has to do the job in BASIC - keep the value in a variable, or in an array where it was a table in memory.',
+    example: {
+      caption: 'A table in an array, not in memory',
+      code: ['10 DIM T(16)', '20 LET T(1)=255', '30 PRINT T(1)', '40 END'],
+    },
+  },
+  {
+    to: 'ge235',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'REM carries a comment to the end of its line, which is the whole of what a program can say about itself.',
+    instead:
+      'The editing commands are the time-sharing system’s rather than the language’s, so there is no LIST, RUN or NEW to write in a program - and no way for a program to change itself.',
+    example: {
+      caption: 'REM is the only editing word in the language',
+      code: ['10 REM MOVE THE PLAYER', '20 LET P=P+1', '30 END'],
+    },
+    reachFor: ['REM'],
+  },
+  {
+    to: 'ge235',
+    domain: 'error-handling',
+    support: 'none',
+    summary:
+      'None. A fault prints its message with the line number and the run stops.',
+    instead:
+      'Nothing traps an error, so a program has to avoid one: test a divisor before dividing and a value before taking its square root or logarithm, since all fourteen run-time faults are fatal.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF B=0 THEN 40',
+        '20 LET Q=A/B',
+        '30 GOTO 50',
+        '40 PRINT "NO."',
+      ],
+    },
+  },
+
+  // ------------------------------------------------------------- samcoupe --
+  {
+    to: 'samcoupe',
+    domain: 'control-flow',
+    support: 'full',
+    summary:
+      'DO/LOOP with WHILE or UNTIL on either end, EXIT IF, block IF with END IF and ELSE, DEF PROC/END PROC, LABEL, ON and GO SUB.',
+    instead:
+      'No REPEAT or WEND: the test is a clause on DO or LOOP rather than a keyword of its own. A procedure is called by writing its name, and LABEL gives a jump a name instead of a line number.',
+    reachFor: ['DO', 'LOOP', 'DEF PROC', 'LABEL'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'data',
+    support: 'full',
+    summary:
+      'DATA/READ/RESTORE with ITEM to say which item is next, DIM for arrays and strings, and CLEAR to discard the variables.',
+    instead:
+      'No type declarations and no SWAP: there is one numeric type, `$` marks a string, and DIM a$(20) is a fixed-length string rather than an array of them.',
+    reachFor: ['DATA', 'READ', 'DIM', 'ITEM'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'numeric',
+    support: 'full',
+    summary:
+      'A full trig and log set with PI, DIV and MOD for integer division, and BAND and BOR for the bitwise pair.',
+    instead:
+      'AND and OR pick a value rather than combining bits, so a mask is BAND or BOR; there is no exclusive-OR keyword at all. LN is the natural logarithm and there is no base-10 one.',
+    reachFor: ['DIV', 'MOD', 'BAND', 'PI'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, VAL, CODE and CHR$, STRING$ to build, INSTR to search, and HEX$/BIN$ to convert - with Sinclair slicing for the rest.',
+    instead:
+      'No LEFT$, RIGHT$ or MID$: a slice is written a$(2 TO 4), with either end left out to run to the start or the end of the string.',
+    example: {
+      caption: 'A slice does what MID$ does',
+      code: [
+        '10 LET a$="SAM COUPE"',
+        '20 PRINT a$(1 TO 3)',
+        '30 PRINT a$(5 TO)',
+      ],
+    },
+    reachFor: ['LEN', 'INSTR', 'STRING$', 'CHR$'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT AT positions text from zero, TAB moves the column, CSIZE sets the cell, WINDOW confines printing and USING formats a number.',
+    instead:
+      'No LOCATE and no PRINT @: AT is a clause inside the PRINT and takes the row first. The cell is nine scanlines tall, so only rows 0 to 18 are reachable - the last two are the input window.',
+    example: {
+      caption: 'AT goes inside the PRINT, row first',
+      code: ['10 CLS', '20 PRINT AT 5,10;"HERE"'],
+    },
+    reachFor: ['AT', 'TAB', 'CSIZE', 'WINDOW'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'graphics',
+    support: 'full',
+    summary:
+      'PLOT, DRAW, CIRCLE and FILL in four screen modes, with GRAB and PUT for sprites, ROLL and SCROLL to shift, and BLITZ to replay a figure.',
+    instead:
+      'The origin is the bottom left and DRAW is relative: DRAW dx,dy draws by a distance from the graphics position, so a line starts with a PLOT. A third argument bends it into an arc.',
+    reachFor: ['PLOT', 'DRAW', 'CIRCLE', 'GRAB'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'colour',
+    support: 'full',
+    summary:
+      'PALETTE points each of the sixteen slots at one of 128 colours; PEN, PAPER and BORDER pick a slot, and OVER and INVERSE combine what is drawn.',
+    instead:
+      'INK is accepted as a spelling of PEN and lists back as PEN. FLASH and BRIGHT are attribute bits, so they work in mode 1 only - in mode 4 colour is per pixel and there is nothing to flash.',
+    reachFor: ['PALETTE', 'PEN', 'PAPER', 'BORDER'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP sounds a note by length and semitone, ZAP/POW/BOOM/ZOOM are built-in effects, and SOUND writes a SAA 1099 register directly.',
+    instead:
+      'No music strings and no envelope command: SOUND register,value is the only way to the noise generators, the envelopes and the stereo, and it is not a note - a tune is BEEPs in a loop.',
+    example: {
+      caption: 'SOUND writes a register, BEEP plays a note',
+      code: ['10 SOUND 28,1', '20 BEEP .2,0', '30 BEEP .2,4'],
+    },
+    reachFor: ['BEEP', 'SOUND', 'ZAP', 'BOOM'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INKEY$ polls without waiting, GET waits for one key, INPUT reads a line with a prompt, and KEY and DEF KEYCODE reach the key table.',
+    instead:
+      'No joystick function: the 9-pin port is wired onto matrix keys 6, 7, 8, 9 and 0, so a loop testing INKEY$ for those characters answers the stick and the keyboard alike.',
+    example: {
+      caption: 'The stick is read as keys',
+      code: [
+        '10 LET k$=INKEY$',
+        '20 IF k$="6" THEN LET x=x-1',
+        '30 IF k$="7" THEN LET x=x+1',
+      ],
+    },
+    reachFor: ['INKEY$', 'GET', 'INPUT', 'KEY'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'storage',
+    support: 'full',
+    summary:
+      'SAVE, LOAD, MERGE and VERIFY move programs and CODE blocks, and OPEN/CLOSE with EOF and PTR read a file record by record.',
+    instead:
+      'No CHAIN: a program that must run another LOADs it, which starts it. DEVICE picks the tape or a drive, and this IDE serves tape as audio rather than modelling a disk.',
+    reachFor: ['SAVE', 'LOAD', 'MERGE', 'OPEN'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'memory-hardware',
+    support: 'full',
+    summary:
+      'PEEK and POKE take a byte, DPEEK and DPOKE a little-endian word, IN and OUT reach a port, and CALL or USR run machine code at an address.',
+    instead:
+      'No SYS and no USR vector: both call forms take the address itself. The screen is not in the Z80’s 64K window, so a routine that draws has to page it in first.',
+    reachFor: ['POKE', 'DPOKE', 'CALL', 'USR'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'program-editing',
+    support: 'full',
+    summary:
+      'AUTO numbers lines as they are typed, RENUM renumbers a finished program, DELETE removes a range, and LLIST prints a listing.',
+    instead:
+      'No TRON/TROFF trace and no EDIT command: the machine edits a line with its own screen editor, and a program is traced by printing from it.',
+    reachFor: ['AUTO', 'RENUM', 'DELETE', 'LIST'],
+  },
+  {
+    to: 'samcoupe',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ON ERROR sends a report to a handler, and ON ERROR OFF hands errors back to BASIC.',
+    instead:
+      'No RESUME and no ERR: the handler is a statement list rather than a line to return from, so it reads the report from the system variables and ends in a GO TO of its own.',
+    example: {
+      caption: 'The handler is a statement, not a line',
+      code: [
+        '10 ON ERROR GO TO 100',
+        '20 LET x=1/0',
+        '30 STOP',
+        '100 PRINT "FAILED"',
+        '110 STOP',
+      ],
+    },
+    reachFor: ['ON ERROR', 'OFF'],
   },
 ];

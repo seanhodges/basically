@@ -71,7 +71,7 @@ multi-file tape (the `.prg` export still holds the BASIC program alone).
 All three Commodore machines expose a `.wav` export (and "play through
 speakers") **and** a cassette-audio import - listening on the mic / line-in, or
 decoding a `.wav` recording, back into editable source. The encoder emits mono
-44.1kHz and offers a "robust" mode that lengthens the pilot for temperamental
+44.1 kHz and offers a "robust" mode that lengthens the pilot for temperamental
 hardware.
 
 The encoding is the authentic KERNAL datasette format, shared across the whole

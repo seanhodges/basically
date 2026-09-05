@@ -38,6 +38,8 @@ export function SettingsForm() {
   const setLineNumberIncrement = useIdeStore((s) => s.setLineNumberIncrement);
   const setShowLineNumberGutter = useIdeStore((s) => s.setShowLineNumberGutter);
   const setFullCodeCompletion = useIdeStore((s) => s.setFullCodeCompletion);
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
+  const setStrictCharacters = useIdeStore((s) => s.setStrictCharacters);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const setCrtEffect = useIdeStore((s) => s.setCrtEffect);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
@@ -130,11 +132,11 @@ export function SettingsForm() {
    *
    * Its own choice rather than the IDE's current machine, because the two
    * questions genuinely differ: the machine you are programming, and the machine
-   * whose firmware you are installing. They were the same control until a
-   * machine appeared whose image ships with nobody - the Altair - which the
-   * picker hides until one is supplied (see `app/machineAvailability.ts`). With
-   * no way to select that machine there was no way to reach its ROM settings
-   * either, so the only route in was a self-hosted drop-in.
+   * whose firmware you are installing. They were the same control until the
+   * picker started hiding a machine whose image is missing (see
+   * `app/machineAvailability.ts`): with no way to select that machine there was
+   * no way to reach its ROM settings either, and installing an image is
+   * precisely how it comes back.
    *
    * It still *opens* on the current machine every time the settings are shown,
    * which is what makes the common case ("replace the ROM of the thing I am
@@ -242,6 +244,18 @@ export function SettingsForm() {
             />
             Full code completion (expand keywords to blocks)
           </label>
+          <h3>Characters</h3>
+          <label
+            className={styles.inline}
+            title="Refuse characters the machine can't store; force upper case"
+          >
+            <input
+              type="checkbox"
+              checked={strictCharacters}
+              onChange={(e) => setStrictCharacters(e.target.checked)}
+            />
+            Strict characters (refuse what the machine cannot store)
+          </label>
         </div>
       )}
 
@@ -265,7 +279,7 @@ export function SettingsForm() {
           </label>
           <label
             className={styles.inline}
-            title="When off, only tokenizer errors block Run; lint findings still underline in the editor"
+            title="When off, only tokenizer errors block Run"
           >
             <input
               type="checkbox"
@@ -316,7 +330,7 @@ export function SettingsForm() {
               }}
             >
               {romMachineGroups.map((group) => (
-                <optgroup key={group.manufacturer} label={group.manufacturer}>
+                <optgroup key={group.heading} label={group.heading ?? ''}>
                   {group.machines.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
@@ -338,17 +352,13 @@ export function SettingsForm() {
                 <button type="button" onClick={() => void uploadRom()}>
                   Upload ROM image…
                 </button>
-                {/* Nothing to restore on a machine that bundles no image -
-                    the button would offer to remove the only ROM it has. */}
-                {romDialect.romBundled !== false && (
-                  <button
-                    type="button"
-                    onClick={restoreRom}
-                    disabled={!customRom}
-                  >
-                    Restore bundled ROM
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={restoreRom}
+                  disabled={!customRom}
+                >
+                  Restore bundled ROM
+                </button>
               </div>
               {romError && (
                 <p role="alert" className={styles.settingsError}>
@@ -356,15 +366,9 @@ export function SettingsForm() {
                 </p>
               )}
               <p>
-                The image is kept in this browser only, is never uploaded
-                anywhere, and is not included in programs you publish.
+                The image stays in this browser: it is never uploaded, and never
+                goes into a program you publish.
               </p>
-              {romDialect.romBundled === false && (
-                <p>
-                  Until you supply one, the {romDialect.name} is not offered in
-                  the machine picker.
-                </p>
-              )}
               {!localStorageIsPersistent() && (
                 <p role="alert" className={styles.settingsError}>
                   This browser is blocking site data, so a ROM you upload will
@@ -392,10 +396,10 @@ export function SettingsForm() {
             <select
               value={keyboardKeyDisplay}
               onChange={(e) =>
-                setKeyboardKeyDisplay(e.target.value as 'authentic' | 'compact')
+                setKeyboardKeyDisplay(e.target.value as 'layered' | 'compact')
               }
             >
-              <option value="authentic">Authentic</option>
+              <option value="layered">Layered</option>
               <option value="compact">Compact</option>
             </select>
           </label>

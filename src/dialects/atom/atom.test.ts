@@ -8,8 +8,8 @@ import {
 } from '../../emulator/atom/atomMachine';
 
 // The dedicated machine tests live in src/emulator/atom/atomMachine.test.ts;
-// this checks the Stage 1 ↔ Stage 3 seam - the image the *dialect* produces is
-// what the machine the dialect's createEmulator() hands back actually runs.
+// this checks the dialect ↔ emulator seam - the image the *dialect* produces
+// is what the machine the dialect's createEmulator() hands back actually runs.
 beforeAll(() => {
   const require = createRequire(import.meta.url);
   const utilsPath = require.resolve('jsbeeb/src/utils.js');
@@ -26,10 +26,10 @@ describe('atom dialect → machine', () => {
     expect(result.errors).toEqual([]);
     expect(result.image.length).toBe(result.byteSize);
 
-    // Go through the dialect seam wired up in Stage 3 (opts are ignored: the
-    // jsbeeb adapter manages its own ROMs and memory map). createEmulator's
-    // contract is the MachineEmulator interface; we know it is the AtomMachine,
-    // whose `processor` screenText reads.
+    // Go through the dialect seam (opts are ignored: the jsbeeb adapter manages
+    // its own ROMs and memory map). createEmulator's contract is the
+    // MachineEmulator interface; here it is the AtomMachine, whose `processor`
+    // screenText reads.
     const machine = atom.createEmulator({
       rom: new Uint8Array(0),
       ramKb: 32,

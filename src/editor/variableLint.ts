@@ -8,13 +8,16 @@
  * as the highlighter/completion (`forEachVariable` + `buildIdentifierRegexes`),
  * so keywords, numbers and PROC/FN calls are never mistaken for variables.
  *
- * Two families cover every dialect that has a real restriction:
+ * Three families cover every dialect that has a real restriction:
  *
- * - **Single-letter (Sinclair / Acorn Atom):** {@link singleLetterVariableErrors}.
+ * - **Single-letter (Sinclair / Acorn Atom / GE-235):**
+ *   {@link singleLetterVariableErrors}.
  *   Sinclair machines (ZX81, ZX Spectrum 48K/128K) require string variables
  *   (`A$`), arrays (`A(`) and FOR/NEXT control variables to be a single letter,
  *   while multi-letter *numeric* names (`BX`) are legal. The ZX80 and Acorn Atom
- *   are stricter - *every* variable is a single letter - selected with `strict`.
+ *   are stricter - *every* variable is a single letter - selected with `strict`,
+ *   and Dartmouth BASIC allows one digit after the letter and nothing more,
+ *   selected with `digitSuffix`.
  * - **Microsoft (Altair / C64 / TRS-80):** {@link microsoftVariableErrors}. Only the
  *   first two characters are significant, so two different long names that
  *   collapse to the same two chars clash; and a name embedding a reserved word
@@ -25,86 +28,25 @@
  *   flagged - in expression position (`FORI=ATOB`) the split is silent, since
  *   it is indistinguishable from intentional crunch. The dialects differ only
  *   in their type-suffix characters (Altair `$`, C64 `$%`, TRS-80 `$%!#`).
+ * - **Name length (SAM Coupé):** {@link samcoupeVariableErrors}. SAM BASIC's
+ *   names are fully significant, so nothing collides; what it has instead are
+ *   two ceilings, and they differ by type.
  *
  * BBC BASIC has no such rule: its names are fully significant, and the only real
  * restriction (a name may not embed a non-`conditional` keyword) is already
  * enforced ROM-accurately inside its tokenizer.
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
-import { isBinaryDirective } from '../dialects/binaryDirective';
+import { eachOccurrence, type Occurrence } from './variables';
 import {
-  buildIdentifierRegexes,
-  type BasicLanguageOptions,
-} from './basicLanguage';
-import { forEachVariable, type VarNameRules } from './variables';
-import { makeCrunchMatcher } from './crunch';
-import { scannable } from './programOutline';
-
-/** Build the scanner's dialect rules from lexical options + the keyword table. */
-function rulesFor(
-  options: BasicLanguageOptions,
-  keywords: EditorKeyword[],
-): VarNameRules {
-  const { headRe, varRe } = buildIdentifierRegexes(options);
-  const words = keywords
-    .filter((k) => /^[A-Z]/.test(k.word))
-    .map((k) => k.word);
-  const set = new Set(words);
-  return {
-    headRe,
-    varRe,
-    keywords: set,
-    maxWordLen: words.length ? Math.max(...words.map((w) => w.length)) : 0,
-    hexRe: options.hexPrefix
-      ? new RegExp(`^${options.hexPrefix}[0-9A-Fa-f]+`)
-      : null,
-    callPrefixes: ['PROC', 'FN'].filter((w) => set.has(w)),
-    crunch: options.crunched ? makeCrunchMatcher(set) : null,
-  };
-}
-
-/** A variable occurrence with its editor-line position. */
-interface Occurrence {
-  name: string;
-  /** 1-based editor line. */
-  line: number;
-  /** 0-based column of the token within the line. */
-  column: number;
-  /** 0-based column just past the token. */
-  endColumn: number;
-  /** Keyword just before the token on the line (e.g. FOR), or null. */
-  prevKeyword: string | null;
-  /** Character immediately after the token (e.g. `(` for an array), or ''. */
-  nextChar: string;
-  /** Reserved word glued mid-name where a variable was expected, if any. */
-  embedsKeyword?: string;
-}
-
-/** Visit every variable occurrence in the program, with line/column info. */
-function eachOccurrence(
-  source: string,
-  rules: VarNameRules,
-  visit: (occ: Occurrence) => void,
-): void {
-  source.split('\n').forEach((raw, row) => {
-    if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
-    const m = /^\s*\d+\s?/.exec(raw);
-    const prefixLen = m ? m[0].length : 0;
-    const code = scannable(raw.slice(prefixLen));
-    forEachVariable(code, rules, (t) => {
-      const column = prefixLen + t.index;
-      visit({
-        name: t.text,
-        line: row + 1,
-        column,
-        endColumn: column + t.text.length,
-        prevKeyword: t.prevKeyword,
-        nextChar: code[t.index + t.text.length] ?? '',
-        embedsKeyword: t.embedsKeyword,
-      });
-    });
-  });
-}
+  GE235_LEXIS,
+  lexisFor,
+  MSX_LEXIS,
+  SAMCOUPE_LEXIS,
+  variableRules,
+  type VariableLexis,
+} from './variableLexis';
+import { identityKey, nameKey } from './variableIdentity';
 
 /** The name without its trailing type-suffix character. */
 function stripSuffix(name: string, suffixChars: string): string {
@@ -120,10 +62,16 @@ function stripSuffix(name: string, suffixChars: string): string {
 interface SingleLetterOptions {
   /** Machine name used in messages, e.g. 'ZX81', 'ZX Spectrum'. */
   label: string;
-  /** Lexical options (suffix/hex/name chars); defaults to Sinclair (`$`). */
-  options?: BasicLanguageOptions;
+  /** Name lexis for the machine; defaults to Sinclair (`$`, nothing else). */
+  options?: VariableLexis;
   /** When true every variable must be a single letter (ZX80, Atom). */
   strict?: boolean;
+  /**
+   * When true a single digit may follow the letter, and nothing else may
+   * (GE-235: `A` and `A1`, never `AB` or `A12`). An array name is still the
+   * bare letter there, so `A1(3)` is flagged where `A1` is not.
+   */
+  digitSuffix?: boolean;
 }
 
 /** The single-letter-name violation for one occurrence, or null. */
@@ -132,8 +80,21 @@ function singleLetterViolation(
   label: string,
   suffixChars: string,
   strict: boolean,
+  digitSuffix = false,
 ): string | null {
-  if (stripSuffix(occ.name, suffixChars).length === 1) return null;
+  const bare = stripSuffix(occ.name, suffixChars);
+  if (digitSuffix) {
+    if (/^[A-Za-z]$/.test(bare)) return null;
+    if (!/^[A-Za-z][0-9]$/.test(bare)) {
+      return `${label} variable names are a single letter, optionally followed by one digit.`;
+    }
+    // A letter and a digit is a variable but never an array: the compiler
+    // reads the subscript bracket straight after the letter.
+    return occ.nextChar === '('
+      ? `${label} array names must be a single letter.`
+      : null;
+  }
+  if (bare.length === 1) return null;
   if (strict) return `${label} variable names must be a single letter.`;
   if (occ.name.endsWith('$')) {
     return `${label} string variable names must be a single letter (e.g. A$).`;
@@ -155,7 +116,7 @@ export function singleLetterVariableErrors(
 ): TokenizeError[] {
   const options = opts.options ?? {};
   const suffixChars = options.suffixChars ?? '$';
-  const rules = rulesFor(options, keywords);
+  const rules = variableRules(options, keywords);
   const errors: TokenizeError[] = [];
   eachOccurrence(source, rules, (occ) => {
     const message = singleLetterViolation(
@@ -163,6 +124,7 @@ export function singleLetterVariableErrors(
       opts.label,
       suffixChars,
       opts.strict ?? false,
+      opts.digitSuffix ?? false,
     );
     if (message)
       errors.push({
@@ -207,32 +169,86 @@ export function atomVariableErrors(
   return singleLetterVariableErrors(source, keywords, {
     label: 'Acorn Atom',
     strict: true,
-    options: { suffixChars: '', hexPrefix: '#' },
+    options: lexisFor('atom'),
   });
+}
+
+/**
+ * Editor diagnostics for Dartmouth BASIC's names.
+ *
+ * The rule is the compiler's `var10` routine: a letter, then at most one digit,
+ * and the character after the digit must not be another one. `$` is refused
+ * outright ("$ never legal in regular basic"), so a string name is not a
+ * length problem here - it is not a name at all, and the lexis having no suffix
+ * character is what reports it.
+ */
+export function ge235VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return singleLetterVariableErrors(source, keywords, {
+    label: 'GE-235',
+    digitSuffix: true,
+    options: GE235_LEXIS,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Name length (SAM Coupé)
+// ---------------------------------------------------------------------------
+
+/**
+ * How many characters SAM BASIC keeps of a name, by type.
+ *
+ * `NAMTOBUF` in the ROM's lookvar.asm counts a name down from 32 and stops with
+ * "Invalid variable name" if it runs out, so a numeric name may be 32
+ * characters. `STARYLK` next door masks the stored length to five bits and
+ * rejects anything from 11 up, so a string or array name may be 10 - and the
+ * `$` or `(` that says which it is does not count towards them.
+ */
+const SAMCOUPE_MAX_NAME = 32;
+const SAMCOUPE_MAX_STRING_NAME = 10;
+
+/** Editor diagnostics for SAM BASIC's two name-length ceilings. */
+export function samcoupeVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules(SAMCOUPE_LEXIS, keywords);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const bare = stripSuffix(occ.name, '$');
+    const isString = occ.name.endsWith('$') || occ.nextChar === '(';
+    const limit = isString ? SAMCOUPE_MAX_STRING_NAME : SAMCOUPE_MAX_NAME;
+    if (bare.length <= limit) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: isString
+        ? `SAM Coupé string and array names are at most ${SAMCOUPE_MAX_STRING_NAME} characters (excluding the $ or the bracket).`
+        : `SAM Coupé variable names are at most ${SAMCOUPE_MAX_NAME} characters.`,
+    });
+  });
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
 // Microsoft family (Altair 8800 / C64 / TRS-80)
 // ---------------------------------------------------------------------------
 
-/** The two significant characters + type suffix that identify the variable. */
-function significanceKey(name: string, suffixChars: string): string {
-  const last = name[name.length - 1]!;
-  const suffix = suffixChars.includes(last) ? last : '';
-  return stripSuffix(name, suffixChars).slice(0, 2).toUpperCase() + suffix;
-}
-
 /** Editor diagnostics for the Microsoft-BASIC dialects (Altair, C64, TRS-80). */
 function microsoftVariableErrors(
   source: string,
   keywords: EditorKeyword[],
-  opts: { label: string; suffixChars: string },
+  opts: { label: string; lexis: VariableLexis },
 ): TokenizeError[] {
-  const { label, suffixChars } = opts;
+  const { label, lexis } = opts;
+  const suffixChars = lexis.suffixChars ?? '$';
   // Crunching is inherent to the Microsoft family: the scanner ROM-splits
   // glued keywords (`POKEA` is POKE + A, never a variable) and flags only
   // names it knows the ROM will mis-read (see forEachVariable).
-  const rules = rulesFor({ suffixChars, crunched: true }, keywords);
+  const rules = variableRules(lexis, keywords);
   const occs: Occurrence[] = [];
   eachOccurrence(source, rules, (occ) => occs.push(occ));
 
@@ -253,24 +269,37 @@ function microsoftVariableErrors(
     }
   });
 
-  // (a) Two different long names that collapse to the same first two chars.
+  // (a) Two different names that the ROM collapses onto the same storage.
+  //
+  // Both keys come from the shared identity rule, so this and the usages view
+  // answer "are these one variable?" the same way: the significance key is what
+  // the ROM ends up holding, and the name key is what the program meant. Two
+  // occurrences clash when the first agrees and the second does not - which on
+  // a machine that tells `A` from `a` means a pair differing only in case is
+  // two variables and no clash, and on one that folds them is one variable and
+  // no clash either.
   const byKey = new Map<string, number[]>();
-  const spellings = new Map<string, Set<string>>();
+  const names = new Map<string, Map<string, string>>();
   occs.forEach((occ, idx) => {
-    const key = significanceKey(occ.name, suffixChars);
+    const key = identityKey(occ.name, lexis);
     (byKey.get(key) ?? byKey.set(key, []).get(key)!).push(idx);
-    (spellings.get(key) ?? spellings.set(key, new Set()).get(key)!).add(
-      occ.name.toUpperCase(),
-    );
+    // Spelled as the program first spells it: the reader is being shown their
+    // own name, not a folded rendering of it.
+    const distinct = names.get(key) ?? names.set(key, new Map()).get(key)!;
+    const mine = nameKey(occ.name, lexis);
+    if (!distinct.has(mine)) distinct.set(mine, occ.name);
   });
   for (const [key, idxs] of byKey) {
-    const names = spellings.get(key)!;
-    if (names.size < 2) continue;
+    const distinct = names.get(key)!;
+    if (distinct.size < 2) continue;
     for (const idx of idxs) {
       if (flagged.has(idx)) continue;
       const occ = occs[idx]!;
       if (stripSuffix(occ.name, suffixChars).length <= 2) continue; // unambiguous
-      const others = [...names].filter((n) => n !== occ.name.toUpperCase());
+      const mine = nameKey(occ.name, lexis);
+      const others = [...distinct]
+        .filter(([k]) => k !== mine)
+        .map(([, n]) => n);
       errors.push({
         line: occ.line,
         column: occ.column,
@@ -289,13 +318,46 @@ function microsoftVariableErrors(
   );
 }
 
+/**
+ * Atari BASIC keeps a name in full - there is no two-character truncation - so
+ * the only name rule left is the one greedy matching creates: a name opening
+ * with a reserved word is not that name. `LOGO` is `LOG` and `O`, and the ROM
+ * stops on it.
+ *
+ * The cap on how *many* names a program may have is the tokenizer's, not this
+ * function's: the variable table is what runs out, and it runs out while the
+ * program is being built rather than while a name is being read.
+ *
+ * Shared between `atari800` and `atari400` - same BASIC, same lexis - so the
+ * dialect id picks which of `lexisFor`'s two (identical) entries to read.
+ */
+export function atariVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+  dialectId: 'atari800' | 'atari400',
+): TokenizeError[] {
+  const rules = variableRules(lexisFor(dialectId), keywords);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const embedded = occ.embedsKeyword;
+    if (!embedded) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: `Atari variable name '${occ.name}' embeds the reserved word '${embedded}', which the ROM matches first.`,
+    });
+  });
+  return errors;
+}
+
 export function c64VariableErrors(
   source: string,
   keywords: EditorKeyword[],
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'C64',
-    suffixChars: '$%',
+    lexis: lexisFor('commodore64'),
   });
 }
 
@@ -305,7 +367,21 @@ export function trs80VariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'TRS-80',
-    suffixChars: '$%!#',
+    lexis: lexisFor('trs80'),
+  });
+}
+
+/**
+ * MSX BASIC inherits the family's two rules and adds two more type suffixes to
+ * strip before counting: `A%`, `A!` and `A#` are the same name as `A$` is not.
+ */
+export function hb10pVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'MSX',
+    lexis: MSX_LEXIS,
   });
 }
 
@@ -321,6 +397,110 @@ export function altair8800VariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'Altair',
-    suffixChars: '$',
+    lexis: lexisFor('altair8800'),
+  });
+}
+
+/**
+ * Apple 1 Integer BASIC has only the embedded-keyword half of the Microsoft
+ * rules, and it has it for a different reason.
+ *
+ * There is no two-character truncation to warn about: a name here *is* one
+ * letter and at most one digit, so nothing is long enough to collide - `AB=2`
+ * and `A12=1` are refused outright by the tokenizer rather than quietly folded
+ * together. What survives is the crunch hazard, because the entry parser skips
+ * spaces and tries its keyword rules first: a name written where the ROM will
+ * see a reserved word instead is a real `*** SYNTAX ERR`.
+ */
+export function apple1VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules(lexisFor('apple1'), keywords);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const kw = occ.embedsKeyword;
+    if (!kw) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: `Apple I variable name '${occ.name}' embeds the reserved word '${kw}'.`,
+    });
+  });
+  return errors;
+}
+
+/**
+ * Apple II Integer BASIC keeps a name in full - `LONGVARIABLENAME=1` stores all
+ * sixteen characters - so there is no truncation to warn about. What is left is
+ * the crunch hazard, and it is a narrower one than the Microsoft family's.
+ *
+ * The entry parser tries seven words at every character of a name after the
+ * first, because those seven are the ones that may follow a complete
+ * expression: AND, AT, MOD, OR, STEP, THEN and TO. Finding one ends the name
+ * there, and whatever follows fails to parse - which is why `SCORE=1` (`SC OR
+ * E`) and `ATOM=1` (`A TO M`) are `*** SYNTAX ERR` on the machine while
+ * `BTAB=1`, `XPEEK=1` and `ANEW=1` are ordinary variables. Every other keyword
+ * passes through a name untouched, so the shared scanner's `embedsKeyword` is
+ * too wide a net here and this filters it down to the seven.
+ *
+ * The scanner runs in crunched mode all the same, so a name in *expression*
+ * position is split silently rather than flagged: `A=BANDY` really is `B AND Y`
+ * on the machine and runs.
+ */
+export function apple2VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  const rules = variableRules(lexisFor('apple2'), keywords);
+  const breakers = new Set(['AND', 'AT', 'MOD', 'OR', 'STEP', 'THEN', 'TO']);
+  const errors: TokenizeError[] = [];
+  eachOccurrence(source, rules, (occ) => {
+    const kw = [...breakers].find((w) => occ.name.toUpperCase().indexOf(w) > 0);
+    if (!kw) return;
+    errors.push({
+      line: occ.line,
+      column: occ.column,
+      endColumn: occ.endColumn,
+      message: `Apple II variable name '${occ.name}' ends at the reserved word '${kw}', which the parser matches first.`,
+    });
+  });
+  return errors;
+}
+
+/**
+ * Applesoft is a Microsoft BASIC and takes the family's rules whole: two
+ * significant characters, `$` and `%` as type suffixes, and a name embedding a
+ * reserved word being a real `?SYNTAX ERROR`.
+ *
+ * That last one bites harder here than anywhere else in the family, because
+ * this ROM's table puts `AT` at `$C5` where `ATN` is at `$E1`: `LATCH` stores
+ * as `L`, the AT token and `CH`, and `CATALOG` as `C`, AT, `A`, LOG. The
+ * tokenizer reproduces both rather than smoothing them over, so this is where
+ * the reader finds out.
+ */
+export function apple2plusVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'Applesoft',
+    lexis: lexisFor('apple2plus'),
+  });
+}
+
+/**
+ * BASIC-G inherits both rules from the same place the Altair's come from -
+ * two significant characters, and `$` as the only type suffix - and departs
+ * from it on case, which its lexis carries from the machine's declared facts.
+ */
+export function pmd85VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'PMD 85',
+    lexis: lexisFor('pmd85'),
   });
 }

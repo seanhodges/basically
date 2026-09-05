@@ -1,11 +1,32 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useIdeStore, useBlocks, type MobileTab } from '../app/store';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  useIdeStore,
+  useBlocks,
+  editorBufferOf,
+  selectRunTargetName,
+  type MobileTab,
+} from '../app/store';
 import {
   useMediaQuery,
   MOBILE_QUERY,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
+import { useDataBlocks } from '../app/dataBlocks';
 import { useInputOverlays } from '../app/useInputOverlays';
+import {
+  runControlStateOf,
+  runControlGlyph,
+  runControlLabel,
+} from '../app/runControl';
+import { timingSettled } from '../app/runTiming';
 import {
   setSplitRatio as persistSplitRatio,
   MIN_SPLIT_RATIO,
@@ -13,6 +34,7 @@ import {
 } from '../storage/settings';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { CONTROLLER_ROLE_NAMES } from '../keyboard/controllerConfig';
+import { withdrawsCaseKey } from '../keyboard/caseAffordance';
 import {
   VirtualKeyboard,
   type KeyboardTarget,
@@ -27,31 +49,65 @@ import { AsmEditor } from './AsmEditor';
 import { CodeMirrorHost } from './CodeMirrorHost';
 import { EditorTabBar } from './EditorTabBar';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
-import { AiPanel } from './AiPanel';
-import { MemoryMapPanel } from './MemoryMapPanel';
-import { SettingsForm } from './SettingsForm';
 import { UnsupportedBlockNotice } from './UnsupportedBlockNotice';
 import styles from './Workspace.module.css';
+
+/**
+ * The panes that are not the editor.
+ *
+ * Each already renders only when its own condition holds - the assistant and
+ * the settings form on the phone layouts or when opened, the memory map from a
+ * menu, the byte editor for a block that has no assembler - so each is a chunk
+ * that arrives with the first use rather than with the app.
+ *
+ * The assembly editor stays eager: `asmEngineFor` decides here whether to show
+ * it at all, so its engine registry is in the graph either way.
+ */
+const AiPanel = lazy(() =>
+  import('./AiPanel').then((m) => ({ default: m.AiPanel })),
+);
+const MemoryMapPanel = lazy(() =>
+  import('./MemoryMapPanel').then((m) => ({ default: m.MemoryMapPanel })),
+);
+const SettingsForm = lazy(() =>
+  import('./SettingsForm').then((m) => ({ default: m.SettingsForm })),
+);
+const ByteEditor = lazy(() =>
+  import('./ByteEditor').then((m) => ({ default: m.ByteEditor })),
+);
 
 const DIVIDER_WIDTH = 6;
 
 export function Workspace() {
   const dialect = useIdeStore((s) => s.dialect);
   const docOverride = useIdeStore((s) => s.docOverride);
-  const setSource = useIdeStore((s) => s.setSource);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const splitRatio = useIdeStore((s) => s.splitRatio);
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
+  const requestPause = useIdeStore((s) => s.requestPause);
+  const requestContinue = useIdeStore((s) => s.requestContinue);
   const blocks = useBlocks();
-  const activeBlockId = useIdeStore((s) => s.activeBlockId);
+  const dataBlocks = useDataBlocks();
+  const activeTab = useIdeStore((s) => s.activeTab);
+  const setActiveTab = useIdeStore((s) => s.setActiveTab);
+  const setScratchText = useIdeStore((s) => s.setScratchText);
+  // The scratch buffer the FAB would run, or null when Run means the program.
+  const runTargetName = useIdeStore(selectRunTargetName);
 
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  // Whether the run's program has ended, read off the timing the run publishes:
+  // a run in progress carries a live 'running' reading, and the run loop settles
+  // it the moment the machine sees the program finish or fail. Not the
+  // buffer-filtered timing the profile dialog shows - this drives the machine,
+  // so what matters is the run that is on, not which buffer is on screen.
+  const programEnded = useIdeStore((s) => timingSettled(s.runTiming));
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
   const controllerBindings = useIdeStore((s) => s.controllerBindings);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
   const controllerFireButtons = useIdeStore((s) => s.controllerFireButtons);
@@ -127,17 +183,74 @@ export function Workspace() {
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';
 
+  // Where the editor's keystrokes go: a scratch buffer's own text, or the
+  // program. Deliberately routed here rather than branched inside `setSource`,
+  // which carries document semantics (dirty, the boot-disc clear, the
+  // untitled-and-empty rule) a scratch edit must not trigger. `docOverride`
+  // (the inbound half of the same channel) is switched by the store when the
+  // active tab changes, so both halves always describe the same buffer.
+  const scratchId = activeTab.kind === 'scratch' ? activeTab.id : null;
+  const onEditorChange = useCallback(
+    (text: string) => {
+      if (scratchId === null) useIdeStore.getState().setSource(text);
+      else setScratchText(scratchId, text);
+    },
+    [scratchId, setScratchText],
+  );
+
   // The block tab open in the editor pane; a stale/unknown id (defensive -
   // the store fixes ids up on every block mutation) falls back to BASIC. The
   // assembly editor needs the dialect to declare a CPU with an engine; a code
-  // block without one gets the same placeholder as a data block.
-  const activeBlock = blocks.find((b) => b.id === activeBlockId) ?? null;
+  // block without one is edited as bytes, as a memory block is.
+  const activeBlock =
+    activeTab.kind === 'block'
+      ? (blocks.find((b) => b.id === activeTab.id) ?? null)
+      : null;
+  // The saved file open in the editor pane. As for a stale block id, a tab
+  // whose file has gone - the program overwrote it under another name, the
+  // user deleted it, a run started - falls back to BASIC.
+  const activeDataBlock =
+    activeTab.kind === 'data'
+      ? (dataBlocks.find((f) => f.name === activeTab.name) ?? null)
+      : null;
+  useEffect(() => {
+    if (activeTab.kind === 'data' && activeDataBlock === null) {
+      setActiveTab({ kind: 'basic' });
+    }
+  }, [activeTab, activeDataBlock, setActiveTab]);
   const asmEngine =
     activeBlock !== null &&
     activeBlock.kind === 'code' &&
     dialect.memoryBlocks !== undefined
       ? asmEngineFor(dialect.memoryBlocks.cpu)
       : null;
+  // Everything the assembly editor does not take is edited as bytes. The one
+  // block that reaches neither surface is machine code on a dialect that has no
+  // memory-block support at all: there is nothing to assemble it with, and
+  // nowhere for its bytes to be loaded from.
+  const byteEditable =
+    activeBlock !== null &&
+    asmEngine === null &&
+    !(activeBlock.kind === 'code' && dialect.memoryBlocks === undefined);
+
+  // The run control over the editor drives the run rather than only starting
+  // it: Play stopped, Pause running, Resume paused - whether the pause came
+  // from a breakpoint or from the user pressing this button. Pausing is offered
+  // only where continuing is, so on a machine with no debugger the control
+  // stays the plain Play it has always been. A program that has ended puts it
+  // back to Play even though the machine is still on, since there is no longer
+  // a program to pause or to carry on.
+  const runControlState = runControlStateOf(emulatorStatus, {
+    pausable: !!dialect.debuggable,
+    programEnded,
+  });
+  const runControlAction =
+    runControlState === 'pause'
+      ? requestPause
+      : runControlState === 'continue'
+        ? requestContinue
+        : requestRun;
+  const runControlTitle = runControlLabel(runControlState, runTargetName);
 
   // While a program is actively running with the memory map open, move the map
   // into the left column (replacing the editor) so the live emulator can stay
@@ -215,38 +328,57 @@ export function Workspace() {
         {/* The FAB anchors to this box so the docked keyboard below never
             sits underneath it. */}
         <div className={styles.editorMain}>
-          {/* The BASIC editor stays mounted while a block tab is open -
-              hiding (not unmounting) preserves the EditorView, its undo
-              history and the docOverride seq channel. */}
+          {/* One mounted editor for every BASIC buffer: it stays mounted while
+              a block tab is open - hiding (not unmounting) preserves the
+              EditorView and the docOverride seq channel - and a switch between
+              the program and a scratch buffer swaps the whole editor state, so
+              each buffer keeps its own history. */}
           <div
             className={`${styles.basicEditorHost} ${
-              activeBlock !== null ? styles.slotHidden : ''
+              activeBlock !== null || activeDataBlock !== null
+                ? styles.slotHidden
+                : ''
             }`}
           >
             <CodeMirrorHost
               dialect={dialect}
               override={docOverride}
-              onChange={setSource}
+              bufferId={editorBufferOf(activeTab)}
+              active={activeBlock === null && activeDataBlock === null}
+              onChange={onEditorChange}
               inputRef={editorInputRef}
             />
           </div>
+          {/* One assembly editor and one byte editor for every block: not keyed
+              by block id, so switching blocks swaps the state rather than
+              destroying the view and the block's edit history with it. */}
           {activeBlock !== null &&
             (asmEngine !== null ? (
-              <AsmEditor
-                key={activeBlock.id}
-                block={activeBlock}
-                engine={asmEngine}
-              />
+              <AsmEditor block={activeBlock} engine={asmEngine} />
+            ) : byteEditable ? (
+              <Suspense fallback={null}>
+                <ByteEditor block={activeBlock} inputRef={editorInputRef} />
+              </Suspense>
             ) : (
               <UnsupportedBlockNotice block={activeBlock} />
             ))}
+          {/* A saved file reaches the same byte view, read-only and counting
+              from its own first byte - it has no address to show. */}
+          {activeBlock === null && activeDataBlock !== null && (
+            <Suspense fallback={null}>
+              <ByteEditor block={activeDataBlock} inputRef={editorInputRef} />
+            </Suspense>
+          )}
           {tabbed && mobileTab === 'editor' && (
             <button
               className={styles.fabRun}
-              onClick={requestRun}
-              title="Build and run in the emulator"
+              data-testid="fab-run"
+              data-state={runControlState}
+              onClick={runControlAction}
+              title={runControlTitle}
+              aria-label={runControlTitle}
             >
-              ▶
+              {runControlGlyph(runControlState)}
             </button>
           )}
         </div>
@@ -266,12 +398,16 @@ export function Workspace() {
       </div>
       {tabbed && (
         <div className={`${styles.settingsPane} ${hidden('settings')}`}>
-          <SettingsForm />
+          <Suspense fallback={null}>
+            <SettingsForm />
+          </Suspense>
         </div>
       )}
       {(aiPanelOpen || tabbed) && (
         <div className={`${styles.aiHost} ${hidden('ai')} ${slotHidden('ai')}`}>
-          <AiPanel />
+          <Suspense fallback={null}>
+            <AiPanel />
+          </Suspense>
         </div>
       )}
       {/* The memory map shares the right-hand slot like the AI panel; on the split
@@ -284,7 +420,9 @@ export function Workspace() {
             memoryMapOnLeft ? styles.memoryLeft : slotHidden('memory')
           }`}
         >
-          <MemoryMapPanel getMachine={getMachineStable} />
+          <Suspense fallback={null}>
+            <MemoryMapPanel getMachine={getMachineStable} />
+          </Suspense>
         </div>
       )}
       {/* A single full-width keyboard overlay for every layout, routed to the
@@ -301,6 +439,9 @@ export function Workspace() {
             sound={keyboardSound}
             haptics={keyboardHaptics}
             keyDisplay={keyboardKeyDisplay}
+            // Strict characters on a machine with no lower case: there is no
+            // case to shift into, so the keyboard stops offering one.
+            hideCaseKey={withdrawsCaseKey(dialect.id, strictCharacters)}
           />
         </div>
       )}

@@ -1,12 +1,10 @@
 // The machine, described to the AI assistant from the same tables the
 // documentation site renders.
 //
-// The assistant used to be told about its machine in hand-written prose, one
-// paragraph per dialect, which named a fraction of each machine's commands and
-// left the rest to be guessed from a more famous relative. Everything here is
-// instead read from the reference data next door, which the crosscheck tests pin
-// to the real dialects - so what the assistant is told and what the user is
-// shown cannot disagree, and every machine is described to the same standard.
+// Everything here is read from the reference data next door, which the
+// crosscheck tests pin to the real dialects - so what the assistant is told and
+// what the user is shown cannot disagree, and every machine is described to the
+// same standard rather than from a more famous relative.
 //
 // Pure and framework-free, like ./compare.ts: it takes the machine's identity
 // and its reference table, reads its siblings for the rest, and returns a
@@ -17,10 +15,15 @@
 // derived from module-level constants through pure functions in a fixed order,
 // with an explicit sort and no iteration-order dependence.
 import { sortEntries } from './sort';
-import { escapeTableForMachine, tableForMachine } from './compare';
+import {
+  escapeTableForMachine,
+  namesMachine,
+  tableForMachine,
+} from './compare';
 import { KEYWORD_DOMAINS, type KeywordDomain } from './domains';
 import { domainGuidance } from './domain-guidance';
 import { portingFacts } from './facts';
+import type { MemoryMap } from '../dialects/types';
 import type {
   EscapeTableData,
   PortingFacts,
@@ -31,7 +34,7 @@ import type {
 /**
  * Who the machine is, as the app already knows it. Taken as an argument rather
  * than looked up, so this module never needs the dialect registry - the caller
- * has a `Dialect` in hand and these are four of its existing fields plus the
+ * has a `Dialect` in hand and these are five of its existing fields plus the
  * docs page it reads from.
  */
 export interface MachineIdentity {
@@ -40,7 +43,9 @@ export interface MachineIdentity {
   name: string;
   manufacturer: string;
   year: number;
-  /** Reference page slug (`Dialect.docsReference ?? Dialect.id`). */
+  /** The BASIC it runs, as `Dialect.basicDialect` names it. */
+  basicDialect: string;
+  /** Reference page slug, as `referencePageOf` in src/dialects/ derives it. */
   page: string;
 }
 
@@ -78,7 +83,7 @@ function describeIdentity(
   facts: PortingFacts,
 ): string {
   const lines = [
-    `- ${machine.manufacturer} ${machine.name} (${machine.year}), running ${facts.basicDialect}.`,
+    `- ${machine.manufacturer} ${machine.name} (${machine.year}), running ${machine.basicDialect}.`,
     `- ${groupDigits(facts.freeRamBytes)} bytes free for BASIC.`,
   ];
   if (facts.programStart !== undefined) {
@@ -117,7 +122,34 @@ function describeLanguageRules(facts: PortingFacts): string {
   lines.push(`- Numbers: ${facts.numberHandling}`);
   if (facts.exponentOperator !== undefined) {
     lines.push(`- Raise to a power with ${facts.exponentOperator}.`);
+  } else {
+    lines.push('- There is no power operator; multiply or loop instead.');
   }
+  // Bitwise-vs-value logic and the truth value are the two facts an assistant
+  // writing for the wrong machine gets wrong silently. It generates `IF A AND B`
+  // and `X=X+(A>B)` with Microsoft habits, both of which a Spectrum accepts and
+  // then answers differently.
+  lines.push(
+    facts.logicalOperators === 'bitwise'
+      ? '- AND, OR and NOT combine their operands bit by bit on integers.'
+      : facts.logicalOperators === 'logical'
+        ? '- AND, OR and NOT are NOT bitwise: they reduce their operands to a truth value, so A AND B and A OR B are 1 or 0 and NOT 5 is 0.'
+        : '- AND, OR and NOT are NOT bitwise: A AND B is A when B is non-zero and 0 otherwise; A OR B is 1 when B is non-zero and A otherwise.',
+  );
+  lines.push(
+    `- A true comparison evaluates to ${facts.comparisonTrue}; false is 0.`,
+  );
+  const integer = [
+    facts.integerDivisionOperator &&
+      `integer division is ${facts.integerDivisionOperator}`,
+    facts.remainderOperator && `remainder is ${facts.remainderOperator}`,
+    facts.xorOperator && `exclusive-OR is ${facts.xorOperator}`,
+  ].filter(Boolean);
+  lines.push(
+    integer.length === 0
+      ? '- There is no integer-division, remainder or exclusive-OR operator; use INT(a/b) and a-b*INT(a/b).'
+      : `- Where they exist: ${integer.join(', ')}.`,
+  );
   const notation =
     facts.addressNotation === 'hex'
       ? `hexadecimal${facts.hexPrefix !== undefined ? ` (written ${facts.hexPrefix}nnnn)` : ''}`
@@ -182,8 +214,90 @@ function describeCapabilities(facts: PortingFacts): string {
   return [
     'SCREEN, COLOUR AND SOUND',
     `- Screen: ${facts.screen}`,
+    // The prose above says the same thing in the fact rows' own words, which is
+    // not something a print position can be checked against. These two numbers
+    // are, and they are the boot screen's - the one a program lands on before it
+    // selects anything else.
+    `- The text screen at switch-on is ${facts.textScreen.columns} columns by ${facts.textScreen.rows} rows, so columns run 0-${facts.textScreen.columns - 1} and rows 0-${facts.textScreen.rows - 1}. Do not print outside that.`,
     `- Colour: ${facts.colour}`,
     `- Sound: ${facts.sound}`,
+  ].join('\n');
+}
+
+/**
+ * How long a program waits here, and how long it takes to do anything.
+ *
+ * Both halves of the same fact. A pause written as a counting loop is a duration
+ * expressed in this machine's speed, so a count copied from another machine -
+ * or recalled from one - runs for a different length of time, and nothing about
+ * the program says so. The speed is quoted as the emulator's because that is
+ * where it was measured and what the user will actually see; claiming it of the
+ * original hardware would be a stronger statement than the measurement supports.
+ *
+ * The wait idiom leads: a delay put on the machine's own clock needs no speed
+ * figure at all, which is why it is the better answer whenever the machine has
+ * one.
+ */
+function describeTiming(facts: PortingFacts): string {
+  const lines = [`- Wait with ${facts.waitIdiom.text}.`];
+  if (facts.loopSpeed !== undefined) {
+    lines.push(
+      `- An empty counting loop runs about ${groupDigits(facts.loopSpeed)} iterations a second here, measured in this IDE's own emulator — not a figure about the original hardware. A delay written as a counting loop is that speed written into the program, so pick counts against this figure rather than from habit.`,
+    );
+  }
+  return `TIMING AND WAITING\n${lines.join('\n')}`;
+}
+
+/**
+ * An address in this machine's own notation: `&3000`, `#8400`, `53280`.
+ *
+ * Shared with `./portDescription.ts` so a region named in the standing machine
+ * description and the same region named in a port's findings are written the
+ * same way - the two are read as one document, and a reader who has to work out
+ * that `&5C00` and `23552` are one address is doing the work this is for.
+ */
+export function formatAddress(
+  value: number,
+  facts: PortingFacts | undefined,
+): string {
+  if (facts?.addressNotation !== 'hex') return `${value}`;
+  return `${facts.hexPrefix ?? '&'}${value.toString(16).toUpperCase().padStart(4, '0')}`;
+}
+
+/**
+ * Where things are in memory, for a program that addresses it directly.
+ *
+ * The machine's whole layout rather than the two addresses the identity section
+ * already names, because a program that reads memory is asking for something
+ * particular - the keyboard, a clock, the system variables - and the address it
+ * needs is only findable if the regions are named. A read of the wrong address
+ * does not fail: it returns a number that means nothing, which is the quietest
+ * way a generated program can be wrong.
+ *
+ * ROM is called out on top of whatever the region's own note says, because it is
+ * the one region where a write is accepted and does nothing at all, and not
+ * every note mentions it.
+ *
+ * Absent for a machine whose dialect declares no map. Half a layout is worse
+ * than none here - an address absent from a partial list looks like an address
+ * the machine does not have.
+ */
+function describeMemoryMap(map: MemoryMap, facts: PortingFacts): string {
+  const lines = map.regions.map((region) => {
+    const span = `${formatAddress(region.start, facts)}-${formatAddress(region.end, facts)}`;
+    const readOnly = region.kind === 'rom' ? ' [read-only]' : '';
+    const note = region.note !== undefined ? ` ${region.note}` : '';
+    return `- ${span} ${region.label}${readOnly}:${note}`;
+  });
+  if (map.udgBase !== undefined) {
+    lines.push(
+      `- User-defined graphics start at ${formatAddress(map.udgBase, facts)}.`,
+    );
+  }
+  return [
+    'WHERE THINGS ARE IN MEMORY',
+    `- The address space runs ${formatAddress(0, facts)}-${formatAddress(map.addressSpace - 1, facts)}. There is nothing above that to address.`,
+    ...lines,
   ].join('\n');
 }
 
@@ -241,7 +355,7 @@ function describeShortfalls(
   facts: PortingFacts,
 ): string {
   const cells = domainGuidance
-    .filter((g) => g.to === machine.page && g.support !== 'full')
+    .filter((g) => namesMachine(g.to, machine.id) && g.support !== 'full')
     .slice()
     .sort(
       (a, b) =>
@@ -281,6 +395,12 @@ function describeShortfalls(
  * on demand - one page per chunk, so a session pays only for the machines it
  * actually talks about.
  *
+ * `memoryMap` comes from the dialect rather than from the reference data, and is
+ * passed in for the same reason `table` is: this module never reaches the
+ * registry, and the caller already holds the `Dialect`. Optional because a
+ * dialect may declare no map, in which case the machine is described without one
+ * exactly as the porting guide draws none.
+ *
  * Throws when a machine has no facts entry: `facts-crosscheck.test.ts` requires
  * one per registered dialect, so a missing entry is a broken build rather than a
  * machine to describe half-way.
@@ -289,6 +409,7 @@ export function describeMachine(
   machine: MachineIdentity,
   table: ReferenceTableData,
   escapes?: EscapeTableData,
+  memoryMap?: MemoryMap,
 ): string {
   const facts = portingFacts.find((f) => f.id === machine.id);
   if (facts === undefined) {
@@ -302,6 +423,11 @@ export function describeMachine(
     // machine will accept as a program, not what it can draw.
     describeCharacterSet(facts),
     describeCapabilities(facts),
+    // With the hardware it is a property of, and above the command list rather
+    // than below it: a delay is written while the program is being planned, and
+    // the command list is long enough to bury anything after it.
+    describeTiming(facts),
+    memoryMap !== undefined ? describeMemoryMap(memoryMap, facts) : '',
     describeCommands(entries),
     escapes !== undefined
       ? describeEscapes(escapeTableForMachine(escapes, machine.id))

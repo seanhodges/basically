@@ -40,13 +40,13 @@ export interface StubRecord {
     name: string;
     address: number;
     bytes: string;
-    kind: 'code' | 'data';
+    kind: 'code' | 'memory';
   }>;
 }
 
 /**
  * A ZX81 record (verb `/load/`, the lightest emulator, already exercised by the
- * plan specs) whose program paints the screen and then holds, so `canvasPainted`
+ * specs in this folder) whose program paints the screen and then holds, so `canvasPainted`
  * can confirm it booted and ran. Override any field for the incompatible/other
  * cases.
  */

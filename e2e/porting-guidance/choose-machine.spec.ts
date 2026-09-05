@@ -4,7 +4,7 @@ import { test, expect } from '../fixtures';
 /**
  * Choosing the pair the porting guide compares.
  *
- * Seven of the thirteen machines are one of a pair whose names prefix or echo
+ * Several machines are one of a pair whose names prefix or echo
  * one another - Spectrum / Spectrum 128, BBC Micro / BBC Master, CPC 464 /
  * 6128, and the three Commodores - and those are exactly the pairs whose
  * comparisons differ most. What is checked here is that the reader can tell
@@ -28,14 +28,53 @@ function picker(page: import('@playwright/test').Page) {
   return page.getByRole('dialog', { name: 'Choose a machine' });
 }
 
-test('a machine is told from its relative while choosing', async ({ page }) => {
+/** Point one of the two fields at a machine, by id. */
+async function pick(
+  page: import('@playwright/test').Page,
+  role: 'from' | 'to',
+  machine: string,
+) {
+  await field(page, role).click();
+  await picker(page).locator(`button[data-machine="${machine}"]`).click();
+  await expect(field(page, role)).toHaveAttribute(
+    'data-target-machine',
+    machine,
+  );
+}
+
+/** One control-code group in the escape section, found by its category label. */
+function group(page: import('@playwright/test').Page, label: string) {
+  return page
+    .locator('#escape-codes .cmp-group-esc')
+    .filter({ has: page.getByRole('heading', { level: 3, name: label }) });
+}
+
+test('the two fields are told apart, and so is a machine from its relative', async ({
+  page,
+}) => {
   await page.goto(GUIDE);
 
+  const from = field(page, 'from');
   const to = field(page, 'to');
-  await expect(to).toBeVisible({ timeout: 15_000 });
+  await expect(from).toBeVisible({ timeout: 15_000 });
+
+  // The two controls are the same component, so nothing but the accessible
+  // name distinguishes them to a reader who cannot see the layout.
+  const fromLabel = await from.getAttribute('aria-label');
+  const toLabel = await to.getAttribute('aria-label');
+  expect(fromLabel).toMatch(/^Porting from: /);
+  expect(toLabel).toMatch(/^Porting to: /);
+  expect(fromLabel).not.toBe(toLabel);
+
+  // Opening one closes the other: there is only ever one list on screen.
+  await from.click();
+  await expect(picker(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker(page)).toBeHidden();
   await to.click();
 
   const list = picker(page);
+  await expect(list).toHaveCount(1);
   await expect(list).toBeVisible();
 
   // The 464 and the 6128 differ by a digit in the name and by a great deal in
@@ -68,30 +107,66 @@ test('a machine is told from its relative while choosing', async ({ page }) => {
   await expect(to).toHaveAttribute('data-target-machine', 'cpc6128');
   await expect(to).toContainText('CPC 6128');
   await expect(to).toHaveAttribute('aria-label', 'Porting to: CPC 6128');
-});
 
-test('each field says which of the two choices it is', async ({ page }) => {
-  await page.goto(GUIDE);
+  // Rides this journey rather than opening a second cold page: the pickers are
+  // already warm, and re-pointing them at C64 → ZX81 is two more clicks. That
+  // pair is the one the control-code verdicts exist for - 108 PETSCII codes to
+  // replace, which the ZX81 answers three different ways.
+  await pick(page, 'from', 'commodore64');
+  await pick(page, 'to', 'zx81');
 
-  const from = field(page, 'from');
-  const to = field(page, 'to');
-  await expect(from).toBeVisible({ timeout: 15_000 });
+  const escapes = page.locator('#escape-codes');
+  await expect(escapes).toBeVisible();
 
-  // The two controls are the same component, so nothing but the accessible
-  // name distinguishes them to a reader who cannot see the layout.
-  const fromLabel = await from.getAttribute('aria-label');
-  const toLabel = await to.getAttribute('aria-label');
-  expect(fromLabel).toMatch(/^Porting from: /);
-  expect(toLabel).toMatch(/^Porting to: /);
-  expect(fromLabel).not.toBe(toLabel);
+  // A class the target has no way to express: the verdict says so, and the
+  // advice says what to reach for instead.
+  const colours = group(page, 'Colours');
+  await expect(colours).toContainText('nothing like it in ZX81');
+  await expect(colours).toContainText(/inverse video/);
 
-  // Opening one closes the other: there is only ever one list on screen.
-  await from.click();
-  await expect(picker(page)).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(picker(page)).toBeHidden();
-  await to.click();
-  await expect(picker(page)).toHaveCount(1);
+  // A class it covers under its own spellings, so a reader can tell a
+  // mechanical replacement from a rewrite before counting the codes.
+  await expect(group(page, 'Cursor')).toContainText(
+    'ZX81 has these under its own spellings',
+  );
+
+  // And the group the pair's bulk is in: 63 keycap shapes the ZX81 draws on a
+  // different grid, so it is neither of the two above.
+  const keyGraphics = group(page, 'Key graphics');
+  await expect(keyGraphics).toContainText('only partly covered in ZX81');
+  // Once for the whole group, not against each of the 63 codes.
+  await expect(keyGraphics.locator('.cmp-group-instead-text')).toHaveCount(1);
+
+  // All 63 of them, however long the run: the grouped sections are capped by
+  // group, not by entry, so a category the reader is shown is shown whole. A
+  // partial run would be indistinguishable from a small category.
+  await expect(keyGraphics.locator('.cmp-group-names .cmp-name')).toHaveCount(
+    Number(await keyGraphics.locator('.cmp-group-count').innerText()),
+  );
+
+  // "What changes" is capped the same way, at ten capability accounts with the
+  // rest a click away. Ported from a BBC Micro rather than the C64 above,
+  // because that is a source rich enough to lose commands across more than ten
+  // capability areas at once - the C64 loses them across fewer, so nothing in
+  // its comparison is held back.
+  await pick(page, 'from', 'bbcmicro');
+  const groups = page.locator('#capabilities .cmp-group');
+  const capMore = page
+    .locator('#capabilities')
+    .getByRole('button', { name: /^Show \d+ more capability area/ });
+  await expect(groups).toHaveCount(10);
+  await expect(capMore).toBeVisible();
+
+  await capMore.click();
+  await expect(capMore).toHaveCount(0);
+  expect(await groups.count()).toBeGreaterThan(10);
+
+  // And it re-collapses when the pair changes: an expansion is about the
+  // comparison it was made in, not a preference that follows the reader to the
+  // next one.
+  await pick(page, 'to', 'zxspectrum');
+  await pick(page, 'to', 'zx81');
+  await expect(groups).toHaveCount(10);
 });
 
 test('the pair can be chosen without a pointer', async ({ page }) => {
@@ -108,7 +183,8 @@ test('the pair can be chosen without a pointer', async ({ page }) => {
   await expect(list).toBeVisible();
 
   // The list opens on the machine already chosen, so the keyboard starts where
-  // the eye does.
+  // the eye does. Not on the search field: focusing a text field is what raises
+  // a phone's on-screen keyboard over the list the reader just asked to see.
   await expect(list.locator(`button[data-machine="${before}"]`)).toBeFocused();
 
   // Escape leaves the selection as it was.
@@ -116,7 +192,8 @@ test('the pair can be chosen without a pointer', async ({ page }) => {
   await expect(list).toBeHidden();
   await expect(from).toHaveAttribute('data-target-machine', before!);
 
-  // Every machine is reachable by tabbing, and choosing one takes.
+  // Every machine is reachable by tabbing on from the one in use, and choosing
+  // one takes.
   await from.focus();
   await page.keyboard.press('Enter');
   await expect(list).toBeVisible();

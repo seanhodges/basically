@@ -5,13 +5,16 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { useIdeStore } from '../app/store';
+import {
+  useIdeStore,
+  selectBufferBreakpoints,
+  selectRunTarget,
+  selectVisibleDebugLine,
+} from '../app/store';
 import {
   classifyAiRunFrame,
   finaliseExpectations,
-  latchExpectationSample,
-  AI_CHECK_EXPECT_SAMPLE_FRAMES,
-  AI_CHECK_FRAMES_PER_TICK,
+  AI_CHECK_SPEED,
   AI_CHECK_HIDDEN_TICK_MS,
   shouldOpenDebugSession,
   shouldRevealEmulator,
@@ -19,14 +22,16 @@ import {
   type AiRunFrameCounts,
 } from '../app/aiRunCheck';
 import {
-  evaluateExpectations,
   noScreenViews,
-  type Expectation,
   type ExpectationResult,
   type ScreenViewRequest,
 } from '../ai/expectations';
+import { runDriveScript, type DriveAction } from '../app/driveScript';
+import { machineSession } from '../app/machineSession';
 import { countProgramErrors } from '../app/useProgramStats';
+import { resolveTokenize } from '../dialects/resolveListing';
 import { lintBlocks } from '../app/blockLint';
+import { programVocabulary } from '../app/programVocabulary';
 import {
   HAS_TOUCH,
   isMobileViewport,
@@ -34,6 +39,10 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
+import { FrameClock } from '../app/frameClock';
+import { RunMeasurements } from '../app/runMeasurements';
+import { formatTiming } from '../app/runTiming';
+import { canPauseRun } from '../app/runControl';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
   captureFromCanvas,
@@ -43,11 +52,11 @@ import {
   snapshotScreen,
 } from '../app/screenCapture';
 import {
-  createMachineControl,
-  forgetMachineControl,
+  forgetMachineSession,
   machineFrozen,
-  registerMachineControl,
-} from '../app/machineControl';
+  registerMachineSession,
+} from '../app/machineSession';
+import { createBrowserSession } from '../app/browserSession';
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import type {
   Dialect,
@@ -133,32 +142,30 @@ function describeMachineError(e: unknown, dialect: Dialect): string {
     return `The ${dialect.name} didn't start on your own ROM (${custom.name}) - "${raw}". Restore the bundled ROM in Settings ▸ Emulator if that image isn't a working ${dialect.name} ROM.`;
   }
   if (dialect.romBytes && /Failed to fetch ROM/.test(raw)) {
-    // Two machines reach here for different reasons. Most have a bundled image
-    // that could not be fetched (offline, or a checkout with a removable ROM
-    // deleted); the Altair never had one to fetch, because its interpreter is
-    // copyright and cannot ship - so it says that outright rather than implying
-    // something went wrong.
-    return dialect.romBundled === false
-      ? `No ${dialect.name} ROM ships with this IDE - its BASIC is still under copyright. Supply your own image in Settings → Emulator to start the machine.`
-      : `The ${dialect.name} ROM image isn't available. You can supply your own ROM in Settings → Emulator.`;
+    // A bundled image that could not be fetched: offline, or a checkout with a
+    // removable ROM deleted. Either way the recovery is the same, so the
+    // message offers it rather than implying something went wrong.
+    return `The ${dialect.name} ROM image isn't available. You can supply your own ROM in Settings → Emulator.`;
   }
   return raw;
 }
 
 export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dialect = useIdeStore((s) => s.dialect);
-  const source = useIdeStore((s) => s.source);
   const blocks = useIdeStore((s) => s.blocks);
   const tapeFiles = useIdeStore((s) => s.tapeFiles);
   const autoStart = useIdeStore((s) => s.autoStart);
   const bootDisc = useIdeStore((s) => s.bootDisc);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
+  const pauseRequest = useIdeStore((s) => s.pauseRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
   const romChangeRequest = useIdeStore((s) => s.romChangeRequest);
   const stepRequest = useIdeStore((s) => s.stepRequest);
   const continueRequest = useIdeStore((s) => s.continueRequest);
-  const debugLine = useIdeStore((s) => s.debugLine);
+  // The paused line, shown only while the buffer that is running is the one on
+  // screen - a pause belongs to the buffer that started the run.
+  const debugLine = useIdeStore(selectVisibleDebugLine);
   const speed = useIdeStore((s) => s.emulatorSpeed);
   const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
   const emulatorVolume = useIdeStore((s) => s.emulatorVolume);
@@ -167,6 +174,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
   const setLiveMemory = useIdeStore((s) => s.setLiveMemory);
+  const setRunProfile = useIdeStore((s) => s.setRunProfile);
+  const setRunTiming = useIdeStore((s) => s.setRunTiming);
+  const setPauseInterval = useIdeStore((s) => s.setPauseInterval);
+  const pauseInterval = useIdeStore((s) => s.pauseInterval);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   // `overlayUp` (the bottom band is occupied, so the emulator screen shrinks to
   // the top half) comes from the same shared hook that Workspace uses to render
@@ -196,6 +207,28 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const audioRef = useRef<EmulatorAudio | null>(null);
   const frameHookRef = useRef<(() => void) | null>(null);
   const rafRef = useRef(0);
+  /**
+   * Converts elapsed real time into whole machine frames. Animation frames fire
+   * at the display's refresh rate, which is nobody's frame rate, so running one
+   * frame per tick would run every machine at refresh/native speed.
+   */
+  const clockRef = useRef(new FrameClock());
+  /**
+   * The measurements of the run in progress - its profile and its stopwatch
+   * together - or null between runs.
+   *
+   * Built when a run starts and thrown away when the next one does, so figures
+   * never accumulate across runs. Held in a ref rather than the store because
+   * it is folded into every emulated frame - fifty times a second, and more at
+   * a speed multiple - and pushed to the store on the far slower cadence the
+   * editor's gutter actually needs, which the fold itself keeps.
+   */
+  const measurementsRef = useRef<RunMeasurements | null>(null);
+  /**
+   * The speed setting, read inside the loop rather than through the closure so
+   * a change takes effect on the next tick without restarting the loop.
+   */
+  const speedRef = useRef(1);
   // The fallback clock that keeps a check advancing in a backgrounded tab, where
   // animation frames stop arriving (see AI_CHECK_HIDDEN_TICK_MS). Null whenever
   // the loop is running on animation frames, which is every ordinary run.
@@ -217,18 +250,29 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // The outcome carries it so the assistant's store can tell whether the user
   // has moved on; comparing the program that ran would always say they had.
   const aiCheckBaseRef = useRef('');
-  // What the assistant said should be true once this program has run, and how
-  // those expectations have stood up across the samples so far (null until the
-  // first sample). Sampled rather than evaluated per frame - reading the screen
-  // back is expensive - and latched, so a value that held once stays held.
-  const aiCheckExpectRef = useRef<Expectation[]>([]);
-  const aiCheckLatchRef = useRef<ExpectationResult[] | null>(null);
+  // The schedule the assistant said its program should satisfy - actions and
+  // expectations in the order it wrote them - and how each step went, once the
+  // schedule has been run.
+  //
+  // Run once, from the moment the machine is up, rather than sampled: an
+  // expectation asks what is true at the point in the schedule where it was
+  // written, and text a program prints and then clears is waited for rather
+  // than remembered on the assistant's behalf. That is what makes the IDE and
+  // the command line reach the same verdict about the same program.
+  const aiCheckExpectRef = useRef<DriveAction[]>([]);
+  const aiCheckStepsRef = useRef<ExpectationResult[] | null>(null);
   // The screen views the assistant asked to be shown for this run. What decides
   // whether the verdict is captured: the pane infers nothing about when a
   // picture is wanted, it captures what it was asked for.
   const aiCheckViewsRef = useRef<ScreenViewRequest>(noScreenViews());
   // A step-through debug session is live (run started in debug mode).
   const debugActiveRef = useRef(false);
+  // Which buffer the live session is running (a scratch buffer's id, or null
+  // for the program). Captured when the run starts, because the loop re-reads
+  // the breakpoint set from the store on every slice: without pinning it, a
+  // user who switches tabs mid-run would silently swap the session's
+  // breakpoints for another buffer's.
+  const debugBufferRef = useRef<string | null>(null);
   // What the current run of slices is doing: 'run' (to next breakpoint) or
   // 'step' (to the next BASIC line).
   const debugModeRef = useRef<'run' | 'step'>('run');
@@ -248,7 +292,31 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       clearTimeout(hiddenTimerRef.current);
       hiddenTimerRef.current = null;
     }
+    // A pause is not time the machine owes: forget it, so resuming from a
+    // breakpoint or a stop does not replay the gap as fast-forward.
+    clockRef.current.reset();
   }, []);
+
+  /**
+   * Publish what the run measured and stop measuring.
+   *
+   * Called wherever a run ends rather than only where a new one starts, so the
+   * frames since the last push are not lost - a user who stops the machine to
+   * look at where its time went is looking at the run they just watched.
+   */
+  const flushProfile = useCallback(() => {
+    const measurements = measurementsRef.current;
+    measurementsRef.current = null;
+    if (!measurements) return;
+    // Every path through here is the user ending the run - Stop, Reset, a
+    // teardown - so a timing that has not already settled on its own ends as
+    // "still running when the run was stopped", which is the one thing it must
+    // never be mistaken for a completion time.
+    measurements.stop();
+    const profile = measurements.profile();
+    if (profile) setRunProfile(profile);
+    setRunTiming(measurements.timing());
+  }, [setRunProfile, setRunTiming]);
 
   // Blank the preview so a freshly-started emulator never inherits the previous
   // machine's last frame. clearRect exposes the canvas's white CSS background.
@@ -281,7 +349,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     forgetScreenCapture();
   }, []);
 
-  // The driver the assistant reaches the machine through, offered on the same
+  // The session the assistant reaches the machine through, offered on the same
   // terms as the capture: only while a machine is up and drawing, and taken
   // back when it goes away. Unlike the capture there is no snapshot to keep -
   // a machine that is gone cannot be driven, and pretending otherwise would let
@@ -290,12 +358,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const registerControl = useCallback(
     (machine: MachineEmulator, render: () => void) => {
       unregisterControlRef.current?.();
-      unregisterControlRef.current = registerMachineControl(
-        createMachineControl({
+      unregisterControlRef.current = registerMachineSession(
+        createBrowserSession({
           machine,
-          layout: dialect.keyboardLayout,
+          dialect,
           gamepadMode: effectiveGamepadMode(dialect, gamepadMode),
-          fireButtons: dialect.joystickFireButtons ?? 1,
           // A driven frame renders like any other: what the assistant is shown
           // and what the user would have seen are the same picture.
           step: () => {
@@ -310,7 +377,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dropControl = useCallback(() => {
     unregisterControlRef.current?.();
     unregisterControlRef.current = null;
-    forgetMachineControl();
+    forgetMachineSession();
   }, []);
 
   // Let the browser paint at least once. Used to surface the loading overlay
@@ -341,13 +408,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         typeof document !== 'undefined' &&
         document.hidden
       ) {
-        hiddenTimerRef.current = setTimeout(tick, AI_CHECK_HIDDEN_TICK_MS);
+        // setTimeout passes no timestamp, so read the same clock rAF would.
+        hiddenTimerRef.current = setTimeout(
+          () => tick(performance.now()),
+          AI_CHECK_HIDDEN_TICK_MS,
+        );
         return;
       }
       hiddenTimerRef.current = null;
       rafRef.current = requestAnimationFrame(tick);
     };
-    const tick = () => {
+    const tick = (now: number) => {
       const machine = machineRef.current;
       const canvas = canvasRef.current;
       // The two absences mean different things, and treating them alike is what
@@ -385,20 +456,40 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         }
       };
 
+      // The assistant is nobody's audience: a check runs faster than real time
+      // (below), and the user's speed setting is theirs to set. Either way the
+      // machine is producing samples faster or slower than the speaker consumes
+      // them, so anything but 1× is drained and discarded rather than played -
+      // pushing it would grow the buffer without bound and put sound further
+      // and further behind the picture.
+      const atRealTime = () =>
+        !aiCheckActiveRef.current && speedRef.current === 1;
+
+      // Fold one emulated frame into the run's measurements, and publish them
+      // when the fold says to. Always called, on the debug path as well as the
+      // ordinary one, so a run measures itself whichever way it is being run -
+      // and so the machine's accumulation never grows between drains. Once the
+      // program is over the loop runs on - the machine sits at its prompt, and
+      // the user may still be typing at it - but the measurements are done and
+      // dropped.
+      const pumpMeasurements = () => {
+        const measurements = measurementsRef.current;
+        if (!measurements) return;
+        const step = measurements.frame(machine);
+        if (step === 'quiet') return;
+        if (step === 'settled') measurementsRef.current = null;
+        setRunProfile(measurements.profile());
+        setRunTiming(measurements.timing());
+      };
+
       // Drain the machine's synthesized audio and feed the speaker. Always
-      // called (so the machine's accumulation buffer stays bounded even with
-      // audio off), but only pushed to the host at 1× - fast-forward changes
-      // the cycle budget and would pitch-shift the stream, so it gates to
-      // silence (discard) instead.
+      // called, even when nothing will be played, so the machine's accumulation
+      // buffer stays bounded.
       const pumpAudio = () => {
         if (!machine.readAudio) return;
         const samples = machine.readAudio();
         const audio = audioRef.current;
-        if (
-          audio &&
-          samples.length > 0 &&
-          useIdeStore.getState().emulatorSpeed === 1
-        ) {
+        if (audio && samples.length > 0 && atRealTime()) {
           audio.push(samples, machine.audioSampleRate ?? 44100);
         }
       };
@@ -409,51 +500,88 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       // call was in flight. The loop stays scheduled so the machine picks up
       // again the moment driving ends.
       if (machineFrozen()) {
-        schedule();
-        return;
-      }
-
-      // Debug session: advance by one slice, pausing on a breakpoint ('run') or
-      // at the next BASIC line ('step'). The machine renders progress between
-      // slices so the screen stays live across long-running lines.
-      if (debugActiveRef.current && machine.debugStep) {
-        const res = machine.debugStep({
-          breakpoints: useIdeStore.getState().breakpoints,
-          mode: debugModeRef.current,
-          fromLine: debugFromLineRef.current,
-        });
-        frameHookRef.current?.();
-        pumpAudio();
-        render();
-        if (res.paused) {
-          stopLoop();
-          machine.releaseAllKeys(); // nothing stays held while paused
-          debugFromLineRef.current = res.line;
-          const store = useIdeStore.getState();
-          store.setDebugLine(res.line);
-          store.setEmulatorStatus('paused');
-          // On mobile the Preview tab is showing when a breakpoint trips, so the
-          // frozen screen gives no hint why. Jump to the editor so the user sees
-          // the highlighted line. Only for 'run' (a real breakpoint) - 'step'
-          // already starts from the editor/toolbar.
-          if (debugModeRef.current === 'run' && isMobileViewport()) {
-            store.setMobileTab('editor');
-          }
-          return; // do not schedule another frame until step/continue
-        }
+        // Frozen time is not owed: without this the machine would burst forward
+        // to "catch up" the moment the assistant let go.
+        clockRef.current.reset();
         schedule();
         return;
       }
 
       // A check is nobody's animation: the assistant is waiting on a verdict and
-      // the user is reading the reply, so the loop advances several frames a
-      // tick instead of one. The check's windows are counted in frames, not
-      // seconds, so this settles it sooner without changing a single rule - and
-      // it is the difference between a wait of seconds and one of a moment.
-      const steps = aiCheckActiveRef.current ? AI_CHECK_FRAMES_PER_TICK : 1;
+      // the user is reading the reply, so it runs faster than real time. The
+      // check's windows are counted in frames, not seconds, so this settles it
+      // sooner without changing a single rule - and it is the difference
+      // between a wait of seconds and one of a moment.
+      const effectiveSpeed = aiCheckActiveRef.current
+        ? AI_CHECK_SPEED
+        : speedRef.current;
+      // Whole frames of real time owed since the last tick, which on a display
+      // that refreshes faster than the machine is regularly none - the render
+      // below still runs, repainting the frame already on screen.
+      const steps = clockRef.current.advance(
+        now,
+        machine.frameHz,
+        effectiveSpeed,
+      );
+
+      // Debug session: advance a slice at a time, pausing on a breakpoint
+      // ('run') or at the next BASIC line ('step'). The machine renders progress
+      // between slices so the screen stays live across long-running lines.
+      //
+      // Paced like an ordinary run, and for the same reason: on every machine
+      // that models line debugging this *is* the ordinary run - a session opens
+      // whenever the user presses Play (see shouldOpenDebugSession), so a slice
+      // per animation frame would leave those machines running at the display's
+      // rate no matter what the loop below did.
+      if (debugActiveRef.current && machine.debugStep) {
+        for (let step = 0; step < steps; step++) {
+          const res = machine.debugStep({
+            breakpoints: selectBufferBreakpoints(
+              useIdeStore.getState(),
+              debugBufferRef.current,
+            ),
+            mode: debugModeRef.current,
+            fromLine: debugFromLineRef.current,
+          });
+          frameHookRef.current?.();
+          pumpMeasurements();
+          pumpAudio();
+          if (res.paused) {
+            render();
+            stopLoop();
+            machine.releaseAllKeys(); // nothing stays held while paused
+            debugFromLineRef.current = res.line;
+            const store = useIdeStore.getState();
+            store.setDebugLine(res.line, debugBufferRef.current);
+            // Marked here, where execution actually pauses, rather than where a
+            // breakpointed line is reached: continuing off a breakpointed line
+            // deliberately does not re-trigger on it (see `fromLine`), so
+            // marking on the line would mark at moments that are not pauses.
+            const measurements = measurementsRef.current;
+            if (measurements) {
+              store.setPauseInterval(measurements.stopwatch.pause(res.line));
+              store.setRunTiming(measurements.timing());
+            }
+            store.setEmulatorStatus('paused');
+            // On mobile the Preview tab is showing when a breakpoint trips, so
+            // the frozen screen gives no hint why. Jump to the editor so the
+            // user sees the highlighted line. Only for 'run' (a real
+            // breakpoint) - 'step' already starts from the editor/toolbar.
+            if (debugModeRef.current === 'run' && isMobileViewport()) {
+              store.setMobileTab('editor');
+            }
+            return; // do not schedule another frame until step/continue
+          }
+        }
+        render();
+        schedule();
+        return;
+      }
+
       for (let step = 0; step < steps; step++) {
         machine.runFrame();
         frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+        pumpMeasurements();
         pumpAudio();
         // The IDE checking an answer the assistant returned: watch the
         // freshly-started program until the check can say how it went, hand that
@@ -464,7 +592,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           const verdict = classifyAiRunFrame(
             {
               report: machine.readReport(),
-              running: machine.isProgramRunning?.(),
+              running: machine.isProgramRunning(),
             },
             aiCheckCountsRef.current,
           );
@@ -484,30 +612,28 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             }
             return screenTextThisFrame;
           };
-          // Check the assistant's stated expectations on a cadence while the run
-          // is being watched, and once more at the verdict so the final state is
-          // always seen. Skipped entirely when it stated none, which is the
-          // ordinary case and must cost nothing.
-          if (aiCheckExpectRef.current.length > 0) {
-            const due =
-              verdict.done ||
-              aiCheckCountsRef.current.totalFrames %
-                AI_CHECK_EXPECT_SAMPLE_FRAMES ===
-                0;
-            if (due) {
-              aiCheckLatchRef.current = latchExpectationSample(
-                aiCheckLatchRef.current,
-                evaluateExpectations(aiCheckExpectRef.current, {
-                  variables: machine.readVariables?.() ?? null,
-                  screen: screenTextOnce(),
-                }),
-              );
-            }
+          // Run the assistant's schedule once, as soon as the machine is up -
+          // or at the verdict, for a program that was over before then. It
+          // advances the machine itself through the session's driver, so a
+          // `WAIT FOR` inside it catches text this loop would have run past.
+          // Skipped entirely when the reply stated none, which is the ordinary
+          // case and must cost nothing.
+          if (
+            aiCheckExpectRef.current.length > 0 &&
+            aiCheckStepsRef.current === null &&
+            (verdict.done ||
+              machine.readReport() !== null ||
+              machine.isProgramRunning() === true)
+          ) {
+            const session = machineSession();
+            aiCheckStepsRef.current = session
+              ? runDriveScript(session, aiCheckExpectRef.current).steps
+              : [];
           }
           if (verdict.done) {
             aiCheckActiveRef.current = false;
             const results = finaliseExpectations(
-              aiCheckLatchRef.current ?? [],
+              aiCheckStepsRef.current ?? [],
               verdict.outcome,
             );
             // Shown to the assistant only because it asked - by naming the view,
@@ -516,7 +642,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             // is worth having is a judgement only the program's author can make.
             const needsScreen =
               aiCheckViewsRef.current.image ||
-              aiCheckExpectRef.current.some((e) => e.kind === 'visual');
+              aiCheckExpectRef.current.some(
+                (a) => a.kind === 'expect' && a.expectation.kind === 'shows',
+              );
             // Render before capturing so the picture is the frame this verdict
             // was formed on, not the one before it. The tick's own render below
             // then repeats the same machine state, which costs a redraw and
@@ -561,7 +689,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       schedule();
     };
     schedule();
-  }, [stopLoop, registerCapture, registerControl, setEmulatorStatus]);
+  }, [
+    stopLoop,
+    registerCapture,
+    registerControl,
+    setEmulatorStatus,
+    setRunProfile,
+    setRunTiming,
+  ]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -625,11 +760,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     (async () => {
       setError('');
       try {
-        // Checking an answer the assistant just returned runs THAT program, not
-        // the editor's: an answer is checked before the user has decided whether
-        // to apply it, so the document is deliberately untouched. Every other
-        // run - the toolbar, the shortcut, the player - runs the editor as ever.
-        const checking = useIdeStore.getState().aiRunCheckSeq === runRequest;
+        // What this request runs (see selectRunTarget): checking an answer the
+        // assistant just returned runs THAT program, not the editor's, since an
+        // answer is checked before the user has decided whether to apply it;
+        // every other run - the toolbar, the shortcut, the player - runs the
+        // buffer the editor is showing, which is a scratch buffer when the user
+        // is looking at one.
+        const {
+          source: runSource,
+          checking,
+          scratch,
+          bufferId,
+        } = selectRunTarget(useIdeStore.getState(), runRequest);
         // A run the user asked for takes the machine back from the assistant.
         // Done here, before the gates below, so that a run refused for a lint
         // error still un-strands a machine the assistant was holding still -
@@ -637,15 +779,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // user with one that neither runs nor says why. See
         // shouldTakeMachineBack for why a check is the exception.
         if (shouldTakeMachineBack({ checking })) dropControl();
-        const runSource = checking
-          ? useIdeStore.getState().aiRunSource
-          : source;
         // A preserved boot-disc document (a multi-file `.ssd` the memory-block
         // model can't represent) runs its verbatim image, not `runSource`: the
         // machine mounts-and-boots it so the disc's own loader runs. Skip every
         // source/blocks gate below - `source` is only the recovered listing.
+        //
+        // A scratch run bypasses that entirely: the image describes how the
+        // *document* was imported and says nothing about a snippet, and without
+        // this bypass Run would appear to do nothing at all on exactly those
+        // documents.
+        const bootImage = scratch ? null : bootDisc;
         let image: Uint8Array = new Uint8Array(0);
-        if (!bootDisc) {
+        if (!bootImage) {
           // Gate on the full editor lint set (not just tokenizer errors), so
           // Play refuses exactly the errors the editor underlines - unless the
           // user has turned the lint gate off in Settings > Emulator, in which
@@ -654,12 +799,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             dialect,
             runSource,
             useIdeStore.getState().runGateLint,
+            useIdeStore.getState().strictCharacters,
           );
           if (errorCount > 0) {
             setError(`Fix ${errorCount} error(s) before running`);
             return;
           }
-          const result = dialect.tokenize(runSource);
+          const result = resolveTokenize(dialect, runSource);
           if (result.image.length === 0) {
             setError('Program is empty');
             return;
@@ -674,10 +820,21 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           // extra framing (e.g. the Spectrum's TAP header) that isn't part of
           // the program area at all.
           if (dialect.memoryBlocks && blocks.length > 0) {
+            // The program's own text is what decides whether a machine's
+            // conditionally free memory is actually free, so the gate reads it
+            // here rather than leaving the linter to refuse on principle. Only
+            // scanned for a machine that declares such a region: everywhere
+            // else the vocabulary would be computed and ignored.
+            const vocabulary =
+              dialect.memoryBlocks.conditionallyFree !== undefined
+                ? programVocabulary(runSource, dialect)
+                : undefined;
             const issues = lintBlocks(
               blocks,
               dialect.memoryBlocks,
               result.byteSize,
+              vocabulary,
+              runSource,
             );
             const blocking = issues.find((i) => i.severity === 'error');
             if (blocking) {
@@ -693,6 +850,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // loadProgram boots the ROM synchronously (~200ms on the Z80 machines),
         // blocking the main thread - paint the overlay first so it is visible.
         await nextPaint();
+        // A start serves the program the files this machine already has, so a
+        // run can load what an earlier run saved. Before the guard below, which
+        // has to stay the last thing before loadProgram; the restore races a
+        // short timeout of its own and never throws, so it cannot cost a run.
+        await emulatorVfs.hydrate(dialect.id);
         // `cancelled` only trips on another run request. The identity check
         // catches the other way a start is invalidated: something disposed the
         // machine while this was awaiting - a Stop, a dialect switch, a ROM
@@ -705,22 +867,37 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           setLoading(false);
           return;
         }
-        // A start empties the virtual filesystem; only files the new run
-        // saves are visible to it (a pause mid-run does NOT clear).
-        emulatorVfs.clear(dialect.id);
+        // What the last run mounted is dropped here and given again below:
+        // mounted content is the document going in, so a block the user has
+        // since renamed must not stay in the deck under its old name.
+        emulatorVfs.clearMounted();
         // A boot disc supersedes blocks/tape/auto-start: it is booted verbatim.
-        const loadOpts = bootDisc
-          ? { bootDisc }
+        // A scratch run carries the document's memory blocks - testing a call
+        // into machine code you are writing is a first-order reason to want a
+        // scratch buffer - but not its preserved tape files or imported
+        // auto-start line, which describe how the document was imported and
+        // have no bearing on a snippet.
+        const loadOpts = bootImage
+          ? { bootDisc: bootImage }
           : {
               ...(blocks.length > 0 ? { blocks } : {}),
-              ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
-              ...(autoStart !== null ? { autoStart } : {}),
+              ...(!scratch && tapeFiles.length > 0 ? { tapeFiles } : {}),
+              ...(!scratch && autoStart !== null ? { autoStart } : {}),
             };
         machine.loadProgram(
           image,
           Object.keys(loadOpts).length > 0 ? loadOpts : undefined,
         );
-        machine.setSpeed(speed);
+        // Arm the measurement of this run, and start it from nothing: figures
+        // describe one execution, so a new run replaces the previous run's
+        // rather than adding to them. Armed for every run, not a profiling mode
+        // the user has to have chosen before the run they wanted measured -
+        // which is only afterwards that they know.
+        measurementsRef.current = new RunMeasurements(bufferId, runSource);
+        measurementsRef.current.arm(machine);
+        setRunProfile(null);
+        setRunTiming(null);
+        setPauseInterval(null);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         // Only check the run when the IDE started it to check an answer the
         // assistant returned, and the machine can introspect its error state.
@@ -737,7 +914,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         aiCheckViewsRef.current = aiCheckActiveRef.current
           ? useIdeStore.getState().aiRunViews
           : noScreenViews();
-        aiCheckLatchRef.current = null;
+        aiCheckStepsRef.current = null;
         // Start a step-through session when debug mode is armed and the machine
         // supports it; the loop then advances by debug slices instead of frames.
         // A session with no breakpoints simply never pauses and runs normally.
@@ -749,6 +926,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         });
         debugModeRef.current = 'run';
         debugFromLineRef.current = null;
+        // Pin the session to the buffer that started it, for as long as it runs.
+        debugBufferRef.current = bufferId;
         useIdeStore.getState().setDebugLine(null);
         ensureAudio(machine);
         setEmulatorStatus('running');
@@ -787,12 +966,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
-    emulatorVfs.clear(); // stop ends the session that owned the files
     disposeAudio();
     clearCanvas(); // drop the last frame so the screen looks powered off
+    flushProfile();
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
+    debugBufferRef.current = null;
     useIdeStore.getState().setDebugLine(null);
     firstFrameRef.current = false;
     setLoading(false);
@@ -805,12 +985,49 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     setEmulatorStatus,
     stashCapture,
     dropControl,
+    flushProfile,
   ]);
+
+  // Pause request: hold the running machine still between frames.
+  //
+  // Deliberately unlike the breakpoint pause above: execution stopped between
+  // frames rather than before a BASIC line, so no line is marked, no pause
+  // interval is published (the profiler's reading only means anything beside a
+  // line), and the mobile tab is left alone - every control that sends this
+  // request puts the user in front of the machine itself, so switching tabs
+  // here would only fight them (the toolbar's Run actions jump to the machine's
+  // tab in the same batch that sends the request).
+  useEffect(() => {
+    if (pauseRequest === 0) return;
+    const machine = machineRef.current;
+    if (!machine || useIdeStore.getState().emulatorStatus !== 'running') return;
+    if (
+      !canPauseRun({
+        debuggable: !!dialect.debuggable,
+        checking: aiCheckActiveRef.current,
+        driving: machineFrozen(),
+        // The flag is raised while the pane waits for the first frame and
+        // dropped by the render that hides the loading overlay.
+        drawn: !firstFrameRef.current,
+      })
+    )
+      return;
+    stopLoop();
+    machine.releaseAllKeys(); // nothing stays held while paused
+    const measurements = measurementsRef.current;
+    if (measurements) {
+      measurements.stopwatch.pause(null);
+      useIdeStore.getState().setRunTiming(measurements.timing());
+    }
+    setEmulatorStatus('paused');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pauseRequest]);
 
   // Step request: run the paused debugger to the next BASIC line.
   useEffect(() => {
     if (stepRequest === 0 || !debugActiveRef.current) return;
     debugModeRef.current = 'step';
+    measurementsRef.current?.stopwatch.resume();
     useIdeStore.getState().setDebugLine(null);
     setEmulatorStatus('running');
     startLoop();
@@ -818,10 +1035,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepRequest]);
 
-  // Continue request: run the paused debugger to the next breakpoint.
+  // Continue request: carry a paused run on, however it was paused.
+  //
+  // Gated on the run being paused rather than on a debug session being armed,
+  // so the one Continue serves both pauses and the machine's own state decides
+  // what it means: with a session armed 'run' mode carries on to the next
+  // breakpoint, without one it just advances frames. Refusing while a run is
+  // already running also keeps a stray continue from re-entering the loop.
   useEffect(() => {
-    if (continueRequest === 0 || !debugActiveRef.current) return;
+    if (continueRequest === 0 || !machineRef.current) return;
+    if (useIdeStore.getState().emulatorStatus !== 'paused') return;
     debugModeRef.current = 'run';
+    measurementsRef.current?.stopwatch.resume();
     useIdeStore.getState().setDebugLine(null);
     setEmulatorStatus('running');
     startLoop();
@@ -840,10 +1065,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         const machine = await ensureMachine();
         if (cancelled) return;
         machine.releaseAllKeys();
-        // Reset reboots into a fresh session: clear the VFS like a start, so
-        // the new session can't read the old session's files.
-        emulatorVfs.clear(dialect.id);
+        // The files stay: a reboot is the same machine, and what a program
+        // saved is what the next run of it is meant to read.
         machine.reset();
+        // A reboot ends the run that was being measured; the machine has no
+        // program until the next Run loads one.
+        machine.setProfileRecording?.(false);
+        flushProfile();
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         ensureAudio(machine);
         setEmulatorStatus('running');
@@ -870,11 +1098,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       machineRef.current?.releaseAllKeys();
       machineRef.current?.dispose();
       machineRef.current = null;
-      emulatorVfs.clear(); // unmount skips the stop effect; clear here too
       disposeAudio();
       setLiveMemory(null);
+      flushProfile();
     },
-    [stopLoop, disposeAudio, setLiveMemory, stashCapture],
+    [stopLoop, disposeAudio, setLiveMemory, stashCapture, flushProfile],
   );
 
   // While the machine is up, poll its actual RAM figures for the status bar.
@@ -902,7 +1130,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Switching target machine - or replacing this machine's ROM image - disposes
   // the old emulator so the next run builds a fresh one with the ROM now in
   // force. The editor and virtual keyboard re-render from the new dialect on
-  // their own. Tearing down a *running* machine on a ROM change is deliberate:
+  // their own. The saved files stay where they are: a ROM swap is the same
+  // machine running the same program, and a target switch discards them from
+  // the store's own action rather than from the machine going away. Tearing down a *running* machine on a ROM change is deliberate:
   // leaving the old firmware executing while Settings reports a new image would
   // be a lie, and the change is always an explicit act in Settings.
   //
@@ -935,8 +1165,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
-    emulatorVfs.clear(dialect.id); // machine gone: its files go with it
     disposeAudio();
+    // The measurements go with the machine; the store drops the published ones
+    // on the same switch.
+    measurementsRef.current = null;
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     // Forgotten rather than stashed: a question about this machine must never
     // be answered against the screen of the one before it.
@@ -945,6 +1177,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
+    debugBufferRef.current = null;
     firstFrameRef.current = false;
     setLoading(false);
     setError('');
@@ -969,7 +1202,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   }, []);
 
   useEffect(() => {
-    machineRef.current?.setSpeed(speed);
+    speedRef.current = speed;
   }, [speed]);
 
   // Live volume / mute changes apply to a running graph immediately.
@@ -1159,11 +1392,28 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       {/* The on-screen keyboard is toggled from the sidebar/rail (the Toolbar in
           the IDE, the top-bar actions in the standalone player) rather than a
           button floating over the emulator. */}
-      {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this
+      {/* The Step/Resume/Stop controls live in the top-bar Run menu now; this
           slim bar just reports where the debugger is paused. */}
       {emulatorStatus === 'paused' && debugLine !== null && (
         <div className={styles.debugBar}>
           <span className={styles.debugStatus}>paused at line {debugLine}</span>
+          {/* What the stretch just executed cost, which is the reading a
+              breakpoint is otherwise silent about. The machine's own time, like
+              every other duration here, and measured between pauses rather than
+              between breakpointed lines. */}
+          {pauseInterval && (
+            <span
+              className={styles.debugTiming}
+              title={`${dialect.name} time since the ${
+                pauseInterval.fromStart ? 'program started' : 'previous pause'
+              }`}
+            >
+              {formatTiming(pauseInterval.seconds)}{' '}
+              {pauseInterval.fromStart
+                ? 'from the start'
+                : 'since the last pause'}
+            </span>
+          )}
         </div>
       )}
       {/* The status notice only matters when grabbing input from a physical

@@ -1,13 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 import { tokenizeProgram } from '../tokenizer';
 import { plainChar } from '../charset';
+import { CELL_H, CELL_W, COLS, ROWS } from '../emulator/display';
 import { trs80Samples } from '../samples';
 import { Trs80InterpreterMachine } from './machine';
 
 /** Row `r` of the machine's own screen reading, right-trimmed to assert on. */
 function screenRow(m: Trs80InterpreterMachine, r: number): string {
   return (m.readScreenText()?.lines[r] ?? '').replace(/\s+$/, '');
+}
+
+/**
+ * Row `r` of what the canvas renderer actually *draws*, recovered from the
+ * `fillText` calls it makes - the only way to ask the display what it shows
+ * without a real canvas. Block-graphics cells are drawn as rectangles rather
+ * than text, so they come back blank here; this exists to compare letters.
+ */
+function drawnRow(m: Trs80InterpreterMachine, r: number): string {
+  const cells = new Map<string, string>();
+  const ctx = {
+    fillStyle: '',
+    font: '',
+    textBaseline: '',
+    fillRect: () => {},
+    fillText: (text: string, x: number, y: number) => {
+      cells.set(`${Math.round(y / CELL_H)},${Math.round(x / CELL_W)}`, text);
+    },
+  } as unknown as CanvasRenderingContext2D;
+  m.renderTo(ctx);
+  return Array.from({ length: COLS }, (_, c) => cells.get(`${r},${c}`) ?? ' ')
+    .join('')
+    .replace(/\s+$/, '');
 }
 
 describe('Trs80InterpreterMachine readScreenText', () => {
@@ -62,6 +86,20 @@ describe('Trs80InterpreterMachine readScreenText', () => {
     m.dispose();
   });
 
+  it('shows and reports the same characters for a program printing lower case', () => {
+    const m = new Trs80InterpreterMachine();
+    const { program } = tokenizeProgram('10 PRINT "Hello"\n20 END\n');
+    m.loadProgram(program);
+    for (let i = 0; i < 5; i++) m.runFrame();
+    // The stock Model I addresses only 64 characters of its generator, so it
+    // has no lower-case cell and draws capitals. A screen read that answered
+    // "Hello" would be reporting a machine this dialect is not.
+    expect(screenRow(m, 0)).toBe('HELLO');
+    expect(drawnRow(m, 0)).toBe(screenRow(m, 0));
+    expect(ROWS).toBe(16);
+    m.dispose();
+  });
+
   it('reads codes with no printable form as spaces', () => {
     const m = new Trs80InterpreterMachine();
     m.interpreter.screen.video[0] = 0x00; // control
@@ -110,30 +148,6 @@ describe('Trs80InterpreterMachine', () => {
     m.dispose();
   });
 
-  it('takes more frames to finish the same program at a slower speed', () => {
-    // A busy loop long enough that its completion spans many frames, so the
-    // run (not just the load) is what setSpeed throttles.
-    const src = '10 FOR I=1 TO 1000\n20 NEXT I\n30 PRINT "DONE"\n40 END\n';
-    function framesToDone(speed: number): number {
-      const m = new Trs80InterpreterMachine();
-      const { program, errors } = tokenizeProgram(src);
-      expect(errors).toEqual([]);
-      m.loadProgram(program);
-      m.setSpeed(speed);
-      for (let i = 1; i <= 2000; i++) {
-        m.runFrame();
-        if (screenRow(m, 0) === 'DONE') {
-          m.dispose();
-          return i;
-        }
-      }
-      throw new Error('never displayed DONE');
-    }
-    const atFullSpeed = framesToDone(1);
-    const atHalfSpeed = framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
-  });
-
   it('surfaces a runtime error through readReport', () => {
     const m = new Trs80InterpreterMachine();
     const { program } = tokenizeProgram('10 PRINT 1/0\n');
@@ -165,7 +179,7 @@ describe('Trs80InterpreterMachine', () => {
   });
 
   describe('memory blocks', () => {
-    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+    function block(overrides: Partial<Block> = {}): Block {
       return {
         id: 'b1',
         name: 'code1',

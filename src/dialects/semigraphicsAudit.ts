@@ -1,6 +1,6 @@
 import type { Dialect } from './types';
 import { dialects } from './registry';
-import { probeFor, type CharsetProbe } from './charsetProbes';
+import { codeCountOf, probeFor, type CharsetProbe } from './charsetProbes';
 import { resolveEditorAction } from '../keyboard/editorActions';
 
 /**
@@ -77,6 +77,7 @@ export const IN_SCOPE = new Set([
   'pet',
   'trs80',
   'cpc464',
+  'cpc664',
   'cpc6128',
   'bbcmicro',
   'bbcmaster',
@@ -112,6 +113,7 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   trs80: range(0x80, 0xbf),
   // Quadrant mosaics plus the upper block cpc464/charset.ts leaves unmapped.
   cpc464: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
+  cpc664: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
   cpc6128: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
   // SAA5050 MODE 7 mosaics. The chip treats a code as a mosaic iff bit 5 is
   // set (%xx1xxxxx; teletext level-1 character set, and the SAA5050
@@ -133,6 +135,49 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // it looks like. So "this machine has no block graphics" is an established
   // fact about the hardware, not a range nobody has read off it yet.
   altair8800: [],
+  // Empty for the same reason, established the same way: the Monitor 2
+  // character generator is 96 ASCII glyphs and one solid cell, with no mosaic
+  // set anywhere in it (charset.ts reads it out of the ROM). Graphics on this
+  // machine are drawn - PLOT, FILL, BPLOT - rather than typed.
+  pmd85: [],
+  // Empty on the same footing: the Signetics 2513 holds 64 glyphs - ASCII
+  // 0x20-0x5F, which this machine carries with bit 7 set - and there is no
+  // sixty-fifth. charset.ts reads that range off the terminal's own decode, and
+  // the machine has no graphics hardware for a mosaic to reach even if the chip
+  // held one.
+  apple1: [],
+  // Empty again, and it is the same chip: 64 glyphs and no sixty-fifth. The
+  // Apple II draws each of them in three video modes, which multiplies the
+  // codes and not the shapes, and its block graphics are a display mode of
+  // their own - the lo-res page GR switches to - rather than characters.
+  apple2: [],
+  // Empty for the third time on this chip, and for the same reason: the II Plus
+  // is the II's board, so it draws the II's 64 glyphs. `HGR` and `GR` are
+  // display modes rather than characters here as well.
+  apple2plus: [],
+  // The character generator's block and line-graphics range, drawn from the
+  // keyboard as CTRL + a key; see the `GRAPHICS` table in `atari800/atascii.ts`.
+  // Both machines share one ROM font.
+  atari800: range(0x00, 0x1a),
+  atari400: range(0x00, 0x1a),
+  // The international MSX set's block band, less the three codes inside it that
+  // are not blocks: 0xD8-0xDA are the Greek delta, the double dagger and omega,
+  // and the machine reaches them with CODE rather than GRAPH. The band and the
+  // three exceptions are both read off the BIOS's own GRAPH key-decoding
+  // tables - see `hb10p/graphics.ts`, whose transcription `keyboardLayout.test.ts`
+  // reads back out of the ROM.
+  hb10p: [...range(0xc0, 0xd7), ...range(0xdb, 0xdf)],
+  // Empty, and this is the emptiest of them: the GE-235's output device is a
+  // Teletype Model 33 striking type bars onto a paper roll, so a "character" is
+  // a piece of metal and there is no character generator to hold a mosaic. Its
+  // 64 codes are letters, digits, punctuation and six controls, which
+  // charset.ts asserts outright.
+  ge235: [],
+  // The sixteen block-graphic cells and the twenty-five user-defined graphics
+  // after them, as `samcoupe/charset.ts` maps them: 0x80-0x8F are the quadrant
+  // mosaics `POUDG` builds, and 0x90-0xA8 the UDGs the ROM's 328 bytes of UDG
+  // RAM holds.
+  samcoupe: [...range(0x80, 0x8f), ...range(0x90, 0xa8)],
 };
 
 /** Classify one byte from its canonical text form. */
@@ -194,7 +239,9 @@ export function auditDialect(dialect: Dialect): DialectAudit {
     id: dialect.id,
     name: dialect.name,
     probeId: probe.id,
-    bytes: Array.from({ length: 256 }, (_, code) => classify(probe, code)),
+    bytes: Array.from({ length: codeCountOf(probe) }, (_, code) =>
+      classify(probe, code),
+    ),
     declared: SEMIGRAPHIC_CODES[dialect.id] ?? null,
     typeable: typeableCodes(dialect),
     inScope: IN_SCOPE.has(dialect.id),

@@ -1,8 +1,9 @@
 /**
- * The zero-page pointer block every CBM BASIC keeps, in the two layouts this
- * project's machines need.
+ * The zero page every CBM BASIC and KERNAL keeps, in the two layouts this
+ * project's machines need: BASIC's own pointers, and the KERNAL cells that
+ * describe the channel a program is reading or writing.
  *
- * The PET→VIC-20→C64 lineage stores the same pointers with the same meanings
+ * The PET→VIC-20→C64 lineage stores the same cells with the same meanings
  * behind them; what moved between BASIC 4.0 (PET) and BASIC V2 (VIC-20, C64) is
  * where in zero page they live. Keeping both layouts here means the C64 and the
  * VIC-20 share one definition instead of each writing out an identical set, and
@@ -72,6 +73,67 @@ export const BASIC_4_ZP: CbmBasicPointers = {
   memsiz: 0x34,
   curlin: 0x36,
   blnsw: 0xa7,
+};
+
+/**
+ * The zero-page cells a CBM KERNAL keeps for the file a program has open: what
+ * `OPEN` was asked for, and which channel `CHRIN`/`CHROUT` are pointed at.
+ *
+ * Read and written by {@link ./diskDrive.ts}'s virtual disk unit, which stands
+ * in for the KERNAL routines that would otherwise own them. Split out from
+ * {@link CbmBasicPointers} because the two sets answer to different owners and
+ * moved independently: a machine sharing BASIC's layout need not share the
+ * KERNAL's.
+ */
+export interface CbmKernalIo {
+  /** ST: the status byte; bit 6 ({@link ST_EOF}) means end of file. */
+  status: number;
+  /** DFLTN: the device the next CHRIN reads from. */
+  dfltn: number;
+  /** DFLTO: the device the next CHROUT writes to. */
+  dflto: number;
+  /** FNLEN: length of the filename OPEN was given. */
+  fnlen: number;
+  /** LA: the logical file number. */
+  la: number;
+  /** SA: the secondary address. */
+  sa: number;
+  /** FA: the device number. */
+  fa: number;
+  /** FNADR: pointer to the filename, two bytes little-endian. */
+  fnadr: number;
+}
+
+/** ST bit 6, end of file. The same bit in every ROM of the lineage. */
+export const ST_EOF = 0x40;
+
+/** BASIC V2 KERNAL I/O cells, shared by the Commodore 64 and the VIC-20. */
+export const KERNAL_IO_V2: CbmKernalIo = {
+  status: 0x90,
+  dfltn: 0x99,
+  dflto: 0x9a,
+  fnlen: 0xb7,
+  la: 0xb8,
+  sa: 0xb9,
+  fa: 0xba,
+  fnadr: 0xbb,
+};
+
+/**
+ * BASIC 4.0 KERNAL I/O cells (PET). Every one of the eight moved, so nothing
+ * here can be inherited from {@link KERNAL_IO_V2} - read out of the routine
+ * bodies in `kernal-4.901465-22.bin` and pinned against them by
+ * `petMachine.test.ts`.
+ */
+export const KERNAL_IO_BASIC_4: CbmKernalIo = {
+  status: 0x96,
+  dfltn: 0xaf,
+  dflto: 0xb0,
+  fnlen: 0xd1,
+  la: 0xd2,
+  sa: 0xd3,
+  fa: 0xd4,
+  fnadr: 0xda,
 };
 
 /** Highest line number a CBM BASIC accepts; above it means "not running". */

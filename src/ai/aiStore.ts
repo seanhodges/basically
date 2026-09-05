@@ -5,7 +5,6 @@ import {
   type ChatMessage,
   type StreamHandle,
   type StreamResult,
-  type ToolDefinition,
   type ToolRunner,
 } from './aiClient';
 import type { AiEffort, AiProviderId, ChatImage } from './providers/types';
@@ -19,24 +18,24 @@ import {
 import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
   freezeMachine,
-  hasMachineControl,
-  machineControl,
+  hasMachineSession,
+  machineSession,
   ownsMachine,
-} from '../app/machineControl';
+} from '../app/machineSession';
 import {
+  assistantToolRunner,
+  assistantTools,
   describeDriving,
-  describeScreen,
-  driveToolDefinitions,
-  parseDriveScript,
-  runDriveScript,
-  DRIVE_TOOL,
-  LOOK_TOOL,
-  type DriveReport,
 } from './driveTools';
+import type { DriveReport } from '../app/driveScript';
 import type { Dialect } from '../dialects/types';
+import { resolveLint } from '../dialects/resolveListing';
+import { prepareListingPhoto, type ListingPhoto } from '../app/listingPhoto';
 import {
   applyJudgement,
   leaveUnjudged,
+  isVisual,
+  visualDescriptions,
   type ExpectationResult,
 } from './expectations';
 import {
@@ -57,7 +56,7 @@ import {
   buildViewNote,
   unavailableViews,
   FORMAT_RETRY_MESSAGE,
-  loadSystemPrompt,
+  loadSystemPromptFor,
   type PendingFix,
 } from './promptBuilder';
 import { getProvider } from './providers/registry';
@@ -75,9 +74,9 @@ export type { PendingFix } from './promptBuilder';
 /**
  * Why an answer stopped before it was finished.
  *
- * These used to be one undifferentiated "incomplete", which is why an answer that
- * ran out of room read as though the user had stopped it - the panel said the same
- * sentence for all three, and only this one leaves no error message beside it.
+ * The three are distinguished because one sentence for all of them reads as
+ * though the user stopped an answer that in fact ran out of room, and this is
+ * the only case that leaves no error message beside it.
  *
  * - `stopped`   - the user pressed Stop. Their choice; nothing to explain.
  * - `failed`    - the stream died. An error message accompanies it.
@@ -89,26 +88,48 @@ export type CutOffReason = 'stopped' | 'failed' | 'outOfRoom';
 /**
  * A message as shown in the thread. `streaming`/`retrying` are UI-only.
  *
- * An `image` (inherited from `ChatMessage`) is a screen shown with that turn.
- * It survives in memory for as long as the thread does - so the panel can show
- * what was sent, and so the wire history keeps a stable, cacheable prefix - but
- * never reaches storage; see {@link persist} and `screenShown`.
+ * An `image` (inherited from `ChatMessage`) is the picture shown with that turn
+ * - the machine's screen, or a photograph of a printed listing where
+ * {@link DisplayMessage.photoShown} says so. It survives in memory for as long
+ * as the thread does - so the panel can show what was sent, and so the wire
+ * history keeps a stable, cacheable prefix - but never reaches storage; see
+ * {@link persist}, `screenShown` and `photoShown`.
  */
 export interface DisplayMessage extends ChatMessage {
+  /**
+   * What this turn said to the provider, where that is not what the panel
+   * shows. Absent whenever the two are the same, which is every assistant turn.
+   *
+   * A user turn carries far more than the sentence the user typed - the program,
+   * its lint errors, how the last run went - and the panel shows only the
+   * sentence. The wire needs the rest: the provider's cache is a prefix match,
+   * so a turn replayed as anything other than what was sent ends the match at
+   * that point and the whole prompt behind it is written afresh. The cost of
+   * keeping it is one copy of the program per turn of history, read at a
+   * fraction of an input token; the cost of not keeping it is the entire prefix,
+   * rewritten on every turn from the second onward.
+   */
+  sentContent?: string;
   /**
    * A screen was shown with this turn, but its image is gone: set on a turn
    * restored from storage, where the marker was kept and the bytes were not.
    */
   screenShown?: boolean;
   /**
+   * The picture this turn carried was a photograph of a printed listing rather
+   * than the machine's screen. Set on the turn as it is sent and kept as the
+   * stored marker, so the thread says which kind it was and a restored one never
+   * calls a photograph a screen.
+   */
+  photoShown?: boolean;
+  /**
    * What the assistant did to the machine to reach the screen shown with this
    * turn - set only where driving actually sent input.
    *
    * Absent where it only waited and looked, because nothing then happened that
-   * the user could not have seen for themselves. The distinction is the whole
-   * point: a screen reached by a keypress is one the user cannot otherwise
-   * account for, and an unexplained screen reads as the IDE having done
-   * something odd rather than as the assistant having tried the program.
+   * the user could not have seen for themselves. An unexplained screen reads as
+   * the IDE having done something odd rather than as the assistant having tried
+   * the program.
    */
   drivingNote?: string;
   /** True while the assistant answer is still arriving. */
@@ -136,8 +157,7 @@ export interface DisplayMessage extends ChatMessage {
    * limit: nothing interrupted those, so only this one is worth offering to ask
    * again.
    *
-   * Persisted, unlike {@link cutOff} - a reload is exactly when this one still
-   * needs saying, and exactly when the others no longer can be.
+   * Persisted, unlike {@link cutOff}, which cannot be observed after a reload.
    */
   interrupted?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */
@@ -228,13 +248,15 @@ export interface SendParams {
   effort?: AiEffort;
   system: string;
   /**
-   * Tools this request offers, and how to run one. Both or neither: a tool
-   * offered with no way to run it would hang the turn on its first call.
+   * How to run a tool the assistant calls, for the turn that has been given the
+   * machine. Absent on every other turn, which runs the operations that need
+   * no machine and answers the rest with a refusal (see
+   * {@link assistantToolRunner}).
    *
-   * Set only by the turn that drives the machine. Every other request offers
-   * none, and so takes exactly the single-exchange path it always has.
+   * Not paired with a tool list: which tools a request offers is a property of
+   * the conversation's provider and is resolved by {@link AiState.send}, so a
+   * caller cannot make one turn's offering differ from the next's.
    */
-  tools?: ToolDefinition[];
   runTool?: ToolRunner;
   /** Full context (source + lint errors + request) sent to the API. */
   userContent: string;
@@ -246,6 +268,16 @@ export interface SendParams {
    * provider that can be shown one.
    */
   image?: ChatImage;
+  /**
+   * A photograph of a printed listing the user attached, which takes the picture
+   * slot ahead of any screen: it is what they are asking about.
+   *
+   * Its own field rather than {@link image} plus a kind. Two fields would admit
+   * a picture with no kind and a kind with no picture; one field per thing makes
+   * the precedence a single line and makes "a screen and a listing at once"
+   * unwritable.
+   */
+  photo?: ChatImage;
   /**
    * The program as it stood when this request was sent. Fingerprinted onto the
    * answer so a fragment applied later can be flagged as possibly stale.
@@ -306,10 +338,35 @@ interface AiState {
    * shown as a one-tap prompt in the panel. Null when there is nothing to fix.
    */
   pendingFix: PendingFix | null;
+  /**
+   * A photograph of a printed listing the user has attached and not yet sent.
+   *
+   * Here beside the pending fix rather than in the panel's own state, so that
+   * clearing the conversation takes it too: a picture waiting to be sent is part
+   * of the conversation being cleared, and the panel can be unmounted and
+   * remounted without losing it.
+   */
+  attachment: ListingPhoto | null;
   send(params: SendParams): Promise<void>;
   stop(): void;
   setPendingFix(fix: PendingFix): void;
   clearPendingFix(): void;
+  /**
+   * Attach a picture the user chose, from whichever route they used - the
+   * composer's own control, a paste into it, or a drop on the editor.
+   *
+   * The one function all three reach, so the same file cannot be answered
+   * differently depending on the gesture: it prepares the picture, reveals the
+   * assistant, and reports the outcome here rather than in the status bar.
+   *
+   * Deliberately does not ask for an API key. The send path already demands one
+   * at the moment the user sends, and that stays the single place it is demanded:
+   * diverting an exploratory drop into the settings dialog would lose the
+   * photograph, which the dialog knows nothing about, and punish the gesture that
+   * was going to teach the user the feature exists.
+   */
+  attachPhoto(file: File): Promise<void>;
+  clearAttachment(): void;
   /**
    * Pick up the last answer where its output limit stopped it.
    *
@@ -382,6 +439,13 @@ let latestFinalScreen: ChatImage | null = null;
  * everything else the IDE keeps, and a handful of upscaled PNGs would evict
  * them. A restored thread can still say a screen was shown; it just cannot show
  * it again.
+ *
+ * What each turn sent is kept, though, and it earns its room. The largest
+ * bundled sample is 3.6 KB and nine in ten are under 2.5 KB, so a dozen turns
+ * carrying one costs some tens of kilobytes against a budget of megabytes -
+ * where dropping it would restore a thread that replays its own history
+ * differently from how it was sent, which is the whole defect this field
+ * exists to prevent, reintroduced by a reload.
  */
 function persist(messages: DisplayMessage[]): void {
   saveAiConversation(
@@ -390,6 +454,7 @@ function persist(messages: DisplayMessage[]): void {
       .map((m) => ({
         role: m.role,
         content: m.content,
+        ...(m.sentContent ? { sentContent: m.sentContent } : {}),
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
         // Still streaming as it was written means the page went away with the
         // answer half-arrived - the only way to be sure, and it needs no
@@ -398,12 +463,20 @@ function persist(messages: DisplayMessage[]): void {
         // so a stopped or completed answer can never pick this up.
         ...(m.streaming || m.interrupted ? { interrupted: true } : {}),
         ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
-        // The same rule for both kinds of screen: the one shown to the
-        // assistant and the one shown to the user are equally not worth
-        // evicting the autosaved program for.
-        ...(m.image || m.finalScreen || m.screenShown
-          ? { screenShown: true }
-          : {}),
+        // The same rule for every picture: the screen shown to the assistant,
+        // the screen shown to the user, and a photograph the user attached are
+        // equally not worth evicting the autosaved program for. Which kind was
+        // shown is kept, because a restored thread that called a photograph a
+        // screen would be describing something that never happened.
+        //
+        // That the pixels cannot reach storage needs no guard here:
+        // `PersistedMessage` is the wire type with the image removed, so writing
+        // one is a type error rather than a rule to remember.
+        ...(m.photoShown
+          ? { photoShown: true }
+          : m.image || m.finalScreen || m.screenShown
+            ? { screenShown: true }
+            : {}),
       })),
   );
 }
@@ -418,6 +491,7 @@ export const useAiStore = create<AiState>((set, get) => ({
   busy: false,
   error: '',
   pendingFix: null,
+  attachment: null,
 
   send: async ({
     providerId,
@@ -426,11 +500,11 @@ export const useAiStore = create<AiState>((set, get) => ({
     maxTokens,
     effort,
     system,
-    tools,
     runTool,
     userContent,
     displayRequest,
     image,
+    photo,
     baseSource,
     automatic,
     checkAgainst,
@@ -443,29 +517,44 @@ export const useAiStore = create<AiState>((set, get) => ({
     // a long conversation must not exhaust its budget early and then silently
     // stop correcting itself.
     if (!automatic) autoFixAttempts = 0;
+    // One picture rides one request. A photograph the user attached takes the
+    // slot ahead of either screen, because it is what they are asking about.
+    const shown = photo ?? image ?? pendingRunImage ?? undefined;
     // Spend any noted run outcome on this request, whoever asked for it - and
-    // with it the screen that outcome was asked to carry, unless this request
-    // is already carrying one of its own.
-    const note = pendingRunNote;
-    pendingRunNote = '';
-    const shown = image ?? pendingRunImage ?? undefined;
-    pendingRunImage = null;
+    // with it the screen that outcome was asked to carry.
+    //
+    // The note and that screen are one unit. The note's own words say the screen
+    // is attached, so sending it without one would print "the screen you asked
+    // to see is attached" beside a photograph of a magazine. Where the picture it
+    // describes is not the one being carried, both wait for the next request; a
+    // note with no picture of its own is self-contained and travels as it always
+    // did.
+    const noteDisplaced = pendingRunImage !== null && shown !== pendingRunImage;
+    const note = noteDisplaced ? '' : pendingRunNote;
+    if (!noteDisplaced) {
+      pendingRunNote = '';
+      pendingRunImage = null;
+    }
     const baseFingerprint =
       baseFingerprintOverride ?? sourceFingerprint(baseSource);
     const prior = get().messages;
-    // History for the API: prior turns + the new request. A screen shown with
-    // an earlier turn stays on it rather than being rewritten out - the prefix
-    // has to stay byte-stable for the provider's cache to hit, and a cached
-    // image reads for a fraction of what re-writing the prefix would cost.
+    /** What this turn says on the wire, as against what the panel shows. */
+    const sentContent = note ? `${note}\n\n${userContent}` : userContent;
+    // History for the API: prior turns as they were sent + the new request.
+    // Every earlier turn is replayed byte-for-byte - `sentContent` where it has
+    // one, `content` where the two are the same - because the provider's cache
+    // matches from the front and stops at the first difference. A screen shown
+    // with an earlier turn stays on it for the same reason, and reads for a
+    // fraction of what rewriting the prefix would cost.
     const baseHistory: ChatMessage[] = [
-      ...prior.map(({ role, content, image: was }) => ({
+      ...prior.map(({ role, content, sentContent: sent, image: was }) => ({
         role,
-        content,
+        content: sent ?? content,
         ...(was ? { image: was } : {}),
       })),
       {
         role: 'user',
-        content: note ? `${note}\n\n${userContent}` : userContent,
+        content: sentContent,
         ...(shown ? { image: shown } : {}),
       },
     ];
@@ -479,7 +568,9 @@ export const useAiStore = create<AiState>((set, get) => ({
         {
           role: 'user',
           content: displayRequest,
+          ...(sentContent === displayRequest ? {} : { sentContent }),
           ...(shown ? { image: shown } : {}),
+          ...(shown && shown === photo ? { photoShown: true } : {}),
         },
         {
           role: 'assistant',
@@ -490,6 +581,19 @@ export const useAiStore = create<AiState>((set, get) => ({
         },
       ],
     });
+
+    // The same tools on every turn of the conversation, or none at all on a
+    // backend that cannot be given them. Tool definitions render ahead of the
+    // system prompt, so a set that appeared on the turns that drive and
+    // vanished on the rest would invalidate everything behind it - the prompt
+    // and the whole thread - on every turn following a drive.
+    //
+    // Offering a tool is not granting the machine: `runTool` is supplied only by
+    // the turn that holds one, and every other turn answers a call needing one
+    // with a refusal rather than acting on an emulator nobody handed over.
+    const tools = getProvider(providerId).supportsTools
+      ? assistantTools()
+      : undefined;
 
     // Stream one attempt into the trailing placeholder, resolving to its final
     // text. Reused verbatim for the empty-reply reformat retry below; the
@@ -522,7 +626,7 @@ export const useAiStore = create<AiState>((set, get) => ({
             persist(get().messages);
           }
         },
-        runTool,
+        runTool ?? assistantToolRunner(null),
       );
       activeHandle = handle;
       return handle.done;
@@ -681,6 +785,32 @@ export const useAiStore = create<AiState>((set, get) => ({
   setPendingFix: (fix) => set({ pendingFix: fix }),
   clearPendingFix: () => set({ pendingFix: null }),
 
+  attachPhoto: async (file) => {
+    // Revealed first, so the picture the user just chose is never prepared out
+    // of sight - and so a failure is read where they are already looking.
+    useIdeStore.getState().showAiPanel();
+    // The refusal is the guarantee that a picture is never attached where it
+    // cannot be sent; the panel hiding the control on such a backend is a
+    // courtesy on top of it, because the panel does not re-render the instant
+    // the chosen provider changes.
+    const provider = getProvider(getAiProvider());
+    if (!provider.acceptsImages) {
+      set({
+        attachment: null,
+        error: `${provider.label} can't be shown pictures, so a photo of a listing can't be sent to it. Choose another assistant in AI settings.`,
+      });
+      return;
+    }
+    const result = await prepareListingPhoto(file);
+    if (!result.ok) {
+      set({ attachment: null, error: result.reason });
+      return;
+    }
+    set({ attachment: result.photo, error: '' });
+  },
+
+  clearAttachment: () => set({ attachment: null }),
+
   continueLastAnswer: () => {
     const state = get();
     if (state.busy) return;
@@ -694,10 +824,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     const context = resolveRequestContext();
     if (context === null) return;
     const { dialect, ...request } = context;
-    void loadSystemPrompt(
-      dialect,
-      getProvider(context.providerId).acceptsImages,
-    ).then((system) =>
+    void loadSystemPromptFor(dialect, context.providerId).then((system) =>
       useAiStore.getState().send({
         ...request,
         system,
@@ -722,7 +849,13 @@ export const useAiStore = create<AiState>((set, get) => ({
     latestFinalScreen = null;
     stoppedCheckSeq = -1;
     clearAiConversation();
-    set({ messages: [], busy: false, error: '', pendingFix: null });
+    set({
+      messages: [],
+      busy: false,
+      error: '',
+      pendingFix: null,
+      attachment: null,
+    });
   },
 }));
 
@@ -787,10 +920,7 @@ function judgeScreen(
   drive: boolean,
 ): void {
   const ai = useAiStore.getState();
-  const visuals = results
-    .map((r) => r.expectation)
-    .filter((e) => e.kind === 'visual');
-  const judge = buildScreenJudgeRequest(ranSource, visuals);
+  const judge = buildScreenJudgeRequest(ranSource, visualDescriptions(results));
   const { dialect, ...request } = context;
 
   // The turn that judges the screen is also the only turn where driving is
@@ -806,15 +936,11 @@ function judgeScreen(
   // cost a cache write on every turn after one of them.
   settleJudgingTurn(
     driving,
-    loadSystemPrompt(
-      dialect,
-      true,
-      getProvider(context.providerId).supportsTools,
-    ).then((system) =>
+    loadSystemPromptFor(dialect, context.providerId).then((system) =>
       ai.send({
         ...request,
         system,
-        ...(driving ? { tools: driving.tools, runTool: driving.runTool } : {}),
+        ...(driving ? { runTool: driving.runTool } : {}),
         userContent: judge.userContent,
         displayRequest: judge.displayRequest,
         ...(screen ? { image: screen } : {}),
@@ -886,25 +1012,29 @@ export function settleJudgingTurn(
  * drive. In each case the turn is exactly the judging turn it has always been,
  * which is what makes this safe to reach on every checked answer.
  *
+ * What this arms is the machine, not the tools: those are offered on every turn
+ * (see {@link AiState.send}), and a turn that arms nothing answers a call with a
+ * refusal. This is the one gate that decides whether the assistant may actually
+ * act on the emulator.
+ *
  * Exported for its own tests: the three gates are the whole safety story, and
  * reaching them through a streamed turn would test the mocking rather than the
  * rule.
  */
 export function armDriving(asked: boolean): {
-  tools: ToolDefinition[];
   runTool: ToolRunner;
   finish: () => void;
 } | null {
   if (!asked) return null;
   if (!getProvider(getAiProvider()).supportsTools) return null;
-  const control = machineControl();
-  if (!control) return null;
+  const session = machineSession();
+  if (!session) return null;
 
   const reports: DriveReport[] = [];
   freezeMachine(true);
+  const run = assistantToolRunner(session, (report) => reports.push(report));
 
   return {
-    tools: driveToolDefinitions(),
     runTool: async (call) => {
       // The machine may have moved on since this turn was armed: a run the user
       // started registers a new driver over this one. This turn's reference goes
@@ -915,7 +1045,7 @@ export function armDriving(asked: boolean): {
       // Reported rather than thrown, on the same terms as a tool that does not
       // exist: the assistant keeps everything it did before, and can say in its
       // reply that the machine was taken away rather than losing the turn.
-      if (!ownsMachine(control)) {
+      if (!ownsMachine(session)) {
         return {
           callId: call.id,
           content:
@@ -923,29 +1053,7 @@ export function armDriving(asked: boolean): {
           isError: true,
         };
       }
-      if (call.name === LOOK_TOOL) {
-        return { callId: call.id, content: describeScreen(control) };
-      }
-      if (call.name !== DRIVE_TOOL) {
-        // Reported rather than thrown, so the assistant can pick a tool that
-        // exists instead of losing everything it did before the mistake.
-        return {
-          callId: call.id,
-          content: `there is no tool called "${call.name}"`,
-          isError: true,
-        };
-      }
-      const script = String(call.input.script ?? '');
-      const report = runDriveScript(control, parseDriveScript(script));
-      reports.push(report);
-      return {
-        callId: call.id,
-        content: `${report.lines.join('\n')}\n\n${describeScreen(control)}`,
-        // An action that could not be carried out is the driving failing, not
-        // the program: flagged so the assistant corrects its driving rather
-        // than rewriting code that may be perfectly correct.
-        ...(report.ok ? {} : { isError: true }),
-      };
+      return run(call);
     },
     finish: () => {
       // Only where this turn still owns the machine: after a Stop the machine
@@ -953,7 +1061,7 @@ export function armDriving(asked: boolean): {
       // the keys held are somebody else's. The thaw below is unconditional for
       // the opposite reason - the freeze is the thing that strands a machine, so
       // a thaw that could be skipped is exactly how one gets stranded.
-      if (ownsMachine(control)) control.releaseAll();
+      if (ownsMachine(session)) session.releaseAll();
       freezeMachine(false);
       // Said only where input actually reached the machine. Waiting and looking
       // change nothing the user could not have seen themselves, where a
@@ -1009,7 +1117,7 @@ function settleJudgement(
   }
 
   const judged = applyJudgement(results, extractJudgement(reply.content));
-  if (!judged.some((r) => r.status === 'failed')) {
+  if (!judged.some((r) => r.outcome === 'failed')) {
     pendingRunNote = buildRunNote(outcome, judged);
     showFinishedWork(latestFinalScreen ?? undefined);
     return;
@@ -1049,11 +1157,8 @@ function settleJudgement(
  * Run the answer the assistant just returned and check how it goes - without it
  * reaching the editor.
  *
- * This is where the loop starts now. It used to start when the user pressed an
- * apply-and-run button, which meant the checking happened with an unverified
- * program already in their document; an answer that needed two corrections sat
- * there broken for both of them. Nothing below this point changed: the same
- * outcomes, the same expectations, the same bounded corrections.
+ * Checking happens before the answer reaches the editor, so a program that
+ * needs two corrections is never left sitting broken in the user's document.
  *
  * `mergeBase` is the program a returned fragment lands in; `stalenessBase` is
  * the editor's program, which is what decides whether the user has moved on.
@@ -1085,14 +1190,18 @@ function checkLatestAnswer(mergeBase: string, stalenessBase: string): void {
   const block = blocks[blocks.length - 1];
   if (!block) return; // an answer with no program is not a thing to run
 
-  const candidate = candidateProgram(block, mergeBase);
+  const candidate = candidateProgram(
+    block,
+    mergeBase,
+    state.dialect.unnumberedLineKey,
+  );
   if (candidate === null) return; // kind unknown - offered as it is, unchecked
 
   // A candidate that will not tokenize never reaches the machine, and the run
   // effect refuses it with a message rather than an outcome - so the loop would
   // wait forever on a verdict nobody is going to produce. Report it as the
   // failure of this answer that it is, on the same bounded terms as any other.
-  const lintErrors = state.dialect.lint(candidate);
+  const lintErrors = resolveLint(state.dialect, candidate);
   if (lintErrors.length > 0) {
     reportUnbuildableAnswer(candidate, stalenessBase, lintErrors);
     return;
@@ -1195,11 +1304,7 @@ function reportUnbuildableAnswer(
   autoFixAttempts++;
   state.showAiPanel();
   const { dialect, ...request } = context;
-  void loadSystemPrompt(
-    dialect,
-    getProvider(context.providerId).acceptsImages,
-    getProvider(context.providerId).supportsTools,
-  ).then((system) =>
+  void loadSystemPromptFor(dialect, context.providerId).then((system) =>
     ai.send({
       ...request,
       system,
@@ -1247,7 +1352,7 @@ useIdeStore.subscribe((state) => {
   // spend twice over.
   const wrongResult =
     run.outcome.kind !== 'errored' &&
-    run.expectations.some((r) => r.status === 'failed');
+    run.expectations.some((r) => r.outcome === 'failed');
 
   const ai = useAiStore.getState();
   // Correcting a program the user has edited since would be answering a question
@@ -1275,9 +1380,7 @@ useIdeStore.subscribe((state) => {
   // settle. They arrive unchecked and are settled by showing the assistant what
   // its program drew - if there is a screen, somewhere to show it, and an
   // automatic request still going spare.
-  const visuals = run.expectations.filter(
-    (r) => r.expectation.kind === 'visual',
-  );
+  const visuals = run.expectations.filter(isVisual);
   // Driving is the other reason to make this turn, and it stands on its own:
   // an answer may need the machine worked before there is anything worth
   // saying about it, without ever having stated how the screen should look.
@@ -1287,7 +1390,7 @@ useIdeStore.subscribe((state) => {
     run.views.drive &&
     context !== null &&
     getProvider(context.providerId).supportsTools &&
-    hasMachineControl();
+    hasMachineSession();
 
   if (
     run.outcome.kind !== 'errored' &&
@@ -1381,11 +1484,6 @@ useIdeStore.subscribe((state) => {
   }
 
   autoFixAttempts++;
-  // Whether the prompt describes driving must not vary within a conversation:
-  // the system prompt sits in the cached prefix, so a correction that described
-  // it differently from the answer it corrects would cost a full cache write on
-  // every turn after. It is a property of the provider, not of this request.
-  const canDrive = getProvider(context.providerId).supportsTools;
   const fix = buildFix(screen !== undefined);
   // A failing run's outcome is the correction request, so an unavailable view
   // rides in front of it - the same words a run that didn't fail would use.
@@ -1397,7 +1495,7 @@ useIdeStore.subscribe((state) => {
   // asynchronously - which costs this path nothing, since it was already firing
   // the request without waiting for it.
   const { dialect, ...request } = context;
-  void loadSystemPrompt(dialect, canShowScreen, canDrive).then((system) =>
+  void loadSystemPromptFor(dialect, context.providerId).then((system) =>
     ai.send({
       ...request,
       system,

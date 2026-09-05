@@ -16,14 +16,16 @@ test('docs drawer opens from the toolbar and F1, with content', async ({
   await openApp(page);
   const drawer = page.getByRole('dialog', { name: 'Documentation' });
 
-  await page.getByRole('button', { name: /^Documentation/ }).click();
+  await page.getByRole('button', { name: 'Open documentation' }).click();
   await expect(drawer).toBeVisible();
   // Actual documentation rendered, not an empty shell. The drawer hosts the
   // docs site in an iframe, so reach through it with a frame locator.
   await expect(
     drawer.frameLocator('iframe').locator('h1, h2').first(),
   ).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Close documentation' }).click();
+  await page
+    .getByRole('button', { name: 'Close the documentation panel' })
+    .click();
   await expect(drawer).toBeHidden();
 
   await page.keyboard.press('F1');
@@ -43,9 +45,10 @@ test('a new context-help topic routes the docs frame without reloading it', asyn
 
   await setEditorSource(page, '10 PRINT "HI"\n20 PLOT 1,1');
 
-  // Selecting a keyword and opening the docs deep links to it (`?q=`).
-  await page.locator('.cm-content').getByText('PRINT').first().dblclick();
-  await page.getByRole('button', { name: /^Documentation/ }).click();
+  // Picking a keyword in the editor and taking the Reference row deep links to
+  // it (`?q=`).
+  await page.locator('.cm-content').getByText('PRINT').first().click();
+  await page.getByRole('button', { name: /Look up PRINT/ }).click();
   await expect(drawer).toBeVisible();
   await expect(search).toHaveValue('PRINT', { timeout: 15_000 });
 
@@ -57,12 +60,10 @@ test('a new context-help topic routes the docs frame without reloading it', asyn
     (window as unknown as Record<string, unknown>).__docsFrameStamp = 'kept';
   });
 
-  // A second keyword re-seeds the same page's search box in place. Drive it
-  // from F1 rather than the toolbar button, which the open drawer covers.
-  await page.keyboard.press('F1');
-  await expect(drawer).toBeHidden();
-  await page.locator('.cm-content').getByText('PLOT').first().dblclick();
-  await page.keyboard.press('F1');
+  // A second keyword re-seeds the same page's search box in place, with the
+  // drawer left open - the editor stays reachable beside it.
+  await page.locator('.cm-content').getByText('PLOT').first().click();
+  await page.getByRole('button', { name: /Look up PLOT/ }).click();
   await expect(drawer).toBeVisible();
   await expect(search).toHaveValue('PLOT');
 

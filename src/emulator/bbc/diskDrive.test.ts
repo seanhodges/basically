@@ -13,7 +13,7 @@ const ARGS_ENSURE_WRITTEN = 0xff;
 const FN_BUF = 0x0200; // where tests park the filename bytes
 const ARG_BLOCK = 0x0070; // a zero-page address for the 4-byte OSARGS block
 
-/** Map-backed MachineFileStore, same shape as c64/diskDrive.test.ts. */
+/** Map-backed MachineFileStore, same shape as commodore/diskDrive.test.ts. */
 function fakeStore() {
   const files = new Map<string, { data: Uint8Array; kind?: string }>();
   const store: MachineFileStore = {

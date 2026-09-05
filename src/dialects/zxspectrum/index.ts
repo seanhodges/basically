@@ -5,7 +5,7 @@ import {
   type TokenizeResult,
 } from '../types';
 import { spectrumCharset } from './charset';
-import { spectrumKeywords } from './keywords';
+import { spectrumKeywords, spectrumOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildTap, headerName, parseTap, parseTapAllFiles } from './tapfile';
@@ -26,6 +26,7 @@ import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumSamples } from './samples';
 import { spectrumMemoryMap } from './memoryMap';
 import { spectrumMemoryBlocks } from './memoryBlocks';
+import { unwrapSpectrumStoredFile } from './storedFile';
 
 export const zxspectrum: Dialect = {
   id: 'zxspectrum',
@@ -33,17 +34,26 @@ export const zxspectrum: Dialect = {
   manufacturer: 'Sinclair',
   year: 1982,
   blurb: 'Britain’s best-selling computer. 48K Sinclair BASIC.',
+  basicDialect: '48K Sinclair BASIC',
+  basicFamily: 'Sinclair BASIC',
+  docsReference: 'sinclair',
   programRamBytes: 41472,
   memoryMap: spectrumMemoryMap,
   memoryBlocks: spectrumMemoryBlocks,
+  unwrapStoredFile: unwrapSpectrumStoredFile,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
   statementSeparator: ':',
   // POKE writes, plus `LOAD "" CODE [addr]` binary-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-code'] },
+  // USR calls machine code at the address given. Its string form (`USR "a"`,
+  // a UDG's address) is resolved to that address before the scan, so what is
+  // left here is always a real call.
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrumKeywords,
+  operators: spectrumOperators,
   charset: spectrumCharset,
   languageSupport: spectrumLanguageSupport,
   completionSource: spectrumCompletionSource,
@@ -87,6 +97,10 @@ export const zxspectrum: Dialect = {
   debuggable: true,
 
   joystickModes: ['native', 'kempston'],
+
+  // Array DATA and CODE saves are captured at the ROM's SA-BYTES/LD-BYTES tape
+  // traps; a type-0 program SAVE passes through to real tape untouched.
+  capturesDataFiles: true,
 
   createEmulator(opts) {
     return new SpectrumMachine({ rom: opts.rom, files: opts.files });

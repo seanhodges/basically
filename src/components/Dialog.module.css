@@ -5,7 +5,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  /* Over everything else the app raises, including the editor's own popups -
+     see the overlay scale in src/styles.css. */
+  z-index: var(--z-dialog);
 }
 
 .modal {

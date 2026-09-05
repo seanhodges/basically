@@ -6,6 +6,7 @@ import type { EscapeEntry, EscapeTableData } from '../src/reference/types';
 
 import {
   CHARSET_PROBES,
+  codeCountOf,
   type CharsetProbe,
 } from '../src/dialects/charsetProbes';
 
@@ -29,7 +30,7 @@ function scaffold(src: CharsetProbe): EscapeTableData {
   const entries: EscapeEntry[] = [];
   let hasRaw = false;
   let rawExample: { source: string; bytes: number[] } | undefined;
-  for (let b = 0; b < 256; b++) {
+  for (let b = 0; b < codeCountOf(src); b++) {
     const text = src.decode(b);
     if (!src.isEscapeForm(text)) continue;
     if (src.rawPattern.test(text)) {
@@ -60,22 +61,89 @@ function scaffold(src: CharsetProbe): EscapeTableData {
     title: src.title,
     machines: src.machines,
     categories: [
-      { id: 'uncategorised', label: 'Uncategorised' },
-      { id: 'raw', label: 'Raw bytes' },
+      // The draft chip is a grab-bag until the table is split by hand, which is
+      // what the `control` class means; the split then reclassifies each chip.
+      { id: 'uncategorised', label: 'Uncategorised', class: 'control' },
+      { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
     ],
     entries,
   };
 }
 
+/**
+ * One page's seed from the charset families that share it.
+ *
+ * A probe is keyed by charset family and a file by page, and the two part
+ * company wherever one BASIC was carried by two character generators: the ZX81
+ * and the Spectrums share the Sinclair page, the Apple I and the Apple II the
+ * Integer BASIC one. Seeding per family wrote a file named after a machine that
+ * no page map reads, under an export name the sibling family had already taken.
+ *
+ * So the families are merged the way gen-reference-scaffold.mts merges keyword
+ * tables. A spelling every family on the page produces stays unscoped, because
+ * it is the page's; one only some produce is scoped to their dialects and
+ * badged, which puts each difference in front of whoever enriches the seed
+ * rather than leaving it to escape-crosscheck.test.ts. Where two families spell
+ * one escape and store different bytes, the first family's claim is the one
+ * seeded - a merge cannot tell that case from an agreement, and the enrichment
+ * pass can.
+ */
+function seedPage(probes: readonly CharsetProbe[]): EscapeTableData {
+  const drafts = probes.map(scaffold);
+  const everyDialect = probes.flatMap((p) => p.dialects);
+  const owners = new Map<string, string[]>();
+  drafts.forEach((draft, i) => {
+    for (const entry of draft.entries) {
+      const held = owners.get(entry.escape);
+      if (held) held.push(...probes[i]!.dialects);
+      else owners.set(entry.escape, [...probes[i]!.dialects]);
+    }
+  });
+
+  const seen = new Set<string>();
+  const entries: EscapeEntry[] = [];
+  drafts.forEach((draft, i) => {
+    for (const entry of draft.entries) {
+      if (seen.has(entry.escape)) continue;
+      seen.add(entry.escape);
+      const onlyOn = owners.get(entry.escape)!;
+      if (onlyOn.length === everyDialect.length) {
+        entries.push(entry);
+        continue;
+      }
+      entries.push({
+        ...entry,
+        tag: `${probes[i]!.machines.join(' & ')} only`,
+        onlyOn,
+      });
+    }
+  });
+
+  return {
+    ...drafts[0]!,
+    machines: probes.flatMap((p) => p.machines),
+    entries,
+  };
+}
+
+/** The probes seeding each page, in probe order. */
+const byPage = new Map<string, CharsetProbe[]>();
+for (const probe of CHARSET_PROBES) {
+  const page = probe.page ?? probe.id;
+  const probes = byPage.get(page);
+  if (probes) probes.push(probe);
+  else byPage.set(page, [probe]);
+}
+
 mkdirSync(dataDir, { recursive: true });
 
-for (const src of CHARSET_PROBES) {
-  const file = resolve(dataDir, `${src.id}.ts`);
+for (const [page, probes] of byPage) {
+  const file = resolve(dataDir, `${page}.ts`);
   if (existsSync(file)) {
-    console.log(`skip (exists): src/reference/escapes/${src.id}.ts`);
+    console.log(`skip (exists): src/reference/escapes/${page}.ts`);
     continue;
   }
-  const data = scaffold(src);
+  const data = probes.length === 1 ? scaffold(probes[0]!) : seedPage(probes);
   const body =
     `// Escape-code table for the ${data.title} page.\n` +
     `// Seeded from the dialect charset by scripts/gen-escape-scaffold.mts, then\n` +
@@ -83,9 +151,9 @@ for (const src of CHARSET_PROBES) {
     `// hand; the generator skips this file once it exists. Kept honest by\n` +
     `// escapes/escape-crosscheck.test.ts.\n` +
     `import type { EscapeTableData } from '../types';\n\n` +
-    `export const ${src.varName}: EscapeTableData = ${JSON.stringify(data, null, 2)};\n`;
+    `export const ${probes[0]!.varName}: EscapeTableData = ${JSON.stringify(data, null, 2)};\n`;
   writeFileSync(file, body, 'utf8');
   console.log(
-    `wrote src/reference/escapes/${src.id}.ts (${data.entries.length} draft rows)`,
+    `wrote src/reference/escapes/${page}.ts (${data.entries.length} draft rows)`,
   );
 }

@@ -8,11 +8,12 @@
   border-bottom: 1px solid var(--border);
   container-type: inline-size;
   container-name: toolbar;
-  /* Giving the toolbar its own z-index lifts the whole bar - menu dropdowns 
-     included - above the workspace. Kept below the docs drawer (90)
-     and dialog backdrop (100) so those still cover it. */
+  /* Giving the toolbar its own z-index lifts the whole bar - menu dropdowns
+     included - above the workspace. Kept below the docs drawer and the dialog
+     backdrop so those still cover it (see the overlay scale in
+     src/styles.css). */
   position: relative;
-  z-index: 40;
+  z-index: var(--z-toolbar);
 }
 
 .toolbarLeft,
@@ -111,11 +112,14 @@
   right: 0;
 }
 
+/* Items lay out left to right, with the shortcut hint pushed to the far edge by
+   its own `margin-left: auto`. Not `space-between`: an item whose label carries
+   a mark is two flex items, and space-between would blow the mark away from the
+   word it labels. */
 .menuItems button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  justify-content: flex-start;
   background: none;
   border: none;
   text-align: left;
@@ -132,6 +136,8 @@
    pulled from the central binding table in Toolbar.tsx. */
 .shortcutHint {
   margin-left: auto;
+  /* Keeps the hint clear of a long label that reaches the far edge. */
+  padding-left: 24px;
   font-size: 11px;
   color: var(--text-dim);
   white-space: nowrap;
@@ -213,6 +219,67 @@
   .toolbar button.overflowTargetOnly {
     display: inline-flex;
   }
+}
+
+/* The pause-and-resume control wears whichever of its two faces the run calls
+   for, and "❚❚ Pause" and "❚▶ Resume" do not set to the same width. The bar's
+   buttons are packed against its right edge, so without a floor everything to
+   the left of this one - Play and Step - would shuffle sideways every time the
+   run changed state. The floor is the wider of the two live faces (Resume,
+   which the accent state sets in semibold). Slightly tighter side padding than
+   the base button keeps it nearer the width of the one-word buttons it sits
+   among. */
+.pauseToggle {
+  min-width: 6.62em;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* The run marks are dingbat glyphs set among letters, and each sits differently
+   in its own em box, so leaving them on the baseline leaves every one of them
+   off the line of the word beside it. Measured in the 13px face both the bar
+   and the menu items set: the letters' optical centre is 4.5px above the
+   baseline (a 9px cap height), while the marks' ink centres fall at 3.0 (▶),
+   5.0 (⤵), 4.0 (■) and 3.5 (❚❚, ❚▶). Each is moved by that difference.
+   In px rather than em because the correction is set by the *text's* cap
+   height, which does not move when a mark is set smaller than its word. A
+   transform needs a block box, hence the display. */
+.mark {
+  display: inline-block;
+}
+
+/* Menu items are flex containers, which drop the space between the mark and its
+   word (a whitespace-only text run makes no flex item), so the gap is set here
+   instead - matched to the width of the space the bar's inline buttons keep. */
+.menuItems button .mark {
+  margin-right: 0.28em;
+}
+
+.markPlay {
+  transform: translateY(-1.5px);
+}
+
+.markStep {
+  transform: translateY(0.5px);
+}
+
+.markStop {
+  transform: translateY(-0.5px);
+}
+
+.markRun {
+  transform: translateY(-1px);
+}
+
+/* The composed mark sets larger than the letters beside it - two glyphs where
+   Play and Stop have one - so in the bar, where the buttons compete for width,
+   it is stepped down to sit level with the word rather than crowd it. Smaller
+   puts its ink centre lower still, so it is lifted further than the same mark
+   in the menu. */
+.pauseToggleGlyph {
+  display: inline-block;
+  font-size: 0.85em;
+  transform: translateY(-1.5px);
 }
 
 .toolbarError {

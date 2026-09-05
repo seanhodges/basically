@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHARSET_PROBES, probeFor } from './charsetProbes';
+import { CHARSET_PROBES, codeCountOf, probeFor } from './charsetProbes';
 import { dialects } from './registry';
 
 describe('charset probes', () => {
@@ -41,7 +41,7 @@ describe('charset probes', () => {
 
   it('decodes every byte to a non-empty form', () => {
     for (const probe of CHARSET_PROBES) {
-      for (let b = 0; b < 256; b++) {
+      for (let b = 0; b < codeCountOf(probe); b++) {
         expect(
           probe.decode(b),
           `${probe.id} decodes 0x${b.toString(16)} to nothing`,
@@ -54,7 +54,7 @@ describe('charset probes', () => {
     // This is the totality/injectivity invariant every charset claims: each
     // byte has exactly one text form, and that form re-encodes to that byte.
     for (const probe of CHARSET_PROBES) {
-      for (let b = 0; b < 256; b++) {
+      for (let b = 0; b < codeCountOf(probe); b++) {
         const text = probe.decode(b);
         expect(
           probe.parse(text),
@@ -90,7 +90,9 @@ describe('charset probes', () => {
     };
 
     for (const probe of CHARSET_PROBES) {
-      const forms = Array.from({ length: 256 }, (_, b) => probe.decode(b));
+      const forms = Array.from({ length: codeCountOf(probe) }, (_, b) =>
+        probe.decode(b),
+      );
       const cases = [
         ...forms,
         ...forms.slice(0, -1).map((form, i) => form + forms[i + 1]),
@@ -107,7 +109,7 @@ describe('charset probes', () => {
   it('classifies its own raw escapes as escape forms', () => {
     for (const probe of CHARSET_PROBES) {
       let sawRaw = false;
-      for (let b = 0; b < 256; b++) {
+      for (let b = 0; b < codeCountOf(probe); b++) {
         const text = probe.decode(b);
         if (!probe.rawPattern.test(text)) continue;
         sawRaw = true;

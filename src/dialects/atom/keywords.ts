@@ -202,7 +202,7 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'BPUT',
     kind: 'command',
     signature: 'BPUT handle,expr',
-    doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem (see the Emulator files viewer).",
+    doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem, and the file appears as its own tab in the editor.",
   },
   {
     word: 'SPUT',
@@ -407,23 +407,33 @@ const table: Omit<KeywordInfo, 'token'>[] = [
   },
 
   // ---- Operators ----
+  // AND and OR combine their operands bit by bit rather than reducing them to a
+  // condition - 5 AND 3 is 1 - so & duplicates AND rather than adding anything.
+  // A true comparison here is 1, not the -1 the BBC that succeeded this machine
+  // yields; both facts are read off the running machine by operatorBattery.test.ts.
   {
     word: 'AND',
     kind: 'operator',
     signature: 'a AND b',
-    doc: 'Logical AND of two conditions (bitwise AND is the & operator).',
+    doc: 'Bitwise AND (the & operator is the same thing).',
   },
   {
     word: 'OR',
     kind: 'operator',
     signature: 'a OR b',
-    doc: 'Logical OR of two conditions (bitwise OR is the \\ operator).',
+    doc: 'Bitwise OR. There is no symbolic spelling.',
+  },
+  {
+    word: '^',
+    kind: 'operator',
+    signature: '%v = a ^ b',
+    doc: 'Raise to a power, computed through logs. Floating point only: %A=2^3 works, an integer expression rejects it. Shown as ↑ on screen.',
   },
 
   // ---- Symbolic operators ----
   // Stored verbatim like every Atom keyword. The editor highlighter/completion
   // only key off alphabetic words, so these drive neither directly (highlighting
-  // for '!'/'%'/'&'/'\\' comes from the language's extraOperators); they are
+  // for '!'/'%'/'&' comes from the language's extraOperators); they are
   // listed so the reference table stays in step with the language (see the
   // keyword-crosscheck test) and to document the indirection/bitwise operators.
   {
@@ -454,19 +464,13 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: '&',
     kind: 'operator',
     signature: 'a & b',
-    doc: 'Bitwise AND (the logical AND keyword combines conditions).',
-  },
-  {
-    word: '\\',
-    kind: 'operator',
-    signature: 'a \\ b',
-    doc: 'Bitwise OR (the logical OR keyword combines conditions).',
+    doc: 'Bitwise AND, the same operation as the AND keyword.',
   },
   {
     word: ':',
     kind: 'operator',
     signature: 'a : b',
-    doc: 'Bitwise exclusive-OR (XOR).',
+    doc: 'Bitwise exclusive-OR (XOR). The Atom has no exclusive-OR keyword.',
   },
 ];
 
@@ -474,3 +478,23 @@ export const atomKeywords: KeywordInfo[] = table.map((k, i) => ({
   ...k,
   token: i,
 }));
+
+/**
+ * The arithmetic and relational operators, which the table above does not list
+ * because nothing about them is Atom-specific enough to document one by one.
+ * They are declared so the editor colours them and the reference page lists
+ * them: the Atom's `<=` and `<>` are as real as the BBC's, and `/` truncating
+ * rather than dividing is exactly the sort of thing a porter needs the row for.
+ */
+export const atomOperators = [
+  '+',
+  '-',
+  '*',
+  '/',
+  '=',
+  '<',
+  '>',
+  '<=',
+  '>=',
+  '<>',
+] as const;

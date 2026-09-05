@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { hasFatalErrors } from '../types';
-import { tokenizeProgram } from './tokenizer';
+import { tokenizeProgram, type CbmVariant } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { c64KeywordsByLength, type C64Keyword } from './keywords';
+import { PET_VARIANT } from '../pet/tokenizer';
+import { VIC20_VARIANT } from '../vic20/tokenizer';
+import { PROGRAM_BASE } from './addresses';
 
 describe('C64 tokenizer', () => {
   it('produces the $0801 linked-line layout for 10 PRINT "HI"', () => {
@@ -110,6 +114,127 @@ describe('C64 tokenizer statement validation', () => {
     const arrow = tokenizeProgram('10 A=2↑3\n').program;
     expect(Array.from(caret)).toEqual(Array.from(arrow));
     expect(detokenizeProgram(caret)).toBe('10 A=2↑3\n');
+  });
+});
+
+/**
+ * The shortest shifted-letter abbreviation that resolves to `word`, worked out
+ * from the machine's own table rather than from the tokenizer under test.
+ *
+ * The ROM's scan takes the first word in reserved-word order (ascending token)
+ * that the typed prefix begins, so a keyword whose spelling is a prefix of an
+ * earlier one has no abbreviation at all: PRINT is always reached as PRINT#,
+ * which is exactly why `?` exists. A prefix that is itself a whole keyword
+ * (`GO`) is no abbreviation either - the full spelling of that keyword is what
+ * those characters mean.
+ */
+function shortestAbbreviation(
+  word: string,
+  keywordsByLength: C64Keyword[],
+): string | null {
+  const order = keywordsByLength
+    .filter((kw) => kw.alias !== true && /^[A-Z]/.test(kw.word))
+    .sort((a, b) => a.token - b.token);
+  for (let n = 2; n <= word.length; n++) {
+    const prefix = word.slice(0, n);
+    // A shifted letter ends the abbreviation, so `TAB(`'s `(` and `INPUT#`'s
+    // `#` can never be the last character typed.
+    if (!/^[A-Z]+$/.test(prefix)) break;
+    if (keywordsByLength.some((kw) => kw.word === prefix)) continue;
+    const first = order.find((kw) => kw.word.startsWith(prefix));
+    if (first?.word === word) {
+      return prefix.slice(0, -1).toLowerCase() + prefix[n - 1];
+    }
+  }
+  return null;
+}
+
+/** The tokenized body of a one-line program, less link, line number and terminator. */
+function bodyBytes(source: string, variant?: CbmVariant): number[] {
+  return Array.from(tokenizeProgram(source, variant).program.slice(4, -3));
+}
+
+const C64_VARIANT: CbmVariant = {
+  progStart: PROGRAM_BASE,
+  keywordsByLength: c64KeywordsByLength,
+};
+
+describe.each([
+  ['C64', C64_VARIANT],
+  ['PET', PET_VARIANT],
+  ['VIC-20', VIC20_VARIANT],
+])('%s shifted-letter abbreviations', (_name, variant) => {
+  const table = variant.keywordsByLength;
+
+  it('tokenizes every keyword through its shortest abbreviation', () => {
+    const abbreviated = table.filter(
+      (kw) => kw.alias !== true && /^[A-Z]/.test(kw.word),
+    );
+    expect(abbreviated.length).toBeGreaterThan(50);
+    for (const kw of abbreviated) {
+      const short = shortestAbbreviation(kw.word, table);
+      if (short === null) continue;
+      expect(bodyBytes(`10 ${short}\n`, variant)[0], `${short} -> ${kw.word}`) //
+        .toBe(kw.token);
+    }
+  });
+
+  it('resolves a tie to the first word in reserved-word order', () => {
+    // `poS` begins POS alone but `pO` begins POKE and POS; `goT` begins GOTO
+    // and `goS` GOSUB. Each takes the lowest token, which is what a magazine
+    // listing means by it.
+    expect(bodyBytes('10 pO53280,0\n', variant)[0]).toBe(0x97); // POKE, not POS
+    expect(bodyBytes('10 A=poS(0)\n', variant)[2]).toBe(0xb9); // POS
+    expect(bodyBytes('10 goT100\n', variant)[0]).toBe(0x89); // GOTO
+    expect(bodyBytes('10 goS100\n', variant)[0]).toBe(0x8d); // GOSUB, not GO
+  });
+
+  it('keeps a two-letter keyword as itself where it is the whole spelling', () => {
+    // `gO` is GO written out, not an abbreviation of GOTO: the full spelling
+    // reaches exactly as far, and a full spelling always wins a tie. Reaching
+    // GOTO takes one more letter.
+    expect(bodyBytes('10 gO TO 100\n', variant)[0]).toBe(0xcb); // GO
+  });
+
+  it('has no abbreviation for a keyword an earlier one is a prefix of', () => {
+    // PRINT is reached as PRINT#, INPUT as INPUT#, GO as GOTO: on the real
+    // machines these three simply cannot be abbreviated.
+    expect(shortestAbbreviation('PRINT', table)).toBeNull();
+    expect(shortestAbbreviation('INPUT', table)).toBeNull();
+    expect(shortestAbbreviation('GO', table)).toBeNull();
+    expect(bodyBytes('10 pR"HI"\n', variant)[0]).toBe(0x98); // PRINT#
+  });
+
+  it('accepts the {shift-x} escape spelling of the shifted letter', () => {
+    expect(bodyBytes('10 p{shift-o}53280,0\n', variant)).toEqual(
+      bodyBytes('10 pO53280,0\n', variant),
+    );
+  });
+
+  it('leaves full spellings alone in every mix of case', () => {
+    const upper = '10 PRINT"HI":FOR I=1 TO 5:NEXT:INPUT A$\n';
+    const mixed = '10 Print"HI":For I=1 To 5:Next:Input A$\n';
+    const lower = '10 print"HI":for I=1 to 5:next:input A$\n';
+    expect(bodyBytes(mixed, variant)).toEqual(bodyBytes(upper, variant));
+    expect(bodyBytes(lower, variant)).toEqual(bodyBytes(upper, variant));
+  });
+
+  it('does not read an abbreviation inside a string, REM tail or DATA', () => {
+    expect(bodyBytes('10 PRINT"pO53280"\n', variant)).not.toContain(0x97);
+    expect(bodyBytes('10 REM pO53280\n', variant)).not.toContain(0x97);
+    expect(bodyBytes('10 DATA pO,1\n', variant)).not.toContain(0x97);
+  });
+
+  it('reads a mixed-case name as the keyword it abbreviates', () => {
+    // The trade this notation costs, chosen rather than discovered: a variable
+    // spelled `pO` becomes POKE, exactly as it would on the real machine.
+    expect(bodyBytes('10 pO=1\n', variant)).toContain(0x97);
+    // A lower-case name is untouched, and so is one whose letters begin no
+    // keyword - most mixed-case names are simply names.
+    expect(bodyBytes('10 po=1\n', variant)).not.toContain(0x97);
+    expect(bodyBytes('10 xQ=1\n', variant)).toEqual(
+      bodyBytes('10 XQ=1\n', variant),
+    );
   });
 });
 

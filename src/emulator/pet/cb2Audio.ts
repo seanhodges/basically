@@ -20,7 +20,7 @@ import type { Via6522 } from '../commodore/via6522';
 /** Output rate of the CB2 stream; 44100 / 50 = 882 samples per frame (integer). */
 export const CB2_SAMPLE_RATE = 44100;
 /** Samples emitted per 50Hz frame. */
-const SAMPLES_PER_FRAME = CB2_SAMPLE_RATE / 50;
+export const CB2_SAMPLES_PER_FRAME = CB2_SAMPLE_RATE / 50;
 /** PET CPU clock feeding the VIA's Timer 2 (Hz). */
 const CPU_CLOCK = 1_000_000;
 /** Peak amplitude of the single square-ish voice. */
@@ -72,11 +72,11 @@ export class Cb2Audio {
     const bitsPerSecond = CPU_CLOCK / (2 * (this.via.t2LowLatch() + 2));
     const inc = bitsPerSecond / CB2_SAMPLE_RATE;
 
-    const out = new Float32Array(SAMPLES_PER_FRAME);
+    const out = new Float32Array(CB2_SAMPLES_PER_FRAME);
     let phase = this.bitPhase;
     let prevIn = this.dcPrevIn;
     let prevOut = this.dcPrevOut;
-    for (let i = 0; i < SAMPLES_PER_FRAME; i++) {
+    for (let i = 0; i < CB2_SAMPLES_PER_FRAME; i++) {
       // MSB shifts out first, so bit 7 - floor(phase) is the pin level.
       const bit = (pattern >> (7 - Math.floor(phase))) & 1;
       const x = active ? (bit ? AMPLITUDE : -AMPLITUDE) : 0;

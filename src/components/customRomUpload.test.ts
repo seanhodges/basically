@@ -56,17 +56,14 @@ describe('romInUseLabel', () => {
     expect(romInUseLabel(c64, null)).toBe(`Using the bundled ${c64.name} ROM.`);
   });
 
-  it('never claims a bundled ROM on a machine that ships none', () => {
-    // The Altair's interpreter is copyright and cannot be redistributed, so
-    // "using the bundled ROM" would be false on the one machine where the
-    // upload is not an option but the only way to start it.
+  it('names the bundled image on a machine whose ROM is a tape', () => {
+    // The Altair loads BASIC into RAM rather than mapping a ROM, but the seam
+    // and this line make no such distinction: an image ships, so it is the one
+    // in use until the user replaces it.
     const altair = getDialect('altair8800');
-    const label = romInUseLabel(altair, null);
-    expect(label).not.toContain('bundled');
-    expect(label).toContain(altair.name);
-    // …and it asks for an image, not for an image of a particular size.
-    expect(label).not.toMatch(/8,192|byte/);
-    // An uploaded image is still named the same way as anywhere else.
+    expect(romInUseLabel(altair, null)).toBe(
+      `Using the bundled ${altair.name} ROM (8,192 bytes).`,
+    );
     expect(romInUseLabel(altair, { name: 'mine.rom', size: 8192 })).toContain(
       'mine.rom',
     );

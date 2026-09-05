@@ -339,11 +339,19 @@ describe('expectation blocks', () => {
   });
 
   it('extracts the stated expectations from a whole reply', () => {
+    // In the earlier spelling, which is still read: this reply could as
+    // easily have come back out of a saved conversation.
     expect(extractExpectations(reply)).toEqual([
-      { kind: 'var', name: 'T', expected: '42', source: 'VAR T = 42' },
       {
-        kind: 'screen',
-        needle: '42',
+        kind: 'expect',
+        expectation: { kind: 'variable', name: 'T', value: '42' },
+        line: 1,
+        source: 'VAR T = 42',
+      },
+      {
+        kind: 'expect',
+        expectation: { kind: 'text', needle: '42', negated: false },
+        line: 2,
         source: 'SCREEN CONTAINS "42"',
       },
     ]);
@@ -469,6 +477,91 @@ describe('candidateProgram', () => {
     // user would be offered something other than what was verified.
     expect(candidateProgram(block, BASE)).toBe(
       mergeBasicLines(BASE, block.code, { allowDeletes: true }),
+    );
+  });
+});
+
+/**
+ * Lines the machine takes without a line number - the Apple I's `SCR` /
+ * `LOMEM=` preamble and a listing's trailing `RUN`.
+ *
+ * The merge is keyed by line number and these have none, so without carrying
+ * them deliberately a fragment would take the user's preamble out of their
+ * program. The key is a local stub: what is under test is that the merge
+ * honours whatever it is handed.
+ */
+describe('lines the dialect takes unnumbered', () => {
+  const unnumbered = (line: string): string | null => {
+    const m = /^\s*(SCR|CLR|OFF|RUN|LIST|LOMEM=|HIMEM=)/i.exec(line.trim());
+    return m ? m[1]!.toUpperCase() : null;
+  };
+  const PROGRAM = ['SCR', 'LOMEM=768', '10 A=1', '20 END', 'RUN'].join('\n');
+
+  it('keeps them where they were through a partial merge', () => {
+    expect(mergeBasicLines(PROGRAM, '10 A=2', { unnumbered })).toBe(
+      ['SCR', 'LOMEM=768', '10 A=2', '20 END', 'RUN'].join('\n') + '\n',
+    );
+  });
+
+  it('does not present them as changes', () => {
+    const rows = mergePlan(PROGRAM, '10 A=2', { unnumbered });
+    const carried = rows.filter((r) => unnumbered(r.text ?? '') !== null);
+    expect(carried.map((r) => r.kind)).toEqual([
+      'context',
+      'context',
+      'context',
+    ]);
+  });
+
+  it('a bare line number cannot delete one', () => {
+    const merged = mergeBasicLines(PROGRAM, '20', {
+      allowDeletes: true,
+      unnumbered,
+    });
+    expect(merged).toBe(
+      ['SCR', 'LOMEM=768', '10 A=1', 'RUN'].join('\n') + '\n',
+    );
+  });
+
+  it('does not double one the fragment repeats verbatim', () => {
+    const merged = mergeBasicLines(PROGRAM, 'LOMEM=768\n10 A=2', {
+      unnumbered,
+    });
+    expect(merged.split('\n').filter((l) => l === 'LOMEM=768')).toHaveLength(1);
+  });
+
+  it('shows a different value for the same command as a change', () => {
+    const rows = mergePlan(PROGRAM, 'LOMEM=1024\n10 A=2', { unnumbered });
+    const row = rows.find((r) => r.text === 'LOMEM=1024')!;
+    expect(row.kind).toBe('changed');
+    expect(row.before).toBe('LOMEM=768');
+    expect(
+      mergeBasicLines(PROGRAM, 'LOMEM=1024\n10 A=2', { unnumbered }),
+    ).toContain('LOMEM=1024');
+  });
+
+  it('adds one the program did not hold', () => {
+    const merged = mergeBasicLines('10 A=1', 'HIMEM=2048\n10 A=2', {
+      unnumbered,
+    });
+    expect(merged).toBe(['HIMEM=2048', '10 A=2'].join('\n') + '\n');
+  });
+
+  /**
+   * A program that is only a preamble is not an empty one: read as empty, any
+   * block would classify as a whole listing and replace it outright, throwing
+   * the preamble away.
+   */
+  it('a preamble-only program is not read as nothing to merge into', () => {
+    const block = { code: '10 A=1', declared: 'partial' as const };
+    expect(classifyBlock(block, 'SCR\nLOMEM=768', unnumbered)).not.toBe('full');
+    expect(classifyBlock(block, 'SCR\nLOMEM=768')).toBe('full');
+  });
+
+  /** Every machine that has no such lines merges exactly as it did before. */
+  it('changes nothing when no key is given', () => {
+    expect(mergeBasicLines(PROGRAM, '10 A=2')).toBe(
+      ['10 A=2', '20 END'].join('\n') + '\n',
     );
   });
 });

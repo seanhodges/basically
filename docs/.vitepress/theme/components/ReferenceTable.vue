@@ -12,8 +12,17 @@ import {
 import { useDeepLinkParams } from '../deepLinkParams';
 import { KIND_META, KIND_ORDER } from '../kindMeta';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
+import { placeholdersUsed } from '../../../../src/reference/placeholders';
 
 const props = defineProps<{ data: ReferenceTableData }>();
+
+// The argument legend, generated from the rows rather than written by hand, so a
+// page never explains a placeholder it does not use and can never fall behind the
+// data. `data.placeholders` carries the names peculiar to this machine; the shared
+// vocabulary comes from src/reference/placeholders.ts.
+const argumentLegend = computed(() =>
+  placeholdersUsed(props.data.entries, props.data.placeholders ?? []),
+);
 
 const query = ref('');
 const kind = ref<KindFilter>('all');
@@ -95,6 +104,20 @@ const presentDomains = computed(() => {
   return DOMAIN_ORDER.filter((d) => seen.has(d));
 });
 
+// Whether this page's machines let a keyword be typed short at all. The
+// Sinclair pages never do - a keyword is a keystroke there, not a spelling - so
+// they say nothing about spellings rather than offering to search for something
+// none of their rows carry.
+const hasAbbreviations = computed(() =>
+  props.data.entries.some((e) => (e.abbreviations ?? []).length > 0),
+);
+
+const searchLabel = computed(() =>
+  hasAbbreviations.value
+    ? 'Search keyword names and short spellings'
+    : 'Search keyword names',
+);
+
 const visible = computed(() =>
   sortEntries(
     filterEntries(props.data.entries, query.value, kind.value, domain.value),
@@ -125,8 +148,8 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         v-model="query"
         type="search"
         class="reftable-search"
-        placeholder="Search keyword names…"
-        aria-label="Search keyword names"
+        :placeholder="searchLabel + '…'"
+        :aria-label="searchLabel"
       />
       <div class="reftable-kinds" role="group" aria-label="Filter by kind">
         <button
@@ -242,6 +265,19 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
               />
             </span>
             <code>{{ e.name }}</code>
+            <!--
+              The short spellings the machine takes for this keyword, beside the
+              name because that is the question a reader arrives with: they have
+              `P.` or `?` in a listing and want to know what it is. Searchable
+              too, so the listing's own spelling finds the row.
+            -->
+            <span
+              v-for="a in e.abbreviations"
+              :key="a"
+              class="reftable-abbr"
+              :title="`Can be typed as ${a}`"
+              >{{ a }}</span
+            >
             <span v-if="e.tag" class="reftable-tag">{{ e.tag }}</span>
             <button
               type="button"
@@ -306,6 +342,25 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         </tr>
       </tbody>
     </table>
+
+    <details v-if="argumentLegend.length" class="reftable-args">
+      <summary>Argument notation</summary>
+      <p>
+        Anything in <code>&lt;angle brackets&gt;</code> is a value you supply;
+        everything else is typed exactly as shown. <code>[</code>square
+        brackets<code>]</code> mark an optional part, <code>|</code> separates
+        alternatives, and <code>…</code> means the part before it can repeat.
+        The arguments on this page are:
+      </p>
+      <dl>
+        <template v-for="p in argumentLegend" :key="p.id">
+          <dt>
+            <code>&lt;{{ p.id }}&gt;</code>
+          </dt>
+          <dd>{{ p.meaning }}</dd>
+        </template>
+      </dl>
+    </details>
 
     <p class="reftable-count">
       Showing {{ visible.length }} of {{ data.entries.length }} keywords
@@ -397,9 +452,15 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   width: 1%;
   white-space: nowrap;
 }
-.reftable-name code,
-.reftable-syntax {
+.reftable-name code {
   white-space: nowrap;
+}
+/* A usage string is the one cell that can outgrow its column - the Amstrad's
+   SOUND runs to seven arguments - so it wraps where the keyword name never
+   should. */
+.reftable-syntax {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .reftable-row-active > td {
   background: var(--vp-c-brand-soft);
@@ -473,6 +534,20 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   display: inline-block;
   margin-bottom: 0.25rem;
 }
+/* A short spelling reads as an alternative name, so it sits in the name cell in
+   the same monospace face, dimmed and boxed to keep the canonical spelling the
+   one the eye lands on first. */
+.reftable-abbr {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.75rem;
+}
 .reftable-tag {
   display: inline-block;
   margin-left: 0.4rem;
@@ -486,5 +561,37 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
 .reftable-count {
   color: var(--vp-c-text-2);
   font-size: 0.85rem;
+}
+
+.reftable-args {
+  margin: 1.25rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  font-size: 0.85rem;
+}
+.reftable-args summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+}
+.reftable-args p {
+  margin: 0.6rem 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+.reftable-args dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.7rem;
+  margin: 0;
+}
+.reftable-args dt {
+  white-space: nowrap;
+}
+.reftable-args dd {
+  margin: 0;
+  color: var(--vp-c-text-2);
 }
 </style>

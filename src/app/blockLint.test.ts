@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { MemoryBlock, MemoryBlocksSupport } from '../dialects/types';
+import type { Block, MemoryBlocksSupport } from '../dialects/types';
 import { lintBlocks } from './blockLint';
+import { programVocabulary } from './programVocabulary';
+import { getDialect } from '../dialects/registry';
 import { spectrumMemoryBlocks } from '../dialects/zxspectrum/memoryBlocks';
+import { atomMemoryBlocks } from '../dialects/atom/memoryBlocks';
+import { bbcMicroMemoryBlocks } from '../dialects/bbcmicro/memoryBlocks';
+
+const atom = getDialect('atom');
+const bbcmicro = getDialect('bbcmicro');
+const spectrum = getDialect('zxspectrum');
 
 /**
  * A small, easy-to-reason-about support fixture rather than the real Spectrum
@@ -24,13 +32,13 @@ const SUPPORT: MemoryBlocksSupport = {
   defaultAddress: 0x2000,
 };
 
-function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+function block(overrides: Partial<Block> = {}): Block {
   return {
     id: 'blk-1',
     name: 'FOO',
     address: 0x2000,
     bytes: Uint8Array.from([1, 2, 3, 4]),
-    kind: 'data',
+    kind: 'memory',
     ...overrides,
   };
 }
@@ -290,7 +298,7 @@ describe('lintBlocks', () => {
   // stand-in.
   describe('real ZX Spectrum figures (spectrumMemoryBlocks)', () => {
     it('reports no error issues for a valid code block at the suggested default address', () => {
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'blk-1',
         name: 'Code',
         address: spectrumMemoryBlocks.defaultAddress,
@@ -302,12 +310,12 @@ describe('lintBlocks', () => {
     });
 
     it('warns (not errors) on a block overlapping the reserved display area at 0x4000', () => {
-      const b: MemoryBlock = {
+      const b: Block = {
         id: 'blk-2',
         name: 'Screen',
         address: 0x4000,
         bytes: Uint8Array.from([1, 2, 3]),
-        kind: 'data',
+        kind: 'memory',
       };
       const issues = lintBlocks([b], spectrumMemoryBlocks, 100);
       expect(issues).toContainEqual(
@@ -320,6 +328,175 @@ describe('lintBlocks', () => {
       expect(
         issues.some((i) => i.blockId === b.id && i.severity === 'error'),
       ).toBe(false);
+    });
+
+    // The Spectrum declares no conditionally free region, and a vocabulary is
+    // no reason to lint it differently: the whole feature is opt-in per machine.
+    it('lints the same with a vocabulary as without one', () => {
+      const b: Block = {
+        id: 'blk-3',
+        name: 'Screen',
+        address: 0x4000,
+        bytes: Uint8Array.from([1, 2, 3]),
+        kind: 'memory',
+      };
+      const vocabulary = programVocabulary('10 PRINT "HI"', spectrum);
+      expect(lintBlocks([b], spectrumMemoryBlocks, 100, vocabulary)).toEqual(
+        lintBlocks([b], spectrumMemoryBlocks, 100),
+      );
+    });
+  });
+
+  /**
+   * The Atom's video RAM: a region *outside* every valid range, so the met
+   * condition is the only thing that permits the placement at all. The BBC's
+   * band is the other shape - already valid, warned about blanketly - and gets
+   * its own group below.
+   */
+  describe('conditionally free memory (real Atom figures)', () => {
+    const videoBlock = (): Block => ({
+      id: 'blk-v',
+      name: 'Data',
+      address: 0x8400,
+      bytes: Uint8Array.from([1, 2, 3, 4]),
+      kind: 'memory',
+    });
+
+    function lintAtom(source: string) {
+      return lintBlocks(
+        [videoBlock()],
+        atomMemoryBlocks,
+        100,
+        programVocabulary(source, atom),
+      );
+    }
+
+    it('accepts a block there while the program stays in text mode', () => {
+      const issues = lintAtom('10 CLEAR 0;PRINT "HI"');
+      expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
+      expect(issues).toEqual([
+        expect.objectContaining({
+          kind: 'conditionally-free',
+          severity: 'warning',
+        }),
+      ]);
+    });
+
+    // The condition is what the placement leans on, so the warning says it: a
+    // program that later grows a graphics mode has a thread to pull rather than
+    // a block silently overwritten at run time.
+    it('names the condition the accepted placement depends on', () => {
+      expect(lintAtom('10 CLEAR 0')[0]?.message).toContain(
+        'free only while the program stays in text mode (CLEAR 0)',
+      );
+    });
+
+    it('treats a program that selects no mode as being in the boot mode', () => {
+      expect(lintAtom('10 PRINT "HI"').map((i) => i.kind)).toEqual([
+        'conditionally-free',
+      ]);
+    });
+
+    it('refuses the block when the program selects a graphics mode', () => {
+      const issues = lintAtom('10 CLEAR 4');
+      expect(issues.map((i) => i.kind)).toEqual(['outside-valid-range']);
+      expect(issues[0]?.severity).toBe('error');
+    });
+
+    // The refusal names what would make the placement legal, which is the only
+    // thing that makes it answerable rather than merely final.
+    it('names the condition in the refusal too', () => {
+      expect(lintAtom('10 CLEAR 4')[0]?.message).toContain(
+        'would be free only while the program stays in text mode (CLEAR 0)',
+      );
+    });
+
+    it('refuses the block when the mode is computed rather than written', () => {
+      expect(lintAtom('10 CLEAR M').map((i) => i.kind)).toEqual([
+        'outside-valid-range',
+      ]);
+    });
+
+    // The loophole the write check closes: a program that never names a mode at
+    // all, and pokes the region directly.
+    it('refuses the block when the program writes inside the region', () => {
+      expect(lintAtom('10 ?#8500=255').map((i) => i.kind)).toEqual([
+        'outside-valid-range',
+      ]);
+    });
+
+    it('refuses the block when no vocabulary is supplied', () => {
+      // Absence of knowledge is not permission: with no program to read, there
+      // is nothing to prove the region free with.
+      const issues = lintBlocks([videoBlock()], atomMemoryBlocks, 100);
+      expect(issues.map((i) => i.kind)).toEqual(['outside-valid-range']);
+    });
+
+    it('leaves a block in the ordinary RAM window alone either way', () => {
+      const b: Block = { ...videoBlock(), address: 0x3800 };
+      expect(
+        lintBlocks(
+          [b],
+          atomMemoryBlocks,
+          100,
+          programVocabulary('10 CLEAR 4', atom),
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  describe('conditionally free memory (real BBC Micro figures)', () => {
+    const bandBlock = (): Block => ({
+      id: 'blk-b',
+      name: 'Data',
+      address: 0x3000,
+      bytes: Uint8Array.from([1, 2, 3, 4]),
+      kind: 'memory',
+    });
+
+    function lintBbc(source: string) {
+      return lintBlocks(
+        [bandBlock()],
+        bbcMicroMemoryBlocks,
+        100,
+        programVocabulary(source, bbcmicro),
+      );
+    }
+
+    // The band is valid RAM already, so what the met condition changes here is
+    // the *warning*: the specific finding replaces the blanket screen one
+    // rather than stacking on top of it.
+    it('replaces the blanket screen warning while the program stays in MODE 7', () => {
+      expect(lintBbc('10 MODE 7').map((i) => i.kind)).toEqual([
+        'conditionally-free',
+      ]);
+    });
+
+    it('keeps the blanket screen warning once a graphics mode is selected', () => {
+      expect(lintBbc('10 MODE 1').map((i) => i.kind)).toEqual([
+        'reserved-overlap',
+      ]);
+    });
+
+    it('keeps the blanket screen warning when no program is read', () => {
+      expect(
+        lintBlocks([bandBlock()], bbcMicroMemoryBlocks, 100).map((i) => i.kind),
+      ).toEqual(['reserved-overlap']);
+    });
+
+    // Above the band the teletext screen itself is live in every mode, so the
+    // blanket warning is the right answer there and the condition does not
+    // reach it.
+    it('still warns about a block in the MODE 7 screen itself', () => {
+      const b: Block = { ...bandBlock(), address: 0x7c00 };
+      expect(
+        lintBlocks(
+          [b],
+          bbcMicroMemoryBlocks,
+          100,
+          programVocabulary('10 MODE 7', bbcmicro),
+        ).map((i) => i.kind),
+      ).toEqual(['reserved-overlap']);
     });
   });
 });

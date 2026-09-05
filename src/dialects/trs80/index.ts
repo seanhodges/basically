@@ -1,7 +1,7 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { hasFatalErrors } from '../types';
 import { trs80Charset } from './charset';
-import { trs80Keywords } from './keywords';
+import { trs80Keywords, trs80Operators } from './keywords';
 import { trs80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
@@ -35,10 +35,12 @@ export const trs80: Dialect = {
   manufacturer: 'Tandy',
   year: 1977,
   blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
+  basicDialect: 'Level II BASIC',
   programRamBytes: 15572,
   memoryBlocks: trs80MemoryBlocks,
   fileExtensions: ['.txt', '.bas'],
   keywords: trs80Keywords,
+  operators: trs80Operators,
   charset: trs80Charset,
   languageSupport: trs80LanguageSupport,
   completionSource: trs80CompletionSource,
@@ -80,9 +82,17 @@ export const trs80: Dialect = {
   addressNotation: 'dec',
   statementSeparator: ':',
 
+  // PEEK reads a byte; USR is absent, because its argument is data passed to
+  // the routine whose address was set up by POKE or DEF USR.
+  memoryReads: { forms: ['peek'] },
+
   // The interpreter introspects its own state, so the step debugger and the
   // variable watcher are available.
   debuggable: true,
+
+  // No trap involved: the interpreter services OPEN/PRINT#/INPUT#/CLOSE/KILL
+  // itself, so the store is reached from statement level rather than from a CPU.
+  capturesDataFiles: true,
 
   createEmulator(opts) {
     return new Trs80InterpreterMachine(opts.files);

@@ -8,9 +8,9 @@ import {
 import { buildAtm } from './atm';
 import { buildAtomImage } from './audio/cassetteEncoder';
 import { detokenizeAtomDskWithReport } from './detokenizer';
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 
-const block = (over: Partial<MemoryBlock>): MemoryBlock => ({
+const block = (over: Partial<Block>): Block => ({
   id: 'b1',
   name: 'sprite',
   address: 0x5000,
@@ -29,7 +29,7 @@ describe('atom .dsk codec', () => {
         name: 'data',
         address: 0x6000,
         bytes: Uint8Array.of(1, 2, 3, 4),
-        kind: 'data',
+        kind: 'memory',
       }),
     ];
     const entries = composeAtomDskFiles(image, blocks, 'GAME');

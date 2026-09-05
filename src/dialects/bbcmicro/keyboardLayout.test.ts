@@ -2,13 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { bbcKeyboardLayout } from './keyboardLayout';
 import { bbcCharset } from './charset';
 import { matrixForToken } from '../../emulator/bbc/keyboard';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
+import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = bbcKeyboardLayout;
 const functionKeys = layout.functionKeys ?? [];
 const allKeys = [...layout.rows.flat(), ...functionKeys];
 /** Filler cells (spacers) emit nothing and carry no modifier. */
 const realKeys = allKeys.filter((k) => k.emits.length > 0 || k.modifier);
+
+/**
+ * Every token a key can press: its own, plus any a layer's legend names in
+ * place of them (the CURSOR arrows over WASD). A legend's tokens bypass
+ * `emits`, so a check that walked `emits` alone would not see them.
+ */
+const tokensOf = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
+];
 
 describe('bbcmicro keyboard layout', () => {
   it('uses the standard 40-column template', () => {
@@ -98,10 +112,9 @@ describe('bbcmicro keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
-    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('KeyF')!, 'cursor')).toEqual([]);
   });
 
   it('labels are index-aligned with the layers', () => {
@@ -129,27 +142,33 @@ describe('bbcmicro keyboard layout', () => {
 
   it('every emitted token maps to the BBC matrix', () => {
     for (const key of realKeys) {
-      for (const token of key.emits) {
+      for (const token of tokensOf(key)) {
         expect(matrixForToken(token), `${key.id} → ${token}`).toBeDefined();
       }
     }
   });
 
-  it('surfaces the punctuation overflow as SYM-mode editor inserts', () => {
+  it('offers the punctuation at the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'sym')).toEqual({
+    // Page 1: '-' leads the flanked row (Z slot), '+' the Q row, ':' on the V
+    // slot - the same positions every machine uses.
+    expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit3')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'symbols')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyV')!, 'symbols')).toEqual({
       insert: ':',
     });
-    // Letters with no SYM legend keep typing through the base-layer fallback.
-    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'sym')).toEqual({
-      insert: 'A',
+    // £ on the Y slot presses the machine's own pound key unshifted.
+    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'symbols')).toEqual({
+      insert: '£',
     });
+    // Digits keep typing through the base-layer fallback in SYM mode.
+    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'symbols')).toEqual(
+      { insert: '1' },
+    );
   });
 
   it('spot checks the common bottom row', () => {

@@ -191,6 +191,23 @@ describe('atom tokenizer statement validation', () => {
     expect(tokenizeProgram(src).errors).toEqual([]);
   });
 
+  it('lets a * command and a PRINT keep the ";" in what follows them', () => {
+    // ';' separates statements, but it is also what a `*` command hands to the
+    // OS and what PRINT uses between items ("no gap"). Neither is a statement
+    // break, and reporting one as a bad statement would flag correct programs.
+    const src = [
+      '10 *LOAD"X";3',
+      '20 *FS 3;12',
+      '30 PRINT "A";B',
+      '40 PRINT $A;3',
+      '50 P."HI";3',
+    ].join('\n');
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    // The body is stored verbatim either way - the scan never moves a byte.
+    expect(detokenizeProgram(bytes)).toBe(src + '\n');
+  });
+
   it('does not flag the function words COUNT/PTR/EXT as bad variable names', () => {
     // The Atom lints variables in strict single-letter mode; these multi-letter
     // words are exempt only because they are in the keyword table, so a program
@@ -212,6 +229,19 @@ describe('atom tokenizer statement validation', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]!.fatal).toBe(false);
     expect(errors[0]!.message).toMatch(/lower-case keyword/i);
+  });
+
+  it('changes nothing about the bytes it stores for one', () => {
+    // The report says what the machine will make of the program; it is not a
+    // licence to store something else. Atom BASIC keeps a statement's body
+    // verbatim, so the two lines differ in exactly the case of those five
+    // letters and in nothing else - and the reported one still builds.
+    const lower = tokenizeProgram('10 print "HI"\n').bytes;
+    const upper = tokenizeProgram('10 PRINT "HI"\n').bytes;
+    expect(
+      Array.from(lower, (b) => (b >= 0x61 && b <= 0x7a ? b - 0x20 : b)),
+    ).toEqual(Array.from(upper));
+    expect(atom.tokenize('10 print "hi"\n').image.length).toBeGreaterThan(0);
   });
 
   it('still builds a runnable image when only statement lint fires', () => {

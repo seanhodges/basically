@@ -1,16 +1,29 @@
 /* The editor pane's tab strip (BASIC + one tab per memory block + the new-
    block plus button). Follows the MobileTabBar look - underline marks the
-   active tab - but is always visible rather than media-gated, and scrolls
-   horizontally when a document carries many blocks. */
+   active tab - but is always visible rather than media-gated. It does not
+   scroll: it shows the tabs it has room for and lists the rest in the overflow
+   menu, so `position: relative` here is what the offstage tabs measure against. */
 .tabBar {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 2px;
   flex: 0 0 auto;
-  overflow-x: auto;
+  overflow: hidden;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   padding: 0 4px;
+}
+
+/* A tab the strip has no room for. Still rendered and still laid out, because
+   its width is what decides whether it fits: a tab measured only while shown
+   reads as zero once hidden, is then judged to fit, and the strip oscillates.
+   Out of flow, out of reach and unannounced - the overflow menu is where it is
+   chosen from. */
+.offstage {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tabBar button {
@@ -33,9 +46,14 @@
   border-bottom-color: var(--accent);
 }
 
-.kindGlyph {
+/* The tab's kind mark. An inline SVG sits on the text's baseline only if it is
+   laid out as a box of its own: as an inline child it would ride the baseline
+   and sit proud of the name beside it. */
+.kindMark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
   opacity: 0.7;
-  font-size: 12px;
 }
 
 /* Block names come from tape headers and can be long - keep tabs usable. */
@@ -73,7 +91,9 @@
    the toolbar dropdown look (Toolbar.module.css .menuItems). */
 .contextMenu {
   position: fixed;
-  z-index: 100;
+  /* Anchored at the pointer rather than inside the tab bar, so it needs its own
+     band on the overlay scale (src/styles.css) to clear the editor's popups. */
+  z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
   min-width: 140px;
@@ -87,6 +107,10 @@
 .contextMenu button {
   display: flex;
   align-items: center;
+  /* The overflow menu lists tabs, mark and all, and the add menu leads each
+     item with the mark the tab it creates will wear, so both space them as the
+     strip does; the action menus have no mark and the gap costs them nothing. */
+  gap: 6px;
   background: none;
   border: none;
   border-radius: 4px;
@@ -99,6 +123,20 @@
 .contextMenu button:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* A scratch tab mid-rename: sized like the tab it replaces so the strip does
+   not reflow while the user types. */
+.renameInput {
+  align-self: center;
+  width: 14ch;
+  margin: 0 6px;
+  padding: 3px 6px;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 13px;
 }
 
 /* Divider between the download actions and Settings / Delete. */

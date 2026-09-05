@@ -34,8 +34,10 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  * The function keys ($85–$8C) decode as `{f1}`–`{f8}` and shifted space ($A0)
  * as `{shift-space}`. On **parse** the table additionally accepts the canonical
  * petcat/VICE control names (`{wht}`, `{rvof}`, `{swlc}`…), the `{CBM-x}` /
- * `{SHIFT-x}` key-graphic names, and decimal `{nnn}` codes, so real archive
- * listings can be pasted in; decode always emits the canonical form above.
+ * `{SHIFT-x}` key-graphic names (`x` being any keycap with a graphic on its
+ * front face - a letter or one of the symbol keys, e.g. `{shift-*}`), and
+ * decimal `{nnn}` codes, so real archive listings can be pasted in; decode
+ * always emits the canonical form above.
  */
 
 // Code ($00-$FF) -> canonical editor text. Generated from the C64 font glyphs
@@ -86,6 +88,11 @@ for (let i = 0; i < 26; i++) {
  * forum posts) use these shorter spellings; accepting them lets such source be
  * pasted straight in. Decode still emits the canonical name above, so the
  * round-trip stays stable — these are extra inputs, never outputs.
+ *
+ * The reverse-video pair carries the most spellings in the wild: petcat itself
+ * writes `{rvon}`/`{rvof}` but reads its long-form alternates `{rvs on}` and
+ * `{rvs off}`, and the spaceless `{rvson}`/`{rvsoff}` are what CBM prg Studio
+ * and most forum listings use. All of them mean CHR$(18)/CHR$(146).
  */
 // prettier-ignore
 export const PETCAT_ALIASES: Record<string, number> = {
@@ -93,19 +100,23 @@ export const PETCAT_ALIASES: Record<string, number> = {
   pur: 0x9c, lred: 0x96, orng: 0x81, brn: 0x95, gry1: 0x97, gry2: 0x98,
   gry3: 0x9b, lgrn: 0x99, lblu: 0x9a, rght: 0x1d, rvof: 0x92, sret: 0x8d,
   swlc: 0x0e, swuc: 0x8e, space: 0x20,
+  rvson: 0x12, 'rvs on': 0x12, rvsoff: 0x92, 'rvs off': 0x92,
 };
 for (const [name, code] of Object.entries(PETCAT_ALIASES)) {
   nameToCode.set(name, code);
 }
-// {CBM-x} / {SHIFT-x}: the graphic on a letter key's C= or SHIFT front face,
-// keyed off the same table the virtual keyboard uses so the two never drift.
-// Every Commodore graphic is printed on a key, so `key` is always set here;
-// the optional case is for machines with no graphics keys at all.
+// {CBM-x} / {SHIFT-x}: the graphic on a key's C= or SHIFT front face, keyed off
+// the same table the virtual keyboard uses so the two never drift. `x` is the
+// character on the keycap, so it spans the six symbol keys that carry front-face
+// graphics as well as the letters: `{shift-*}` is $C0 and `{cbm-*}` is $DF, and
+// the same goes for `+ - @ £ ↑`. Every Commodore graphic is printed on a key,
+// so `key` is always set here; the optional case is for machines with no
+// graphics keys at all.
 for (const { key, code } of C64_COMMODORE_GRAPHICS) {
-  if (key && /^[A-Z]$/.test(key)) nameToCode.set(`cbm-${key.toLowerCase()}`, code); // prettier-ignore
+  if (key) nameToCode.set(`cbm-${key.toLowerCase()}`, code);
 }
 for (const { key, code } of C64_SHIFT_GRAPHICS) {
-  if (key && /^[A-Z]$/.test(key)) nameToCode.set(`shift-${key.toLowerCase()}`, code); // prettier-ignore
+  if (key) nameToCode.set(`shift-${key.toLowerCase()}`, code);
 }
 
 /** Canonical editor text for a PETSCII code (glyph or `{...}` escape). */

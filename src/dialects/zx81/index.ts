@@ -6,7 +6,7 @@ import {
   type TokenizeResult,
 } from '../types';
 import { zx81Charset } from './charset';
-import { zx81Keywords } from './keywords';
+import { zx81Keywords, zx81Operators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import {
   detokenizeProgram,
@@ -37,6 +37,9 @@ export const zx81: Dialect = {
   manufacturer: 'Sinclair',
   year: 1981,
   blurb: 'Sinclair’s million-selling breakthrough. ZX81 BASIC.',
+  basicDialect: 'ZX81 BASIC',
+  basicFamily: 'Sinclair BASIC',
+  docsReference: 'sinclair',
   programRamBytes: 15360,
   memoryMap: zx81MemoryMap,
   memoryBlocks: zx81MemoryBlocks,
@@ -44,8 +47,13 @@ export const zx81: Dialect = {
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
   statementSeparator: null,
+
+  // PEEK takes its address without parentheses, and USR calls machine code at
+  // the address it is given (returning BC) — the `RAND USR addr` idiom.
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: zx81Keywords,
+  operators: zx81Operators,
   charset: zx81Charset,
   languageSupport: zx81LanguageSupport,
   completionSource: zx81CompletionSource,

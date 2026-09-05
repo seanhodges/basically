@@ -5,11 +5,11 @@
   </picture>
 </p>
 
-A web IDE for microcomputer BASIC - write, run and ship games and programs for
-real retro hardware from your browser.
+A web IDE for retro BASIC - write, run and ship games and programs for real
+hardware from your browser.
 
-Support includes the **Sinclair ZX81**, **ZX Spectrum**, **BBC
-Micro**, among others.
+Support includes the **Commodore 64**, **ZX81**, **ZX Spectrum**, **BBC
+Micro**, and many more.
 
 <p align="center">
   <img alt="The Basically IDE: a Commodore 64 game in the editor, running in the built-in emulator, with the on-screen keyboard" src="docs/public/screenshot.jpg" width="900" />
@@ -91,9 +91,7 @@ Support welcome! Please see the [contributing](docs/contributing/contributing.md
 ## ROM licensing
 
 The bundled ROM images under `public/roms/` are third-party copyrighted works,
-included unmodified solely for use with the built-in emulators - the Sinclair
-ROMs under Amstrad's long-standing permission for emulator use, the Acorn ROMs
-on the same de-facto basis as other BBC Micro emulators. Per-ROM copyright and
+included unmodified solely for non-commercial educational use. Per-ROM copyright and
 provenance is documented in
 [ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
 

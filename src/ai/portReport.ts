@@ -27,12 +27,13 @@
  *   and one keystroke from being fixed - and there is no adequate port to be had
  *   from it. So it stops and says why.
  */
-import type { Dialect } from '../dialects/types';
-import type { ProgramVocabulary } from '../app/programVocabulary';
+import type { Dialect, Block } from '../dialects/types';
+import type { ProgramSize, ProgramVocabulary } from '../app/programVocabulary';
 import type { PortSide } from '../reference/portDescription';
 import { vocabularyReply } from '../app/programVocabulary';
 import { buildUserMessage } from './promptBuilder';
-import { loadEscapePage, loadReferencePage, pageFor } from './machineReference';
+import { loadEscapePage, loadReferencePage } from './machineReference';
+import { referencePageOf } from '../dialects/referencePage';
 
 /** What the assistant is asked to do, once it has been told what the port is. */
 function instructionFor(toLabel: string): string {
@@ -43,9 +44,28 @@ function instructionFor(toLabel: string): string {
   );
 }
 
+/**
+ * The rule that stops a posed decision being settled silently.
+ *
+ * Some findings turn on what the program is *for* rather than on what its text
+ * says - whether its fractions are essential, whether a value is rescaled or
+ * the arithmetic around it restructured - so the report states the fact it can
+ * compute and poses the rest as a `Decide:` line. Handing one over only helps
+ * if the assistant either settles it from the program's own behaviour or says
+ * which reading it took: a choice made in silence is indistinguishable from a
+ * question nobody asked.
+ *
+ * Only sent with a report, because only a report carries such a line: the
+ * fallback message has no findings for it to refer to.
+ */
+const SETTLE_DECISIONS =
+  'Where a finding above says "Decide:", settle it from what this program ' +
+  "itself does; where the program's behaviour cannot settle it, say which " +
+  'reading you chose alongside the converted program.';
+
 /** One end of the port, with the tables its reference page owns. */
 async function sideFor(dialect: Dialect): Promise<PortSide | null> {
-  const page = pageFor(dialect);
+  const page = referencePageOf(dialect);
   const [table, escapes] = await Promise.all([
     loadReferencePage(page),
     loadEscapePage(page),
@@ -56,9 +76,14 @@ async function sideFor(dialect: Dialect): Promise<PortSide | null> {
     name: dialect.name,
     manufacturer: dialect.manufacturer,
     year: dialect.year,
+    basicDialect: dialect.basicDialect,
     page,
     table,
     escapes,
+    // Taken from the dialect rather than loaded: this side of the app already
+    // holds both machines, and a map is static data the dialect declares. A
+    // machine without one leaves the program's writes unjudged.
+    memoryMap: dialect.memoryMap,
   };
 }
 
@@ -82,6 +107,7 @@ export async function loadPortReport(
   from: Dialect,
   to: Dialect,
   vocabulary: ProgramVocabulary,
+  size: ProgramSize | null = null,
 ): Promise<string | null> {
   if (from.id === to.id) return null;
   const [{ describePort }, fromSide, toSide] = await Promise.all([
@@ -90,7 +116,7 @@ export async function loadPortReport(
     sideFor(to),
   ]);
   if (fromSide === null || toSide === null) return null;
-  return describePort(fromSide, toSide, vocabulary);
+  return describePort(fromSide, toSide, vocabulary, size);
 }
 
 /** Why a port was not carried out. See {@link buildConversionMessage}. */
@@ -149,6 +175,14 @@ export async function buildConversionMessage(input: {
   /** What the request calls the target, as the guide named it. */
   toLabel: string;
   source: string;
+  /**
+   * The document's machine-code and data blocks, where it carries any. They are
+   * attached to the program rather than written in it, so they cannot be read
+   * out of `source` - and they are the one part of a document that is pure
+   * machine dependence, so a report composed without them is missing the work
+   * the port cannot avoid.
+   */
+  blocks?: readonly Block[];
 }): Promise<ConversionMessage> {
   const instruction = instructionFor(input.toLabel);
   const plain = () => buildUserMessage(instruction, input.source, []);
@@ -162,24 +196,52 @@ export async function buildConversionMessage(input: {
   if (from === null) return { ok: true, userContent: plain() };
 
   // The same verdict the guide narrows on: `tokenize().errors`, never `lint()`,
-  // so a program carrying only variable warnings still converts.
-  const reply = vocabularyReply(input.source, from, from.id);
+  // so a program carrying only variable warnings still converts. Sized for the
+  // target as well, which is what the guide's fit report is computed from and
+  // what decides whether the target's conditionally free memory is the
+  // program's business.
+  const reply = vocabularyReply(
+    input.source,
+    from,
+    from.id,
+    input.to.id,
+    input.blocks ?? [],
+  );
   if (reply.status === 'unreadable') {
     return { ok: false, problem: 'unreadable', message: cannotRead(from) };
   }
 
-  const report = await loadPortReport(from, input.to, {
-    dialectId: reply.dialectId,
-    keywords: reply.keywords,
-    escapeCodes: reply.escapeCodes,
-    characters: reply.characters,
-    multiStatementLines: reply.multiStatementLines,
-  });
+  const report = await loadPortReport(
+    from,
+    input.to,
+    {
+      dialectId: reply.dialectId,
+      keywords: reply.keywords,
+      spellings: reply.spellings,
+      variables: reply.variables,
+      divides: reply.divides,
+      fractionalLiteral: reply.fractionalLiteral,
+      largeNumbers: reply.largeNumbers,
+      escapeCodes: reply.escapeCodes,
+      characters: reply.characters,
+      multiStatementLines: reply.multiStatementLines,
+      positions: reply.positions,
+      emptyLoopLines: reply.emptyLoopLines,
+      extraStatements: reply.extraStatements,
+      lineNumbers: reply.lineNumbers,
+      writeSites: reply.writeSites,
+      readSites: reply.readSites,
+      callSites: reply.callSites,
+      codeBlocks: reply.codeBlocks,
+      screenModes: reply.screenModes,
+    },
+    reply.targetSize,
+  );
   if (report === null) return { ok: true, userContent: plain() };
   return {
     ok: true,
     userContent: buildUserMessage(
-      `${report}\n\n${instruction}`,
+      `${report}\n\n${instruction} ${SETTLE_DECISIONS}`,
       input.source,
       [],
     ),

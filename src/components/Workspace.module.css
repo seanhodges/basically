@@ -128,8 +128,10 @@
 
 /* The 40px touch floor is for stand-alone use; inside the fixed-height overlay
    the rows must be free to shrink so a taller top strip (e.g. the C64 function
-   keys) never overflows up over it. */
-.workspaceVkOverlay :global(.vk-key) {
+   keys) never overflows up over it. The key rows only: the strip's own keys
+   carry a fixed height, and stretching them to their line would collapse the
+   strip on a layout with no mode-tab button holding it open. */
+.workspaceVkOverlay :global(.vk-row .vk-key) {
   height: 100%;
   min-height: 0;
 }
@@ -244,6 +246,17 @@
     font-size: 22px;
     box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
     z-index: 20;
+  }
+
+  /* Green means the machine is not running: once it is, Pause and Resume
+     share the accent so the button reads as "this run is under way" at a
+     glance. Dark ink on both, as the green state has - white on the accent only
+     just clears the large-text contrast threshold. */
+  .fabRun[data-state='pause'],
+  .fabRun[data-state='continue'] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #06152e;
   }
 
   /* Lift the run button above the keyboard overlay (bottom 46%) on the editor

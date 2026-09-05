@@ -3,7 +3,7 @@ import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
-import { zx81Keywords } from './keywords';
+import { zx81Keywords, zx81Operators } from './keywords';
 
 export const zx81CompletionSource: CompletionSource = buildCompletionSource(
   zx81Keywords,
@@ -11,5 +11,7 @@ export const zx81CompletionSource: CompletionSource = buildCompletionSource(
 );
 
 export function zx81LanguageSupport(): Extension {
-  return buildBasicLanguage(zx81Keywords, zx81CompletionSource);
+  return buildBasicLanguage(zx81Keywords, zx81CompletionSource, {
+    operators: zx81Operators,
+  });
 }

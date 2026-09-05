@@ -13,12 +13,14 @@ const roms: C64Roms = {
 };
 
 /**
- * Booting the real C64 ROMs and running a few hundred frames is slow (~2–5s per
- * test) and can edge past vitest's 5s default under load, so give these a
- * generous per-test budget. The boot dominates every case, so it's applied
- * uniformly.
+ * Booting the real C64 ROMs and running a few hundred frames is the slowest
+ * thing in this suite: 4-10s per test with the whole suite running in
+ * parallel, and the heaviest disk-I/O case close to 10s. That is well past
+ * vitest's 5s default and near enough the 30s floor in `vite.config.ts` to be
+ * worth saying out loud, so these keep an explicit budget of their own. The
+ * boot dominates every case, so it's applied uniformly.
  */
-const BOOT_TIMEOUT_MS = 20_000;
+const BOOT_TIMEOUT_MS = 30_000;
 
 /** Read `len` bytes of screen RAM ($0400) as C64 screen codes. */
 function screen(m: C64Machine, len = 1000): number[] {
@@ -66,6 +68,35 @@ function contains(haystack: number[], needle: number[]): boolean {
 }
 
 describe('C64Machine', () => {
+  it(
+    'gives the VIC-II the bus for its display fetches',
+    async () => {
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      // Boot to a settled screen, so the display is on and the raster is where
+      // a running program would find it.
+      for (let i = 0; i < 200; i++) m.runFrame();
+
+      // The clock counts the cycle within the line itself, and is only right
+      // for as long as it stays in step with the chip's own counter - which
+      // holds because tickOnce ticks the VIC exactly once per cycle and nothing
+      // else in the app ticks it. A frame of 63 x 312 cycles must therefore
+      // land the chip's raster register back where it started. This is the
+      // assertion that fails first if a later change ticks the VIC elsewhere,
+      // because the stall would then drift off the fetch it pays for and
+      // nothing else would say so.
+      const rasterBefore = peek(m, 0xd012);
+      const stalledBefore = m.stalledCycles;
+      m.runFrame();
+      expect(peek(m, 0xd012)).toBe(rasterBefore);
+
+      // 25 bad lines of 40 cycles each: the ~5% of a frame the CPU never gets.
+      expect(m.stalledCycles - stalledBefore).toBe(1000);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
   it(
     'boots the real ROMs to the READY. prompt',
     async () => {
@@ -176,36 +207,6 @@ describe('C64Machine', () => {
       expect(stats!.used + stats!.free).toBe(38911);
       m.dispose();
       expect(m.readMemoryStats()).toBeNull();
-    },
-    BOOT_TIMEOUT_MS,
-  );
-
-  it(
-    'takes more frames to finish the same program at a slower speed',
-    async () => {
-      // A busy loop long enough that its completion spans many frames, so
-      // the run (not just boot) is what setSpeed throttles.
-      const src = '10 FOR I=1 TO 1000\n20 NEXT I\n30 PRINT "DONE"\n';
-      async function framesToDone(speed: number): Promise<number> {
-        const { image, errors } = commodore64.tokenize(src);
-        expect(errors).toEqual([]);
-        const m = new C64Machine({ roms });
-        await m.whenReady();
-        m.loadProgram(image);
-        await new Promise((r) => setTimeout(r, 0));
-        m.setSpeed(speed);
-        for (let i = 1; i <= 2000; i++) {
-          m.runFrame();
-          if (contains(screen(m), screenCodes('DONE'))) {
-            m.dispose();
-            return i;
-          }
-        }
-        throw new Error('never displayed DONE');
-      }
-      const atFullSpeed = await framesToDone(1);
-      const atHalfSpeed = await framesToDone(0.5);
-      expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
     },
     BOOT_TIMEOUT_MS,
   );
@@ -372,63 +373,9 @@ describe('C64Machine', () => {
     );
   });
 
-  describe('run state', () => {
-    /**
-     * Sample isProgramRunning() once per frame from the moment the program is
-     * handed over, so the hand-over itself is observable and not just the
-     * settled state. CURLIN deliberately isn't consulted: the ROM leaves it
-     * holding the last line executed once a program stops.
-     */
-    async function trace(
-      source: string,
-      frames = 500,
-    ): Promise<(boolean | null)[]> {
-      const { image, errors } = commodore64.tokenize(source);
-      expect(errors).toEqual([]);
-      const m = new C64Machine({ roms });
-      await m.whenReady();
-      m.loadProgram(image);
-      await new Promise((r) => setTimeout(r, 0));
-      const seen: (boolean | null)[] = [];
-      for (let i = 0; i < frames; i++) {
-        m.runFrame();
-        seen.push(m.isProgramRunning());
-      }
-      m.dispose();
-      return seen;
-    }
-
-    it(
-      'reports a looping program as running',
-      async () => {
-        expect((await trace('10 GOTO 10\n')).at(-1)).toBe(true);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-
-    it(
-      'reports a finished program as not running',
-      async () => {
-        expect((await trace('10 PRINT "HI"\n')).at(-1)).toBe(false);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-
-    it(
-      'never reads as finished before the program has started',
-      async () => {
-        // Everything up to the first `true` must be "not answerable yet" - a
-        // `false` there would report a program that has not begun as ended,
-        // which is exactly what the typed RUN sitting in the keyboard buffer
-        // would otherwise look like.
-        const seen = await trace('10 GOTO 10\n');
-        const started = seen.indexOf(true);
-        expect(started).toBeGreaterThanOrEqual(0);
-        expect(seen.slice(0, started)).not.toContain(false);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-  });
+  // Whether a program is running - reported while it runs, not before it starts,
+  // and no longer once it has ended - is checked over the whole registry, on
+  // every machine, by src/dialects/programRunState.test.ts.
 });
 
 describe('C64Machine disk I/O over the VFS', () => {

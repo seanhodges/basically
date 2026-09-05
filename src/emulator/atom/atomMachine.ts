@@ -8,7 +8,7 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineScreenText,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import {
   AtomHostKeyboard,
@@ -19,13 +19,18 @@ import {
 import { plainChar, sextantChar } from '../../dialects/atom/charset';
 import { AtomDiskDrive, type Bus } from './diskDrive';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
-// The dialect owns the Atom's address facts. RAM_TOP is the VDG screen base:
-// RAM runs unbroken from TEXT_START up to it (confirmed by write-probing the
-// booted machine). The dialect's `programRamBytes` budget is deliberately more
-// conservative; the live readout reports what this machine actually has.
+import { ProgramEndLatch } from '../programEndLatch';
+// The dialect owns the Atom's address facts. BASIC text runs from TEXT_START up
+// to TEXT_TOP, the ceiling of the 5K of internal RAM a fully expanded Atom
+// holds; VIDEO_TOP is the ceiling of its 6K of video RAM.
 import {
+  BLOCK_ZERO_TOP,
+  EXTENSION_SLOT_BASE,
+  FP_VARS_BASE,
   TEXT_START,
-  VIDEO_BASE as RAM_TOP,
+  TEXT_TOP,
+  VIDEO_BASE,
+  VIDEO_TOP,
 } from '../../dialects/atom/addresses';
 
 /** jsbeeb's Video renders into a fixed 1024×625 RGBA framebuffer… */
@@ -48,7 +53,7 @@ export const ATOM_DISPLAY_WIDTH = 256;
 export const ATOM_DISPLAY_HEIGHT = 192;
 
 /** MC6847 text-mode matrix: 32x16 codes from #8000. */
-const ATOM_SCREEN_BASE = 0x8000;
+const ATOM_SCREEN_BASE = VIDEO_BASE;
 const ATOM_SCREEN_COLS = 32;
 const ATOM_SCREEN_ROWS = 16;
 
@@ -163,6 +168,19 @@ const SENT_FIND = 0xff9a;
 const SENT_BGET = 0xff9e;
 const SENT_BPUT = 0xffa0;
 
+/**
+ * Where BASIC gives up on a program: `LDA #$3E` at the head of the ROM's
+ * command loop, loading `'>'` - the prompt it is about to print. Every way a
+ * program ends comes back through it (falling off the end, END, an error, and
+ * ESCAPE both out of a loop and at an INPUT prompt), and nothing that is still
+ * running does.
+ *
+ * The command loop rather than any address inside the interpreter, because the
+ * Atom's ESCAPE unwinds to here without passing the obvious candidates - and
+ * ESCAPE is how a user stops a program on this machine.
+ */
+const ROM_COMMAND_PROMPT = 0xc2cf;
+
 /** Cap on traps serviced within one {@link AtomMachine.runCycles} call, so a
  *  bug that kept reporting a stop for a non-trap reason couldn't spin forever. */
 const MAX_TRAPS_PER_CALL = 100_000;
@@ -191,6 +209,7 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
 export class AtomMachine implements MachineEmulator {
   readonly displayWidth = ATOM_DISPLAY_WIDTH;
   readonly displayHeight = ATOM_DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
   /** Native rate of the speaker/sine stream (set from the chip in the ctor). */
   readonly audioSampleRate: number;
 
@@ -209,13 +228,16 @@ export class AtomMachine implements MachineEmulator {
   private injecting = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
   private disposed = false;
 
   /** VFS-backed filing system, or null when no store was wired. */
   private readonly drive: AtomDiskDrive | null;
   /** The debugInstruction hook registration, removed on dispose(). */
   private debugHook: { remove(): void } | null = null;
+  /** Run state, latched when the ROM reaches {@link ROM_COMMAND_PROMPT}. */
+  private readonly runLatch = new ProgramEndLatch();
+  /** The run latch's own debugInstruction hook, removed on dispose(). */
+  private runLatchHook: { remove(): void } | null = null;
   /**
    * Live memory-activity recorder for the memory-map overlay, created lazily
    * the first time the host arms recording (it taps jsbeeb's read/write hooks).
@@ -245,8 +267,9 @@ export class AtomMachine implements MachineEmulator {
       { isAtom: true },
     );
     // The Atom's 1-bit speaker + sine channel, driven by the PPIA. Each filled
-    // buffer is accumulated and drained by readAudio(); initialise() wires its
-    // scheduler, so runFrame() only has to catchUp() to flush per frame.
+    // buffer is accumulated and drained by readAudio(), which is also what
+    // catches the chip up - see there for why the flush is at the drain rather
+    // than in runFrame. initialise() wires its scheduler.
     this.soundChip = new AtomSoundChip(
       (buffer) => {
         this.audioChunks.push(buffer);
@@ -263,10 +286,17 @@ export class AtomMachine implements MachineEmulator {
     this.audioSampleRate = this.soundChip.soundchipFreq;
     this.cpu = fake6502(model, { video, soundChip: this.soundChip });
     if (!this.cpu.atomppia) throw new Error('Atom CPU has no PPIA');
+    // Registered before the filing trap so it sees every instruction: a handler
+    // that claims one (by returning true) stops the ones after it being called.
+    this.runLatchHook = this.cpu.debugInstruction.add((pc: number) => {
+      if (pc === ROM_COMMAND_PROMPT) this.runLatch.stopped();
+      return false;
+    });
     if (this.drive) this.debugHook = this.installFilingSystemTrap(this.drive);
     // The Atom keyboard hangs off the PPIA, not the SysVia.
     this.hostKeyboard = new AtomHostKeyboard(this.cpu.atomppia);
     this.ready = this.cpu.initialise().then(() => {
+      this.unfitExpansionRam();
       this.initialised = true;
     });
     this.ready.catch((e) => {
@@ -282,6 +312,38 @@ export class AtomMachine implements MachineEmulator {
   /** Direct CPU access for tests and debugging. */
   get processor(): Cpu6502 {
     return this.cpu;
+  }
+
+  /**
+   * Take the RAM a real Atom never had back out of the address space.
+   *
+   * jsbeeb's Atom model fills 0x0000-0x9FFF with RAM unconditionally, which is
+   * an Atom carrying an off-board expansion board. A fully expanded stock
+   * machine has 12K, in three separate runs: 1K of block-zero RAM at #0000, 5K
+   * of internal RAM at #2800 (floating-point variables, then BASIC text up to
+   * {@link TEXT_TOP}), and 6K of video RAM at {@link VIDEO_BASE} up to
+   * {@link VIDEO_TOP}. What lies between those runs is the address space the
+   * expansion boards claimed - the teletext VDG RAM, the disc controller, the
+   * peripheral window and the DOS file buffers - none of it fitted here.
+   *
+   * Marking those pages as device pages routes them through jsbeeb's device
+   * handlers, which drop writes and read back the address high byte - the open
+   * bus a 6502 sees with nothing driving it. Without this the byte counter
+   * would promise room the hardware does not have, and a program that fits
+   * here would not fit on the machine it claims to be.
+   *
+   * A hard reset re-runs jsbeeb's own `setupMemoryMap`, so every `reset(true)`
+   * has to be followed by this.
+   */
+  private unfitExpansionRam(): void {
+    const unfit = (from: number, to: number) => {
+      for (let page = from >> 8; page < to >> 8; page++) {
+        this.cpu.memStat[page] = this.cpu.memStat[256 + page] = 0;
+      }
+    };
+    unfit(BLOCK_ZERO_TOP, FP_VARS_BASE);
+    unfit(TEXT_TOP, VIDEO_BASE);
+    unfit(VIDEO_TOP, EXTENSION_SLOT_BASE);
   }
 
   /** The Atom PPIA, which owns the key matrix and tape/speaker ports. */
@@ -432,17 +494,36 @@ export class AtomMachine implements MachineEmulator {
   }
 
   /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * cell: Atom BASIC records no such state, but the ROM address at which it
+   * gives up and prints its prompt again is one (see
+   * {@link ROM_COMMAND_PROMPT}).
+   *
+   * This machine has no {@link MachineEmulator.currentLine}, so there is no
+   * BASIC line to promote "running" from and it is reported from the moment the
+   * RUN is submitted. That can call a program running a fraction of a second
+   * early - between the RETURN going down and the interpreter starting - which
+   * is the safe direction: it can never produce a false finish. Whether a
+   * program is running and which line it is on are independent questions, and
+   * this machine answers the first without answering the second.
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.initialised || this.disposed) return null;
+    return this.runLatch.read(true);
+  }
+
+  /**
    * Actual RAM figures from BASIC's own top-of-text pointer (`#0D/#0E`), which
    * the interpreter advances past the program's `0D FF` end marker and again
    * as `DIM` allocates arrays — so TEXT_START..TOP is in use and TOP to
-   * {@link RAM_TOP} is free. `readmem` is a side-effect-free main-RAM read.
+   * {@link TEXT_TOP} is free. `readmem` is a side-effect-free main-RAM read.
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.initialised || this.injecting || this.disposed) return null;
     const top =
       this.cpu.readmem(TOP_OF_TEXT) | (this.cpu.readmem(TOP_OF_TEXT + 1) << 8);
     const used = top - TEXT_START;
-    const free = RAM_TOP - top;
+    const free = TEXT_TOP - top;
     // Implausible pointer means the kernel hasn't initialised BASIC yet.
     if (top < TEXT_START || free < 0) return null;
     return { used, free };
@@ -470,23 +551,49 @@ export class AtomMachine implements MachineEmulator {
     this.loadGeneration++;
     this.loadError = '';
     this.clearAudio();
-    // Drop any open channels without flushing: the IDE clears the VFS around a
-    // reset, so a late flush would resurrect stale data.
+    // Drop any open channels without flushing: a reset abandons the session
+    // that had them open, so a half-written buffer stored now would look like
+    // a file the program closed.
     this.drive?.closeAll();
     void this.ready.then(() => {
-      if (!this.disposed) this.cpu.reset(true);
+      if (this.disposed) return;
+      this.cpu.reset(true);
+      this.unfitExpansionRam();
     });
   }
 
+  /**
+   * The one way this machine is advanced, and so the one place it keeps its own
+   * loop rather than driving `src/emulator/machineLoop.ts`.
+   *
+   * The helper exists to stop a debug slice drifting from the frame it is meant
+   * to be. The Atom has no {@link MachineEmulator.currentLine} to pause on, so
+   * it offers no debugger and no profiler: there is no second path to keep in
+   * step. What the helper would cost is real - it would ask this core for
+   * several thousand small budgets a frame instead of one, and split the
+   * filing-system trap's retry allowance across every one of them - so it buys
+   * an invariant this machine cannot break.
+   */
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
-    this.runCycles(Math.round(CYCLES_PER_FRAME * this.speed));
-    // Flush sound generated this frame into the accumulation buffer.
-    this.soundChip.catchUp();
+    this.runCycles(CYCLES_PER_FRAME);
   }
 
-  /** Native-rate mono samples synthesized since the last call (drains). */
+  /**
+   * Native-rate mono samples synthesized since the last call (drains).
+   *
+   * The chip is caught up here rather than at the end of {@link runFrame}
+   * because this is the one point every way of advancing the machine funnels
+   * through: the run loop calls this once per advance, whatever it advanced.
+   * This machine has no stepper to diverge from its frame path yet, and the
+   * flush is here so that it cannot acquire one the day it gains one - which is
+   * how the BBC, whose sound chip and run loop are this one's twin, came to be
+   * silent for the length of every held note under its own debugger.
+   */
   readAudio(): Float32Array {
+    // Turn the cycles run since the last drain into samples. Nothing else
+    // advances the chip on its own.
+    this.soundChip.catchUp();
     if (this.audioSamples === 0) return EMPTY_AUDIO;
     const out = new Float32Array(this.audioSamples);
     let offset = 0;
@@ -515,10 +622,7 @@ export class AtomMachine implements MachineEmulator {
    * BASIC program at all and a block carries an entry address (a machine-code
    * `.atm`'s exec address), the code is started with LINK instead of RUN.
    */
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     // Captured before the async IIFE so a later loadProgram() (which bumps the
@@ -541,7 +645,9 @@ export class AtomMachine implements MachineEmulator {
         this.injecting = true;
         try {
           this.ppia.clearKeys();
+          this.runLatch.clear();
           this.cpu.reset(true);
+          this.unfitExpansionRam();
           // Start each run with no carried-over channels from a previous run.
           this.drive?.closeAll();
           this.runCycles(BOOT_CYCLES);
@@ -556,7 +662,7 @@ export class AtomMachine implements MachineEmulator {
           this.cpu.writemem(TOP_OF_TEXT, end & 0xff);
           this.cpu.writemem(TOP_OF_TEXT + 1, (end >>> 8) & 0xff);
           // Memory blocks (machine code / data at fixed addresses alongside
-          // the BASIC program - see MemoryBlock) go in now, after the program
+          // the BASIC program - see Block) go in now, after the program
           // image and its top-of-text fix-up and before RUN starts. No-op when
           // none were supplied.
           if (blocks) {
@@ -569,7 +675,14 @@ export class AtomMachine implements MachineEmulator {
               }
             }
           }
-          this.typeViaMatrix('RUN\r');
+          this.typeViaMatrix('RUN');
+          // Arm the run latch between the command and the RETURN that submits
+          // it. The prompts the boot printed are behind us and the OS waiting
+          // for the RETURN does not reprint one, so the next `>` is this
+          // program ending - which for a short program happens while the
+          // RETURN below is still being held down.
+          this.runLatch.arm();
+          this.typeViaMatrix('\r');
           // Drop samples synthesized while booting/typing so the first
           // readAudio() doesn't replay a boot-time burst.
           this.soundChip.catchUp();
@@ -665,10 +778,6 @@ export class AtomMachine implements MachineEmulator {
     this.ppia.clearKeys();
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -676,6 +785,8 @@ export class AtomMachine implements MachineEmulator {
     this.drive?.closeAll();
     this.memoryActivity?.dispose();
     this.debugHook?.remove();
+    this.runLatchHook?.remove();
+    this.runLatch.clear();
     this.ppia.clearKeys();
     this.backCanvas = null;
     this.backImageData = null;

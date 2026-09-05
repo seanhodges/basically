@@ -12,6 +12,7 @@ import {
 import { cpcCharset } from '../cpc464/charset';
 import { tokenizeProgram } from '../cpc464/tokenizer';
 import { importCpcImage } from '../cpc464/importCpc';
+import { cpc464 } from '../cpc464';
 import { cpc464MemoryBlocks } from '../cpc464/memoryBlocks';
 import {
   buildCassetteSamples,
@@ -51,6 +52,8 @@ export const cpc6128: Dialect = {
   // this build runs it tape-only, and the picker should not sell a feature the
   // IDE does not have.
   blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
+  basicDialect: 'Locomotive BASIC 1.1',
+  basicFamily: 'Locomotive BASIC',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',
@@ -59,16 +62,17 @@ export const cpc6128: Dialect = {
   // Same base 64K layout as the 464, so the block linter's figures carry over.
   memoryBlocks: cpc464MemoryBlocks,
   memoryWrites: { forms: ['poke'], hexPrefix: '&' },
+  memoryReads: { forms: ['peek'], calls: ['CALL'] },
   // The machine introspects the current BASIC line, so the step debugger is on.
   debuggable: true,
   // Joystick 0 is matrix line 9, read through the AY like the keyboard; the CPC
   // port exposes two independent fire buttons.
   joystickModes: ['native'],
   joystickFireButtons: 2,
-  // The real machine's documented free-RAM figure with no AMSDOS - the same
-  // as the 464's, since AMSDOS is exactly the 370 bytes that take a
-  // disc-equipped 6128 down to 42249. Revisit only when AMSDOS ships.
-  programRamBytes: 42619,
+  // The same as the 464's: BASIC 1.1 moved its workspace pointers but not
+  // HIMEM, and this machine runs with no AMSDOS below it. Revisit only when
+  // AMSDOS ships, which would take it down to the disc machine's 42249.
+  programRamBytes: cpc464.programRamBytes,
   // The combined 32K firmware+BASIC ROM (16K OS 2.x then 16K Locomotive
   // BASIC 1.1). No AMSDOS ROM: the 6128 runs tape-only here.
   romUrl: `${import.meta.env.BASE_URL}roms/cpc6128/cpc6128.rom`,
@@ -101,6 +105,10 @@ export const cpc6128: Dialect = {
     return tokenizeProgram(source, 'basic11').errors;
   },
 
+  // The firmware cassette jumpblock, at the same addresses the 464 uses: the
+  // jumpblock is central RAM, so it does not move with the ROM.
+  capturesDataFiles: true,
+
   createEmulator(opts): MachineEmulator {
     // ramKb is ignored: the 6128's 128K is not an option, it is the machine.
     return new CpcMachine({ rom: opts.rom, model: '6128', files: opts.files });
@@ -118,9 +126,8 @@ export const cpc6128: Dialect = {
     sampleRate: CASSETTE_SAMPLE_RATE,
     buildSamples: (source, programName, robust) =>
       buildCassetteSamples(source, programName, robust, 'basic11'),
-    // The 6128 boots addressing the disc drive, so tape I/O needs |TAPE first.
     loadInstructions:
-      'On the CPC type |TAPE and press ENTER to switch from disc to tape (the | is SHIFT+@), then RUN" (or LOAD "" for a program you want to list first) and press any key to start the tape. Press-any-key and the "Loading" message appear as it reads.',
+      'On the CPC type RUN" and press ENTER (or LOAD "" for a program you want to list first), then press any key to start the tape. Press-any-key and the "Loading" message appear as it reads. No |TAPE is needed: this 6128 runs without AMSDOS, so the cassette is already its filing system.',
     decodeSamples: (samples, sampleRate) => {
       const { name, program, warnings } = decodeCassette(samples, sampleRate);
       const report = importCpcImage(program, 'basic11');
@@ -131,7 +138,7 @@ export const cpc6128: Dialect = {
       };
     },
     saveInstructions:
-      'On the CPC type |TAPE and press ENTER to switch from disc to tape, then SAVE "NAME" and ENTER, then press REC and PLAY; the program plays out as a tape tone you can capture here.',
+      'On the CPC type SAVE "NAME" and press ENTER, then press REC and PLAY; the program plays out as a tape tone you can capture here.',
   },
 
   aiProfile: cpc6128AiProfile,

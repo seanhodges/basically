@@ -1,192 +1,24 @@
-import type { ControllerRole } from '../keyboard/layoutSchema';
-import type { MachineControl } from '../app/machineControl';
-import type { ToolDefinition } from './providers/types';
+import type { DriveReport } from '../app/driveScript';
+import type { MachineSession } from '../app/machineSession';
+import { useIdeStore } from '../app/store';
+import { runToolCall, toolDefinitions } from '../ops/tools';
+import type { OpContext } from '../ops/types';
+import type { ToolCall, ToolDefinition, ToolResult } from './providers/types';
 
 /**
- * The tools the assistant is given when it drives its own program.
+ * The assistant's side of the operation layer: the tools it is offered, the
+ * context they run in, and what the user is told about driving.
  *
- * Two, not seven. Driving is bounded by round trips - each one appends two
- * content blocks to a prefix a cache breakpoint can only walk twenty back
- * through - so the thing worth optimising is how much a single call can say. A
- * script lets "wait for the prompt, type an answer, let it run" cost one round
- * trip where three separate tools would cost three, and burn most of the bound
- * on a sequence the assistant already knew in full.
+ * The tools are derived from the registry in `src/ops/` rather than declared
+ * here, and are offered on every turn of a conversation. Driving is bounded by
+ * round trips - each one appends two content blocks to a prefix a cache
+ * breakpoint can only walk twenty back through - so a script lets "wait for
+ * the prompt, type an answer, let it run" cost one round trip where three
+ * separate tools would cost three. The measurements are tools rather than
+ * something appended to every request for a related reason: they would vary
+ * on every turn by construction, and varying content inside the cached prefix
+ * is what makes the whole prefix be paid for at the write premium.
  */
-export const DRIVE_TOOL = 'drive';
-export const LOOK_TOOL = 'look';
-
-/** One line of a drive script, already understood. */
-export type DriveAction =
-  | { kind: 'press'; names: string[]; holdFrames?: number }
-  | { kind: 'joystick'; roles: ControllerRole[]; frames: number }
-  | { kind: 'wait'; frames: number }
-  | { kind: 'waitFor'; needle: string; maxFrames: number }
-  | { kind: 'malformed'; source: string };
-
-const PRESS_RE = /^PRESS\s+(\S+)(?:\s+(\d+))?$/i;
-const JOY_RE = /^JOY\s+([A-Z0-9\s]+?)(?:\s+(\d+))?$/i;
-const WAIT_FOR_RE = /^WAIT\s+FOR\s+(.*)$/i;
-const WAIT_RE = /^WAIT\s+(\d+)$/i;
-
-/** How long a joystick direction is held when the script does not say. */
-export const DEFAULT_JOY_FRAMES = 10;
-/** How long to wait for text when the script does not say. */
-export const DEFAULT_WAIT_FOR_FRAMES = 300;
-
-const ROLES: Record<string, ControllerRole> = {
-  UP: 'up',
-  DOWN: 'down',
-  LEFT: 'left',
-  RIGHT: 'right',
-  FIRE: 'fire1',
-  FIRE1: 'fire1',
-  FIRE2: 'fire2',
-};
-
-function unquote(text: string): string {
-  const t = text.trim();
-  return t.length >= 2 && t.startsWith('"') && t.endsWith('"')
-    ? t.slice(1, -1)
-    : t;
-}
-
-/**
- * Read a drive script, one action per line.
- *
- * Never throws and never drops a line: an action it cannot read comes back as
- * `malformed` and is reported to the assistant, because a line silently ignored
- * reads as a line that worked - and the assistant would then blame its program
- * for a screen its own driving never reached.
- */
-export function parseDriveScript(script: string): DriveAction[] {
-  const out: DriveAction[] = [];
-  for (const raw of script.split('\n')) {
-    const line = raw.trim().replace(/[.;,]$/, '');
-    if (line === '') continue;
-
-    const waitFor = WAIT_FOR_RE.exec(line);
-    if (waitFor) {
-      const needle = unquote(waitFor[1]!);
-      out.push(
-        needle.trim() === ''
-          ? { kind: 'malformed', source: line }
-          : { kind: 'waitFor', needle, maxFrames: DEFAULT_WAIT_FOR_FRAMES },
-      );
-      continue;
-    }
-
-    const wait = WAIT_RE.exec(line);
-    if (wait) {
-      out.push({ kind: 'wait', frames: Number(wait[1]) });
-      continue;
-    }
-
-    const press = PRESS_RE.exec(line);
-    if (press) {
-      out.push({
-        kind: 'press',
-        names: [press[1]!],
-        ...(press[2] ? { holdFrames: Number(press[2]) } : {}),
-      });
-      continue;
-    }
-
-    const joy = JOY_RE.exec(line);
-    if (joy) {
-      const roles = joy[1]!
-        .trim()
-        .split(/\s+/)
-        .map((word) => ROLES[word.toUpperCase()]);
-      out.push(
-        roles.every(Boolean)
-          ? {
-              kind: 'joystick',
-              roles: roles as ControllerRole[],
-              frames: joy[2] ? Number(joy[2]) : DEFAULT_JOY_FRAMES,
-            }
-          : { kind: 'malformed', source: line },
-      );
-      continue;
-    }
-
-    out.push({ kind: 'malformed', source: line });
-  }
-  return out;
-}
-
-/** What running a script produced, as the assistant is told it. */
-export interface DriveReport {
-  /** Whether every action was carried out. */
-  ok: boolean;
-  /** One line per action, in order, saying what happened. */
-  lines: string[];
-  /** Emulated frames the whole script cost. */
-  frames: number;
-  /** True when any action actually sent input, as opposed to only waiting. */
-  sentInput: boolean;
-}
-
-/**
- * Run a script against the machine, stopping at the first action that fails.
- *
- * Stopping rather than pressing on: the actions of a script are a sequence, and
- * every one after a failure was written for a screen that never arrived. Doing
- * them anyway would drive the machine somewhere nobody asked for.
- */
-export function runDriveScript(
-  control: MachineControl,
-  actions: readonly DriveAction[],
-): DriveReport {
-  const lines: string[] = [];
-  let frames = 0;
-  let sentInput = false;
-
-  for (const action of actions) {
-    if (action.kind === 'malformed') {
-      lines.push(`could not understand "${action.source}"`);
-      return { ok: false, lines, frames, sentInput };
-    }
-
-    const step =
-      action.kind === 'press'
-        ? control.pressKeys(action.names, action.holdFrames)
-        : action.kind === 'joystick'
-          ? control.joystick(action.roles, action.frames)
-          : action.kind === 'wait'
-            ? control.advance(action.frames)
-            : control.waitForText(action.needle, action.maxFrames);
-
-    frames += step.frames;
-    if (action.kind === 'press' || action.kind === 'joystick') {
-      // Recorded even when the step failed part-way: a key that reached the
-      // machine changed what happened, whether or not the rest of the line did.
-      sentInput = true;
-    }
-
-    if (!step.ok) {
-      lines.push(step.detail ?? 'did not work');
-      return { ok: false, lines, frames, sentInput };
-    }
-    lines.push(describe(action));
-  }
-
-  return { ok: true, lines, frames, sentInput };
-}
-
-function describe(action: DriveAction): string {
-  switch (action.kind) {
-    case 'press':
-      return `pressed ${action.names.join('+')}`;
-    case 'joystick':
-      return `held ${action.roles.join('+')} for ${action.frames} frames`;
-    case 'wait':
-      return `waited ${action.frames} frames`;
-    case 'waitFor':
-      return `"${action.needle}" appeared`;
-    default:
-      return 'did nothing';
-  }
-}
 
 /**
  * What the user is told about driving, or an empty string when there is nothing
@@ -201,59 +33,75 @@ function describe(action: DriveAction): string {
 export function describeDriving(reports: readonly DriveReport[]): string {
   const done = reports
     .filter((r) => r.sentInput)
-    .flatMap((r) => r.lines)
-    .filter((line) => line.startsWith('pressed') || line.startsWith('held'));
+    .flatMap((r) => r.steps)
+    .filter(
+      (step) => step.action.kind === 'press' || step.action.kind === 'joystick',
+    )
+    .filter((step) => step.outcome === 'done')
+    .map((step) => step.detail);
   return done.length ? `Tried the program: ${done.join(', ')}.` : '';
 }
 
 /**
  * The tool definitions, which must be the same bytes for every turn of a
- * conversation or the cached prefix behind them is lost.
- *
- * Built from a constant rather than from the machine: what varies per dialect
- * is the *key names*, and those live in the system prompt, which is already a
- * per-dialect constant. Keeping them out of here means one tool block for every
- * machine.
+ * conversation or the cached prefix behind them is lost. Rendered from the
+ * registry, which reads nothing that varies.
  */
-export function driveToolDefinitions(): ToolDefinition[] {
-  return [
-    {
-      name: DRIVE_TOOL,
-      description:
-        'Act on the running machine, one action per line, stopping at the first that fails. ' +
-        'Actions: `PRESS <key> [frames]` presses a key this machine has; ' +
-        '`JOY <up|down|left|right|fire|fire2> [frames]` holds a joystick control; ' +
-        '`WAIT <frames>` lets the program run on; ' +
-        '`WAIT FOR "<text>"` runs until that text is on screen, which is more reliable than guessing a frame count. ' +
-        'Returns what each action did and the screen afterwards.',
-      input: {
-        type: 'object',
-        properties: {
-          script: {
-            type: 'string',
-            description: 'The actions to perform, one per line.',
-          },
-        },
-        required: ['script'],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: LOOK_TOOL,
-      description:
-        'Look at the machine without changing anything. Returns the characters on screen.',
-      input: {
-        type: 'object',
-        properties: {},
-        additionalProperties: false,
-      },
-    },
-  ];
+export function assistantTools(): ToolDefinition[] {
+  return toolDefinitions();
 }
 
-/** The screen as the assistant is shown it, or a note that it cannot be read. */
-export function describeScreen(control: MachineControl): string {
-  const screen = control.readText();
-  if (!screen) return 'The screen cannot be read right now.';
-  return `The screen (${screen.cols}x${screen.rows}):\n${screen.lines.join('\n')}`;
+/**
+ * What the assistant is told when it acts on the machine on a turn that was not
+ * given one.
+ *
+ * The tools are offered on every turn of a conversation, because a set that
+ * comes and goes invalidates the cached prefix behind it. The machine is not:
+ * it is handed over once a program has been run and observed, which is the only
+ * moment there is anything to drive. So a call can arrive with nothing to run
+ * it, and it is answered rather than dropped - an attempt that vanishes reads
+ * to the model as an attempt that worked, and it will report on a program it
+ * never actually tried.
+ *
+ * Phrased as the protocol it is: the way to be given the machine is to ask in
+ * the reply, which the driving rules in the system prompt already say.
+ */
+export const MACHINE_NOT_GIVEN =
+  'the machine has not been given to you on this turn, so nothing was done. ' +
+  'Ask for it by adding DRIVE to your ```basic-view block, and you will be ' +
+  'given it once your program has been run.';
+
+/**
+ * The context the assistant's operations run in: the conversation's machine
+ * as the default, and the session for the turn that holds one.
+ *
+ * Every ROM reads as present: the browser fetches a machine's image from the
+ * site that served the IDE, and a stock build ships every one, so nothing here
+ * can say otherwise before a machine is booted - and the emulator pane is where
+ * a missing image is explained.
+ */
+export function browserContext(session: MachineSession | null): OpContext {
+  return {
+    roms: { present: () => true },
+    session,
+    defaultMachine: useIdeStore.getState().dialect.id,
+  };
+}
+
+/**
+ * A tool runner for one turn: over the machine that turn holds, or over none,
+ * in which case an operation needing one answers that it was not given it.
+ * `onDrive` hears every drive the turn made, for what the user is told after.
+ */
+export function assistantToolRunner(
+  session: MachineSession | null,
+  onDrive?: (report: DriveReport) => void,
+): (call: ToolCall) => Promise<ToolResult> {
+  return (call) =>
+    runToolCall(call, browserContext(session), {
+      withoutSession: MACHINE_NOT_GIVEN,
+      onOutcome: (op, outcome) => {
+        if (op.name === 'drive') onDrive?.(outcome as DriveReport);
+      },
+    });
 }

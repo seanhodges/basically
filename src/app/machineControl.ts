@@ -1,12 +1,16 @@
 import type { ControllerRole, KeyboardLayout } from '../keyboard/layoutSchema';
-import type { MachineEmulator, MachineScreenText } from '../dialects/types';
+import type {
+  MachineEmulator,
+  MachineScreenText,
+  MachineVariable,
+} from '../dialects/types';
 import {
-  indexKeyDefs,
   resolveControllerConfig,
   resolveRoleTokens,
   rolesToJoystick,
   type GamepadMode,
 } from '../keyboard/controllerConfig';
+import { resolveKeyName } from '../keyboard/keyNames';
 
 /**
  * Driving the running machine: pressing its keys, working its joystick, and
@@ -27,12 +31,11 @@ import {
  * also keeps driving deterministic: a step costs exactly the frames it says.
  */
 export interface MachineControl {
-  /** The key names this machine has, for telling the assistant what it may press. */
-  keyNames(): string[];
   /**
    * Press keys together and release them, holding long enough for the ROM's
-   * keyboard scan to see it. Fails, rather than throwing, on a name this
-   * machine does not have.
+   * keyboard scan to see it. Names are the machine-independent vocabulary
+   * (`src/keyboard/keyNames.ts`), and this machine's own key ids as well.
+   * Fails, rather than throwing, on a name this machine does not have.
    */
   pressKeys(names: string[], holdFrames?: number): DriveStep;
   /** Hold controller roles for `holdFrames`, through the port or mapped keys. */
@@ -45,8 +48,25 @@ export interface MachineControl {
    * program did not get where the assistant expected.
    */
   waitForText(needle: string, maxFrames: number): DriveStep;
+  /**
+   * Run until the program has stopped, or until `maxFrames` have passed with it
+   * still going. Fails the same ordinary way a wait for text does.
+   */
+  waitForEnd(maxFrames: number): DriveStep;
+  /**
+   * Whether BASIC is running the program: true, false, or null on a machine
+   * that has not yet taken it. Tri-state because a program cannot un-begin, so
+   * a `false` before the machine has started is not the program having ended.
+   */
+  programState(): boolean | null;
   /** The characters on screen now, or null when the machine cannot say. */
   readText(): MachineScreenText | null;
+  /**
+   * The program's variables, or null on a machine that cannot report them.
+   * Here rather than only on the session because a schedule may expect a
+   * variable to hold a value, and a schedule runs against the driver.
+   */
+  variables(): MachineVariable[] | null;
   /** Release everything this driver is holding. */
   releaseAll(): void;
 }
@@ -106,7 +126,6 @@ export interface MachineControlDeps {
  */
 export function createMachineControl(deps: MachineControlDeps): MachineControl {
   const { machine, layout, gamepadMode, fireButtons, step } = deps;
-  const index = indexKeyDefs(layout);
   const holdDefault =
     layout.options?.minHoldFrames ?? DEFAULT_DRIVE_HOLD_FRAMES;
   // Every token this driver has pressed and not yet released, so a step that
@@ -133,25 +152,30 @@ export function createMachineControl(deps: MachineControlDeps): MachineControl {
   };
 
   return {
-    keyNames: () => [...index.keys()].sort(),
-
     pressKeys(names, holdFrames) {
-      const tokens: string[] = [];
+      // Deduplicated because a chord's names can name one cell twice: PRESS
+      // SHIFT+LEFT on a Spectrum resolves to CapsShift and then to
+      // CapsShift+Digit5, and pressing and releasing one cell twice in a step
+      // is bookkeeping nobody needs.
+      const tokens = new Set<string>();
       for (const name of names) {
-        const key = index.get(name);
-        if (!key) {
+        const resolved = resolveKeyName(layout, name);
+        if (!resolved) {
           return {
             ok: false,
             frames: 0,
             detail: `this machine has no key called "${name}"`,
           };
         }
-        tokens.push(...key.emits);
+        for (const token of resolved) tokens.add(token);
       }
-      if (!tokens.length) {
+      if (tokens.size === 0) {
         return { ok: false, frames: 0, detail: 'no keys named' };
       }
-      return { ok: true, frames: press(tokens, holdFrames ?? holdDefault) };
+      return {
+        ok: true,
+        frames: press([...tokens], holdFrames ?? holdDefault),
+      };
     },
 
     joystick(roles, holdFrames) {
@@ -211,7 +235,29 @@ export function createMachineControl(deps: MachineControlDeps): MachineControl {
       };
     },
 
+    waitForEnd(maxFrames) {
+      const limit = Math.max(0, Math.min(maxFrames, MAX_DRIVE_FRAMES));
+      for (let i = 0; i < limit; i++) {
+        // A machine that cannot yet say answers null, so only an explicit
+        // `false` ends the wait. A program that has already stopped satisfies
+        // it at once, which is what a schedule saying "make sure it finished"
+        // after waiting for the last thing it printed actually means.
+        if (machine.isProgramRunning() === false)
+          return { ok: true, frames: i };
+        step();
+      }
+      return {
+        ok: false,
+        frames: limit,
+        detail: `the program was still running after ${limit} frames`,
+      };
+    },
+
+    programState: () => machine.isProgramRunning(),
+
     readText: () => machine.readScreenText?.() ?? null,
+
+    variables: () => machine.readVariables?.() ?? null,
 
     releaseAll() {
       for (const t of held) machine.setKey(t, false);
@@ -224,75 +270,4 @@ export function createMachineControl(deps: MachineControlDeps): MachineControl {
 /** Compare screen text the way a reader would, not the way a grid stores it. */
 function collapseSpaces(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
-}
-
-/**
- * The live driver, registered by the emulator pane while a machine is up.
- *
- * Module-level rather than store state, exactly as the screen capture is:
- * neither is render data, and both are wanted by a module with no path to the
- * pane.
- */
-let live: MachineControl | null = null;
-/** Set while the assistant is driving, so the pane's own loop leaves the machine alone. */
-let frozen = false;
-
-/** Register the live driver; returns the matching unregister. */
-export function registerMachineControl(control: MachineControl): () => void {
-  live = control;
-  return () => {
-    if (live === control) {
-      live = null;
-      frozen = false;
-    }
-  };
-}
-
-/** The driver for the machine that is up, or null when there is none. */
-export function machineControl(): MachineControl | null {
-  return live;
-}
-
-/** Whether a machine can be driven at all right now. */
-export function hasMachineControl(): boolean {
-  return live !== null;
-}
-
-/**
- * Whether `control` is still the live driver - that is, whether the turn
- * holding it still owns the machine.
- *
- * A driving turn takes its driver once and then holds it across seconds of
- * network, and in that time the user may start a run of their own, which
- * registers a new driver over this one. The turn's own reference keeps working
- * regardless - it closes over the machine object - so without asking, it would
- * go on typing into whatever program the user has since loaded. Asking first is
- * what keeps driving confined to the run it was armed for.
- */
-export function ownsMachine(control: MachineControl): boolean {
-  return live === control;
-}
-
-/**
- * Hold the machine still, or let it go again.
- *
- * A tool round trip is seconds of network, and the pane's loop keeps ticking
- * after a check settles. Left running, the assistant would act on a screen that
- * had moved on between deciding and doing - so what it acts on is the screen it
- * was last shown. Costs nothing: a check runs unwatched and never takes focus,
- * so there is no animation anyone is looking at to interrupt.
- */
-export function freezeMachine(on: boolean): void {
-  frozen = on;
-}
-
-/** Whether the pane's loop should leave the machine alone this tick. */
-export function machineFrozen(): boolean {
-  return frozen;
-}
-
-/** Drop the driver, so a machine that is no longer the active one cannot be driven. */
-export function forgetMachineControl(): void {
-  live = null;
-  frozen = false;
 }

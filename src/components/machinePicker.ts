@@ -8,12 +8,14 @@
  * logic lives in plain `.ts` siblings - see `inputOverlayMode.ts`,
  * `memoryBands.ts`).
  *
- * These used to live in `newProjectOptions.ts`. The picker is now shared with
- * the toolbar's target switcher, so its logic is no longer new-project specific.
+ * Shared with the toolbar's target switcher, so nothing here is new-project
+ * specific.
  */
 
+import { basicFamilyOf } from '../dialects/referencePage';
+
 /**
- * Everything the picker asks of a machine: five fields, no more. `Dialect`
+ * Everything the picker asks of a machine, and nothing else. `Dialect`
  * satisfies it structurally, and so does the porting guide's `MachineChoice` -
  * which is what lets one picker serve the IDE and the docs without an adapter
  * on either side.
@@ -24,45 +26,199 @@
  * picker that imported it would be safe to bundle into the docs only for as
  * long as every one of those imports stayed an erased `import type`. The
  * import-graph guard (`machinePickerBoundary.test.ts`) has something clean to
- * assert because of this.
+ * assert because of this. `referencePage.ts` is the one exception, and is safe
+ * for the same reason: it imports nothing at all, which is what it was split
+ * out to be.
  */
 export interface MachineLike {
   id: string;
   name: string;
   year: number;
   manufacturer: string;
+  /** The version of BASIC it runs, e.g. 'Locomotive BASIC 1.1'. Searched on. */
+  basicDialect: string;
+  /**
+   * The family that version belongs to, e.g. 'Locomotive BASIC'. Heads the
+   * by-BASIC groups and is searched on alongside the version. Optional, and
+   * read through `basicFamilyOf`: a machine that is the only one running its
+   * BASIC has nothing to add, and its version string is already the family.
+   */
+  basicFamily?: string;
   blurb: string;
 }
 
-/** One manufacturer's machines, as shown in the picker. */
+/** How the reader has asked for the list to be arranged. */
+export type MachineSort = 'manufacturer' | 'model' | 'year' | 'basic';
+
+/**
+ * The arrangements, in the order the control offers them, each with the label
+ * it is offered under. One list, read by the control, by the stored-value
+ * validator and by the tests, so none of them can drift from the others.
+ */
+export const MACHINE_SORTS: readonly { id: MachineSort; label: string }[] = [
+  { id: 'manufacturer', label: 'Manufacturer' },
+  { id: 'model', label: 'Model' },
+  { id: 'year', label: 'Year' },
+  // "family" rather than "dialect": this arrangement heads its groups with the
+  // family, while `basicDialect` and the comparison's own "BASIC dialect" row
+  // name the version one machine runs. One label for the two would promise the
+  // reader a heading per version.
+  { id: 'basic', label: 'BASIC family' },
+];
+
+/** What a reader who has never chosen an arrangement gets. */
+export const DEFAULT_MACHINE_SORT: MachineSort = 'manufacturer';
+
+/**
+ * One heading's machines, as shown in the picker. A null heading is the
+ * ungrouped arrangement, which the dialog renders as rows with nothing above
+ * them - so every arrangement is one loop rather than a branch per mode.
+ */
 export interface MachineGroup {
-  manufacturer: string;
+  heading: string | null;
   machines: MachineLike[];
 }
 
 /**
+ * The one name comparator. `numeric` is the whole point: a plain string compare
+ * puts CPC 6128 before CPC 664, because it reaches the second digit before it
+ * has any idea it is reading a number. Built once at module level - a collator
+ * constructed inside a sort callback is built once per comparison.
+ */
+const byName = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base',
+});
+
+/** Alphabetical by name, reading a model number as a number. */
+export function compareMachineNames(a: MachineLike, b: MachineLike): number {
+  return byName.compare(a.name, b.name);
+}
+
+/**
+ * The machines matching what the reader typed: a case-insensitive substring of
+ * the machine's name, its maker, or the BASIC it runs. Empty text matches
+ * everything, so the caller never has to special-case an untouched field.
+ *
+ * The BASIC is matched by family and by version alike: the list heads its
+ * groups with the family, so a reader who typed the version they know would
+ * otherwise be told nothing matched a BASIC the machine plainly runs.
+ *
+ * Deliberately not the blurb: a description mentioning "games" would pull in
+ * machines the reader was not asking about, and the three fields here are the
+ * ones a row is identified by.
+ */
+export function filterMachines(
+  machines: readonly MachineLike[],
+  query: string,
+): MachineLike[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...machines];
+  return machines.filter(
+    (m) =>
+      m.name.toLowerCase().includes(q) ||
+      m.manufacturer.toLowerCase().includes(q) ||
+      m.basicDialect.toLowerCase().includes(q) ||
+      basicFamilyOf(m).toLowerCase().includes(q),
+  );
+}
+
+/**
+ * Whether `query` would hide the machine `id` names.
+ *
+ * Asked when the list opens, because the text is remembered: a search left
+ * behind that does not match the machine you are on would open the list without
+ * your own machine in it, or on the no-matches state, which is a list that
+ * cannot answer the question you opened it to ask. The caller drops the text.
+ *
+ * False for a machine the list is not offering at all - clearing the text would
+ * not bring that machine back, and would throw away a good search for nothing.
+ */
+export function queryHidesMachine(
+  machines: readonly MachineLike[],
+  query: string,
+  id: string,
+): boolean {
+  if (!machines.some((m) => m.id === id)) return false;
+  return !filterMachines(machines, query).some((m) => m.id === id);
+}
+
+/**
+ * Group the machines under `keyOf`, ordering the headings by `compareHeadings`
+ * and every group's machines by name.
+ *
+ * Headings come from the machines in hand and never from a fixed list of years,
+ * makers or BASICs. That is what makes "no empty heading" a property rather
+ * than a rule to enforce: a year no machine was released in produces no key,
+ * and a search that removes a group's last machine removes the group with it.
+ */
+function groupBy(
+  machines: readonly MachineLike[],
+  keyOf: (m: MachineLike) => string,
+  compareHeadings: (a: string, b: string) => number,
+): MachineGroup[] {
+  const byHeading = new Map<string, MachineLike[]>();
+  for (const m of machines) {
+    const group = byHeading.get(keyOf(m));
+    if (group) group.push(m);
+    else byHeading.set(keyOf(m), [m]);
+  }
+  return [...byHeading.entries()]
+    .sort(([a], [b]) => compareHeadings(a, b))
+    .map(([heading, group]) => ({
+      heading,
+      machines: group.sort(compareMachineNames),
+    }));
+}
+
+/**
  * Machines grouped under their manufacturer, since that is how people think
- * about these computers. Manufacturers are ordered alphabetically and each
- * one's machines oldest-first, so the picker's order is stable and does not
- * shift as dialects are registered.
+ * about these computers. Manufacturers alphabetical, each one's machines by
+ * name, so the picker's order is stable and does not shift as dialects are
+ * registered.
  */
 export function groupMachinesByManufacturer(
   machines: readonly MachineLike[],
 ): MachineGroup[] {
-  const byMaker = new Map<string, MachineLike[]>();
-  for (const d of machines) {
-    const group = byMaker.get(d.manufacturer);
-    if (group) group.push(d);
-    else byMaker.set(d.manufacturer, [d]);
+  return groupBy(
+    machines,
+    (m) => m.manufacturer,
+    (a, b) => a.localeCompare(b),
+  );
+}
+
+/**
+ * The machines as the chosen arrangement shows them.
+ *
+ * Every arrangement but `year` orders its rows by name; `year` heads each
+ * distinct release year, oldest at the top, and orders by name inside a year
+ * because every machine under that heading shares it.
+ */
+export function groupMachines(
+  machines: readonly MachineLike[],
+  sort: MachineSort,
+): MachineGroup[] {
+  switch (sort) {
+    case 'model':
+      return machines.length === 0
+        ? []
+        : [
+            {
+              heading: null,
+              machines: [...machines].sort(compareMachineNames),
+            },
+          ];
+    case 'year':
+      return groupBy(
+        machines,
+        (m) => String(m.year),
+        (a, b) => Number(a) - Number(b),
+      );
+    case 'basic':
+      return groupBy(machines, basicFamilyOf, (a, b) => a.localeCompare(b));
+    case 'manufacturer':
+      return groupMachinesByManufacturer(machines);
   }
-  return [...byMaker.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([manufacturer, group]) => ({
-      manufacturer,
-      machines: group.sort(
-        (a, b) => a.year - b.year || a.name.localeCompare(b.name),
-      ),
-    }));
 }
 
 /**
@@ -108,4 +264,25 @@ export function targetMachineLabel(machine: MachineLike): string {
  */
 export function machineChoiceLabel(machine: MachineLike): string {
   return `${machine.name}, ${machineSummary(machine)}`;
+}
+
+/**
+ * Where to scroll the list so a given row sits in the middle of it.
+ *
+ * Clamped to the list's own ends, so a row too near the top or the bottom to be
+ * centred lands at that end rather than leaving the list scrolled past its
+ * content. Returns 0 where every row already fits, which is the list's resting
+ * position and therefore not a jump.
+ *
+ * `row.top` is measured from the top of the list's scrolled content, not from
+ * the viewport - `offsetTop` against a positioned scrollport.
+ */
+export function centredScrollTop(
+  row: { top: number; height: number },
+  list: { height: number; scrollHeight: number },
+): number {
+  const furthest = list.scrollHeight - list.height;
+  if (furthest <= 0) return 0;
+  const centred = row.top - (list.height - row.height) / 2;
+  return Math.max(0, Math.min(centred, furthest));
 }

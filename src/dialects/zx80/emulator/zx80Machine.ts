@@ -6,8 +6,16 @@ import type {
   MachineEmulator,
   MachineMemoryStats,
   MachineScreenText,
+  LineCost,
 } from '../../types';
 import { Zx80Memory } from './memory';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
+import { createMachineLoop } from '../../../emulator/machineLoop';
 import { NEWLINE, zx80Charset } from '../charset';
 import { readSinclairScreenText } from '../../sinclairScreenText';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
@@ -20,9 +28,17 @@ import {
   DF_END,
   ROM_LOAD_TRAP,
   ROM_POST_LOAD,
+  ROM_PROGRAM_END,
 } from '../sysvars';
 
-const TSTATES_PER_FRAME = 65000; // ~3.25MHz / 50Hz
+const CPU_HZ = 3_250_000;
+const TSTATES_PER_LINE = 208; // one 64µs TV scanline at 3.25MHz
+/**
+ * A PAL field: 312 scanlines. Like the ZX81 the ZX80 has no frame hardware -
+ * the ROM builds the picture between keystrokes and the screen goes blank while
+ * a program runs - so this is the host's render slice, not a machine cycle.
+ */
+const TSTATES_PER_FRAME = TSTATES_PER_LINE * 312; // 64896 → ~50.08Hz
 const MAX_BOOT_FRAMES = 600;
 /** Inverse-cursor character the editor shows on the empty edit line once ready. */
 const EDIT_CURSOR = 0xb0;
@@ -45,21 +61,52 @@ const EDIT_CURSOR = 0xb0;
  *
  * Video is a per-frame D_FILE snapshot (see display.ts).
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice("ZX80's 4K ROM", 'public/roms/zx80/zx80.rom');
+
 export class Zx80Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
 
   private readonly memory: Zx80Memory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly keyboard = new Zx81Keyboard();
   private readonly cpu: Z80Core;
   private prevRBit6 = true;
-  private speed = 1;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+
+  /** Frame and debug slice, from one walk over the budget. */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: TSTATES_PER_FRAME,
+    step: () => this.stepInstruction(),
+    currentLine: () => this.currentLine(),
+  });
   private imageData: ImageData | null = null;
   private disposed = false;
   /** `.O` image waiting to be injected when the ROM reaches its LOAD loop. */
   private pendingImage: Uint8Array | null = null;
+  /** Run state, latched when the ROM reaches {@link ROM_PROGRAM_END}. */
+  private readonly runLatch = new ProgramEndLatch();
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
+    this.hasRom = opts.rom.length > 0;
     this.memory = new Zx80Memory(opts.rom, opts.ramKb);
     this.cpu = Z80({
       mem_read: this.memory.read,
@@ -87,13 +134,15 @@ export class Zx80Machine implements MachineEmulator {
     this.memory.ram.fill(0);
     this.keyboard.releaseAll();
     this.prevRBit6 = true;
+    this.runLatch.clear();
     this.cpu.reset();
   }
 
   /**
    * One CPU step plus the ZX80's per-instruction housekeeping (flash-load trap,
    * halted-refresh handling, maskable INT on R bit-6 falling edge). Returns the
-   * T-states consumed. Shared by runFrame and debugStep so they never diverge.
+   * T-states consumed. This is the machine loop's step, so a frame and a debug
+   * slice run identical instructions.
    */
   private stepInstruction(): number {
     // Flash-load trap: when LOAD sits in its tape leader-detection loop,
@@ -109,6 +158,9 @@ export class Zx80Machine implements MachineEmulator {
       this.keyboard.releaseAll();
       this.cpu.setPC(ROM_POST_LOAD);
     }
+    // The interpreter has given up on the program (see ROM_PROGRAM_END): latch
+    // it, so isProgramRunning() has an answer this ROM records nowhere else.
+    if (this.cpu.getPC() === ROM_PROGRAM_END) this.runLatch.stopped();
     let t: number;
     if (this.cpu.isHalted()) {
       const r = this.cpu.getR();
@@ -124,13 +176,20 @@ export class Zx80Machine implements MachineEmulator {
       this.cpu.interrupt(false, 0xff);
     }
     this.prevRBit6 = rBit6;
+
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
     return t;
   }
 
   runFrame(): void {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    while (cycles < budget) cycles += this.stepInstruction();
+    this.loop.runFrame();
   }
 
   /**
@@ -139,30 +198,24 @@ export class Zx80Machine implements MachineEmulator {
    * line (e.g. while editing, before a RUN, or after the program ends).
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
+  /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * system variable: no ZX80 system variable separates a running program from a
+   * finished one (see {@link ROM_PROGRAM_END}), but the ROM address at which the
+   * interpreter gives up does. Running is promoted from PPC, so the frames spent
+   * loading and typing RUN are reported as "not answerable yet".
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.runLatch.read(this.currentLine() !== null);
+  }
+
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    while (cycles < budget) {
-      cycles += this.stepInstruction();
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine)
-          return { paused: true, line };
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
-      }
-    }
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**
@@ -171,6 +224,11 @@ export class Zx80Machine implements MachineEmulator {
    * but the editor does not capture keystrokes reliably until a little later.
    */
   private bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (
@@ -193,8 +251,18 @@ export class Zx80Machine implements MachineEmulator {
   }
 
   loadProgram(image: Uint8Array): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset();
     this.bootToReady();
+    // Arm the run latch for everything below: neither booting nor the LOAD nor
+    // the RUN keystrokes reach ROM_PROGRAM_END, so the next sighting of it is
+    // the program this load starts ending - which for a one-line program is
+    // inside the frames the RUN's NEW LINE pumps.
+    this.runLatch.arm();
     // Queue the image, then type LOAD + NEW LINE. When the ROM reaches its
     // tape leader-detection loop the trap in runFrame() injects the image -
     // the authentic load path, the same one a real cassette would drive.
@@ -215,6 +283,10 @@ export class Zx80Machine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
@@ -269,6 +341,14 @@ export class Zx80Machine implements MachineEmulator {
     return { used, free };
   }
 
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
+  }
+
   setMemoryActivityRecording(enabled: boolean): void {
     this.memory.activity.enabled = enabled;
     // Drop any hits accumulated in a previous session so a reopened overlay
@@ -293,10 +373,6 @@ export class Zx80Machine implements MachineEmulator {
     this.keyboard.releaseAll();
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -305,5 +381,6 @@ export class Zx80Machine implements MachineEmulator {
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
     this.pendingImage = null;
+    this.runLatch.clear();
   }
 }

@@ -4,7 +4,7 @@
 /**
  * 88-ACR cassette encoding: a `CSAVE` byte stream -> audio.
  *
- * **The plan for this dialect said Kansas City Standard; it is not.** KCS is
+ * **This is not Kansas City Standard.** KCS is
  * 2400 Hz against 1200 Hz with a whole number of cycles per bit, which is what
  * the Acorn encoders here implement (`src/dialects/atom/audio/`). The MITS
  * 88-ACR is a different modem: **2400 Hz mark, 1850 Hz space, 300 baud**, and

@@ -8,12 +8,12 @@
 // the unit now; this module is the list.
 //
 // Only machine ids are selectable. Page slugs are not, deliberately: a page
-// slug and a dialect id live in the same `?from=`/`?to=` namespace, and
-// `zxspectrum` is both the 48K machine and the page its 128K sibling shares -
-// one string, two meanings, and no way for the URL to say which. One namespace
-// of machine ids has no such case to resolve. `page` below still names the
-// reference page a machine reads from; it is a property of the machine, not
-// something a reader can select.
+// slug and a dialect id would live in the same `?from=`/`?to=` namespace, and
+// `zxspectrum` was for a while both the 48K machine and the page its siblings
+// shared - one string, two meanings, and no way for the URL to say which. One
+// namespace of machine ids has no such case to resolve, whatever the pages are
+// called. `page` below still names the reference page a machine reads from; it
+// is a property of the machine, not something a reader can select.
 //
 // Hand-authored because the docs runtime must never reach the dialect registry
 // (it imports every dialect index, and each pulls in an emulator core) - a ban
@@ -40,12 +40,24 @@ export interface MachineChoice {
   year: number;
   /** One-line description, matching `Dialect.blurb`. Shown on a picker row. */
   blurb: string;
+  /**
+   * The BASIC this machine runs, matching `Dialect.basicDialect`. The picker
+   * groups and searches on it.
+   */
+  basicDialect: string;
+  /**
+   * The family that BASIC belongs to, matching
+   * `Dialect.basicFamily ?? Dialect.basicDialect`. Heads the picker's by-BASIC
+   * groups, so machines running versions of one BASIC read together.
+   */
+  basicFamily: string;
 }
 
 /**
  * Every supported machine, ordered by manufacturer then by age within it - the
- * order the reference sidebar and the machine picker both use, so a reader
- * moving between them is not re-sorting in their head.
+ * order the reference sidebar reads in. The picker orders the same machines for
+ * itself, by whichever arrangement the reader has chosen, so this file's order
+ * is the sidebar's rather than a shared one.
  */
 export const machines: MachineChoice[] = [
   {
@@ -55,6 +67,58 @@ export const machines: MachineChoice[] = [
     manufacturer: 'MITS',
     year: 1975,
     blurb: 'The microcomputer that started it all. Runs Altair 8K BASIC.',
+    basicDialect: 'Altair 8K BASIC',
+    basicFamily: 'Microsoft BASIC',
+  },
+  {
+    id: 'apple1',
+    page: 'integer-basic',
+    name: 'Apple I',
+    manufacturer: 'Apple',
+    year: 1976,
+    blurb: 'Woz’s hand-built kit computer. Runs Apple 1 Integer BASIC.',
+    basicDialect: 'Apple 1 Integer BASIC',
+    basicFamily: 'Integer BASIC',
+  },
+  {
+    id: 'apple2',
+    page: 'integer-basic',
+    name: 'Apple II',
+    manufacturer: 'Apple',
+    year: 1977,
+    blurb: 'Colour graphics off the shelf. Runs Apple II Integer BASIC.',
+    basicDialect: 'Apple II Integer BASIC',
+    basicFamily: 'Integer BASIC',
+  },
+  {
+    id: 'apple2plus',
+    page: 'applesoft',
+    name: 'Apple II Plus',
+    manufacturer: 'Apple',
+    year: 1979,
+    blurb: 'Applesoft in ROM at last. Runs Applesoft BASIC.',
+    basicDialect: 'Applesoft BASIC',
+    basicFamily: 'Applesoft BASIC',
+  },
+  {
+    id: 'atari800',
+    page: 'atari',
+    name: 'Atari 800',
+    manufacturer: 'Atari',
+    year: 1979,
+    blurb: 'Two cartridge slots and 48K. Runs Atari BASIC.',
+    basicDialect: 'Atari BASIC',
+    basicFamily: 'Atari BASIC',
+  },
+  {
+    id: 'atari400',
+    page: 'atari',
+    name: 'Atari 400',
+    manufacturer: 'Atari',
+    year: 1979,
+    blurb: 'The budget model, with a membrane keyboard. Runs Atari BASIC.',
+    basicDialect: 'Atari BASIC',
+    basicFamily: 'Atari BASIC',
   },
   {
     id: 'atom',
@@ -63,6 +127,8 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Acorn',
     year: 1980,
     blurb: 'Acorn’s forerunner to the BBC Micro. Runs Atom BASIC.',
+    basicDialect: 'Atom BASIC',
+    basicFamily: 'Atom BASIC',
   },
   {
     id: 'bbcmicro',
@@ -71,6 +137,8 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Acorn',
     year: 1981,
     blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
+    basicDialect: 'BBC BASIC II',
+    basicFamily: 'BBC BASIC',
   },
   {
     id: 'bbcmaster',
@@ -79,6 +147,8 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Acorn',
     year: 1986,
     blurb: 'The BBC Micro, upgraded. Runs BBC BASIC IV.',
+    basicDialect: 'BBC BASIC IV',
+    basicFamily: 'BBC BASIC',
   },
   {
     id: 'pet',
@@ -87,6 +157,8 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Commodore',
     year: 1977,
     blurb: 'Commodore’s all-in-one original. Runs Commodore BASIC 4.0.',
+    basicDialect: 'Commodore BASIC 4.0',
+    basicFamily: 'Commodore BASIC',
   },
   {
     id: 'vic20',
@@ -95,6 +167,8 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Commodore',
     year: 1981,
     blurb: 'The first computer to sell a million. Commodore BASIC V2.',
+    basicDialect: 'Commodore BASIC V2',
+    basicFamily: 'Commodore BASIC',
   },
   {
     id: 'commodore64',
@@ -103,6 +177,21 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Commodore',
     year: 1982,
     blurb: 'The best-selling desktop computer ever. Commodore BASIC V2.',
+    basicDialect: 'Commodore BASIC V2',
+    basicFamily: 'Commodore BASIC',
+  },
+  {
+    // The page is named for the language rather than the machine, and the
+    // family is the language's own name: this is the only machine in the list
+    // that runs Dartmouth BASIC, and every other BASIC here descends from it.
+    id: 'ge235',
+    page: 'dartmouth',
+    name: 'GE-235',
+    manufacturer: 'General Electric',
+    year: 1964,
+    blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
+    basicDialect: 'Dartmouth BASIC',
+    basicFamily: 'Dartmouth BASIC',
   },
   {
     id: 'cpc464',
@@ -111,6 +200,18 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Amstrad',
     year: 1984,
     blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
+    basicDialect: 'Locomotive BASIC 1.0',
+    basicFamily: 'Locomotive BASIC',
+  },
+  {
+    id: 'cpc664',
+    page: 'cpc',
+    name: 'CPC 664',
+    manufacturer: 'Amstrad',
+    year: 1985,
+    blurb: 'The CPC between the 464 and the 6128. Locomotive BASIC 1.1.',
+    basicDialect: 'Locomotive BASIC 1.1',
+    basicFamily: 'Locomotive BASIC',
   },
   {
     id: 'cpc6128',
@@ -119,6 +220,18 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Amstrad',
     year: 1985,
     blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
+    basicDialect: 'Locomotive BASIC 1.1',
+    basicFamily: 'Locomotive BASIC',
+  },
+  {
+    id: 'hb10p',
+    page: 'msx',
+    name: 'HB-10P',
+    manufacturer: 'Sony',
+    year: 1986,
+    blurb: 'Sony’s MSX HitBit. Runs MSX BASIC 1.0.',
+    basicDialect: 'MSX BASIC 1.0',
+    basicFamily: 'MSX BASIC',
   },
   {
     id: 'trs80',
@@ -127,6 +240,28 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Tandy',
     year: 1977,
     blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
+    basicDialect: 'Level II BASIC',
+    basicFamily: 'Level II BASIC',
+  },
+  {
+    id: 'pmd85',
+    page: 'pmd85',
+    name: 'PMD 85-2',
+    manufacturer: 'Tesla',
+    year: 1986,
+    blurb: 'Czechoslovakia’s school computer. Runs BASIC-G.',
+    basicDialect: 'BASIC-G',
+    basicFamily: 'BASIC-G',
+  },
+  {
+    id: 'samcoupe',
+    page: 'samcoupe',
+    name: 'SAM Coupé',
+    manufacturer: 'MGT',
+    year: 1989,
+    blurb: 'A 6MHz Z80 with four screen modes. Runs SAM BASIC.',
+    basicDialect: 'SAM BASIC',
+    basicFamily: 'SAM BASIC',
   },
   {
     id: 'zx80',
@@ -135,29 +270,37 @@ export const machines: MachineChoice[] = [
     manufacturer: 'Sinclair',
     year: 1980,
     blurb: 'Sinclair’s first home computer. Runs ZX80 BASIC.',
+    basicDialect: 'ZX80 BASIC',
+    basicFamily: 'ZX80 BASIC',
   },
   {
     id: 'zx81',
-    page: 'zx81',
+    page: 'sinclair',
     name: 'ZX81',
     manufacturer: 'Sinclair',
     year: 1981,
     blurb: 'Sinclair’s million-selling breakthrough. ZX81 BASIC.',
+    basicDialect: 'ZX81 BASIC',
+    basicFamily: 'Sinclair BASIC',
   },
   {
     id: 'zxspectrum',
-    page: 'zxspectrum',
+    page: 'sinclair',
     name: 'Spectrum',
     manufacturer: 'Sinclair',
     year: 1982,
     blurb: 'Britain’s best-selling computer. 48K Sinclair BASIC.',
+    basicDialect: '48K Sinclair BASIC',
+    basicFamily: 'Sinclair BASIC',
   },
   {
     id: 'zxspectrum128',
-    page: 'zxspectrum',
+    page: 'sinclair',
     name: 'Spectrum 128',
     manufacturer: 'Sinclair',
     year: 1985,
     blurb: 'The Spectrum with AY sound. Runs 128 Sinclair BASIC.',
+    basicDialect: '128 Sinclair BASIC',
+    basicFamily: 'Sinclair BASIC',
   },
 ];

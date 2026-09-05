@@ -4,50 +4,115 @@
 // pinned to those tables by porting-crosscheck.test.ts, which fails if a
 // spelling named here stops existing (or starts existing where it should not).
 //
-// Both maps are keyed by docs page slug, and both are deliberately partial: a
-// page absent from an entry simply has nothing to say about it.
+// Keyed by *machine*, not by the reference page a machine reads from. A page
+// covers a family of BASIC and a family is exactly where the spellings start to
+// differ - the ZX81 and the Spectrums read one Sinclair page and spell the jump
+// GOTO and GO TO - so a page key would answer a ZX81 in the Spectrum's words.
+// Machines that genuinely share a value are named together through the lists
+// below rather than implied by a shared page.
+//
+// All three maps are deliberately partial: a machine absent from an entry
+// simply has nothing to say about it.
 import type {
   FalseFriend,
   KeywordEquivalence,
   PairPortingNotes,
 } from './types';
 
+/** The Commodores: one 6502 family, PET 4.0 and the two V2 machines. */
+export const COMMODORES = ['pet', 'vic20', 'commodore64'] as const;
+
+/** The Commodores running BASIC V2, without the PET's 4.0 disk commands. */
+export const COMMODORE_V2S = ['vic20', 'commodore64'] as const;
+
+/** The Amstrads: Locomotive BASIC 1.0 on the 464, 1.1 on the 664 and 6128. */
+export const CPCS = ['cpc464', 'cpc664', 'cpc6128'] as const;
+
+/** The CPCs running Locomotive BASIC 1.1, whose additions the 464 has not got. */
+export const LOCOMOTIVE_1_1S = ['cpc664', 'cpc6128'] as const;
+
+/** The Acorn BBCs: BASIC II on the Micro, BASIC IV on the Master. */
+export const BBCS = ['bbcmicro', 'bbcmaster'] as const;
+
+/** The Ataris: one Atari BASIC, two cases the machines differ only in RAM. */
+export const ATARIS = ['atari800', 'atari400'] as const;
+
+/** The Spectrums: 48K Sinclair BASIC and the 128's superset of it. */
+export const SPECTRUMS = ['zxspectrum', 'zxspectrum128'] as const;
+
+/**
+ * One value for several machines, spread into a map keyed by machine id.
+ *
+ * Machines sharing a value are named rather than folded into one key, so a
+ * variant that later needs its own answer is lifted out of the list without
+ * disturbing the others - and so nothing has to be restated to keep it.
+ */
+function sameFor<T>(ids: readonly string[], value: T): Record<string, T> {
+  return Object.fromEntries(ids.map((id) => [id, value]));
+}
+
 export const keywordEquivalences: KeywordEquivalence[] = [
   {
     concept: 'unconditional-jump',
     spellings: {
+      altair8800: 'GOTO',
+      apple1: 'GOTO',
+      apple2: 'GOTO',
+      apple2plus: 'GOTO',
       atom: 'GOTO',
-      bbc: 'GOTO',
-      commodore: 'GOTO',
-      cpc: 'GOTO',
+      ...sameFor(BBCS, 'GOTO'),
+      ...sameFor(COMMODORES, 'GOTO'),
+      ...sameFor(CPCS, 'GOTO'),
+      ge235: 'GOTO',
+      hb10p: 'GOTO',
+      pmd85: 'GOTO',
       trs80: 'GOTO',
       zx80: 'GOTO',
       zx81: 'GOTO',
-      zxspectrum: 'GO TO',
+      ...sameFor(SPECTRUMS, 'GO TO'),
+      // Beta BASIC's spelling is the Spectrum's, two words - GOTO is not a
+      // keyword on this machine at all.
+      samcoupe: 'GO TO',
     },
   },
   {
     concept: 'subroutine-call',
     spellings: {
+      altair8800: 'GOSUB',
+      apple1: 'GOSUB',
+      apple2: 'GOSUB',
+      apple2plus: 'GOSUB',
+      ...sameFor(ATARIS, 'GOSUB'),
       atom: 'GOSUB',
-      bbc: 'GOSUB',
-      commodore: 'GOSUB',
-      cpc: 'GOSUB',
+      ...sameFor(BBCS, 'GOSUB'),
+      ...sameFor(COMMODORES, 'GOSUB'),
+      ...sameFor(CPCS, 'GOSUB'),
+      ge235: 'GOSUB',
+      hb10p: 'GOSUB',
+      pmd85: 'GOSUB',
       trs80: 'GOSUB',
       zx80: 'GOSUB',
       zx81: 'GOSUB',
-      zxspectrum: 'GO SUB',
+      ...sameFor(SPECTRUMS, 'GO SUB'),
+      samcoupe: 'GO SUB',
     },
   },
   {
     concept: 'resume-after-break',
     spellings: {
-      commodore: 'CONT',
-      cpc: 'CONT',
+      altair8800: 'CONT',
+      apple2: 'CON',
+      apple2plus: 'CONT',
+      ...sameFor(ATARIS, 'CONT'),
+      ...sameFor(COMMODORES, 'CONT'),
+      ...sameFor(CPCS, 'CONT'),
+      hb10p: 'CONT',
+      pmd85: 'CONT',
       trs80: 'CONT',
       zx81: 'CONT',
       zx80: 'CONTINUE',
-      zxspectrum: 'CONTINUE',
+      ...sameFor(SPECTRUMS, 'CONTINUE'),
+      samcoupe: 'CONTINUE',
     },
   },
   {
@@ -55,35 +120,142 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     // has no discard-variables command at all.
     concept: 'discard-variables',
     spellings: {
-      bbc: 'CLEAR',
-      commodore: 'CLR',
-      cpc: 'CLEAR',
+      altair8800: 'CLEAR',
+      apple1: 'CLR',
+      apple2: 'CLR',
+      apple2plus: 'CLEAR',
+      ...sameFor(ATARIS, 'CLR'),
+      ...sameFor(BBCS, 'CLEAR'),
+      ...sameFor(COMMODORES, 'CLR'),
+      ...sameFor(CPCS, 'CLEAR'),
+      hb10p: 'CLEAR',
+      pmd85: 'CLEAR',
       trs80: 'CLEAR',
       zx80: 'CLEAR',
       zx81: 'CLEAR',
-      zxspectrum: 'CLEAR',
+      ...sameFor(SPECTRUMS, 'CLEAR'),
+      samcoupe: 'CLEAR',
+    },
+  },
+  {
+    // The command that hands an address to the processor. The Sinclairs, the
+    // TRS-80 and the Altair are absent because they have no such *command* -
+    // they reach machine code through the USR function, which is a false friend
+    // rather than a rename (see below).
+    concept: 'run-machine-code',
+    spellings: {
+      apple1: 'CALL',
+      apple2: 'CALL',
+      apple2plus: 'CALL',
+      atom: 'LINK',
+      ...sameFor(BBCS, 'CALL'),
+      ...sameFor(COMMODORES, 'SYS'),
+      ...sameFor(CPCS, 'CALL'),
+      // The one Sinclair-looking machine with a command for it: CALL runs code
+      // at an address, and USR does so too rather than instead.
+      samcoupe: 'CALL',
     },
   },
   {
     concept: 'seed-random',
     spellings: {
-      cpc: 'RANDOMIZE',
+      ...sameFor(CPCS, 'RANDOMIZE'),
       trs80: 'RANDOM',
       zx80: 'RANDOMISE',
       zx81: 'RAND',
-      zxspectrum: 'RANDOMIZE',
+      ...sameFor(SPECTRUMS, 'RANDOMIZE'),
+      samcoupe: 'RANDOMIZE',
     },
   },
 ];
 
 export const falseFriends: FalseFriend[] = [
+  // The two that never fail. Every machine here has AND and OR, spelled the
+  // same, taking the same operands - and the Sinclair pair answer a different
+  // question with them. `IF A AND B` behaves the same way on both while the
+  // operands are 0 or 1, so the trap only springs on the line that masks bits,
+  // which is the line nobody rewrote. Measured per machine by
+  // src/dialects/operatorBattery.test.ts, not taken from the manuals.
+  {
+    keyword: 'AND',
+    meanings: {
+      altair8800: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      apple1:
+        'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
+      apple2:
+        'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
+      apple2plus:
+        'Neither bits nor values, but truth: 5 AND 3 is 1 and 6 AND 3 is 1 too, because both operands are reduced to true or false first.',
+      ...sameFor(
+        ATARIS,
+        'Neither bits nor values, but truth: 5 AND 3 is 1, because both operands are reduced to true or false first. There is no bitwise operator at all here.',
+      ),
+      atom: 'Bitwise on integers: 5 AND 3 is 1. The & operator is the same thing.',
+      ...sameFor(BBCS, 'Bitwise on integers: 5 AND 3 is 1.'),
+      ...sameFor(COMMODORES, 'Bitwise on 16-bit integers: 5 AND 3 is 1.'),
+      ...sameFor(CPCS, 'Bitwise on integers: 5 AND 3 is 1.'),
+      hb10p: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      pmd85: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      trs80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      zx80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      zx81: 'Picks a value, not bits: a AND b is a when b is non-zero and 0 otherwise, so 5 AND 3 is 5.',
+      ...sameFor(
+        SPECTRUMS,
+        'Picks a value, not bits: a AND b is a when b is non-zero and 0 otherwise, so 5 AND 3 is 5.',
+      ),
+      samcoupe:
+        'Picks a value as the Spectrum does, so 5 AND 3 is 5. BAND is the bitwise one here, and gives 1.',
+    },
+  },
+  {
+    keyword: 'OR',
+    meanings: {
+      altair8800: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      apple1:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      apple2:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      apple2plus:
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      ...sameFor(
+        ATARIS,
+        'Neither bits nor values, but truth: 5 OR 3 is 1, not 7, because both operands are reduced to true or false first.',
+      ),
+      atom: 'Bitwise on integers: 5 OR 3 is 7. There is no symbolic spelling.',
+      ...sameFor(BBCS, 'Bitwise on integers: 5 OR 3 is 7.'),
+      ...sameFor(COMMODORES, 'Bitwise on 16-bit integers: 5 OR 3 is 7.'),
+      ...sameFor(CPCS, 'Bitwise on integers: 5 OR 3 is 7.'),
+      hb10p: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      pmd85: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      trs80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      zx80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      zx81: 'Picks a value, not bits: a OR b is 1 when b is non-zero and a otherwise, so 5 OR 3 is 1.',
+      ...sameFor(
+        SPECTRUMS,
+        'Picks a value, not bits: a OR b is 1 when b is non-zero and a otherwise, so 5 OR 3 is 1.',
+      ),
+      samcoupe:
+        'Picks a value as the Spectrum does, so 5 OR 3 is 1. BOR is the bitwise one here, and gives 7.',
+    },
+  },
   {
     keyword: 'LOG',
     meanings: {
+      altair8800: 'Natural (base-e) logarithm. There is no LN.',
+      apple2plus: 'Natural (base-e) logarithm. There is no LN.',
+      ...sameFor(
+        ATARIS,
+        'Natural (base-e) logarithm; CLOG gives the base-10 one.',
+      ),
       atom: 'Base-10 logarithm; LN gives the natural logarithm.',
-      bbc: 'Base-10 logarithm; LN gives the natural logarithm.',
-      commodore: 'Natural (base-e) logarithm. There is no LN.',
-      cpc: 'Natural (base-e) logarithm.',
+      ...sameFor(BBCS, 'Base-10 logarithm; LN gives the natural logarithm.'),
+      ...sameFor(COMMODORES, 'Natural (base-e) logarithm. There is no LN.'),
+      ...sameFor(CPCS, 'Natural (base-e) logarithm.'),
+      // The oldest answer here, and the one the rest inherited: the 1965
+      // library has no base-10 logarithm and no LN either.
+      ge235: 'Natural (base-e) logarithm. There is no LN.',
+      hb10p: 'Natural (base-e) logarithm. There is no LN.',
+      pmd85: 'Natural (base-e) logarithm. There is no LN.',
       trs80: 'Natural (base-e) logarithm.',
     },
   },
@@ -94,34 +266,131 @@ export const falseFriends: FalseFriend[] = [
     // identical meanings raise no warning between them.
     keyword: 'CLEAR',
     meanings: {
+      altair8800: 'Discards all variables, leaving the program intact.',
+      apple2plus: 'Discards all variables, leaving the program intact.',
       atom: 'Selects a screen mode and clears it — CLEAR 0 is the text screen.',
-      bbc: 'Discards all variables, leaving the program intact.',
-      cpc: 'Discards all variables, leaving the program intact.',
+      ...sameFor(BBCS, 'Discards all variables, leaving the program intact.'),
+      ...sameFor(CPCS, 'Discards all variables, leaving the program intact.'),
+      hb10p:
+        'Discards all variables and sets the string space with it: string space is 200 bytes until a program says CLEAR 1500, and a second argument moves the top of memory down to make room for machine code.',
+      pmd85: 'Discards all variables, leaving the program intact.',
       trs80: 'Discards all variables, leaving the program intact.',
       zx80: 'Discards all variables, leaving the program intact.',
       zx81: 'Discards all variables, leaving the program intact.',
-      zxspectrum: 'Discards all variables, leaving the program intact.',
+      ...sameFor(
+        SPECTRUMS,
+        'Discards all variables, leaving the program intact.',
+      ),
+      samcoupe: 'Discards all variables, leaving the program intact.',
     },
   },
   {
+    // One spelling, two input models and a file command. The two key reads are
+    // opposite program structures: a BBC `GET` stops the program until someone
+    // presses a key, while a Commodore `GET` takes whatever is waiting and
+    // carries straight on - so a game loop ported one way runs flat out and the
+    // other way freezes, with no error either time. The TRS-80's is not a key
+    // read at all.
     keyword: 'GET',
     meanings: {
+      apple2plus:
+        'Waits for one key press and stores it, without echoing it and without a cursor. A loop that must keep moving reads the keyboard latch with PEEK(-16384) instead.',
+      ...sameFor(
+        ATARIS,
+        'Waits for one byte on an I/O channel: a key press when the channel is open on "K:", a byte of a file otherwise. PEEK(764) is the non-blocking key read.',
+      ),
       atom: 'Reads a value from a hardware I/O port.',
-      bbc: 'Waits for a key press and returns its character code.',
-      commodore: 'Reads a pending key without waiting; empty if none.',
+      ...sameFor(BBCS, 'Waits for a key press and returns its character code.'),
+      ...sameFor(
+        COMMODORES,
+        'Reads a pending key without waiting; empty if none.',
+      ),
+      hb10p:
+        'Nothing to do with the keyboard either: it reads a record from a random-access file into its field buffer. INKEY$ is the key read here.',
+      trs80:
+        'Nothing to do with the keyboard: it reads a record from a random-access file into its buffer (Disk BASIC).',
+      samcoupe:
+        'Waits for a key press and puts it in the variable it names, so a loop that must keep moving reads INKEY$ instead.',
+    },
+  },
+  {
+    // The timed key read, which one machine can wait on and the other cannot.
+    // Same spelling, same one numeric argument, and the argument means a
+    // different thing: a BBC `INKEY(50)` gives the player half a second to
+    // press anything, while a CPC `INKEY(50)` asks whether key 50 is down this
+    // instant and returns immediately.
+    keyword: 'INKEY',
+    meanings: {
+      ...sameFor(
+        BBCS,
+        'The argument is a time: it waits up to that many centiseconds for any key and returns its code, or -1 if none came. A negative argument tests one particular key instead.',
+      ),
+      ...sameFor(
+        CPCS,
+        'The argument is a key number: it reports whether that key is down right now and never waits, returning -1 when it is up.',
+      ),
+      pmd85:
+        'Takes no argument at all: it reports which function key K0-K11 is held, or 255 when none is, and sees no other key.',
     },
   },
   {
     keyword: 'UNTIL',
     meanings: {
       atom: 'Closes a DO loop.',
-      bbc: 'Closes a REPEAT loop.',
+      ...sameFor(BBCS, 'Closes a REPEAT loop.'),
+      samcoupe:
+        'A clause rather than a statement: it goes on either end of a DO loop, so DO UNTIL tests before the body and LOOP UNTIL after it.',
+    },
+  },
+  {
+    // The trap is the argument, not the return value: every machine here gives
+    // USR a number and gets one back, and on half of them that number is the
+    // address of the code to run while on the other half it is data handed to
+    // whatever address was poked into a vector. A ported `LET X=USR 32768` runs
+    // whatever the vector happens to hold and passes it 32768.
+    keyword: 'USR',
+    meanings: {
+      apple2plus:
+        'The argument is data: it calls the routine jumped to from location 10, hands the argument over in the floating-point accumulator, and returns whatever the routine leaves there.',
+      altair8800:
+        'The argument is data: it calls the routine whose address is held in the USR vector, and returns that routine’s result.',
+      ...sameFor(
+        ATARIS,
+        'The argument is the address, and any arguments after it are pushed with a count on top — so the routine must PLA that count first, and it answers with what it leaves in locations 212 and 213.',
+      ),
+      ...sameFor(
+        BBCS,
+        'The argument is the address: it calls machine code there with the registers preset from A%, X%, Y% and the carry flag, and returns them packed into one number.',
+      ),
+      ...sameFor(
+        COMMODORES,
+        'The argument is data: it calls the routine whose address is held in the USR vector at $0311, and returns that routine’s result.',
+      ),
+      hb10p:
+        'The argument is data: it calls the routine whose address DEFUSR set, and returns that routine’s result. CALL is not the machine-code command it looks like - that runs a cartridge or disk extension.',
+      pmd85:
+        'The argument is the address: it calls 8080 code there and returns what the routine leaves behind, so the routine must end in RET.',
+      trs80:
+        'The argument is data: it calls the routine whose address was set up by POKE or DEF USR, and returns that routine’s result.',
+      zx80: 'The argument is the address: it calls machine code there and returns the BC register pair.',
+      zx81: 'The argument is the address: it calls machine code there and returns the BC register pair.',
+      ...sameFor(
+        SPECTRUMS,
+        'The argument is the address: it calls machine code there and returns the BC register pair — unless it is a single-letter string, which gives that user-defined graphic’s address instead.',
+      ),
+      samcoupe:
+        'The argument is the address: it calls machine code there and returns the BC register pair. CALL runs a routine here too, and is the ordinary way to reach one.',
     },
   },
   {
     keyword: 'CMD',
     meanings: {
-      commodore: 'Redirects PRINT output to an open file or device.',
+      ...sameFor(
+        COMMODORES,
+        'Redirects PRINT output to an open file or device.',
+      ),
+      hb10p:
+        'Hands a command to a cartridge or disk extension, and answers Syntax error on a machine with none fitted - it redirects nothing.',
       trs80: 'Passes a command to the disk operating system.',
     },
   },
@@ -131,6 +400,12 @@ export const falseFriends: FalseFriend[] = [
 // pairs that are unusually close, and the cases where same-family intuition or a
 // shared carrier format misleads. Directional: each entry is one (from → to), so
 // a pair and its reverse are separate. Pinned by porting-crosscheck.test.ts.
+//
+// Each side names a machine, or several where the note reads the same for all of
+// them. A ZX81 arriving at a Spectrum and a Spectrum arriving at a ZX81 are two
+// of the closest ports here, and both are between machines that share a page:
+// naming pages would have made each of them a pair with itself, which the
+// comparison can never ask.
 //
 // `covers` names the target-guidance topics a note has already made, so the
 // reader is not told the same thing twice under one heading - see
@@ -172,7 +447,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
   },
   {
     from: 'zx80',
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     notes: [
       {
         text: 'A big step up: the Spectrum adds floating point, eight colours, BEEP sound and 256×176 pixel graphics.',
@@ -187,7 +462,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'zxspectrum',
+    from: SPECTRUMS,
     to: 'zx80',
     notes: [
       {
@@ -204,7 +479,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
   },
   {
     from: 'zx81',
-    to: 'zxspectrum',
+    to: SPECTRUMS,
     notes: [
       {
         text: 'The closest port here: GOTO and GOSUB are written GO TO and GO SUB (the glued forms still enter), and floating point carries over.',
@@ -219,7 +494,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'zxspectrum',
+    from: SPECTRUMS,
     to: 'zx81',
     notes: [
       {
@@ -235,7 +510,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'commodore',
+    from: COMMODORES,
     to: 'trs80',
     notes: [
       {
@@ -252,7 +527,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
   },
   {
     from: 'trs80',
-    to: 'commodore',
+    to: COMMODORES,
     notes: [
       {
         text: 'Both are Microsoft-style BASICs, so most control flow and string handling ports with little change.',
@@ -267,8 +542,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'commodore',
-    to: 'zxspectrum',
+    from: COMMODORES,
+    to: SPECTRUMS,
     notes: [
       {
         text: 'The jumps are spelled with a space: GOTO and GOSUB become GO TO and GO SUB, while CLR becomes CLEAR and CONT becomes CONTINUE.',
@@ -283,8 +558,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'zxspectrum',
-    to: 'commodore',
+    from: SPECTRUMS,
+    to: COMMODORES,
     notes: [
       {
         text: 'GO TO, GO SUB, CLEAR and CONTINUE are written GOTO, GOSUB, CLR and CONT here.',
@@ -300,8 +575,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'commodore',
-    to: 'bbc',
+    from: COMMODORES,
+    to: BBCS,
     notes: [
       {
         text: 'A close port on paper — most control flow and string handling carries — but POKE and PEEK are written ?addr=val and ?addr, and hex is &nn rather than decimal.',
@@ -316,8 +591,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'bbc',
-    to: 'commodore',
+    from: BBCS,
+    to: COMMODORES,
     notes: [
       {
         text: 'A steep step down: no ELSE, no REPEAT…UNTIL and no DEF PROC, so every structured block becomes IF…THEN with GOTO and GOSUB.',
@@ -334,8 +609,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'zxspectrum',
-    to: 'bbc',
+    from: SPECTRUMS,
+    to: BBCS,
     notes: [
       {
         text: 'GO TO and GO SUB are glued back together as GOTO and GOSUB, and the BBC adds ELSE, REPEAT…UNTIL, DEF PROC and DEF FN — though there is no WHILE.',
@@ -351,8 +626,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'bbc',
-    to: 'zxspectrum',
+    from: BBCS,
+    to: SPECTRUMS,
     notes: [
       {
         text: 'GOTO and GOSUB are written GO TO and GO SUB, and LET is required on every assignment.',
@@ -369,8 +644,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'cpc',
-    to: 'zxspectrum',
+    from: CPCS,
+    to: SPECTRUMS,
     notes: [
       {
         text: 'The richest of these BASICs to one of the plainer ones: WHILE…WEND, ELSE, AFTER/EVERY timers and ON ERROR GOTO all have to be rebuilt from IF…THEN and GO TO.',
@@ -384,8 +659,8 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'zxspectrum',
-    to: 'cpc',
+    from: SPECTRUMS,
+    to: CPCS,
     notes: [
       {
         text: 'A step up: Locomotive adds ELSE, WHILE…WEND, AFTER/EVERY timers, error trapping and 40-character variable names that may contain keywords.',
@@ -397,12 +672,13 @@ export const pairPortingNotes: PairPortingNotes[] = [
       },
       {
         text: 'Colour works differently: INK assigns one of 27 colours to a pen and PEN selects it, ATTR, BRIGHT, FLASH and INVERSE are gone, and nothing clashes per cell.',
+        covers: ['colour'],
       },
     ],
   },
   {
     from: 'atom',
-    to: 'bbc',
+    to: BBCS,
     notes: [
       {
         text: 'Same manufacturer, but not a smooth upgrade: the BBC adds floating point, real string variables, and DEF PROC/FN with REPEAT…UNTIL — though not WHILE.',
@@ -418,7 +694,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
-    from: 'bbc',
+    from: BBCS,
     to: 'atom',
     notes: [
       {

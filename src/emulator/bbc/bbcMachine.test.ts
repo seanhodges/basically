@@ -6,7 +6,7 @@ import { tokenizeProgram } from '../../dialects/bbcmicro/tokenizer';
 import type {
   MachineFileEntry,
   MachineFileStore,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { WRITE_BIT } from '../memoryActivityBuffer';
 
@@ -146,30 +146,6 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   }, 60000);
 
-  it('takes more frames to finish the same program at a slower speed', async () => {
-    // A busy loop long enough that its completion spans many frames, so the
-    // run (not just boot) is what setSpeed throttles.
-    const src = '10 FOR I=1 TO 5000\n20 NEXT I\n30 PRINT "DONE"\n40 END\n';
-    async function framesToDone(speed: number): Promise<number> {
-      const machine = new BbcMachine();
-      const { bytes } = tokenizeProgram(src);
-      machine.loadProgram(bytes);
-      machine.setSpeed(speed);
-      for (let i = 1; i <= 3000; i++) {
-        machine.runFrame();
-        if (screenText(machine).includes('DONE')) {
-          machine.dispose();
-          return i;
-        }
-        if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
-      }
-      throw new Error('never displayed DONE');
-    }
-    const atFullSpeed = await framesToDone(1);
-    const atHalfSpeed = await framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
-  }, 60000);
-
   it('feeds virtual-keyboard tokens into the key matrix', async () => {
     const machine = new BbcMachine();
     await machine.whenReady();
@@ -279,12 +255,12 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     it('loads a block from the disc and CHAINs the BASIC program', async () => {
       const machine = new BbcMachine();
       const { bytes } = tokenizeProgram('10 PRINT ?&2E00\n20 END\n');
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'b1',
         name: 'DATA',
         address: 0x2e00,
         bytes: Uint8Array.from([0x42, 0x99]),
-        kind: 'data',
+        kind: 'memory',
       };
       machine.loadProgram(bytes, { blocks: [block] });
       // MOS *LOADs the block at &2E00, then CHAIN runs the program, which
@@ -303,7 +279,7 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     it('*RUNs a machine-code-only document at its entry address', async () => {
       const machine = new BbcMachine();
       // LDA #&42 : STA &2100 : RTS - a routine that leaves a marker in RAM.
-      const code: MemoryBlock = {
+      const code: Block = {
         id: 'c1',
         name: 'CODE',
         address: 0x2000,
@@ -425,49 +401,9 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     }, 60000);
   });
 
-  describe('run state', () => {
-    /**
-     * Sample isProgramRunning() once per frame from the moment the program is
-     * handed over, so the hand-over itself is observable and not just the
-     * settled state.
-     */
-    async function trace(
-      source: string,
-      frames = 500,
-    ): Promise<(boolean | null)[]> {
-      const machine = new BbcMachine();
-      const { bytes } = tokenizeProgram(source);
-      machine.loadProgram(bytes);
-      const seen: (boolean | null)[] = [];
-      for (let i = 0; i < frames; i++) {
-        machine.runFrame();
-        seen.push(machine.isProgramRunning());
-        if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
-      }
-      machine.dispose();
-      return seen;
-    }
-
-    it('reports a looping program as running', async () => {
-      const seen = await trace('10 GOTO 10\n');
-      expect(seen.at(-1)).toBe(true);
-    }, 60000);
-
-    it('reports a finished program as not running', async () => {
-      const seen = await trace('10 PRINT "HI"\n20 END\n');
-      expect(seen.at(-1)).toBe(false);
-    }, 60000);
-
-    it('never reads as finished before the program has started', async () => {
-      // Everything up to the first `true` must be "not answerable yet" - a
-      // `false` in that window would tell the caller a program that has not
-      // begun has already ended.
-      const seen = await trace('10 GOTO 10\n');
-      const started = seen.indexOf(true);
-      expect(started).toBeGreaterThanOrEqual(0);
-      expect(seen.slice(0, started)).not.toContain(false);
-    }, 60000);
-  });
+  // Whether a program is running - reported while it runs, not before it starts,
+  // and no longer once it has ended - is checked over the whole registry, on
+  // every machine, by src/dialects/programRunState.test.ts.
 
   describe('VFS-backed data file I/O', () => {
     function fakeStore() {

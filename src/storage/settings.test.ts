@@ -6,6 +6,7 @@ import {
   loadAutosave,
   saveAutosave,
   clearAutosave,
+  saveAutosaveScratch,
   getAiProvider,
   setAiProvider,
   getProviderApiKey,
@@ -21,9 +22,14 @@ import {
   setDialectId,
   getLastShare,
   setLastShare,
+  getMachinePickerQuery,
+  setMachinePickerQuery,
+  getMachinePickerSort,
+  setMachinePickerSort,
   type PersistedMessage,
 } from './settings';
-import type { MemoryBlock, TapeFile } from '../dialects/types';
+import { MACHINE_SORTS } from '../components/machinePicker';
+import type { Block, TapeFile } from '../dialects/types';
 
 const KEY = 'mbide.autosave.ai';
 
@@ -63,6 +69,7 @@ describe('autosave persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -97,6 +104,7 @@ describe('autosave persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -111,6 +119,7 @@ describe('autosave persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
     // Adopted: the tab's identity is pinned even if the backup changes later.
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
@@ -131,12 +140,12 @@ describe('autosave block persistence', () => {
     installStorages();
   });
 
-  const BLOCK: MemoryBlock = {
+  const BLOCK: Block = {
     id: 'blk-1',
     name: 'SPRITES',
     address: 0x8000,
     bytes: Uint8Array.from([1, 2, 3, 255, 0]),
-    kind: 'data',
+    kind: 'memory',
     comment: 'Player sprites',
   };
 
@@ -150,7 +159,36 @@ describe('autosave block persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
+  });
+
+  // An autosave written before files a program saves were blocks too spells a
+  // block of memory `'data'`; nothing writes it now, so it can only ever have
+  // meant memory.
+  it("reads a stored 'data' block back as a memory block", () => {
+    sessionStorage.setItem('mbide.autosave.name', 'game.bas');
+    sessionStorage.setItem('mbide.autosave.doc', '10 PRINT "HI"');
+    sessionStorage.setItem(
+      'mbide.autosave.blocks',
+      JSON.stringify([
+        {
+          id: 'blk-1',
+          name: 'SPRITES',
+          address: 0x8000,
+          bytes: 'AQID/wA=',
+          kind: 'data',
+          comment: 'Player sprites',
+        },
+      ]),
+    );
+    sessionStorage.setItem(
+      'mbide.autosave.listingmeta',
+      JSON.stringify({ 0: { kind: 'data' } }),
+    );
+    const loaded = loadAutosave();
+    expect(loaded?.blocks).toEqual([BLOCK]);
+    expect(loaded?.listingBlockMeta).toEqual({ 0: { kind: 'memory' } });
   });
 
   it('defaults to no blocks when the third argument is omitted', () => {
@@ -195,6 +233,7 @@ describe('autosave block persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -238,6 +277,7 @@ describe('autosave tape-file persistence', () => {
       autoStart: null,
       tapeFiles: [TAPE],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -282,7 +322,77 @@ describe('autosave tape-file persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
+  });
+});
+
+describe('autosave scratch-buffer persistence', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  const BUFFERS = [
+    { name: 'Scratch 1', text: '10 PRINT "A"' },
+    { name: 'Scratch 1', text: '20 REM same name, kept apart' },
+  ];
+
+  it('round-trips scratch buffers alongside the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    expect(loadAutosave()?.scratch).toEqual(BUFFERS);
+  });
+
+  it('writes through to both storages', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    const raw = sessionStorage.getItem('mbide.autosave.scratch');
+    expect(raw).not.toBeNull();
+    expect(raw).toBe(localStorage.getItem('mbide.autosave.scratch'));
+  });
+
+  it('removes the scratch key when saving an empty list', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    saveAutosaveScratch([]);
+    expect(sessionStorage.getItem('mbide.autosave.scratch')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.scratch')).toBeNull();
+    expect(loadAutosave()?.scratch).toEqual([]);
+  });
+
+  it('clearAutosave clears the scratch key too', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    clearAutosave();
+    expect(sessionStorage.getItem('mbide.autosave.scratch')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.scratch')).toBeNull();
+  });
+
+  it('defensively parses corrupt scratch JSON as none, without losing the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    sessionStorage.setItem('mbide.autosave.scratch', '{not json');
+    localStorage.setItem('mbide.autosave.scratch', '{not json');
+    expect(loadAutosave()?.text).toBe('10 PRINT "HI"');
+    expect(loadAutosave()?.scratch).toEqual([]);
+  });
+
+  it('drops entries that are not a name/text pair', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    sessionStorage.setItem(
+      'mbide.autosave.scratch',
+      JSON.stringify([{ name: 'Kept', text: 'ok' }, { name: 'No text' }, 7]),
+    );
+    expect(loadAutosave()?.scratch).toEqual([{ name: 'Kept', text: 'ok' }]);
+  });
+
+  it('defensively parses a non-array scratch value as none', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    sessionStorage.setItem(
+      'mbide.autosave.scratch',
+      JSON.stringify({ oops: true }),
+    );
+    expect(loadAutosave()?.scratch).toEqual([]);
   });
 });
 
@@ -488,6 +598,37 @@ describe('AI provider settings', () => {
     setProviderApiKey('openai', '');
     expect(getProviderApiKey('openai')).toBe('');
     expect(getProviderApiKey('gemini')).toBe('AIza');
+  });
+});
+
+describe('machine picker preferences', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  it('opens on every machine, arranged by manufacturer, until told otherwise', () => {
+    expect(getMachinePickerQuery()).toBe('');
+    expect(getMachinePickerSort()).toBe('manufacturer');
+  });
+
+  it('round-trips what the list was narrowed by', () => {
+    setMachinePickerQuery('locomotive');
+    expect(localStorage.getItem('mbide.machinePickerQuery')).toBe('locomotive');
+    expect(getMachinePickerQuery()).toBe('locomotive');
+  });
+
+  it('round-trips every arrangement it offers', () => {
+    for (const { id } of MACHINE_SORTS) {
+      setMachinePickerSort(id);
+      expect(getMachinePickerSort()).toBe(id);
+    }
+  });
+
+  it('falls back to manufacturer for an arrangement it does not know', () => {
+    // An older build's value, or a hand-edited one. Leaving the list with no
+    // order is the failure this guards.
+    localStorage.setItem('mbide.machinePickerSort', 'bogus');
+    expect(getMachinePickerSort()).toBe('manufacturer');
   });
 });
 

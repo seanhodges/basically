@@ -2,6 +2,12 @@
 title: Amstrad CPC hardware
 ---
 
+<script setup>
+import { cpc464MemoryMap } from '../../../src/dialects/cpc464/memoryMap';
+import { cpc664MemoryMap } from '../../../src/dialects/cpc664/memoryMap';
+import { cpc6128MemoryMap } from '../../../src/dialects/cpc6128/memoryMap';
+</script>
+
 # Amstrad CPC hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -10,7 +16,7 @@ live in its memory.
 
 ## Amstrad CPC 464
 
-### Screen modes
+### Screen modes {#cpc464-screen-modes}
 
 Pick a mode with `MODE`:
 
@@ -23,27 +29,34 @@ Pick a mode with `MODE`:
 All three render into one display; graphics always use a 640 × 400 coordinate
 space with the origin at the bottom-left, moved with `ORIGIN`.
 
-### Colour
+### Colour {#cpc464-colour}
 
-The CPC has **27 hardware colours** (0–26). `INK p,c` assigns colour `c` to pen
-`p`; a second argument (`INK p,c1,c2`) flashes between two colours. `PEN` selects
+The CPC has **27 hardware colours** (0–26). `INK <pen>, <colour>` assigns one of them
+to a pen; a second colour (`INK <pen>, <colour>, <colour>`) flashes between the
+two. `PEN` selects
 the text ink, `PAPER` the text background and `BORDER` the surround.
 
-### Graphics
+### Graphics {#cpc464-graphics}
 
-`PLOT x,y[,pen]` lights a point, `DRAW x,y[,pen]` draws a line from the last
+`PLOT <x>, <y>[, <pen>]` lights a point, `DRAW <x>, <y>[, <pen>]` draws a line from the last
 position, and `MOVE`/`DRAWR`/`MOVER` reposition or draw relatively. In BASIC 1.0
 the plotting ink is the optional third argument to `PLOT`/`DRAW` (the `GRAPHICS
 PEN`/`GRAPHICS PAPER` statements are BASIC 1.1 only and are not available on the
 464).
 
-### Sound
+### Sound {#cpc464-sound}
 
-`SOUND channel,period,duration[,volume[,volenv[,toneenv[,noise]]]]` plays a tone;
+`SOUND <channel>, <period>[, <duration>[, <volume>[, <volenv>[, <toneenv>[, <noise>]]]]]` plays a tone;
 `period` is `62500 / frequency`. `ENV` and `ENT` define volume and tone
 envelopes.
 
 ### Memory {#cpc464-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="cpc464" :map="cpc464MemoryMap" />
 
 A CPC program can carry fixed-address machine code or data — **memory blocks** —
 that load into RAM alongside the BASIC program and are in place before it runs.
@@ -68,35 +81,95 @@ warns (but allows) a block over reserved workspace or the screen. See the
 Every mnemonic, directive and operand form the assembly editor accepts is in the
 [Z80 assembly reference](../z80-assembly).
 
+## Amstrad CPC 664
+
+The 664 is the 464 with a later BASIC and a disc drive in place of the tape
+deck. It runs Locomotive BASIC 1.1, which first shipped here; the eleven
+keywords that adds to BASIC 1.0 are tagged **BASIC 1.1 only** in the
+[reference table](../cpc). A program written in BASIC 1.0 runs on all three CPCs
+and builds the same program bytes on each.
+
+### Screen modes {#cpc664-screen-modes}
+
+Identical to the [464](#cpc464-screen-modes).
+
+### Colour {#cpc664-colour}
+
+Identical to the [464](#cpc464-colour).
+
+### Graphics {#cpc664-graphics}
+
+Identical to the [464](#cpc464-graphics), except that BASIC 1.1's `GRAPHICS PEN`
+and `GRAPHICS PAPER` set the plotting inks once instead of per `PLOT`/`DRAW`.
+
+### Sound {#cpc664-sound}
+
+Identical to the [464](#cpc464-sound).
+
+### Storage {#cpc664-tape}
+
+The real 664 has a 3" disc drive built in. This IDE runs the machine with **tape
+only** — there is no disc drive and no AMSDOS ROM. Because AMSDOS is absent so
+are its commands: `|DISC`, `|DIR`, `|ERA` and `|REN` are not available, and
+neither is `|TAPE` — there is no disc filing system to switch away from, so the
+cassette is already in use and `|TAPE` would answer `Unknown command`. `.dsk`
+images are neither imported nor exported, and the machine reports the 464's
+free-RAM figure rather than the smaller one a disc-equipped 664 leaves.
+
+Data files work regardless of the missing drive, exactly as they do on the
+[6128](#cpc6128-tape).
+
+### Memory {#cpc664-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="cpc664" :map="cpc664MemoryMap" />
+
+Memory blocks work exactly as on the [464](#cpc464-memory), with the same valid
+range, the same **&8000** default and the same three warned regions.
+
 ## Amstrad CPC 6128
 
-The 6128 is the same computer with more memory and a later BASIC. Its screen
-modes, colours, graphics coordinate space and sound hardware are identical to the
-[464's](#amstrad-cpc-464) — everything above applies unchanged.
+The 6128 is the 664 with more memory, and runs the same Locomotive BASIC 1.1.
 
-### Locomotive BASIC 1.1
+### Screen modes {#cpc6128-screen-modes}
 
-The 6128 runs BASIC 1.1, which adds eleven keywords to BASIC 1.0. They are marked
-**BASIC 1.1 only** in the [keyword reference](../cpc), and the most useful in
-practice are:
+Identical to the [464](#cpc464-screen-modes).
 
-| Keyword                           | What it does                                             |
-| --------------------------------- | -------------------------------------------------------- |
-| `FRAME`                           | Waits for display flyback, so animation stops flickering |
-| `GRAPHICS PEN` / `GRAPHICS PAPER` | Set the plotting inks once instead of per `PLOT`/`DRAW`  |
-| `FILL`                            | Flood-fills the area around the graphics cursor          |
-| `MASK`                            | Sets the dot pattern lines are drawn with                |
-| `COPYCHR$`                        | Reads back the character under the text cursor           |
-| `CURSOR`                          | Shows or hides the text cursor                           |
-| `DEC$`                            | Formats a number to a template                           |
-| `CLEAR INPUT`                     | Discards pending keypresses                              |
-| `ON BREAK CONT`                   | Makes <kbd>ESC</kbd> ignored                             |
-| `DERR`                            | The last disc error number                               |
+### Colour {#cpc6128-colour}
 
-A program written in BASIC 1.0 runs on both machines and builds the same
-program bytes on either; one using the keywords above runs only on the 6128.
+Identical to the [464](#cpc464-colour).
 
-### The second 64K
+### Graphics {#cpc6128-graphics}
+
+Identical to the [664](#cpc664-graphics), BASIC 1.1's `GRAPHICS PEN` and
+`GRAPHICS PAPER` included.
+
+### Sound {#cpc6128-sound}
+
+Identical to the [464](#cpc464-sound).
+
+### Storage {#cpc6128-tape}
+
+The real 6128 has a 3" disc drive, and boots addressing it. This IDE runs the
+machine with **tape only** — there is no disc drive and no AMSDOS ROM. Because
+AMSDOS is absent so are its commands: `|DIR`, `|ERA` and `|REN` are not
+available, and neither is `|TAPE` — there is no disc filing system to switch
+away from, so the cassette is already in use and `|TAPE` would answer
+`Unknown command`. `.dsk` images are neither imported nor exported, and the
+machine reports the 464's free-RAM figure rather than the 42,249 bytes a
+disc-equipped 6128 leaves.
+
+Data files work regardless of the missing drive. A program that writes with
+`OPENOUT` and `PRINT #9` and reads back with `OPENIN` and `INPUT #9` is served
+by the IDE, which keeps what it saves and shows it alongside the program — see
+[file formats](./formats). `LOAD`, `RUN"` and `CHAIN` read from the same place
+when the name is one a program saved; `SAVE` and `CAT` still address the
+cassette itself.
+
+### Memory {#cpc6128-memory}
 
 The 6128 has 128K of RAM, but BASIC works in the same 64K as a 464: `HIMEM` is
 the same `&AB7F` and `PRINT FRE(0)` reports the same free RAM. The extra 64K is
@@ -107,17 +180,11 @@ machine code, not for BASIC variables or arrays. Configuration 0 is the flat bas
 once. The display always reads the base 64K whatever is selected, so banking
 never disturbs the screen.
 
-### Tape, not disc
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
 
-The real 6128 has a 3" disc drive, and boots addressing it. This IDE runs the
-machine with **tape only** — there is no disc drive and no AMSDOS ROM — so a
-program doing cassette `LOAD`/`SAVE` must issue `|TAPE` first (the `|` is
-<kbd>SHIFT</kbd>+<kbd>@</kbd>). The AMSDOS disc commands (`|DIR`, `|ERA`, `|REN`)
-are not available, and `.dsk` images are neither imported nor exported. Because
-AMSDOS is absent, the machine reports the 464's free-RAM figure rather than the
-42,249 bytes a disc-equipped 6128 leaves.
-
-### Memory {#cpc6128-memory}
+<MemoryMapSingle machine="cpc6128" :map="cpc6128MemoryMap" />
 
 Memory blocks work exactly as on the [464](#cpc464-memory), with the same valid
 range, the same **&8000** default and the same three warned regions — blocks live

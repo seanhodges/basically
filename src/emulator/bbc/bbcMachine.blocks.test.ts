@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { BbcMachine, configureNodeRomPath } from './bbcMachine';
 import { tokenizeProgram } from '../../dialects/bbcmicro/tokenizer';
-import type { MemoryBlock } from '../../dialects/types';
+import type { Block } from '../../dialects/types';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
 beforeAll(() => {
@@ -37,7 +37,7 @@ describe('BbcMachine memory-block injection', () => {
   // MODE 7 screen and clear of the tiny program, so nothing overwrites it.
   const BLOCK_ADDR = 0x2e00;
   const BLOCK_BYTES = new Uint8Array([0xde, 0xad, 0xbe, 0xef, 0x42]);
-  const block: MemoryBlock = {
+  const block: Block = {
     id: 'b1',
     name: 'Code',
     address: BLOCK_ADDR,

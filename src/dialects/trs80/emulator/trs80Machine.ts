@@ -1,13 +1,15 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
-import type { MachineEmulator, MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 import { Trs80Memory } from './memory';
 import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
 import { PROG_START, KEYBOARD_BASE, KEYBOARD_END } from '../addresses';
+import { loadMicrosoftBasicProgram } from '../../../emulator/microsoftBasicLoad';
 
-/** Z80 @ ~1.77 MHz over a 50 Hz frame. */
-const TSTATES_PER_FRAME = 35500;
+const CPU_HZ = 1_775_000; // Model I Z80
+/** One 50 Hz frame of CPU time. */
+const TSTATES_PER_FRAME = CPU_HZ / 50;
 const MAX_BOOT_FRAMES = 600;
 
 /**
@@ -37,15 +39,30 @@ const PTR_STREND = 0x40aa;
  * zx80Machine.ts (boot the ROM to READY, drive the key matrix to type) minus the
  * Sinclair-specific NMI/interrupt/echo path: the base Model I has no interrupt
  * source under Level II BASIC, so frames are a plain run of instructions.
+ *
+ * Not yet a `MachineEmulator`, and nothing constructs it but its own
+ * test: the seam requires a machine to report whether a BASIC program is
+ * executing, and this one has no ROM to derive that from. Level II BASIC is
+ * Microsoft BASIC, so it very likely keeps a current-line cell like the
+ * Commodore machines do - but where is a fact about an image that is not here,
+ * and the pointer block above carries the same caveat for the same reason.
+ * Supply `public/roms/trs80/trs80.rom`, confirm the addresses against it, and this
+ * rejoins the seam.
  */
-export class Trs80Machine implements MachineEmulator {
+export class Trs80Machine {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
 
   private readonly memory: Trs80Memory;
   private readonly keyboard = new Trs80Keyboard();
   private readonly cpu: Z80Core;
-  private speed = 1;
+  /**
+   * T-states the previous frame overran its budget by, owed back to this one.
+   * An instruction cannot be cut in half at a frame boundary, so a frame always
+   * ends a few T-states late; discarding that gains time every frame.
+   */
+  private debt = 0;
   private disposed = false;
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
@@ -74,14 +91,18 @@ export class Trs80Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    while (cycles < budget) {
+    let cycles = this.debt;
+    while (cycles < TSTATES_PER_FRAME) {
       // Nothing wakes a HALT on the base Model I (no interrupt source), so end
-      // the frame early rather than spinning.
-      if (this.cpu.isHalted()) break;
+      // the frame early rather than spinning. Nothing is owed for time the CPU
+      // was never going to run.
+      if (this.cpu.isHalted()) {
+        this.debt = 0;
+        return;
+      }
       cycles += this.cpu.run_instruction();
     }
+    this.debt = cycles - TSTATES_PER_FRAME;
   }
 
   /** True when the run of character codes appears anywhere in video RAM. */
@@ -128,40 +149,28 @@ export class Trs80Machine implements MachineEmulator {
    * pointers, then type RUN to start it - the authentic path a user would take.
    * `image` is the bare program bytes (the same {@link tokenizeProgram} output).
    */
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     this.reset();
     this.bootToReady();
 
-    for (let i = 0; i < image.length; i++) {
-      this.memory.write(PROG_START + i, image[i]!);
-    }
     // The program already ends in its 0x0000 null link; variables start just
     // past it. TXTTAB stays at the program base.
     const end = PROG_START + image.length;
-    this.memory.writeWord(PTR_TXTTAB, PROG_START);
-    this.memory.writeWord(PTR_VARTAB, end);
-    this.memory.writeWord(PTR_ARYTAB, end);
-    this.memory.writeWord(PTR_STREND, end);
-
-    // Memory blocks (machine code / data at a fixed address, alongside the
-    // BASIC program - see MemoryBlock) are written straight into RAM now, after
-    // the program and its pointers are in place and before RUN starts it -
-    // mirroring how a real loader pokes code in once the tape has finished.
-    const blocks = opts?.blocks;
-    if (blocks && blocks.length > 0) {
-      for (const block of blocks) {
-        for (let i = 0; i < block.bytes.length; i++) {
-          this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
-        }
-      }
-    }
-
-    this.keyboard.releaseAll();
-    for (const c of ['KeyR', 'KeyU', 'KeyN']) this.tapKeys([c]);
-    this.tapKeys(['Enter']);
+    loadMicrosoftBasicProgram(this.memory, image, {
+      programBase: PROG_START,
+      pointers: [
+        { address: PTR_TXTTAB, value: PROG_START },
+        { address: PTR_VARTAB, value: end },
+        { address: PTR_ARYTAB, value: end },
+        { address: PTR_STREND, value: end },
+      ],
+      blocks: opts?.blocks,
+      typeRun: () => {
+        this.keyboard.releaseAll();
+        for (const c of ['KeyR', 'KeyU', 'KeyN']) this.tapKeys([c]);
+        this.tapKeys(['Enter']);
+      },
+    });
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
@@ -197,10 +206,6 @@ export class Trs80Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.keyboard.releaseAll();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {

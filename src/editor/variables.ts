@@ -22,6 +22,11 @@ import type {
   CompletionSource,
 } from '@codemirror/autocomplete';
 import { isInsideString } from './completions';
+import { isBinaryDirective } from '../dialects/binaryDirective';
+import {
+  spellingAt,
+  type KeywordSpellings,
+} from '../dialects/keywordSpellings';
 import { scannable } from './programOutline';
 import type { OutlineCapabilities } from './programOutline';
 import type { CrunchMatcher } from './crunch';
@@ -50,6 +55,41 @@ export interface VarNameRules {
    * of using the whole-run keyword rule. See {@link ./crunch}.
    */
   crunch?: CrunchMatcher | null;
+  /**
+   * Set when READ takes a DATA item literally rather than evaluating it (BBC,
+   * CPC, the Microsoft family), so the words inside a DATA statement are values
+   * and never variable names. Left unset for Sinclair, where a DATA item is an
+   * expression and its names are ordinary usages. See {@link ./variableLexis}.
+   */
+  dataIsVerbatim?: boolean;
+  /**
+   * How this machine lets a program spell a keyword short, where it does. A
+   * spelling is consumed as its keyword, so the letters that make it up are not
+   * read as a name: without this a BBC `P."HI"` reports a variable `P` the
+   * program does not have, and a C64 `pO53280,1` reports one called `pO53280`.
+   * The highlighter reads the same spellings from the same source, so the two
+   * agree about the same text. See {@link ../dialects/keywordSpellings}.
+   */
+  spellings?: KeywordSpellings | null;
+  /**
+   * Whether a run is folded before being tested against {@link keywords}.
+   * Default true; false on the Acorn BBCs, whose ROM matches a keyword byte for
+   * byte, so `print` there is a name the scanner must find rather than a
+   * keyword it must skip. See {@link ../dialects/letterCase}.
+   *
+   * Only the keyword *test* folds - the run is reported as written either way,
+   * because whether two spellings are one variable is a different question with
+   * a different answer (see {@link ./variableIdentity}).
+   */
+  foldsKeywordCase?: boolean;
+}
+
+/**
+ * The spelling of `run` to look up in the keyword set: folded where the
+ * machine's own scan folds, as written where it compares characters.
+ */
+function keywordLookup(run: string, rules: VarNameRules): string {
+  return rules.foldsKeywordCase === false ? run : run.toUpperCase();
 }
 
 /**
@@ -122,7 +162,9 @@ export interface VarToken {
  * (`basicLanguage.ts` token()): numbers and hex literals are consumed so their
  * letters (`1E5`, `&FF`) aren't read as names, and an identifier run that is a
  * keyword prefix (consuming the whole run, or ending in `$`) or a PROC/FN call
- * is skipped. Dialects with `rules.crunch` set use the ROM-splitting scanner
+ * is skipped. On the machines that keep DATA items verbatim its items are
+ * skipped to the next `:`; on Sinclair they are expressions and are scanned.
+ * Dialects with `rules.crunch` set use the ROM-splitting scanner
  * ({@link forEachVariableCrunched}) instead.
  */
 export function forEachVariable(
@@ -151,6 +193,18 @@ export function forEachVariable(
       prevKeyword = null;
       continue;
     }
+    // A keyword spelled short is that keyword, so its letters are not a name.
+    // Asked before the identifier run for the same reason the highlighter asks
+    // there: the dot or shifted letter marking the spelling is part of it.
+    const short = rules.spellings
+      ? spellingAt(code, i, rules.spellings, rules.foldsKeywordCase ?? true)
+      : null;
+    if (short) {
+      if (short.keyword === 'REM') return; // rest of the line is a comment
+      prevKeyword = short.keyword;
+      i += short.length;
+      continue;
+    }
     const head = rules.headRe.exec(rest);
     if (!head) {
       // Keep prevKeyword across spaces (FOR<space>I) but drop it on operators.
@@ -159,7 +213,7 @@ export function forEachVariable(
       continue;
     }
     const run = head[0];
-    const upper = run.toUpperCase();
+    const upper = keywordLookup(run, rules);
     // A PROC/FN call (prefix + name) is not a variable - skip the whole run.
     if (
       rules.callPrefixes.some(
@@ -184,6 +238,15 @@ export function forEachVariable(
     }
     if (keywordLen > 0) {
       prevKeyword = upper.slice(0, keywordLen);
+      // Where READ takes items literally they are values, not names, so skip
+      // to the next statement. On Sinclair a DATA item is an expression, so its
+      // names are ordinary usages and the scan continues.
+      if (prevKeyword === 'DATA' && rules.dataIsVerbatim) {
+        const colon = code.indexOf(':', i + keywordLen);
+        if (colon === -1) return;
+        i = colon;
+        continue;
+      }
       i += keywordLen;
       continue;
     }
@@ -253,6 +316,30 @@ function forEachVariableCrunched(
       ctx = 'none';
       continue;
     }
+    // A keyword spelled short, ahead of the crunch split: `pO53280,1` is POKE
+    // and a number, not one very long name. The all-capitals runs crunch exists
+    // for cannot match a shifted spelling, so the two never compete.
+    const short = rules.spellings
+      ? spellingAt(code, i, rules.spellings, rules.foldsKeywordCase ?? true)
+      : null;
+    if (short) {
+      const kw = short.keyword;
+      if (kw === 'REM') return;
+      prevKeyword = kw;
+      if (kw === 'DATA' && rules.dataIsVerbatim) {
+        const colon = code.indexOf(':', i + short.length);
+        if (colon === -1) return;
+        i = colon;
+        continue;
+      }
+      ctx = CRUNCH_STMT_OPENERS.includes(kw)
+        ? 'stmt'
+        : CRUNCH_VAR_EXPECTING.includes(kw)
+          ? 'var'
+          : 'none';
+      i += short.length;
+      continue;
+    }
     const head = rules.headRe.exec(rest);
     if (!head) {
       const ch = rest[0]!;
@@ -288,7 +375,7 @@ function forEachVariableCrunched(
     if (kw) {
       if (kw === 'REM') return; // rest of the line is a comment
       prevKeyword = kw;
-      if (kw === 'DATA') {
+      if (kw === 'DATA' && rules.dataIsVerbatim) {
         // DATA items are verbatim until the next statement.
         const colon = code.indexOf(':', i + kw.length);
         if (colon === -1) return;
@@ -342,8 +429,80 @@ function scanLine(
   forEachVariable(code, rules, (t) => emit(t.text));
 }
 
+/** A variable occurrence with its editor-line position. */
+export interface Occurrence {
+  name: string;
+  /** 1-based editor line. */
+  line: number;
+  /** 0-based column of the token within the line. */
+  column: number;
+  /** 0-based column just past the token. */
+  endColumn: number;
+  /** Keyword just before the token on the line (e.g. FOR), or null. */
+  prevKeyword: string | null;
+  /** Character immediately after the token (e.g. `(` for an array), or ''. */
+  nextChar: string;
+  /**
+   * The next character that is not a space, or ''. Tells an array from a scalar
+   * even where the machine tolerates `A (5)`; {@link nextChar} stays adjacent
+   * because the lint's array rule is written against the ROM's own strictness.
+   */
+  nextNonSpace: string;
+  /** Reserved word glued mid-name where a variable was expected, if any. */
+  embedsKeyword?: string;
+}
+
+/**
+ * Visit the variable occurrences of one editor line, numbered as `line`.
+ * Strips the BASIC line number so columns stay relative to the editor line, and
+ * blanks strings/REM before scanning.
+ */
+export function eachOccurrenceInLine(
+  raw: string,
+  line: number,
+  rules: VarNameRules,
+  visit: (occ: Occurrence) => void,
+): void {
+  if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
+  const m = /^\s*\d+\s?/.exec(raw);
+  const prefixLen = m ? m[0].length : 0;
+  const code = scannable(raw.slice(prefixLen));
+  forEachVariable(code, rules, (t) => {
+    const column = prefixLen + t.index;
+    const after = code.slice(t.index + t.text.length);
+    visit({
+      name: t.text,
+      line,
+      column,
+      endColumn: column + t.text.length,
+      prevKeyword: t.prevKeyword,
+      nextChar: after[0] ?? '',
+      nextNonSpace: after.replace(/^ +/, '')[0] ?? '',
+      embedsKeyword: t.embedsKeyword,
+    });
+  });
+}
+
+/**
+ * Visit every variable occurrence in a whole program, with line/column info.
+ *
+ * The positioned sibling of {@link forEachVariable}: same recognition rules,
+ * plus the line-number prefix arithmetic that turns a token's index within the
+ * scanned code back into a column of the editor line. Shared by the variable
+ * lint and by usage lookup so both read a program the same way.
+ */
+export function eachOccurrence(
+  source: string,
+  rules: VarNameRules,
+  visit: (occ: Occurrence) => void,
+): void {
+  source
+    .split('\n')
+    .forEach((raw, row) => eachOccurrenceInLine(raw, row + 1, rules, visit));
+}
+
 /** The smallest scope region containing `row`, or null when at top level. */
-function enclosingRegion(
+export function enclosingRegion(
   regions: ProcRegion[],
   row: number,
 ): ProcRegion | null {

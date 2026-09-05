@@ -6,13 +6,20 @@ import {
   zx80VariableErrors,
   trs80VariableErrors,
   atomVariableErrors,
+  pmd85VariableErrors,
+  samcoupeVariableErrors,
+  ge235VariableErrors,
 } from './variableLint';
+import { dialects, getDialect } from '../dialects/registry';
 import { zx81Keywords } from '../dialects/zx81/keywords';
 import { c64Keywords } from '../dialects/commodore64/keywords';
 import { spectrumKeywords } from '../dialects/zxspectrum/keywords';
 import { zx80EditorKeywords } from '../dialects/zx80/keywords';
 import { trs80Keywords } from '../dialects/trs80/keywords';
 import { atomKeywords } from '../dialects/atom/keywords';
+import { pmd85Keywords } from '../dialects/pmd85/keywords';
+import { samcoupeKeywords } from '../dialects/samcoupe/keywords';
+import { ge235Keywords } from '../dialects/ge235/keywords';
 
 const zx81 = (src: string) => zx81VariableErrors(src, zx81Keywords);
 const c64 = (src: string) => c64VariableErrors(src, c64Keywords);
@@ -20,6 +27,9 @@ const spectrum = (src: string) => spectrumVariableErrors(src, spectrumKeywords);
 const zx80 = (src: string) => zx80VariableErrors(src, zx80EditorKeywords);
 const trs80 = (src: string) => trs80VariableErrors(src, trs80Keywords);
 const atom = (src: string) => atomVariableErrors(src, atomKeywords);
+const pmd85 = (src: string) => pmd85VariableErrors(src, pmd85Keywords);
+const samcoupe = (src: string) => samcoupeVariableErrors(src, samcoupeKeywords);
+const ge235 = (src: string) => ge235VariableErrors(src, ge235Keywords);
 
 describe('zx81VariableErrors', () => {
   it('flags a multi-letter string variable at its exact columns', () => {
@@ -138,6 +148,18 @@ describe('spectrumVariableErrors (same single-letter model as ZX81)', () => {
     );
     expect(spectrum('10 DIM A(5)')).toEqual([]);
   });
+
+  // A Sinclair DATA item is an expression, not a value: on the real ROM
+  // `10 LET a=7:DATA a` READs 7, `DATA a*2` READs 14, and an undefined word
+  // stops with "Variable not found". So names inside DATA are real usages and
+  // the single-letter rule applies to them, unlike on a BBC or a CPC where
+  // READ takes the item literally.
+  it('checks the names inside a DATA statement', () => {
+    expect(spectrum('10 DATA AB$')[0]!.message).toMatch(
+      /string variable.*single letter/i,
+    );
+    expect(spectrum('10 DATA a,b*2')).toEqual([]);
+  });
 });
 
 describe('zx80VariableErrors (strict: every name a single letter)', () => {
@@ -211,5 +233,180 @@ describe('trs80VariableErrors (Microsoft model with $%!# suffixes)', () => {
         /'SCORE' embeds the reserved word 'OR'/,
       );
     });
+  });
+});
+
+describe('pmd85VariableErrors (Microsoft model, $ the only suffix)', () => {
+  it('flags a name that embeds a reserved word', () => {
+    expect(pmd85('10 SCORE=1')[0]!.message).toMatch(
+      /PMD 85 variable name 'SCORE' embeds the reserved word 'OR'/,
+    );
+  });
+
+  it('flags two long names colliding on the first two chars', () => {
+    const errors = pmd85('10 PLAYER=1\n20 PLANET=2');
+    expect(errors).toHaveLength(2);
+    for (const e of errors)
+      expect(e.message).toMatch(/only the first two characters \('PL'\)/);
+  });
+
+  it('never flags glued keywords as variables', () => {
+    expect(pmd85('10 POKEA,10')).toEqual([]);
+    expect(pmd85('10 FORI=1TO10\n20 NEXTI')).toEqual([]);
+    expect(pmd85('10 IFP=QTHENGOTO50')).toEqual([]);
+  });
+
+  it('reads the digits of a hex literal as a literal, not a name', () => {
+    // `'FF` is BASIC-G's hexadecimal form; without the prefix in the lexis the
+    // scanner would report an `FF` variable that the program does not have.
+    expect(pmd85("10 A='FF")).toEqual([]);
+  });
+
+  it('reports no collision between two names the machine keeps apart', () => {
+    // This ROM compares a name byte for byte, so `PLayer` is stored under `PL`
+    // and `Planet` under `Pl`, and the two never meet. The lint used to fold
+    // first and report a collision the machine does not have - while the
+    // usages view beside it, which consulted the case fact, said on the same
+    // program that they were two variables.
+    expect(pmd85('10 PLayer=1\n20 Planet=2')).toEqual([]);
+  });
+
+  it('still reports a genuine two-character collision', () => {
+    const errors = pmd85('10 PLayer=1\n20 PLanet=2');
+    expect(errors).toHaveLength(2);
+    for (const e of errors)
+      expect(e.message).toMatch(/only the first two characters \('PL'\)/);
+  });
+
+  it('quotes a name the way the program spells it', () => {
+    // Folding the reported spellings would have shown the reader a name that
+    // is nowhere in their program.
+    const [first] = pmd85('10 PLayer=1\n20 PLanet=2');
+    expect(first!.message).toMatch(/'PLayer' clashes with 'PLanet'/);
+  });
+});
+
+/**
+ * Every registered machine whose ROM restricts variable names says so in the
+ * editor.
+ *
+ * The wrappers above are wired into each dialect's own `lint()`, one line per
+ * dialect, and nothing failed when a machine was registered without that line:
+ * its editor simply accepted names the machine cannot store, and the program
+ * ran wrong on the emulator next to it. So this asks the registry rather than a
+ * list, through the dialect's whole `lint()` - the seam the editor actually
+ * calls - and a machine with no rule has to be excused by name.
+ */
+const NO_NAME_RULE: Record<string, string> = {
+  // BBC BASIC's names are fully significant; the one real restriction (a name
+  // may not embed a non-`conditional` keyword) is enforced ROM-accurately
+  // inside the tokenizer itself.
+  bbcmicro: 'names are fully significant',
+  bbcmaster: 'names are fully significant',
+  // Locomotive BASIC likewise keeps every character of a name.
+  cpc464: 'names are fully significant',
+  cpc664: 'names are fully significant',
+  cpc6128: 'names are fully significant',
+  // Atari BASIC keeps every character of a name too; its own restriction (a
+  // name may not open with a reserved word the greedy scan matches first) is
+  // a different shape from anything `UNSTORABLE` exercises.
+  atari800: 'names are fully significant',
+  atari400: 'names are fully significant',
+  // The Apple II's Integer BASIC keeps a long name in full, unlike the Apple
+  // I's one letter and a digit; its own restriction - a name that ends at one
+  // of the seven words that may follow an expression - needs a name written
+  // for it rather than `UNSTORABLE`.
+  apple2: 'names are fully significant',
+  // SAM BASIC keeps every character of a name too; its own restriction is a
+  // length ceiling per type - 32 characters for a numeric name and 10 for a
+  // string or array one - which `UNSTORABLE` is well inside. The ceilings are
+  // exercised by the samcoupeVariableErrors cases above.
+  samcoupe: 'names are fully significant',
+};
+
+/**
+ * Two long string names differing only after the second character. Every
+ * restriction in this file rejects it, and for a different reason each time:
+ * the Sinclairs and the Atom because a string name must be one letter, the
+ * Microsoft ROMs because both names collapse to `AB$`, the Apple I because a
+ * name is one letter and at most one digit.
+ */
+const UNSTORABLE = '10 LET ABCD$="X"\n20 LET ABCE$="Y"\n';
+
+describe('samcoupeVariableErrors (two name-length ceilings, one per type)', () => {
+  it('allows a long numeric name but not a long string or array one', () => {
+    expect(samcoupe('10 LET highest_score_this_session=1')).toEqual([]);
+    expect(samcoupe('10 LET playernames$="a"')[0]!.message).toMatch(
+      /string and array names are at most 10 characters/,
+    );
+    expect(samcoupe('10 DIM playerscores(10)')[0]!.message).toMatch(
+      /string and array names are at most 10 characters/,
+    );
+    // Ten is the limit, and the $ does not count towards it.
+    expect(samcoupe('10 LET playernam$="a"')).toEqual([]);
+    // Thirty-three characters is past what NAMTOBUF will count.
+    expect(samcoupe(`10 LET ${'a'.repeat(33)}=1`)[0]!.message).toMatch(
+      /at most 32 characters/,
+    );
+  });
+
+  it('reads a name the way the ROM does, so keywords are not names', () => {
+    expect(samcoupe('10 PRINT LEN a$: LET b=PEEK &8000')).toEqual([]);
+  });
+});
+
+describe('ge235VariableErrors (a letter, and at most one digit after it)', () => {
+  it('allows a letter and a letter-digit pair, and nothing longer', () => {
+    expect(ge235('10 LET A=1\n20 LET A1=2')).toEqual([]);
+    expect(ge235('10 LET AB=1')[0]!.message).toMatch(
+      /single letter, optionally followed by one digit/,
+    );
+    expect(ge235('10 LET A12=1')[0]!.message).toMatch(
+      /single letter, optionally followed by one digit/,
+    );
+  });
+
+  it('flags a subscripted name that carries a digit', () => {
+    // `var` reads the subscript bracket straight after the letter, so an array
+    // name has no room for the digit a scalar may have.
+    expect(ge235('10 DIM A1(5)')[0]!.message).toMatch(
+      /array names must be a single letter/,
+    );
+    expect(ge235('10 DIM A(5)')).toEqual([]);
+  });
+
+  it('reads a name the way the compiler does, so keywords are not names', () => {
+    expect(ge235('10 FOR I=1 TO 9\n20 PRINT SQR(I)\n30 NEXT I')).toEqual([]);
+    // Blanks are deleted before anything looks at the line, so a crunched loop
+    // is FOR/TO and a control variable, not one long name.
+    expect(ge235('10 FORI=1TO9')).toEqual([]);
+  });
+});
+
+describe('every registered machine lints the names its ROM cannot store', () => {
+  it.each(dialects.map((d) => d.id))('%s', (id) => {
+    const messages = getDialect(id)
+      .lint(UNSTORABLE)
+      .map((e) => e.message);
+    if (NO_NAME_RULE[id]) {
+      expect(messages, `${id} has a name rule after all`).toEqual([]);
+      return;
+    }
+    expect(
+      messages.filter((m) =>
+        /single letter|one letter|characters .* are significant|reserved word/.test(
+          m,
+        ),
+      ),
+      `${id} accepted a name its ROM cannot store - wire a variableLint ` +
+        'wrapper into its lint(), or list it in NO_NAME_RULE with a reason',
+    ).not.toEqual([]);
+  });
+
+  it('excuses only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of Object.keys(NO_NAME_RULE)) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
   });
 });

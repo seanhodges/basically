@@ -6,9 +6,7 @@ An optional AI pair-programmer that knows the active machine's BASIC rules:
 the user brings their own API key, chats about the current program, and lands
 generated code back into the editor safely — with lint and runtime errors
 feeding the loop.
-
 ## Requirements
-
 ### Requirement: Bring-your-own-key, multiple providers
 
 The assistant SHALL work with the user's own API key against any of the
@@ -49,6 +47,34 @@ where it cannot represent them all; how it spells the control codes its characte
 holds; its screen, colour and sound capabilities; and, where
 the machine lacks a capability another machine has, what to do on this machine
 instead.
+
+The screen SHALL additionally be carried as the columns and rows of the screen
+the machine boots into, in a form a print position can be checked against
+rather than only read: the prose summary describes the modes a machine can
+reach, which does not say where a program may print before it selects one.
+
+The request SHALL carry how long a wait takes on this machine — the machine's
+own idiom for waiting, and the rate at which it runs a loop that only counts.
+A pause written as a counting loop is the machine's speed written into the
+program, and the machines differ in that speed by more than an order of
+magnitude. The rate SHALL be quoted as measured in this product's own
+emulators, never as a fact about the original hardware, and a machine with no
+measured rate SHALL carry none rather than an estimate.
+
+Where the machine has a described memory layout, the request SHALL carry it:
+the range of addresses that exist, each named region with its bounds and what
+it holds, and memory that cannot be written marked as such. A program that
+addresses memory directly is asking for something particular — the keyboard, a
+clock, the sound hardware — and an address reached for from recollection does
+not fail, it returns or writes a number that means nothing. Where a machine
+has no described layout, none SHALL be carried, rather than part of one: an
+address missing from a partial layout reads as an address the machine does not
+have.
+
+Addresses SHALL be written as the machine itself writes them, and the same way
+wherever the assistant meets them, so that an address in the machine's
+description and the same address in a port's findings are recognisably one
+address.
 
 A machine that represents printable ASCII in full SHALL carry no statement about
 characters it lacks, rather than a statement that it lacks none.
@@ -92,6 +118,35 @@ of what the assistant knows does not vary by machine.
 - **WHEN** the user asks for something needing an embedded control code
 - **THEN** the assistant spells it as this machine spells it, because the machine's
   control-code spellings were carried with the request
+
+#### Scenario: A layout written for the machine's own screen
+
+- **WHEN** the user asks for something that prints at chosen positions
+- **THEN** the positions lie within the screen the machine boots into, because
+  its columns and rows were carried with the request
+
+#### Scenario: A pause of a stated length
+
+- **WHEN** the user asks for a program that waits
+- **THEN** the wait is written with the machine's own idiom, or where it has
+  none, counted against the rate that machine was measured to run at
+
+#### Scenario: A machine that cannot be benchmarked
+
+- **WHEN** the request carries a machine for which no loop rate was measured
+- **THEN** it states no rate, rather than an estimated one
+
+#### Scenario: Addressing memory directly
+
+- **WHEN** the user asks for something reached by reading or writing memory
+- **THEN** the address used is one the machine's own layout names for that
+  purpose, because the layout was carried with the request
+
+#### Scenario: A machine with no described layout
+
+- **WHEN** the request carries a machine whose layout is not described
+- **THEN** it carries no memory layout at all, rather than the part that is
+  known
 
 #### Scenario: The assistant and the guidance agree
 
@@ -154,6 +209,12 @@ changed since.
 Applying code SHALL preserve opaque binary line records untouched: they SHALL
 never be deleted by a fragment and SHALL never be presented as changes.
 
+Applying code SHALL likewise preserve the lines the active dialect accepts
+without a line number: merging a fragment SHALL neither remove one, duplicate
+one, nor move it relative to the numbered lines it sits among, and they SHALL
+never be presented as changes. Because a fragment has no way to address a line
+that has no number, the lines the program already holds SHALL be the ones kept.
+
 #### Scenario: Merge into existing program
 
 - **WHEN** the user merges a generated fragment whose line numbers overlap
@@ -203,6 +264,13 @@ never be deleted by a fragment and SHALL never be presented as changes.
   was written against
 - **THEN** they are warned that it may no longer apply cleanly, and can still
   choose to merge
+
+#### Scenario: Merging around a line the dialect takes unnumbered
+
+- **WHEN** the user merges a fragment into a program that holds lines the active
+  dialect accepts without a line number
+- **THEN** those lines are still there afterwards, in the same places, and the
+  preview did not show them as changes
 
 ### Requirement: An incomplete or declined reply is not offered as finished code
 
@@ -421,12 +489,10 @@ A program still running when the check ends SHALL be treated as having run, not
 as having failed, because a program that never returns to the machine's ready
 state is the normal shape of a game or an animation.
 
-Telling a program that has finished from one that is still going requires more
-than the failure report, so where the machine can also say whether a program is
-executing, the outcome SHALL distinguish the two. Where it cannot, a run that
-raises no failure SHALL be reported as having run without failing. Either way no
-correction follows, so which of the two is reported SHALL NOT change what the
-assistant is asked to do.
+A program that has finished SHALL be distinguished from one that is still going,
+on every machine, since every machine reports whether a program is executing.
+Which of the two is reported SHALL NOT change what the assistant is asked to do:
+no correction follows either.
 
 A reported outcome MAY additionally carry the machine's screen, as text or as an
 image or as both. Where it carries an image, that image SHALL be the machine's
@@ -448,16 +514,9 @@ and the rest of the assistant SHALL be unaffected.
 #### Scenario: A program that runs without failing
 
 - **WHEN** a program the assistant returned reaches the machine's ready state with
-  no error, on a machine that can tell a finished program from a running one
+  no error
 - **THEN** the conversation reflects that it ran to completion, rather than
   nothing being reported
-
-#### Scenario: A machine that cannot tell finished from still running
-
-- **WHEN** a program the assistant returned raises no failure, on a machine that
-  cannot say whether a program is executing
-- **THEN** the conversation reflects that it ran without failing, and no
-  correction is attempted
 
 #### Scenario: A program still running when the check ends
 
@@ -725,12 +784,59 @@ checking machinery in front of every reply. What the assistant wrote for the use
 - **THEN** the conversation shows the answer and its program, and not the
   expectations, which are still checked against the run
 
+### Requirement: The assistant states expectations in the vocabulary every caller writes
+
+What the assistant states about its own program SHALL be written in the same
+vocabulary any other caller of this toolchain writes an expectation in, rather
+than one of its own. A file of expectations written by one caller SHALL mean the
+same thing to the other, and an expectation SHALL be evaluated the same way
+whoever wrote it, so that two callers cannot reach different verdicts about the
+same program.
+
+One form SHALL remain the assistant's alone: an expectation about how the screen
+looks, which is settled by showing the assistant the display and asking it to
+judge its own program. Nothing but the assistant can settle one, so this SHALL be
+a declared asymmetry with that as its reason, and another caller meeting one
+SHALL report it as unevaluated rather than refusing the file.
+
+Expectations already recorded in a saved conversation SHALL stay readable when
+that conversation is restored, whatever vocabulary they were written in. A
+restored expectation SHALL NOT be reported as malformed for having been written
+before the vocabulary changed.
+
+#### Scenario: The same expectation written by either caller
+
+- **WHEN** the same expectation about the same program is written once by the
+  assistant and once by another caller
+- **THEN** both are evaluated the same way and reach the same verdict
+
+#### Scenario: An expectation only the assistant can settle
+
+- **WHEN** an expectation about how the screen looks reaches a caller that cannot
+  show a display to anyone
+- **THEN** it is reported as unevaluated, and the file it came in is not refused
+
+#### Scenario: Restoring a conversation written in the earlier vocabulary
+
+- **WHEN** the user restores a conversation whose expectations were written
+  before the vocabulary changed
+- **THEN** those expectations are still read as expectations, and none is
+  reported as malformed
+
 ### Requirement: Stated expectations are checked against the run
 
 Where the assistant has stated expectations and the IDE runs the program it
-returned, those expectations SHALL be checked once the run has been observed, and
-the result SHALL be reported back to the conversation alongside the run's
-outcome.
+returned, those expectations SHALL be checked and the result SHALL be reported
+back to the conversation alongside the run's outcome.
+
+An expectation SHALL be judged at the moment the assistant names. An expectation
+that names no moment SHALL be judged as the run was observed. Text that appears
+during a run and is then replaced SHALL be expressed by waiting for it, which
+already means "run until this appears, and fail if it never does", rather than by
+the IDE remembering on the assistant's behalf whether something was ever true.
+The assistant SHALL be told this, so that an expectation about something
+transient is written with the wait it needs rather than silently becoming an
+expectation about the end of the run.
 
 Expectations the machine can evaluate SHALL be evaluated from the machine.
 Expectations about how the screen looks SHALL be settled by showing the assistant
@@ -758,6 +864,17 @@ cannot be shown one — never as passed, and never as a failure of the program.
 
 - **WHEN** a program runs and every stated expectation holds
 - **THEN** the run is reported as having succeeded
+
+#### Scenario: Text that appears and is then replaced
+
+- **WHEN** the assistant expects text its program prints and then clears, and it
+  waits for that text before expecting it
+- **THEN** the expectation holds, and the run is reported as having succeeded
+
+#### Scenario: An expectation about the end of a run that names no moment
+
+- **WHEN** the assistant states an expectation without naming when it should hold
+- **THEN** it is judged as the run was observed
 
 #### Scenario: The program draws the wrong thing
 
@@ -971,13 +1088,21 @@ and what the user is looking at can never be two different pictures.
 A display SHALL be carried once. A later request SHALL NOT carry a display the
 assistant has already been shown, which stays on the turn that carried it.
 
+A request SHALL carry at most one picture. Where the user has attached a
+photograph of a printed listing, that photograph SHALL be the picture carried,
+because it is what the user is asking about. A display waiting to be carried
+SHALL NOT be discarded for having been displaced: it SHALL be carried by a later
+request, on the same terms as any display waiting to be carried, and the rule
+that a display is carried once SHALL be unaffected.
+
 A display SHALL be carried only where the chosen provider can be shown one, and
 only where the conversation is showing one. Otherwise the request SHALL be sent
 with no display and SHALL behave exactly as an ordinary request does.
 
 The conversation SHALL record which request carried the display without showing
 the picture a second time: the one already in the thread is the one the assistant
-was shown.
+was shown. Where a request carried a photograph instead, the conversation SHALL
+record that a photograph was shown, and SHALL NOT describe it as a screen.
 
 #### Scenario: Asking about what the program produced
 
@@ -997,6 +1122,19 @@ was shown.
 - **WHEN** the user makes a further request after one that already carried the
   screen, with no newer screen in the conversation
 - **THEN** the later request carries no display of its own
+
+#### Scenario: A photograph displaces a waiting screen
+
+- **WHEN** the user attaches a photograph of a listing to a request while the
+  conversation is showing a screen not yet carried
+- **THEN** the request carries the photograph, and the screen is carried by a
+  later request rather than being lost
+
+#### Scenario: What the thread says a request carried
+
+- **WHEN** a request carried a photograph rather than a screen
+- **THEN** the thread records that a photograph was shown, and does not describe
+  it as the machine's screen
 
 #### Scenario: Nothing has been run yet
 
@@ -1122,15 +1260,20 @@ every other part of the assistant SHALL behave identically on such a provider.
 
 ### Requirement: A shown screen is not retained
 
-A display shown to the assistant SHALL be sent only to the provider the user
+A picture shown to the assistant SHALL be sent only to the provider the user
 chose, and SHALL be held no longer than the request that carries it needs. A
 display shown to the user SHALL be sent no further than the user's own next
-request.
+request. This SHALL hold for a photograph the user attached exactly as it holds
+for the machine's screen: a photograph SHALL be sent to no one but the chosen
+provider, and SHALL go no further than the request that carries it.
 
-The saved conversation SHALL record that a screen was shown without retaining
-the display itself, so restoring a thread never depends on stored image data and
-never restores it. This SHALL hold however the screen came to be in the thread —
-shown to the assistant, or shown to the user for a human check.
+The saved conversation SHALL record that a picture was shown without retaining
+the picture itself, so restoring a thread never depends on stored image data and
+never restores it. This SHALL hold however the picture came to be in the thread —
+shown to the assistant, shown to the user for a human check, or attached by the
+user as a photograph. What the restored thread records SHALL say which kind of
+picture was shown, so a photograph is never restored as though it had been the
+machine's screen.
 
 #### Scenario: Reloading a conversation in which a screen was shown
 
@@ -1146,6 +1289,229 @@ shown to the assistant, or shown to the user for a human check.
 - **THEN** the thread still records that a screen was shown, and the display
   itself is not restored
 
+#### Scenario: Reloading a conversation in which a listing was photographed
+
+- **WHEN** the user reloads the IDE on a program whose conversation included a
+  photographed listing
+- **THEN** the thread still records that a photograph was shown at that point, the
+  photograph itself is not restored, and it is not described as a screen
+
+### Requirement: A printed listing can be read from a photograph
+
+The user SHALL be able to show the assistant a photograph or scan of a printed
+BASIC listing, and the assistant SHALL return it as a program for the machine the
+user is writing for.
+
+What comes back SHALL be an ordinary answer in every respect: identified as a
+whole listing or a fragment, offered through the same apply actions as any other
+generated code, checked on the machine before it is offered, corrected when that
+check fails, and continued where it ran out of room. Nothing about applying a
+transcription SHALL differ from applying any other answer.
+
+A picture showing only part of a listing SHALL be returned as a fragment, so that
+a listing photographed a page at a time merges page onto page by line number.
+This SHALL hold regardless of how much of the program a page happens to cover:
+what decides is how much of the listing the picture shows, not how much of the
+program it would change.
+
+A photograph SHALL be attachable from where the user already is - the assistant's
+own composer, a picture pasted into it, and a picture dropped on the editor - and
+every route SHALL reach the same result, report a failure in the same place, and
+reveal the assistant so an attached picture is never out of sight.
+
+Attaching SHALL NOT require the assistant to have been configured. A key SHALL be
+asked for when the request is sent, as it is for any other request, so that a
+picture is never lost to a dialog raised at the moment it was attached.
+
+A request carrying a photograph and no words SHALL be sent as a request to
+transcribe the listing, and the conversation SHALL show that request rather than
+an empty one.
+
+A photograph SHALL be offered only where the chosen provider can be shown a
+picture. Where it cannot, the user SHALL be told so rather than left with a
+picture that will not be sent.
+
+#### Scenario: A photographed listing becomes a program
+
+- **WHEN** the user attaches a photograph of a printed BASIC listing and sends it
+- **THEN** the assistant returns that listing as a program for the active machine,
+  offered through the same apply actions as any other answer
+
+#### Scenario: A listing photographed a page at a time
+
+- **WHEN** the user sends a photograph showing part of a listing
+- **THEN** what comes back is a fragment, which merges into the program by line
+  number rather than replacing it
+
+#### Scenario: A photograph with nothing typed
+
+- **WHEN** the user attaches a photograph and sends without typing anything
+- **THEN** the request is sent as a request to transcribe the listing, and the
+  conversation shows that request rather than an empty one
+
+#### Scenario: A picture dropped on the editor
+
+- **WHEN** the user drops a picture on the editor
+- **THEN** it is attached to the assistant, the assistant is revealed, and the
+  program in the editor is unchanged
+
+#### Scenario: Attaching before the assistant is configured
+
+- **WHEN** the user attaches a photograph with no API key set
+- **THEN** the photograph is attached, and the key is asked for when they send
+
+#### Scenario: A picture the browser cannot read
+
+- **WHEN** the user attaches a picture this browser cannot decode
+- **THEN** they are told why in a way they can act on, and nothing is sent
+
+#### Scenario: A provider that cannot be shown a picture
+
+- **WHEN** the chosen provider cannot be shown a picture
+- **THEN** attaching a photograph is not offered, and the assistant otherwise
+  works exactly as before
+
+### Requirement: The assistant is told which picture it is looking at, and how to read print
+
+A picture carried with a request SHALL be identified to the assistant as what it
+is - the machine's screen, or a photograph of a printed listing - rather than
+left to be inferred. The two are read differently, and a picture whose nature is
+guessed is a picture read wrongly.
+
+A request SHALL carry at most one picture, and what it is SHALL be a single
+statement, so that "a screen and a listing at once" is not something a request
+can claim.
+
+Where the picture is a printed listing, the request SHALL additionally carry what
+reading print requires and the machine's own language rules cannot supply:
+
+- that glyphs printed alike - a letter O against a zero, a one against a letter
+  I, a five against an S, an eight against a B - are settled by which reading is
+  valid BASIC for this machine, not by shape;
+- that a character not found on a typewriter is the machine's own, written the
+  way this machine spells it rather than replaced by a lookalike;
+- that a listing set in narrow columns wraps, and a run of text with no line
+  number of its own continues the line above it;
+- that a checksum or count printed down the margin is not part of the program;
+- that the listing is transcribed as printed - not modernised, tidied, renamed,
+  or corrected - and that a fault visible on the page is reported rather than
+  silently fixed;
+- that a character the picture cannot settle is named, by line number, so the
+  user can check it against the paper rather than discover it as a bug.
+
+This guidance SHALL be carried only by the requests that need it. The machine's
+language rules, which every request carries, SHALL NOT change because this
+feature exists.
+
+#### Scenario: A photograph is not mistaken for a screen
+
+- **WHEN** a request carries a photograph of a printed listing
+- **THEN** the assistant is told it is looking at a printed listing, not at the
+  machine's screen
+
+#### Scenario: A screen is still a screen
+
+- **WHEN** a request carries the machine's screen
+- **THEN** the assistant is told it is looking at the machine's screen, exactly as
+  it is today
+
+#### Scenario: A character that cannot be read
+
+- **WHEN** the picture leaves a character genuinely unsettled
+- **THEN** the answer names it by line number rather than transcribing a silent
+  guess
+
+#### Scenario: A fault printed on the page
+
+- **WHEN** the listing as printed contains a mistake
+- **THEN** it is transcribed as printed and the mistake is reported, rather than
+  corrected without saying so
+
+#### Scenario: A request carrying no picture
+
+- **WHEN** a request carries no picture
+- **THEN** it carries none of this guidance, and the machine's language rules are
+  the same as on every other request
+
+### Requirement: A report and the screen it describes are carried together
+
+Where a reported outcome states that the machine's screen is attached, that
+screen SHALL be carried by the request that carries the report. The words and the
+picture SHALL travel together or wait together; a report SHALL NOT be sent
+claiming a screen the request does not carry.
+
+Where the request that would have carried them is already carrying a picture of
+its own, the report and its screen SHALL both be carried by a later request
+rather than the report going without its screen.
+
+A report that describes no screen SHALL be carried as it is today, whatever
+picture the request carries.
+
+#### Scenario: A report displaced by a photograph
+
+- **WHEN** a request carrying a photograph would otherwise have carried a report
+  stating that a screen is attached
+- **THEN** that report and its screen are carried by a later request, and no
+  report is sent claiming a screen that is not there
+
+#### Scenario: A report that describes no screen
+
+- **WHEN** a request carrying a photograph would otherwise have carried a report
+  that describes no screen
+- **THEN** that report is carried with the photograph, as it would be with any
+  other request
+
+### Requirement: The assistant can do what any other caller of this toolchain can do
+
+What the assistant is able to do to a program or a machine SHALL be the same set
+any other caller of this toolchain is able to do, held to one account of that
+set rather than maintained beside it. The assistant SHALL NOT lack an operation
+another caller has, nor hold one no other caller can reach, unless that
+asymmetry is declared with its reason.
+
+Where the chosen provider cannot be given tools at all, that SHALL be a stated
+property of the provider, on the same terms as being shown a screen and being
+given the machine already are. It SHALL NOT be read as the assistant lacking any
+particular operation, and every other part of the assistant SHALL behave
+identically on such a provider.
+
+#### Scenario: An operation another caller gains
+
+- **WHEN** an operation becomes available elsewhere in the toolchain
+- **THEN** the assistant can perform it too, unless it is declared as one the
+  assistant deliberately does not have
+
+#### Scenario: A provider that cannot be given tools
+
+- **WHEN** the user selects a provider that cannot be given tools
+- **THEN** the assistant has none, that is stated as a property of the provider,
+  and the assistant otherwise works exactly as before
+
+### Requirement: What the assistant is offered does not vary within a conversation
+
+The set of operations the assistant is offered SHALL be the same on every turn
+of a conversation, and SHALL NOT vary with what happens to be possible at that
+moment. An operation whose circumstances are not met SHALL still be offered and
+SHALL report that it could not be carried out when it is called.
+
+This is what already holds for driving, where the machine is given on one turn
+and not on others, and it SHALL hold for every operation for the same two
+reasons: a set that comes and goes costs the conversation the work already done
+on it, and an attempt that vanishes reads to the assistant as an attempt that
+worked.
+
+#### Scenario: An operation whose circumstances are not met
+
+- **WHEN** the assistant performs an operation on a turn where it cannot be
+  carried out
+- **THEN** it is told the attempt was refused and why, rather than the attempt
+  being passed over as though it had worked
+
+#### Scenario: The same set on every turn
+
+- **WHEN** a conversation runs over several turns whose circumstances differ
+- **THEN** the assistant is offered the same operations on each of them
+
 ### Requirement: The assistant can drive the program it wrote
 
 Alongside the code it returns, the assistant MAY ask to be given the machine once
@@ -1153,10 +1519,21 @@ that program has been run and observed. Where it asks, and where the chosen
 provider can be given it, the IDE SHALL let the assistant act on the running
 machine and see what happened, repeatedly, before it reports on its own program.
 
+What the assistant is told about whether the machine can be driven SHALL describe
+what the chosen provider can actually do, and SHALL be the same for every request
+in a conversation. A conversation SHALL NOT tell the assistant on one turn that
+the machine cannot be driven and on another that it can.
+
 What it can do SHALL be what a person at that machine could do: type text, press
 the machine's own keys, work the joystick, wait, and look at the screen. Keys
-SHALL be named as that machine names them, and the assistant SHALL be told which
-names that machine has, so it cannot ask for a key the machine does not have.
+SHALL be named in a vocabulary that does not depend on the machine — the same one
+any other caller driving a machine writes — so that a sequence of keys written for
+one machine means the same thing on another. Each machine SHALL resolve a name to
+whatever its own keyboard calls that key, and a name SHALL resolve to the key that
+types it rather than to the position its machine's keyboard hardware gives that
+name. The assistant SHALL be told which of those names the machine in front of it
+has, so it cannot ask for a key that machine does not have, and a name that
+machine has no key for SHALL be refused rather than resolved to some other key.
 Joystick directions and fire SHALL reach the program the way the machine's own
 controller does, whether that machine has a joystick port or maps it to keys.
 
@@ -1171,6 +1548,10 @@ deciding.
 Driving SHALL be bounded — in how many times the assistant may act and in how
 much machine time it may spend — and reaching that bound SHALL end the driving
 and let the assistant report, rather than failing the answer.
+
+An attempt to act on the machine outside the window in which the machine is given
+SHALL be refused and the refusal reported to the assistant, rather than passed
+over in silence. An attempt that vanishes reads as an attempt that worked.
 
 Asking to drive SHALL be optional. A reply that does not ask behaves exactly as a
 reply does today, and no machine becomes unusable for not being driven.
@@ -1188,6 +1569,19 @@ reply does today, and no machine becomes unusable for not being driven.
   starts, and asks to drive it
 - **THEN** it can wait for that prompt to appear, press a key, and see the
   program running rather than its title screen
+
+#### Scenario: The same keys on a different machine
+
+- **WHEN** the assistant drives programs on two machines whose keyboards name
+  their keys differently
+- **THEN** it presses the same key by the same name on both, and each machine
+  presses its own key for that name
+
+#### Scenario: A key this machine does not have
+
+- **WHEN** the assistant asks for a key the machine in front of it has no
+  equivalent of
+- **THEN** it is told so, and no other key is pressed in its place
 
 #### Scenario: A program driven with the joystick
 
@@ -1207,6 +1601,26 @@ reply does today, and no machine becomes unusable for not being driven.
 - **WHEN** the assistant keeps acting until the bound on driving is reached
 - **THEN** driving ends, the assistant is told so, and it reports on its program
   rather than the answer failing
+
+#### Scenario: The same answer on every turn of a conversation
+
+- **WHEN** the user asks a question, and the IDE later raises a request of its own
+  in the same conversation to check the answer
+- **THEN** both requests tell the assistant the same thing about whether the
+  machine can be driven
+
+#### Scenario: A provider that cannot be given the machine, asked on any turn
+
+- **WHEN** the chosen provider cannot be given the machine
+- **THEN** every request in the conversation says so, and none of them invites the
+  assistant to ask for something it cannot have
+
+#### Scenario: Acting on the machine when it has not been given
+
+- **WHEN** the assistant tries to act on the machine on a turn where the machine
+  has not been given to it
+- **THEN** it is told the attempt was refused, rather than the attempt being
+  passed over as though it had worked
 
 ### Requirement: The assistant can be shown the screen as text
 
@@ -1314,3 +1728,137 @@ part of the checking machinery already is.
   sending any input
 - **THEN** nothing is stated about driving, and the answer reads as it would have
   without it
+
+### Requirement: The assistant can ask where a program's time and memory went
+
+The measurements taken of a run SHALL be something the assistant can ask for, so
+that an answer about a program's speed or memory use is grounded in what the
+machine did rather than in what the assistant supposes a machine of that kind
+would do.
+
+What it is given SHALL be the measurements of the run as the user's own IDE
+holds them — the same accounting shown against the program, including that a
+line's cost excludes the routines it calls — so the assistant and the user are
+never reading two different accounts of one run.
+
+The assistant SHALL ask for the measurements when it needs them rather than
+being given them with every request, so that a conversation that has nothing to
+do with performance does not carry them.
+
+Where the machine has not been measured, or has produced no measurements yet,
+the assistant SHALL be told so and SHALL NOT be given an empty or invented
+result.
+
+#### Scenario: Asked to make a program faster
+
+- **WHEN** the user asks the assistant to speed up a program that has been run
+- **THEN** the assistant can ask where that run's time went, and is given the
+  same per-line costs the user is shown
+
+#### Scenario: Measurements are not carried by every request
+
+- **WHEN** the user holds a conversation that never concerns the program's
+  performance
+- **THEN** no request in it carries the run's measurements
+
+#### Scenario: Nothing has been measured yet
+
+- **WHEN** the assistant asks for measurements before the program has been run
+- **THEN** it is told there are none, rather than being given an empty result
+
+### Requirement: Being able to read the measurements is a stated capability
+
+Whether the assistant can be given a program's measurements SHALL be a stated
+property of the machine, resolved from what that machine can determine, rather
+than something discovered by asking and failing.
+
+Where a machine produces no measurements, the IDE SHALL NOT present them as
+available to the assistant, and every other part of the assistant SHALL behave
+identically on such a machine.
+
+What the assistant is offered SHALL NOT change during a conversation according
+to whether a machine happens to be running at that moment, so that what it may
+ask for is settled once for the conversation rather than varying turn by turn.
+
+#### Scenario: A machine that produces no measurements
+
+- **WHEN** the user works on a machine whose measurements the IDE cannot produce
+- **THEN** the assistant is not offered them, and otherwise works exactly as
+  before
+
+#### Scenario: What may be asked for does not change mid-conversation
+
+- **WHEN** a machine starts or stops during a conversation
+- **THEN** what the assistant is offered stays as it was for the rest of that
+  conversation
+
+### Requirement: The assistant can time the program it is working on
+
+The assistant SHALL be able to time a run of the program, so that a claim about
+a program's speed can be a measurement rather than an assertion.
+
+A timing given to the assistant SHALL carry how it ended alongside its duration,
+in one answer, so the assistant never holds a duration without knowing whether
+it describes a program that finished, one that failed, or one that was still
+running. It SHALL be the same accounting the user is shown, so the two are never
+reading different numbers for one run.
+
+The assistant SHALL be told that taking a timing costs a run of the program, so
+it takes one when the answer depends on it rather than by reflex.
+
+#### Scenario: Measuring an optimisation
+
+- **WHEN** the assistant rewrites a program to be faster and times both versions
+- **THEN** it holds a duration and an ending for each, and can report the
+  difference as a measurement
+
+#### Scenario: A timing that did not end in a finish
+
+- **WHEN** the assistant times a program that was still running when the timing
+  ended
+- **THEN** it is told the program was still running, alongside the duration
+
+### Requirement: Being able to time a run is a stated capability
+
+Whether the assistant can time a run SHALL be a stated property of the machine,
+resolved from what that machine can determine, rather than discovered by trying.
+
+What the assistant is offered SHALL NOT change during a conversation according
+to whether a machine happens to be running at that moment, on the same terms as
+every other tool it is given.
+
+#### Scenario: What may be asked for does not change mid-conversation
+
+- **WHEN** a machine starts or stops during a conversation
+- **THEN** whether the assistant is offered timing stays as it was for the rest
+  of that conversation
+
+
+### Requirement: The assistant can check and build a program without running it
+
+The assistant SHALL be able to check a program for problems without running it,
+and to ask what that program builds into for the machine it is written for — its
+size as the machine's memory counts it, and which of the machine's file formats
+it was built as.
+
+It SHALL be able to ask this of a program it is about to offer, so a problem it
+could have found itself is found before the user is asked to look at it, rather
+than after the program has been applied and run.
+
+A built program's bytes SHALL NOT be shown to the assistant. What it is told is
+what it can act on.
+
+#### Scenario: Checking a program before offering it
+
+- **WHEN** the assistant checks a program it is about to return
+- **THEN** it is told that program's problems, without the program being run
+
+#### Scenario: Asking what a program builds to
+
+- **WHEN** the assistant asks what its program builds into
+- **THEN** it is told the size and the format, and not the bytes
+
+#### Scenario: A program that cannot be built
+
+- **WHEN** the assistant asks what a program with a fatal problem builds into
+- **THEN** it is told the problem rather than a size

@@ -1,0 +1,90 @@
+## MODIFIED Requirements
+
+### Requirement: Emulation runs at authentic speed with sound
+
+While running, the machine SHALL advance in display-frame steps at the
+machine's own native frame rate measured against real time, render to the
+visible screen each frame, and play the machine's sound where the machine
+produces any. How often the browser is able to repaint SHALL NOT change how much
+emulated time passes per second, so a program takes the same wall-clock time to
+run regardless of the display's refresh rate.
+
+Within a frame, a machine SHALL give its CPU only the cycles the rest of the
+machine leaves it. Where a machine's video hardware takes the bus to fetch what
+it is about to display, the CPU SHALL lose those cycles, so a program that counts
+cycles keeps the same relationship to the picture that it has on the real
+machine, and a program that counts loops runs no faster than it does there.
+
+Where a machine's video hardware shares only part of its memory or only some of
+its ports with the CPU, what a program loses SHALL depend on which of them it
+uses, so the same routine runs at the speed the real machine would run it at from
+where it has been placed.
+
+Where a machine's hardware asserts an interrupt for a period rather than an
+instant, the CPU SHALL be able to take it anywhere in that period, so a program
+that has interrupts disabled as the period opens and enables them within it still
+receives the interrupt rather than losing what its handler would have done.
+
+Where the host cannot emulate a machine as fast as real time, emulation SHALL
+fall behind rather than skip ahead, and SHALL bound how much lost time it tries
+to reclaim, so a stall never repays itself as a burst of fast-forward.
+
+The machine's sound SHALL play at the pitch the machine produces and SHALL NOT
+accumulate delay over a long run.
+
+The user SHALL be able to scale emulation speed and mute or adjust the volume.
+Scaling the speed SHALL change how often the machine's frames advance, leaving
+each frame's own timing — and therefore anything the machine derives from it —
+as it is at real time.
+
+#### Scenario: Speed multiplier
+
+- **WHEN** the user sets the emulator speed to a multiple of real time
+- **THEN** the running program advances proportionally faster or slower
+
+#### Scenario: A display that refreshes faster than the machine
+
+- **WHEN** a program runs on a display whose refresh rate is higher than the
+  machine's frame rate
+- **THEN** the machine still advances at its own rate in real time, rather than
+  running fast
+
+#### Scenario: A host that cannot keep up
+
+- **WHEN** the host cannot emulate frames as fast as real time
+- **THEN** the program runs slow, and the time lost is not repaid as a burst of
+  accelerated emulation once the host recovers
+
+#### Scenario: Sound over a long run
+
+- **WHEN** a program produces sound continuously at real-time speed
+- **THEN** the sound stays at the machine's own pitch and does not drift
+  progressively further behind the picture
+
+#### Scenario: The video chip takes cycles from the CPU
+
+- **WHEN** a program runs on a machine whose video hardware periodically takes
+  the bus to fetch the display
+- **THEN** the program advances by fewer cycles in that frame than the frame is
+  long, by however many the video hardware took
+
+#### Scenario: A frame is still a whole frame
+
+- **WHEN** the video hardware takes cycles from the CPU during a frame
+- **THEN** the machine's frame rate and the emulated time a frame represents are
+  unchanged
+
+#### Scenario: An interrupt is not lost to a moment's bad luck
+
+- **WHEN** a program has interrupts disabled at the instant its machine asserts
+  one, and re-enables them while the machine is still asserting it
+- **THEN** the interrupt is taken, and the work its handler does for that period
+  happens
+
+#### Scenario: Where the program sits decides what it loses
+
+- **WHEN** the same routine runs from memory the video hardware shares with the
+  CPU and from memory it does not, on a machine that shares only part of its
+  memory
+- **THEN** the routine gets less done per frame from the shared memory, and as
+  much as the frame allows from the memory the video hardware never reads

@@ -21,14 +21,12 @@ import {
  * a Windows machine with a European layout - keep the manual check too).
  */
 
-test('completion popup and live lint errors', async ({ page }) => {
+// The completion popup itself is opened and driven for real in
+// completion-abbreviation.spec.ts, where accepting a suggestion is the subject
+// rather than a preamble - so this one only keeps the lint half.
+test('live lint errors', async ({ page }) => {
   await openApp(page);
   await clearEditor(page);
-  await page.keyboard.type('PR');
-  const popup = page.locator('.cm-tooltip-autocomplete');
-  await expect(popup).toBeVisible();
-  await expect(popup).toContainText('PRINT');
-  await page.keyboard.press('Escape');
   // An invalid statement is reported in the status bar.
   await setEditorSource(page, '10 PRINT "OK"\n20 XYZZY');
   await expect(page.getByText(/\d+ error/)).toBeVisible();
@@ -43,7 +41,9 @@ test('auto line numbering on Enter', async ({ page }) => {
   await expect(page.locator(EDITOR)).toContainText('20 PRINT "B"');
 });
 
-test('undo/redo via Edit menu and shortcut', async ({ page }) => {
+test('undo/redo via Edit menu and shortcut, one history per buffer', async ({
+  page,
+}) => {
   await openApp(page);
   await setEditorSource(page, '10 PRINT "ONE"');
   await page.keyboard.press('Enter');
@@ -58,6 +58,35 @@ test('undo/redo via Edit menu and shortcut', async ({ page }) => {
   await page.locator(EDITOR).click();
   await page.keyboard.press('ControlOrMeta+z');
   await expect(page.locator(EDITOR)).not.toContainText('PRINT "TWO"');
+
+  // Each buffer undoes its own edits and nobody else's. Only a browser can
+  // show this: it is one live EditorView being handed a different state, and
+  // what is at stake is the text that comes back on screen.
+  await setEditorSource(page, '10 PRINT "PROGRAM"');
+  await expect(page.locator(EDITOR)).toContainText('PROGRAM');
+  await page.getByRole('button', { name: 'Add a tab' }).click();
+  await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  await expect(page.locator(EDITOR)).not.toContainText('PROGRAM');
+  await page.locator(EDITOR).click();
+  await page.keyboard.insertText('70 PRINT "SNIPPET"');
+  await expect(page.locator(EDITOR)).toContainText('SNIPPET');
+
+  // One undo takes the snippet's own last edit - it never pulls the program
+  // across, which is what a shared history used to do here.
+  await editMenu(page, /^Undo/);
+  await expect(page.locator(EDITOR)).not.toContainText('SNIPPET');
+  await expect(page.locator(EDITOR)).not.toContainText('PROGRAM');
+
+  // The program comes back untouched, and with its own history still behind it.
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  await expect(page.locator(EDITOR)).toContainText('10 PRINT "PROGRAM"');
+  const beforeUndo = await page.locator(EDITOR).textContent();
+  await page.locator(EDITOR).click();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect
+    .poll(async () => (await page.locator(EDITOR).textContent()) !== beforeUndo)
+    .toBe(true);
+  await expect(page.locator(EDITOR)).not.toContainText('SNIPPET');
 });
 
 test('Edit menu opens, stays open, and dismisses on outside click / Escape', async ({
@@ -118,18 +147,6 @@ test('menu Paste pastes or explains itself - never a silent no-op', async ({
     .toBe(true);
 });
 
-test('in-editor find/replace panel on Mod+F, Escape closes', async ({
-  page,
-}) => {
-  await openApp(page);
-  await page.locator(EDITOR).click();
-  await page.keyboard.press('ControlOrMeta+f');
-  const panel = page.locator('.cm-search');
-  await expect(panel).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-});
-
 test('F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   page,
 }) => {
@@ -149,8 +166,19 @@ test('F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   await expect(page.locator(EDITOR)).toContainText('RUN ME');
 });
 
-test('Mod+, opens Settings; F1 toggles the docs drawer', async ({ page }) => {
+test('the global shortcuts open their panels', async ({ page }) => {
+  // One app for the lot: each of these is a keystroke reaching a handler and a
+  // panel appearing, and none of them leaves anything behind for the next.
   await openApp(page);
+
+  // Find/replace is the editor's own panel, so it wants the editor focused.
+  await page.locator(EDITOR).click();
+  await page.keyboard.press('ControlOrMeta+f');
+  const search = page.locator('.cm-search');
+  await expect(search).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeHidden();
+
   await page.keyboard.press('ControlOrMeta+Comma');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
@@ -160,6 +188,12 @@ test('Mod+, opens Settings; F1 toggles the docs drawer', async ({ page }) => {
   await expect(drawer).toBeVisible();
   await page.keyboard.press('F1');
   await expect(drawer).toBeHidden();
+
+  await page.locator(EDITOR).click();
+  await page.keyboard.press('ControlOrMeta+Shift+o');
+  await expect(
+    page.getByRole('heading', { name: 'Program outline' }),
+  ).toBeVisible();
 });
 
 test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
@@ -188,6 +222,11 @@ test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
     }, altGraph);
 
   // AltGr+E (reported as Ctrl+Alt+E on Windows) must NOT open Export.
+  //
+  // Slept rather than polled because the assertion is that nothing happens:
+  // there is no event to wait for, and `toBeHidden` against an element that was
+  // never created passes instantly, which would pass just as well if the dialog
+  // were about to open one tick later.
   await dispatch(true);
   await page.waitForTimeout(300);
   await expect(
@@ -198,14 +237,5 @@ test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
   await dispatch(false);
   await expect(
     page.getByRole('heading', { name: 'Run on real hardware' }),
-  ).toBeVisible();
-});
-
-test('outline dialog on Mod+Shift+O', async ({ page }) => {
-  await openApp(page);
-  await page.locator(EDITOR).click();
-  await page.keyboard.press('ControlOrMeta+Shift+o');
-  await expect(
-    page.getByRole('heading', { name: 'Program outline' }),
   ).toBeVisible();
 });

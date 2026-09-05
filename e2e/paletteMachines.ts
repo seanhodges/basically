@@ -20,5 +20,10 @@ export const PALETTE_MACHINES = [
   'atom',
   'trs80',
   'cpc464',
+  'cpc664',
   'cpc6128',
+  'atari800',
+  'atari400',
+  'hb10p',
+  'samcoupe',
 ];

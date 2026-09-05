@@ -10,25 +10,26 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
   TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
+import { drawRomNotice, noRomNotice } from '../../../emulator/romNotice';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
 import { readSpectrumScreenText, spectrumFontSignatures } from './screenText';
 import type { GlyphSignatures } from '../../../emulator/fontMatcher';
 import { SpectrumKeyboard } from './keyboard';
 import { applySinclairJoystick, kempstonByte } from './joystick';
-import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
-import {
-  renderScanline,
-  renderDisplay,
-  DISPLAY_WIDTH,
-  DISPLAY_HEIGHT,
-} from './display';
+import { Beeper, BEEPER_SAMPLES_PER_FRAME } from './beeper';
+import { renderScanline, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, codeTap, parseTap } from '../tapfile';
 import {
   PPC,
@@ -38,16 +39,26 @@ import {
   ROM_LD_BYTES as LD_BYTES,
   ROM_SA_BYTES as SA_BYTES,
   ROM_REPORT_R as REPORT_R,
+  ROM_PROGRAM_END as PROGRAM_END,
 } from '../sysvars';
 import { injectBlocks, minBlockAddress } from './blockInject';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
+import { createMachineLoop } from '../../../emulator/machineLoop';
+import { ContentionClock, ULA_48K, contended48K } from './ulaContention';
+import { FrameInterrupt } from './frameInterrupt';
 
+const CPU_HZ = 3_500_000;
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
-const TSTATES_PER_LINE = 224; // one 48K raster line (312 lines x 224 = 69888)
+const TSTATES_PER_LINE = ULA_48K.tstatesPerLine; // 312 lines x 224 = 69888
 // T-states from the frame interrupt to the ULA fetching the first display line.
 // Display line `sy` (0..191) is fetched at DISPLAY_START_T + sy * TSTATES_PER_LINE;
 // sampling the screen then is what makes mid-frame attribute rewrites (the
 // multicolour / "rainbow" effect) render at per-scanline resolution.
-const DISPLAY_START_T = 14336;
+//
+// Derived from the contention window rather than written out, so the T-state
+// the picture is sampled at and the T-state the ULA takes the bus can never
+// disagree: the fetch is one cycle after the CPU is held off.
+const DISPLAY_START_T = ULA_48K.firstContendedT + 1; // 14336
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 200;
 
@@ -56,7 +67,8 @@ const MAX_BOOT_FRAMES = 200;
  * ROM needs to boot and run BASIC:
  *
  *  - One maskable interrupt (IM1 / RST 38h) per 50Hz frame, driving the
- *    keyboard scan and the FRAMES counter.
+ *    keyboard scan and the FRAMES counter, held low for the window the ULA
+ *    holds it (see frameInterrupt.ts) rather than offered for one instant.
  *  - Keyboard matrix and border on port 0xFE.
  *  - A flash-load trap at the ROM's LD-BYTES routine: while a program is queued
  *    the trap satisfies the header and data block reads directly, so LOAD ""
@@ -68,27 +80,113 @@ const MAX_BOOT_FRAMES = 200;
  * the T-state the ULA would fetch it, so a program that rewrites screen or
  * attribute memory mid-frame - the multicolour / "rainbow" raster technique -
  * shows a different colour on each scanline rather than one frozen per-cell
- * colour. Contended-memory timing is still not modelled (it does not affect the
- * visible result here).
+ * colour. The T-states the ULA takes off the CPU while it fetches that picture
+ * are charged too (see ulaContention.ts), which is what holds such a routine in
+ * step with the beam instead of letting it free-run. The floating bus is not
+ * modelled: a read of an unclaimed port returns 0xFF rather than whatever the
+ * ULA has in flight, so the floating-bus raster-sync trick will not work.
  */
+/**
+ * Shown when this machine is constructed without its ROM - a designed state
+ * rather than a failure, and a rare one: the image ships with the build, and one
+ * that fails to load keeps the machine out of the picker with an offer to supply
+ * another.
+ */
+const NO_ROM_NOTICE = noRomNotice(
+  "Spectrum's 16K ROM",
+  'public/roms/zxspectrum/zxspectrum.rom',
+);
+
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
-  /** Native rate of the mono beeper stream (see beeper.ts). */
-  readonly audioSampleRate = BEEPER_SAMPLE_RATE;
+  readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. Not the round number the synthesis is
+   * designed around - reporting that instead would have the host consume
+   * fractionally slower than the machine produces, and playback would fall
+   * further behind for as long as the program ran. The cost is that pitch sits
+   * within a quarter-percent of the synth's design rate, far below audible.
+   */
+  readonly audioSampleRate = BEEPER_SAMPLES_PER_FRAME * this.frameHz;
 
   private readonly memory: SpectrumMemory;
+  /** False when the machine was handed no image; see {@link NO_ROM_NOTICE}. */
+  private readonly hasRom: boolean;
   private readonly keyboard = new SpectrumKeyboard();
   private readonly cpu: Z80Core;
   /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
   private readonly beeper = new Beeper();
+  /**
+   * The T-states the ULA takes off the CPU. Only the CPU's own bus accesses
+   * reach it - the wrapped callbacks below are the sole path - so the host's
+   * introspection and the tape traps stay free.
+   */
+  private readonly contention = new ContentionClock(ULA_48K, contended48K);
+  /** The ULA's once-a-frame /INT, and the window it holds it low for. */
+  private readonly frameInterrupt = new FrameInterrupt();
   /** Cycle offset within the current frame, exposed to the IO write trap. */
   private frameCycle = 0;
   private border = 7;
   /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
   private kempston = 0;
-  private speed = 1;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+
   private frameCount = 0;
+  /** Next display line still to be drawn this frame (see {@link renderScanlinesTo}). */
+  private nextLine = 0;
+  /** FLASH phase for the frame in progress, fixed at its start. */
+  private flashPhase = false;
+  /**
+   * Frame and debug slice, from one walk over the budget. The overrun is
+   * carried into the next frame - an instruction cannot be cut in half at a
+   * frame boundary, so a frame always ends a few T-states late, and discarding
+   * that gains time every frame - except when a HALT ends the frame early,
+   * where the CPU idles until the next interrupt and nothing is owed.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: TSTATES_PER_FRAME,
+    idleEndsSlice: true,
+    onSliceStart: (elapsed) => {
+      // The ULA pulls /INT low once a frame. Whether the CPU takes it, and at
+      // which instruction boundary, is settled in the step below - the Z80 only
+      // looks at the end of an instruction, and the ULA holds the line long
+      // enough for a short DI region to run past the frame boundary and still
+      // catch it (see frameInterrupt.ts).
+      this.frameInterrupt.raise(elapsed);
+      this.flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
+      this.nextLine = 0;
+    },
+    step: (elapsed) => {
+      this.frameCycle = elapsed; // timestamp any beeper write in this instruction
+      // Before the interrupt, not after: the acknowledgement pushes the return
+      // address, and that push is contended like any other write.
+      this.contention.at(elapsed);
+      if (this.frameInterrupt.due(elapsed, this.cpu.getIFF1() !== 0))
+        this.cpu.interrupt(false, 0xff);
+      const { t, halted } = this.stepInstruction();
+      return { cycles: t, idle: halted };
+    },
+    afterStep: (elapsed) => this.renderScanlinesTo(elapsed),
+    onSliceEnd: () => {
+      // A HALT or a debugger pause before the frame ended: fill the lines we
+      // never reached from the final memory contents.
+      this.renderScanlinesTo(Infinity);
+      this.frameCount++;
+    },
+    currentLine: () => this.currentLine(),
+  });
   private imageData: ImageData | null = null;
   /**
    * Display framebuffer, filled scanline-by-scanline during runFrame and blitted
@@ -98,6 +196,8 @@ export class SpectrumMachine implements MachineEmulator {
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
   );
   private disposed = false;
+  /** Run state, latched when the ROM reaches {@link PROGRAM_END}. */
+  private readonly runLatch = new ProgramEndLatch();
   /** ROM font index for {@link readScreenText}; built on first use. */
   private fontSigs: GlyphSignatures | null = null;
   /** Header + data blocks waiting to be injected at the next LOAD. */
@@ -110,13 +210,32 @@ export class SpectrumMachine implements MachineEmulator {
   private readonly deck: VfsTapeDeck | null;
 
   constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
+    this.hasRom = opts.rom.length > 0;
     this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new SpectrumMemory(opts.rom);
+    // Every hook charges the ULA before it touches the bus. The opcode fetch is
+    // taken separately from a data read because an M1 cycle is 4 T-states and a
+    // data cycle 3, which is what puts the two halves of a block instruction in
+    // different slots of the ULA's eight-T pattern.
     this.cpu = Z80({
-      mem_read: this.memory.read,
-      mem_write: this.memory.write,
-      io_read: this.ioRead,
+      opcode_read: (address: number) => {
+        this.contention.opcode(address);
+        return this.memory.read(address);
+      },
+      mem_read: (address: number) => {
+        this.contention.memory(address);
+        return this.memory.read(address);
+      },
+      mem_write: (address: number, value: number) => {
+        this.contention.memory(address);
+        this.memory.write(address, value);
+      },
+      io_read: (port: number) => {
+        this.contention.io(port);
+        return this.ioRead(port);
+      },
       io_write: (port: number, value: number) => {
+        this.contention.io(port);
         if ((port & 0x01) === 0) {
           this.border = value & 0x07;
           // Bit 4 is the loudspeaker; record the flip at the current cycle so
@@ -138,7 +257,20 @@ export class SpectrumMachine implements MachineEmulator {
     this.frameCount = 0;
     this.frameCycle = 0;
     this.beeper.reset();
+    this.contention.reset();
+    this.frameInterrupt.reset();
+    this.loop.reset(); // the carried overrun belongs to the run that ended
+    this.runLatch.clear();
     this.cpu.reset();
+  }
+
+  /**
+   * T-states the ULA has taken off the CPU since the last reset. Diagnostic:
+   * the tests read it to check the cycles a frame loses actually went where
+   * this claims they did.
+   */
+  get contendedTStates(): number {
+    return this.contention.contendedTStates;
   }
 
   /** Z80 IO read decode (ULA keyboard/EAR + Kempston joystick). */
@@ -171,7 +303,29 @@ export class SpectrumMachine implements MachineEmulator {
    * runFrame and debugStep so they never diverge.
    */
   private stepInstruction(): { t: number; halted: boolean } {
+    const step = this.stepUnmeasured();
+    // Time spent held off the bus is time the instruction took, so it is folded
+    // in here: the frame budget is charged it, the beam chase sees it, and the
+    // profiler charges it to the line that waited.
+    const t = step.t + this.contention.take();
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return { t, halted: step.halted };
+  }
+
+  /** The step itself: the traps, then one instruction (or an idle HALT). */
+  private stepUnmeasured(): { t: number; halted: boolean } {
     const pc = this.cpu.getPC();
+    // The ROM is back in its main loop, so the program it was running has
+    // stopped (see PROGRAM_END): latch it, next to the tape traps below,
+    // since no system variable separates a running program from a finished one.
+    if (pc === PROGRAM_END) this.runLatch.stopped();
     if (this.pending && pc === LD_BYTES) {
       this.serviceLoadTrap();
       return { t: 0, halted: false };
@@ -194,37 +348,29 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   runFrame(): void {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    // One maskable interrupt per frame (IM1) when interrupts are enabled.
-    if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
+    this.loop.runFrame();
+  }
 
-    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
-    let nextLine = 0;
-    while (cycles < budget) {
-      this.frameCycle = cycles; // timestamp any beeper write in this instruction
-      const { t, halted } = this.stepInstruction();
-      if (halted) break; // idle until the next frame's interrupt
-      cycles += t;
-      // Draw every display line whose ULA fetch time we've now reached. The
-      // line is sampled at most one instruction (<=~23 T << 224 T/line) after
-      // its exact fetch point, so mid-frame attribute writes land on the right
-      // scanline.
-      while (
-        nextLine < DISPLAY_HEIGHT &&
-        cycles >= DISPLAY_START_T + nextLine * TSTATES_PER_LINE
-      ) {
-        renderScanline(this.memory, this.frameBuffer, nextLine, flashPhase);
-        nextLine++;
-      }
+  /**
+   * Draw every display line whose ULA fetch time the frame has now passed. A
+   * line is sampled at most one instruction (<=~23 T << 224 T/line) after its
+   * exact fetch point, so a mid-frame attribute write lands on the right
+   * scanline. Called after each step, and once more at the end of the frame to
+   * fill whatever a HALT or a pause never reached.
+   */
+  private renderScanlinesTo(cycles: number): void {
+    while (
+      this.nextLine < DISPLAY_HEIGHT &&
+      cycles >= DISPLAY_START_T + this.nextLine * TSTATES_PER_LINE
+    ) {
+      renderScanline(
+        this.memory,
+        this.frameBuffer,
+        this.nextLine,
+        this.flashPhase,
+      );
+      this.nextLine++;
     }
-    // HALT before the frame ended, or a slow-mo budget shorter than one frame:
-    // fill any lines we never reached from the final memory contents.
-    while (nextLine < DISPLAY_HEIGHT) {
-      renderScanline(this.memory, this.frameBuffer, nextLine, flashPhase);
-      nextLine++;
-    }
-    this.frameCount++;
   }
 
   /** Mono beeper samples synthesized over the last frame (drains; see beeper.ts). */
@@ -233,59 +379,16 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   /**
-   * Fill the framebuffer from the current memory contents in one pass. Used by
-   * debugStep, where the frame is paused mid-way and scanline timing is moot -
-   * the visible screen is just a snapshot of wherever execution stopped.
-   */
-  private renderWholeFrame(): void {
-    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
-    renderDisplay(this.memory, this.frameBuffer, flashPhase);
-  }
-
-  /**
    * The BASIC line currently being executed, read from PPC. Returns null when
    * it isn't a valid program line (e.g. before a program has run).
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    // Match runFrame's once-per-frame interrupt so timing/keyboard scan hold.
-    if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
-
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    while (cycles < budget) {
-      this.frameCycle = cycles; // timestamp any beeper write in this instruction
-      const { t, halted } = this.stepInstruction();
-      if (halted) break; // idle until the next frame's interrupt
-      cycles += t;
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          this.frameCount++;
-          this.renderWholeFrame();
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) {
-          this.frameCount++;
-          this.renderWholeFrame();
-          return { paused: true, line };
-        }
-      }
-    }
-    this.frameCount++;
-    this.renderWholeFrame();
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**
@@ -405,6 +508,11 @@ export class SpectrumMachine implements MachineEmulator {
 
   /** Run whole frames until the ROM has booted to the ready prompt. */
   bootToReady(): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     let initFrame = -1;
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
@@ -428,11 +536,16 @@ export class SpectrumMachine implements MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
     },
   ): void {
+    // Nothing to boot into and nothing to type at: a machine handed no image
+    // shows its notice instead (see the file's NO_ROM_NOTICE), and every path
+    // that would drive a ROM that is not there returns rather than failing
+    // inside it.
+    if (!this.hasRom) return;
     this.reset(); // also rewinds the VFS tape deck
     this.bootToReady();
     // Inject without an auto-start line, then drive RUN: the LOAD-with-LINE
@@ -452,7 +565,7 @@ export class SpectrumMachine implements MachineEmulator {
       throw new Error('ZX Spectrum ROM never reached the LOAD trap');
     }
     // Memory blocks (machine code / data at a fixed address, alongside the
-    // BASIC program - see MemoryBlock) are written directly into RAM now,
+    // BASIC program - see Block) are written directly into RAM now,
     // after the BASIC program itself has loaded and before RUN starts it -
     // mirroring how a real loader pokes code in once the tape has finished.
     //
@@ -522,6 +635,13 @@ export class SpectrumMachine implements MachineEmulator {
     // The ENTER that submits RUN is released quickly so it is no longer held
     // when the program's first statement runs - otherwise an opening INKEY$
     // would read the ENTER key instead of "".
+    //
+    // Arm the run latch here, after every command line this load typed and
+    // before the one that starts the program: the editor waiting for these
+    // keystrokes never reaches PROGRAM_END, so the next sighting of it is
+    // this program ending - which for a short program is inside the frames the
+    // ENTER below pumps.
+    this.runLatch.arm();
     this.tapKeys(['KeyR']);
     const autoStart = opts?.autoStart;
     if (typeof autoStart === 'number') {
@@ -544,6 +664,10 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasRom) {
+      drawRomNotice(ctx, DISPLAY_WIDTH, DISPLAY_HEIGHT, NO_ROM_NOTICE);
+      return;
+    }
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
@@ -595,12 +719,21 @@ export class SpectrumMachine implements MachineEmulator {
     return readSpectrumScreenText(this.fontSigs, (a) => this.memory.read(a));
   }
 
-  // No isProgramRunning(): the ROM leaves no reliable trace of the difference.
-  // ERR_NR reads "0 OK" both while a program runs and after it ends cleanly
-  // (see sinclairReports.ts) and PPC keeps the last line executed, so
-  // currentLine() cannot answer it either. The only system variable that does
-  // separate the two is ERR_SP, and only by four bytes of machine-stack depth -
-  // too incidental to build on. See MachineEmulator.isProgramRunning.
+  /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * system variable. ERR_NR reads "0 OK" both while a program runs and after it
+   * ends cleanly (see sinclairReports.ts) and PPC keeps the last line executed,
+   * so {@link currentLine} cannot answer it either; the only variable that does
+   * separate the two is ERR_SP, and only by four bytes of machine-stack depth -
+   * too incidental to build on. The ROM address the main loop comes back to
+   * (see {@link PROGRAM_END}) is not. Running is promoted from PPC, so the
+   * seconds spent loading the program and typing its RUN are reported as "not
+   * answerable yet" rather than as the program.
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.runLatch.read(this.currentLine() !== null);
+  }
 
   /**
    * Actual RAM figures from the ROM's own pointers: PROG to STKEND (program,
@@ -617,6 +750,14 @@ export class SpectrumMachine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (prog < 0x5c00 || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
@@ -647,10 +788,6 @@ export class SpectrumMachine implements MachineEmulator {
     this.keyboard.releaseAll();
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -660,5 +797,6 @@ export class SpectrumMachine implements MachineEmulator {
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
     this.pending = null;
+    this.runLatch.clear();
   }
 }

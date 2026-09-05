@@ -1,11 +1,20 @@
-import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest';
-import { createRequire } from 'node:module';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import path from 'node:path';
+import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { existsSync, statSync } from 'node:fs';
 import { dialects } from './registry';
 import { fitRomImage } from '../app/romImage';
-import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
-import type { Dialect, MachineEmulator } from './types';
+import {
+  HeadlessCanvas,
+  installCanvasGlobals,
+} from './headless/headlessCanvas';
+import {
+  bootMachine,
+  installNodeRomLoading,
+  romFor,
+  romPath,
+  runFrames,
+  screenText,
+} from './bootHarness';
+import type { Dialect } from './types';
 
 /**
  * `Dialect.romBytes` says two things at once: that this machine runs the image
@@ -28,53 +37,30 @@ import type { Dialect, MachineEmulator } from './types';
  * the negative case fails and says to declare the field.
  */
 
-const PUBLIC = path.resolve(__dirname, '../../public');
+let restoreRomLoading: () => void;
+let restoreCanvas: () => void;
 
-// Machines that load their own ROMs need those loads to work under node: the
-// jsbeeb-backed pair through jsbeeb's own loader, the Commodore trio through
-// the deployed `roms/` path. Same setup as screenReadable.test.ts.
 beforeAll(() => {
-  const require = createRequire(import.meta.url);
-  const utilsPath = require.resolve('jsbeeb/src/utils.js');
-  configureNodeRomPath(path.dirname(path.dirname(utilsPath)));
-  vi.stubGlobal('fetch', async (url: string) => {
-    const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.join(PUBLIC, rel));
-    return {
-      ok: true,
-      status: 200,
-      arrayBuffer: async () =>
-        data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-    };
-  });
+  restoreRomLoading = installNodeRomLoading();
+  // The machines that scale their frame through a back canvas need one even to
+  // draw a notice on it.
+  restoreCanvas = installCanvasGlobals();
 });
 
 afterAll(() => {
-  vi.unstubAllGlobals();
+  restoreCanvas();
+  restoreRomLoading();
 });
-
-/** The path under public/ behind a dialect's `romUrl`. */
-function romPath(romUrl: string): string {
-  return path.join(PUBLIC, romUrl.slice(romUrl.indexOf('roms/')));
-}
-
-function romFor(romUrl: string | undefined): Uint8Array {
-  if (!romUrl) return new Uint8Array(0);
-  return new Uint8Array(readFileSync(romPath(romUrl)));
-}
 
 /** Boot a machine on the given image and read back what is on its screen. */
 async function screenAfterBoot(
   dialect: Dialect,
   rom: Uint8Array,
 ): Promise<string> {
-  const machine: MachineEmulator = dialect.createEmulator({ rom, ramKb: 16 });
+  const machine = await bootMachine(dialect, { rom });
   try {
-    // The machines that load their own ROMs do it asynchronously.
-    const ready = (machine as { whenReady?: () => Promise<void> }).whenReady;
-    if (typeof ready === 'function') await ready.call(machine);
-    for (let i = 0; i < 200; i++) machine.runFrame();
-    return machine.readScreenText?.()?.lines.join('\n') ?? '';
+    await runFrames(machine, 200);
+    return screenText(machine);
   } finally {
     machine.dispose();
   }
@@ -100,9 +86,9 @@ describe('romBytes matches the committed image', () => {
   }
 
   it('every dialect declaring romBytes also declares romUrl', () => {
-    // Not a law of the seam - a machine whose image cannot ship would declare
-    // romBytes with no romUrl, which is exactly the Altair's situation. Relax
-    // this the day such a machine is registered.
+    // Not a law of the seam - a machine whose image could not ship would
+    // declare romBytes with no romUrl. Relax this the day such a machine is
+    // registered.
     for (const dialect of withRomBytes) {
       expect(
         dialect.romUrl,
@@ -157,6 +143,67 @@ describe('romBytes tells the truth about opts.rom', () => {
         `${dialect.id} now behaves differently depending on opts.rom, so it takes a replaceable ROM - declare romBytes on it (and let the settings page offer the upload)`,
       ).toBe(a);
     }, 30_000);
+  }
+});
+
+/**
+ * An absent image is a designed state, not a failure: the ROMs with no
+ * redistribution grant are meant to be removable
+ * (`public/roms/ATTRIBUTION.md`), so a checkout without one has to stay usable.
+ * Every machine that takes its ROM through the seam agrees on what an *empty*
+ * image means - construct, and say on screen that there is nothing to run - and
+ * the ZX81 agreed with neither half until this was pinned: it threw inside its
+ * memory constructor, which no layer above could turn into an answer.
+ *
+ * What a machine does with a *wrong-length* image is deliberately its own
+ * business and is not asserted here. The Sinclairs and the CPCs refuse one,
+ * because a prefix of the wrong file boots a dead machine with nothing to
+ * explain it; the Apple I accepts a short image on purpose, since a monitor PROM
+ * with no BASIC after it is a real Apple I. Each is pinned beside the machine
+ * that decides it.
+ *
+ * The machines that *fetch* their own ROM sets (the Acorns and the Commodores,
+ * the `withoutRomBytes` set above) are not here: they never see `opts.rom`, and
+ * a set that fails to arrive is caught by each adapter and drawn as its own
+ * load-error banner instead.
+ */
+describe('a machine handed no image at all', () => {
+  for (const dialect of withRomBytes) {
+    it(`${dialect.id} runs a program on an empty image and says it has none`, () => {
+      const machine = dialect.createEmulator({
+        rom: new Uint8Array(0),
+        ramKb: 16,
+      });
+      try {
+        // The whole path a run takes, not just the constructor: the ZX81 threw
+        // in its memory and then, once that was fixed, threw again inside
+        // `bootToBasic` waiting for a prompt no ROM was ever going to print.
+        machine.loadProgram(new Uint8Array([0]));
+        for (let i = 0; i < 5; i++) machine.runFrame();
+        // "Cannot say" rather than a made-up answer: nothing ran, so the
+        // machine must not report a program as running or as finished.
+        expect(
+          machine.isProgramRunning(),
+          `${dialect.id} answers about a program it never ran`,
+        ).not.toBe(true);
+
+        const canvas = new HeadlessCanvas(
+          machine.displayWidth,
+          machine.displayHeight,
+        );
+        machine.renderTo(canvas.renderContext);
+        // Drawn in the host's font, because the character generator is in the
+        // ROM that is missing - so glyphs, not the machine's own pixels, are
+        // what says the notice is really there. A blank screen is the failure
+        // this replaces: it looks exactly like a machine that is broken.
+        expect(
+          canvas.hostFontGlyphs,
+          `${dialect.id} draws nothing to say its ROM is missing`,
+        ).toBeGreaterThan(0);
+      } finally {
+        machine.dispose();
+      }
+    });
   }
 });
 

@@ -27,8 +27,23 @@ beforeAll(() => {
   (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
+// The bundle Save hands to the file picker, captured instead of written, so a
+// saved project can be compared byte for byte across store states.
+const mockSavedBundles: Uint8Array[] = [];
+vi.mock('../storage/files', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../storage/files')>();
+  return {
+    ...actual,
+    saveProjectZip: (name: string, bytes: Uint8Array) => {
+      mockSavedBundles.push(bytes.slice());
+      return Promise.resolve(name);
+    },
+  };
+});
+
 const { useIdeStore } = await import('./store');
-const { openDroppedFile } = await import('./fileCommands');
+const { openDroppedFile, saveDocument } = await import('./fileCommands');
+const { useAiStore } = await import('../ai/aiStore');
 const { getDialect } = await import('../dialects/registry');
 const { serializeProjectZip } = await import('../storage/projectFile');
 
@@ -64,6 +79,7 @@ beforeEach(() => {
     dirty: false,
     statusNotice: null,
     blocks: [],
+    scratchBuffers: [],
   });
   stubWindow(() => true);
 });
@@ -86,6 +102,30 @@ describe('openDroppedFile', () => {
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM TEXT');
     expect(s.fileName).toBe('notes.TXT');
+  });
+
+  it('switches to the machine a dropped document declares', async () => {
+    await dropFile('game.bas', '#MACHINE commodore64\n10 PRINT "HI"');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('commodore64');
+    expect(s.source).toBe('#MACHINE commodore64\n10 PRINT "HI"');
+    expect(s.fileName).toBe('game.bas');
+    expect(s.statusNotice).toBe('Switched to C64 to match this program.');
+  });
+
+  it('does not switch when the declaration matches the active machine', async () => {
+    await dropFile('game.bas', '#MACHINE zx81\n10 PRINT "HI"');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
+    expect(s.statusNotice).toBeNull();
+  });
+
+  it('leaves the machine alone for an unregistered declaration', async () => {
+    await dropFile('game.bas', '#MACHINE nosuchmachine\n10 PRINT "HI"');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
+    expect(s.source).toBe('#MACHINE nosuchmachine\n10 PRINT "HI"');
+    expect(s.statusNotice).toBeNull();
   });
 
   it('imports a dialect binary format via detokenize, like Import', async () => {
@@ -113,12 +153,27 @@ describe('openDroppedFile', () => {
   });
 
   it('leaves the document untouched for an unsupported type', async () => {
-    await dropFile('photo.png', 'not basic');
+    await dropFile('notes.rtf', 'not basic');
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM OLD');
     expect(s.statusNotice).toBe(
-      "Can't open photo.png - unsupported file type.",
+      "Can't open notes.rtf - unsupported file type.",
     );
+  });
+
+  it('gives a dropped picture to the assistant, and leaves the program alone', async () => {
+    const attach = vi
+      .spyOn(useAiStore.getState(), 'attachPhoto')
+      .mockResolvedValue();
+    await dropFile('listing.png', 'pretend pixels');
+    expect(attach).toHaveBeenCalledOnce();
+    const s = useIdeStore.getState();
+    // Attaching replaces nothing, so this is the one dropped file that raises
+    // no discard guard and no status notice: the assistant reports its own
+    // outcome in the panel.
+    expect(s.source).toBe('10 REM OLD');
+    expect(s.statusNotice).toBeNull();
+    attach.mockRestore();
   });
 
   it('does not treat another dialect’s binary format as importable', async () => {
@@ -150,7 +205,7 @@ describe('openDroppedFile', () => {
     name: 'SPRITES',
     address: 0x8000,
     bytes: Uint8Array.from([1, 2, 3]),
-    kind: 'data' as const,
+    kind: 'memory' as const,
   };
   // Open synthesises a block id from the (unique) name, so the id differs from
   // the input BLOCK's - see `parseProjectZip`.
@@ -273,5 +328,92 @@ describe('openDroppedFile', () => {
     expect(s.blocks).toHaveLength(1);
     expect(s.blocks[0]!.address).toBe(0x5000);
     expect(Array.from(s.blocks[0]!.bytes)).toEqual([0xa9, 0x00, 0x60]);
+  });
+});
+
+describe('saving a project bundle', () => {
+  it('carries the scratch buffers, and reopens with them', async () => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM PROJECT',
+      fileName: 'game.zip',
+      blocks: [],
+      scratchBuffers: [],
+    });
+    mockSavedBundles.length = 0;
+    await saveDocument();
+
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM SNIPPET');
+    await saveDocument();
+    expect(mockSavedBundles).toHaveLength(2);
+
+    // Opening the bundle back gives the buffer its name and contents again.
+    await dropFile('game.zip', new Uint8Array(mockSavedBundles[1]!));
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM PROJECT');
+    expect(s.scratchBuffers.map((b) => [b.name, b.text])).toEqual([
+      ['Scratch 1', '10 REM SNIPPET'],
+    ]);
+
+    // The bundle saved before the buffer existed opens with none, so an Open
+    // replaces the buffers rather than adding to them.
+    await dropFile('game.zip', new Uint8Array(mockSavedBundles[0]!));
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+  });
+
+  it('drops the buffers when the saved machine is one this build lacks', async () => {
+    // They hold code in a dialect the active machine does not speak - the same
+    // reasoning that discards them on a machine switch.
+    useIdeStore.getState().addScratchBuffer();
+    const zip = new Uint8Array(
+      serializeProjectZip(
+        'atari-xl',
+        '10 PRINT "PROJ"',
+        [],
+        null,
+        [],
+        {},
+        null,
+        [{ name: 'Scratch 1', text: '10 REM SNIPPET' }],
+      ),
+    );
+    await dropFile('game.zip', zip);
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    expect(s.scratchBuffers).toEqual([]);
+    expect(s.statusNotice).toMatch(/isn't available/);
+  });
+});
+
+describe('the discard guard', () => {
+  it('warns for scratch buffers alone, on a document with nothing unsaved', async () => {
+    // Editing a buffer never marks the document dirty, so without this second
+    // trigger a snippet would be destroyed with no warning at all.
+    useIdeStore.setState({ dirty: false });
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM SNIPPET');
+
+    const declined = vi.fn(() => false);
+    stubWindow(declined);
+    await dropFile('game.bas', '10 PRINT "NEW"');
+    expect(declined).toHaveBeenCalledOnce();
+    let s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM OLD'); // both the document...
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM SNIPPET'); // ...and the buffer
+
+    stubWindow(() => true);
+    await dropFile('game.bas', '10 PRINT "NEW"');
+    s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "NEW"');
+    expect(s.scratchBuffers).toEqual([]);
+  });
+
+  it('stays silent for a clean document with no buffers', async () => {
+    const confirmSpy = vi.fn(() => true);
+    stubWindow(confirmSpy);
+    await dropFile('game.bas', '10 PRINT "NEW"');
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(useIdeStore.getState().source).toBe('10 PRINT "NEW"');
   });
 });

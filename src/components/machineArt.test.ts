@@ -32,7 +32,7 @@ describe('machine portraits', () => {
     // Nothing on disk is in this state today - every registered dialect has a
     // portrait - but a new one can land before its artwork does, and that must
     // degrade to the stand-in rather than throw.
-    expect(machineArtId('cpc664')).toBe('generic');
+    expect(machineArtId('cbm8032')).toBe('generic');
   });
 
   it('is total - any string resolves to something drawable', () => {

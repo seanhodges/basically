@@ -176,6 +176,15 @@ declare module 'jsbeeb/src/fake6502.js' {
     readonly ramRomOs: Uint8Array;
     /** Where the sixteen 16K sideways ROM banks start in {@link ramRomOs}. */
     readonly romOffset: number;
+    /**
+     * How each 256-byte page is wired, indexed by page number: 0 routes reads
+     * and writes to the device handlers (hardware registers, or open bus where
+     * no device answers), 1 is read/write RAM, 2 is ROM. The second 256 entries
+     * are the same table for instruction fetches from a shadow-RAM bank.
+     * A hard reset rebuilds it from the model, so an adapter that edits it has
+     * to reapply after every `reset(true)`.
+     */
+    readonly memStat: Uint8Array;
     readonly sysvia: SysVia;
     /** The µPD7002 ADC, source of analogue joystick input (absent on the Atom). */
     readonly adconverter: Adc;

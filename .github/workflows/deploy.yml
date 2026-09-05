@@ -12,8 +12,9 @@ permissions:
 
 jobs:
   checks:
-    name: Checks (typecheck, lint, format, test)
+    name: Checks (typecheck, lint, format, docs)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,16 +25,46 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
-      - run: npm test
       - run: npm run docs:build
 
-  # Non-blocking: surfaces e2e staleness on every push/PR without gating the
-  # deploy. Failures upload the Playwright report as an artifact.
+  # The unit suite is the long pole of the gate - one runner spent about five
+  # and a half of the seven minutes `checks` used to take - and it splits
+  # cleanly, so it runs beside the static checks rather than after them.
+  #
+  # Three ways is deliberate. Vitest assigns files to shards by hashing the
+  # file path, not by what they cost, and the cost here is nowhere near even:
+  # the top twenty files are about 72% of the runtime and the remaining four
+  # hundred are under 2%. So the split is only ever roughly balanced, and the
+  # single slowest file is a floor no shard count can go below - past three
+  # ways the shards mostly wait on that one file.
+  test:
+    name: Unit tests (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
+
+  # Blocking, and affordable enough to be: the suite runs against the built
+  # artifact rather than a dev server, which took it from about twelve minutes
+  # to about three, so gating on it costs less than the staleness it used to be
+  # allowed to accumulate. Failures upload the Playwright report as an artifact.
+  #
+  # `npm run e2e:chromium` builds the app and the docs into dist/ itself, as the
+  # Playwright webServer command - there is no separate build step here.
   e2e:
-    name: E2E (Chromium, non-blocking)
+    name: E2E (Chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,8 +81,9 @@ jobs:
           path: playwright-report/
 
   build:
-    needs: checks
+    needs: [checks, test, e2e]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

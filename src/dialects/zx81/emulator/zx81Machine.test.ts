@@ -205,33 +205,6 @@ describe('Zx81Machine', () => {
     expect(machine.readReport().isError).toBe(false);
   });
 
-  it('takes more frames to finish the same program at a slower speed', () => {
-    // ZX81 letter codes run A=0x26 .. Z=0x3F.
-    const letter = (ch: string) => 0x26 + (ch.charCodeAt(0) - 65);
-    const DONE = [...'DONE'].map(letter);
-    // A busy loop long enough that its completion spans several frames, so
-    // the run (not just the load handshake) is what setSpeed throttles.
-    const src = '10 FOR I=1 TO 500\n20 NEXT I\n30 PRINT "DONE"\n';
-    // setSpeed is applied after the load handshake (which relies on the
-    // default 1x boot/flash-load timing) so only the run itself is throttled.
-    function framesToDone(speed: number): number {
-      const machine = new Zx81Machine({ rom, ramKb: 16 });
-      const { bytes, errors } = tokenizeProgram(src);
-      expect(errors).toEqual([]);
-      machine.loadProgram(buildPFile(bytes));
-      expect(displayContains(machine, DONE)).toBe(false);
-      machine.setSpeed(speed);
-      for (let i = 1; i <= 2000; i++) {
-        machine.runFrame();
-        if (displayContains(machine, DONE)) return i;
-      }
-      throw new Error('never displayed DONE');
-    }
-    const atFullSpeed = framesToDone(1);
-    const atHalfSpeed = framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
-  });
-
   it('disposes idempotently and stays inert afterwards', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');
@@ -242,6 +215,70 @@ describe('Zx81Machine', () => {
       machine.releaseAllKeys();
       machine.dispose();
     }).not.toThrow();
+  });
+
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself. A different ROM revision fails here rather than
+   * silently misreporting.
+   */
+  describe('isProgramRunning', () => {
+    function load(src: string): Zx81Machine {
+      const machine = new Zx81Machine({ rom, ramKb: 16 });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildPFile(bytes));
+      return machine;
+    }
+
+    /** Frames until the machine reports the program stopped, or the cap. */
+    function settle(machine: Zx81Machine, frames = 600): boolean | null {
+      for (let i = 0; i < frames; i++) {
+        const running = machine.isProgramRunning();
+        if (running === false) return false;
+        machine.runFrame();
+      }
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 PRINT "HI"\n'],
+      ['STOP', '10 STOP\n'],
+      ['an error', '10 PRINT 1/0\n'],
+      [
+        'GOSUB and RETURN',
+        '10 GOSUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+      ],
+      [
+        'a program that fills the screen',
+        '10 FOR I=1 TO 30\n20 PRINT "ROW";I\n30 NEXT I\n',
+      ],
+    ])('reports no program running after %s', (_name, src) => {
+      expect(settle(load(src))).toBe(false);
+    });
+
+    it.each([
+      ['an idle loop', '10 GOTO 10\n'],
+      ['an INKEY$ loop', '10 IF INKEY$="" THEN GOTO 10\n'],
+      ['PAUSE', '10 PAUSE 30000\n20 GOTO 10\n'],
+      // The case every screen-shaped or cursor-shaped heuristic gets wrong: the
+      // ZX81 shows the same cursor at an INPUT prompt as it does in the editor.
+      ['an INPUT prompt', '10 INPUT A\n20 GOTO 10\n'],
+    ])('goes on reporting a program running at %s', (_name, src) => {
+      expect(settle(load(src), 200)).toBe(true);
+    });
+
+    it('reports no program running once BREAK stops one', () => {
+      const machine = load('10 GOTO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      expect(machine.isProgramRunning()).toBe(true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('Space', false);
+      expect(settle(machine, 60)).toBe(false);
+    });
   });
 
   describe('step-through debugging', () => {

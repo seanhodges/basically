@@ -45,7 +45,7 @@ async function seedThread(page: Page, assistant: string): Promise<void> {
 }
 
 async function openAiPanel(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /AI code generation/ }).click();
+  await page.getByRole('button', { name: /Show the AI assistant/ }).click();
 }
 
 const block = (page: Page) => page.locator('[data-block-kind]');
@@ -86,17 +86,10 @@ test('a fragment shows what it changes, and merging matches', async ({
   await expect(editor).toContainText('10 CLS');
 });
 
-test('a whole listing offers replacing, not merging', async ({ page }) => {
-  await seedThread(page, '```basic\n' + PROGRAM + '\n```');
-  await openApp(page);
-  await setEditorSource(page, PROGRAM);
-  await openAiPanel(page);
-
-  await expect(block(page)).toHaveAttribute('data-block-kind', 'full');
-  await expect(button(page, 'Replace program')).toBeVisible();
-  await expect(button(page, 'Replace + Run ▶')).toBeVisible();
-  await expect(button(page, 'Merge lines')).toHaveCount(0);
-});
+// The whole-listing case has no browser test of its own: which buttons a `full`
+// block offers follows from its classification, which src/ai/codeExtractor.test.ts
+// pins across every shape a block comes in, and the Replace buttons themselves
+// are clicked for real twice below.
 
 test('a block whose kind cannot be established offers both', async ({
   page,
@@ -173,7 +166,7 @@ test('applying and running an answer starts the machine on a phone', async ({
   // landed on a machine that existed, disposing it out from under the run
   // starting in the same commit. In the app that machine is the one the
   // assistant's own check left running; here the user starts it.
-  await button(page, '▶').click(); // the editor tab's run button
+  await page.getByTestId('fab-run').click(); // the editor tab's run button
   await expect(page.getByText('emulator: running').first()).toBeVisible({
     timeout: 45_000,
   });

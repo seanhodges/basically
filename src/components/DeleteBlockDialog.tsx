@@ -19,7 +19,7 @@ export function DeleteBlockDialog() {
   const block = blocks.find((b) => b.id === pendingDeleteBlockId);
   if (!block) return null;
 
-  const kind = block.kind === 'code' ? 'machine code' : 'data';
+  const kind = block.kind === 'code' ? 'machine code' : 'memory';
 
   return (
     <div className={dialog.modalBackdrop} onClick={cancelRemoveBlock}>

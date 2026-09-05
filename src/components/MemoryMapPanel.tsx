@@ -1,17 +1,23 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useIdeStore } from '../app/store';
-import type { MachineEmulator } from '../dialects/types';
 import {
-  pokeSites,
-  type PokeContext,
-  type PokeSite,
-} from '../editor/pokeAddresses';
-import { memoryBands, type Band } from './memoryBands';
-import { addressTicks } from './memoryScale';
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useIdeStore, selectActiveSource } from '../app/store';
+import type { MachineEmulator } from '../dialects/types';
+import type { PokeSite } from '../editor/pokeAddresses';
+import {
+  resolveWriteSites,
+  writesByIndirection,
+} from '../app/memoryWriteSites';
+import { MemoryMapView, type Notation } from './MemoryMapView';
 import {
   backingDpr,
-  bandLayout,
   layoutHeight,
+  type BandGeometry,
 } from './memoryActivity/bandLayout';
 import { useMemoryActivity } from './memoryActivity/useMemoryActivity';
 import { EyeIcon, EyeOffIcon } from './icons';
@@ -30,31 +36,20 @@ import styles from './MemoryMapPanel.module.css';
  * (`LOAD "" CODE` / `LOAD "",dev,1`) the address is drawn the same way but in
  * blue - exact when the statement gives one, otherwise an approximate base.
  *
- * Addresses read out in hex or as plain integers via the notation toggle. The
- * map is drawn as data-driven DOM bands (one element per visible region) so a
- * future update can light up the regions a running emulator is touching, without
- * changing how it is rendered.
+ * Addresses read out in hex or as plain integers via the notation toggle.
+ *
+ * This file is the IDE half: the store wiring, the program's write analysis, the
+ * controls, and the live memory-activity canvas. The picture itself is
+ * {@link MemoryMapView}, which the porting guide also renders - twice, side by
+ * side - so a reader can compare two machines' layouts. Anything that belongs to
+ * the map rather than to this panel belongs there; anything that reaches the
+ * store, the editor's analysis or an emulator has to stay here, because the
+ * documentation bundle may not import those (see machinePickerBoundary.test.ts).
  */
 
-/** Zoom multiplier bounds and the point at which detail (leaves + addresses) appears. */
+/** Zoom multiplier bounds. The detail threshold lives with the view that applies it. */
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 24;
-const DETAIL_ZOOM = 1.75;
-/** Pixels-per-byte at zoom 1, and the smallest a band may shrink to. */
-const PX_PER_BYTE = 0.0055;
-const MIN_BAND_PX = 26;
-/** Gap between bands, in px. Mirrors the `gap` on `.map` in the CSS module so the
- *  activity overlay's address→pixel mapping lines up with the rendered bands.
- *  Keep this in sync if the CSS gap changes. */
-const GAP_PX = 3;
-/** Hide a POKE marker's address label if it would sit within this many pixels
- * of the last shown one (small regions clamp to MIN_BAND_PX, so labels crowd). */
-const LABEL_GAP_PX = 12;
-
-type Notation = 'hex' | 'dec';
-
-const hexAddr = (addr: number) =>
-  `&${addr.toString(16).toUpperCase().padStart(4, '0')}`;
 
 /** Stable no-op machine accessor for when the panel is rendered without one. */
 const nullMachine = (): MachineEmulator | null => null;
@@ -68,7 +63,9 @@ interface Props {
 export function MemoryMapPanel({ getMachine }: Props = {}) {
   const setOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const dialect = useIdeStore((s) => s.dialect);
-  const source = useIdeStore((s) => s.source);
+  // The buffer on screen: the map answers "what does this code POKE", and
+  // while a scratch buffer is showing that is the snippet, not the document.
+  const source = useIdeStore(selectActiveSource);
 
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [notation, setNotation] = useState<Notation>(
@@ -79,214 +76,89 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
 
   const map = dialect.memoryMap;
 
-  // How this dialect writes memory, for the write-site markers: an explicit
-  // descriptor when the dialect provides one (BBC/Atom `?`/`!` indirection),
-  // else the implied `POKE` form when it has a POKE keyword, else none (the
-  // machine has a map but we don't know how to read its writes, so no markers).
-  const writeCtx = useMemo<PokeContext | null>(() => {
-    if (!map) return null;
-    // Approximate base for a code load with no target in the statement: the
-    // machine's free-RAM / program area start (falling back to the first RAM
-    // region above ROM).
-    const loadBase =
-      map.regions.find((r) => r.kind === 'program')?.start ??
-      map.regions.find((r) => r.kind !== 'rom')?.start;
-    const mw = dialect.memoryWrites;
-    if (mw)
-      return {
-        udgBase: map.udgBase,
-        writes: mw.forms,
-        hexPrefix: mw.hexPrefix,
-        statementSep: mw.statementSep,
-        loadBase,
-      };
-    if (dialect.keywords.some((k) => k.word === 'POKE'))
-      return { udgBase: map.udgBase, writes: ['poke'] };
-    return null;
-  }, [map, dialect]);
-  const byIndirection = !!writeCtx?.writes?.includes('indirection');
+  const byIndirection = writesByIndirection(dialect);
 
-  /** Format an address in the currently-selected notation. */
-  const fmt = (addr: number) =>
-    notation === 'hex' ? hexAddr(addr) : `${addr}`;
-
-  /**
-   * How the marker describes a site, for tooltips: a code load carries its own
-   * `LOAD …` label (`s.expr`); a write reads `POKE 22528` or, for indirection,
-   * the sigil form `?&2000`.
-   */
+  /** How the out-of-range warning describes a site. */
   const writeDesc = (s: PokeSite) =>
     s.role === 'load' ? s.expr : byIndirection ? s.expr : `POKE ${s.expr}`;
 
-  /** The marker/fill/label CSS classes for a site: blue for a code load
-   *  (`role: 'load'`), amber for an ordinary write. */
-  const markerCls = (s: PokeSite) =>
-    s.role === 'load'
-      ? {
-          marker: styles.loadMarker,
-          markerApprox: styles.loadMarkerApprox,
-          fill: styles.loadFill,
-          fillApprox: styles.loadFillApprox,
-          label: styles.loadLabel,
-        }
-      : {
-          marker: styles.pokeMarker,
-          markerApprox: styles.pokeMarkerApprox,
-          fill: styles.pokeFill,
-          fillApprox: styles.pokeFillApprox,
-          label: styles.pokeLabel,
-        };
-  /** A DOM key unique across roles, so a write and a load at one address don't
-   *  collide. */
-  const siteKey = (s: PokeSite) => `${s.role ?? 'w'}${s.address}`;
-
-  // The memory writes the current program makes, de-duplicated by address and
-  // split into those that land in the machine's memory (drawn as markers) and
-  // those that resolve out of range (surfaced as a warning). Only for dialects
-  // whose write syntax we recognise.
-  const { inRange, outOfRange } = useMemo(() => {
-    // Keyed by role + address so a write and a code load at the same byte both
-    // show (they render as separate amber/blue markers).
-    const seen = new Map<string, PokeSite>();
-    if (map && writeCtx)
-      for (const s of pokeSites(source, writeCtx)) {
-        // Prefer an exact site over an approximate one at the same address.
-        const key = `${s.role ?? 'write'}:${s.address}`;
-        const prev = seen.get(key);
-        if (!prev || (prev.approximate && !s.approximate)) seen.set(key, s);
-      }
-    const within: PokeSite[] = [];
-    const beyond: PokeSite[] = [];
-    for (const s of seen.values()) {
-      const inSpace = !!map && s.address >= 0 && s.address < map.addressSpace;
-      if (s.approximate) {
-        // An approximate address is only a best-effort base, so show it only
-        // where it plausibly points at RAM: in range, non-zero, and not in a
-        // ROM region (a write there would be a no-op). Otherwise drop it
-        // silently - no out-of-range warning for a guessed base.
-        const kind = map?.regions.find(
-          (r) => s.address >= r.start && s.address <= r.end,
-        )?.kind;
-        if (inSpace && s.address !== 0 && kind !== 'rom') within.push(s);
-      } else if (inSpace) {
-        within.push(s);
-      } else {
-        beyond.push(s);
-      }
-    }
-    within.sort((a, b) => a.address - b.address);
-    beyond.sort((a, b) => a.address - b.address);
-    return { inRange: within, outOfRange: beyond };
-  }, [map, writeCtx, source]);
-
-  const sitesInRegion = (start: number, end: number) =>
-    inRange.filter((s) => s.address >= start && s.address <= end);
-
-  const detailed = zoom >= DETAIL_ZOOM;
-  const bands = useMemo(
-    () => (map ? memoryBands(map, detailed) : []),
-    [map, detailed],
+  // The memory writes the current program makes, resolved exactly as the
+  // porting guide resolves them, so a marker means the same thing in both.
+  const { inRange, outOfRange } = useMemo(
+    () => resolveWriteSites(source, dialect),
+    [source, dialect],
   );
 
-  // --- Pinch / wheel zoom ------------------------------------------------
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
-  // The scrolling column, plus the content fraction (0–1) that sat at the
-  // viewport's vertical centre when the pending zoom change began — restored
-  // after the bands re-layout so zoom keeps the middle fixed, not the top.
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // --- Zoom, with the scroll centre held ---------------------------------
+  // The scrolling column lives inside the view, so the anchor is kept as a
+  // fraction of the content and applied through the view's controlled scroll
+  // offset: capture what is centred now, and once the bands have re-laid out at
+  // the new zoom, ask for the offset that centres it again.
+  const [scrollTop, setScrollTop] = useState(0);
+  const viewport = useRef({ height: 0, content: 0 });
   const zoomAnchor = useRef<number | null>(null);
 
   const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
-  /** Remember what's centred now, so the next zoom-driven layout can re-centre
-   *  it. Skipped when the map fits without scrolling (nothing to anchor). */
-  const captureZoomAnchor = () => {
-    const el = scrollRef.current;
-    if (!el || el.scrollHeight <= el.clientHeight) {
-      zoomAnchor.current = null;
-      return;
-    }
-    zoomAnchor.current = (el.scrollTop + el.clientHeight / 2) / el.scrollHeight;
-  };
-
   /** Capture the current centre, then apply a zoom change (number or updater);
-   *  a `useLayoutEffect` keyed on `zoom` restores the centre after re-layout. */
-  const changeZoom = (next: number | ((z: number) => number)) => {
-    captureZoomAnchor();
+   *  the layout effect below restores the centre once the bands re-lay out. */
+  const changeZoom = useCallback((next: number | ((z: number) => number)) => {
+    const { height, content } = viewport.current;
+    zoomAnchor.current =
+      content > height ? (scrollTopRef.current + height / 2) / content : null;
     setZoom((z) => clampZoom(typeof next === 'function' ? next(z) : next));
-  };
+  }, []);
 
-  // After the bands re-render at the new zoom (so scrollHeight is current) but
-  // before paint, scroll so the captured fraction is centred again.
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    const anchor = zoomAnchor.current;
-    if (!el || anchor == null) return;
-    el.scrollTop = anchor * el.scrollHeight - el.clientHeight / 2;
-    zoomAnchor.current = null;
-  }, [zoom]);
-
-  const pointerDist = () => {
-    const pts = [...pointers.current.values()];
-    if (pts.length < 2) return 0;
-    return Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
-  };
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType !== 'touch') return;
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2)
-      pinch.current = { dist: pointerDist(), zoom };
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!pointers.current.has(e.pointerId)) return;
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2 && pinch.current) {
-      const dist = pointerDist();
-      if (pinch.current.dist > 0) {
-        changeZoom((pinch.current.zoom * dist) / pinch.current.dist);
-      }
-    }
-  };
-  const endPointer = (e: React.PointerEvent) => {
-    pointers.current.delete(e.pointerId);
-    if (pointers.current.size < 2) pinch.current = null;
-  };
-  const onWheel = (e: React.WheelEvent) => {
-    // Ctrl/Cmd + wheel (and trackpad pinch, which reports ctrlKey) zooms; a plain
-    // wheel is left alone so the map scrolls normally.
-    if (!e.ctrlKey && !e.metaKey) return;
-    e.preventDefault();
-    changeZoom((z) => z - e.deltaY * 0.01);
-  };
-
-  const bandHeight = (b: Band) =>
-    Math.max(MIN_BAND_PX, (b.end - b.start + 1) * PX_PER_BYTE * zoom);
+  // The live scroll offset, read by changeZoom without making it depend on it.
+  const scrollTopRef = useRef(0);
+  const onScrollChange = useCallback((top: number) => {
+    scrollTopRef.current = top;
+    setScrollTop(top);
+  }, []);
 
   // --- Live memory-activity overlay -------------------------------------
   // A canvas layered over the band column, driven by the running emulator's
   // read/write activity (teal = read, coral = write, fading over ~0.5s). The
-  // geometry mirrors the band layout so lines register with their addresses; the
-  // hook records only while this panel is mounted (i.e. the map is on screen).
-  const mapRef = useRef<HTMLDivElement | null>(null);
+  // geometry comes from the view, so the overlay registers with the bands it
+  // actually drew; the hook records only while this panel is mounted (i.e. the
+  // map is on screen).
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [mapWidth, setMapWidth] = useState(0);
+  const [geometry, setGeometry] = useState<BandGeometry[]>([]);
+
   useEffect(() => {
-    const el = mapRef.current;
+    const el = hostRef.current;
     if (!el) return;
-    const update = () => setMapWidth(el.clientWidth);
+    const update = () => {
+      const column = el.querySelector('[class*="mapScroll"]');
+      setMapWidth(column ? column.clientWidth : el.clientWidth);
+      viewport.current.height = column ? column.clientHeight : el.clientHeight;
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const geometry = useMemo(
-    () => bandLayout(bands, bandHeight, GAP_PX),
-    // bandHeight is a pure function of zoom, captured fresh each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bands, zoom],
-  );
+
+  const onGeometry = useCallback((g: BandGeometry[]) => {
+    setGeometry(g);
+    viewport.current.content = layoutHeight(g);
+  }, []);
+
+  // Once the bands have re-laid out at the new zoom, re-centre on what was
+  // centred before it. Keyed on the geometry, which is what changes when the
+  // layout does.
+  useLayoutEffect(() => {
+    const anchor = zoomAnchor.current;
+    if (anchor === null) return;
+    zoomAnchor.current = null;
+    const { height, content } = viewport.current;
+    const next = Math.max(0, anchor * content - height / 2);
+    scrollTopRef.current = next;
+    setScrollTop(next);
+  }, [geometry]);
+
   const dims = useMemo(() => {
     const width = mapWidth;
     const height = layoutHeight(geometry);
@@ -302,15 +174,6 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
 
   const nudge = (delta: number) => changeZoom((z) => z + delta);
   const totalBytes = map.addressSpace;
-
-  const selected = bands.find((b) => b.key === selectedKey) ?? null;
-  const selectedSites = selected
-    ? sitesInRegion(selected.start, selected.end)
-    : [];
-  // Loads aren't PEEK-back targets like writes, so the detail panel lists them
-  // separately.
-  const selectedWrites = selectedSites.filter((s) => s.role !== 'load');
-  const selectedLoads = selectedSites.filter((s) => s.role === 'load');
 
   return (
     <div className={styles.panel}>
@@ -381,7 +244,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
             step={1}
             value={zoom}
             onChange={(e) => changeZoom(Number(e.target.value))}
-            title="Zoom"
+            title="Zoom level"
             aria-label="Zoom level"
           />
           <button
@@ -419,279 +282,28 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
           : ''}
       </p>
 
-      <div className={styles.body}>
-        <div
-          className={styles.mapScroll}
-          ref={scrollRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={endPointer}
-          onPointerCancel={endPointer}
-          onWheel={onWheel}
-        >
-          <div className={styles.map} ref={mapRef}>
+      <div ref={hostRef} className={styles.viewHost}>
+        <MemoryMapView
+          map={map}
+          zoom={zoom}
+          notation={notation}
+          selectedKey={selectedKey}
+          onSelect={setSelectedKey}
+          showDetails={showDetails}
+          sites={inRange}
+          byIndirection={byIndirection}
+          scrollTop={scrollTop}
+          onScrollChange={onScrollChange}
+          onGeometry={onGeometry}
+          onZoomGesture={changeZoom}
+          overlay={
             <canvas
               ref={canvasRef}
               className={styles.activityCanvas}
               aria-hidden="true"
             />
-            {bands.map((b) => {
-              const px = bandHeight(b);
-              const span = b.end - b.start + 1;
-              const markers = sitesInRegion(b.start, b.end).map((s) => ({
-                s,
-                y: ((s.address - b.start) / span) * px,
-              }));
-              // Loop-range POKEs that overlap this band, by their full [lo, hi]
-              // span (not just the start marker) so a range spanning several
-              // bands shades each one it passes through.
-              const ranges = inRange
-                .filter((s) => s.endAddress !== undefined)
-                .map((s) => ({
-                  s,
-                  lo: Math.min(s.address, s.endAddress!),
-                  hi: Math.max(s.address, s.endAddress!),
-                }))
-                .filter((r) => r.hi >= b.start && r.lo <= b.end);
-              let lastLabelY = -Infinity;
-              const fraction = (span / totalBytes) * 100;
-              return (
-                <button
-                  key={b.key}
-                  type="button"
-                  className={`${styles.band} ${styles[b.kind]} ${
-                    b.key === selectedKey ? styles.selected : ''
-                  }`}
-                  style={
-                    {
-                      height: `${px}px`,
-                      // Sub-regions of one group are drawn as progressively
-                      // stronger shades of their kind's colour: the hue still
-                      // says what the region is for, the shade says which
-                      // family it belongs to. See --mm-shade in the stylesheet.
-                      '--mm-shade': b.shade,
-                    } as React.CSSProperties
-                  }
-                  onClick={() => setSelectedKey(b.key)}
-                  title={`${fmt(b.start)}–${fmt(b.end)} ${b.label}`}
-                >
-                  {ranges.map(({ s, lo, hi }) => {
-                    // Clamp the fill to this band; +1 on the far edge covers the
-                    // end byte's own row so the shading reaches the last address.
-                    const top = ((Math.max(lo, b.start) - b.start) / span) * px;
-                    const bottom =
-                      ((Math.min(hi, b.end) + 1 - b.start) / span) * px;
-                    const cls = markerCls(s);
-                    return (
-                      <span
-                        key={`f${siteKey(s)}`}
-                        className={`${cls.fill} ${
-                          s.approximate ? cls.fillApprox : ''
-                        }`}
-                        style={{
-                          top: `${(top / px) * 100}%`,
-                          height: `${((bottom - top) / px) * 100}%`,
-                        }}
-                      />
-                    );
-                  })}
-                  {ranges
-                    .filter(
-                      (r) =>
-                        r.s.endAddress! >= b.start && r.s.endAddress! <= b.end,
-                    )
-                    .map(({ s }) => {
-                      const y = ((s.endAddress! - b.start) / span) * px;
-                      // Label the end address too, but only when it clears the
-                      // start line enough not to crowd its label. When the start
-                      // sits in another band the two are already far apart, so
-                      // always label.
-                      const startInBand =
-                        s.address >= b.start && s.address <= b.end;
-                      const yStart = ((s.address - b.start) / span) * px;
-                      const showLabel =
-                        !startInBand || Math.abs(y - yStart) >= LABEL_GAP_PX;
-                      const cls = markerCls(s);
-                      return (
-                        <span
-                          key={`e${siteKey(s)}`}
-                          className={`${cls.marker} ${
-                            s.approximate ? cls.markerApprox : ''
-                          }`}
-                          style={{ top: `${(y / px) * 100}%` }}
-                          title={`${writeDesc(s)} — range end ${fmt(
-                            s.endAddress!,
-                          )}`}
-                        >
-                          {showLabel && (
-                            <span className={cls.label}>
-                              {s.approximate ? '≈' : ''}
-                              {fmt(s.endAddress!)}
-                            </span>
-                          )}
-                        </span>
-                      );
-                    })}
-                  {detailed &&
-                    addressTicks(b.start, b.end, px).map((a) => (
-                      <span
-                        key={`t${a}`}
-                        className={styles.scaleTick}
-                        style={{ top: `${((a - b.start) / span) * 100}%` }}
-                      >
-                        <span className={styles.scaleLabel}>{fmt(a)}</span>
-                      </span>
-                    ))}
-                  {markers.map(({ s, y }) => {
-                    const showLabel = y - lastLabelY >= LABEL_GAP_PX;
-                    if (showLabel) lastLabelY = y;
-                    const cls = markerCls(s);
-                    return (
-                      <span
-                        key={siteKey(s)}
-                        className={`${cls.marker} ${
-                          s.approximate ? cls.markerApprox : ''
-                        }`}
-                        style={{ top: `${(y / px) * 100}%` }}
-                        title={
-                          s.approximate
-                            ? `${writeDesc(s)} — approximate (region estimate)`
-                            : s.computed
-                              ? writeDesc(s)
-                              : ''
-                        }
-                      >
-                        {showLabel && (
-                          <span className={cls.label}>
-                            {s.approximate ? '≈' : ''}
-                            {fmt(s.address)}
-                          </span>
-                        )}
-                      </span>
-                    );
-                  })}
-                  <span className={styles.bandMain}>
-                    <span className={styles.bandLabel}>{b.label}</span>
-                    {detailed && (
-                      <span className={styles.bandAddr}>
-                        {fmt(b.start)} – {fmt(b.end)}
-                      </span>
-                    )}
-                  </span>
-                  {!detailed && (
-                    <span className={styles.bandPct}>
-                      {fraction.toFixed(1)}%
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {showDetails && (
-          <div className={styles.detailOverlay}>
-            <div className={styles.detail}>
-              {selected ? (
-                <>
-                  <h3 className={styles.detailTitle}>{selected.label}</h3>
-                  <dl className={styles.detailGrid}>
-                    <dt>Range</dt>
-                    <dd className={styles.mono}>
-                      {fmt(selected.start)} – {fmt(selected.end)}
-                    </dd>
-                    <dt>Size</dt>
-                    <dd className={styles.mono}>
-                      {(selected.end - selected.start + 1).toLocaleString()}{' '}
-                      bytes
-                    </dd>
-                    <dt>Start</dt>
-                    <dd className={styles.mono}>PEEK {selected.start}</dd>
-                  </dl>
-                  {selected.leaves.length > 1 && (
-                    <ul className={styles.leafList}>
-                      {selected.leaves.map((r) => (
-                        <li key={r.start}>
-                          <span className={styles.mono}>{fmt(r.start)}</span>{' '}
-                          {r.label}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {selected.leaves.map(
-                    (r) =>
-                      r.note && (
-                        <p key={r.start} className={styles.note}>
-                          {selected.leaves.length > 1 ? `${r.label}: ` : ''}
-                          {r.note}
-                        </p>
-                      ),
-                  )}
-                  {selectedWrites.length > 0 && (
-                    <div className={styles.pokedBox}>
-                      <h4 className={styles.pokedTitle}>
-                        Your program writes here — read it back with:
-                      </h4>
-                      <ul className={styles.pokedList}>
-                        {selectedWrites.map((s) => (
-                          <li key={s.address} className={styles.mono}>
-                            {s.approximate ? '≈ ' : ''}
-                            {byIndirection
-                              ? `?${s.address}`
-                              : `PEEK ${s.address}`}
-                            {s.computed ? (
-                              <span className={styles.pokedExpr}>
-                                {' '}
-                                · {s.expr}
-                              </span>
-                            ) : (
-                              ''
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={styles.pokedCaveat}>
-                        Computed addresses show the first value a loop or
-                        variable resolves to. A “≈” marks an approximate base
-                        for writes whose address is worked out at runtime — the
-                        region is right, the exact byte may not be.
-                      </p>
-                    </div>
-                  )}
-                  {selectedLoads.length > 0 && (
-                    <div className={styles.pokedBox}>
-                      <h4 className={styles.pokedTitle}>
-                        Your program loads binary code here:
-                      </h4>
-                      <ul className={styles.pokedList}>
-                        {selectedLoads.map((s) => (
-                          <li key={s.address} className={styles.mono}>
-                            {s.approximate ? '≈ ' : ''}
-                            {fmt(s.address)}
-                            <span className={styles.pokedExpr}>
-                              {' '}
-                              · {s.expr}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={styles.pokedCaveat}>
-                        A “≈” marks a load whose target isn’t given in the
-                        statement (it comes from the file) — the address shown
-                        is an approximate base.
-                      </p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className={styles.empty}>
-                  Select a region to see its start address and the value to use
-                  in a PEEK.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+          }
+        />
       </div>
     </div>
   );

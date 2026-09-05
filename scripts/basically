@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# The Basically toolchain in command-line form. Rebuilds the bundle when it is stale,
+# so there is one command to remember rather than a build step and a run step.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+BUNDLE=scripts/headless/dist/cli.mjs
+# The whole of src/, not just the toolchain's own folders: the bundle inlines
+# the dialect registry and every emulator with it, so a change to a machine is
+# as much a stale bundle as a change to an operation - and one that went
+# unnoticed handed the caller the old machine with nothing to say it had.
+SOURCES=(scripts/headless src)
+
+# The build's own output lives under scripts/headless, and the three bundles are
+# written one after another - so a scan that counted them would find the later
+# ones newer than the first and rebuild on every single invocation.
+#
+# Test files are skipped too: nothing bundles them (src/client/thinness.test.ts
+# holds every entry point to that), so editing one is not a stale bundle - and
+# there are more of them under src/ than there is anything else.
+needs_build() {
+  [ ! -f "$BUNDLE" ] && return 0
+  [ -n "$(find "${SOURCES[@]}" \
+            \( -type d -name dist -o -name '*.test.ts' -o -name '*.test.tsx' \) -prune -o \
+            -type f -newer "$BUNDLE" -print -quit)" ]
+}
+
+if needs_build; then
+  echo "[basically] Building $BUNDLE..." >&2
+  node scripts/headless/build.mjs >&2
+fi
+
+exec node "$BUNDLE" "$@"

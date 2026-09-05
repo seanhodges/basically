@@ -51,14 +51,16 @@ export const zx80Keywords: KeywordInfo[] = [
     token: 0xdb,
     kind: 'function',
     signature: 'NOT x',
-    doc: 'Logical not: 1 if x=0, else 0.',
+    doc: "Bitwise complement: NOT 5 is -6. Not the ZX81's 1-or-0 negation.",
   },
   { word: '-', token: 0xdc, kind: 'operator', doc: 'Subtract / negate.' },
   { word: '+', token: 0xdd, kind: 'operator', doc: 'Add.' },
   { word: '*', token: 0xde, kind: 'operator', doc: 'Multiply.' },
   { word: '/', token: 0xdf, kind: 'operator', doc: 'Integer divide.' },
-  { word: 'AND', token: 0xe0, kind: 'operator', doc: 'Logical and.' },
-  { word: 'OR', token: 0xe1, kind: 'operator', doc: 'Logical or.' },
+  // Bitwise, unlike the ZX81's value logic a year later: 5 AND 3 is 1 here and
+  // 5 there. A true comparison is -1, again unlike the ZX81's 1.
+  { word: 'AND', token: 0xe0, kind: 'operator', doc: 'Bitwise and.' },
+  { word: 'OR', token: 0xe1, kind: 'operator', doc: 'Bitwise or.' },
   {
     word: '**',
     token: 0xe2,

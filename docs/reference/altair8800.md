@@ -1,20 +1,29 @@
 ---
-title: Altair 8K BASIC reference
+title: Microsoft BASIC reference
 ---
 
 <script setup>
 import { altair8800Reference } from '../../src/reference/altair8800';
 </script>
 
-# Altair 8K BASIC reference
+# Microsoft BASIC reference
 
-Every command, function and operator in Altair 8K BASIC — the 1975–76 MITS
-interpreter that every later Microsoft BASIC descends from.
+Every command, function and operator in **Altair 8K BASIC**, the version of
+Microsoft BASIC the MITS Altair 8800 runs — the 1975–76 interpreter that every
+later Microsoft BASIC descends from.
+
+**In this reference:** [Hardware](./altair8800/hardware) · [Escape codes](./altair8800/escapes) · [File formats](./altair8800/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 
+- `?` stands for `PRINT`, and is shown beside it in the table below; the search
+  box finds the keyword by it.
 - Multiple statements per line are allowed with `:`, and `?` is shorthand for
-  `PRINT`. There is no `'` shorthand for `REM`; `^` is the power operator.
+  `PRINT`. There is no `'` shorthand for `REM`.
+- `^` is the power operator — there is no up-arrow spelling — and it folds left
+  to right, so `2^3^2` is `64`. `AND`, `OR` and `NOT` combine their operands bit
+  by bit, and a true comparison is `-1`. There is no integer-division, remainder
+  or exclusive-OR operator: use `INT(a/b)` and `a-b*INT(a/b)`.
 - Only the first two characters of a variable name are significant, so `COUNT`
   and `COST` are the same variable. `$` is the only type suffix — `%`, `!` and
   `#` are later additions, and `X%=1` is stored happily and then fails when it
@@ -28,34 +37,18 @@ interpreter that every later Microsoft BASIC descends from.
 - `PEEK`, `POKE`, `INP`, `OUT` and `WAIT` all take decimal addresses. There is
   no hexadecimal notation anywhere in this BASIC.
 
-## What this machine does not have
-
-The Altair predates almost everything a later Microsoft BASIC offers, and it is
-easier to say what is absent than to notice it missing:
-
-- **No `ELSE`** — write a second `IF`, or invert the test and jump.
-- **No key-at-a-time read** — there is no `INKEY$` and no `GET`, so an
-  interactive program takes one whole typed line per turn through `INPUT`.
-  Polling the console with `INP` does not work around it: BASIC reads the same
-  port looking for CTRL-C between every statement, and takes the character
-  first.
-- **No graphics, colour or sound** — the machine has no video hardware at all.
-  Output is 7-bit ASCII down a serial line to a terminal, so `PRINT` is the
-  whole repertoire: no `CLS`, no cursor addressing, and no display memory to
-  write to. A picture is built in an array and printed a character at a time.
-- **No file system** — `CSAVE` and `CLOAD` move the whole program to and from
-  cassette, and that is all. There is no `OPEN`, no `PRINT#` and no directory.
-- **No error trapping** — no `ON ERROR`, `ERR` or `RESUME`. An error stops the
-  program and prints its two-letter code, so test a value before the operation
-  that would fail.
-- **No `PRINT USING`, `INSTR`, `STRING$` or `SPACE$`**, and `MID$` is a function
-  only — unlike later Microsoft BASICs it cannot be assigned to.
-
-## Supplying the interpreter
-
-Altair 8K BASIC is Microsoft copyright with no redistribution grant, so no image
-ships with this IDE and the machine cannot start without one. Everything on this
-page describes the language; running it needs your own copy of the 8K BASIC 4.0
-paper tape.
-
 <ReferenceTable :data="altair8800Reference" />
+
+## The interpreter
+
+The Altair had no firmware. BASIC arrived on a paper tape you loaded into RAM
+at address 0 before anything else could happen, so what the IDE calls this
+machine's ROM is really that tape: Altair 8K BASIC 4.0, 8 KB of it, copied to
+address 0 at reset. It runs from RAM, which is why a wrong `POKE` can corrupt
+the interpreter itself.
+
+The image is bundled, and starts automatically — the cold-start dialogue
+(`MEMORY SIZE?`, `TERMINAL WIDTH?`, `WANT SIN-COS-TAN-ATN?`) is answered for
+you with 48 KB, 72 columns and the transcendental functions kept. You can
+install a different Altair BASIC in the settings page; the addresses in this
+reference were read off the 4.0 eight-K tape and are not promised of another.

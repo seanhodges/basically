@@ -35,15 +35,19 @@
   descent-override: 22.9167%;
   line-gap-override: 0%;
   unicode-range:
-    U+00A1, U+00A3, U+00A7-A9, U+00AC, U+00B1, U+00B4, U+00B6-B7, U+00BC-BF,
-    U+00F7, U+03A3, U+03A9, U+03B1-3B5, U+03B8, U+03BB-3BC, U+03C0, U+03C3,
-    U+03C6-3C9, U+2019, U+2190-2191, U+2500, U+2502, U+250C, U+2510, U+2514,
-    U+2518, U+251C, U+2524, U+252C, U+2534, U+253C, U+256D-2577, U+2580-2584,
-    U+2588, U+258C-2590, U+2592, U+2594-25A1, U+25B2, U+25B6, U+25BC, U+25C0,
-    U+25CB, U+25CF, U+25E2-25E5, U+2639-263A, U+2640, U+2642, U+2660, U+2663,
-    U+2665-2666, U+2669-266A, U+1FB00-1FB3B, U+1FB70-1FB71, U+1FB73-1FB74,
-    U+1FB76-1FB77, U+1FB79, U+1FB82-1FB83, U+1FB88, U+1FB8C-1FB92, U+1FB95,
-    U+1FB9C-1FBA9, U+1FBAE;
+    U+00A1-A3, U+00A5, U+00A7-AC, U+00B0-B2, U+00B4-B7, U+00BA-BF, U+00C3-C7,
+    U+00C9, U+00D1, U+00D5-D6, U+00DC, U+00DF-EF, U+00F1-F7, U+00F9-FC, U+00FF,
+    U+0128-129, U+0132-133, U+0170-171, U+0192, U+0393-394, U+0398, U+03A3,
+    U+03A6, U+03A9, U+03B1-3B5, U+03B8, U+03BB-3BC, U+03C0, U+03C3-3C4,
+    U+03C6-3C9, U+2019, U+2021-2022, U+2030, U+207F, U+20A7, U+2190-2191,
+    U+221A, U+221E, U+2229, U+2248, U+2261, U+2264-2265, U+2320-2321, U+2500,
+    U+2502, U+250C, U+2510, U+2514, U+2518, U+251C, U+2524, U+252C, U+2534,
+    U+253C, U+256D-2577, U+2580-2584, U+2586, U+2588, U+258A, U+258C-2590,
+    U+2592, U+2594-25A1, U+25AC, U+25B2, U+25B6, U+25BC, U+25C0, U+25CA-25CB,
+    U+25CF, U+25E2-25E5, U+2639-263A, U+2640, U+2642, U+2660, U+2663,
+    U+2665-2666, U+2669-266A, U+1FB00-1FB3B, U+1FB6C-1FB71, U+1FB73-1FB74,
+    U+1FB76-1FB77, U+1FB79, U+1FB82-1FB83, U+1FB85, U+1FB87-1FB88, U+1FB8A,
+    U+1FB8C-1FB92, U+1FB95-1FB96, U+1FB98-1FBA9, U+1FBAE;
 }
 
 /* The characters unscii-16 does not carry - the ZX81 corner brackets, ☼, the
@@ -59,7 +63,9 @@
   ascent-override: 85.4167%;
   descent-override: 22.9167%;
   line-gap-override: 0%;
-  unicode-range: U+231C-231F, U+263C, U+2B60-2B63, U+1F130-1F144;
+  unicode-range:
+    U+2208, U+2219, U+223D, U+2300, U+2310, U+231C-231F, U+263C, U+2B60-2B63,
+    U+1F130-1F148;
 }
 
 :root {
@@ -101,6 +107,35 @@
      than --mm-screen on purpose - the two were the same value, which made a
      LOAD CODE marker vanish into the Spectrum's display-file band. */
   --mm-load: #1f6feb;
+  /* Where a program reads memory back (PEEK / ?addr), drawn by the porting
+     guide only. Violet: it has to stay legible over every band colour here,
+     and the greens and blues are already taken by program area, display and
+     code loads. */
+  --mm-read: #a970ff;
+
+  /* --- Overlay layers ------------------------------------------------------
+     Everything the app raises over the editor, in one scale, because the
+     numbers only mean anything relative to each other and to one value the app
+     does not own: CodeMirror's base theme puts `.cm-tooltip` at z-index 500,
+     and the editor is not inside a stacking context of its own, so the
+     completion list and the picked-token menu compete here at 500. Anything
+     meant to cover the editor has to clear that, or a popup paints through it.
+
+     Deliberately *below* 500, and so not on this scale: the virtual keyboard
+     (5), the floating run button (20) and the mobile memory-map pane (21), all
+     in Workspace.module.css. A completion offered at the foot of the editor has
+     to stay readable while the on-screen keyboard is up, which is the whole
+     reason the keyboard doesn't take the popup away. */
+  --z-toolbar: 600;
+  /* Menus anchored outside the toolbar's own stacking context (the toolbar's
+     own dropdown sits inside it and needs no band of its own). */
+  --z-menu: 700;
+  --z-drawer-handle: 890;
+  --z-drawer: 900;
+  --z-drawer-hint: 950;
+  --z-dialog: 1000;
+  /* A dialog opened from within another dialog (the machine list). */
+  --z-dialog-nested: 1010;
 
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
@@ -161,6 +196,22 @@ button.run:hover:not(:disabled) {
   border-color: #7fe89a;
 }
 
+/* The pause-and-continue control while there is a run under way. Green means
+   the machine is not running; the accent says "this run is on", matching the
+   run control over the editor. Not `button.primary`: that pairs the accent with
+   white, which at the 13px these buttons set does not clear the contrast
+   threshold - white on this blue only just clears it at large sizes. */
+button.run-live {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06152e;
+  font-weight: 600;
+}
+
+button.run-live:hover:not(:disabled) {
+  border-color: #8fbcff;
+}
+
 button.icon-btn,
 a.icon-btn {
   padding: 5px 8px;
@@ -215,10 +266,11 @@ code {
   display: none;
 }
 
-/* --- Find/Replace (CodeMirror search panel) --------------------------------
-   Theme CodeMirror's built-in search panel to match the rest of the app.
-   These target CodeMirror's own DOM (no component wrapper class), so they stay
-   global. */
+/* --- Editor bottom bars (find/replace, variable usages) --------------------
+   Theme CodeMirror's built-in search panel to match the rest of the app, and
+   dress the variable-usages bar as its twin - they share the one panel slot at
+   the foot of the editor, so they share a look. These target CodeMirror's own
+   DOM (no component wrapper class), so they stay global. */
 .cm-panels,
 .cm-panels.cm-panels-top,
 .cm-panels.cm-panels-bottom {
@@ -270,13 +322,69 @@ code {
   border-left-color: var(--error);
 }
 
-/* Keep the highlighted completion readable against the dark surface. */
-.cm-tooltip-autocomplete > ul > li[aria-selected] {
+/* Keep the highlighted completion readable against the dark surface - and give
+   the click menu's rows the same highlight, since it is the same gesture
+   answered in the same place. */
+.cm-tooltip-autocomplete > ul > li[aria-selected],
+.cm-clickMenuRow:hover,
+.cm-clickMenuRow:focus-visible {
   background: var(--accent);
   color: #fff;
 }
 
-.cm-search {
+/* The click menu: rows in the completion popup's idiom, so a click on a token
+   is answered where a completion would answer. The surface comes from
+   .cm-tooltip above; only the rows themselves need describing. One row is all
+   any token offers today, but the list is laid out for however many it has. */
+.cm-clickMenu {
+  overflow: hidden; /* clip a row's fill to the menu's rounded corners */
+}
+
+.cm-clickMenuList {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+}
+
+.cm-clickMenuRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Sized and spaced like CodeMirror's own completion icons, so the glyph column
+   lines up with the completion popup's. One glyph per row kind. */
+.cm-clickMenuIcon {
+  flex: 0 0 auto;
+  width: 0.8em;
+  padding-right: 0.6em;
+  font-size: 90%;
+  text-align: center;
+  box-sizing: content-box;
+  opacity: 0.7;
+}
+
+.cm-clickMenuIcon-usages::after {
+  content: '⌕';
+}
+
+.cm-clickMenuIcon-reference::after {
+  content: '?';
+}
+
+/* The bars themselves. Only one is ever mounted: opening either takes the
+   other's place (see src/editor/variableUsagesView.ts). */
+.cm-search,
+.cm-variableUsagesPanel {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -286,11 +394,25 @@ code {
   font-size: 13px;
 }
 
-.cm-search label {
+.cm-search label,
+.cm-variableUsagesLabel {
   color: var(--text-dim);
+}
+
+.cm-search label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* min-width is load-bearing: a flex item will not shrink below its content
+   without it, so the ellipsis would never engage on a narrow viewport. */
+.cm-variableUsagesLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cm-search .cm-textfield {
@@ -307,7 +429,8 @@ code {
   border-color: var(--accent);
 }
 
-.cm-search .cm-button {
+.cm-search .cm-button,
+.cm-variableUsagesAction {
   background: var(--bg-raised);
   color: var(--text);
   border: 1px solid var(--border);
@@ -318,12 +441,25 @@ code {
   cursor: pointer;
 }
 
-.cm-search .cm-button:hover {
+.cm-search .cm-button:hover,
+.cm-variableUsagesAction:hover {
   border-color: var(--accent);
 }
 
-/* The manual close button: a clearly visible control, top-right of the panel. */
-.cm-search button[name='close'] {
+/* The steppers carry a glyph rather than a word: square them off and keep the
+   glyph legible at the shared control size. Must follow the rule above - equal
+   specificity, so order decides. */
+.cm-variableUsagesAction {
+  min-width: 32px;
+  padding: 5px 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* The manual close button: a clearly visible control, top-right of the panel.
+   Both bars reserve the corner for it through their right-hand padding. */
+.cm-search button[name='close'],
+.cm-variableUsagesClose {
   position: absolute;
   top: 6px;
   right: 8px;
@@ -342,7 +478,8 @@ code {
   cursor: pointer;
 }
 
-.cm-search button[name='close']:hover {
+.cm-search button[name='close']:hover,
+.cm-variableUsagesClose:hover {
   color: var(--accent);
   border-color: var(--accent);
 }

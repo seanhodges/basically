@@ -1,6 +1,6 @@
 import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { bbcCharset } from './charset';
-import { bbcKeywords } from './keywords';
+import { bbcKeywords, bbcOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import {
   detokenizeProgram,
@@ -21,6 +21,8 @@ import { BBC_DISPLAY_CONTROLS } from './teletextChips';
 import { bbcSamples } from './samples';
 import { bbcMicroMemoryMap } from './memoryMap';
 import { bbcMicroMemoryBlocks } from './memoryBlocks';
+import { PAGE_DFS } from './addresses';
+import { SCREEN_MODE7_BASE } from '../../emulator/bbc/addresses';
 import {
   BbcMachine,
   BBC_DISPLAY_WIDTH,
@@ -43,10 +45,16 @@ export const bbcmicro: Dialect = {
   manufacturer: 'Acorn',
   year: 1981,
   blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
+  basicDialect: 'BBC BASIC II',
+  basicFamily: 'BBC BASIC',
   docsReference: 'bbc',
-  programRamBytes: 28672,
+  // PAGE (0x1900 with the DFS workspace below it) up to HIMEM in MODE 7, the
+  // mode that leaves the most room; a graphics mode drops HIMEM as far as
+  // 0x3000 and takes up to 20K of this back.
+  programRamBytes: SCREEN_MODE7_BASE - PAGE_DFS,
   fileExtensions: ['.txt', '.bas'],
   keywords: bbcKeywords,
+  operators: bbcOperators,
   charset: bbcCharset,
   languageSupport: bbcLanguageSupport,
   completionSource: bbcCompletionSource,
@@ -88,12 +96,20 @@ export const bbcmicro: Dialect = {
   // BBC BASIC has no POKE: memory writes use `?`/`!` indirection (`?&2000=5`),
   // with `&` hex addresses.
   memoryWrites: { forms: ['indirection', 'star-load'], hexPrefix: '&' },
+  // No PEEK: a byte is read back with `?addr`, a word with `!addr`. Both CALL
+  // and USR run code at the address they are given.
+  memoryReads: { forms: ['indirection'], calls: ['CALL', 'USR'] },
 
   debuggable: true,
 
   joystickModes: ['native'],
   // The analogue port has two independent fire lines (PB4/PB5).
   joystickFireButtons: 2,
+
+  // OSFIND/OSBGET/OSBPUT on the filing-system vectors, so OPENOUT/BPUT#/
+  // OPENIN/BGET# reach the store. OSFILE/OSGBPB are not trapped: whole-file
+  // *SAVE/*LOAD is not part of this.
+  capturesDataFiles: true,
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is forwarded to service program-driven data file I/O.

@@ -12,10 +12,17 @@ export type KindFilter = 'all' | ReferenceEntry['kind'];
 export type DomainFilter = 'all' | KeywordDomain;
 
 /**
- * Case-insensitive substring match on name, plus the kind and capability-domain
- * filters. The three are AND-combined and orthogonal, so narrowing by one never
- * resets another. `domain` defaults to 'all', which is also what the two
- * assembly pages (whose entries carry no domain) always pass.
+ * Case-insensitive substring match on the name *or* any of the keyword's short
+ * spellings, plus the kind and capability-domain filters. The three are
+ * AND-combined and orthogonal, so narrowing by one never resets another.
+ * `domain` defaults to 'all', which is also what the two assembly pages (whose
+ * entries carry no domain) always pass.
+ *
+ * Searching the spellings is what makes the page answer the question a reader
+ * usually arrives with: they have `P.` or `?` in front of them in a listing and
+ * want to know what it is. A spelling match is a prefix rather than a substring
+ * - `P.` is a spelling of PRINT, and typing `.` should not return every dotted
+ * keyword on the page.
  */
 export function filterEntries(
   entries: ReferenceEntry[],
@@ -28,7 +35,8 @@ export function filterEntries(
     if (kind !== 'all' && e.kind !== kind) return false;
     if (domain !== 'all' && e.domain !== domain) return false;
     if (!q) return true;
-    return e.name.toLowerCase().includes(q);
+    if (e.name.toLowerCase().includes(q)) return true;
+    return (e.abbreviations ?? []).some((a) => a.toLowerCase().startsWith(q));
   });
 }
 

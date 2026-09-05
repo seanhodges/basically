@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Sean Hodges
+
+import { describe, expect, it } from 'vitest';
+import { apple1KeyboardLayout } from './keyboardLayout';
+import { apple1KeyTokens, tokenToByte } from '../../emulator/apple1/keyboard';
+import { resolveEditorAction } from '../../keyboard/editorActions';
+import { GRID_COLUMNS, KEY_SPAN } from '../../keyboard/templateRows';
+import { apple1Charset } from './charset';
+import { GLYPH_BASE, GLYPH_TOP } from './charset';
+import type { KeyDef } from '../../keyboard/layoutSchema';
+
+const layout = apple1KeyboardLayout;
+const keys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
+/** Every key that actually drives the machine (spacers emit nothing). */
+const driving = keys.filter((k) => k.emits.length > 0);
+/** A key's own tokens plus any its legends press in place of them. */
+const allTokens = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
+];
+
+/** The editor text a key inserts on a layer, or null when it inserts nothing. */
+function insertOn(key: KeyDef, layerId: string): string | null {
+  const action = resolveEditorAction(layout, key, layerId);
+  return action && 'insert' in action ? action.insert : null;
+}
+
+describe('apple1 keyboard layout', () => {
+  it('emits a token for every key the keyboard adapter can translate', () => {
+    // The layout and `emulator/apple1/keyboard.ts` are two halves of one
+    // vocabulary: a key emitting a token the adapter does not know sends
+    // nothing at all, and the failure is silent.
+    const known = new Set(apple1KeyTokens());
+    for (const key of driving) {
+      for (const token of key.emits) {
+        expect(
+          known.has(token),
+          `${key.id} emits unknown token "${token}"`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('offers a key for every token the machine understands', () => {
+    // …and the other direction: a token the adapter translates but no key emits
+    // is a character the on-screen keyboard cannot produce. Including the SYM
+    // legends' own tokens, which bypass `emits`.
+    const emitted = new Set(driving.flatMap(allTokens));
+    for (const token of apple1KeyTokens()) {
+      expect(emitted.has(token), `no key emits "${token}"`).toBe(true);
+    }
+  });
+
+  it('offers base, SHIFT and the SYM pages - no keyword or graphics layer', () => {
+    expect(layout.layers.map((l) => l.id)).toEqual([
+      'base',
+      'shift',
+      'symbols',
+      'symbols2',
+    ]);
+    // ABC and SYM only: Integer BASIC has no abbreviation to put on a keyword
+    // layer, and the board has no cursor keys to give a CURSOR mode.
+    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'sym']);
+  });
+
+  it('declares no graphics palette, so it stays out of paletteMachines', () => {
+    // The 2513 holds 64 ASCII glyphs and no mosaics - see charset.ts. Adding a
+    // palette here would also have to add the id to e2e/paletteMachines.ts,
+    // which src/dialects/graphicsPalette.test.ts pins to the registry.
+    expect(layout.graphicsPalette).toBeUndefined();
+  });
+
+  it('types the same character it sends, on both layers', () => {
+    // The crosscheck that matters: a legend copied from a modern keyboard would
+    // insert one character into the editor while the machine received another.
+    // SHIFT-2 is `"` here, not `@`, and `@` is SHIFT-P.
+    for (const key of driving) {
+      if (key.modifier) continue;
+      for (const [layerId, shifted] of [
+        ['base', false],
+        ['shift', true],
+      ] as const) {
+        // Only a key's own legend makes a claim; a layer with no label falls
+        // back to the base insert, which is not one.
+        const layerIdx = layout.layers.findIndex((l) => l.id === layerId);
+        if (!key.labels[layerIdx]) continue;
+        const insert = insertOn(key, layerId);
+        if (insert === null || insert.length !== 1) continue; // ↵ and ⌫ act
+        // A synthesized combination (the quote key) carries its SHIFT in its
+        // own tokens.
+        const token = key.emits.find((t) => t !== 'Shift')!;
+        const shift = shifted || key.emits.includes('Shift');
+        const byte = tokenToByte(token, { shift });
+        expect(
+          byte,
+          `${key.id} on ${layerId} inserts "${insert}" but sends nothing`,
+        ).not.toBeNull();
+        expect(String.fromCharCode(byte!), `${key.id} on ${layerId}`).toBe(
+          insert,
+        );
+      }
+    }
+
+    // The SYM cells make the same claim, so they are held to the same check:
+    // the byte their combination sends is the character they insert.
+    let symChecked = 0;
+    for (const layerId of ['symbols', 'symbols2']) {
+      const idx = layout.layers.findIndex((l) => l.id === layerId);
+      for (const key of layout.rows.flat()) {
+        const label = key.labels[idx];
+        if (!label?.emits?.length || !label.editor) continue;
+        if (!('insert' in label.editor)) continue;
+        const token = label.emits.find((t) => t !== 'Shift')!;
+        const byte = tokenToByte(token, {
+          shift: label.emits.includes('Shift'),
+        });
+        expect(
+          byte === null ? '' : String.fromCharCode(byte),
+          `SYM ${label.text} via ${label.emits.join('+')}`,
+        ).toBe(label.editor.insert);
+        symChecked++;
+      }
+    }
+    expect(symChecked).toBe(27);
+  });
+
+  it('produces CTRL-C (0x03) for breaking a running program', () => {
+    expect(layout.modifiers.map((m) => m.id)).toContain('ctrl');
+    expect(tokenToByte('KeyC', { ctrl: true })).toBe(0x03);
+  });
+
+  it('puts the board’s two buttons on the strip, typing nothing', () => {
+    // CLEAR SCREEN goes to the video logic and RESET to the CPU's reset line;
+    // neither reaches the keyboard port, so neither has a character to send and
+    // neither may insert one into the editor.
+    for (const id of ['ClearScreen', 'Reset']) {
+      const key = (layout.functionKeys ?? []).find((k) => k.id === id);
+      expect(key, `${id} is not on the function strip`).toBeDefined();
+      expect(tokenToByte(id), `${id} sends a character`).toBeNull();
+      for (const layer of layout.layers) {
+        expect(insertOn(key!, layer.id), `${id} on ${layer.id}`).toBeNull();
+      }
+    }
+  });
+
+  it('types only upper case, as the 2513 could draw', () => {
+    for (const key of driving) {
+      for (const layer of layout.layers) {
+        const insert = insertOn(key, layer.id);
+        if (insert === null) continue;
+        expect(insert, `${key.id} on ${layer.id}`).toBe(insert.toUpperCase());
+      }
+    }
+  });
+
+  it('stays on the template’s grid, strip included', () => {
+    expect(layout.gridColumns).toBe(GRID_COLUMNS);
+    for (const row of layout.rows) {
+      expect(row.reduce((n, k) => n + k.spanX, 0)).toBe(GRID_COLUMNS);
+    }
+    const strip = layout.functionKeys ?? [];
+    for (const key of strip) expect(key.spanX).toBe(KEY_SPAN);
+    expect(strip.reduce((n, k) => n + k.spanX, 0)).toBeLessThan(GRID_COLUMNS);
+  });
+
+  it('reaches the whole 64-character set the machine has', () => {
+    // 0x20-0x5F with bit 7 set, which on this machine is every code that has a
+    // glyph at all. Every one must be typeable, and nothing outside them.
+    const typed = new Set<number>();
+    for (const key of driving) {
+      for (const layer of layout.layers) {
+        const insert = insertOn(key, layer.id);
+        if (insert === null) continue;
+        for (const byte of apple1Charset.toMachine(insert)) typed.add(byte);
+      }
+    }
+    expect([...typed].sort((a, b) => a - b)).toEqual(
+      Array.from(
+        { length: GLYPH_TOP - GLYPH_BASE + 1 },
+        (_, i) => GLYPH_BASE + i,
+      ),
+    );
+  });
+});

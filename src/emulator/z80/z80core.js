@@ -933,9 +933,11 @@ let do_cpi = function()
 
 let do_ini = function()
 {
+   // The read carries B's old value on the top half of the address bus; the
+   // counter is decremented after it, which is the opposite order to OUTI/OUTD.
+   var byte = core.io_read((b << 8) | c);
    b = do_dec(b);
-   
-   core.mem_write(l | (h << 8), core.io_read((b << 8) | c));
+   core.mem_write(l | (h << 8), byte);
    
    var result = (l | (h << 8)) + 1;
    l = result & 0xff;
@@ -946,13 +948,18 @@ let do_ini = function()
 
 let do_outi = function()
 {
-   core.io_write((b << 8) | c, core.mem_read(l | (h << 8)));
+   // B is decremented before the write, so the decremented value is what
+   // reaches the top half of the address bus - the port a device selecting on
+   // it sees. INI/IND below are the other way round: there the read happens
+   // with B still at its old value.
+   var byte = core.mem_read(l | (h << 8));
+   b = do_dec(b);
+   core.io_write((b << 8) | c, byte);
    
    var result = (l | (h << 8)) + 1;
    l = result & 0xff;
    h = (result & 0xff00) >>> 8;
    
-   b = do_dec(b);
    flags.N = 1;
 };
 
@@ -1000,9 +1007,11 @@ let do_cpd = function()
 
 let do_ind = function()
 {
+   // The read carries B's old value on the top half of the address bus; the
+   // counter is decremented after it, which is the opposite order to OUTI/OUTD.
+   var byte = core.io_read((b << 8) | c);
    b = do_dec(b);
-   
-   core.mem_write(l | (h << 8), core.io_read((b << 8) | c));
+   core.mem_write(l | (h << 8), byte);
    
    var result = (l | (h << 8)) - 1;
    l = result & 0xff;
@@ -1013,13 +1022,15 @@ let do_ind = function()
 
 let do_outd = function()
 {
-   core.io_write((b << 8) | c, core.mem_read(l | (h << 8)));
+   // See do_outi: the write carries the decremented B.
+   var byte = core.mem_read(l | (h << 8));
+   b = do_dec(b);
+   core.io_write((b << 8) | c, byte);
    
    var result = (l | (h << 8)) - 1;
    l = result & 0xff;
    h = (result & 0xff00) >>> 8;
    
-   b = do_dec(b);
    flags.N = 1;
 };
 

@@ -37,6 +37,7 @@ export const zx80: Dialect = {
   manufacturer: 'Sinclair',
   year: 1980,
   blurb: 'Sinclair’s first home computer. Runs ZX80 BASIC.',
+  basicDialect: 'ZX80 BASIC',
   programRamBytes: 15360,
   memoryMap: zx80MemoryMap,
   memoryBlocks: zx80MemoryBlocks,
@@ -44,6 +45,10 @@ export const zx80: Dialect = {
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
   statementSeparator: null,
+
+  // PEEK takes its address without parentheses, and USR calls machine code at
+  // the address it is given (returning BC) — the `RAND USR addr` idiom.
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: zx80Keywords,
   charset: zx80Charset,

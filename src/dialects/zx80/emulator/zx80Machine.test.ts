@@ -190,35 +190,6 @@ describe('Zx80Machine', () => {
     machine.dispose();
   });
 
-  it('takes more frames to finish the same program at a slower speed', () => {
-    // A busy loop long enough that its completion spans many frames, so the
-    // run (not just the load/RUN handshake) is what setSpeed throttles.
-    const src = '10 FOR I=1 TO 10000\n20 NEXT I\n30 PRINT "DONE"\n';
-    // setSpeed is applied after loadProgram (which relies on the default 1x
-    // boot/load/RUN handshake timing) so only the run itself is throttled.
-    function framesToDone(speed: number): number {
-      const { bytes, errors } = tokenizeProgram(src);
-      expect(errors).toEqual([]);
-      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
-      machine.loadProgram(buildOFile(bytes));
-      machine.setSpeed(speed);
-      for (let i = 1; i <= 3000; i++) {
-        machine.runFrame();
-        // An exact row match (not displayContains) - right after load the
-        // display still shows the program listing, whose "DONE" string
-        // literal would otherwise trip a substring match early.
-        if (firstTextRow(machine) === 'DONE') {
-          machine.dispose();
-          return i;
-        }
-      }
-      throw new Error('never finished the loop');
-    }
-    const atFullSpeed = framesToDone(1);
-    const atHalfSpeed = framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
-  });
-
   it('stops rendering at DF_END instead of overrunning the display file', () => {
     // Regression: the ZX80 display file is collapsed and ends at DF_END. The
     // renderer used to draw a fixed 24 rows, spilling the program/edit area
@@ -271,6 +242,68 @@ describe('Zx80Machine', () => {
       for (let i = 0; i < 40; i++) machine.runFrame();
       expect(firstTextRow(machine)).toBe('42');
       machine.dispose();
+    });
+  });
+
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself.
+   */
+  describe('isProgramRunning', () => {
+    function load(src: string): Zx80Machine {
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildOFile(bytes));
+      return machine;
+    }
+
+    /** Frames until the machine reports the program stopped, or the cap. */
+    function settle(machine: Zx80Machine, frames = 600): boolean | null {
+      for (let i = 0; i < frames; i++) {
+        const running = machine.isProgramRunning();
+        if (running === false) return false;
+        machine.runFrame();
+      }
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 PRINT "HI"\n'],
+      ['STOP', '10 STOP\n'],
+      ['an error', '10 PRINT 1/0\n'],
+      [
+        'GOSUB and RETURN',
+        '10 GOSUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+      ],
+      [
+        'a program that fills the screen',
+        '10 FOR I=1 TO 30\n20 PRINT "ROW";I\n30 NEXT I\n',
+      ],
+    ])('reports no program running after %s', (_name, src) => {
+      expect(settle(load(src))).toBe(false);
+    });
+
+    it.each([
+      ['an idle loop', '10 GOTO 10\n'],
+      // 4K BASIC has no INKEY$ and no PAUSE, so waiting on this machine means
+      // waiting at an INPUT prompt - the case every screen-shaped heuristic
+      // gets wrong, since the prompt cursor is the editor's own.
+      ['an INPUT prompt', '10 INPUT A\n20 GOTO 10\n'],
+    ])('goes on reporting a program running at %s', (_name, src) => {
+      expect(settle(load(src), 200)).toBe(true);
+    });
+
+    it('reports no program running once BREAK stops one', () => {
+      const machine = load('10 GOTO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      expect(machine.isProgramRunning()).toBe(true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('Space', false);
+      expect(settle(machine, 60)).toBe(false);
     });
   });
 

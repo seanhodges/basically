@@ -91,6 +91,10 @@ export default withPwa(
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Writing BASIC', link: '/guide/writing-basic' },
             { text: 'Testing your code', link: '/guide/testing-programs' },
+            {
+              text: 'Editing in another editor',
+              link: '/guide/language-server',
+            },
             { text: 'Running on real hardware', link: '/guide/hardware' },
             {
               text: 'Programming the Z80/6502',
@@ -108,6 +112,26 @@ export default withPwa(
           items: [
             { text: 'Overview', link: '/reference/' },
             {
+              text: 'Applesoft BASIC',
+              link: '/reference/applesoft',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/applesoft/hardware' },
+                { text: 'Escape codes', link: '/reference/applesoft/escapes' },
+                { text: 'File formats', link: '/reference/applesoft/formats' },
+              ],
+            },
+            {
+              text: 'Atari BASIC',
+              link: '/reference/atari',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/atari/hardware' },
+                { text: 'Escape codes', link: '/reference/atari/escapes' },
+                { text: 'File formats', link: '/reference/atari/formats' },
+              ],
+            },
+            {
               text: 'Atom BASIC',
               link: '/reference/atom',
               collapsed: true,
@@ -115,6 +139,16 @@ export default withPwa(
                 { text: 'Hardware', link: '/reference/atom/hardware' },
                 { text: 'Escape codes', link: '/reference/atom/escapes' },
                 { text: 'File formats', link: '/reference/atom/formats' },
+              ],
+            },
+            {
+              text: 'BASIC-G',
+              link: '/reference/pmd85',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/pmd85/hardware' },
+                { text: 'Escape codes', link: '/reference/pmd85/escapes' },
+                { text: 'File formats', link: '/reference/pmd85/formats' },
               ],
             },
             {
@@ -149,6 +183,41 @@ export default withPwa(
               ],
             },
             {
+              // Named for the language rather than the machine, as the MSX and
+              // Locomotive pages are: Dartmouth BASIC is what the GE-235 ran,
+              // and it is the ancestor of every other BASIC listed here.
+              text: 'Dartmouth BASIC',
+              link: '/reference/dartmouth',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/dartmouth/hardware' },
+                { text: 'Escape codes', link: '/reference/dartmouth/escapes' },
+                { text: 'File formats', link: '/reference/dartmouth/formats' },
+              ],
+            },
+            {
+              // One page covers both revisions of Integer BASIC: the Apple 1's
+              // and the Apple II's, the later machine's additions tagged on the
+              // shared table.
+              text: 'Integer BASIC',
+              link: '/reference/integer-basic',
+              collapsed: true,
+              items: [
+                {
+                  text: 'Hardware',
+                  link: '/reference/integer-basic/hardware',
+                },
+                {
+                  text: 'Escape codes',
+                  link: '/reference/integer-basic/escapes',
+                },
+                {
+                  text: 'File formats',
+                  link: '/reference/integer-basic/formats',
+                },
+              ],
+            },
+            {
               text: 'Locomotive BASIC',
               link: '/reference/cpc',
               collapsed: true,
@@ -156,6 +225,55 @@ export default withPwa(
                 { text: 'Hardware', link: '/reference/cpc/hardware' },
                 { text: 'Escape codes', link: '/reference/cpc/escapes' },
                 { text: 'File formats', link: '/reference/cpc/formats' },
+              ],
+            },
+            {
+              // Titled by the family; the Altair runs Altair 8K BASIC, the
+              // version the page describes.
+              text: 'Microsoft BASIC',
+              link: '/reference/altair8800',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/altair8800/hardware' },
+                { text: 'Escape codes', link: '/reference/altair8800/escapes' },
+                { text: 'File formats', link: '/reference/altair8800/formats' },
+              ],
+            },
+            {
+              // Titled by the standard rather than by the machine: MSX BASIC is
+              // one BASIC in the ROM of every MSX, whoever built it.
+              text: 'MSX BASIC',
+              link: '/reference/msx',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/msx/hardware' },
+                { text: 'Escape codes', link: '/reference/msx/escapes' },
+                { text: 'File formats', link: '/reference/msx/formats' },
+              ],
+            },
+            {
+              // The Coupé is the only machine running SAM BASIC, and shares its
+              // keyword table with nothing: Andy Wright's Beta BASIC line, not
+              // Sinclair BASIC.
+              text: 'SAM BASIC',
+              link: '/reference/samcoupe',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/samcoupe/hardware' },
+                { text: 'Escape codes', link: '/reference/samcoupe/escapes' },
+                { text: 'File formats', link: '/reference/samcoupe/formats' },
+              ],
+            },
+            {
+              // One page covers the ZX81 and both Spectrums; each machine's own
+              // rows are tagged on the shared table.
+              text: 'Sinclair BASIC',
+              link: '/reference/sinclair',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/sinclair/hardware' },
+                { text: 'Escape codes', link: '/reference/sinclair/escapes' },
+                { text: 'File formats', link: '/reference/sinclair/formats' },
               ],
             },
             {
@@ -169,22 +287,6 @@ export default withPwa(
               ],
             },
             {
-              text: 'ZX Spectrum BASIC',
-              link: '/reference/zxspectrum',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/zxspectrum/hardware' },
-                {
-                  text: 'Escape codes',
-                  link: '/reference/zxspectrum/escapes',
-                },
-                {
-                  text: 'File formats',
-                  link: '/reference/zxspectrum/formats',
-                },
-              ],
-            },
-            {
               text: 'ZX80 BASIC',
               link: '/reference/zx80',
               collapsed: true,
@@ -192,16 +294,6 @@ export default withPwa(
                 { text: 'Hardware', link: '/reference/zx80/hardware' },
                 { text: 'Escape codes', link: '/reference/zx80/escapes' },
                 { text: 'File formats', link: '/reference/zx80/formats' },
-              ],
-            },
-            {
-              text: 'ZX81 BASIC',
-              link: '/reference/zx81',
-              collapsed: true,
-              items: [
-                { text: 'Hardware', link: '/reference/zx81/hardware' },
-                { text: 'Escape codes', link: '/reference/zx81/escapes' },
-                { text: 'File formats', link: '/reference/zx81/formats' },
               ],
             },
             {
@@ -215,7 +307,14 @@ export default withPwa(
               text: 'Porting guide',
               link: '/reference/compare',
               collapsed: true,
-              items: [{ text: 'Basics', link: '/reference/porting-basics' }],
+              items: [
+                { text: 'Basics', link: '/reference/porting-basics' },
+                {
+                  text: 'Analysis',
+                  link: '/dialect-analysis.html',
+                  target: '_self',
+                },
+              ],
             },
           ],
         },
@@ -313,10 +412,9 @@ export default withPwa(
       workbox: {
         // Precache the pages, the minisearch index, CSS and JS so the whole
         // site (including search) reads offline from first load. Screenshots
-        // are deliberately NOT precached: docs/public/ is 2.6MB of PNG/JPG
-        // (real-machine.png alone is 857KB), and pulling that down in the
-        // background on first load competes with the navigation the reader is
-        // waiting for. They cache at runtime on first view instead - the same
+        // are deliberately NOT precached: docs/public/ is megabytes of PNG and
+        // JPEG, and pulling that down in the background on first load competes
+        // with the navigation the reader is waiting for. They cache at runtime on first view instead - the same
         // trade the app makes for ROM images (see the `roms` route in the
         // repo-root vite.config.ts). Same for the Cyrillic/Greek/Vietnamese
         // Inter subsets: most of the font bytes, and an English-language site
@@ -328,6 +426,17 @@ export default withPwa(
         // them - and the reference pages draw a machine's block graphics rather
         // than missing-glyph boxes offline too.
         globPatterns: ['**/*.{js,css,html,json,svg,ico}', '**/*-latin.*.woff2'],
+        // Mermaid registers every diagram type it knows as its own lazy chunk,
+        // and one page here draws diagrams - flowcharts, sequences and a state
+        // chart. The rest of that catalogue, and the graph-layout and maths
+        // libraries only some of them need, is about a quarter of what a first
+        // visit would otherwise fetch and no page asks for any of it. The three
+        // kinds actually used come down with the page that draws them, at
+        // runtime, like the screenshots above.
+        globIgnores: [
+          'assets/chunks/{mermaid,cytoscape,cynefin,katex,cose-bilkent,dagre,khroma,rough,elkjs,layout-*}*.js',
+          'assets/chunks/*[Dd]iagram*.js',
+        ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {

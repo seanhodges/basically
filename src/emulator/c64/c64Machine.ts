@@ -8,9 +8,11 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
+import { BadLineClock } from './badLines';
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
 import { readCbmScreenText } from '../cbmScreenText';
@@ -20,8 +22,14 @@ import {
   READ_BIT,
   WRITE_BIT,
 } from '../memoryActivityBuffer';
-import { SidRenderer, SID_SAMPLE_RATE } from './sid';
-import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
+import { SidRenderer, SID_SAMPLES_PER_FRAME } from './sid';
+import {
+  CbmDiskDrive,
+  KERNAL_TRAPS,
+  type Bus,
+  type TrapResult,
+} from '../commodore/diskDrive';
 import {
   bringup,
   loadPrg,
@@ -53,8 +61,16 @@ import { attach as cias } from './viciious/target/cias.js';
 import { attach as cpu } from './viciious/target/cpu.js';
 // @ts-expect-error vendored JS, no types
 import { attach as tape } from './viciious/target/tape.js';
-import { BASIC_V2_ZP, MAX_BASIC_LINE, NDX } from '../commodore/basicPointers';
+import {
+  BASIC_V2_ZP,
+  KERNAL_IO_V2,
+  MAX_BASIC_LINE,
+  NDX,
+} from '../commodore/basicPointers';
+import { createMachineLoop } from '../machineLoop';
 
+/** PAL 6510 clock: the 17.734472 MHz colour carrier ÷ 18. */
+const CPU_HZ = 985_248;
 /** PAL frame: 312 rows × 63 cycles. One {@link runFrame} ticks this many cycles. */
 const CYCLES_PER_FRAME = 63 * 312;
 /**
@@ -71,7 +87,7 @@ const {
   memsiz: MEMSIZ,
 } = BASIC_V2_ZP;
 /**
- * Cycles ticked between line checks in {@link C64Machine.debugStep}. Any BASIC
+ * Cycles ticked between the debugger's line checks. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
  * stepped over; checking on this cadence rather than every cycle keeps the
  * always-on debugger's per-frame overhead small.
@@ -89,21 +105,6 @@ const FIRST_Y = 10;
  * this; the cap only guards against a mis-boot looping forever.
  */
 const BOOT_CYCLE_CAP = 4_000_000;
-
-/**
- * KERNAL jump-table entry points trapped for VFS disk I/O. These `$FFxx` vectors
- * are documented and stable across every KERNAL revision (unlike the internal
- * `$Fxxx` routine bodies) and are always reached by `JSR`, so the caller's
- * return address sits cleanly on the stack for {@link C64Machine.forgeRts}.
- */
-const KERNAL_OPEN = 0xffc0;
-const KERNAL_CLOSE = 0xffc3;
-const KERNAL_CHKIN = 0xffc6;
-const KERNAL_CHKOUT = 0xffc9;
-const KERNAL_CLRCHN = 0xffcc;
-const KERNAL_CHRIN = 0xffcf;
-const KERNAL_CHROUT = 0xffd2;
-const KERNAL_GETIN = 0xffe4;
 
 /** Three C64 ROM images, supplied directly (tests) or fetched (browser). */
 export interface C64Roms {
@@ -250,8 +251,17 @@ function domCodeToTokens(code: string): readonly string[] {
 export class C64Machine implements MachineEmulator {
   readonly displayWidth = C64_DISPLAY_WIDTH;
   readonly displayHeight = C64_DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
   /** Native rate of the mono software-SID stream. */
-  readonly audioSampleRate = SID_SAMPLE_RATE;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. Not the round number the synthesis is
+   * designed around - reporting that instead would have the host consume
+   * fractionally slower than the machine produces, and playback would fall
+   * further behind for as long as the program ran. The cost is that pitch sits
+   * within a quarter-percent of the synth's design rate, far below audible.
+   */
+  readonly audioSampleRate = SID_SAMPLES_PER_FRAME * this.frameHz;
 
   private c64: C64 | null = null;
   private readonly ready: Promise<void>;
@@ -260,7 +270,6 @@ export class C64Machine implements MachineEmulator {
   private disposed = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
 
   /**
    * Live memory-activity recorder for the memory-map overlay. Off by default and
@@ -268,6 +277,17 @@ export class C64Machine implements MachineEmulator {
    * `hits` only while it is enabled.
    */
   private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link tickOnce} charges the cycles it
+   * runs to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
   /**
    * The unwrapped `wires.cpuRead`, captured before the activity-recording
    * wrappers are installed. Host-side introspection ({@link currentLine},
@@ -279,7 +299,7 @@ export class C64Machine implements MachineEmulator {
   private rawCpuRead: (addr: number) => number = () => 0;
 
   /** VFS-backed virtual disk (devices 8–11), or null when no store was wired. */
-  private readonly drive: C64DiskDrive | null;
+  private readonly drive: CbmDiskDrive | null;
   /** Memory accessor handed to the drive's trap handlers; set at bringup. */
   private bus: Bus | null = null;
   /** The `fd_fetch_T0` micro-op, used to detect clean opcode-fetch boundaries. */
@@ -305,11 +325,21 @@ export class C64Machine implements MachineEmulator {
    */
   private readonly sid = new SidRenderer();
 
+  /**
+   * The VIC-II's claim on the bus. viciious fetches the display but never takes
+   * the cycles it costs, so {@link tickOnce} asks this and withholds the CPU
+   * tick on the cycles the chip owns. See `./badLines` for the invariant that
+   * keeps it in step with the chip.
+   */
+  private readonly badLines = new BadLineClock();
+
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
   constructor(opts?: { roms?: C64Roms; files?: MachineFileStore }) {
-    this.drive = opts?.files ? new C64DiskDrive(opts.files) : null;
+    this.drive = opts?.files
+      ? new CbmDiskDrive(opts.files, KERNAL_IO_V2)
+      : null;
     // Alpha is fixed; VIC only writes RGB. (Matches viciious's video-canvas.)
     for (let i = 3; i < this.rgba.length; i += 4) this.rgba[i] = 255;
 
@@ -339,6 +369,7 @@ export class C64Machine implements MachineEmulator {
         });
         this.c64.runloop.reset();
         this.sid.reset();
+        this.badLines.reset();
         if (this.drive) this.installTraps(this.c64);
         this.booted = true;
       })
@@ -356,6 +387,15 @@ export class C64Machine implements MachineEmulator {
   /** Direct machine access for tests and debugging. */
   get machine(): C64 | null {
     return this.c64;
+  }
+
+  /**
+   * Cycles the VIC-II has taken from the CPU for its display fetches since the
+   * machine last reset, counted monotonically. For tests: the difference across
+   * a frame is what that frame's bad lines cost.
+   */
+  get stalledCycles(): number {
+    return this.badLines.stalledCycles;
   }
 
   /**
@@ -450,22 +490,39 @@ export class C64Machine implements MachineEmulator {
   reset(): void {
     this.loadGeneration++;
     this.loadError = '';
-    // Drop any open channels without flushing: the IDE clears the VFS around a
-    // reset, so a late flush would resurrect stale data.
+    // Drop any open channels without flushing: a reset abandons the session
+    // that had them open, so a half-written buffer stored now would look like
+    // a file the program closed.
     this.drive?.closeAll(false);
     this.clearKeys();
     void this.ready.then(() => {
       if (!this.disposed && this.c64) {
         this.c64.runloop.reset();
         this.sid.reset();
+        this.badLines.reset();
       }
     });
   }
 
+  /**
+   * Frame and debug slice, from one walk over the budget. The core is ticked a
+   * cycle at a time, so the line watch runs on {@link DEBUG_SLICE_CYCLES}}
+   * rather than after every tick.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: CYCLES_PER_FRAME,
+    lineWatchCycles: DEBUG_SLICE_CYCLES,
+    ready: () =>
+      this.booted && !this.injecting && !this.disposed && this.c64 !== null,
+    step: () => {
+      this.tickOnce();
+      return 1;
+    },
+    currentLine: () => this.currentLine(),
+  });
+
   runFrame(): void {
-    if (!this.booted || this.injecting || this.disposed || !this.c64) return;
-    const n = Math.round(CYCLES_PER_FRAME * this.speed);
-    for (let i = 0; i < n; i++) this.tickOnce();
+    this.loop.runFrame();
   }
 
   /**
@@ -473,15 +530,34 @@ export class C64Machine implements MachineEmulator {
    * clean instruction boundary, then tick the five hardware components. This is
    * the single tick path shared by {@link runFrame}, {@link debugStep} and
    * {@link tickUntilPc}, so traps fire identically while running and stepping.
+   *
+   * On the cycles the VIC-II takes the bus for its display fetch the CPU does
+   * not tick at all, so neither does the trap check: a 6510 held off the bus
+   * cannot reach the opcode fetch the trap table keys on. The other four
+   * components tick regardless - they run off the system clock, not the bus -
+   * and the cycle is still charged to the running BASIC line, because it is time
+   * that line really costs.
    */
   private tickOnce(): void {
-    if (this.drive) this.serviceTrap();
     const c64 = this.c64!;
-    c64.cpu.tick();
+    const stunned = this.badLines.tick(c64.vic.read_d000_d3ff);
+    if (!stunned) {
+      if (this.drive) this.serviceTrap();
+      c64.cpu.tick();
+    }
     c64.vic.tick();
     c64.cias.tick();
     c64.sid.tick();
     c64.tape.tick();
+    // Charge the cycle to the BASIC line executing it, on the same cadence
+    // debugStep samples at. Here rather than in debugStep because a run the IDE
+    // performs to check an assistant answer deliberately opens no debug
+    // session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += 1;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
   }
 
   /**
@@ -532,35 +608,10 @@ export class C64Machine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.booted || this.injecting || this.disposed || !this.c64) {
-      return { paused: false, line: null };
-    }
-    const budget = Math.round(CYCLES_PER_FRAME * this.speed);
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    for (let i = 0; i < budget; i++) {
-      this.tickOnce();
-      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
-      }
-    }
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     // Capture the blocks now: the injection runs inside the async IIFE below,
@@ -581,12 +632,13 @@ export class C64Machine implements MachineEmulator {
           this.drive?.closeAll(false);
           c64.runloop.reset();
           this.sid.reset();
+          this.badLines.reset();
           if (!this.tickUntilPc(AWAIT_KEYBOARD_PC, BOOT_CYCLE_CAP)) {
             throw new Error('C64 did not boot to BASIC');
           }
           loadPrg(c64, image);
           // Memory blocks (machine code / data at fixed addresses, alongside the
-          // BASIC program - see MemoryBlock) are written directly into RAM now,
+          // BASIC program - see Block) are written directly into RAM now,
           // after the BASIC program has loaded and before RUN starts it, so a
           // SYS/POKE in the program can reach them immediately.
           if (blocks && blocks.length > 0) this.injectBlocks(c64, blocks);
@@ -604,14 +656,14 @@ export class C64Machine implements MachineEmulator {
   }
 
   /**
-   * Write each {@link MemoryBlock}'s bytes directly into RAM through the CPU
+   * Write each {@link Block}'s bytes directly into RAM through the CPU
    * bus. The write is bracketed with the same all-RAM banking `loadPrg`
    * (viciious/tools/loadPrg.js) uses: the $00/$01 CPU port is saved, set to
    * page every ROM/IO bank out so the bytes always land on RAM (even under
    * $A000-$BFFF/$D000-$DFFF/$E000-$FFFF), then restored - so the machine's
    * memory map is exactly as it was afterward.
    */
-  private injectBlocks(c64: C64, blocks: readonly MemoryBlock[]): void {
+  private injectBlocks(c64: C64, blocks: readonly Block[]): void {
     const { cpuRead, cpuWrite } = c64.wires;
     // Record the current memory-map configuration, then page in all-RAM.
     const dir = cpuRead(0);
@@ -646,7 +698,7 @@ export class C64Machine implements MachineEmulator {
   /**
    * Wire the KERNAL disk traps: capture the opcode-fetch micro-op, build a
    * memory {@link Bus} over the CPU wires, and map each trapped jump-table entry
-   * to its {@link C64DiskDrive} handler. Called once at bringup, only when a
+   * to its {@link CbmDiskDrive} handler. Called once at bringup, only when a
    * file store was supplied.
    */
   private installTraps(c64: C64): void {
@@ -658,14 +710,14 @@ export class C64Machine implements MachineEmulator {
     };
     this.bus = bus;
     this.trapTable = new Map<number, (st: CpuState) => TrapResult>([
-      [KERNAL_OPEN, () => drive.open(bus)],
-      [KERNAL_CLOSE, (st) => drive.close(st.a, bus)],
-      [KERNAL_CHKIN, (st) => drive.chkin(st.x, bus)],
-      [KERNAL_CHKOUT, (st) => drive.chkout(st.x, bus)],
-      [KERNAL_CLRCHN, () => drive.clrchn(bus)],
-      [KERNAL_CHRIN, () => drive.chrin(bus)],
-      [KERNAL_CHROUT, (st) => drive.chrout(st.a, bus)],
-      [KERNAL_GETIN, () => drive.getin(bus)],
+      [KERNAL_TRAPS.open, () => drive.open(bus)],
+      [KERNAL_TRAPS.close, (st) => drive.close(st.a, bus)],
+      [KERNAL_TRAPS.chkin, (st) => drive.chkin(st.x, bus)],
+      [KERNAL_TRAPS.chkout, (st) => drive.chkout(st.x, bus)],
+      [KERNAL_TRAPS.clrchn, () => drive.clrchn(bus)],
+      [KERNAL_TRAPS.chrin, () => drive.chrin(bus)],
+      [KERNAL_TRAPS.chrout, (st) => drive.chrout(st.a, bus)],
+      [KERNAL_TRAPS.getin, () => drive.getin(bus)],
     ]);
   }
 
@@ -799,10 +851,6 @@ export class C64Machine implements MachineEmulator {
     matrix[pos[0]]! |= 1 << pos[1];
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   /**
    * Snapshot the running program's BASIC variables out of the C64's RAM. All
    * variable storage sits in always-RAM regions below `$A000`, so reads through
@@ -882,6 +930,14 @@ export class C64Machine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

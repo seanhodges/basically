@@ -13,7 +13,7 @@
  * while the loader rides along as a preserved tape file.
  */
 
-import type { MemoryBlock } from '../types';
+import type { Block } from '../types';
 import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
 import { tapBlocks, type TapBlock } from './tapfile';
@@ -23,7 +23,7 @@ import { tapBlocks, type TapBlock } from './tapfile';
  * statement per line keeps it obvious in a headerless dump; the ROM runs it
  * from line 10 via the auto-start header.
  */
-export function loaderSource(blocks: readonly MemoryBlock[]): string {
+export function loaderSource(blocks: readonly Block[]): string {
   const lowest = Math.min(...blocks.map((b) => b.address));
   const lines = [`10 CLEAR ${lowest - 1}`];
   blocks.forEach((_, i) => lines.push(`${20 + 10 * i} LOAD "" CODE`));
@@ -39,7 +39,7 @@ export function loaderSource(blocks: readonly MemoryBlock[]): string {
  */
 export function loaderTapBlocks(
   programName: string,
-  blocks: readonly MemoryBlock[],
+  blocks: readonly Block[],
 ): [TapBlock, TapBlock] {
   const source = loaderSource(blocks);
   const { bytes, errors } = tokenizeProgram(source);

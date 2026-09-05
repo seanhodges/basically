@@ -3,10 +3,13 @@
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const zx80Reference: BasicReferenceTableData = {
+const zx80Table: BasicReferenceTableData = {
   title: 'ZX80 integer BASIC',
   machines: ['Sinclair ZX80'],
+  // Nothing beyond the shared vocabulary.
+  placeholders: [],
   entries: [
     {
       name: 'RND',
@@ -21,7 +24,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'PEEK',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'PEEK(<number>)',
+      syntax: 'PEEK(<addr>)',
       tag: 'integral function',
       description:
         'Returns the byte (0–255) stored at the given memory address.',
@@ -30,7 +33,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR(<number>)',
+      syntax: 'USR(<addr>)',
       tag: 'integral function',
       description:
         'Calls machine code at the given address and returns the value of the BC register pair on RET.',
@@ -83,7 +86,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'THEN',
       kind: 'operator',
       domain: 'control-flow',
-      syntax: 'IF <cond> THEN <statement>',
+      syntax: 'IF <number> THEN <statement>',
       description:
         'Introduces the single statement run when the IF condition is true. The ZX80 has no ELSE and no multi-statement lines, so exactly one statement may follow.',
     },
@@ -91,7 +94,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'TO',
       kind: 'operator',
       domain: 'control-flow',
-      syntax: 'FOR <numvar>=<number> TO <number>',
+      syntax: 'FOR <numvar> = <number> TO <number>',
       description:
         'Separates the start and end values of a FOR loop. Both bounds are integers, since ZX80 BASIC has no fractional numbers, and there is no STEP clause.',
     },
@@ -107,7 +110,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: ',',
       kind: 'operator',
       domain: 'text-screen',
-      syntax: 'PRINT <expr>,<expr>',
+      syntax: 'PRINT <expr>, <expr>',
       description:
         'PRINT separator that moves the cursor to the next tab field before printing the following item, lining output up into columns.',
     },
@@ -240,7 +243,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'DIM',
       kind: 'command',
       domain: 'data',
-      syntax: 'DIM <numvar>(<int>)',
+      syntax: 'DIM <numvar>(<number>)',
       description:
         'Declares a numeric array with the given number of elements. Array names are a single letter, and elements hold integers only.',
     },
@@ -256,7 +259,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'FOR',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'FOR <numvar>=<number> TO <number>',
+      syntax: 'FOR <numvar> = <number> TO <number>',
       description:
         'Begins a counting loop. The control variable is a single letter, the bounds are integers, and there is no STEP, so the counter always increments by one.',
     },
@@ -272,7 +275,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'POKE',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'POKE <int>,<int>',
+      syntax: 'POKE <addr>, <byte>',
       description:
         'Writes a single byte (0–255) directly into memory at the given address.',
     },
@@ -296,7 +299,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'LET',
       kind: 'command',
       domain: 'data',
-      syntax: 'LET <var>=<expr>',
+      syntax: 'LET <var> = <expr>',
       description:
         'Assigns a value to a variable. LET is mandatory on the ZX80 - assignment cannot be written without it.',
     },
@@ -351,7 +354,7 @@ export const zx80Reference: BasicReferenceTableData = {
       name: 'IF',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'IF <cond> THEN <statement>',
+      syntax: 'IF <number> THEN <statement>',
       description:
         'Runs the statement after THEN when the condition is true. Conditions use =, <, >, AND, OR and NOT; there is no ELSE.',
     },
@@ -389,3 +392,13 @@ export const zx80Reference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const zx80Reference: BasicReferenceTableData = withAbbreviations(
+  'zx80',
+  zx80Table,
+);

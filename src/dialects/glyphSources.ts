@@ -1,3 +1,5 @@
+import { atasciiToScreenCode } from './atari800/atascii';
+
 /**
  * Where each machine's glyph shapes physically live.
  *
@@ -88,8 +90,28 @@ export interface RomGlyphSource extends GlyphSourceBase {
 /** Bitmaps inside a video chip's mask ROM - no CPU address exists. */
 export interface ChipGlyphSource extends GlyphSourceBase {
   kind: 'chip';
-  chip: 'SAA5050' | 'MC6847' | 'MCM6670';
+  chip: 'SAA5050' | 'MC6847' | 'MCM6670' | '2513';
   /** Machine code -> the chip's own index into its internal character ROM. */
+  indexOf: (code: number) => number | undefined;
+}
+
+/**
+ * Bitmaps stored compressed in a ROM, unpacked into RAM before anything draws
+ * them. No glyph has an address in the image - the packing is per glyph and the
+ * rows of one are not contiguous bytes - and the address it ends up at is a RAM
+ * one the machine is free to move, so neither `base` nor `fileOffset` has an
+ * honest value to carry. What can be recorded is which image holds the packed
+ * table, what the machine calls it, and what unpacks it.
+ */
+export interface PackedRomGlyphSource extends GlyphSourceBase {
+  kind: 'packed';
+  /** Path under `public/roms/`. */
+  file: string;
+  /** The machine's own name for the packed table. */
+  table: string;
+  /** What unpacks it, and where the result is found afterwards. */
+  unpackedBy: string;
+  /** Machine code -> glyph index in the unpacked table. */
   indexOf: (code: number) => number | undefined;
 }
 
@@ -100,7 +122,11 @@ export interface LogicGlyphSource extends GlyphSourceBase {
   by: string;
 }
 
-export type GlyphSource = RomGlyphSource | ChipGlyphSource | LogicGlyphSource;
+export type GlyphSource =
+  | RomGlyphSource
+  | ChipGlyphSource
+  | LogicGlyphSource
+  | PackedRomGlyphSource;
 
 /**
  * How each machine writes a hex address, so an address is recorded in the form
@@ -123,6 +149,7 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   bbcmicro: '&',
   bbcmaster: '&',
   cpc464: '&',
+  cpc664: '&',
   cpc6128: '&',
   // Atom BASIC writes `#` (`?#8000=1`), likewise mirrored.
   atom: '#',
@@ -143,6 +170,40 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // house notation of its own to follow, so it takes the same `$` the other
   // decimal machines here are written in.
   altair8800: '$',
+  // BASIC-G writes a hex literal with a leading apostrophe (`POKE 'C000,1`),
+  // which is the notation this machine's own listings carry; it mirrors
+  // memoryWrites.hexPrefix like the Acorn and Amstrad entries above.
+  pmd85: "'",
+  // Integer BASIC has no hex literal - PEEK and POKE take signed decimal, which
+  // is why an I/O address is written `PEEK(-12272)` - but `$` is the Apple house
+  // notation and what every Apple 1 listing and the monitor's own prompt use.
+  apple1: '$',
+  // Integer BASIC on the II has no hex literal either, and the same Apple house
+  // `$` runs through its manuals, its monitor prompt and this project's own
+  // Apple II memory map.
+  apple2: '$',
+  // Applesoft has no hex literal either - `PEEK`/`POKE` take signed decimal on
+  // this machine too - and it is the same house `$` on the same board.
+  apple2plus: '$',
+  // Atari BASIC's PEEK/POKE take decimal too - there is no hex literal - and
+  // this project's own memory map and reference pages already write its
+  // addresses `$D800`/`$E000` in the same house `$` this file uses for every
+  // other decimal-only machine.
+  atari800: '$',
+  atari400: '$',
+  // MSX BASIC writes a hex literal `&H1BBF`, so the sigil is the two characters
+  // `&H` rather than one; it mirrors memoryWrites.hexPrefix like the Acorn,
+  // Amstrad and PMD entries above.
+  hb10p: '&H',
+  // Empty, and the only empty sigil here: the GE-235 has no glyph to record an
+  // address for, so nothing ever formats one. Its own listings write plain
+  // octal with no sigil in front of it - `top: eqo 17777` - and there is no
+  // spelling to borrow, this BASIC having no PEEK, no POKE and no way to name
+  // an address at all. The key is present so the omission is deliberate.
+  ge235: '',
+  // SAM BASIC writes `&FE00`, mirroring memoryWrites.hexPrefix as the Acorn,
+  // Amstrad, PMD and MSX entries above do.
+  samcoupe: '&',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -262,6 +323,96 @@ const commodoreFont = (
   note:
     'Indexed by screen code, not PETSCII - petsciiToScreen() does the conversion ' +
     'the KERNAL does.',
+});
+
+/**
+ * AltirraOS's built-in character generator, which both machines share: one OS
+ * image, loaded whole, so there is nothing per-model to parametrise.
+ *
+ * `CHBASE` reads `$E0` at the READY prompt on the booted ROM (`0xE0 << 8` =
+ * `$E000`), 0x0800 into `public/roms/atari.rom` once the OS's own base
+ * (`$D800`, `OS_ROM_BASE` in `dialects/atari800/addresses.ts`) is subtracted -
+ * matching the 128-glyph, 1024-byte table `memoryMap.ts`'s
+ * `CHARACTER_SET_BASE`/`_TOP` already describe. ANTIC indexes it by *screen*
+ * code, not ATASCII: ATASCII 0-31 (the CTRL graphics) sit at screen 64-95,
+ * ATASCII 32-95 at screen 0-63, and 96-127 are unmoved - ATASCII 65 (`A`)
+ * really is screen-code 33, exactly what `atasciiToScreenCode` (already
+ * pinned against the booted ROM by `keyboardLayout.test.ts`'s echo checks)
+ * computes. Bit 7 (inverse video) selects no separate shape - ANTIC just
+ * inverts the fetched byte - so it stays out of `codes` and `indexOf` alike,
+ * the way the Sinclair machines' inverse run does above.
+ */
+const atariFont = (): RomGlyphSource => ({
+  kind: 'rom',
+  file: 'atari.rom',
+  base: 0xe000,
+  baseCode: 0x00,
+  baseCodeIs: 'screen code',
+  fileOffset: 0x0800,
+  stride: 8,
+  cell: { w: 8, h: 8 },
+  codes: range(0x00, 0x7f),
+  indexOf: (code) => atasciiToScreenCode(code & 0x7f),
+  note:
+    'AltirraOS font, 0x0800 into the concatenated image (OS_ROM_BASE $D800 ' +
+    'to CHBASE $E000). Indexed by screen code, not ATASCII - ' +
+    'atasciiToScreenCode() does the swap the OS editor does on the way to ' +
+    'screen memory.',
+});
+
+/**
+ * The Apple II's text glyphs, drawn by both machines that carry that video
+ * section: the II and the II Plus.
+ */
+const apple2Font = (): ChipGlyphSource => ({
+  kind: 'chip',
+  chip: '2513',
+  // Every byte in the text page draws something: the top two bits pick the
+  // video mode, they do not pick a shape, so all 256 codes land on one of the
+  // chip's 64 glyphs.
+  codes: range(0x00, 0xff),
+  cell: { w: 7, h: 8 },
+  // The screen byte's low six bits *are* the chip's address lines on this
+  // machine, so the index is the masked code rather than an offset from the
+  // plain-text base: 0x00 is `@`, 0x20 is space, and `A` is 0x01 whichever of
+  // its four codes was stored.
+  indexOf: (code) => code & 0x3f,
+  note:
+    'No character ROM is shipped: src/emulator/apple2/video.ts draws text ' +
+    'with the host font deliberately, to avoid bundling a second ' +
+    'copyrighted asset. The real shapes are 5x7 bitmaps in the Signetics ' +
+    '2513 the Apple I uses as well, which the CPU cannot address - the ' +
+    'video section reads the text page itself and feeds the low six bits ' +
+    'of each byte straight to the chip.',
+});
+
+/**
+ * The MSX character generator, the whole of it in the BIOS half of the system
+ * ROM.
+ *
+ * The address is not a constant of the standard - a machine's BIOS may put its
+ * font anywhere - so the number below is the one this ROM's own CGTABL pointer
+ * (the word at 0x0004, which the BIOS hands to any program that asks) resolves
+ * to. All 256 codes are stored, control codes included: a program reaches
+ * 0x00-0x1F's shapes by printing 0x01 followed by the code plus 0x40, and the
+ * pattern it draws is the one at this table's own index for the code.
+ */
+const msxFont = (): RomGlyphSource => ({
+  kind: 'rom',
+  file: 'msx/hb10p.rom',
+  base: 0x1bbf,
+  baseCode: 0x00,
+  fileOffset: 0x1bbf,
+  stride: 8,
+  // The pattern is 8x8. SCREEN 0 draws only the leftmost six columns of it,
+  // which is how 40 columns fit across 256 pixels; SCREEN 1 draws all eight.
+  cell: { w: 8, h: 8 },
+  codes: range(0x00, 0xff),
+  indexOf: linear(0x00, 0xff),
+  note:
+    'CGTABL in the HB-10P BIOS, at the address the pointer at 0x0004 gives. ' +
+    'The BIOS copies this table into VRAM at boot, so it is also what the ' +
+    'screen actually draws from.',
 });
 
 /**
@@ -407,6 +558,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   pet: [commodoreFont('pet/characters-2.901447-10.bin', null, 0x7f)],
 
   cpc464: [cpcFont('cpc464/cpc464.rom')],
+  cpc664: [cpcFont('cpc664/cpc664.rom')],
   cpc6128: [cpcFont('cpc6128/cpc6128.rom')],
 
   atom: [
@@ -432,17 +584,63 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     },
   ],
 
+  // Monitor 2's character generator, in two runs with Monitor code between
+  // them: 0x20-0x5F at 0x8600 and 0x60-0x7F at 0x88C0. The screen driver
+  // stitches them back together through a table of per-32-code group bases,
+  // which is what lets the two runs be discontiguous - so they are two sources
+  // here rather than one with a hole in it.
+  pmd85: [
+    {
+      kind: 'rom',
+      file: 'pmd85.rom',
+      base: 0x8600,
+      baseCode: 0x20,
+      fileOffset: 0x0600,
+      stride: 8,
+      cell: { w: 6, h: 8 },
+      codes: range(0x20, 0x5f),
+      indexOf: linear(0x20, 0x5f),
+      note:
+        'The first run of the Monitor 2 font. Only the low six bits of each ' +
+        'byte are pixels - the top two are the cell attribute - so the cell is ' +
+        'six wide, not eight.',
+    },
+    {
+      kind: 'rom',
+      file: 'pmd85.rom',
+      base: 0x88c0,
+      baseCode: 0x60,
+      fileOffset: 0x08c0,
+      stride: 8,
+      cell: { w: 6, h: 8 },
+      codes: range(0x60, 0x7f),
+      indexOf: linear(0x60, 0x7f),
+      note:
+        'The second run: lower case, and the solid cell at 0x7F that is the ' +
+        'only shape in this font outside ASCII.',
+    },
+  ],
   trs80: [
     {
       kind: 'chip',
       chip: 'MCM6670',
-      codes: range(0x20, 0x7f),
+      // 0x20-0x5F only, and the stop is the machine rather than the chip: the
+      // MCM6670 is a 128-character generator and its second half is lower case,
+      // but the stock Model I stores only six bits of each character in video
+      // RAM, so the seventh address line into the chip is never driven and no
+      // code above 0x5F can be reached. (The well-known lower-case modification
+      // is exactly the missing RAM bit plus the wire; a machine with it belongs
+      // in a sibling dialect, not here.) Claiming 0x60-0x7F would be claiming
+      // shapes this machine cannot draw.
+      codes: range(0x20, 0x5f),
       cell: { w: 8, h: 12 },
-      indexOf: linear(0x20, 0x7f),
+      indexOf: linear(0x20, 0x5f),
       note:
         'No character ROM is shipped: src/dialects/trs80/emulator/display.ts ' +
         'draws ASCII with the host font deliberately, to avoid bundling a second ' +
-        'copyrighted asset. The real shapes are in the MCM6670.',
+        'copyrighted asset. The real shapes are in the MCM6670, of which the ' +
+        'stock Model I addresses the first 64 - the display folds a stored ' +
+        'lower-case byte onto its capital rather than reaching the rest.',
     },
     {
       kind: 'logic',
@@ -462,6 +660,76 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   // that any glyph can be traced to. Recording a source would be inventing one;
   // the key is present so the omission is deliberate rather than forgotten.
   altair8800: [],
+
+  // Empty for a reason of its own, and a starker one: the GE-235's output
+  // device is a Teletype Model 33, which forms a character by swinging a type
+  // bar against the paper. The shapes are pieces of metal in a type basket, so
+  // there is no ROM, no chip and no logic anywhere in the machine that holds a
+  // bitmap - the glyphs this IDE draws are the font the browser has.
+  ge235: [],
+
+  apple1: [
+    {
+      kind: 'chip',
+      chip: '2513',
+      codes: range(0xa0, 0xdf),
+      cell: { w: 7, h: 8 },
+      // The chip holds 64 glyphs indexed by the low six bits of the ASCII code,
+      // which is the whole of what this machine can draw.
+      indexOf: (code) => code - 0xa0,
+      note:
+        'No character ROM is shipped: src/emulator/apple1/terminal.ts draws the ' +
+        'terminal with the host font deliberately, to avoid bundling a second ' +
+        'copyrighted asset. The real shapes are 5x7 bitmaps in the Signetics ' +
+        '2513, which the CPU cannot address - the terminal section is a shift ' +
+        'register the 6502 only ever writes characters into.',
+    },
+  ],
+
+  apple2: [apple2Font()],
+  // One video section, shared gate for gate - see apple2Font()'s own note. What
+  // the II Plus changed is in the ROM sockets, and the character generator is
+  // not one of them.
+  apple2plus: [apple2Font()],
+
+  atari800: [atariFont()],
+  // One OS image, shared byte for byte - see atariFont()'s own note.
+  atari400: [atariFont()],
+
+  hb10p: [msxFont()],
+
+  samcoupe: [
+    {
+      kind: 'packed',
+      file: 'samcoupe.rom',
+      table: 'CHARSRC',
+      unpackedBy: 'UPACK, into the RAM that CHARS then points at',
+      codes: range(0x20, 0x7f),
+      indexOf: linear(0x20, 0x7f, 0x20),
+      // The bitmap is eight rows; the cell around it is nine scanlines tall at
+      // boot, which is what makes the text screen 32x21 rather than 32x24.
+      cell: { w: 8, h: 8 },
+      note:
+        'The font ships packed and no glyph has an address in the image: the ' +
+        'ROM unpacks the whole table into RAM at boot and biases CHARS so ' +
+        'glyph c sits at CHARS + c*8, the Spectrum convention. That address is ' +
+        'RAM, and a program may move it or redefine a glyph, so what the ' +
+        'screen draws is read back out of RAM rather than looked up here - see ' +
+        'samcoupe/emulator/screenText.ts. Codes 0x90-0xA8 are the ' +
+        'user-defined graphics, whose shapes live in RAM for the same reason ' +
+        "the Spectrum's do and so are claimed by nothing here.",
+    },
+    {
+      kind: 'logic',
+      by: "the ROM's POUDG",
+      codes: range(0x80, 0x8f),
+      cell: { w: 8, h: 8 },
+      note:
+        'The sixteen block graphics are built from the quadrant bits of the ' +
+        'code rather than stored - bit 1 the top left and bit 0 the top right, ' +
+        'which is not the Sinclair order.',
+    },
+  ],
 };
 
 /** What a dialect's glyph for `code` comes from, or undefined if nothing claims it. */
@@ -487,12 +755,14 @@ export type GlyphLocation =
       stride: number;
     }
   | { kind: 'chip'; chip: string; index: number }
-  | { kind: 'logic'; by: string };
+  | { kind: 'logic'; by: string }
+  | { kind: 'packed'; file: string; table: string; index: number };
 
 /**
  * The machine-side location of one dialect's glyph for `code`. `rom` carries the
  * CPU address; `chip` the chip's own glyph index, there being no CPU address;
- * `logic` neither, because nothing is stored.
+ * `packed` the image and the table's name, the packing leaving no per-glyph
+ * address to give; `logic` none of them, because nothing is stored.
  */
 export function glyphLocation(
   dialectId: string,
@@ -504,6 +774,8 @@ export function glyphLocation(
   const index = source.indexOf(code);
   if (index === undefined) return undefined;
   if (source.kind === 'chip') return { kind: 'chip', chip: source.chip, index };
+  if (source.kind === 'packed')
+    return { kind: 'packed', file: source.file, table: source.table, index };
   return {
     kind: 'rom',
     file: source.file,

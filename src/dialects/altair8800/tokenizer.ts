@@ -4,7 +4,7 @@
 import { CharsetError, type TokenizeError } from '../types';
 import { altair8800Charset, parseChar } from './charset';
 import { altair8800KeywordsByLength, type Altair8800Keyword } from './keywords';
-import { PROGRAM_BASE } from './addresses';
+import { MAX_LINE_NUMBER, PROGRAM_BASE } from './addresses';
 
 export interface TokenizedProgram {
   /**
@@ -17,12 +17,6 @@ export interface TokenizedProgram {
   program: Uint8Array;
   errors: TokenizeError[];
 }
-
-/**
- * Highest line number 8K BASIC accepts. Checked at the console: `65529 END` is
- * stored, `65530 END` answers `?SN ERROR`.
- */
-const MAX_LINE = 65529;
 
 /** Altair code for one editor character, or undefined if unmappable. */
 function toCode(ch: string): number | undefined {
@@ -292,11 +286,11 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       continue;
     }
     const lineNo = parseInt(m[2]!, 10);
-    if (lineNo > MAX_LINE) {
+    if (lineNo > MAX_LINE_NUMBER) {
       errors.push({
         line: editorLine,
         column: m[1]!.length,
-        message: `Line number ${lineNo} out of range 0–${MAX_LINE}`,
+        message: `Line number ${lineNo} out of range 0–${MAX_LINE_NUMBER}`,
       });
       continue;
     }

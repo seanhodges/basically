@@ -1,3 +1,4 @@
+import { referencePageOf } from '../dialects/referencePage';
 import type { Dialect } from '../dialects/types';
 import type { EscapeTableData, ReferenceTableData } from '../reference/types';
 
@@ -20,38 +21,61 @@ import type { EscapeTableData, ReferenceTableData } from '../reference/types';
 const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
   altair8800: () =>
     import('../reference/altair8800').then((m) => m.altair8800Reference),
+  applesoft: () =>
+    import('../reference/applesoft').then((m) => m.applesoftReference),
+  atari: () => import('../reference/atari').then((m) => m.atariReference),
   atom: () => import('../reference/atom').then((m) => m.atomReference),
   bbc: () => import('../reference/bbc').then((m) => m.bbcReference),
   commodore: () =>
     import('../reference/commodore').then((m) => m.commodoreReference),
   cpc: () => import('../reference/cpc').then((m) => m.cpcReference),
+  dartmouth: () =>
+    import('../reference/dartmouth').then((m) => m.dartmouthReference),
+  'integer-basic': () =>
+    import('../reference/integer-basic').then((m) => m.integerBasicReference),
+  msx: () => import('../reference/msx').then((m) => m.msxReference),
+  pmd85: () => import('../reference/pmd85').then((m) => m.pmd85Reference),
+  samcoupe: () =>
+    import('../reference/samcoupe').then((m) => m.samcoupeReference),
+  sinclair: () =>
+    import('../reference/sinclair').then((m) => m.sinclairReference),
   trs80: () => import('../reference/trs80').then((m) => m.trs80Reference),
   zx80: () => import('../reference/zx80').then((m) => m.zx80Reference),
-  zx81: () => import('../reference/zx81').then((m) => m.zx81Reference),
-  zxspectrum: () =>
-    import('../reference/zxspectrum').then((m) => m.zxspectrumReference),
 };
 
 /**
  * The control-code tables, code-split exactly as the reference pages are and
  * for the same reason: they are only wanted when a port is actually asked for.
  *
- * Keyed by the same page slug, because a control code is a property of the
- * charset and the machines sharing a reference page share their escapes too.
+ * Keyed by the same page slug. Where the machines on a page do not share a
+ * charset - the two Apples on the Integer BASIC page - the table carries both
+ * sets and `tableForMachine`'s twin narrows them to the machine asked for.
  */
 const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
   altair8800: () =>
     import('../reference/escapes/altair8800').then((m) => m.altair8800Escapes),
+  applesoft: () =>
+    import('../reference/escapes/applesoft').then((m) => m.applesoftEscapes),
+  atari: () => import('../reference/escapes/atari').then((m) => m.atariEscapes),
   atom: () => import('../reference/escapes/atom').then((m) => m.atomEscapes),
   bbc: () => import('../reference/escapes/bbc').then((m) => m.bbcEscapes),
   commodore: () =>
     import('../reference/escapes/commodore').then((m) => m.commodoreEscapes),
   cpc: () => import('../reference/escapes/cpc').then((m) => m.cpcEscapes),
+  dartmouth: () =>
+    import('../reference/escapes/dartmouth').then((m) => m.dartmouthEscapes),
+  'integer-basic': () =>
+    import('../reference/escapes/integer-basic').then(
+      (m) => m.integerBasicEscapes,
+    ),
+  msx: () => import('../reference/escapes/msx').then((m) => m.msxEscapes),
+  pmd85: () => import('../reference/escapes/pmd85').then((m) => m.pmd85Escapes),
+  samcoupe: () =>
+    import('../reference/escapes/samcoupe').then((m) => m.samcoupeEscapes),
+  sinclair: () =>
+    import('../reference/escapes/sinclair').then((m) => m.sinclairEscapes),
   trs80: () => import('../reference/escapes/trs80').then((m) => m.trs80Escapes),
   zx80: () => import('../reference/escapes/zx80').then((m) => m.zx80Escapes),
-  zx81: () => import('../reference/escapes/zx81').then((m) => m.zx81Escapes),
-  zxspectrum: () =>
-    import('../reference/escapes/zxspectrum').then((m) => m.zxspectrumEscapes),
 };
 
 /**
@@ -60,11 +84,6 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
  * second request for a machine costs nothing.
  */
 const cache = new Map<string, string>();
-
-/** Which reference page a dialect reads from; several machines share one. */
-export function pageFor(dialect: Dialect): string {
-  return dialect.docsReference ?? dialect.id;
-}
 
 /**
  * One page's keyword table, or `undefined` where no page is registered under
@@ -105,7 +124,7 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
   const cached = cache.get(dialect.id);
   if (cached !== undefined) return cached;
 
-  const page = pageFor(dialect);
+  const page = referencePageOf(dialect);
   const loadPage = REFERENCE_PAGES[page];
   if (loadPage === undefined) {
     throw new Error(`no reference page "${page}" for dialect "${dialect.id}"`);
@@ -126,10 +145,16 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
       name: dialect.name,
       manufacturer: dialect.manufacturer,
       year: dialect.year,
+      basicDialect: dialect.basicDialect,
       page,
     },
     table,
     escapes,
+    // Taken from the dialect rather than loaded, exactly as the port report
+    // takes it: the map is static data the dialect declares, and this side of
+    // the app already holds the dialect. A machine without one is described
+    // without a memory section.
+    dialect.memoryMap,
   );
   cache.set(dialect.id, text);
   return text;

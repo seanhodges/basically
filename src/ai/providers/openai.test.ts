@@ -32,4 +32,18 @@ describe('toOpenAiMessages', () => {
       },
     ]);
   });
+
+  it('sends a photographed listing as a JPEG data URI, not re-encoded', () => {
+    const [mapped] = toOpenAiMessages([
+      {
+        role: 'user',
+        content: 'type this in',
+        image: { mediaType: 'image/jpeg', base64: 'CCCC' },
+      },
+    ]);
+    expect(mapped!.content).toEqual([
+      { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,CCCC' } },
+      { type: 'text', text: 'type this in' },
+    ]);
+  });
 });

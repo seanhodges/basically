@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { Dialect } from '../dialects/types';
-import { useIdeStore } from './store';
+import { resolveLint, resolveTokenize } from '../dialects/resolveListing';
+import { useIdeStore, selectActiveSource } from './store';
+import { convertedCharacters } from './convertedCharacters';
+import { strictCharacterErrors } from './strictCharacters';
 
 export interface ProgramStats {
   bytes: number;
   errors: number;
+  /**
+   * How many characters the target machine will store as different ones (see
+   * {@link ./convertedCharacters}). A derived figure like the RAM readout, not
+   * a diagnostic: it gates nothing.
+   */
+  converted: number;
 }
 
 /**
@@ -14,15 +23,21 @@ export interface ProgramStats {
  * `includeEditorLint` off (the "Block Run on lint errors" setting) only the
  * tokenizer's own errors count - the program is still buildable garbage-free,
  * but lint-only findings no longer stop a run.
+ *
+ * Strict characters adds its own findings on top of either set: they are
+ * ordinary errors and they block, which is the whole point of that setting, so
+ * they are not something the lint gate can turn off.
  */
 export function countProgramErrors(
   dialect: Dialect,
   source: string,
   includeEditorLint = true,
+  strictCharacters = false,
 ): number {
-  return includeEditorLint
-    ? dialect.lint(source).length
-    : dialect.tokenize(source).errors.length;
+  const base = includeEditorLint
+    ? resolveLint(dialect, source).length
+    : resolveTokenize(dialect, source).errors.length;
+  return base + strictCharacterErrors(source, dialect, strictCharacters).length;
 }
 
 /**
@@ -37,7 +52,16 @@ export function ramBudget(bytes: number, programRamBytes: number) {
 
 export type RamSeverity = 'ok' | 'warn' | 'crit';
 
-/** Threshold colouring for the RAM counter: ≥80% warn, ≥95% crit. */
+/**
+ * Threshold colouring for the RAM counter: ≥80% warn, ≥95% crit.
+ *
+ * The porting guide asks the same question about the machine a program is being
+ * ported *to*, and answers it from its own copy in `src/reference/ramBudget.ts`
+ * - the app may not statically import that tree (see eslint.config.js), so the
+ * two are restated and `src/reference/ramBudget.test.ts` pins them together. A
+ * threshold changed here and not there is a test failure, not a page where the
+ * same program is 82% full and unremarked.
+ */
 export function ramSeverity(pct: number): RamSeverity {
   if (pct >= 95) return 'crit';
   if (pct >= 80) return 'warn';
@@ -57,6 +81,11 @@ export interface RamDisplay {
  * shows actual usage against the machine's own total (used + free); without
  * them it falls back to the tokenized-size estimate against the dialect's
  * hardcoded budget.
+ *
+ * A dialect declaring no budget at all gets the size and nothing else. That is
+ * not a missing figure but a machine whose program space is not a number of
+ * bytes - the GE-235 counts twenty-bit words - and "100% of 0K" is the wrong
+ * answer to a question it was never asked.
  */
 export function ramDisplay(
   bytes: number,
@@ -74,6 +103,9 @@ export function ramDisplay(
       severity: ramSeverity(pct),
     };
   }
+  if (programRamBytes <= 0) {
+    return { pct: 0, text: `${bytes.toLocaleString()} bytes`, severity: 'ok' };
+  }
   const { pct, label } = ramBudget(bytes, programRamBytes);
   return {
     pct,
@@ -82,22 +114,48 @@ export function ramDisplay(
   };
 }
 
-/** Debounced tokenizer dry-run for the byte counter / error count. */
+/**
+ * Debounced tokenizer dry-run for the byte counter / error count. Measures the
+ * buffer the editor is showing, not the document: the counts describe the code
+ * in front of the user, and a scratch run is gated on exactly these errors.
+ */
 export function useProgramStats(): ProgramStats {
   const dialect = useIdeStore((s) => s.dialect);
-  const source = useIdeStore((s) => s.source);
-  const [stats, setStats] = useState<ProgramStats>({ bytes: 0, errors: 0 });
+  const source = useIdeStore(selectActiveSource);
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
+  const [stats, setStats] = useState<ProgramStats>({
+    bytes: 0,
+    errors: 0,
+    converted: 0,
+  });
 
   useEffect(() => {
     const t = setTimeout(() => {
-      const result = dialect.tokenize(source);
+      const result = resolveTokenize(dialect, source);
       setStats({
         bytes: result.byteSize,
-        errors: countProgramErrors(dialect, source),
+        errors: countProgramErrors(dialect, source, true, strictCharacters),
+        converted: convertedCharacters(source, dialect).count,
       });
     }, 300);
     return () => clearTimeout(t);
-  }, [dialect, source]);
+  }, [dialect, source, strictCharacters]);
 
   return stats;
+}
+
+/**
+ * The status-bar line for the characters the machine will change, or null where
+ * it will change none.
+ *
+ * Names the conversion rather than only counting it: a reader learns what the
+ * machine does to their program, which is the whole point of saying anything.
+ * Null rather than a report of none, so a clean program's status bar is not one
+ * item longer than it needs to be.
+ */
+export function convertedDisplay(converted: number): string | null {
+  if (converted <= 0) return null;
+  return converted === 1
+    ? '1 character changed to fit the machine'
+    : `${converted} characters changed to fit the machine`;
 }

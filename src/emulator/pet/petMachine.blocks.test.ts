@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PetMachine, type PetRoms } from './petMachine';
-import type { MemoryBlock } from '../../dialects/types';
+import type { Block } from '../../dialects/types';
 import { tokenizeProgram } from '../../dialects/pet/tokenizer';
 
 const ROOT = join(__dirname, '../../../public/roms/pet');
@@ -52,12 +52,12 @@ describe('PetMachine memory blocks', () => {
     'writes a block into RAM before RUN, readable back at its address',
     async () => {
       const bytes = [0x11, 0x22, 0x33, 0x44, 0x55];
-      const block: MemoryBlock = {
+      const block: Block = {
         id: 'blk1',
         name: 'data1',
         address: 0x7000,
         bytes: Uint8Array.from(bytes),
-        kind: 'data',
+        kind: 'memory',
       };
       const m = new PetMachine({ roms });
       await m.whenReady();

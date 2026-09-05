@@ -27,15 +27,32 @@ export class Zx81Memory {
   readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array, ramKb: 16 | 32 | 64) {
-    if (rom.length !== ROM_BYTES)
+    // Empty is the documented "no firmware to run" state, the same carve-out
+    // the CPC memory makes: images with no redistribution grant are meant to be
+    // removable (public/roms/ATTRIBUTION.md), and a machine given none has to
+    // construct so that the layer above can say so rather than dying inside a
+    // constructor. Any other wrong length is still refused - that is a caller
+    // handing over the wrong file, and a partly-filled ROM boots to a dead
+    // machine with nothing to explain it.
+    if (rom.length !== 0 && rom.length !== ROM_BYTES)
       throw new Error(`ZX81 ROM must be ${ROM_BYTES} bytes, got ${rom.length}`);
-    this.rom = rom;
+    this.rom = rom.length === ROM_BYTES ? rom : new Uint8Array(ROM_BYTES);
     this.ram = new Uint8Array(ramKb * 1024);
     this.ramMask = ramKb * 1024 - 1;
   }
 
   read = (address: number): number => {
     if (this.activity.enabled) this.activity.hits[address & 0xffff] |= READ_BIT;
+    return this.peek(address);
+  };
+
+  /**
+   * Read a byte without recording the access. Host-side introspection - the
+   * executing BASIC line, and the profiler sampling it on the run hot path -
+   * reads through this, so the IDE's own polling never paints the memory-map
+   * overlay with activity the program never performed.
+   */
+  peek = (address: number): number => {
     const addr = address & 0x7fff; // echo region mirrors the lower 32K
     if (addr < 0x4000) return this.rom[addr & 0x1fff]!;
     return this.ram[(addr - 0x4000) & this.ramMask]!;
@@ -51,5 +68,10 @@ export class Zx81Memory {
 
   readWord(addr: number): number {
     return this.read(addr) | (this.read(addr + 1) << 8);
+  }
+
+  /** {@link readWord} through {@link peek}: no activity recorded. */
+  rawReadWord(addr: number): number {
+    return this.peek(addr) | (this.peek(addr + 1) << 8);
   }
 }

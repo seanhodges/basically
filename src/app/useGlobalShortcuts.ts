@@ -26,6 +26,7 @@ import { SHORTCUTS, matchesShortcut, type ShortcutId } from './shortcuts';
 import { newDocument, openDocument, saveDocument } from './fileCommands';
 import { openingTopicFor } from './docsTopic';
 import { dismissTopSurface } from './useHistorySync';
+import { saveScreenshot } from './screenshot';
 
 /** Surface a rejected file command without crashing the listener. */
 function report(p: Promise<void>): void {
@@ -35,9 +36,13 @@ function report(p: Promise<void>): void {
 /**
  * Run the action for a shortcut id. Returns true when the key was consumed (so
  * the caller calls `preventDefault`), false when it was a no-op - e.g. a debug
- * shortcut fired while not paused, or an id with no global action.
+ * shortcut fired while nothing is running, or an id with no global action.
+ *
+ * Exported for the tests, which drive it against the store directly: the
+ * listener itself is mounted by a React effect and this suite runs without a
+ * DOM.
  */
-function dispatch(id: ShortcutId): boolean {
+export function dispatchShortcut(id: ShortcutId): boolean {
   const s = useIdeStore.getState();
   switch (id) {
     case 'file.new':
@@ -77,7 +82,17 @@ function dispatch(id: ShortcutId): boolean {
       }
       return false;
     case 'run.continue':
-      if (s.dialect.debuggable && s.emulatorStatus === 'paused') {
+      // One chord for both halves, as on every other surface that offers to
+      // carry a paused run on: it holds a running program still and carries a
+      // paused one on. Refused where there is neither - a machine with no
+      // debugger has no Resume to release a pause with, and a stopped run has
+      // nothing to hold still (Play, on its own chord, is what starts one).
+      if (!s.dialect.debuggable) return false;
+      if (s.emulatorStatus === 'running') {
+        s.requestPause();
+        return true;
+      }
+      if (s.emulatorStatus === 'paused') {
         s.requestContinue();
         return true;
       }
@@ -87,6 +102,12 @@ function dispatch(id: ShortcutId): boolean {
       return true;
     case 'run.mute':
       if (s.emulatorAudio) s.setEmulatorMuted(!s.emulatorMuted);
+      return true;
+    case 'run.screenshot':
+      // Resolves to a result rather than throwing, and the keyboard has no
+      // banner to report a miss on - the toolbar button is where a reason is
+      // shown.
+      void saveScreenshot(s.fileName);
       return true;
     case 'view.ai':
       s.toggleAiPanel();
@@ -113,9 +134,6 @@ function dispatch(id: ShortcutId): boolean {
     case 'view.controller':
       s.setControllerEnabled(!s.controllerEnabled);
       return true;
-    case 'view.vfsInspector':
-      s.setVfsInspectorOpen(!s.vfsInspectorOpen);
-      return true;
     case 'view.escape':
       // Nothing above claimed the key (the editor and the emulator both
       // preventDefault when Escape is theirs), so close the topmost open
@@ -138,7 +156,7 @@ export function useGlobalShortcuts(): void {
         if (!matchesShortcut(e, sc)) continue;
         // A chord maps to exactly one shortcut, so stop at the first match
         // whether or not it produced an action.
-        if (dispatch(sc.id)) e.preventDefault();
+        if (dispatchShortcut(sc.id)) e.preventDefault();
         return;
       }
     };

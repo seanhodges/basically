@@ -21,6 +21,6 @@
 
     "types": ["w3c-web-serial"]
   },
-  "include": ["src"],
+  "include": ["src", "scripts/headless"],
   "exclude": ["src/**/*.test.ts"]
 }

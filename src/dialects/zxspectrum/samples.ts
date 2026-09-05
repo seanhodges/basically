@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import breakout from './samples/breakout.bas?raw';
 import circles from './samples/circles.bas?raw';
@@ -16,15 +17,7 @@ export const KALEIDO_BLOCK = {
 } as const;
 
 /** ZX Spectrum example programs, offered when creating a new project. */
-export const spectrumSamples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [KALEIDO_BLOCK],
-  },
-];
+export const spectrumSamples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: KALEIDO_BLOCK },
+);

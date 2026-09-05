@@ -14,9 +14,10 @@ debugging, file operations, and toggling the panels.
 | Stop                                  | <kbd>Shift</kbd>+<kbd>F5</kbd>                   |
 | Reset the machine                     | <kbd>Mod</kbd>+<kbd>Shift</kbd>+<kbd>F5</kbd>    |
 | Mute / unmute audio                   | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>M</kbd>       |
+| Save a screenshot of the screen       | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>       |
 | Toggle breakpoint on the current line | <kbd>F9</kbd>                                    |
 | Step to the next BASIC line           | <kbd>F10</kbd>                                   |
-| Continue to the next breakpoint       | <kbd>F8</kbd>                                    |
+| Pause a running program / resume it   | <kbd>F8</kbd>                                    |
 
 ## File
 
@@ -49,10 +50,10 @@ debugging, file operations, and toggling the panels.
 | Toggle the on-screen keyboard        | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> |
 | Toggle the variable watcher          | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd> |
 | Toggle the game controller           | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>G</kbd> |
-| Toggle the emulator files viewer     | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> |
 | Release the emulator / close a panel | <kbd>Esc</kbd>                             |
 
 When the emulator screen is focused it captures your keystrokes for the running
-program; press <kbd>Esc</kbd> to hand control back to the rest of the IDE. If a
-keyword is selected in the editor then F1 jumps straight to that keyword
-on the current machine's [language reference](/reference/).
+program; press <kbd>Esc</kbd> to hand control back to the rest of the IDE. To
+look up a particular keyword, click it in the editor and choose **Reference**
+rather than pressing F1 — see
+[looking up a keyword](./writing-basic#looking-up-a-keyword).

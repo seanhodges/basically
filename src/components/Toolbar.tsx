@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useIdeStore } from '../app/store';
+import {
+  useIdeStore,
+  selectActiveBreakpoints,
+  selectRunTargetName,
+} from '../app/store';
 import { useDismiss } from '../app/useDismiss';
 import {
   isMobileViewport,
@@ -7,6 +11,14 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { openingTopicFor } from '../app/docsTopic';
+import {
+  runControlStateOf,
+  pauseToggleOf,
+  runControlGlyph,
+  runControlWord,
+  runControlLabel,
+} from '../app/runControl';
+import { timingSettled } from '../app/runTiming';
 import { newDocument, openDocument, saveDocument } from '../app/fileCommands';
 import {
   SHORTCUTS,
@@ -14,10 +26,12 @@ import {
   formatAllShortcuts,
   type ShortcutId,
 } from '../app/shortcuts';
+import { editActionAvailable } from './editActions';
 import { MobileTabBar } from './MobileTabBar';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import { MachineTrigger } from './MachineTrigger';
 import { TARGET_MACHINE_ROLE } from './machinePicker';
+import { saveScreenshot } from '../app/screenshot';
 import {
   SparkleIcon,
   GearIcon,
@@ -27,8 +41,16 @@ import {
   DotsIcon,
   FloppyIcon,
   MemoryIcon,
+  CameraIcon,
 } from './icons';
 import styles from './Toolbar.module.css';
+
+// Each of these labels a toolbar or Edit-menu entry and its twin in the mobile
+// overflow menu. Shared so the pair cannot drift into two names for one action.
+const OUTLINE_TITLE = "List this program's procedures and jump targets";
+const PROFILE_TITLE = "Show where the last run's time and memory went";
+const RENUMBER_LINE_TITLE = 'Renumber this line and update GOTO/GOSUB';
+const RENUMBER_FILE_TITLE = 'Renumber the program and update every reference';
 
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -37,22 +59,35 @@ export function Toolbar() {
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestStep = useIdeStore((s) => s.requestStep);
   const requestContinue = useIdeStore((s) => s.requestContinue);
-  const breakpoints = useIdeStore((s) => s.breakpoints);
+  const requestPause = useIdeStore((s) => s.requestPause);
+  // The buffer on screen owns the breakpoints the toggles act on, so the
+  // offer to clear them on Stop has to read that same set.
+  const breakpoints = useIdeStore(selectActiveBreakpoints);
+  // The scratch buffer Run would run, or null when Run means the program.
+  const runTargetName = useIdeStore(selectRunTargetName);
   const clearBreakpoints = useIdeStore((s) => s.clearBreakpoints);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  // Whether the run's program has ended, off the timing the run publishes - the
+  // same reading the run control over the editor takes. A run in progress
+  // carries a live reading; the run loop settles it the moment the machine sees
+  // the program finish or fail.
+  const programEnded = useIdeStore((s) => timingSettled(s.runTiming));
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
   const setShareLinkOpen = useIdeStore((s) => s.setShareLinkOpen);
-  const setVfsInspectorOpen = useIdeStore((s) => s.setVfsInspectorOpen);
   const setImportOpen = useIdeStore((s) => s.setImportOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
   const openDocs = useIdeStore((s) => s.openDocs);
   const docsDrawerOpen = useIdeStore((s) => s.docsDrawerOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
+  const setRunProfileOpen = useIdeStore((s) => s.setRunProfileOpen);
   const setMemoryMapOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
+  // The Edit menu acts on the buffer on screen, so the entries that only mean
+  // something for BASIC are withheld while a memory block is showing.
+  const activeTab = useIdeStore((s) => s.activeTab);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
@@ -131,8 +166,29 @@ export function Toolbar() {
     if (isMobileViewport()) setMobileTab('preview');
   };
   const playProgram = runAction(requestRun);
+  // Every run control names what it would boot, so a snippet is never run in
+  // mistake for the program.
+  const playTitle = runTargetName
+    ? `Build and play ${runTargetName} in the emulator`
+    : 'Build and play in the emulator';
   const stepProgram = runAction(requestStep);
-  const continueProgram = runAction(requestContinue);
+  // The pause and the continue are one control on the surfaces that carry their
+  // own Play - the toolbar's run buttons and the overflow menu's Run actions.
+  // Both read the run's state from the one derivation behind every such
+  // control, so no surface can word or gate the same action differently. Where
+  // the control over the editor would fall back to Play, these refuse: they
+  // have a Play already, and a mis-aimed press must not restart a run at the
+  // moment it ends.
+  const pauseToggle = pauseToggleOf(
+    runControlStateOf(emulatorStatus, {
+      pausable: !!dialect.debuggable,
+      programEnded,
+    }),
+  );
+  const pauseToggleProgram = runAction(
+    pauseToggle.face === 'pause' ? requestPause : requestContinue,
+  );
+  const pauseToggleTitle = runControlLabel(pauseToggle.face);
   // The single Stop halts the program and shuts the emulator down; if any
   // breakpoints are set it first offers to clear them.
   const stopProgram = runAction(() => {
@@ -153,6 +209,10 @@ export function Toolbar() {
   const editAction = (name: Parameters<typeof requestEditorCommand>[0]) =>
     guard(() => requestEditorCommand(name));
 
+  /** Whether an Edit-menu entry has a buffer to act on, for its `disabled`. */
+  const unavailable = (action: Parameters<typeof editActionAvailable>[0]) =>
+    !editActionAvailable(action, activeTab);
+
   const newFile = guard(newDocument);
   const openFile = guard(openDocument);
   const saveFile = guard(saveDocument);
@@ -160,8 +220,13 @@ export function Toolbar() {
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
   const openShareLink = guard(() => setShareLinkOpen(true));
-  const openVfsInspector = guard(() => setVfsInspectorOpen(true));
   const openMemoryMap = guard(() => setMemoryMapOpen(true));
+  // Reads the document name at click time, so renaming doesn't re-render the
+  // toolbar. A machine that has drawn nothing yet is reported, not thrown.
+  const takeScreenshot = guard(async () => {
+    const result = await saveScreenshot(useIdeStore.getState().fileName);
+    if (!result.saved) setError(result.reason);
+  });
   const toggleMemoryMap = guard(() => setMemoryMapOpen(!memoryMapOpen));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
@@ -184,11 +249,19 @@ export function Toolbar() {
     return s ? `${text} (${formatAllShortcuts(s)})` : text;
   };
 
-  // Shared by the Docs book icon and the "Help" overflow item. With a keyword
-  // selected in the editor, jump straight to that keyword on the current
-  // dialect's reference page; otherwise open the docs home - unless a porting
-  // comparison was offered for the open program, which wins over both. Read the
-  // selection imperatively so the toolbar doesn't re-render as the cursor moves.
+  // What the overflow menu is offering right now, so its trigger says which.
+  const overflowTitle = contextTab
+    ? mobileTab === 'editor'
+      ? 'Show the edit actions'
+      : 'Show the run actions'
+    : 'Show more actions';
+
+  // Shared by the Docs book icon and the "Help" overflow item. Opens the
+  // porting comparison offered for the open program where there is one, else
+  // the CPU's page while a machine-code block tab is open, else the docs home.
+  // A particular keyword is not this button's job - the editor answers that
+  // where the keyword is written. Read imperatively rather than through a
+  // selector so the toolbar doesn't re-render as the active tab changes.
   const openDocumentation = () => {
     const topic = openingTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
@@ -224,16 +297,6 @@ export function Toolbar() {
               >
                 Publish to Web…{hint('file.publish')}
               </button>
-              <div className={styles.menuSeparator} />
-              <button
-                onClick={openVfsInspector}
-                title={withKeys(
-                  'Inspect files the running program has saved to the virtual filesystem',
-                  'view.vfsInspector',
-                )}
-              >
-                Emulator files{hint('view.vfsInspector')}
-              </button>
             </div>
           )}
         </div>
@@ -248,7 +311,8 @@ export function Toolbar() {
               setMobileTab('preview');
               playProgram();
             }}
-            title="Build and play in the emulator"
+            title={playTitle}
+            aria-label={playTitle}
           >
             ▶
           </button>
@@ -283,26 +347,29 @@ export function Toolbar() {
               </button>
               <button
                 onClick={guard(() => setProcedureListOpen(true))}
-                title="List procedures, subroutines and jump targets in this program"
+                disabled={unavailable('outline')}
+                title={OUTLINE_TITLE}
               >
                 Outline{hint('edit.outline')}
+              </button>
+              <button
+                onClick={guard(() => setRunProfileOpen(true))}
+                title={PROFILE_TITLE}
+              >
+                Profiler report…
               </button>
               <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
-                title={withKeys(
-                  'Renumber the current line and update GOTO/GOSUB references',
-                  'edit.renumber',
-                )}
+                disabled={unavailable('renumber')}
+                title={withKeys(RENUMBER_LINE_TITLE, 'edit.renumber')}
               >
                 Renumber line{hint('edit.renumber')}
               </button>
               <button
                 onClick={editAction('renumberFile')}
-                title={withKeys(
-                  'Renumber the whole program by the line-number increment and update all references',
-                  'edit.renumberFile',
-                )}
+                disabled={unavailable('renumberFile')}
+                title={withKeys(RENUMBER_FILE_TITLE, 'edit.renumberFile')}
               >
                 Renumber file{hint('edit.renumberFile')}
               </button>
@@ -325,9 +392,10 @@ export function Toolbar() {
         <button
           className="run desktop-only"
           onClick={playProgram}
-          title={withKeys('Build and play in the emulator', 'run.play')}
+          title={withKeys(playTitle, 'run.play')}
         >
-          ▶ Play
+          <span className={`${styles.mark} ${styles.markPlay}`}>▶</span> Play
+          {runTargetName ? ` ${runTargetName}` : ''}
         </button>
         {dialect.debuggable && (
           <>
@@ -337,18 +405,23 @@ export function Toolbar() {
               disabled={emulatorStatus !== 'paused'}
               title={withKeys('Run to the next BASIC line', 'run.step')}
             >
-              ⤵ Step
+              <span className={`${styles.mark} ${styles.markStep}`}>⤵</span>{' '}
+              Step
             </button>
             <button
-              className="desktop-only"
-              onClick={continueProgram}
-              disabled={emulatorStatus !== 'paused'}
-              title={withKeys(
-                'Continue to the next breakpoint',
-                'run.continue',
-              )}
+              className={`desktop-only ${styles.pauseToggle} ${
+                pauseToggle.offered ? 'run-live' : ''
+              }`}
+              data-testid="toolbar-pause-toggle"
+              data-state={pauseToggle.face}
+              onClick={pauseToggleProgram}
+              disabled={!pauseToggle.offered}
+              title={withKeys(pauseToggleTitle, 'run.continue')}
             >
-              ▶ Continue
+              <span className={styles.pauseToggleGlyph}>
+                {runControlGlyph(pauseToggle.face)}
+              </span>{' '}
+              {runControlWord(pauseToggle.face)}
             </button>
           </>
         )}
@@ -361,12 +434,15 @@ export function Toolbar() {
             'run.stop',
           )}
         >
-          ■ Stop
+          <span className={`${styles.mark} ${styles.markStop}`}>■</span> Stop
         </button>
         <button
           className={`icon-btn ${emulatorMuted ? 'active' : ''}`}
           onClick={() => setEmulatorMuted(!emulatorMuted)}
           disabled={!emulatorAudio}
+          aria-label={
+            emulatorMuted ? 'Unmute emulator audio' : 'Mute emulator audio'
+          }
           title={
             !emulatorAudio
               ? 'Emulator audio is disabled in settings'
@@ -384,11 +460,23 @@ export function Toolbar() {
             <SpeakerIcon />
           )}
         </button>
+        <button
+          className="icon-btn"
+          onClick={takeScreenshot}
+          title={withKeys(
+            'Save a screenshot of the machine as a PNG',
+            'run.screenshot',
+          )}
+          aria-label="Save a screenshot"
+        >
+          <CameraIcon />
+        </button>
         {dialect.memoryMap && (
           <button
             className={`icon-btn ${memoryMapOpen ? 'active' : ''}`}
             onClick={toggleMemoryMap}
-            title="Memory map - the machine's memory layout and what your program POKEs"
+            title="Show the memory map and what your program POKEs"
+            aria-label="Show the memory map"
           >
             <MemoryIcon />
           </button>
@@ -396,14 +484,16 @@ export function Toolbar() {
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
-          title={withKeys('AI code generation', 'view.ai')}
+          title={withKeys('Show the AI assistant', 'view.ai')}
+          aria-label="Show the AI assistant"
         >
           <SparkleIcon />
         </button>
         <button
           className="icon-btn"
           onClick={() => setSettingsOpen(true)}
-          title={withKeys('Settings', 'view.settings')}
+          title={withKeys('Open settings', 'view.settings')}
+          aria-label="Open settings"
         >
           <GearIcon />
         </button>
@@ -412,7 +502,8 @@ export function Toolbar() {
             docsDrawerOpen ? 'active' : ''
           }`}
           onClick={openDocumentation}
-          title={withKeys('Documentation', 'view.docs')}
+          title={withKeys('Open documentation', 'view.docs')}
+          aria-label="Open documentation"
         >
           <BookIcon />
         </button>
@@ -448,13 +539,8 @@ export function Toolbar() {
               contextTab ? '' : styles.overflowTargetOnly
             }`}
             onClick={toggleOverflowMenu}
-            title={
-              contextTab
-                ? mobileTab === 'editor'
-                  ? 'Edit actions'
-                  : 'Run actions'
-                : 'More actions'
-            }
+            title={overflowTitle}
+            aria-label={overflowTitle}
           >
             <DotsIcon />
           </button>
@@ -468,20 +554,29 @@ export function Toolbar() {
                   <button onClick={editAction('find')}>Find/Replace</button>
                   <button
                     onClick={guard(() => setProcedureListOpen(true))}
-                    title="List procedures, subroutines and jump targets in this program"
+                    disabled={unavailable('outline')}
+                    title={OUTLINE_TITLE}
                   >
                     Outline
+                  </button>
+                  <button
+                    onClick={guard(() => setRunProfileOpen(true))}
+                    title={PROFILE_TITLE}
+                  >
+                    Profiler report…
                   </button>
                   <div className={styles.menuSeparator} />
                   <button
                     onClick={editAction('renumber')}
-                    title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
+                    disabled={unavailable('renumber')}
+                    title={withKeys(RENUMBER_LINE_TITLE, 'edit.renumber')}
                   >
                     Renumber line
                   </button>
                   <button
                     onClick={editAction('renumberFile')}
-                    title="Renumber the whole program by the line-number increment and update all references"
+                    disabled={unavailable('renumberFile')}
+                    title={withKeys(RENUMBER_FILE_TITLE, 'edit.renumberFile')}
                   >
                     Renumber file
                   </button>
@@ -494,7 +589,12 @@ export function Toolbar() {
                       In portrait there is no rail, so Play leads the menu. */}
                   {!landscape && (
                     <>
-                      <button onClick={playProgram}>▶ Play</button>
+                      <button onClick={playProgram}>
+                        <span className={`${styles.mark} ${styles.markPlay}`}>
+                          ▶
+                        </span>{' '}
+                        Play
+                      </button>
                       <div className={styles.menuSeparator} />
                     </>
                   )}
@@ -504,13 +604,24 @@ export function Toolbar() {
                         onClick={stepProgram}
                         disabled={emulatorStatus !== 'paused'}
                       >
-                        ⤵ Step
+                        <span className={`${styles.mark} ${styles.markStep}`}>
+                          ⤵
+                        </span>{' '}
+                        Step
                       </button>
+                      {/* Menu items carry no fill, so the two faces differ by
+                          glyph and word alone. */}
                       <button
-                        onClick={continueProgram}
-                        disabled={emulatorStatus !== 'paused'}
+                        data-testid="menu-pause-toggle"
+                        data-state={pauseToggle.face}
+                        onClick={pauseToggleProgram}
+                        disabled={!pauseToggle.offered}
+                        title={pauseToggleTitle}
                       >
-                        ▶ Continue
+                        <span className={`${styles.mark} ${styles.markRun}`}>
+                          {runControlGlyph(pauseToggle.face)}
+                        </span>{' '}
+                        {runControlWord(pauseToggle.face)}
                       </button>
                     </>
                   )}
@@ -518,12 +629,15 @@ export function Toolbar() {
                     onClick={stopProgram}
                     disabled={emulatorStatus === 'stopped'}
                   >
-                    ■ Stop
+                    <span className={`${styles.mark} ${styles.markStop}`}>
+                      ■
+                    </span>{' '}
+                    Stop
                   </button>
                   <div className={styles.menuSeparator} />
-                  <button onClick={openVfsInspector}>
-                    Emulator files{hint('view.vfsInspector')}
-                  </button>
+                  {/* The toolbar's camera is an .icon-btn, which the mobile
+                      rules hide, so the action is surfaced here as well. */}
+                  <button onClick={takeScreenshot}>Save a screenshot</button>
                 </>
               )}
               {/* Memory map - the inline toolbar icon is an .icon-btn, which the

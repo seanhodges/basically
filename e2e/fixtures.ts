@@ -41,7 +41,7 @@ export const test = base.extend<{ welcomeSeen: boolean }>({
 });
 
 export { expect } from '@playwright/test';
-export type { Page } from '@playwright/test';
+export type { Download, Page } from '@playwright/test';
 
 /** Open the New-project dialog from File ▸ New and return its locator. */
 export async function openNewProjectDialog(page: Page) {
@@ -57,6 +57,23 @@ export async function openNewProjectDialog(page: Page) {
 /** The shared machine picker, wherever it was opened from. */
 export function machinePicker(page: Page) {
   return page.getByRole('dialog', { name: 'Choose a machine' });
+}
+
+/**
+ * Open the shared picker and leave it open. `scope` holds the collapsed trigger
+ * - the New-project dialog, or the page itself for the toolbar's.
+ *
+ * `chooseMachine` below always closes it again, so a test about the list itself
+ * (what it shows, how it is arranged) needs this instead.
+ */
+export async function openMachinePicker(
+  page: Page,
+  scope: Page | ReturnType<Page['getByRole']>,
+) {
+  await scope.locator('button[data-target-machine]').first().click();
+  const picker = machinePicker(page);
+  await expectPw(picker).toBeVisible();
+  return picker;
 }
 
 /**

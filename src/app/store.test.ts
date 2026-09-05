@@ -1,5 +1,5 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { MemoryBlock } from '../dialects/types';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Block } from '../dialects/types';
 
 // The store persists the chosen dialect and autosave (per-tab sessionStorage
 // plus a localStorage backup) on every real switch. The test environment is
@@ -20,13 +20,39 @@ beforeAll(() => {
   (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
-const { useIdeStore, persistAutosave, initialDocument, selectBlocks } =
-  await import('./store');
+const {
+  useIdeStore,
+  persistAutosave,
+  initialDocument,
+  selectBlocks,
+  selectActiveBreakpoints,
+  selectActiveSource,
+  selectBufferBreakpoints,
+  selectRunTarget,
+  selectRunTargetName,
+  selectVisibleDebugLine,
+  selectVisibleProfile,
+  selectVisibleTiming,
+  BASIC_TAB,
+  tabKey,
+} = await import('./store');
+const { bufferHistories, basicBufferKey, blockBufferKey, freshBufferState } =
+  await import('../editor/bufferHistory');
 const { getDialect } = await import('../dialects/registry');
 const { asmEngineFor } = await import('../asm/registry');
 const { materializeSampleBlocks } = await import('./sampleBlocks');
 const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
+const { emulatorVfs } = await import('../storage/vfs/vfsStore');
+const { selectDataBlocks, resetDataBlockCacheForTests } =
+  await import('./dataBlocks');
+const { tapFromPayloads } = await import('../dialects/zxspectrum/tapfile');
+const { setVfsStorageForTests, getVfsCollection } =
+  await import('../storage/vfs/db');
+const { getRxStorageMemory } = await import('rxdb/plugins/storage-memory');
+// The VFS mirror is fire-and-forget and node has no IndexedDB, so without a
+// storage the clears the store now makes each log a failed mirror write.
+setVfsStorageForTests(getRxStorageMemory());
 
 const zx81 = getDialect('zx81');
 const bbc = getDialect('bbcmicro');
@@ -55,15 +81,15 @@ function withViewport(narrow: boolean, body: () => void): void {
   }
 }
 
-const BLOCK_A: MemoryBlock = {
+const BLOCK_A: Block = {
   id: 'blk-a',
   name: 'SPRITES',
   address: 0x8000,
   bytes: Uint8Array.from([1, 2, 3]),
-  kind: 'data',
+  kind: 'memory',
 };
 
-const BLOCK_B: MemoryBlock = {
+const BLOCK_B: Block = {
   id: 'blk-b',
   name: 'ROUTINE',
   address: 0x9000,
@@ -91,7 +117,7 @@ describe('initialDocument (boot document choice)', () => {
       name: 'DATA1',
       address: 0x8000,
       bytes: Uint8Array.from([1, 2, 3]),
-      kind: 'data' as const,
+      kind: 'memory' as const,
     };
     const saved = { name: 'mygame.bas', text: '10 REM SAVED', blocks: [block] };
     expect(initialDocument(saved)).toEqual({
@@ -247,9 +273,48 @@ describe('setDialect', () => {
     expect(s.pendingDialectId).toBeNull();
   });
 
+  it('a silent compatible switch keeps the workbench too', () => {
+    // No prompt is raised, so nothing asked the user whether their buffers
+    // could go - which means they have to come.
+    useIdeStore.setState({
+      source: '10 PRINT "HI"\n20 GOTO 10',
+      scratchBuffers: [
+        {
+          id: 'scratch-1',
+          name: 'Scratch 1',
+          text: '10 PRINT 1',
+          breakpoints: new Set<number>(),
+        },
+      ],
+    });
+    useIdeStore.getState().setDialect('bbcmicro');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.pendingDialectId).toBeNull();
+    expect(s.scratchBuffers.map((b) => b.text)).toEqual(['10 PRINT 1']);
+  });
+
+  it('a silent compatible switch rewrites an existing declaration to the new machine', () => {
+    useIdeStore.setState({
+      source: '#MACHINE zx81\n10 PRINT "HI"\n20 GOTO 10',
+      dirty: true,
+    });
+    useIdeStore.getState().setDialect('bbcmicro');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('#MACHINE bbcmicro\n10 PRINT "HI"\n20 GOTO 10');
+  });
+
+  it('a silent compatible switch adds no declaration to a document with none', () => {
+    useIdeStore.setState({ source: '10 PRINT "HI"\n20 GOTO 10', dirty: true });
+    useIdeStore.getState().setDialect('bbcmicro');
+    expect(useIdeStore.getState().source).toBe('10 PRINT "HI"\n20 GOTO 10');
+  });
+
   it('still prompts for a block-bearing document even when compatible', () => {
-    // Memory blocks are dropped on any switch (Stage 1), so a document that
-    // carries one keeps the confirmation prompt regardless of compatibility.
+    // A block keeps the address it has, which the new machine's memory map may
+    // refuse, so a document that carries one keeps the confirmation prompt
+    // regardless of how compatible its BASIC is.
     useIdeStore.setState({
       source: '10 PRINT "HI"\n20 GOTO 10',
       blocks: [BLOCK_A],
@@ -290,6 +355,56 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     expect(s.source).toBe('10 REM mine');
     expect(s.dirty).toBe(true);
     expect(s.pendingDialectId).toBeNull();
+  });
+
+  it("'keep' rewrites an existing declaration to name the new machine", () => {
+    useIdeStore.setState({ source: '#MACHINE zx81\n10 REM mine' });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('#MACHINE bbcmicro\n10 REM mine');
+  });
+
+  it("'keep' adds no declaration to a document with none", () => {
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().source).toBe('10 REM mine');
+  });
+
+  it("'keep' brings the scratch buffers with the program", () => {
+    useIdeStore.setState({
+      scratchBuffers: [
+        {
+          id: 'scratch-1',
+          name: 'Scratch 1',
+          text: '10 PRINT 1',
+          breakpoints: new Set([10]),
+        },
+      ],
+    });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([
+      {
+        id: 'scratch-1',
+        name: 'Scratch 1',
+        text: '10 PRINT 1',
+        breakpoints: new Set([10]),
+      },
+    ]);
+  });
+
+  it("'new' leaves the scratch buffers with the program they belonged to", () => {
+    useIdeStore.setState({
+      scratchBuffers: [
+        {
+          id: 'scratch-1',
+          name: 'Scratch 1',
+          text: '10 PRINT 1',
+          breakpoints: new Set(),
+        },
+      ],
+    });
+    useIdeStore.getState().confirmDialectSwitch('new');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
   });
 
   it('cancel leaves the current machine in place', () => {
@@ -649,6 +764,7 @@ describe('loadUnsavedDocument', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 });
@@ -712,6 +828,7 @@ describe('markSaved', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 });
@@ -769,6 +886,7 @@ describe('persistAutosave', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -875,7 +993,7 @@ describe('memory block actions', () => {
 
   it('upsertBlock updates an existing block in place by id', () => {
     useIdeStore.setState({ blocks: [BLOCK_A, BLOCK_B], dirty: false });
-    const updated: MemoryBlock = { ...BLOCK_A, address: 0x8100 };
+    const updated: Block = { ...BLOCK_A, address: 0x8100 };
     useIdeStore.getState().upsertBlock(updated);
     const s = useIdeStore.getState();
     expect(s.blocks).toEqual([updated, BLOCK_B]);
@@ -898,7 +1016,7 @@ describe('memory block actions', () => {
   });
 
   it('setBlocks throws and leaves state untouched for an invalid name', () => {
-    const invalid: MemoryBlock = { ...BLOCK_A, name: '1foo' };
+    const invalid: Block = { ...BLOCK_A, name: '1foo' };
     expect(() => useIdeStore.getState().setBlocks([invalid])).toThrow();
     const s = useIdeStore.getState();
     expect(s.blocks).toEqual([]); // unchanged - the throw happened before commit
@@ -906,20 +1024,20 @@ describe('memory block actions', () => {
   });
 
   it('setBlocks throws for two blocks sharing a name', () => {
-    const dupe: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    const dupe: Block = { ...BLOCK_B, name: BLOCK_A.name };
     expect(() => useIdeStore.getState().setBlocks([BLOCK_A, dupe])).toThrow();
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
   it('upsertBlock throws and leaves state untouched for an invalid name', () => {
-    const invalid: MemoryBlock = { ...BLOCK_A, name: 'has spaces' };
+    const invalid: Block = { ...BLOCK_A, name: 'has spaces' };
     expect(() => useIdeStore.getState().upsertBlock(invalid)).toThrow();
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
   it('upsertBlock throws when the new block collides with an existing name', () => {
     useIdeStore.setState({ blocks: [BLOCK_A], dirty: false });
-    const collidingId: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    const collidingId: Block = { ...BLOCK_B, name: BLOCK_A.name };
     expect(() => useIdeStore.getState().upsertBlock(collidingId)).toThrow();
     // Unchanged: still just the original block.
     expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
@@ -974,8 +1092,39 @@ describe('memory blocks reset on document identity changes', () => {
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
-  it('confirmDialectSwitch clears blocks on both "new" and "keep"', () => {
+  it('confirmDialectSwitch clears blocks on "new"', () => {
     useIdeStore.setState({ pendingDialectId: 'bbcmicro' });
+    useIdeStore.getState().confirmDialectSwitch('new');
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('confirmDialectSwitch keeps blocks on "keep", addresses and all', () => {
+    useIdeStore.setState({ pendingDialectId: 'bbcmicro' });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    // A 6502 machine taking a Z80 document's block: the block linter and the
+    // assembler are what report that, not a silent deletion.
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
+
+  it('a "keep" between two listing machines carries the block overrides', () => {
+    // A listing dialect derives its blocks from the source, so what a switch
+    // has to carry is the naming the `#BIN` record cannot hold.
+    useIdeStore.setState({
+      dialect: zx81,
+      blocks: [],
+      listingBlockMeta: { 0: { name: 'PLOT', kind: 'code' } },
+      pendingDialectId: 'zx80',
+    });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().listingBlockMeta).toEqual({
+      0: { name: 'PLOT', kind: 'code' },
+    });
+  });
+
+  it('a "keep" onto a machine that holds blocks differently drops them', () => {
+    // Spectrum blocks are bytes at a fixed address; ZX81's are `#BIN` records
+    // inside the listing, which travels with the kept text.
+    useIdeStore.setState({ pendingDialectId: 'zx81' });
     useIdeStore.getState().confirmDialectSwitch('keep');
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
@@ -990,16 +1139,19 @@ describe('active block tab state', () => {
       fileName: 'game.bas',
       dirty: false,
       blocks: [BLOCK_A, BLOCK_B],
-      activeBlockId: BLOCK_B.id,
+      activeTab: { kind: 'block', id: BLOCK_B.id },
       asmErrorBlocks: new Set([BLOCK_B.id]),
     });
   });
 
-  it('setActiveBlock switches tabs, and null returns to BASIC', () => {
-    useIdeStore.getState().setActiveBlock(BLOCK_A.id);
-    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_A.id);
-    useIdeStore.getState().setActiveBlock(null);
-    expect(useIdeStore.getState().activeBlockId).toBeNull();
+  it('setActiveTab switches tabs, and the BASIC tab returns to the program', () => {
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    expect(useIdeStore.getState().activeTab).toEqual({
+      kind: 'block',
+      id: BLOCK_A.id,
+    });
+    useIdeStore.getState().setActiveTab(BASIC_TAB);
+    expect(useIdeStore.getState().activeTab).toEqual(BASIC_TAB);
   });
 
   it('setBlockAsmError adds and clears the error flag', () => {
@@ -1012,57 +1164,149 @@ describe('active block tab state', () => {
   it('removeBlock of the active block falls back to the BASIC tab', () => {
     useIdeStore.getState().removeBlock(BLOCK_B.id);
     const s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
   });
 
   it('removeBlock of another block keeps the active tab', () => {
     useIdeStore.getState().removeBlock(BLOCK_A.id);
-    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
+    expect(useIdeStore.getState().activeTab).toEqual({
+      kind: 'block',
+      id: BLOCK_B.id,
+    });
   });
 
   it('setBlocks keeps the active tab when the block survives', () => {
     useIdeStore.getState().setBlocks([BLOCK_B]);
     const s = useIdeStore.getState();
-    expect(s.activeBlockId).toBe(BLOCK_B.id);
+    expect(s.activeTab).toEqual({ kind: 'block', id: BLOCK_B.id });
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(true);
   });
 
   it('setBlocks falls back to BASIC when the active block disappears', () => {
     useIdeStore.getState().setBlocks([BLOCK_A]);
     const s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
   });
 
   it('document identity changes reset the tab to BASIC', () => {
     useIdeStore.getState().loadUnsavedDocument('10 REM other');
     let s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.size).toBe(0);
 
     useIdeStore.setState({
       blocks: [BLOCK_A],
-      activeBlockId: BLOCK_A.id,
+      activeTab: { kind: 'block', id: BLOCK_A.id },
       asmErrorBlocks: new Set([BLOCK_A.id]),
     });
     useIdeStore.getState().replaceDocument('10 REM new', 'other.bas');
     s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.size).toBe(0);
 
     useIdeStore.setState({
       source: '',
       blocks: [BLOCK_A],
-      activeBlockId: BLOCK_A.id,
+      activeTab: { kind: 'block', id: BLOCK_A.id },
     });
     useIdeStore.getState().setDialect('bbcmicro');
-    expect(useIdeStore.getState().activeBlockId).toBeNull();
+    expect(useIdeStore.getState().activeTab).toEqual(BASIC_TAB);
   });
 
   it('an in-place replaceDocument (AI apply) keeps the active tab', () => {
     useIdeStore.getState().replaceDocument('10 REM ai edit');
-    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
+    expect(useIdeStore.getState().activeTab).toEqual({
+      kind: 'block',
+      id: BLOCK_B.id,
+    });
+  });
+});
+
+describe('tab recency', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [BLOCK_A, BLOCK_B],
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+      tabTouchedAt: {},
+    });
+  });
+
+  it("tabKey tells the strip's four kinds of tab apart", () => {
+    // A block, a buffer and a file can share a name, so the kind is part of the
+    // key rather than the name alone answering for the tab.
+    expect(tabKey(BASIC_TAB)).toBe('basic');
+    expect(tabKey({ kind: 'block', id: 'x' })).toBe('block:x');
+    expect(tabKey({ kind: 'scratch', id: 'x' })).toBe('scratch:x');
+    expect(tabKey({ kind: 'data', name: 'x' })).toBe('data:x');
+    expect(
+      new Set([
+        tabKey({ kind: 'block', id: 'x' }),
+        tabKey({ kind: 'scratch', id: 'x' }),
+        tabKey({ kind: 'data', name: 'x' }),
+      ]).size,
+    ).toBe(3);
+  });
+
+  it('showing a tab stamps it', () => {
+    const before = Date.now();
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    const stamp = useIdeStore.getState().tabTouchedAt[`block:${BLOCK_A.id}`];
+    expect(stamp).toBeGreaterThanOrEqual(before);
+    expect(stamp).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('creating a scratch buffer or a block stamps the tab it opens', () => {
+    useIdeStore.getState().addScratchBuffer();
+    const buffer = useIdeStore.getState().scratchBuffers[0]!;
+    expect(
+      useIdeStore.getState().tabTouchedAt[`scratch:${buffer.id}`],
+    ).toBeGreaterThan(0);
+
+    useIdeStore.getState().addBlock();
+    const created = useIdeStore.getState().activeTab;
+    expect(created.kind).toBe('block');
+    expect(
+      useIdeStore.getState().tabTouchedAt[tabKey(created)],
+    ).toBeGreaterThan(0);
+  });
+
+  it('destroying a tab drops its stamp', () => {
+    useIdeStore.getState().addScratchBuffer();
+    const buffer = useIdeStore.getState().scratchBuffers[0]!;
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    useIdeStore.getState().closeScratchBuffer(buffer.id);
+    expect(useIdeStore.getState().tabTouchedAt).not.toHaveProperty(
+      `scratch:${buffer.id}`,
+    );
+
+    useIdeStore.getState().removeBlock(BLOCK_A.id);
+    expect(useIdeStore.getState().tabTouchedAt).not.toHaveProperty(
+      `block:${BLOCK_A.id}`,
+    );
+  });
+
+  it('a different document clears every stamp', () => {
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    expect(Object.keys(useIdeStore.getState().tabTouchedAt)).not.toHaveLength(
+      0,
+    );
+    useIdeStore.getState().replaceDocument('10 REM other', 'other.bas');
+    expect(useIdeStore.getState().tabTouchedAt).toEqual({});
+  });
+
+  it('an in-place apply keeps the stamps, as it keeps the tab', () => {
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_B.id });
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    expect(useIdeStore.getState().tabTouchedAt).toHaveProperty(
+      `block:${BLOCK_B.id}`,
+    );
   });
 });
 
@@ -1074,7 +1318,7 @@ describe('addBlock', () => {
       fileName: 'game.bas',
       dirty: false,
       blocks: [],
-      activeBlockId: null,
+      activeTab: BASIC_TAB,
     });
   });
 
@@ -1090,7 +1334,7 @@ describe('addBlock', () => {
     // The z80 stub is a lone RET, assembled so bytes match asmSource.
     expect(Array.from(block.bytes)).toEqual([0xc9]);
     expect(block.asmSource).toContain('RET');
-    expect(s.activeBlockId).toBe(block.id);
+    expect(s.activeTab).toEqual({ kind: 'block', id: block.id });
     expect(s.dirty).toBe(true);
   });
 
@@ -1118,6 +1362,17 @@ describe('addBlock', () => {
     expect(Array.from(block.bytes)).toEqual([0x60]);
     expect(block.asmSource).toContain('RTS');
   });
+
+  it("addBlock('memory') seeds one zero byte and no assembly source", () => {
+    useIdeStore.getState().addBlock('memory');
+    const block = useIdeStore.getState().blocks[0]!;
+    expect(block.kind).toBe('memory');
+    expect(Array.from(block.bytes)).toEqual([0]);
+    expect(block.asmSource).toBeUndefined();
+    // Named and placed exactly as a code block is.
+    expect(block.name).toBe('block1');
+    expect(block.address).toBe(0x8000);
+  });
 });
 
 describe('listing-backed blocks (ZX81/ZX80)', () => {
@@ -1129,7 +1384,7 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
       dirty: false,
       blocks: [],
       listingBlockMeta: {},
-      activeBlockId: null,
+      activeTab: BASIC_TAB,
     });
   });
 
@@ -1139,10 +1394,24 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
     // The store's own `blocks` array stays empty - the block lives in `source`.
     expect(s.blocks).toEqual([]);
     expect(s.source).toContain('#BIN ');
-    expect(s.activeBlockId).toBe('listing-0');
+    expect(s.activeTab).toEqual({ kind: 'block', id: 'listing-0' });
     expect(s.dirty).toBe(true);
     // The BASIC program still tokenizes, so the block rides in the .P image.
     expect(zx81.tokenize(s.source).errors).toEqual([]);
+  });
+
+  it("addBlock('memory') records the kind for the inserted record", () => {
+    useIdeStore.getState().addBlock('memory');
+    const s = useIdeStore.getState();
+    // A listing block's bytes are the record; only its kind is metadata, so
+    // that is what makes the new tab open on bytes rather than on assembly.
+    expect(s.listingBlockMeta[0]).toEqual({ kind: 'memory' });
+    expect(s.activeTab).toEqual({ kind: 'block', id: 'listing-0' });
+  });
+
+  it('a code block records no kind override', () => {
+    useIdeStore.getState().addBlock();
+    expect(useIdeStore.getState().listingBlockMeta[0]).toBeUndefined();
   });
 
   it("commitListingBlockBytes rewrites the block's #BIN line", () => {
@@ -1165,13 +1434,13 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
     useIdeStore.getState().removeBlock('listing-0');
     const s = useIdeStore.getState();
     expect(s.source).not.toContain('#BIN ');
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
   });
 
   it('setListingBlockMeta records overrides and prunes defaults', () => {
-    useIdeStore.getState().setListingBlockMeta(0, { kind: 'data' });
+    useIdeStore.getState().setListingBlockMeta(0, { kind: 'memory' });
     expect(useIdeStore.getState().listingBlockMeta[0]).toEqual({
-      kind: 'data',
+      kind: 'memory',
     });
     // Clearing back to the default kind removes the ordinal from the map.
     useIdeStore.getState().setListingBlockMeta(0, { kind: undefined });
@@ -1271,7 +1540,7 @@ describe('block delete confirmation flow', () => {
       fileName: 'game.bas',
       dirty: false,
       blocks: [BLOCK_A, BLOCK_B],
-      activeBlockId: BLOCK_B.id,
+      activeTab: { kind: 'block', id: BLOCK_B.id },
       asmErrorBlocks: new Set([BLOCK_B.id]),
       pendingDeleteBlockId: null,
     });
@@ -1291,7 +1560,7 @@ describe('block delete confirmation flow', () => {
     expect(s.blocks).toEqual([BLOCK_A]);
     expect(s.pendingDeleteBlockId).toBeNull();
     // Same fixups as removeBlock: active tab back to BASIC, error dot pruned.
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
     expect(s.dirty).toBe(true);
   });
@@ -1491,5 +1760,864 @@ describe('loading a document on the tab layout', () => {
     const s = useIdeStore.getState();
     expect(s.stopRequest).toBe(1);
     expect(s.mobileTab).toBe('editor');
+  });
+});
+
+describe('requestPause', () => {
+  it('bumps the pause request and leaves the rest of the run alone', () => {
+    useIdeStore.setState({
+      pauseRequest: 0,
+      stopRequest: 0,
+      continueRequest: 0,
+      stepRequest: 0,
+      debugLine: 42,
+    });
+    useIdeStore.getState().requestPause();
+    const s = useIdeStore.getState();
+    expect(s.pauseRequest).toBe(1);
+    // A pause asks the pane to hold the machine still; it does not stop the
+    // run, move the debugger, or disturb the line a breakpoint paused on.
+    expect(s.stopRequest).toBe(0);
+    expect(s.continueRequest).toBe(0);
+    expect(s.stepRequest).toBe(0);
+    expect(s.debugLine).toBe(42);
+  });
+
+  it('counts each pause, so repeated presses are distinguishable', () => {
+    useIdeStore.setState({ pauseRequest: 0 });
+    useIdeStore.getState().requestPause();
+    useIdeStore.getState().requestPause();
+    expect(useIdeStore.getState().pauseRequest).toBe(2);
+  });
+});
+
+describe('scratch buffers', () => {
+  const DISC = Uint8Array.from([1, 2, 3, 4]);
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      fileName: 'game.bas',
+      source: '10 REM prog',
+      dirty: false,
+      bootDisc: DISC,
+      blocks: [],
+      listingBlockMeta: {},
+      activeTab: BASIC_TAB,
+      scratchBuffers: [],
+      breakpoints: new Set<number>(),
+      debugLine: null,
+      debugBufferId: null,
+      runRequest: 0,
+      aiRunCheckSeq: 0,
+      aiRunSource: '',
+    });
+  });
+
+  it('editing one leaves the program, the dirty flag and the boot disc alone', () => {
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    useIdeStore.getState().addScratchBuffer();
+    let s = useIdeStore.getState();
+    expect(s.scratchBuffers.map((b) => b.name)).toEqual(['Scratch 1']);
+    expect(s.activeTab).toEqual({ kind: 'scratch', id: 'scratch-1' });
+    // Showing the new (empty) buffer is not a change to any document: the
+    // editor takes the incoming buffer's text and history for itself.
+    expect(selectActiveSource(s)).toBe('');
+    expect(s.docOverride.seq).toBe(seqBefore);
+
+    useIdeStore.getState().setScratchText('scratch-1', '10 PRINT "HI"');
+    s = useIdeStore.getState();
+    expect(s.scratchBuffers[0]!.text).toBe('10 PRINT "HI"');
+    // Not one of setSource's document semantics fires.
+    expect(s.source).toBe('10 REM prog');
+    expect(s.dirty).toBe(false);
+    expect(s.bootDisc).toBe(DISC);
+  });
+
+  it('holds several at once, and choosing one is not a document change', () => {
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.setScratchText('scratch-1', '10 REM one');
+    store.addScratchBuffer();
+    store.setScratchText('scratch-2', '10 REM two');
+    expect(useIdeStore.getState().scratchBuffers.map((b) => b.name)).toEqual([
+      'Scratch 1',
+      'Scratch 2',
+    ]);
+
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    store.setActiveTab({ kind: 'scratch', id: 'scratch-1' });
+    let s = useIdeStore.getState();
+    expect(selectActiveSource(s)).toBe('10 REM one');
+
+    store.setActiveTab(BASIC_TAB);
+    s = useIdeStore.getState();
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+    // Not one bump between them: a switch that travelled over this channel was
+    // an editable change, and one undo after it moved text between buffers.
+    expect(s.docOverride.seq).toBe(seqBefore);
+  });
+
+  it('leaving a scratch tab for a block tab leaves the program to come back to', () => {
+    // The editor is hidden behind the block tab but still holds the program;
+    // creating the block must not carry the snippet across to it.
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.setScratchText('scratch-1', '10 REM snippet');
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    store.addBlock();
+    let s = useIdeStore.getState();
+    expect(s.activeTab.kind).toBe('block');
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+    expect(s.docOverride.seq).toBe(seqBefore);
+
+    useIdeStore.getState().setActiveTab(BASIC_TAB);
+    s = useIdeStore.getState();
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
+  });
+
+  it('names buffers by the first free ordinal and ignores a blank rename', () => {
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.addScratchBuffer();
+    store.closeScratchBuffer('scratch-1');
+    store.addScratchBuffer();
+    expect(useIdeStore.getState().scratchBuffers.map((b) => b.id)).toEqual([
+      'scratch-2',
+      'scratch-1',
+    ]);
+
+    store.renameScratchBuffer('scratch-2', '  Sprites test  ');
+    expect(useIdeStore.getState().scratchBuffers[0]!.name).toBe('Sprites test');
+    store.renameScratchBuffer('scratch-2', '   ');
+    expect(useIdeStore.getState().scratchBuffers[0]!.name).toBe('Sprites test');
+  });
+
+  it('closing the active buffer falls back to BASIC; closing another does not', () => {
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.addScratchBuffer();
+    useIdeStore.getState().setActiveTab({ kind: 'scratch', id: 'scratch-2' });
+
+    useIdeStore.getState().closeScratchBuffer('scratch-1');
+    let s = useIdeStore.getState();
+    expect(s.scratchBuffers.map((b) => b.id)).toEqual(['scratch-2']);
+    expect(s.activeTab).toEqual({ kind: 'scratch', id: 'scratch-2' });
+
+    useIdeStore.getState().closeScratchBuffer('scratch-2');
+    s = useIdeStore.getState();
+    expect(s.scratchBuffers).toEqual([]);
+    expect(s.activeTab).toEqual(BASIC_TAB);
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+  });
+
+  it('goes with the document it belonged to, and with the machine', () => {
+    const seed = () => {
+      useIdeStore.setState({ scratchBuffers: [], activeTab: BASIC_TAB });
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
+    };
+
+    // Sample / Import: a different program, so the buffers go with the old one.
+    seed();
+    useIdeStore.getState().loadUnsavedDocument('10 REM other');
+    let s = useIdeStore.getState();
+    expect(s.scratchBuffers).toEqual([]);
+    expect(s.activeTab).toEqual(BASIC_TAB);
+
+    // Open of a plain source file.
+    seed();
+    useIdeStore.getState().replaceDocument('10 REM opened', 'opened.bas');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // Open of a project: its own buffers replace whatever was open...
+    seed();
+    useIdeStore.getState().openProject({
+      dialectId: 'zxspectrum',
+      source: '10 REM project',
+      fileName: 'p.zip',
+      scratch: [
+        {
+          id: 'scratch-1',
+          name: 'Saved',
+          text: '10 REM saved',
+          breakpoints: new Set<number>(),
+        },
+      ],
+    });
+    s = useIdeStore.getState();
+    expect(s.scratchBuffers.map((b) => [b.name, b.text])).toEqual([
+      ['Saved', '10 REM saved'],
+    ]);
+
+    // ...and a project saved without any opens without any.
+    useIdeStore.getState().openProject({
+      dialectId: 'zxspectrum',
+      source: '10 REM bare',
+      fileName: 'bare.zip',
+    });
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // A new project on the active machine: applyDialectSwitch clears nothing
+    // here, so createProject's own clear is what has to do it.
+    seed();
+    useIdeStore.getState().createProject({
+      dialectId: 'zxspectrum',
+      source: '',
+      fileName: 'fresh.zip',
+    });
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // A target switch on an empty editor is a fresh start on a new machine,
+    // not a program moving, so the workbench goes with the old one.
+    seed();
+    useIdeStore.setState({ source: '' });
+    useIdeStore.getState().setDialect('bbcmicro');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // Player boot: the player has no tab strip to reach one from.
+    useIdeStore.setState({ dialect: spectrum });
+    seed();
+    useIdeStore.getState().playerBoot({
+      dialectId: 'zxspectrum',
+      source: '10 REM shared',
+      fileName: 'shared.bas',
+    });
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+  });
+
+  it('an in-place AI apply keeps the buffers, but takes the editor back', () => {
+    // replaceDocument pushes the program into the one mounted editor whatever
+    // tab is showing; leaving a scratch tab selected would show the program
+    // under it and type the next keystroke into the snippet.
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    const s = useIdeStore.getState();
+    expect(s.activeTab).toEqual(BASIC_TAB);
+    expect(s.docOverride.text).toBe('10 REM ai edit');
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
+  });
+
+  it('reaches autosave, including on a scratch-only edit', () => {
+    useIdeStore.setState({ bootDisc: null, scratchBuffers: [] });
+    seedRealAutosave('scratch-autosave');
+    useIdeStore.setState({
+      dialect: spectrum,
+      fileName: 'game.bas',
+      source: '10 REM prog',
+    });
+    persistAutosave();
+    expect(loadAutosave()?.scratch).toEqual([]);
+
+    // Nothing but the buffer changes here - the document stays clean - so this
+    // also proves the buffers are part of the signature persistAutosave gates
+    // its write on.
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
+    persistAutosave();
+    expect(loadAutosave()?.scratch).toEqual([
+      { name: 'Scratch 1', text: '10 REM snippet' },
+    ]);
+    expect(loadAutosave()?.text).toBe('10 REM prog');
+
+    // Closing it takes it back out again.
+    useIdeStore.getState().closeScratchBuffer('scratch-1');
+    persistAutosave();
+    expect(loadAutosave()?.scratch).toEqual([]);
+  });
+
+  // 3.2's rule from the other side: a blank untitled document clears its own
+  // autosave, and the snippets beside it stay.
+  it('outlives the autosave of the pristine document beside it', () => {
+    seedRealAutosave('pristine-with-scratch');
+    useIdeStore.setState({
+      dialect: spectrum,
+      fileName: 'untitled.txt',
+      source: '',
+      scratchBuffers: [],
+      blocks: [],
+      tapeFiles: [],
+      bootDisc: null,
+      listingBlockMeta: {},
+    });
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM kept');
+    persistAutosave();
+    expect(loadAutosave()).toBeNull();
+    expect(
+      JSON.parse(sessionStorage.getItem('mbide.autosave.scratch')!),
+    ).toEqual([{ name: 'Scratch 1', text: '10 REM kept' }]);
+  });
+
+  describe('breakpoints belong to the buffer they were set on', () => {
+    it('the toggles never reach across buffers', () => {
+      useIdeStore.getState().toggleBreakpoint(20);
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().toggleBreakpoint(20);
+      useIdeStore.getState().toggleBreakpoint(30);
+
+      let s = useIdeStore.getState();
+      // Same line number, unrelated code: the program keeps only its own.
+      expect([...s.breakpoints]).toEqual([20]);
+      expect([...s.scratchBuffers[0]!.breakpoints]).toEqual([20, 30]);
+      // The gutter reads the buffer on screen.
+      expect([...selectActiveBreakpoints(s)]).toEqual([20, 30]);
+
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      s = useIdeStore.getState();
+      expect([...selectActiveBreakpoints(s)]).toEqual([20]);
+      useIdeStore.getState().clearBreakpoints();
+      s = useIdeStore.getState();
+      expect([...s.breakpoints]).toEqual([]);
+      expect([...s.scratchBuffers[0]!.breakpoints]).toEqual([20, 30]);
+    });
+
+    it('closing a buffer drops its breakpoints with it', () => {
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().toggleBreakpoint(40);
+      useIdeStore.getState().closeScratchBuffer('scratch-1');
+      // A session still pinned to the closed buffer resolves to no breakpoints
+      // rather than falling back to the program's.
+      expect([
+        ...selectBufferBreakpoints(useIdeStore.getState(), 'scratch-1'),
+      ]).toEqual([]);
+    });
+
+    it('a session resolves breakpoints from the buffer that ran', () => {
+      useIdeStore.getState().toggleBreakpoint(10);
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().toggleBreakpoint(50);
+      // Looking at the snippet while the *program* is the one running.
+      const s = useIdeStore.getState();
+      expect([...selectBufferBreakpoints(s, null)]).toEqual([10]);
+      expect([...selectBufferBreakpoints(s, 'scratch-1')]).toEqual([50]);
+    });
+
+    it('a pause is shown only against the buffer that is running', () => {
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setDebugLine(50, 'scratch-1');
+      expect(selectVisibleDebugLine(useIdeStore.getState())).toBe(50);
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      expect(selectVisibleDebugLine(useIdeStore.getState())).toBeNull();
+    });
+
+    it('measurements are shown only against the buffer they were taken on', () => {
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore
+        .getState()
+        .setScratchText('scratch-1', '10 PRINT 1\n20 GOTO 10');
+      useIdeStore.getState().setRunProfile({
+        bufferId: 'scratch-1',
+        measuredLines: [10, 20],
+        lines: [{ line: 20, cost: 100 }],
+        memory: null,
+        allocations: null,
+        elapsed: 1,
+      });
+      expect(selectVisibleProfile(useIdeStore.getState())?.bufferId).toBe(
+        'scratch-1',
+      );
+      // The program's lines are not the snippet's, however they are numbered.
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      expect(selectVisibleProfile(useIdeStore.getState())).toBeNull();
+    });
+
+    it('a timing is shown only against the buffer it was taken on', () => {
+      // Same rule as the profile: how long a snippet took is not how long the
+      // user's program took.
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setRunTiming({
+        bufferId: 'scratch-1',
+        seconds: 1.4,
+        ending: 'finished',
+      });
+      expect(selectVisibleTiming(useIdeStore.getState())?.seconds).toBe(1.4);
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      expect(selectVisibleTiming(useIdeStore.getState())).toBeNull();
+    });
+
+    it('a timing and its pause interval go with the program', () => {
+      // A duration measured on one program means nothing about the next one, so
+      // loading a different program discards it rather than carrying it over.
+      useIdeStore.getState().setRunTiming({
+        bufferId: null,
+        seconds: 1.4,
+        ending: 'finished',
+      });
+      useIdeStore
+        .getState()
+        .setPauseInterval({ seconds: 0.2, line: 20, fromStart: false });
+      useIdeStore.getState().loadUnsavedDocument('10 PRINT 1');
+      expect(useIdeStore.getState().runTiming).toBeNull();
+      expect(useIdeStore.getState().pauseInterval).toBeNull();
+    });
+
+    it('measurements do not survive an edit that moves the lines', () => {
+      const measured = {
+        bufferId: null,
+        measuredLines: [10, 20],
+        lines: [{ line: 20, cost: 100 }],
+        memory: null,
+        allocations: null,
+        elapsed: 1,
+      };
+      useIdeStore.getState().setSource('10 PRINT 1\n20 GOTO 10');
+      useIdeStore.getState().setRunProfile(measured);
+      // An edit that leaves the same lines in place keeps them meaningful.
+      useIdeStore.getState().setSource('10 PRINT 2\n20 GOTO 10');
+      expect(useIdeStore.getState().runProfile).not.toBeNull();
+      // Inserting a line means the costs no longer describe this program.
+      useIdeStore.getState().setSource('10 PRINT 2\n15 PRINT 3\n20 GOTO 10');
+      expect(useIdeStore.getState().runProfile).toBeNull();
+    });
+  });
+
+  describe('what a run request runs', () => {
+    it('takes the buffer on screen, and yields to an assistant check', () => {
+      useIdeStore.setState({ runRequest: 7 });
+      expect(selectRunTarget(useIdeStore.getState(), 7)).toEqual({
+        source: '10 REM prog',
+        checking: false,
+        scratch: false,
+        bufferId: null,
+      });
+
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setScratchText('scratch-1', '10 PLOT 1,1');
+      expect(selectRunTarget(useIdeStore.getState(), 7)).toEqual({
+        source: '10 PLOT 1,1',
+        checking: false,
+        scratch: true,
+        bufferId: 'scratch-1',
+      });
+      expect(selectRunTargetName(useIdeStore.getState())).toBe('Scratch 1');
+
+      // A block tab runs the program: the BASIC behind it is the document's.
+      useIdeStore.getState().addBlock();
+      expect(selectRunTarget(useIdeStore.getState(), 7).source).toBe(
+        '10 REM prog',
+      );
+      expect(selectRunTarget(useIdeStore.getState(), 7).scratch).toBe(false);
+      expect(selectRunTargetName(useIdeStore.getState())).toBeNull();
+
+      // The assistant's answer-check still wins over both.
+      useIdeStore.getState().setActiveTab({ kind: 'scratch', id: 'scratch-1' });
+      useIdeStore.setState({ aiRunCheckSeq: 7, aiRunSource: '10 REM answer' });
+      expect(selectRunTarget(useIdeStore.getState(), 7)).toEqual({
+        source: '10 REM answer',
+        checking: true,
+        scratch: false,
+        bufferId: null,
+      });
+    });
+  });
+});
+
+describe('boot hydration of scratch buffers', () => {
+  it('restores the autosaved buffers with their names, contents and no breakpoints', async () => {
+    const { saveAutosave, saveAutosaveScratch } =
+      await import('../storage/settings');
+    saveAutosave('restored.bas', '10 REM restored');
+    saveAutosaveScratch([
+      { name: 'Sprites test', text: '10 REM snippet' },
+      { name: 'Sprites test', text: '20 REM same name' },
+    ]);
+
+    // A fresh module instance is the only way to observe boot: the store reads
+    // autosave once, at import.
+    vi.resetModules();
+    const booted = await import('./store');
+    const s = booted.useIdeStore.getState();
+    expect(s.source).toBe('10 REM restored');
+    expect(
+      s.scratchBuffers.map((b) => [b.id, b.name, b.text, b.breakpoints.size]),
+    ).toEqual([
+      ['scratch-1', 'Sprites test', '10 REM snippet', 0],
+      ['scratch-2', 'Sprites test', '20 REM same name', 0],
+    ]);
+  });
+});
+
+/**
+ * Files a program saved are kept for the machine that wrote them and served
+ * back to its later runs, so nothing about the machine takes them away. What
+ * ends them is a different program becoming active - and every path that
+ * installs one has to say so, rather than inheriting a clear from a machine
+ * that happened to be running - or the user deleting one.
+ *
+ * The emulator lifecycle discards nothing: a start restores the files instead
+ * of emptying them, and a reset, a stop, a breakpoint pause and the pane going
+ * away all leave them standing. That round trip needs a real machine, so it is
+ * proved in the browser (`e2e/persistence/`).
+ */
+describe('saved files and the document that owns them', () => {
+  const seed = () => emulatorVfs.save('SCORES', Uint8Array.from([1, 2, 3]));
+  const names = () => emulatorVfs.list().map((f) => f.name);
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      blocks: [],
+      listingBlockMeta: {},
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+    });
+    emulatorVfs.clear(spectrum.id);
+  });
+
+  const replacements: [string, () => void][] = [
+    [
+      'a new project',
+      () =>
+        useIdeStore
+          .getState()
+          .createProject({ dialectId: 'zxspectrum', source: '10 REM new' }),
+    ],
+    [
+      'opening a project bundle',
+      () =>
+        useIdeStore.getState().openProject({
+          dialectId: 'zxspectrum',
+          source: '10 REM zip',
+          fileName: 'zip.bas',
+        }),
+    ],
+    [
+      'opening a shared program',
+      () =>
+        useIdeStore
+          .getState()
+          .openSharedInIde({ dialectId: 'zxspectrum', source: '10 REM share' }),
+    ],
+    [
+      'a player boot',
+      () =>
+        useIdeStore.getState().playerBoot({
+          dialectId: 'zxspectrum',
+          source: '10 REM shared',
+          fileName: 'shared.bas',
+        }),
+    ],
+    [
+      'an Open',
+      () => useIdeStore.getState().replaceDocument('10 REM open', 'open.bas'),
+    ],
+    [
+      'a sample or an import',
+      () => useIdeStore.getState().loadUnsavedDocument('10 REM sample'),
+    ],
+    ['a machine change', () => useIdeStore.getState().setDialect(zx81.id)],
+  ];
+
+  for (const [label, act] of replacements) {
+    it(`${label} discards them`, () => {
+      seed();
+      expect(names()).toEqual(['SCORES']);
+      act();
+      expect(names()).toEqual([]);
+    });
+  }
+
+  // An in-place apply is an edit to the program the user already has, not a
+  // different one - the same reason it leaves the edit histories standing.
+  it('an in-place AI apply keeps them', () => {
+    seed();
+    useIdeStore.getState().replaceDocument('10 REM applied');
+    expect(names()).toEqual(['SCORES']);
+  });
+
+  // A machine change retags the mirror, so what the next machine saves is not
+  // filed under the one that just went away.
+  it('a machine change retags the store for the new machine', async () => {
+    seed();
+    useIdeStore.getState().setDialect(zx81.id);
+    emulatorVfs.save('LOG', Uint8Array.from([4]));
+    await emulatorVfs.idle();
+    expect(names()).toEqual(['LOG']);
+    const col = await getVfsCollection();
+    const row = await col.findOne({ selector: { name: 'LOG' } }).exec();
+    expect(row!.dialectId).toBe('zx81');
+  });
+
+  // Deleting is the user's only way to lose a file, so it is confirmed first.
+  describe('deleting one', () => {
+    const showing = (name: string) =>
+      useIdeStore.setState({ activeTab: { kind: 'data', name } });
+
+    it('asks first, then deletes and gives the editor back', () => {
+      seed();
+      showing('SCORES');
+      useIdeStore.getState().requestDeleteDataFile('SCORES');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBe('SCORES');
+      // Nothing has gone until the user says so.
+      expect(names()).toEqual(['SCORES']);
+
+      useIdeStore.getState().confirmDeleteDataFile();
+      const s = useIdeStore.getState();
+      expect(names()).toEqual([]);
+      expect(s.activeTab).toEqual(BASIC_TAB);
+      expect(s.pendingDeleteDataFile).toBeNull();
+    });
+
+    it('cancelling keeps the file and the tab showing it', () => {
+      seed();
+      showing('SCORES');
+      useIdeStore.getState().requestDeleteDataFile('SCORES');
+      useIdeStore.getState().cancelDeleteDataFile();
+      const s = useIdeStore.getState();
+      expect(names()).toEqual(['SCORES']);
+      expect(s.activeTab).toEqual({ kind: 'data', name: 'SCORES' });
+      expect(s.pendingDeleteDataFile).toBeNull();
+    });
+
+    it('ignores a file the store does not hold', () => {
+      useIdeStore.getState().requestDeleteDataFile('GONE');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBeNull();
+    });
+
+    // What the IDE mounted has no tab, so no menu can ask to delete it - and
+    // the request must not open a dialog for it if something else does.
+    it('ignores what the IDE mounted', () => {
+      emulatorVfs.save('engine', Uint8Array.from([0xc9]), {
+        kind: 'code',
+        mounted: true,
+      });
+      useIdeStore.getState().requestDeleteDataFile('engine');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBeNull();
+    });
+
+    // A dialog left standing across a document change would offer to delete a
+    // file that went with the program before it.
+    it('drops the pending name when a different program becomes active', () => {
+      seed();
+      useIdeStore.getState().requestDeleteDataFile('SCORES');
+      useIdeStore.getState().loadUnsavedDocument('10 REM sample');
+      expect(useIdeStore.getState().pendingDeleteDataFile).toBeNull();
+    });
+  });
+});
+
+describe('addBlockFromDataFile', () => {
+  /** Save a file as the Spectrum deck stores one: a tape header, then data. */
+  const seedTap = (name: string, data: number[]) => {
+    const header = new Uint8Array(17);
+    header[0] = 0x03; // CODE
+    emulatorVfs.save(name, tapFromPayloads(header, Uint8Array.from(data)));
+    resetDataBlockCacheForTests();
+  };
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [],
+      listingBlockMeta: {},
+      activeTab: BASIC_TAB,
+      blockSettingsId: null,
+    });
+    emulatorVfs.clear(spectrum.id);
+    resetDataBlockCacheForTests();
+  });
+
+  it("copies the bytes the tab shows, not the machine's container", () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const block = useIdeStore.getState().blocks[0]!;
+    expect(Array.from(block.bytes)).toEqual([1, 2, 3]);
+    expect(block.kind).toBe('memory');
+    expect(block.address).toBe(0x8000); // zxspectrum defaultAddress
+    expect(block.asmSource).toBeUndefined();
+  });
+
+  it("copies rather than shares the projection's array", () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const block = useIdeStore.getState().blocks[0]!;
+    const shown = selectDataBlocks(spectrum).find((f) => f.name === 'SCORES')!;
+    expect(Array.from(block.bytes)).toEqual(Array.from(shown.bytes));
+    expect(block.bytes).not.toBe(shown.bytes);
+    block.bytes[0] = 0xff;
+    expect(shown.bytes[0]).toBe(1);
+  });
+
+  it('names the block after the file and opens its settings on it', () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const s = useIdeStore.getState();
+    const block = s.blocks[0]!;
+    expect(block.name).toBe('SCORES');
+    expect(s.activeTab).toEqual({ kind: 'block', id: block.id });
+    expect(s.blockSettingsId).toBe(block.id);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('derives a legal name and de-duplicates against the document', () => {
+    seedTap('hi score.dat', [7]);
+    useIdeStore.getState().addBlockFromDataFile('hi score.dat');
+    expect(useIdeStore.getState().blocks[0]!.name).toBe('hiscoredat');
+    useIdeStore.getState().addBlockFromDataFile('hi score.dat');
+    expect(useIdeStore.getState().blocks.map((b) => b.name)).toEqual([
+      'hiscoredat',
+      'hiscoredat2',
+    ]);
+  });
+
+  it('leaves the file alone', () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    expect(emulatorVfs.list().map((f) => f.name)).toEqual(['SCORES']);
+  });
+
+  it('is a no-op for a file that is not there', () => {
+    useIdeStore.getState().addBlockFromDataFile('GONE');
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]);
+    expect(s.blockSettingsId).toBeNull();
+    expect(s.dirty).toBe(false);
+  });
+
+  it('is a no-op on a listing-backed dialect', () => {
+    seedTap('SCORES', [1, 2, 3]);
+    useIdeStore.setState({ dialect: zx81 });
+    resetDataBlockCacheForTests();
+    useIdeStore.getState().addBlockFromDataFile('SCORES');
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]);
+    expect(s.source).not.toContain('#BIN ');
+    expect(s.blockSettingsId).toBeNull();
+  });
+});
+
+describe('parked edit histories', () => {
+  /** Park a history for the program and for a scratch buffer. */
+  const park = () => {
+    bufferHistories.save(
+      basicBufferKey(null),
+      freshBufferState('10 REM p', []),
+    );
+    bufferHistories.save(
+      basicBufferKey('scratch-1'),
+      freshBufferState('10 REM s', []),
+    );
+  };
+  const parked = () => [
+    bufferHistories.has(basicBufferKey(null)),
+    bufferHistories.has(basicBufferKey('scratch-1')),
+  ];
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      blocks: [],
+      listingBlockMeta: {},
+      scratchBuffers: [],
+      activeTab: BASIC_TAB,
+    });
+    bufferHistories.clear();
+  });
+
+  it('an Open leaves nothing to undo back into, and still pushes the text', () => {
+    park();
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    useIdeStore.getState().replaceDocument('10 REM opened', 'opened.bas');
+    expect(parked()).toEqual([false, false]);
+    const s = useIdeStore.getState();
+    expect(s.docOverride.text).toBe('10 REM opened');
+    expect(s.docOverride.seq).toBe(seqBefore + 1);
+  });
+
+  it('a sample and a player boot clear them too', () => {
+    park();
+    useIdeStore.getState().loadUnsavedDocument('10 REM sample');
+    expect(parked()).toEqual([false, false]);
+
+    park();
+    useIdeStore.getState().playerBoot({
+      dialectId: 'zxspectrum',
+      source: '10 REM shared',
+      fileName: 'shared.bas',
+    });
+    expect(parked()).toEqual([false, false]);
+  });
+
+  it('a machine switch clears them only when the program does not come along', () => {
+    useIdeStore.setState({ pendingDialectId: bbc.id });
+    park();
+    useIdeStore.getState().confirmDialectSwitch('new');
+    expect(parked()).toEqual([false, false]);
+
+    // Keeping the program leaves its text untouched, so there is something to
+    // undo back into and the histories have to survive the rebuilt editor.
+    useIdeStore.setState({
+      dialect: spectrum,
+      source: '10 REM prog',
+      pendingDialectId: bbc.id,
+    });
+    park();
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(parked()).toEqual([true, true]);
+
+    // The silent switch onto a machine that takes the program as it stands is
+    // a keep as much as the confirmed one is.
+    useIdeStore.setState({ dialect: spectrum, source: '10 REM prog' });
+    park();
+    useIdeStore.getState().setDialect(zx81.id);
+    // It really did switch: without this the assertion below would pass on a
+    // switch that never happened.
+    expect(useIdeStore.getState().dialect.id).toBe(zx81.id);
+    expect(parked()).toEqual([true, true]);
+  });
+
+  it('an in-place AI apply stays undoable, so the histories stand', () => {
+    park();
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    expect(parked()).toEqual([true, true]);
+    expect(useIdeStore.getState().docOverride.seq).toBe(seqBefore + 1);
+  });
+
+  it('a closed buffer and a removed block take their histories with them', () => {
+    useIdeStore.getState().addScratchBuffer();
+    park();
+    useIdeStore.getState().closeScratchBuffer('scratch-1');
+    expect(parked()).toEqual([true, false]);
+
+    useIdeStore.getState().addBlock();
+    const id = useIdeStore.getState().blocks[0]!.id;
+    bufferHistories.save(blockBufferKey(id), freshBufferState('RET', []));
+    useIdeStore.getState().removeBlock(id);
+    expect(bufferHistories.has(blockBufferKey(id))).toBe(false);
+  });
+
+  it('writing a listing-backed block back replaces the program, history and all', () => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 PRINT "HI"\n',
+      activeTab: BASIC_TAB,
+    });
+    useIdeStore.getState().addBlock();
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    park();
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes(
+        'listing-0',
+        Uint8Array.from([0xcd, 0x21, 0xc9]),
+      );
+    const s = useIdeStore.getState();
+    // The program's text really changed, so it is pushed into the (hidden)
+    // editor and its parked history is dropped rather than left describing the
+    // listing as it was.
+    expect(s.docOverride.text).toBe(s.source);
+    expect(s.docOverride.seq).toBe(seqBefore + 1);
+    expect(parked()).toEqual([false, true]);
   });
 });

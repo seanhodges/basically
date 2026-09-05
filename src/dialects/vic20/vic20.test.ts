@@ -17,7 +17,7 @@ import { tokenizeProgram as tokenizeC64 } from '../commodore64/tokenizer';
  * is the $1001 program base (vs the C64's $0801) on the unexpanded machine.
  */
 describe('vic20 dialect', () => {
-  // ---- Stage 1 - language core ------------------------------------------
+  // ---- language core -----------------------------------------------------
 
   it('keyword table is byte-identical to the C64 BASIC V2 table', () => {
     // Re-exported, so it is literally the same table - but assert it so a future
@@ -127,7 +127,7 @@ describe('vic20 dialect', () => {
     expect(vic20.detokenize(result.image)).toBe('10 PRINT "HI"\n');
   });
 
-  // ---- Stage 2 - emulator core ------------------------------------------
+  // ---- emulator core -----------------------------------------------------
   // Covered by src/emulator/vic20/vic20Machine.test.ts (boots the BASIC V2
   // ROMs to READY. and runs an injected program) and the chip unit tests
   // (vicI.test.ts, vicAudio.test.ts, src/emulator/commodore/).
@@ -137,7 +137,7 @@ describe('vic20 dialect', () => {
     expect(vic20.romUrl).toMatch(/roms\/vic20\/kernal/);
   });
 
-  // ---- Stage 3 - wire-up ------------------------------------------------
+  // ---- dialect wire-up ---------------------------------------------------
   // Full keyboard-layout + matrix (physical+virtual) coverage lives in
   // keyboardLayout.test.ts; the surface wiring is asserted here.
   it('registers a native joystick and a keyboard layout on the dialect', () => {
@@ -169,7 +169,7 @@ describe('vic20 dialect', () => {
     }
   });
 
-  // ---- Stage 4 - transfer & tape I/O ------------------------------------
+  // ---- transfer & tape I/O -----------------------------------------------
   // The cassette codec itself is exercised in audio/cassette.test.ts; here we
   // confirm the dialect surface is wired: .prg import + tape audio in/out.
   it('exposes .prg/.d64 import and cassette audio through the dialect', () => {
@@ -202,7 +202,7 @@ describe('vic20 dialect', () => {
     expect(norm(source)).toBe(norm(src));
   });
 
-  // ---- Stage 5 - polish -------------------------------------------------
+  // ---- polish ------------------------------------------------------------
   // The watcher/debugger/audio wiring is exercised against the real ROMs in
   // src/emulator/vic20/vic20Machine.test.ts; here we assert the dialect flag
   // that surfaces the Debug toggle in the toolbar.

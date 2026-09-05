@@ -1,12 +1,13 @@
 // Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
-import { test, expect, type Page } from '../fixtures';
+import { chooseTargetMachine, test, expect, type Page } from '../fixtures';
+import { addMemoryBlock, playAndWaitRunning } from '../helpers';
 
 /**
  * Block creation, settings and deletion from the editor tab strip:
  *
- *  1. The plus button creates a code block with defaults (`block1`,
- *     `block2`…), activates its tab, and opens the assembly editor on the
- *     one-instruction return stub.
+ *  1. The plus button creates a block of either kind with defaults (`block1`,
+ *     `block2`…) and activates its tab: an assembly block opens the assembly
+ *     editor on the one-instruction return stub, a binary block the byte editor.
  *  2. Right-clicking a code block tab opens a context menu with "Download
  *     .asm", "Download .bin", "Settings…" and "Delete…"; Escape (or an outside
  *     click) dismisses it.
@@ -43,51 +44,63 @@ test('the plus button creates blocks with sequential default names', async ({
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
 
-  await tablist.getByRole('button', { name: 'New block' }).click();
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await addMemoryBlock(page);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
   // The new block's tab is active and shows the assembled return stub.
   await expect(page.getByRole('tab', { name: 'block1' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
   await expect(asmContent(page)).toContainText('RET');
-  // Spectrum defaultAddress pins the origin strip.
-  await expect(page.getByText('ORG $8000')).toBeVisible();
+  // Spectrum defaultAddress pins where the block sits; the one-byte stub
+  // occupies one address.
+  await expect(page.getByTestId('block-bar')).toContainText('$8000 - $8000');
 
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   await expect(tablist.getByRole('tab')).toHaveText([
     'BASIC',
-    /block1/,
-    /block2/,
+    'block1',
+    'block2',
   ]);
+
+  // The other kind is created directly rather than created as code and
+  // converted, and opens on its bytes.
+  await page.getByRole('button', { name: 'Add a tab' }).click();
+  await page.getByRole('menuitem', { name: 'New binary block' }).click();
+  await expect(page.getByRole('tab', { name: 'block3' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  // The byte editor's testid is the discriminator: both editors are CodeMirror
+  // and both carry the same bar, so neither the editor element nor the bar says
+  // which one is mounted.
+  await expect(page.getByTestId('byte-editor')).toBeVisible();
+  // Seeded with the one zero byte the editor needs a row to open on.
+  await expect(page.getByTestId('block-bar')).toContainText('1 byte');
+  await expect(page.getByTestId('byte-editor')).toContainText('00');
 });
 
-test('right-click opens the context menu; Escape dismisses it', async ({
+test('the context menu offers the block actions, and Settings edits its metadata', async ({
   page,
 }) => {
   await openSpectrum(page);
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await expect(tabMenu(page)).toBeVisible();
-  // A code block downloads either its assembly or its bytes, plus Settings /
-  // Delete.
+  // A code block downloads either its assembly or its bytes, takes bytes back
+  // in from a file, plus Settings / Delete.
   await expect(tabMenu(page).getByRole('menuitem')).toHaveText([
     'Download .asm',
     'Download .bin',
+    'Load bytes…',
     'Settings…',
     'Delete…',
   ]);
 
   await page.keyboard.press('Escape');
   await expect(tabMenu(page)).toBeHidden();
-});
-
-test('Settings edits the block metadata via the dialog', async ({ page }) => {
-  await openSpectrum(page);
-  const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await tabMenu(page).getByRole('menuitem', { name: 'Settings…' }).click();
@@ -95,20 +108,22 @@ test('Settings edits the block metadata via the dialog', async ({ page }) => {
     page.getByRole('heading', { name: 'Block settings' }),
   ).toBeVisible();
 
-  // A bad name is rejected inline...
+  // A bad name is rejected inline. `exact` on every Save below: accessible-name
+  // matching is a substring match by default, and the toolbar behind the dialog
+  // carries a "Save a screenshot" button that would match a bare 'Save' too.
   await page.getByLabel('Name').fill('1bad');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText(/Names start with a letter/)).toBeVisible();
 
   // ...a clean edit renames and moves the block.
   await page.getByLabel('Name').fill('sprites');
   await page.getByLabel('Load address').fill('$9000');
   await page.getByLabel('Comment (optional)').fill('the draw routine');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /sprites/]);
-  // The block tab is still active; its origin strip follows the move.
-  await expect(page.getByText('ORG $9000')).toBeVisible();
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'sprites']);
+  // The block tab is still active; the addresses in its bar follow the move.
+  await expect(page.getByTestId('block-bar')).toContainText('$9000 - $9000');
   await expect(page.getByText('the draw routine')).toBeVisible();
 });
 
@@ -117,7 +132,7 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
 }) => {
   await openSpectrum(page);
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   const blockTab = page.getByRole('tab', { name: 'block1' });
   await expect(blockTab).toBeVisible();
 
@@ -128,7 +143,7 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
     page.getByRole('heading', { name: /Delete block1/ }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'block1']);
 
   // Delete removes it and falls back to the BASIC tab.
   await blockTab.click({ button: 'right' });
@@ -139,6 +154,50 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
     'aria-selected',
     'true',
   );
+});
+
+/**
+ * Whether the Atom's video RAM is free depends on the program, and only the
+ * running app puts the two together: the Run gate reads the open program's text
+ * and hands it to the block linter. The unit tests pin the linter's verdicts
+ * (`src/app/blockLint.test.ts`) and the declared region
+ * (`src/dialects/atom/memoryBlocks.test.ts`); what no unit test can prove is
+ * that the gate asks at all. Both halves ride one page load - the refusal
+ * never boots a machine, so only the accepted run pays for one.
+ */
+test('a block in the Atom video RAM runs while the program stays in text mode', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('mbide.dialectId', 'atom');
+    localStorage.setItem('mbide.autosave.doc', '10 CLEAR 4');
+    localStorage.setItem('mbide.autosave.name', 'video.bas');
+  });
+  await page.goto('/');
+  await expect(page.locator('.cm-content').first()).toBeVisible();
+
+  await addMemoryBlock(page);
+  await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
+  await tabMenu(page).getByRole('menuitem', { name: 'Settings…' }).click();
+  await page.getByLabel('Load address').fill('$8400');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByTestId('block-bar')).toContainText('$8400 - $8400');
+
+  // CLEAR 4 draws into the video RAM, so the placement is refused - and the
+  // refusal says what would make it legal rather than only that it is not.
+  await page.getByRole('button', { name: '▶ Play' }).click();
+  await expect(
+    page.getByText(/free only while the program stays in text mode/),
+  ).toBeVisible();
+
+  // Back to text mode and the same block is accepted: the machine boots and
+  // runs with a block the linter refused a moment ago.
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  const basic = page.locator('.cm-content').first();
+  await basic.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.insertText('10 CLEAR 0');
+  await playAndWaitRunning(page);
 });
 
 test('the BASIC tab context menu downloads the .bas listing', async ({
@@ -156,4 +215,44 @@ test('the BASIC tab context menu downloads the .bas listing', async ({
   const download = await downloadPromise;
   // Named after the document (blocks.bas -> blocks.bas), .bas extension.
   expect(download.suggestedFilename()).toBe('blocks.bas');
+});
+
+test('keeping the program on a new machine keeps its blocks and buffers', async ({
+  page,
+}) => {
+  // Browser-only: that the workbench really is still on the strip after the
+  // machine is torn down and rebuilt, and that the question said so first. The
+  // per-machine retention rule is pinned in src/app/blockRetention.test.ts.
+  await openSpectrum(page);
+  const tablist = page.getByRole('tablist', { name: 'Editor content' });
+  await addMemoryBlock(page);
+  await tablist.getByRole('button', { name: 'Add a tab' }).click();
+  await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  await expect(tablist.getByRole('tab')).toHaveText([
+    'BASIC',
+    'block1',
+    'Scratch 1',
+  ]);
+
+  // Amstrad CPC: another fixed-address machine, so the blocks travel.
+  await chooseTargetMachine(page, 'cpc464');
+  await expect(page.getByText(/memory blocks come with it/)).toBeVisible();
+  await expect(page.getByText(/scratch buffers come too/)).toBeVisible();
+  await page.getByRole('button', { name: 'Keep my code', exact: true }).click();
+
+  await expect(page.locator('.cm-content').first()).toBeVisible();
+  await expect(tablist.getByRole('tab')).toHaveText([
+    'BASIC',
+    'block1',
+    'Scratch 1',
+  ]);
+  await page.getByRole('tab', { name: 'block1' }).click();
+  await expect(asmContent(page)).toContainText('RET');
+
+  // Onto the ZX81, whose blocks live inside the listing instead: the question
+  // says they cannot come, and afterwards the block tab has gone.
+  await chooseTargetMachine(page, 'zx81');
+  await expect(page.getByText(/memory blocks are dropped/)).toBeVisible();
+  await page.getByRole('button', { name: 'Keep my code', exact: true }).click();
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', 'Scratch 1']);
 });

@@ -15,6 +15,8 @@
     "e2e:chromium": "playwright test --project=chromium",
     "e2e:headed": "playwright test --headed",
     "e2e:report": "playwright show-report",
+    "e2e:build": "E2E=1 vite build && E2E=1 npm run docs:build",
+    "e2e:serve": "vite preview --port 5173 --strictPort",
     "e2e:docs-screenshots": "playwright test --config=playwright.docs.config.ts",
     "typecheck": "tsc -b",
     "lint": "eslint .",
@@ -27,7 +29,9 @@
     "gen:reference": "vite-node scripts/gen-reference-scaffold.mts",
     "gen:escapes": "vite-node scripts/gen-escape-scaffold.mts",
     "gen:semigraphics": "vite-node scripts/gen-semigraphics-audit.mts",
-    "gen:glyphs": "vite-node scripts/gen-glyph-addresses.mts"
+    "gen:glyphs": "vite-node scripts/gen-glyph-addresses.mts",
+    "gen:apple1rom": "vite-node scripts/build-apple1-rom.mts",
+    "gen:atarirom": "vite-node scripts/build-atari-rom.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -40,6 +44,7 @@
     "@codemirror/view": "^6.36.0",
     "@google/genai": "^2.9.0",
     "@lezer/highlight": "^1.2.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "fflate": "^0.8.3",
     "jsbeeb": "1.13.1",
     "openai": "^6.44.0",
@@ -47,17 +52,21 @@
     "react-dom": "^18.3.1",
     "rxdb": "^17.3.0",
     "rxjs": "^7.8.2",
+    "vscode-languageserver": "^10.1.1",
+    "vscode-languageserver-textdocument": "^1.0.14",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@fission-ai/openspec": "~1.6.0",
     "@playwright/test": "1.56.1",
+    "@types/node": "^22.10.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/w3c-web-serial": "^1.0.6",
     "@vite-pwa/vitepress": "^1.1.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "esbuild": "^0.25.12",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -67,9 +76,10 @@
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.18.0",
     "vite": "^6.0.0",
+    "vite-node": "^3.2.4",
     "vite-plugin-pwa": "^1.3.0",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   }
 }

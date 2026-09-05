@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { zx81KeyboardLayout } from './keyboardLayout';
 import { zx81Charset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import { ZX81_GRAPHICS } from './graphics';
 
 const layout = zx81KeyboardLayout;
@@ -53,8 +56,8 @@ describe('zx81 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'function')).toEqual({
       insert: 'SIN ',
     });
-    // '−' on the key legend is U+2212 - the editor must get an ASCII hyphen.
-    expect(resolveEditorAction(layout, byId.get('KeyJ')!, 'shift')).toEqual({
+    // '-' is a SYM cell now (the Z slot), inserting the ASCII hyphen.
+    expect(resolveEditorAction(layout, byId.get('KeyZ')!, 'symbols')).toEqual({
       insert: '-',
     });
     expect(resolveEditorAction(layout, byId.get('Enter')!, 'main')).toEqual({
@@ -88,6 +91,39 @@ describe('zx81 keyboard layout editor mapping', () => {
       const canonical = zx81Charset.toUnicode(codes);
       expect(canonical, esc).not.toBe(esc);
       expect([...zx81Charset.toMachine(canonical)], esc).toEqual([...codes]);
+    }
+  });
+
+  it('puts the cursor arrows on 5/6/7/8, where the machine prints them', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    const arrows: [string, 'left' | 'down' | 'up' | 'right'][] = [
+      ['Digit5', 'left'],
+      ['Digit6', 'down'],
+      ['Digit7', 'up'],
+      ['Digit8', 'right'],
+    ];
+    for (const [id, action] of arrows) {
+      const key = byId.get(id)!;
+      // The arrow the machine prints on the SHIFT layer and the CURSOR
+      // overlay are the same key, and both move the caret.
+      expect(resolveEditorAction(layout, key, 'shift'), id).toEqual({
+        action,
+      });
+      expect(resolveEditorAction(layout, key, 'cursor'), id).toEqual({
+        action,
+      });
+      // On the machine the CURSOR legend presses the pair the real keyboard
+      // sends, not the digit on its own.
+      expect(resolveEmits(layout, key, 'cursor'), id).toEqual(['Shift', id]);
+    }
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
     }
   });
 });

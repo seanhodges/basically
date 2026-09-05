@@ -12,10 +12,16 @@ Every command, function and operator in Commodore BASIC — BASIC V2 as built in
 the ROMs of the Commodore 64 and VIC-20, and BASIC 4.0 as built into the
 Commodore PET.
 
-**In this reference:** [Hardware](./commodore/hardware) · [Escape codes](./commodore/escapes) · [File formats](./commodore/formats)
+**In this reference:** [Hardware](./commodore/hardware) · [Escape codes](./commodore/escapes) · [File formats](./commodore/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 
+- A keyword can be typed as a prefix whose **last letter is shifted** — `pO`
+  for `POKE`, `goS` for `GOSUB` — which the ROM expands to the first keyword in
+  its reserved-word order that the letters begin. `PRINT` cannot be reached that
+  way (the scan finds `PRINT#` first), which is why `?` stands for it. Both
+  forms are shown beside each keyword in the table below, and the search box
+  finds a keyword by either; `LIST` always spells the keyword out in full.
 - BASIC V2 is token-identical across the C64 and VIC-20 — same ROM tokens, same
   `LIST` spellings — so only their hardware (screen size, colours, sound, memory
   map) differs, as described on the [hardware](./commodore/hardware) page.
@@ -25,5 +31,11 @@ Commodore PET.
 - The [PETSCII escape codes](./commodore/escapes) sub-page covers all three
   machines, though the colour-control codes have no visible effect on the PET's
   monochrome display.
+- The power operator is `↑`, which is what `LIST` spells back; the caret key is
+  accepted for it when typing. It folds left to right, so `2↑3↑2` is `64`.
+- `AND`, `OR` and `NOT` combine their operands bit by bit — `5 AND 3` is `1` —
+  and a true comparison is `-1`, which is what makes `X=X+(A>B)` a counting
+  idiom here. There is no integer-division, remainder or exclusive-OR operator:
+  use `INT(a/b)` and `a-b*INT(a/b)`.
 
 <ReferenceTable :data="commodoreReference" />

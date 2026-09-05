@@ -1,9 +1,10 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
-import { atomKeywords } from './keywords';
+import { atomKeywords, atomOperators } from './keywords';
 
 export const atomCompletionSource: CompletionSource = buildCompletionSource(
   atomKeywords,
@@ -22,9 +23,10 @@ export function atomLanguageSupport(): Extension {
   // FP-variable reference (%A..%Z) navy. That's an accepted minor imperfection -
   // the reference treats '%' as the remainder operator.
   return buildBasicLanguage(atomKeywords, atomCompletionSource, {
+    spellings: keywordSpellingsFor('atom'),
     hexPrefix: '#',
     graphicsEscapes: false,
     suffixChars: '',
-    extraOperators: '!%&\\',
+    operators: atomOperators,
   });
 }

@@ -5,14 +5,19 @@
  */
 
 /**
- * An image sent alongside a user turn - in practice the machine's display,
- * captured from the emulator (see `../../app/screenCapture`).
+ * An image sent alongside a user turn - either the machine's display, captured
+ * from the emulator (see `../../app/screenCapture`), or a photograph of a
+ * printed listing the user attached (see `../../app/listingPhoto`).
  *
- * PNG only: what is ever sent is a retro screen, where lossy compression
- * destroys the single-pixel detail that is the point of showing it.
+ * Two media types because the two pictures want opposite encodings, and each
+ * one states its reasoning where it is produced: a retro screen is PNG because
+ * lossy compression destroys the single-pixel detail that is the point of
+ * showing it, and a photograph of paper is JPEG because photographic noise
+ * defeats PNG's filters entirely for no readability gain. Every backend passes
+ * this field through rather than asserting on it.
  */
 export interface ChatImage {
-  mediaType: 'image/png';
+  mediaType: 'image/png' | 'image/jpeg';
   /** The image data, base64, without the `data:` URI prefix. */
   base64: string;
 }
@@ -166,43 +171,24 @@ export interface ProviderMeta {
   consoleLabel: string;
   /** Host the key is sent to (shown in the privacy warning). */
   apiHost: string;
-  /**
-   * Whether this backend can be shown an image ({@link ChatMessage.image}).
-   *
-   * Stated here rather than discovered by trying: the attach control and the
-   * system prompt both have to know before a request is made, and neither may
-   * load a vendor SDK to find out. All three backends accept images today; the
-   * flag exists so a backend that cannot is honestly incapable - no image sent,
-   * nothing offered - instead of failing a request the user has already made.
-   */
+  // The four capability fields below are declared, not discovered. The settings
+  // form, the attach control and the system prompt all have to know what a
+  // backend can do before a request is made, and none of them may load a vendor
+  // SDK to find out. A backend that lacks a capability is then honestly
+  // incapable - nothing offered, nothing sent - rather than failing a request
+  // the user has already made.
+
+  /** Whether this backend can be shown an image ({@link ChatMessage.image}). */
   acceptsImages: boolean;
   /**
-   * The largest `max_tokens` this backend accepts for its configured model.
-   *
-   * Declared here for the same reason as {@link acceptsImages}: the settings form
-   * needs it to bound the input, and the request builder needs it to clamp, and
-   * neither may load a vendor SDK to ask. Since the budget is now one app-wide
-   * number rather than a per-machine one, the tightest backend would otherwise
-   * turn a raised default into a rejected request.
+   * The largest `max_tokens` this backend accepts for its configured model. The
+   * budget is one app-wide number, so the tightest backend would otherwise turn
+   * a raised default into a rejected request.
    */
   maxOutputTokens: number;
-  /**
-   * Whether this backend has a reasoning-effort control.
-   *
-   * Only Claude does today. Stated rather than discovered so the settings form can
-   * decline to offer a setting that would do nothing - an inert control reads as a
-   * broken one.
-   */
+  /** Whether this backend has a reasoning-effort control. Only Claude does. */
   supportsEffort: boolean;
-  /**
-   * Whether this backend can be offered tools ({@link StreamOptions.tools}).
-   *
-   * Stated for the same reason as {@link acceptsImages}: what the assistant is
-   * told it can do is decided while the system prompt is built, before any
-   * vendor SDK is loaded, so it cannot be found out by trying. A backend
-   * without it is offered no tools and asked to do nothing that needs them, and
-   * behaves exactly as it does today.
-   */
+  /** Whether this backend can be offered tools ({@link StreamOptions.tools}). */
   supportsTools: boolean;
 }
 

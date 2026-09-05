@@ -13,11 +13,16 @@ This guide walks through running your first program, then generating one with AI
 
    ![The Start a new project dialog: the chosen machine with its description, a name field, and Blank program / Sample / Describe it as starting points](/new-project-dialog.png)
 
-3. Press the machine to open the picker and pick one. They're grouped by the
-   company that made them, with the year and a line naming the BASIC each one
-   runs - every machine has its own dialect and its own emulator.
+3. Press the machine to open the picker and pick one. Every machine has its own
+   dialect and its own emulator, so each is shown with the year it came out and
+   a line naming the BASIC it runs.
 
-   ![The Choose a machine picker, listing every machine grouped under Acorn, Amstrad, Commodore, Sinclair and Tandy, each with its illustration, release year and a one-line description naming its BASIC](/machine-picker.png)
+   Type in the search box to narrow the list by machine, maker or BASIC, and use
+   **Sort by** to arrange it: by manufacturer (how it opens), by model name, by
+   year, or by the BASIC each machine runs - which is the one that puts machines
+   sharing a dialect together. The picker reopens the way you left it.
+
+   ![The Choose a machine picker: a search box and a Sort by control above the machine list, each machine shown with its illustration, release year and a one-line description naming its BASIC](/machine-picker.png)
 
 4. Under **Start from**, choose **Sample** and pick **Breakout**, then press
    **Create project**.
@@ -53,6 +58,32 @@ You can also start a whole project this way: choose
 **File ▸ New project**, pick a machine, and under **Start from** choose
 **Describe it** and say what you want ("a snake game"). The project is created
 and the assistant starts writing it for that machine.
+
+### Type in a printed listing from a photo
+
+Got a listing on paper - a magazine type-in, a manual, an old printout? Take a
+photo of it and the assistant will type it in for you. Attach it with the
+**camera** button beside **Send**, paste a picture into the message box, or drop
+an image file onto the editor; on a phone, the attach button offers the camera
+as well as your photo library. You do not have to type anything with it - just
+send the picture.
+
+What comes back is an ordinary answer, applied the same way as any other:
+**merge** it by line number, or **replace** the program. So a listing that runs
+over several pages can be photographed a page at a time - each page merges onto
+the last.
+
+A few things worth knowing:
+
+- **Half a page reads better than a whole one.** The picture is scaled down
+  before it is sent, so a tighter shot means more detail per printed character.
+  Photographing a column at a time beats photographing a whole spread.
+- **A long listing may arrive in two parts.** If the answer runs out of room the
+  panel offers **Continue this answer**, and the rest follows.
+- **Check what comes back against the paper.** Print is genuinely ambiguous - a
+  letter O against a zero, a one against a capital I - and the assistant will
+  say which characters it could not settle. Those are the lines to look at
+  first.
 
 ## Save and load
 

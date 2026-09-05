@@ -23,7 +23,7 @@ export const BEEPER_SAMPLE_RATE = 44100;
 export const BEEPER_AMPLITUDE = 0.6;
 
 /** Samples emitted per 50Hz frame. */
-const SAMPLES_PER_FRAME = BEEPER_SAMPLE_RATE / 50;
+export const BEEPER_SAMPLES_PER_FRAME = BEEPER_SAMPLE_RATE / 50;
 /** Speaker output is bit 4 of the value written to port 0xFE. */
 const SPEAKER_BIT = 0x10;
 /** One-pole DC-blocker coefficient; ~0.995 gives a few-millisecond settle at 44.1kHz. */
@@ -84,7 +84,7 @@ export class Beeper {
       return EMPTY_AUDIO;
     }
 
-    const n = SAMPLES_PER_FRAME;
+    const n = BEEPER_SAMPLES_PER_FRAME;
     const out = new Float32Array(n);
     let level = this.startLevel;
     let ti = 0;

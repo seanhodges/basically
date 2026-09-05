@@ -9,7 +9,7 @@
  *     actually contains, so the docs never document a keyword the tokenizer
  *     doesn't accept.
  *
- * Both run **per machine**, over all thirteen registered dialects, not per docs
+ * Both run **per machine**, over every registered dialect, not per docs
  * page. Four pages cover more than one machine, and their rows are the union of
  * what those machines have - so checking the page against the union let a row
  * belong to every machine on the page whether or not that machine had it, which
@@ -28,6 +28,12 @@
  * the same thing on both sides of it is exactly the per-machine agreement
  * checked here - drift would silently narrow a comparison to nothing.
  *
+ * Both directions exempt the punctuation the ZX80 happens to tokenize as
+ * operators (see OPERATOR_PUNCTUATION): `(`, `)`, `,` and `;` separate the parts
+ * of a line on every machine here, nothing about a port turns on them, and a row
+ * apiece across nine pages would carry no information. The exemption is narrow
+ * and named so that "every operator earns a row" stays otherwise absolute.
+ *
  * Comparison is by unique name (keyword tables may list alias spellings that
  * collapse into one row), mirroring scripts/gen-reference-scaffold.mts. Like
  * escapes/escape-crosscheck.test.ts, this file may reach the dialect registry
@@ -38,30 +44,12 @@ import { describe, expect, it } from 'vitest';
 import type { EditorKeyword } from '../dialects/types';
 import type { ReferenceTableData } from './types';
 
-import { zx81Reference } from './zx81';
-import { altair8800Reference } from './altair8800';
-import { zx80Reference } from './zx80';
-import { zxspectrumReference } from './zxspectrum';
-import { bbcReference } from './bbc';
-import { commodoreReference } from './commodore';
-import { atomReference } from './atom';
-import { trs80Reference } from './trs80';
-import { cpcReference } from './cpc';
+import { PENDING_PAGE_IDS, referencePages as PAGES } from './pages';
 
 import { dialects } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
+import { OPERATOR_PUNCTUATION } from '../dialects/operators';
 import { zx80IntegralFunctions } from '../dialects/zx80/keywords';
-
-const PAGES: Record<string, ReferenceTableData> = {
-  altair8800: altair8800Reference,
-  atom: atomReference,
-  bbc: bbcReference,
-  commodore: commodoreReference,
-  cpc: cpcReference,
-  trs80: trs80Reference,
-  zx80: zx80Reference,
-  zx81: zx81Reference,
-  zxspectrum: zxspectrumReference,
-};
 
 /**
  * Words the editor knows for a machine but the tokenizer does not emit. The
@@ -78,23 +66,34 @@ function rowsFor(page: ReferenceTableData, dialectId: string) {
 }
 
 const CASES = dialects.map((dialect) => {
-  const page = PAGES[dialect.docsReference ?? dialect.id];
+  const page = PAGES[referencePageOf(dialect)];
   if (!page) {
     throw new Error(
       `No reference page registered for dialect: ${dialect.id} ` +
-        `(looked for "${dialect.docsReference ?? dialect.id}")`,
+        `(looked for "${referencePageOf(dialect)}")`,
     );
   }
   return [
     dialect.id,
     rowsFor(page, dialect.id),
-    [...dialect.keywords, ...(EXTRA_KEYWORDS[dialect.id] ?? [])],
+    [
+      ...dialect.keywords.map((k) => k.word),
+      ...(EXTRA_KEYWORDS[dialect.id] ?? []).map((k) => k.word),
+      // The operators the machine stores as something other than a token: the
+      // Sinclair `↑`, the BBC's symbolic set, Microsoft's two-token `<=`. How a
+      // machine stores an operator decided which page listed it until this was
+      // added, which is why the Spectrum page had no exponent row and the BBC
+      // page no arithmetic at all.
+      ...(dialect.operators ?? []),
+    ],
   ] as const;
 });
 
-describe.each(CASES)('keyword crosscheck: %s', (_id, rows, keywords) => {
+describe.each(CASES)('keyword crosscheck: %s', (_id, rows, spellings) => {
   const rowNames = new Set(rows.map((e) => e.name));
-  const keywordWords = new Set(keywords.map((k) => k.word));
+  const keywordWords = new Set(
+    spellings.filter((w) => !OPERATOR_PUNCTUATION.has(w)),
+  );
 
   it('every keyword has a reference row', () => {
     const missing = [...keywordWords].filter((w) => !rowNames.has(w));
@@ -102,15 +101,23 @@ describe.each(CASES)('keyword crosscheck: %s', (_id, rows, keywords) => {
   });
 
   it('every reference row is a real keyword', () => {
-    const invented = [...rowNames].filter((n) => !keywordWords.has(n));
+    const invented = [...rowNames].filter(
+      (n) => !keywordWords.has(n) && !OPERATOR_PUNCTUATION.has(n),
+    );
     expect(invented).toEqual([]);
   });
 });
 
 describe('page coverage', () => {
+  // A page still waiting on its machines is excused, and only while it stays
+  // named in PENDING_PAGE_IDS - which pages.test.ts empties at registration.
   it('every reference page belongs to at least one registered machine', () => {
-    const used = new Set(dialects.map((d) => d.docsReference ?? d.id));
-    expect([...Object.keys(PAGES)].filter((p) => !used.has(p))).toEqual([]);
+    const used = new Set(dialects.map((d) => referencePageOf(d)));
+    expect(
+      [...Object.keys(PAGES)].filter(
+        (p) => !used.has(p) && !PENDING_PAGE_IDS.includes(p),
+      ),
+    ).toEqual([]);
   });
 
   // A scoped row naming a machine that is not on its own page would be silently
@@ -118,9 +125,7 @@ describe('page coverage', () => {
   it('every onlyOn names a machine the page covers', () => {
     for (const [page, data] of Object.entries(PAGES)) {
       const onPage = new Set(
-        dialects
-          .filter((d) => (d.docsReference ?? d.id) === page)
-          .map((d) => d.id),
+        dialects.filter((d) => referencePageOf(d) === page).map((d) => d.id),
       );
       for (const entry of data.entries) {
         for (const id of entry.onlyOn ?? []) {

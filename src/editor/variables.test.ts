@@ -53,6 +53,8 @@ const BBC_KW = [
   'IF',
   'THEN',
   'TO',
+  'DATA',
+  'READ',
 ];
 const bbcRules = makeRules(
   { nameChars: '_', suffixChars: '$%', graphicsEscapes: false, hexPrefix: '&' },
@@ -227,6 +229,51 @@ describe('makeVariableSource - completion behaviour', () => {
   });
 });
 
+// Whether a DATA item is a value or an expression is a per-ROM fact, verified
+// against the machines: a BBC and a CPC READ `DATA a` as the string "a", while
+// a Spectrum evaluates it (and `DATA a*2` READs 14). So the same statement
+// holds names on one machine and not on the other.
+describe('forEachVariable - DATA items follow the machine', () => {
+  function tokensOf(code: string, rules: VarNameRules): string[] {
+    const out: string[] = [];
+    forEachVariable(code, rules, (t) => out.push(t.text));
+    return out;
+  }
+
+  const verbatimRules: VarNameRules = { ...bbcRules, dataIsVerbatim: true };
+
+  it('skips the items where the ROM keeps them verbatim (BBC, CPC)', () => {
+    expect(tokensOf('DATA RED,GREEN', verbatimRules)).toEqual([]);
+  });
+
+  it('resumes scanning at the statement after the DATA', () => {
+    expect(tokensOf('DATA RED,GREEN:PRINT hue', verbatimRules)).toEqual([
+      'hue',
+    ]);
+  });
+
+  it('keeps verbatim DATA items out of the completion set', () => {
+    const model = collectVariables(
+      '10 DATA RED,GREEN\n20 READ hue',
+      verbatimRules,
+      bbcCaps,
+    );
+    expect([...model.globals].sort()).toEqual(['hue']);
+  });
+
+  it('scans the items where the ROM evaluates them (Sinclair)', () => {
+    const spectrumRules = makeRules({}, ['PRINT', 'LET', 'DATA', 'READ']);
+    expect(tokensOf('DATA a,b*2', spectrumRules)).toEqual(['a', 'b']);
+  });
+
+  // Only a dialect's own keyword table can trigger the skip, so a machine
+  // without DATA (the ZX81, the Atom) reads the word as an ordinary name.
+  it('leaves DATA as a name on a dialect whose table has no DATA', () => {
+    const zx81Rules = makeRules({}, ['PRINT', 'LET', 'GOTO']);
+    expect(tokensOf('LET DATA=RED', zx81Rules)).toEqual(['DATA', 'RED']);
+  });
+});
+
 describe('forEachVariable - crunched (MS-BASIC) splitting', () => {
   const MS_KW = [
     'PRINT',
@@ -255,6 +302,7 @@ describe('forEachVariable - crunched (MS-BASIC) splitting', () => {
   const msRules: VarNameRules = {
     ...makeRules({ suffixChars: '$%' }, MS_KW),
     crunch: makeCrunchMatcher(MS_KW),
+    dataIsVerbatim: true,
   };
 
   function tokensOf(code: string): VarToken[] {

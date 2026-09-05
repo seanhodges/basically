@@ -88,12 +88,14 @@ async function chooseGuideMachine(
   await frame.locator(`button[data-machine="${machineId}"]`).click();
 }
 
-test('converting the open program switches machine and asks the assistant', async ({
+test('converting the open program switches machine and hands the assistant what the comparison found', async ({
   page,
 }) => {
-  // The hand-off ends in a provider request; keep the suite offline. The
-  // assertions are about the switch it performs first, not the reply.
-  await page.route('**/api.anthropic.com/**', (route) => route.abort());
+  // One click through the iframe settles both halves of the hand-off: the
+  // switch it performs on the way, and what the request it ends in carries.
+  // The requests are captured rather than let out, which also keeps the suite
+  // offline.
+  const requests = captureProviderRequests(page);
   await openApp(page);
   await selectDialect(page, 'commodore64');
   await setEditorSource(page, PROGRAM);
@@ -113,24 +115,6 @@ test('converting the open program switches machine and asks the assistant', asyn
   await expect(drawer).toBeHidden();
   await expect(targetMachine(page)).toHaveText(/Spectrum/, { timeout: 15_000 });
   await expect(page.locator('.cm-content')).toContainText('{clr}HI');
-});
-
-test('the port hands the assistant what the comparison found for this program', async ({
-  page,
-}) => {
-  const requests = captureProviderRequests(page);
-  await openApp(page);
-  await selectDialect(page, 'commodore64');
-  await setEditorSource(page, PROGRAM);
-  await saveApiKey(page);
-
-  const drawer = await openPortingGuide(page);
-  await chooseGuideMachine(drawer, 'to', 'zxspectrum');
-  const convert = drawer
-    .frameLocator('iframe')
-    .getByRole('button', { name: 'Convert with AI' });
-  await expect(convert).toBeVisible({ timeout: 15_000 });
-  await convert.click();
 
   await expect
     .poll(() => requests.length, { timeout: 15_000 })
@@ -156,60 +140,35 @@ test('the port hands the assistant what the comparison found for this program', 
   }
 });
 
-test('asking to convert with nothing written is declined, not attempted', async ({
+test('a program that cannot be read, and no program at all, are both declined', async ({
   page,
 }) => {
+  // Both refusals in one guide session. Reaching the guide costs a machine
+  // switch, a settings round trip and a cold docs iframe; the two states differ
+  // only in what is in the editor when Convert is pressed, so the session is
+  // set up once and the editor rewritten between them.
   const requests = captureProviderRequests(page);
   await openApp(page);
   await selectDialect(page, 'commodore64');
   await setEditorSource(page, PROGRAM);
   await saveApiKey(page);
 
-  // The guide is reached by keeping a program across a machine it will not run,
-  // so the program has to exist to get here; emptying the editor afterwards is
-  // how a user reaches this state. On desktop the IDE stays visible beside the
-  // half-width drawer.
   const drawer = await openPortingGuide(page);
-  await clearEditor(page);
-  await drawer
+  const convert = drawer
     .frameLocator('iframe')
-    .getByRole('button', { name: 'Convert with AI' })
-    .click();
+    .getByRole('button', { name: 'Convert with AI' });
 
-  // Nothing was sent, and nothing moved: the drawer is still open, the machine
-  // is still the one the port moved to, and the editor is still empty.
-  await expect(drawer).toBeVisible();
-  await expect(targetMachine(page)).toHaveText(/ZX81/);
-  // Closed to read the status bar it would otherwise cover.
-  await page.getByRole('button', { name: 'Close documentation' }).click();
-  await expect(page.getByText(/nothing to convert/i).first()).toBeVisible();
-  expect(requests).toHaveLength(0);
-  await expect(page.locator('.cm-content')).not.toContainText('{clr}HI');
-});
-
-test('asking to convert a program that cannot be read is declined, not attempted', async ({
-  page,
-}) => {
-  const requests = captureProviderRequests(page);
-  await openApp(page);
-  await selectDialect(page, 'commodore64');
-  await setEditorSource(page, PROGRAM);
-  await saveApiKey(page);
-
-  const drawer = await openPortingGuide(page);
   // A half-typed escape is a framing error: the line cannot be turned into a
   // C64 program at all, so the comparison has nothing to narrow to and a port
   // carried out anyway would be recollection wearing its authority.
   const UNREADABLE = '10 PRINT "{whi"';
   await setEditorSource(page, UNREADABLE);
-  await drawer
-    .frameLocator('iframe')
-    .getByRole('button', { name: 'Convert with AI' })
-    .click();
+  await convert.click();
 
+  // Nothing was sent, and nothing moved: the drawer is still open, the machine
+  // is still the one the port moved to, and the editor is untouched.
   await expect(drawer).toBeVisible();
   await expect(targetMachine(page)).toHaveText(/ZX81/);
-  await page.getByRole('button', { name: 'Close documentation' }).click();
   // Naming the machine it was read as is what makes this actionable: a program
   // is only unreadable *as some particular BASIC*.
   await expect(
@@ -217,6 +176,23 @@ test('asking to convert a program that cannot be read is declined, not attempted
   ).toBeVisible();
   expect(requests).toHaveLength(0);
   await expect(page.locator('.cm-content')).toContainText('{whi"');
+
+  // The guide is reached by keeping a program across a machine it will not run,
+  // so the program has to exist to get here; emptying the editor afterwards is
+  // how a user reaches the second state. On desktop the IDE stays visible
+  // beside the half-width drawer.
+  await clearEditor(page);
+  await convert.click();
+
+  await expect(drawer).toBeVisible();
+  await expect(targetMachine(page)).toHaveText(/ZX81/);
+  // Closed to read the status bar it would otherwise cover.
+  await page
+    .getByRole('button', { name: 'Close the documentation panel' })
+    .click();
+  await expect(page.getByText(/nothing to convert/i).first()).toBeVisible();
+  expect(requests).toHaveLength(0);
+  await expect(page.locator('.cm-content')).not.toContainText('{clr}HI');
 });
 
 test('asking to convert with no assistant configured offers to set one up', async ({
@@ -239,7 +215,7 @@ test('asking to convert with no assistant configured offers to set one up', asyn
     page.getByRole('tab', { name: 'AI', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
   // Exact: the docs drawer is still open behind the dialog, and its handle is
-  // "Close documentation".
+  // "Close the documentation panel".
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   // The machine is the one the port moved to; the program is untouched.
   await expect(targetMachine(page)).toHaveText(/ZX81/);

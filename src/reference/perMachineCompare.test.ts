@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';
 import { cpcReference } from './cpc';
-import { zxspectrumReference } from './zxspectrum';
+import { sinclairReference } from './sinclair';
 import { portingFacts } from './facts';
 import { keywordEquivalences } from './porting';
 import { diffKeywords, tableForMachine } from './compare';
@@ -130,7 +130,7 @@ describe('Amstrad machines are compared as machines', () => {
   });
 });
 
-describe('BBC and Spectrum variants', () => {
+describe('BBC and Sinclair variants', () => {
   it('offers EDIT when porting from a Model B to a Master', () => {
     const diff = diffBetween(
       { page: bbcReference, machine: 'bbcmicro' },
@@ -141,11 +141,38 @@ describe('BBC and Spectrum variants', () => {
     expect(diff.mustReplace).toEqual([]);
   });
 
+  // The Sinclair page is the widest of the shared ones: three machines, two
+  // vocabularies, and the two commonest ports between them are within it.
+  it('offers a ZX81 reader none of the Spectrums’ keywords', () => {
+    const zx81Names = new Set(
+      tableForMachine(sinclairReference, 'zx81').entries.map((e) => e.name),
+    );
+    for (const spectrumOnly of ['GO TO', 'BEEP', 'CIRCLE', 'INK', 'PLAY']) {
+      expect(zx81Names, spectrumOnly).not.toContain(spectrumOnly);
+    }
+    expect(zx81Names).toContain('GOTO');
+    expect(zx81Names).toContain('UNPLOT');
+  });
+
+  it('does not rename a ZX81 target’s GOTO to the Spectrums’ GO TO', () => {
+    const diff = diffBetween(
+      { page: commodoreReference, machine: 'commodore64' },
+      { page: sinclairReference, machine: 'zx81' },
+      { from: 'commodore64', to: 'zx81' },
+    );
+    const renames = diff.renamed.map((r) => `${r.from.name}→${r.to.name}`);
+    expect(renames).not.toContain('GOTO→GO TO');
+    expect(renames).not.toContain('GOSUB→GO SUB');
+    // The rename the ZX81 really does want, so the check above is not passing
+    // for want of any rename at all.
+    expect(renames).toContain('CLR→CLEAR');
+  });
+
   it('offers SPECTRUM and PLAY when porting from a 48K to a 128K', () => {
     const diff = diffBetween(
-      { page: zxspectrumReference, machine: 'zxspectrum' },
-      { page: zxspectrumReference, machine: 'zxspectrum128' },
-      { from: 'zxspectrum', to: 'zxspectrum' },
+      { page: sinclairReference, machine: 'zxspectrum' },
+      { page: sinclairReference, machine: 'zxspectrum128' },
+      { from: 'zxspectrum', to: 'zxspectrum128' },
     );
     expect(names(diff.newlyAvailable).sort()).toEqual(['PLAY', 'SPECTRUM']);
     expect(diff.mustReplace).toEqual([]);
@@ -166,7 +193,7 @@ describe('hardware facts answer for the machine chosen', () => {
   it('gives the BBC Master its own figures and inherits the rest', () => {
     const master = factsFor('bbcmaster');
     const micro = factsFor('bbcmicro');
-    expect(master.freeRamBytes).toBe(30720);
+    expect(master.freeRamBytes).toBe(28160);
     expect(master.programStart).toBe('&0E00');
     // Same BASIC, so every language rule is the Model B's, stated once.
     expect(master.lineNumberRange).toBe(micro.lineNumberRange);

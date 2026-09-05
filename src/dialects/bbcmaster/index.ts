@@ -4,9 +4,13 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 // charset, keywords, tokenizer, completions, keyboard, targets - is shared
 // with the bbcmicro dialect. Only the machine model and the AI profile differ.
 // (If this sibling-import coupling grows, factor the shared pieces into a
-// src/dialects/bbcShared/ module - see docs/dialect-roadmap.md.)
+// src/dialects/bbcShared/ module - see docs/contributing/dialect-roadmap.md.)
 import { bbcCharset } from '../bbcmicro/charset';
-import { bbcMasterKeywords, BASIC_IV } from '../bbcmicro/keywords';
+import {
+  bbcMasterKeywords,
+  bbcOperators,
+  BASIC_IV,
+} from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';
 import {
   detokenizeProgram,
@@ -19,13 +23,18 @@ import {
   buildCassetteSamples,
   CASSETTE_SAMPLE_RATE,
 } from '../bbcmicro/targets';
-import { bbcLanguageSupport, bbcCompletionSource } from '../bbcmicro/language';
+import {
+  bbcMasterLanguageSupport,
+  bbcMasterCompletionSource,
+} from '../bbcmicro/language';
 import { decodeCassette } from '../bbcmicro/audio/cassetteDecoder';
 import { bbcKeyboardLayout } from '../bbcmicro/keyboardLayout';
 import { BBC_DISPLAY_CONTROLS } from '../bbcmicro/teletextChips';
 import { bbcSamples } from '../bbcmicro/samples';
 import { bbcMasterMemoryMap } from './memoryMap';
 import { bbcMasterMemoryBlocks } from './memoryBlocks';
+import { PAGE } from './addresses';
+import { SCREEN_MODE7_BASE } from '../../emulator/bbc/addresses';
 import { bbcMasterAiProfile } from './aiProfile';
 import {
   BbcMachine,
@@ -47,13 +56,19 @@ export const bbcmaster: Dialect = {
   manufacturer: 'Acorn',
   year: 1986,
   blurb: 'The BBC Micro, upgraded. Runs BBC BASIC IV.',
+  basicDialect: 'BBC BASIC IV',
+  basicFamily: 'BBC BASIC',
   docsReference: 'bbc',
-  programRamBytes: 30720,
+  // PAGE (0x0E00 - the Master's filing systems keep their workspace in private
+  // RAM, so nothing displaces it) up to HIMEM in MODE 7. The extra 64K of
+  // sideways and shadow RAM is not program space.
+  programRamBytes: SCREEN_MODE7_BASE - PAGE,
   fileExtensions: ['.txt', '.bas'],
   keywords: bbcMasterKeywords,
+  operators: bbcOperators,
   charset: bbcCharset,
-  languageSupport: bbcLanguageSupport,
-  completionSource: bbcCompletionSource,
+  languageSupport: bbcMasterLanguageSupport,
+  completionSource: bbcMasterCompletionSource,
 
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source, BASIC_IV);
@@ -92,12 +107,16 @@ export const bbcmaster: Dialect = {
   // BBC BASIC has no POKE: memory writes use `?`/`!` indirection (`?&2000=5`),
   // with `&` hex addresses.
   memoryWrites: { forms: ['indirection', 'star-load'], hexPrefix: '&' },
+  memoryReads: { forms: ['indirection'], calls: ['CALL', 'USR'] },
 
   debuggable: true,
 
   joystickModes: ['native'],
   // The analogue port has two independent fire lines (PB4/PB5).
   joystickFireButtons: 2,
+
+  // The same filing-system vector traps as the B; see bbcmicro/index.ts.
+  capturesDataFiles: true,
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is forwarded to service program-driven data file I/O.

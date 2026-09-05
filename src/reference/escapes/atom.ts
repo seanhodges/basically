@@ -8,9 +8,11 @@ export const atomEscapes: EscapeTableData = {
   title: 'Acorn Atom escape codes',
   machines: ['Acorn Atom'],
   categories: [
-    { id: 'inverse', label: 'Inverse video' },
-    { id: 'graphics', label: 'Graphics' },
-    { id: 'raw', label: 'Raw bytes' },
+    { id: 'inverse', label: 'Inverse video', class: 'inverse-video' },
+    // Semigraphics 6 cells - the same shapes the Sinclair and TRS-80 pages file
+    // under their own `graphics` chips.
+    { id: 'graphics', label: 'Graphics', class: 'block-graphics' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     {

@@ -1,6 +1,6 @@
 // Vendored ESM 6502 core; typed by the sibling ../6502/cpu6502.d.ts.
-import { StateMachineCpu } from '../6502/cpu6502.js';
-import type { BusInterface } from '../6502/cpu6502.js';
+import { ExecutionState, StateMachineCpu } from '../6502/cpu6502.js';
+import type { BusInterface, State as CpuState } from '../6502/cpu6502.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
@@ -9,8 +9,9 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
-  MemoryBlock,
+  Block,
 } from '../../dialects/types';
 import { readC64Variables, type CbmVarsLayout } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
@@ -20,10 +21,11 @@ import {
   READ_BIT,
   WRITE_BIT,
 } from '../memoryActivityBuffer';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { Pia6520 } from '../commodore/pia6520';
 import { Via6522 } from '../commodore/via6522';
 import { CharRenderer } from '../commodore/charRenderer';
-import { Cb2Audio, CB2_SAMPLE_RATE } from './cb2Audio';
+import { Cb2Audio, CB2_SAMPLES_PER_FRAME } from './cb2Audio';
 import {
   KeyMatrix,
   screenCodesForText,
@@ -34,8 +36,19 @@ import {
   petDomCodeToToken,
   petTokenToPositions,
 } from './keyboard';
-import { BASIC_4_ZP, MAX_BASIC_LINE } from '../commodore/basicPointers';
+import {
+  BASIC_4_ZP,
+  KERNAL_IO_BASIC_4,
+  MAX_BASIC_LINE,
+} from '../commodore/basicPointers';
+import {
+  CbmDiskDrive,
+  KERNAL_TRAPS,
+  type Bus,
+  type TrapResult,
+} from '../commodore/diskDrive';
 import { PROGRAM_BASE } from '../../dialects/pet/addresses';
+import { createMachineLoop } from '../machineLoop';
 
 /**
  * Commodore PET 4032 (BASIC 4.0, 40-column graphics keyboard, discrete-TTL
@@ -77,7 +90,8 @@ const SCREEN_CELLS = COLS * ROWS; // 1000 visible cells
  * CB1's system IRQ and is also polled on VIA PB5 — occupies the tail of each
  * frame.
  */
-const FRAME_CYCLES = 20_000;
+const CPU_HZ = 1_000_000;
+const FRAME_CYCLES = CPU_HZ / 50;
 const RETRACE_CYCLES = 1_600; // ~8% of the frame in vertical blanking
 
 /**
@@ -85,6 +99,15 @@ const RETRACE_CYCLES = 1_600; // ~8% of the frame in vertical blanking
  * BASIC 4.0 reaches READY. in a few frames; the cap only guards a mis-boot.
  */
 const BOOT_CYCLE_CAP = 4_000_000;
+
+/** 6502 status-register carry bit, set on the forged RTS out of a KERNAL trap. */
+const CARRY_FLAG = 0x01;
+
+/** `JSR abs` — the opcode the parse call at the head of OPEN/CLOSE must be. */
+const OPCODE_JSR = 0x20;
+
+/** Bytes in a `JSR abs`, and so the offset past the parse call. */
+const JSR_BYTES = 3;
 
 // BASIC 4.0 zero page (40xx) - two below the V2 machines' in places.
 const {
@@ -105,7 +128,7 @@ const {
  * highest legal line number (63999) means no program line is executing.
  */
 /**
- * Cycles ticked between line checks in {@link PetMachine.debugStep}. Any BASIC
+ * Cycles ticked between the debugger's line checks. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
  * stepped over; checking on this cadence rather than every cycle keeps the
  * always-on debugger's per-frame overhead small (mirrors the C64).
@@ -150,7 +173,16 @@ export interface PetRoms {
 export class PetMachine implements MachineEmulator {
   readonly displayWidth = PET_DISPLAY_WIDTH;
   readonly displayHeight = PET_DISPLAY_HEIGHT;
-  readonly audioSampleRate = CB2_SAMPLE_RATE;
+  readonly frameHz = CPU_HZ / FRAME_CYCLES;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. Not the round number the synthesis is
+   * designed around - reporting that instead would have the host consume
+   * fractionally slower than the machine produces, and playback would fall
+   * further behind for as long as the program ran. The cost is that pitch sits
+   * within a quarter-percent of the synth's design rate, far below audible.
+   */
+  readonly audioSampleRate = CB2_SAMPLES_PER_FRAME * this.frameHz;
 
   /** 64 KB address space; ROM is baked in on bringup, RAM/screen writable. */
   private readonly mem = new Uint8Array(0x10000);
@@ -163,8 +195,28 @@ export class PetMachine implements MachineEmulator {
    * overlay costs a single not-taken branch per access.
    */
   private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link tick} charges the cycle it runs to
+   * the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
 
   private cpu: StateMachineCpu | null = null;
+  /**
+   * The virtual disk unit behind the program's own OPEN/PRINT#/INPUT# on device
+   * 8, or null when the IDE handed this machine no file store.
+   */
+  private readonly drive: CbmDiskDrive | null;
+  /** The CPU's own bus, kept so the trap handlers read the memory the CPU sees. */
+  private cpuBus: BusInterface | null = null;
+  /** KERNAL trap dispatch (entry address -> handler); empty when no drive. */
+  private trapTable = new Map<number, (st: CpuState) => TrapResult>();
   private readonly pia1: Pia6520;
   private readonly pia2: Pia6520;
   private readonly via: Via6522;
@@ -191,12 +243,14 @@ export class PetMachine implements MachineEmulator {
   private disposed = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
   constructor(opts?: { roms?: PetRoms; files?: MachineFileStore }) {
+    this.drive = opts?.files
+      ? new CbmDiskDrive(opts.files, KERNAL_IO_BASIC_4)
+      : null;
     // PIA1: keyboard scan (row select on PORT A, columns on PORT B) plus the
     // retrace IRQ on CB1. PORT A high nibble floats high so the diagnostic-sense
     // pin (PA7) reads 1 — a low there would divert the KERNAL to its monitor.
@@ -218,7 +272,9 @@ export class PetMachine implements MachineEmulator {
       .then((roms) => {
         if (this.disposed) return;
         this.installRoms(roms);
-        this.cpu = new StateMachineCpu(this.busInterface());
+        this.cpuBus = this.busInterface();
+        this.cpu = new StateMachineCpu(this.cpuBus);
+        if (this.drive) this.installTraps();
         this.hardReset();
         this.booted = true;
       })
@@ -350,6 +406,10 @@ export class PetMachine implements MachineEmulator {
     if (this.inRetrace && !wasRetrace) this.pia1.pulseCb1();
     if (++this.frameCycle >= FRAME_CYCLES) this.frameCycle = 0;
 
+    // Before the cycle, not after: `fetch` means the *next* `cycle()` reads the
+    // opcode at `state.p`, so this is the instruction boundary at which the CPU
+    // is about to enter a trapped routine.
+    if (this.trapTable.size > 0) this.serviceTrap();
     cpu.cycle();
     this.via.tick();
     cpu.setInterrupt(
@@ -357,6 +417,136 @@ export class PetMachine implements MachineEmulator {
         this.pia2.irqAsserted() ||
         this.via.irqAsserted(),
     );
+    // Charge the cycle to the BASIC line executing it, on the same cadence
+    // debugStep samples at. Here rather than in debugStep because a run the IDE
+    // performs to check an assistant answer deliberately opens no debug
+    // session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += 1;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+  }
+
+  /**
+   * Wire the KERNAL disk traps: build a memory {@link Bus} over the CPU's own
+   * bus and map each trapped routine to its {@link CbmDiskDrive} handler. Called
+   * once at bringup, only when a file store was supplied.
+   *
+   * The PET traps routine **bodies** where the C64 and the VIC-20 trap the
+   * `$FFxx` vectors, for two reasons that both come off this ROM.
+   *
+   * First, there is no SETLFS or SETNAM here. On a V2 machine BASIC parses
+   * `OPEN 2,8,2,"DATA,S,W"` into zero page and only then calls the KERNAL, so
+   * the vector is already a clean handover. BASIC 4.0 leaves the parsing to the
+   * KERNAL, and OPEN opens with a call to it:
+   *
+   * ```
+   *   $F560  JSR $F50D    ; fill LA/SA/FA/FNLEN/FNADR from the statement
+   *   $F563  LDA $D2      ; ...and only now is any of it readable
+   * ```
+   *
+   * Trapping the vector would read stale cells and leave BASIC's text pointer
+   * parked on arguments nobody consumed. So OPEN and CLOSE - which shares the
+   * shape, `$F2DD JSR $F50D` then `$F2E0 LDA $D2` - are trapped one `JSR` past
+   * their entry, and the parse runs. What the rest of the skipped body would
+   * have done is register the file in LAT/FAT/SAT, which is exactly what the
+   * C64's trap already skips: the drive's own channel map stands in for it.
+   *
+   * Second, BASIC 4.0's disk commands (`DOPEN`, `DCLOSE`, `APPEND`…) reach the
+   * channel routines by calling the bodies directly and never go through the
+   * jump table at all. Trapping bodies covers both callers; trapping vectors
+   * would cover only one.
+   *
+   * The addresses are still derived from the documented vectors rather than
+   * written down, so this follows a ROM that moves its routines.
+   */
+  private installTraps(): void {
+    const drive = this.drive!;
+    const raw = this.cpuBus!;
+    // Through the CPU's bus rather than around it: the ROM routine being stood
+    // in for would have made these accesses, so the memory-activity overlay
+    // should see them.
+    const bus: Bus = {
+      read: (a) => raw.read(a & 0xffff),
+      write: (a, v) => raw.write(a & 0xffff, v & 0xff),
+    };
+    /** The routine a `$FFxx` jump-table entry points at. */
+    const body = (vector: number): number =>
+      raw.peek(vector + 1) | (raw.peek(vector + 2) << 8);
+    /**
+     * Past the argument parse at the head of OPEN/CLOSE. Verified rather than
+     * assumed: a ROM whose OPEN did not start with a `JSR` is one this reading
+     * does not describe, and trapping the entry is the safe answer there - the
+     * drive still sees whatever the caller set up.
+     */
+    const pastParse = (vector: number): number => {
+      const at = body(vector);
+      return raw.peek(at) === OPCODE_JSR ? at + JSR_BYTES : at;
+    };
+    this.trapTable = new Map<number, (st: CpuState) => TrapResult>([
+      [pastParse(KERNAL_TRAPS.open), () => drive.open(bus)],
+      // The logical file comes from LA, not the accumulator: the PET's CLOSE
+      // reads it back out of zero page where the C64's is handed it in A.
+      [
+        pastParse(KERNAL_TRAPS.close),
+        () => drive.close(bus.read(KERNAL_IO_BASIC_4.la), bus),
+      ],
+      [body(KERNAL_TRAPS.chkin), (st) => drive.chkin(st.x, bus)],
+      [body(KERNAL_TRAPS.chkout), (st) => drive.chkout(st.x, bus)],
+      [body(KERNAL_TRAPS.clrchn), () => drive.clrchn(bus)],
+      [body(KERNAL_TRAPS.chrin), () => drive.chrin(bus)],
+      [body(KERNAL_TRAPS.chrout), (st) => drive.chrout(st.a, bus)],
+      [body(KERNAL_TRAPS.getin), () => drive.getin(bus)],
+    ]);
+  }
+
+  /**
+   * If the CPU is about to fetch the opcode at a trapped KERNAL address, run the
+   * disk handler. When it services the call, forge an RTS so the rest of the ROM
+   * routine is skipped; otherwise leave the CPU untouched so the ROM runs.
+   *
+   * A pending interrupt is left alone: the core's fetch takes the IRQ/NMI
+   * sequence in place of the instruction at `p`, so trapping here would swallow
+   * it. The ROM returns to the same address afterwards and the trap fires then.
+   */
+  private serviceTrap(): void {
+    const cpu = this.cpu!;
+    if (cpu.executionState !== ExecutionState.fetch) return;
+    const st = cpu.state;
+    if (st.irq || st.nmi) return;
+    const handler = this.trapTable.get(st.p);
+    if (!handler) return;
+    const result = handler(st);
+    if (!result.handled) return;
+    this.forgeRts(st, result);
+  }
+
+  /**
+   * Return from a trapped KERNAL routine without running the rest of it: pull
+   * the caller's return address off the stack (RTS pulls PC then increments),
+   * then apply the handler's result - the returned byte / error code in A and
+   * success/error in the carry flag. Mutates the CPU's live state directly.
+   *
+   * Sound for the two routines trapped past their entry as well as for the six
+   * trapped at theirs: the parse call has already returned by then, so the top
+   * of the stack is the caller's address either way, and OPEN's own success
+   * path ends in a bare RTS to the same place.
+   *
+   * Note this core's naming: `state.p` is the *program counter* and `state.flags`
+   * is the status register, the opposite way round from the classic 6502
+   * convention, so the carry is set in `flags` and not in `p`.
+   */
+  private forgeRts(st: CpuState, result: { a?: number; carry: 0 | 1 }): void {
+    const read = this.cpuBus!.read;
+    const lo = read(0x100 + ((st.s + 1) & 0xff));
+    const hi = read(0x100 + ((st.s + 2) & 0xff));
+    st.s = (st.s + 2) & 0xff;
+    st.p = (((hi << 8) | lo) + 1) & 0xffff;
+    if (result.a !== undefined) st.a = result.a & 0xff;
+    st.flags = result.carry
+      ? st.flags | CARRY_FLAG
+      : st.flags & ~CARRY_FLAG & 0xff;
   }
 
   private runCycles(count: number): void {
@@ -379,20 +569,37 @@ export class PetMachine implements MachineEmulator {
   reset(): void {
     this.loadGeneration++;
     this.loadError = '';
+    // Drop any open channels without flushing: a reset abandons the session
+    // that had them open, so a half-written buffer stored now would look like
+    // a file the program closed.
+    this.drive?.closeAll(false);
     void this.ready.then(() => {
       if (!this.disposed && this.cpu) this.hardReset();
     });
   }
 
+  /**
+   * Frame and debug slice, from one walk over the budget. The core is ticked a
+   * cycle at a time, so the line watch runs on {@link DEBUG_SLICE_CYCLES}}
+   * rather than after every tick.
+   */
+  private readonly loop = createMachineLoop({
+    cyclesPerFrame: FRAME_CYCLES,
+    lineWatchCycles: DEBUG_SLICE_CYCLES,
+    ready: () =>
+      this.booted && !this.injecting && !this.disposed && this.cpu !== null,
+    step: () => {
+      this.tick();
+      return 1;
+    },
+    currentLine: () => this.currentLine(),
+  });
+
   runFrame(): void {
-    if (!this.booted || this.injecting || this.disposed || !this.cpu) return;
-    this.runCycles(Math.round(FRAME_CYCLES * this.speed));
+    this.loop.runFrame();
   }
 
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { blocks?: readonly Block[] }): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     // Capture the blocks now: the injection runs inside the async IIFE below,
@@ -407,13 +614,15 @@ export class PetMachine implements MachineEmulator {
         }
         this.injecting = true;
         try {
+          // Start each run with no carried-over channels from a previous run.
+          this.drive?.closeAll(false);
           this.hardReset();
           if (!this.bootToReady(BOOT_CYCLE_CAP)) {
             throw new Error('PET did not boot to BASIC');
           }
           this.injectProgram(image);
           // Memory blocks (machine code / data at fixed addresses, alongside the
-          // BASIC program - see MemoryBlock) go straight into RAM now, after the
+          // BASIC program - see Block) go straight into RAM now, after the
           // program has loaded and before RUN starts it, using the same raw-array
           // write injectProgram uses.
           if (blocks) {
@@ -514,10 +723,6 @@ export class PetMachine implements MachineEmulator {
     this.rebuildMatrix();
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   // --- video ----------------------------------------------------------------
 
   renderTo(ctx: CanvasRenderingContext2D): void {
@@ -604,29 +809,7 @@ export class PetMachine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
-      return { paused: false, line: null };
-    }
-    const budget = Math.round(FRAME_CYCLES * this.speed);
-    // In run mode, ignore breakpoints until execution has left the line we
-    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
-    // the spot but still re-pauses when the loop comes back around.
-    let armed = opts.fromLine === null;
-    for (let i = 0; i < budget; i++) {
-      this.tick();
-      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
-      const line = this.currentLine();
-      if (line === null) continue;
-      if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine) {
-          return { paused: true, line };
-        }
-      } else {
-        if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
-      }
-    }
-    return { paused: false, line: this.currentLine() };
+    return this.loop.debugStep(opts);
   }
 
   /**
@@ -694,6 +877,14 @@ export class PetMachine implements MachineEmulator {
     return { used, free };
   }
 
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
+  }
+
   setMemoryActivityRecording(enabled: boolean): void {
     this.memoryActivity.enabled = enabled;
     // Drop any hits accumulated in a previous session so a reopened overlay
@@ -710,6 +901,7 @@ export class PetMachine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.loadGeneration++;
+    this.drive?.closeAll(false);
     this.cb2.reset();
     this.cpu = null;
     this.backCanvas = null;

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { petKeyboardLayout } from './keyboardLayout';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
 import { petTokenToPositions } from '../../emulator/pet/keyboard';
 
@@ -20,11 +23,21 @@ describe('pet keyboard layout', () => {
     });
   });
 
-  it('offers ABC and GRAPHICS modes and has no Commodore key', () => {
-    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'graphics']);
+  it('offers ABC, SYM, CURSOR and GRAPHICS modes and has no Commodore key', () => {
+    expect(layout.editorModes?.map((m) => m.id)).toEqual([
+      'abc',
+      'sym',
+      'cursor',
+      'graphics',
+    ]);
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
     expect(graphics?.palette).toBe('graphics');
-    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift']);
+    // Every PET symbol fits on page 1, so there is no page-2 layer.
+    expect(layout.layers.map((l) => l.id)).toEqual([
+      'base',
+      'cursor',
+      'symbols',
+    ]);
     // The graphics keyboard has no Commodore key or modifier - only SHIFT.
     expect(layout.modifiers.map((m) => m.id)).toEqual(['shift']);
     expect(allKeys.some((k) => k.id === 'Commodore')).toBe(false);
@@ -44,20 +57,24 @@ describe('pet keyboard layout', () => {
       expect(entry.modifier, entry.key).toBe('SHIFT');
   });
 
-  it('puts operators and punctuation on the SHIFT layer as editor inserts', () => {
+  it('presses the dedicated symbol keys from the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('A')!, 'shift')).toEqual({
+    // '+' and '=' on their canonical slots press the PET's own keys.
+    expect(resolveEditorAction(layout, byId.get('Q')!, 'symbols')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('G')!, 'shift')).toEqual({
+    expect(resolveEmits(layout, byId.get('Q')!, 'symbols')).toEqual(['+']);
+    expect(resolveEditorAction(layout, byId.get('R')!, 'symbols')).toEqual({
       insert: '=',
     });
-    expect(resolveEditorAction(layout, byId.get('Num1')!, 'shift')).toEqual({
-      insert: '!',
+    // '!' and '?' have their own keys on the graphics keyboard.
+    expect(resolveEmits(layout, byId.get('W')!, 'symbols')).toEqual(['!']);
+    expect(resolveEmits(layout, byId.get('E')!, 'symbols')).toEqual(['?']);
+    // The key VICE names backslash types PETSCII 0x5C - the £ character.
+    expect(resolveEditorAction(layout, byId.get('Y')!, 'symbols')).toEqual({
+      insert: '£',
     });
-    expect(resolveEditorAction(layout, byId.get('Slash')!, 'shift')).toEqual({
-      insert: '?',
-    });
+    expect(resolveEmits(layout, byId.get('Y')!, 'symbols')).toEqual(['\\']);
   });
 
   it('keeps the number keys emitting their own digit matrix token', () => {

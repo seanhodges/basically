@@ -3,7 +3,7 @@
 
 /**
  * Turn a sample's bundled {@link SampleBlockDef}s into real
- * {@link MemoryBlock}s by assembling their source with the dialect's CPU
+ * {@link Block}s by assembling their source with the dialect's CPU
  * engine. Samples ship assembly text, not bytes, so the routines stay
  * readable (and editable in the block's tab once loaded); the per-dialect
  * samples tests pin that every bundled block assembles clean, making a throw
@@ -11,12 +11,12 @@
  */
 
 import { asmEngineFor } from '../asm/registry';
-import type { Dialect, MemoryBlock, SampleFile } from '../dialects/types';
+import type { Dialect, Block, SampleFile } from '../dialects/types';
 
 export function materializeSampleBlocks(
   dialect: Dialect,
   sample: SampleFile,
-): MemoryBlock[] {
+): Block[] {
   const defs = sample.blocks ?? [];
   if (defs.length === 0) return [];
   const support = dialect.memoryBlocks;

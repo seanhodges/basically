@@ -22,6 +22,11 @@ export const m6502AssemblyReference: ReferenceTableData = {
     'BBC Micro',
     'BBC Master',
     'Acorn Atom',
+    'Apple I',
+    'Apple II',
+    'Apple II Plus',
+    'Atari 800',
+    'Atari 400',
   ],
   entries: [
     {

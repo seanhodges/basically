@@ -23,7 +23,7 @@ import { tokenizeProgram } from './tokenizer';
  *     20 END
  *
  * in memory - captured by booting the image on this dialect's own emulator with
- * a stub ACR on ports 6/7 (the same method Stage 1 used for the token table).
+ * a stub ACR on ports 6/7 (the same method the token table came from).
  * It pins three separate claims at once: the marker is three 0xD3 bytes, the
  * name is the *first* character of the argument and nothing else, and the body
  * is the tokenizer's own output byte for byte with no length, checksum or

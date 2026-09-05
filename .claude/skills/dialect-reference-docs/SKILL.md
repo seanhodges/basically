@@ -17,16 +17,64 @@ One dialect's reference set is five artifacts plus wiring. Everything in it is
 **derived from the dialect's source, never from memory of the machine** — the
 crosscheck tests below make drift a test failure, not a doc-review problem.
 
-Machines and docs pages are not 1:1: sibling dialects share a page via the
-`docsReference` field on the `Dialect` (see `src/app/docsTopic.ts` — e.g.
-`zxspectrum128` → `zxspectrum`, `vic20` → `commodore64`, `bbcmaster` → `bbc`).
-`<page>` below means that shared page id; `<id>` means one dialect folder.
+**The reference is one page per family of BASIC, not one per machine.** A
+machine names its page with the `docsReference` field on the `Dialect` (see
+`src/app/docsTopic.ts`), and every machine running a version of one BASIC names
+the same page. `<page>` below means that family page id; `<id>` means one
+dialect folder. The pages, and the machines each covers - `src/reference/machines.ts`
+is the list this is read off, and `machines-crosscheck.test.ts` pins it to the
+registry, so check there rather than trusting this table:
+
+| Page            | Title                 | Machines                          |
+| --------------- | --------------------- | --------------------------------- |
+| `altair8800`    | Microsoft BASIC       | Altair 8800                       |
+| `integer-basic` | Integer BASIC         | Apple I, Apple II                 |
+| `applesoft`     | Applesoft BASIC       | Apple II Plus                     |
+| `atari`         | Atari BASIC           | Atari 800, Atari 400              |
+| `atom`          | Atom BASIC            | Acorn Atom                        |
+| `bbc`           | BBC BASIC             | BBC Micro, BBC Master             |
+| `commodore`     | Commodore BASIC       | PET, VIC-20, Commodore 64         |
+| `dartmouth`     | Dartmouth BASIC       | GE-235                            |
+| `cpc`           | Locomotive BASIC      | CPC 464, CPC 664, CPC 6128        |
+| `msx`           | MSX BASIC             | Sony HB-10P                       |
+| `trs80`         | TRS-80 Level II BASIC | TRS-80                            |
+| `pmd85`         | BASIC-G               | PMD 85-2                          |
+| `samcoupe`      | SAM BASIC             | SAM Coupé                         |
+| `zx80`          | ZX80 BASIC            | ZX80                              |
+| `sinclair`      | Sinclair BASIC        | ZX81, Spectrum 48K, Spectrum 128K |
+
+Machines sharing a page share a `basicFamily` — the family of BASIC they run,
+which the picker heads its by-BASIC groups with, as distinct from the
+`basicDialect` version each machine runs (`BBC BASIC` covers `BBC BASIC II` and
+`BBC BASIC IV`). A new machine joins the family of the page it joins rather than
+minting one of its own; `registry.test.ts` fails when two machines on a page
+disagree. The families the registered machines declare are listed in
+`.claude/skills/adding-a-target-system/SKILL.md` § Picker identity.
+
+**A shared page attributes everything.** A row only some of the page's machines
+have carries `onlyOn` and a `tag` naming them; a row they all have but read
+differently says how, in the row's own description, rather than answering for
+one of them. Where the machines do not share a charset either — the two Apples
+on `integer-basic`, the ZX81 and the Spectrums on `sinclair` — the escape table
+carries both sets scoped the same way, and `CHARSET_PROBES` in
+`src/dialects/charsetProbes.ts` names the page each family's rows live on.
+Hardware, escapes and formats sub-pages give each machine a section of its own:
+a ZX81 and a Spectrum 128 share a BASIC and almost no board.
+
+**A machine's porting guidance is written for the machine, never inherited from
+the page it joins.** `porting.ts` (keyword spellings, false-friend meanings,
+pair notes), `domain-guidance.ts` and `escape-guidance.ts` are all keyed by
+machine id, with machines that genuinely share a value named together through
+the lists in `porting.ts`. Joining a relative's page grants a new machine none
+of that: its spellings, its capability advice and its `reachFor` commands are
+read off its own rows, and the crosschecks check them against its own rows —
+which is what stops a CPC 464 being offered BASIC 1.1's `FILL`.
 
 | Artifact                                            | Content                                                                                                                                                                                                                                                          |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/reference/<page>.ts`                           | `ReferenceTableData` — every keyword, hand-enriched syntax + descriptions                                                                                                                                                                                        |
 | `src/reference/escapes/<page>.ts`                   | `EscapeTableData` — every escape spelling with byte probes                                                                                                                                                                                                       |
-| `docs/reference/<page>.md`                          | Parent page: intro → Notes and caveats → `<ReferenceTable>` → footer                                                                                                                                                                                             |
+| `docs/reference/<page>.md`                          | Parent page: one-sentence intro → nav bar → 5-7 Notes and caveats → `<ReferenceTable>` → any machine-specific section                                                                                                                                            |
 | `docs/reference/<page>/hardware.md`                 | One H2 per machine × `### Screen modes/Colour/Graphics/Sound/Memory`                                                                                                                                                                                             |
 | `docs/reference/<page>/escapes.md` and `formats.md` | `<EscapeTable>` page; native containers + closing `## Cassette audio`                                                                                                                                                                                            |
 | Wiring                                              | Sidebar group in `docs/.vitepress/config.ts` (**Hardware above Escape codes**), bullet in `docs/reference/index.md`, machine added to the CPU's list in `docs/reference/{z80,6502}-assembly.md` (intro **and** "Where blocks live"), `docsReference` on siblings |
@@ -57,7 +105,7 @@ has no sound hardware.").
    enrichment.
 2. **Enrich by hand.** Rewrite each row's `syntax` into the typed `<…>` style
    and each `description` into 1–3 sentences in the docs voice (see any mature
-   set, e.g. `src/reference/zx81.ts`). `tag` marks machine/version
+   set, e.g. `src/reference/sinclair.ts`). `tag` marks machine/version
    availability only ("128K only", "BASIC 1.1 only") — semantic notes belong in
    the description. Escape rows additionally need `category`, an
    `example: {source, bytes}` probe, and `codes` claims — the crosscheck suite
@@ -71,17 +119,30 @@ has no sound hardware.").
    formats, in that order; a sibling with no sub-pages of its own links the
    shared ones — see the PET group), index bullet in registry order, the CPU's
    assembly-page machine lists, `docsReference` on any sibling dialect.
-5. **Extend the crosscheck layer.** Add the new set to
-   `src/reference/reference-data.test.ts`,
-   `src/reference/keyword-crosscheck.test.ts` and
-   `src/reference/escapes/escape-crosscheck.test.ts` (imports + a
-   per-dialect probe block for the escapes).
+   **Ask the user before adding the sidebar entry.** `CLAUDE.md` forbids
+   adding, removing or reordering entries in `docs/.vitepress/config.ts`
+   without an explicit request, and a page absent from the sidebar fails
+   `src/app/docsNavigation.test.ts` — so the permission is needed, and asking
+   for it at the start of the work beats discovering it at the end.
+5. **Extend the crosscheck layer**, which is one edit rather than three: the
+   data-shape, keyword and guidance batteries all read
+   `src/reference/pages.ts`, so adding the page to `referencePages` and
+   `escapePages` turns every one of them on. For a machine that has not
+   registered yet, also name the page in `PENDING_PAGE_IDS` in the same file —
+   `pages.test.ts` and `keyword-crosscheck.test.ts` otherwise reject a page no
+   registered machine reads from. `escapes/escape-crosscheck.test.ts` is the
+   exception: it is driven by `src/dialects/charsetProbes.ts`, which refuses an
+   unregistered dialect, so its per-dialect probe block goes in the
+   registration change.
 
 ## Workflow B — update or audit an existing dialect
 
 1. Run `npx vitest run src/reference` — the crosscheck suites surface
    drift mechanically: a keyword without a reference row, an invented row, an
    escape byte no row claims, a probe that no longer tokenizes.
+   `page-structure.test.ts` does the same for the pages themselves: the intro
+   formula, the navigation bar, the caveat cap, the heading sequence, and any
+   link that resolves to a different machine's section.
 2. Diff the hardware page's Memory section against `memoryBlocks.ts` /
    `memoryMap.ts` (ranges, default address, warned regions), and the
    Screen/Colour/Graphics/Sound sections against the keyword docs.
@@ -112,7 +173,18 @@ Run before finishing:
 - `npm test` — the crosscheck layer (`reference-data`, `keyword-crosscheck`,
   `escape-crosscheck`) plus `src/app/docsTopic.test.ts`, which asserts every
   registered dialect resolves (via `docsReference` or its id) to a real
-  reference page.
+  reference page. For a **new** machine, budget for the page-keyed data these
+  pages sit beside: `porting-crosscheck` and the two guidance crosschecks want
+  entries in `porting.ts`, `domain-guidance.ts` and `escape-guidance.ts`, and
+  they are quickest to author from the crosschecks' own failures, which name
+  the exact groups, domains and control-code classes that are missing.
+  `machines.ts` and `facts.ts` are **not** part of this pass on a machine that
+  has not registered yet: both crosschecks demand a strict bijection with the
+  registry, `facts-crosscheck` resolves each entry through `getDialect` and
+  reads four of the registration stage's own per-dialect tables, and a
+  `machines.ts` row without a `facts.ts` row beside it is a porting-guide
+  option that renders nothing. They belong in the change that registers the
+  machine, together with its **measured** `loopSpeed`.
 - `npm run typecheck` · `npm run lint` · `npm run format:check`
 - `npm run docs:build` — VitePress fails on dead links; new pages, anchors and
   retargeted links all get checked here.

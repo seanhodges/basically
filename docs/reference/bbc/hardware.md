@@ -2,6 +2,11 @@
 title: BBC hardware
 ---
 
+<script setup>
+import { bbcMicroMemoryMap } from '../../../src/dialects/bbcmicro/memoryMap';
+import { bbcMasterMemoryMap } from '../../../src/dialects/bbcmaster/memoryMap';
+</script>
+
 # BBC hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -9,7 +14,7 @@ The screen, colour, graphics and sound hardware of each machine that runs
 
 ## BBC Micro
 
-### Screen modes
+### Screen modes {#bbcmicro-screen-modes}
 
 Pick a mode with `MODE`; each clears the screen and resets the graphics state:
 
@@ -33,31 +38,37 @@ out as a letter — see
 Higher-resolution modes consume more RAM — in graphics modes the screen fills
 0x3000–0x7FFF, but only 0x7C00 and up in MODE 7.
 
-### Colour
+### Colour {#bbcmicro-colour}
 
 Text and graphics use **logical colours**, chosen from eight actual colours
-plus eight flashing pairs. `COLOUR n` sets the text colour (add 128 for the
-text background); `GCOL mode,n` sets the graphics colour together with a plot
+plus eight flashing pairs. `COLOUR <colour>` sets the text colour (add 128 for the
+text background); `GCOL <action>, <colour>` sets the graphics colour together with a plot
 action (0 plot, 1 OR, 2 AND, 3 EOR, 4 invert). `VDU 19` remaps a logical
 colour onto any actual colour.
 
-### Graphics
+### Graphics {#bbcmicro-graphics}
 
 All graphics modes share one logical coordinate space — 0–1279 by 0–1023 with
 the origin at the bottom-left — regardless of the pixel resolution. `MOVE`
-positions the graphics cursor, `DRAW` draws a line to a point, and `PLOT k,x,y`
+positions the graphics cursor, `DRAW` draws a line to a point, and `PLOT <action>, <x>, <y>`
 is the general primitive whose first argument selects the action (line, point,
 filled triangle and so on). `CLG` clears the graphics area to the graphics
 background colour.
 
-### Sound
+### Sound {#bbcmicro-sound}
 
-`SOUND channel,amplitude,pitch,duration` plays a note on one of four channels —
+`SOUND <channel>, <amplitude>, <pitch>, <duration>` plays a note on one of four channels —
 channel 0 is noise, 1–3 are tone. The amplitude runs 0 to −15, or names one of
 the four `ENVELOPE`s, each defined by 14 parameters shaping pitch and amplitude
 over time.
 
-### Memory
+### Memory {#bbcmicro-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="bbcmicro" :map="bbcMicroMemoryMap" />
 
 A BBC program can load fixed-address machine code or data — **memory blocks** —
 into RAM alongside the BASIC program before it runs. A block may live from PAGE
@@ -84,28 +95,36 @@ Every mnemonic, directive and operand form the assembly editor accepts is in the
 
 ## BBC Master
 
-### Screen modes
+### Screen modes {#bbcmaster-screen-modes}
 
 The Master offers the Micro's `MODE 0`–`7` and adds the shadow modes 128–135,
 which keep the screen in separate shadow RAM so a program loses no main memory
-to the display.
+to the display. The shadow modes work here as they do on the machine: `MODE 128`
+leaves `HIMEM` at `&8000` where `MODE 0` drops it to `&3000`.
 
-### Colour
+### Colour {#bbcmaster-colour}
 
-As on the Micro; the Master's `COLOUR` can also redefine the palette directly.
+Identical to the [Micro](#bbcmicro-colour) — the same eight colours, the same
+`COLOUR`/`GCOL`, and `VDU 19` to remap a logical colour.
 
-### Graphics
+### Graphics {#bbcmaster-graphics}
 
 Identical to the Micro — the same 1280 × 1024 logical coordinate space and
 `MOVE`/`DRAW`/`PLOT` primitives.
 
-### Sound
+### Sound {#bbcmaster-sound}
 
 Identical to the Micro — the same four-channel `SOUND` and `ENVELOPE` system.
 
-### Memory
+### Memory {#bbcmaster-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="bbcmaster" :map="bbcMasterMemoryMap" />
 
 As on the Micro, but PAGE is **0x0E00** — the Master's filing systems live in
 private RAM, so BASIC programs (and blocks) get more room. The same block
 window up to **0x7FFF**, screen warnings, `.ssd` export and run-time checks
-described [above](#memory) apply.
+described [above](#bbcmicro-memory) apply.

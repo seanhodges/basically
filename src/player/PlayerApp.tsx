@@ -21,7 +21,11 @@ import {
   ShareApiError,
   type SharedProgram,
 } from '../share/shareClient';
-import { getKeyboardAutoShow, setKeyboardAutoShow } from '../storage/settings';
+import {
+  getKeyboardAutoShow,
+  setKeyboardAutoShow,
+  UNTITLED_FILE_NAME,
+} from '../storage/settings';
 import { playerPathFor } from './routes';
 import {
   VirtualKeyboard,
@@ -35,7 +39,8 @@ import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { EmulatorPane, type MachineApi } from '../components/EmulatorPane';
 import { InputOverlayToggle } from '../components/InputOverlayToggle';
 import { TransferDialog } from '../components/TransferDialog';
-import { CodeIcon, FloppyIcon } from '../components/icons';
+import { CameraIcon, CodeIcon, FloppyIcon } from '../components/icons';
+import { saveScreenshot } from '../app/screenshot';
 import styles from './PlayerApp.module.css';
 
 type Phase = 'loading' | 'running' | 'incompatible' | 'error';
@@ -266,7 +271,7 @@ export default function PlayerApp({
   }, [record]);
 
   const openInIde = () => {
-    // Refresh-safe handover: the IDE re-fetches the share (Stage 6).
+    // Refresh-safe handover: the IDE re-fetches the share.
     location.assign('/?open=' + shareId);
   };
 
@@ -279,6 +284,7 @@ export default function PlayerApp({
       className={`run ${styles.runButton}`}
       onClick={requestRun}
       title="Restart the program"
+      aria-label={landscape ? 'Restart the program' : undefined}
     >
       {landscape ? '▶' : '▶ Play'}
     </button>
@@ -310,6 +316,22 @@ export default function PlayerApp({
               <FloppyIcon />
             </button>
           )}
+          {phase === 'running' && (
+            <button
+              type="button"
+              className={styles.screenshotButton}
+              title="Save a screenshot of the machine as a PNG"
+              aria-label="Save a screenshot"
+              // The button only exists once the program is running, so the
+              // "nothing drawn yet" result has nowhere useful to go here - and
+              // the player has no error surface to put it on.
+              onClick={() => {
+                void saveScreenshot(record?.name || UNTITLED_FILE_NAME);
+              }}
+            >
+              <CameraIcon />
+            </button>
+          )}
           <InputOverlayToggle
             keyboardEnabled={keyboardEnabled}
             controllerEnabled={controllerEnabled}
@@ -323,6 +345,11 @@ export default function PlayerApp({
             type="button"
             className={styles.seeCode}
             title="Open this program in the Basically IDE"
+            aria-label={
+              isMobile || landscape
+                ? 'Open this program in the Basically IDE'
+                : undefined
+            }
             onClick={openInIde}
           >
             {isMobile || landscape ? <CodeIcon /> : 'See the Code'}

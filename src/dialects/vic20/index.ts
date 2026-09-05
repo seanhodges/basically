@@ -5,6 +5,7 @@ import {
   VIC20_DISPLAY_HEIGHT,
 } from '../../emulator/vic20/vic20Machine';
 import { vic20Keywords } from './keywords';
+import { c64Operators } from '../commodore64/keywords';
 import { vic20Charset } from './charset';
 import { vic20MemoryMap } from './memoryMap';
 import { vic20MemoryBlocks } from './memoryBlocks';
@@ -47,6 +48,8 @@ export const vic20: Dialect = {
   manufacturer: 'Commodore',
   year: 1981,
   blurb: 'The first computer to sell a million. Commodore BASIC V2.',
+  basicDialect: 'Commodore BASIC V2',
+  basicFamily: 'Commodore BASIC',
   // VIC-20 BASIC V2 is token-identical to the C64's, so the keyword reference
   // (what the docs button deep-links) is the same page - reuse it rather than
   // duplicate it, as bbcmaster reuses 'bbc' and zxspectrum128 reuses 'zxspectrum'.
@@ -61,8 +64,10 @@ export const vic20: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-device'] },
+  memoryReads: { forms: ['peek'], calls: ['SYS'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: vic20Keywords,
+  operators: c64Operators,
   charset: vic20Charset,
   languageSupport: vic20LanguageSupport,
   completionSource: vic20CompletionSource,
@@ -112,6 +117,10 @@ export const vic20: Dialect = {
 
   // opts.rom/ramKb are ignored: the machine manages its own ROM set and the
   // fixed unexpanded 64K map.
+  // The KERNAL channel-I/O jump table, for devices 8-11: the C64's traps on the
+  // C64's KERNAL layout, which the VIC-20 shares.
+  capturesDataFiles: true,
+
   createEmulator(opts) {
     return new Vic20Machine({ files: opts.files });
   },

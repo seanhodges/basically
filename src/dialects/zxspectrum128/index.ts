@@ -11,9 +11,10 @@ import { codeFilesToBlocks } from '../importBlocks';
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from
 // ../zxspectrum (see charset.ts / tapfile.ts / keyboardLayout.ts) the way
-// bbcmaster reuses bbcmicro. See docs/dialect-plans/zxspectrum128.md.
+// bbcmaster reuses bbcmicro.
 import { spectrum128Charset } from './charset';
 import { spectrum128Keywords } from './keywords';
+import { spectrumOperators } from '../zxspectrum/keywords';
 import { spectrumVariableErrors } from '../../editor/variableLint';
 import { buildTap, parseTap, parseTapAllFiles } from './tapfile';
 import { tokenizeProgram } from './tokenizer';
@@ -39,13 +40,15 @@ import { spectrum128MemoryMap } from './memoryMap';
 // window mirrors the 48K layout exactly (see ./memoryMap.ts), and the default
 // block address 0x8000 falls in RAM bank 2, present on both machines.
 import { spectrumMemoryBlocks } from '../zxspectrum/memoryBlocks';
+// The tape deck the 128K captures a program's saves with is the 48K's, so a
+// stored file unwraps the same way.
+import { unwrapSpectrumStoredFile } from '../zxspectrum/storedFile';
 
 /**
  * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
  * It shares the 48K Spectrum language and tape layer, adding only the two extra
  * tokens (SPECTRUM, PLAY), memory paging, the dual ROM and the AY-3-8912 sound
- * chip. The 32K 128K ROM lives under public/roms/zxspectrum128/zxspectrum128.rom. See
- * docs/dialect-plans/zxspectrum128.md.
+ * chip. The 32K 128K ROM lives under public/roms/zxspectrum128/zxspectrum128.rom.
  */
 export const zxspectrum128: Dialect = {
   id: 'zxspectrum128',
@@ -53,18 +56,23 @@ export const zxspectrum128: Dialect = {
   manufacturer: 'Sinclair',
   year: 1985,
   blurb: 'The Spectrum with AY sound. Runs 128 Sinclair BASIC.',
-  docsReference: 'zxspectrum',
+  basicDialect: '128 Sinclair BASIC',
+  basicFamily: 'Sinclair BASIC',
+  docsReference: 'sinclair',
   programRamBytes: 41472,
   memoryMap: spectrum128MemoryMap,
   memoryBlocks: spectrumMemoryBlocks,
+  unwrapStoredFile: unwrapSpectrumStoredFile,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
   statementSeparator: ':',
   // POKE writes, plus `LOAD "" CODE [addr]` binary-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-code'] },
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrum128Keywords,
+  operators: spectrumOperators,
   charset: spectrum128Charset,
   languageSupport: spectrum128LanguageSupport,
   completionSource: spectrum128CompletionSource,
@@ -108,6 +116,9 @@ export const zxspectrum128: Dialect = {
   debuggable: true,
 
   joystickModes: ['native', 'kempston'],
+
+  // The 48K ROM's tape traps, armed only while ROM 1 is paged in.
+  capturesDataFiles: true,
 
   // opts.ramKb is ignored: the 128K always provides its eight 16K banks itself.
   createEmulator(opts) {

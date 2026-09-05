@@ -6,9 +6,13 @@ import type {
 } from '@codemirror/autocomplete';
 import { pickedCompletion, snippet } from '@codemirror/autocomplete';
 import { Facet } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 import type { EditorKeyword } from '../dialects/types';
-import { applyMapToPhysical, planConstructNumbering } from './lineNumbering';
+import {
+  applyMapToPhysical,
+  planConstructNumbering,
+  type UnnumberedLine,
+} from './lineNumbering';
 import { buildConstructSnippet, type ConstructTemplate } from './constructs';
 import { makeCrunchMatcher } from './crunch';
 
@@ -18,6 +22,12 @@ export interface NumberingConfig {
   auto: boolean;
   /** Spacing between auto-assigned line numbers. */
   increment: number;
+  /**
+   * The active machine's own unnumbered program lines, which must never be
+   * given a number. Absent on a machine whose source is numbered lines and
+   * nothing else, which numbers exactly as it always did.
+   */
+  unnumbered?: UnnumberedLine;
 }
 
 /**
@@ -78,7 +88,13 @@ function makeConstructApply(tmpl: ConstructTemplate) {
     const line = doc.lineAt(from);
     const idx = line.number - 1;
     const physical = doc.toString().split('\n');
-    const plan = planConstructNumbering(physical, idx, cfg.increment, extra);
+    const plan = planConstructNumbering(
+      physical,
+      idx,
+      cfg.increment,
+      extra,
+      cfg.unnumbered,
+    );
     if (!plan) {
       // No room to number the block - insert just the keyword.
       view.dispatch({

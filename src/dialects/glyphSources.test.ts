@@ -12,6 +12,7 @@ import {
   screenToPetscii,
   sourceFor,
 } from './glyphSources';
+import { letterCaseFor } from './letterCase';
 
 /**
  * Prove the declared glyph addresses actually point at the fonts.
@@ -29,7 +30,13 @@ import {
 const ROM_DIR = join(__dirname, '../../public/roms');
 
 /** The bitmap for a dialect's `code`, as one string per row of pixels. */
-function render(dialectId: string, code: number, height: number): string[] {
+function render(
+  dialectId: string,
+  code: number,
+  height: number,
+  width: number,
+  lsbFirst: boolean,
+): string[] {
   const loc = glyphLocation(dialectId, code);
   if (!loc || loc.kind !== 'rom')
     throw new Error(`${dialectId} 0x${code.toString(16)} is not in a ROM`);
@@ -37,15 +44,29 @@ function render(dialectId: string, code: number, height: number): string[] {
   const rows: string[] = [];
   for (let i = 0; i < height; i++) {
     const byte = rom[loc.fileOffset + i] ?? 0;
-    rows.push(
-      byte.toString(2).padStart(8, '0').replace(/0/g, '.').replace(/1/g, '#'),
+    // Which end of the byte is the left of the glyph is the machine's choice,
+    // and the PMD 85 is the one that puts bit 0 there. Rendering every anchor
+    // MSB-first would print its font mirrored, and the mirrored bitmap would
+    // then be pinned as if it were the shape.
+    const bits = Array.from({ length: width }, (_, x) =>
+      (byte >> (lsbFirst ? x : width - 1 - x)) & 1 ? '#' : '.',
     );
+    rows.push(bits.join(''));
   }
   return rows;
 }
 
-/** Anchor per dialect: the code that means "A", and the bitmap it must draw. */
-const ANCHORS: Record<string, { code: number; rows: string[] }> = {
+/**
+ * Anchor per dialect: the code that means "A", and the bitmap it must draw.
+ *
+ * `lsbFirst` is the PMD 85's, whose video circuit shifts each byte out low bit
+ * first and displays only six of the eight; every other machine here puts the
+ * leftmost pixel in bit 7.
+ */
+const ANCHORS: Record<
+  string,
+  { code: number; rows: string[]; width?: number; lsbFirst?: boolean }
+> = {
   // The Sinclair charset is not ASCII: 'A' is 0x26.
   zx80: {
     code: 0x26,
@@ -177,6 +198,36 @@ const ANCHORS: Record<string, { code: number; rows: string[] }> = {
       '........',
     ],
   },
+  // Six pixels wide, low bit leftmost: the two facts about this screen that a
+  // wrong reading makes plausible rather than obvious.
+  pmd85: {
+    code: 0x41,
+    width: 6,
+    lsbFirst: true,
+    rows: [
+      '...#..',
+      '..#.#.',
+      '.#...#',
+      '.#...#',
+      '.#####',
+      '.#...#',
+      '.#...#',
+      '......',
+    ],
+  },
+  cpc664: {
+    code: 0x41,
+    rows: [
+      '...##...',
+      '..####..',
+      '.##..##.',
+      '.##..##.',
+      '.######.',
+      '.##..##.',
+      '.##..##.',
+      '........',
+    ],
+  },
   cpc6128: {
     code: 0x41,
     rows: [
@@ -190,13 +241,238 @@ const ANCHORS: Record<string, { code: number; rows: string[] }> = {
       '........',
     ],
   },
+  // Screen-code indexed, like the Commodores: ATASCII 'A' (0x41) is screen
+  // code 0x21, read off the booted ROM's own font table.
+  atari800: {
+    code: 0x41,
+    rows: [
+      '........',
+      '...##...',
+      '..####..',
+      '.##..##.',
+      '.##..##.',
+      '.######.',
+      '.##..##.',
+      '........',
+    ],
+  },
+  atari400: {
+    code: 0x41,
+    rows: [
+      '........',
+      '...##...',
+      '..####..',
+      '.##..##.',
+      '.##..##.',
+      '.######.',
+      '.##..##.',
+      '........',
+    ],
+  },
+  // The MSX pattern is left-aligned in an 8-bit row because SCREEN 0 shows
+  // only the leftmost six columns; its A is five wide and sits hard against
+  // the left edge, unlike every centred font above.
+  hb10p: {
+    code: 0x41,
+    rows: [
+      '..#.....',
+      '.#.#....',
+      '#...#...',
+      '#...#...',
+      '#####...',
+      '#...#...',
+      '#...#...',
+      '........',
+    ],
+  },
 };
 
 /**
  * Dialect ids with no glyph source of their own - see the assertion that pins
  * this set at the foot of the file.
  */
-const WITHOUT_GLYPHS = new Set(['altair8800']);
+const WITHOUT_GLYPHS = new Set(['altair8800', 'ge235']);
+
+/**
+ * The code that means "A" on a dialect with no ROM anchor above and no ASCII
+ * `A` either. The Apple I's display and keyboard both carry bit 7 as part of
+ * the code, so its letters sit at 0xC1-0xDA; on the Apple II bit 7 selects
+ * normal video rather than another shape, and the plain letters land at the
+ * same codes.
+ */
+const LETTER_A: Record<string, number> = { apple1: 0xc1, apple2: 0xc1 };
+
+/**
+ * The same claim again for lower case, on the machines that have any.
+ *
+ * Every anchor above is the letter `A`, which is precisely the letter a machine
+ * with no lower case draws exactly as one that has it - so the table above
+ * cannot tell the two apart, and a source that claimed shapes its machine
+ * cannot draw would pass it. These pin the other half.
+ */
+const LOWER_ANCHORS: Record<
+  string,
+  { code: number; rows: string[]; width?: number; lsbFirst?: boolean }
+> = {
+  zxspectrum: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..###...',
+      '.....#..',
+      '..####..',
+      '.#...#..',
+      '..####..',
+      '........',
+    ],
+  },
+  zxspectrum128: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..###...',
+      '.....#..',
+      '..####..',
+      '.#...#..',
+      '..####..',
+      '........',
+    ],
+  },
+  bbcmicro: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+  bbcmaster: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+  cpc464: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.####...',
+      '....##..',
+      '.#####..',
+      '##..##..',
+      '.###.##.',
+      '........',
+    ],
+  },
+  cpc664: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.####...',
+      '....##..',
+      '.#####..',
+      '##..##..',
+      '.###.##.',
+      '........',
+    ],
+  },
+  cpc6128: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.####...',
+      '....##..',
+      '.#####..',
+      '##..##..',
+      '.###.##.',
+      '........',
+    ],
+  },
+  // Six wide and low bit leftmost, as its capital above.
+  pmd85: {
+    code: 0x61,
+    width: 6,
+    lsbFirst: true,
+    rows: [
+      '......',
+      '......',
+      '..##..',
+      '....#.',
+      '..###.',
+      '.#..#.',
+      '..###.',
+      '......',
+    ],
+  },
+  hb10p: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '.###....',
+      '....#...',
+      '.####...',
+      '#...#...',
+      '.####...',
+      '........',
+    ],
+  },
+  // ATASCII 'a' (0x61) is screen code 0x61 too - this is the one run where the
+  // two numberings agree, per atasciiToScreenCode's own "unmoved" branch.
+  atari800: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+  atari400: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..####..',
+      '.....##.',
+      '..#####.',
+      '.##..##.',
+      '..#####.',
+      '........',
+    ],
+  },
+};
+
+/**
+ * The machines that draw lower case from a bank this table does not declare.
+ *
+ * The Commodores carry their lower case in the character ROM's *second*
+ * 128-glyph set, which the machine switches to at run time; only the first is
+ * declared as a source here, so there is no lower-case shape to anchor. Named
+ * rather than derived, so a machine cannot join them by omission.
+ */
+const LOWER_CASE_UNDECLARED = new Set(['commodore64', 'pet', 'vic20']);
 
 /** Dialect ids that declare at least one ROM-backed source. */
 const romBacked = Object.entries(GLYPH_SOURCES)
@@ -222,7 +498,15 @@ describe('glyph sources', () => {
     const anchor = ANCHORS[id]!;
 
     it('draws its anchor character at the declared address', () => {
-      expect(render(id, anchor.code, anchor.rows.length)).toEqual(anchor.rows);
+      expect(
+        render(
+          id,
+          anchor.code,
+          anchor.rows.length,
+          anchor.width ?? 8,
+          anchor.lsbFirst ?? false,
+        ),
+      ).toEqual(anchor.rows);
     });
 
     it('resolves the anchor to a machine address inside the image', () => {
@@ -231,6 +515,44 @@ describe('glyph sources', () => {
       if (loc?.kind !== 'rom') return;
       const rom = readFileSync(join(ROM_DIR, loc.file));
       expect(loc.fileOffset + loc.stride).toBeLessThanOrEqual(rom.length);
+    });
+  });
+
+  describe('lower case', () => {
+    it('anchors it on every ROM-backed machine declared to draw it', () => {
+      const expected = romBacked.filter(
+        (id) =>
+          letterCaseFor(id)!.lowerCase !== 'none' &&
+          !LOWER_CASE_UNDECLARED.has(id),
+      );
+      expect(Object.keys(LOWER_ANCHORS).sort()).toEqual(expected.sort());
+    });
+
+    describe.each(Object.keys(LOWER_ANCHORS))('%s', (id) => {
+      const anchor = LOWER_ANCHORS[id]!;
+      it('draws its lower-case anchor at the declared address', () => {
+        expect(
+          render(
+            id,
+            anchor.code,
+            anchor.rows.length,
+            anchor.width ?? 8,
+            anchor.lsbFirst ?? false,
+          ),
+        ).toEqual(anchor.rows);
+      });
+    });
+
+    it('accounts for no shape at all on a machine declared to have none', () => {
+      for (const { id } of dialects) {
+        const facts = letterCaseFor(id)!;
+        if (facts.lowerCase !== 'none') continue;
+        // Only askable where the encoding keeps the two cases apart: on a
+        // folding machine the lower-case letter *is* the capital's own code,
+        // and of course that has a shape.
+        if (facts.encoding === 'folded') continue;
+        expect(sourceFor(id, 0x61), id).toBeUndefined();
+      }
     });
   });
 
@@ -270,6 +592,23 @@ describe('glyph sources', () => {
       expect(glyphLocation('trs80', 0x81)).toEqual({
         kind: 'logic',
         by: 'video logic',
+      });
+    });
+
+    it('reports the SAM font as packed, with no address of its own', () => {
+      // The shapes are in the image, but compressed: the ROM unpacks the table
+      // into RAM before anything draws from it, so a file offset would name
+      // bytes that are not the glyph and the address it ends up at is RAM.
+      expect(glyphLocation('samcoupe', 0x41)).toEqual({
+        kind: 'packed',
+        file: 'samcoupe.rom',
+        table: 'CHARSRC',
+        index: 0x41 - 0x20,
+      });
+      // And its block graphics are generated, as every machine's here are.
+      expect(glyphLocation('samcoupe', 0x8f)).toEqual({
+        kind: 'logic',
+        by: "the ROM's POUDG",
       });
     });
 
@@ -355,10 +694,17 @@ describe('glyph sources', () => {
       for (const [id, sources] of Object.entries(GLYPH_SOURCES)) {
         for (const source of sources) {
           if (source.kind !== 'rom' || source.base < 0) continue;
-          // The Commodores index by screen code, so the step from baseCode is
-          // the mapping rather than the code itself; they are checked against
-          // the character ROM by shape below instead.
-          if (id === 'commodore64' || id === 'vic20' || id === 'pet') continue;
+          // The Commodores and the Atari pair index by screen code, so the
+          // step from baseCode is the mapping rather than the code itself;
+          // they are checked against the character ROM by shape above instead.
+          if (
+            id === 'commodore64' ||
+            id === 'vic20' ||
+            id === 'pet' ||
+            id === 'atari800' ||
+            id === 'atari400'
+          )
+            continue;
           for (const code of source.codes) {
             const index = source.indexOf(code);
             if (index === undefined) continue;
@@ -516,16 +862,20 @@ describe('glyph sources', () => {
       // unless it has no glyphs of its own at all, which is a claim in itself
       // and is pinned below.
       if (WITHOUT_GLYPHS.has(id)) continue;
-      expect(sourceFor(id, ANCHORS[id]?.code ?? 0x41), id).toBeDefined();
+      expect(
+        sourceFor(id, ANCHORS[id]?.code ?? LETTER_A[id] ?? 0x41),
+        id,
+      ).toBeDefined();
     }
   });
 
   it('names the machines whose shapes are not theirs to account for', () => {
-    // The Altair has no video hardware and no character generator: its shapes
-    // belong to whichever terminal is plugged into the serial board, so there
-    // is nothing on the machine for a glyph to be traced to. Declared as a set
-    // rather than derived from the empty entry, so a dialect cannot join it by
-    // someone forgetting to fill its sources in.
+    // Two machines, for two versions of the same reason. The Altair has no
+    // video hardware and no character generator: its shapes belong to whichever
+    // terminal is plugged into the serial board. The GE-235's terminal is a
+    // Teletype, where a shape is a type bar rather than a bitmap anywhere.
+    // Declared as a set rather than derived from the empty entry, so a dialect
+    // cannot join it by someone forgetting to fill its sources in.
     const empty = Object.entries(GLYPH_SOURCES)
       .filter(([, sources]) => sources.length === 0)
       .map(([id]) => id);

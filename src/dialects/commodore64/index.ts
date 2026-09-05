@@ -1,6 +1,6 @@
 import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { c64Charset } from './charset';
-import { c64Keywords } from './keywords';
+import { c64Keywords, c64Operators } from './keywords';
 import { c64MemoryMap } from './memoryMap';
 import { c64MemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
@@ -48,6 +48,8 @@ export const commodore64: Dialect = {
   manufacturer: 'Commodore',
   year: 1982,
   blurb: 'The best-selling desktop computer ever. Commodore BASIC V2.',
+  basicDialect: 'Commodore BASIC V2',
+  basicFamily: 'Commodore BASIC',
   // The docs button deep-links to the shared 'commodore' reference page, which
   // covers C64/VIC-20 (BASIC V2) and PET (BASIC 4.0) together.
   docsReference: 'commodore',
@@ -61,8 +63,12 @@ export const commodore64: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-device'] },
+  // SYS jumps to the address given; USR is deliberately absent, because its
+  // argument is data passed to whatever the $0311 vector points at.
+  memoryReads: { forms: ['peek'], calls: ['SYS'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: c64Keywords,
+  operators: c64Operators,
   charset: c64Charset,
   languageSupport: c64LanguageSupport,
   completionSource: c64CompletionSource,
@@ -104,6 +110,9 @@ export const commodore64: Dialect = {
   debuggable: true,
 
   joystickModes: ['native'],
+
+  // The KERNAL channel-I/O jump table, for devices 8-11: a virtual 1541.
+  capturesDataFiles: true,
 
   // opts.rom/ramKb are ignored: viciious manages its own ROMs and 64K memory.
   // opts.files is the VFS store the C64's KERNAL disk traps (devices 8–11) use

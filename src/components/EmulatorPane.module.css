@@ -101,6 +101,14 @@
   margin-left: auto;
 }
 
+/* The interval the run took to reach this pause, beside where it paused. */
+.debugTiming {
+  font-size: 12px;
+  color: var(--text-dim);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
 .emulatorState {
   font-size: 12px;
   color: var(--text-dim);

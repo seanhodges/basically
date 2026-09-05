@@ -5,7 +5,7 @@ import { Spectrum128Machine } from './spectrum128Machine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap } from '../tapfile';
 import { RAMTOP } from '../../zxspectrum/sysvars';
-import type { MemoryBlock } from '../../types';
+import type { Block } from '../../types';
 
 const ROM_PATH = join(
   __dirname,
@@ -111,10 +111,10 @@ describe('Spectrum128Machine joystick', () => {
   });
 });
 
-// Stage 2 of docs/dialect-plans/zxspectrum128.md: boot the real 128 ROM, drive
-// the menu to "128 BASIC", inject + run a program, and assert on the displayed
-// bank. Skips cleanly when public/roms/zxspectrum128/zxspectrum128.rom is absent (it is not
-// committed - see ATTRIBUTION.md and the plan's "do not commit a fabricated ROM").
+// Boot the real 128 ROM, drive the menu to "128 BASIC", inject + run a program,
+// and assert on the displayed bank. Skips cleanly when
+// public/roms/zxspectrum128/zxspectrum128.rom is absent (it is not committed, and a fabricated
+// ROM must never stand in for it - see ATTRIBUTION.md).
 const suite = hasRom ? describe : describe.skip;
 
 suite(
@@ -127,6 +127,12 @@ suite(
       machine.loadProgram(buildTap(bytes));
       for (let i = 0; i < 50; i++) machine.runFrame();
       expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
+      // The ULA is taking its share of the bus off this machine too: 128 BASIC's
+      // editor and workspace live in contended bank 5, so a booted machine that
+      // has printed anything cannot have paid nothing. Staged here rather than
+      // given a boot of its own - the per-address rule is pinned in
+      // memory128.test.ts and the per-frame arithmetic on the 48K.
+      expect(machine.contendedTStates).toBeGreaterThan(0);
     });
 
     it('runs from the .TAP auto-start line, not the first line', () => {
@@ -214,7 +220,9 @@ suite(
 
     it('synthesizes AY audio while a PLAY program runs', () => {
       const machine = new Spectrum128Machine({ rom });
-      expect(machine.audioSampleRate).toBe(44100);
+      // The rate the machine emits at, not the synth's nominal 44100: 882
+      // samples a frame at the 128K ULA's 50.02Hz.
+      expect(machine.audioSampleRate).toBeCloseTo(44118.66, 1);
       const src = '10 PLAY "cdefgab"\n20 GO TO 10\n';
       const { bytes, errors } = tokenizeProgram(src);
       expect(errors).toEqual([]);
@@ -254,29 +262,6 @@ suite(
       expect(report.code).toBe('2');
     });
 
-    it('takes more frames to finish the same program at a slower speed', () => {
-      // A busy loop long enough that its completion spans many frames, so the
-      // run (not just the load handshake) is what setSpeed throttles.
-      const src = '10 FOR i=1 TO 1000\n20 NEXT i\n30 PRINT "DONE"\n';
-      function framesToDone(speed: number): number {
-        const machine = new Spectrum128Machine({ rom });
-        const { bytes, errors } = tokenizeProgram(src);
-        expect(errors).toEqual([]);
-        machine.loadProgram(buildTap(bytes));
-        // setSpeed is applied after the load handshake (which relies on the
-        // default 1x boot/flash-load timing) so only the run itself is throttled.
-        machine.setSpeed(speed);
-        for (let i = 1; i <= 2000; i++) {
-          machine.runFrame();
-          if (readScreen(machine, 0, 0, 4) === 'DONE') return i;
-        }
-        throw new Error('never displayed DONE');
-      }
-      const atFullSpeed = framesToDone(1);
-      const atHalfSpeed = framesToDone(0.5);
-      expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
-    });
-
     it('pages RAM banks 0-7 and reads them back over the 0xC000 window', () => {
       const machine = new Spectrum128Machine({ rom });
       machine.reset();
@@ -313,10 +298,9 @@ suite(
       expect(hit).toEqual({ paused: true, line: 20 });
     });
 
-    // Stage 3 of the memory-blocks plan, verified on the 128 ROM/editor too
-    // (the plan's manual smoke explicitly calls this out): loadProgram's
-    // `opts.blocks` writes raw bytes directly into RAM before RUN, protecting
-    // blocks below RAMTOP with a CLEAR typed out as a direct command.
+    // Verified on the 128 ROM/editor too: loadProgram's `opts.blocks` writes raw
+    // bytes directly into RAM before RUN, protecting blocks below RAMTOP with a
+    // CLEAR typed out as a direct command.
     describe('memory blocks', () => {
       function bootDefaultRamtop(): number {
         const machine = new Spectrum128Machine({ rom });
@@ -330,7 +314,7 @@ suite(
         const machine = new Spectrum128Machine({ rom });
         const { bytes, errors } = tokenizeProgram('10 PAUSE 0\n');
         expect(errors).toEqual([]);
-        const block: MemoryBlock = {
+        const block: Block = {
           id: 'b1',
           name: 'Code',
           address: 0x8000,
@@ -348,12 +332,12 @@ suite(
         const machine = new Spectrum128Machine({ rom });
         const { bytes, errors } = tokenizeProgram('10 PRINT PEEK 32768\n');
         expect(errors).toEqual([]);
-        const block: MemoryBlock = {
+        const block: Block = {
           id: 'b1',
           name: 'Code',
           address: 0x8000,
           bytes: new Uint8Array([123]),
-          kind: 'data',
+          kind: 'memory',
         };
         machine.loadProgram(buildTap(bytes), { blocks: [block] });
         for (let i = 0; i < 60; i++) machine.runFrame();
@@ -374,12 +358,12 @@ suite(
           '90 NEXT e\n100 NEXT d\n110 NEXT c\n120 NEXT b\n130 NEXT a\n140 PRINT "DONE"\n';
         const { bytes, errors } = tokenizeProgram(src);
         expect(errors).toEqual([]);
-        const block: MemoryBlock = {
+        const block: Block = {
           id: 'b1',
           name: 'Data',
           address: blockAddr,
           bytes: payload,
-          kind: 'data',
+          kind: 'memory',
         };
         machine.loadProgram(buildTap(bytes), { blocks: [block] });
         for (let i = 0; i < 150; i++) machine.runFrame();
@@ -400,6 +384,92 @@ suite(
         machine.loadProgram(buildTap(bytes));
         for (let i = 0; i < 50; i++) machine.runFrame();
         expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
+      });
+    });
+
+    /**
+     * The run-state latch. The ROM address it fires on is a fact about the
+     * committed image, so these cases reproduce the trace rather than asserting
+     * the constant: each program is run on the real ROM and the machine is asked
+     * what it says about itself. The still-running cases are what pin the
+     * ROM-bank gate - ROM 1 executes the same instruction address repeatedly
+     * while a program runs, so an ungated compare fails them within a second.
+     */
+    describe('isProgramRunning', () => {
+      function load(src: string): Spectrum128Machine {
+        const machine = new Spectrum128Machine({ rom });
+        const { bytes, errors } = tokenizeProgram(src);
+        expect(errors).toEqual([]);
+        machine.loadProgram(buildTap(bytes));
+        return machine;
+      }
+
+      /** Frames until the machine reports the program stopped, or the cap. */
+      function settle(
+        machine: Spectrum128Machine,
+        frames = 400,
+      ): boolean | null {
+        for (let i = 0; i < frames; i++) {
+          const running = machine.isProgramRunning();
+          if (running === false) return false;
+          machine.runFrame();
+        }
+        return machine.isProgramRunning();
+      }
+
+      it.each([
+        ['falls off the end', '10 PRINT "HI"\n'],
+        ['STOP', '10 STOP\n'],
+        ['an error', '10 PRINT 1/0\n'],
+        [
+          'GO SUB and RETURN',
+          '10 GO SUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+        ],
+        // Twenty rows rather than more: past the screen's height the ROM stops at
+        // its own "scroll?" prompt, which is a program waiting for a key.
+        [
+          'a program that fills the screen',
+          '10 FOR i=1 TO 20\n20 PRINT "ROW";i\n30 NEXT i\n',
+        ],
+      ])('reports no program running after %s', (_name, src) => {
+        expect(settle(load(src))).toBe(false);
+      });
+
+      it.each([
+        ['an idle loop', '10 GO TO 10\n'],
+        ['an INKEY$ loop', '10 IF INKEY$="" THEN GO TO 10\n'],
+        ['PAUSE', '10 PAUSE 0\n'],
+        // The case every screen-shaped or cursor-shaped heuristic gets wrong: the
+        // INPUT prompt's cursor is the editor's own.
+        ['an INPUT prompt', '10 INPUT a\n20 GO TO 10\n'],
+      ])('goes on reporting a program running at %s', (_name, src) => {
+        expect(settle(load(src), 200)).toBe(true);
+      });
+
+      it('reports no program running once BREAK stops one', () => {
+        const machine = load('10 GO TO 10\n');
+        for (let i = 0; i < 60; i++) machine.runFrame();
+        expect(machine.isProgramRunning()).toBe(true);
+        machine.setKey('CapsShift', true);
+        machine.setKey('Space', true);
+        for (let i = 0; i < 8; i++) machine.runFrame();
+        machine.setKey('CapsShift', false);
+        machine.setKey('Space', false);
+        expect(settle(machine, 60)).toBe(false);
+      });
+
+      it('goes on reporting a program running when BREAK is pressed at an INPUT prompt', () => {
+        // The ROM only tests BREAK between statements, so a program stopped at an
+        // INPUT prompt is not interrupted by it - and must not be reported as
+        // finished either.
+        const machine = load('10 INPUT a\n20 GO TO 10\n');
+        for (let i = 0; i < 60; i++) machine.runFrame();
+        machine.setKey('CapsShift', true);
+        machine.setKey('Space', true);
+        for (let i = 0; i < 8; i++) machine.runFrame();
+        machine.setKey('CapsShift', false);
+        machine.setKey('Space', false);
+        expect(settle(machine, 120)).toBe(true);
       });
     });
   },

@@ -1,9 +1,10 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
-import { c64Keywords } from './keywords';
+import { c64Keywords, c64Operators } from './keywords';
 
 /**
  * The ROM ignores spaces outside strings/REM and matches the longest keyword at
@@ -26,6 +27,10 @@ export function c64LanguageSupport(): Extension {
   // ignores spaces outside strings/REM ("code crunching": POKEA,10 is valid),
   // so the editor splits glued keywords the same way.
   return buildBasicLanguage(c64Keywords, c64CompletionSource, {
+    spellings: keywordSpellingsFor('commodore64'),
+    // The alias `^` alongside the canonical `↑`: the tokenizer accepts both, so
+    // the editor colours both, but only `↑` is what LIST spells back.
+    operators: [...c64Operators, '^'],
     suffixChars: '$%',
     graphicsEscapes: false,
     crunched: c64Crunched,

@@ -63,8 +63,14 @@ const ALTAIR_CASE = '#3c4757'; // VirtualKeyboard.css .vk-theme-altair8800
 const ALTAIR_LED = '#e05a3c';
 const ALTAIR_SWITCH = '#b9bcc2';
 const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
+const PMD_BLUE = '#7fb4d4'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-fn
+const PMD_RED = '#c0362c'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-shift
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
-const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc6128
+const ASR33_CASE = '#8d8779';
+const ASR33_KEYS = '#262421'; // VirtualKeyboard.css .vk-theme-ge235 .vk-style-shift
+const ASR33_PAPER = '#efe9dc';
+const ASR33_INK = '#4a463f';
+const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc664/-cpc6128
 
 const DARK_KEYS = '#2a2a2e';
 
@@ -81,7 +87,46 @@ const VIC_CASE = '#dcd8c8';
 const PET_CASE = '#b3b1a8';
 const TRS_CASE = '#b4b6b1';
 const CPC_CASE = '#1e1e22';
+const PMD_CASE = '#5a5e64';
+const PMD_DECK = '#4e5258';
+const PMD_PANEL = '#6b6f76';
+/* The PMD's ordinary caps: charcoal rather than the near-black every virtual
+   keyboard uses for an unthemed cap, because at portrait size a black grid on
+   a dark case is one shape, not fifteen columns of keys. */
+const PMD_KEYS = '#363a41';
+const APPLE_BOARD = '#2f6b4a';
+const APPLE_BOARD_DIM = '#27593e';
+const APPLE_CHIP = '#1b1d21';
+const APPLE_GOLD = '#c9a227';
+const APPLE_WOOD = '#8c5a34'; // the Byte Shop's koa tray, not a factory case
+const APPLE2_CASE = '#d5c7a9'; // the moulded beige the II arrived in
+const APPLE2_LID = '#c6b795'; // the lid over the slots, a shade down from the front
+const APPLE2_KEY = '#b8aa8b';
+const APPLE2_STRIPES = [
+  '#4fae55',
+  '#f2c12e',
+  '#f0862a',
+  '#d0342c',
+  '#8b4fa8',
+  '#2f7fd0',
+];
 const SCREEN_BLACK = '#0b0d0a';
+const ATARI_CASE = '#d7cbae';
+const ATARI_DECK = '#e6ddc7';
+const ATARI_FN = '#8a4a3a'; // VirtualKeyboard.css .vk-theme-atari .vk-style-fn
+const ATARI_DOOR = '#3a352c';
+const ATARI_MEMBRANE = '#e8e0cc';
+const ATARI_MEMBRANE_KEY = '#cfc6ab';
+const HITBIT_CASE = '#e8e6e0'; // the HB-10P's pale one-piece wedge
+const HITBIT_DECK = '#d6d4cd';
+const HITBIT_KEYS = '#4a4c52'; // VirtualKeyboard.css .vk-theme-hb10p
+const HITBIT_RED = '#c2372f'; // VirtualKeyboard.css .vk-theme-hb10p .vk-style-fn
+const HITBIT_SLOT = '#2b2c30';
+const SAM_CASE = '#141417'; // VirtualKeyboard.css .vk-theme-samcoupe
+const SAM_KEYS = '#44464c'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-keycap
+const SAM_FN = '#2c2e33'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-style-fn
+const SAM_RED = '#c8564a'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-layer-symbols
+const SAM_DRIVE = '#3a3c42';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
 const BASE = {
@@ -97,6 +142,13 @@ const BASE = {
   trs: '#8e908c',
   cpc: '#0e0e10',
   altair: '#20262f',
+  pmd: '#3f4247',
+  apple: '#5e3b21',
+  apple2: '#9a8c6f',
+  atari: '#a89878',
+  hitbit: '#bab8b1',
+  sam: '#0b0b0d',
+  teletype: '#5e5a51',
 };
 
 /* ---------------------------------------------------------------------------
@@ -373,6 +425,31 @@ function Cpc464Art({ size }: ArtProps) {
 }
 
 /**
+ * CPC 664: the 464's case with the 3" disc drive where the cassette deck was.
+ * Its caps went grey, but the cursor block kept a colour - that pairing of a
+ * drive with a coloured key cluster is what tells it from the all-grey 6128.
+ */
+function Cpc664Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M2 24h44v5H2z" fill={BASE.cpc} />
+      <path d="M2 11h44v13H2z" fill={CPC_CASE} />
+      <path d="M5 7h41v4H5z" fill="#2b2b31" />
+      <rect x="5" y="13.5" width="24" height="2.4" fill="#3a3a42" />
+      <rect x="5" y="17.4" width="24" height="2.4" fill="#3a3a42" />
+      <rect x="5" y="21.3" width="20" height="2.4" fill="#3a3a42" />
+      {/* The coloured cursor block the 6128 dropped. */}
+      <rect x="26" y="21.3" width="3" height="2.4" fill={CPC_BLUE} />
+      {/* 3" disc drive, as on the 6128 - the 664's tell against the 464. */}
+      <rect x="31" y="12.6" width="13" height="11" fill="#33333b" />
+      <rect x="32.5" y="15.4" width="10" height="2.6" fill="#15151a" />
+      <rect x="32.5" y="20.4" width="6" height="1.8" fill={CPC_GREY} />
+      <rect x="40.5" y="20" width="2" height="2.6" fill={CPC_GREY} />
+    </svg>
+  );
+}
+
+/**
  * CPC 6128: the same black case, but the cassette deck is gone - in its place
  * the 3" disc drive with its slot and eject button, and the keypad went grey.
  */
@@ -466,6 +543,415 @@ function Altair8800Art({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Tesla */
+
+/**
+ * Key fill by grid position, row 0 being the K0-K11 function strip. Blue runs
+ * along the top and down the last two columns; red closes both ends of that
+ * run - RST at the top right, the left shift and STOP/EOL along the bottom.
+ */
+function pmdKeyFill(r: number, c: number) {
+  if (r === 0) return c === 14 ? PMD_RED : PMD_BLUE;
+  if (r === 4) return c === 0 || c >= 13 ? PMD_RED : PMD_KEYS;
+  return c >= 13 ? PMD_BLUE : PMD_KEYS;
+}
+
+/**
+ * PMD 85-2A: a dark graphite wedge that is almost all keyboard, its grid of
+ * fifteen small square keys set into a lighter grey plate. The silhouette tell
+ * is the colour edging - a blue function strip across the top and a second one
+ * down the right of the grid, both capped in red - over the louvred cassette
+ * deck, with the space bar sitting on the case below the plate between its two
+ * indicator lamps.
+ */
+function Pmd85Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 26h42v3H3z" fill={BASE.pmd} />
+      <path d="M3 8h42v18H3z" fill={PMD_CASE} />
+      <path d="M6 3h38v5H6z" fill={PMD_DECK} />
+      {/* Vent slats over the cassette deck. */}
+      {[0, 1, 2].map((i) => (
+        <rect
+          key={`v${i}`}
+          x="8"
+          y={4.2 + i * 1.1}
+          width="17"
+          height="0.5"
+          fill="#46494e"
+        />
+      ))}
+      <rect x="4.4" y="9.4" width="39.2" height="13.2" fill={PMD_PANEL} />
+      {/* Five rows of fifteen, drawn as a grid because that is what it is. */}
+      {Array.from({ length: 5 }, (_, r) =>
+        Array.from({ length: 15 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={5.2 + c * 2.55}
+            y={10.3 + r * 2.5}
+            width="1.9"
+            height="1.9"
+            fill={pmdKeyFill(r, c)}
+          />
+        )),
+      )}
+      <rect x="20.5" y="23.4" width="7" height="1.5" fill="#8d9198" />
+      <circle cx="14" cy="24.1" r="0.7" fill="#d4802b" />
+      <circle cx="34" cy="24.1" r="0.7" fill="#4fae55" />
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Apple */
+
+/**
+ * Apple I: the one machine here with no case of its own. Apple sold a bare
+ * board, and the wooden tray under this one is the Byte Shop's - which is why
+ * the silhouette is a circuit board rather than a computer: a green PCB carrying
+ * four rows of black DIPs, the two big sockets of the monitor PROM pair standing
+ * out at the left of the top row, and the gold edge-connector fingers along the
+ * bottom where the board met its power supply and expansion.
+ */
+function Apple1Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M1 25h46v4H1z" fill={BASE.apple} />
+      <path d="M1 6h46v19H1z" fill={APPLE_WOOD} />
+      <path d="M4 8h40v16H4z" fill={APPLE_BOARD} />
+      {/* The ground plane across the top third of the board. */}
+      <path d="M4 8h40v3H4z" fill={APPLE_BOARD_DIM} />
+      {/* Four rows of DIPs. The first two of the top row are the wide sockets
+          the monitor PROMs sat in; every other package is a 14- or 16-pin. */}
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: r === 0 ? 8 : 9 }, (_, c) => {
+          const wide = r === 0 && c < 2;
+          return (
+            <rect
+              key={`c${r}-${c}`}
+              x={5.5 + (r === 0 ? c * 4.7 : c * 4.2)}
+              y={9 + r * 3.6}
+              width={wide ? 4 : 3.2}
+              height="2.4"
+              fill={APPLE_CHIP}
+            />
+          );
+        }),
+      )}
+      {/* The edge connector: gold fingers on the board's bottom lip. */}
+      {Array.from({ length: 12 }, (_, i) => (
+        <rect
+          key={`f${i}`}
+          x={7 + i * 2.9}
+          y="22.4"
+          width="1.8"
+          height="1.6"
+          fill={APPLE_GOLD}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Apple II: the first Apple that came in a case, and the silhouette is that
+ * case - a beige wedge with the keyboard moulded into its front and the lid
+ * over the eight expansion slots behind, stepped up a shade. The badge on the
+ * lid is the six-stripe logo the machine was sold under, which is the one mark
+ * that tells this portrait from any other beige box at thumbnail size.
+ */
+function Apple2Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 25h42v4H3z" fill={BASE.apple2} />
+      {/* The lid sits behind and above the keyboard deck. */}
+      <path d="M3 8h42v8H3z" fill={APPLE2_LID} />
+      <path d="M3 16h42v9H3z" fill={APPLE2_CASE} />
+      {/* The badge: six stripes, top to bottom as the logo carries them. */}
+      {APPLE2_STRIPES.map((stripe, i) => (
+        <rect
+          key={stripe}
+          x="37.5"
+          y={9.4 + i * 0.9}
+          width="5"
+          height="0.9"
+          fill={stripe}
+        />
+      ))}
+      {/* Three rows of keycaps and the space bar, in the moulded front. */}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 13 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={5.5 + c * 2.7}
+            y={17 + r * 2.3}
+            width="2.1"
+            height="1.7"
+            fill={APPLE2_KEY}
+          />
+        )),
+      )}
+      <rect x="14" y="23.9" width="16" height="1.4" fill={APPLE2_KEY} />
+    </svg>
+  );
+}
+
+/**
+ * Apple II Plus: the same moulded case, because that is what it was - the II
+ * with Applesoft in its ROM sockets rather than a new machine. The portrait
+ * repeats the II's silhouette for that reason, and separates the two
+ * thumbnails with the nameplate on the front skirt, which this one carries and
+ * the II's leaves bare.
+ */
+function Apple2PlusArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 25h42v4H3z" fill={BASE.apple2} />
+      <path d="M3 8h42v8H3z" fill={APPLE2_LID} />
+      <path d="M3 16h42v9H3z" fill={APPLE2_CASE} />
+      {APPLE2_STRIPES.map((stripe, i) => (
+        <rect
+          key={stripe}
+          x="37.5"
+          y={9.4 + i * 0.9}
+          width="5"
+          height="0.9"
+          fill={stripe}
+        />
+      ))}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 13 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={5.5 + c * 2.7}
+            y={17 + r * 2.3}
+            width="2.1"
+            height="1.7"
+            fill={APPLE2_KEY}
+          />
+        )),
+      )}
+      <rect x="14" y="23.9" width="16" height="1.4" fill={APPLE2_KEY} />
+      {/* The nameplate on the skirt below the keyboard. */}
+      <rect x="5.5" y="26" width="9" height="2" fill={APPLE2_LID} />
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Atari */
+
+/**
+ * Atari 800: the full-travel keyboard, the rust-brown console strip
+ * (START/SELECT/OPTION/BREAK) above it, and the hinged door over its two
+ * cartridge slots - the 800's tell against the 400's single slot.
+ */
+function Atari800Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.atari} />
+      <path d="M3 11h42v13H3z" fill={ATARI_CASE} />
+      <path d="M6 7h35v4H6z" fill={ATARI_DECK} />
+      <rect x="6" y="8.2" width="30" height="1.6" fill={ATARI_FN} />
+      <rect x="6" y="13" width="30" height="2.2" fill={DARK_KEYS} />
+      <rect x="6" y="17" width="30" height="2.4" fill={DARK_KEYS} />
+      <rect x="6" y="21" width="26" height="2.4" fill={DARK_KEYS} />
+      {/* The cartridge door and its two slots. */}
+      <rect x="39" y="11" width="6" height="13" fill={ATARI_DOOR} />
+      <rect x="40.5" y="13" width="3" height="4" fill="#55503f" />
+      <rect x="40.5" y="18" width="3" height="4" fill="#55503f" />
+    </svg>
+  );
+}
+
+/**
+ * Atari 400: the same case in miniature, but the keyboard is a sealed
+ * membrane - one flat panel rather than individual keycaps - and there is
+ * only one cartridge slot, set into the top rather than a side door.
+ */
+function Atari400Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.atari} />
+      <path d="M3 13h42v11H3z" fill={ATARI_CASE} />
+      <path d="M6 9h35v4H6z" fill={ATARI_DECK} />
+      <rect x="19" y="5" width="10" height="4" fill={ATARI_DOOR} />
+      <rect x="6" y="15.5" width="30" height="7" fill={ATARI_MEMBRANE} />
+      {Array.from({ length: 10 }, (_, i) => (
+        <rect
+          key={i}
+          x={6.4 + i * 3}
+          y="16.3"
+          width="2.4"
+          height="5.4"
+          fill={ATARI_MEMBRANE_KEY}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Sony */
+
+/**
+ * Sony HB-10P: the pale one-piece MSX wedge, its dark keyboard, and the
+ * cartridge slot let into the right of the deck - the tell that this is a
+ * cartridge machine rather than one of the tape-only home computers beside it.
+ * The red bar is the HitBit badge on the skirt.
+ */
+function Hb10pArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.hitbit} />
+      <path d="M3 12h42v12H3z" fill={HITBIT_CASE} />
+      <path d="M5 8h38v4H5z" fill={HITBIT_DECK} />
+      {/* The cartridge slot, in the deck rather than behind a door. */}
+      <rect x="33" y="9" width="8" height="2.2" fill={HITBIT_SLOT} />
+      {/* Five function keys along the top of the keyboard. */}
+      {Array.from({ length: 5 }, (_, i) => (
+        <rect
+          key={`f${i}`}
+          x={6 + i * 3.2}
+          y="13.4"
+          width="2.6"
+          height="1.6"
+          fill={HITBIT_RED}
+        />
+      ))}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 12 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={6 + c * 2.9}
+            y={16 + r * 2.3}
+            width="2.3"
+            height="1.8"
+            fill={HITBIT_KEYS}
+          />
+        )),
+      )}
+      <rect x="14" y="22.9" width="17" height="1.5" fill={HITBIT_KEYS} />
+      <rect x="6" y="25.6" width="6" height="1.4" fill={HITBIT_RED} />
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   General Electric */
+
+/**
+ * GE-235: the machine itself is a mainframe in another room, so what a user
+ * saw was the Teletype Model 33 ASR on the desk in front of them - a beige
+ * pedestal with a paper roll standing up behind three rows of round black
+ * keys, and the punch and reader stack on its left. The portrait is that
+ * terminal, which is the only part of this machine anyone ever sat at.
+ */
+function Ge235Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      {/* The paper standing up behind the keyboard, with a line of type on it. */}
+      <path d="M13 3h22v13H13z" fill={ASR33_PAPER} />
+      {[0, 1, 2].map((r) => (
+        <rect
+          key={`t${r}`}
+          x="15.5"
+          y={5.5 + r * 3}
+          width={r === 2 ? 9 : 17 - r * 3}
+          height="1.1"
+          fill={ASR33_INK}
+        />
+      ))}
+      {/* The pedestal, and the deck the keyboard sits in. */}
+      <path d="M4 16h40v11H4z" fill={ASR33_CASE} />
+      <path d="M4 27h40v2H4z" fill={BASE.teletype} />
+      {/* The tape punch and reader stack, to the left of the keys. */}
+      <rect x="6" y="18" width="5" height="7" fill={BASE.teletype} />
+      <rect x="7.2" y="19.5" width="2.6" height="1.2" fill={ASR33_PAPER} />
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: 3 }, (_, c) => (
+          <circle
+            key={`h${r}-${c}`}
+            cx={7.6 + c * 1.2}
+            cy={22 + r * 0.9}
+            r="0.28"
+            fill={ASR33_PAPER}
+          />
+        )),
+      )}
+      {/* Three rows of round keys, each row a little further right. */}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 10 }, (_, c) => (
+          <circle
+            key={`k${r}-${c}`}
+            cx={13.6 + r * 0.9 + c * 3}
+            cy={18.6 + r * 2.6}
+            r="1.15"
+            fill={ASR33_KEYS}
+          />
+        )),
+      )}
+      {/* The space bar. */}
+      <rect
+        x="17"
+        y="25.4"
+        width="15"
+        height="1.3"
+        rx="0.5"
+        fill={ASR33_KEYS}
+      />
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   MGT */
+
+/**
+ * The SAM Coupé: a black wedge with the two 3.5" drive bays across its right
+ * shoulder - fitted or blanked, they are the shape the case is built around -
+ * and a full-travel keyboard whose f0-f9 strip runs above the letters.
+ */
+function SamCoupeArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.sam} />
+      <path d="M3 11h42v13H3z" fill={SAM_CASE} />
+      {/* The raised back, where the drive bays sit. */}
+      <path d="M5 6h38v5H5z" fill={SAM_CASE} />
+      <rect x="26" y="7.2" width="7.5" height="2.6" fill={SAM_DRIVE} />
+      <rect x="35" y="7.2" width="7.5" height="2.6" fill={SAM_DRIVE} />
+      {/* The badge, the one colour on an otherwise black machine. */}
+      <rect x="6" y="7.6" width="6" height="1.8" fill={SAM_RED} />
+      {/* f0-f9 above the letters, then three rows of keys. */}
+      {Array.from({ length: 10 }, (_, i) => (
+        <rect
+          key={`f${i}`}
+          x={6 + i * 3.5}
+          y="12.2"
+          width="2.8"
+          height="1.5"
+          fill={SAM_FN}
+        />
+      ))}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 12 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={6 + c * 2.9}
+            y={14.8 + r * 2.3}
+            width="2.3"
+            height="1.8"
+            fill={SAM_KEYS}
+          />
+        )),
+      )}
+      <rect x="14" y="21.7" width="17" height="1.5" fill={SAM_KEYS} />
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -483,8 +969,18 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   pet: PetArt,
   trs80: Trs80Art,
   cpc464: Cpc464Art,
+  cpc664: Cpc664Art,
   cpc6128: Cpc6128Art,
   altair8800: Altair8800Art,
+  pmd85: Pmd85Art,
+  apple1: Apple1Art,
+  apple2: Apple2Art,
+  apple2plus: Apple2PlusArt,
+  atari800: Atari800Art,
+  atari400: Atari400Art,
+  hb10p: Hb10pArt,
+  samcoupe: SamCoupeArt,
+  ge235: Ge235Art,
 };
 
 /** A machine's portrait, `size` px tall. */

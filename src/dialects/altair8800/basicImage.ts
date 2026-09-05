@@ -11,10 +11,10 @@ import { tokenizeProgram } from './tokenizer';
  * It is deliberately *not* called `pfile.ts`/`tapfile.ts`: the Altair has no
  * standard program container. A program left BASIC either as a tokenized
  * cassette record over the 88-ACR board, or as a plain-ASCII paper tape that
- * BASIC re-parsed line by line on the way back in. Stage 4 decides which of
- * those the build targets expose; what the emulator's `loadProgram` injects is
- * simply the tokenized program, byte for byte as the interpreter would have
- * stored it, placed at {@link PROGRAM_BASE}.
+ * BASIC re-parsed line by line on the way back in (`targets.ts` exports both).
+ * What the emulator's `loadProgram` injects is simply the tokenized program,
+ * byte for byte as the interpreter would have stored it, placed at
+ * {@link PROGRAM_BASE}.
  *
  * "Image" is therefore thinner here than elsewhere: there is no header, no load
  * address and no checksum to add, and `buildBasicImage(source)` returns exactly
@@ -54,9 +54,9 @@ export interface BasicImagePointer {
  *    program all three hold that address, and only VARTAB stays there once
  *    variables are assigned.)
  *
- * Returned as data rather than written here so Stage 2's `loadProgram` owns the
- * one place that touches machine memory, and so the pointer-consistency test can
- * check the arithmetic without a machine.
+ * Returned as data rather than written here so the machine's `loadProgram` owns
+ * the one place that touches machine memory, and so the pointer-consistency
+ * test can check the arithmetic without a machine.
  */
 export function basicImagePointers(image: Uint8Array): BasicImagePointer[] {
   const programEnd = PROGRAM_BASE + image.length;

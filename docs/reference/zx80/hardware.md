@@ -2,6 +2,10 @@
 title: ZX80 hardware
 ---
 
+<script setup>
+import { zx80MemoryMap } from '../../../src/dialects/zx80/memoryMap';
+</script>
+
 # ZX80 hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -34,6 +38,12 @@ cell is a 2×2 group of block pixels (see [escape codes](./escapes)).
 The ZX80 has no sound hardware.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="zx80" :map="zx80MemoryMap" />
 
 A ZX80 program can carry machine code or data — **memory blocks** — by hiding the
 bytes inside a `REM` line, so they travel in the single standard `.O` file that

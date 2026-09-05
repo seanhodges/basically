@@ -4,16 +4,27 @@
  * IndexedDB via RxDB's Dexie storage. All rxdb imports are dynamic so the
  * library loads as an async chunk on first VFS use, not in the main bundle.
  *
- * Note: every browser tab shares the one IndexedDB database, so a VFS clear
- * in one tab empties another tab's mirror. Emulation is unaffected (the
- * in-memory store in vfsStore.ts is per-tab); only the inspector could
- * briefly show another tab's state. Accepted for now.
+ * Every browser tab shares the one IndexedDB database, so a row records the
+ * tab that wrote it and the row's key is composed from it: two tabs can save a
+ * file under the same name without either one's row standing in for the
+ * other's, and each tab reads, purges and deletes only its own rows.
  */
 import type { RxCollection, RxDatabase, RxJsonSchema, RxStorage } from 'rxdb';
 
-/** One stored file as persisted for inspection. */
+/**
+ * What joins the two halves of a row's key. Tab ids are generated from a
+ * timestamp and random digits, so they never contain it and the join is
+ * unambiguous however a program names its file.
+ */
+const KEY_SEPARATOR = '|';
+
+/** One stored file as persisted for restore and inspection. */
 export interface VfsFileDoc {
-  /** Program-supplied filename; the primary key. */
+  /** The primary key: the tab id and the name joined (see `vfsRowId`). */
+  id: string;
+  /** The browser tab whose program wrote the file. */
+  tabId: string;
+  /** Program-supplied filename. */
   name: string;
   /** File bytes, base64-encoded (payloads are small - tens of KB at most). */
   dataB64: string;
@@ -27,11 +38,22 @@ export interface VfsFileDoc {
   kind?: string;
 }
 
+/** The composed primary key of a row, exactly as RxDB builds it. */
+export function vfsRowId(tabId: string, name: string): string {
+  return `${tabId}${KEY_SEPARATOR}${name}`;
+}
+
 export const vfsFileSchema: RxJsonSchema<VfsFileDoc> = {
-  version: 0,
-  primaryKey: 'name',
+  version: 1,
+  primaryKey: {
+    key: 'id',
+    fields: ['tabId', 'name'],
+    separator: KEY_SEPARATOR,
+  },
   type: 'object',
   properties: {
+    id: { type: 'string', maxLength: 300 },
+    tabId: { type: 'string', maxLength: 64 },
     name: { type: 'string', maxLength: 200 },
     dataB64: { type: 'string' },
     size: { type: 'number' },
@@ -39,8 +61,27 @@ export const vfsFileSchema: RxJsonSchema<VfsFileDoc> = {
     dialectId: { type: 'string' },
     kind: { type: 'string' },
   },
-  required: ['name', 'dataB64', 'size', 'updatedAt', 'dialectId'],
+  required: [
+    'id',
+    'tabId',
+    'name',
+    'dataB64',
+    'size',
+    'updatedAt',
+    'dialectId',
+  ],
 };
+
+/**
+ * Version 0 rows are dropped rather than carried forward. They record no tab,
+ * so they cannot be attributed to one; they were written while the IDE emptied
+ * the collection on every emulator start, so none of them was ever meant to
+ * outlive a run; and among them are the files the IDE itself mounted for a
+ * program to load, which must never come back as though the program had saved
+ * them. Returning null also means no version 0 row is ever rewritten under the
+ * new key - RxDB drops it before the write.
+ */
+const vfsMigrationStrategies = { 1: () => null };
 
 type VfsCollections = { files: RxCollection<VfsFileDoc> };
 type VfsDatabase = RxDatabase<VfsCollections>;
@@ -74,6 +115,11 @@ export async function getVfsCollection(): Promise<RxCollection<VfsFileDoc>> {
 
 async function open(): Promise<VfsDatabase> {
   const { createRxDatabase, addRxPlugin } = await import('rxdb');
+  // The collection is past version 0, so RxDB needs the migration plugin to
+  // open it at all: an existing database is migrated in place on first open.
+  const { RxDBMigrationSchemaPlugin } =
+    await import('rxdb/plugins/migration-schema');
+  addRxPlugin(RxDBMigrationSchemaPlugin);
   let storage = storageOverride;
   if (!storage) {
     // Real browser path: Dexie/IndexedDB, plus dev-mode checks in dev builds.
@@ -94,6 +140,11 @@ async function open(): Promise<VfsDatabase> {
     storage,
     multiInstance: false,
   });
-  await db.addCollections({ files: { schema: vfsFileSchema } });
+  await db.addCollections({
+    files: {
+      schema: vfsFileSchema,
+      migrationStrategies: vfsMigrationStrategies,
+    },
+  });
   return db;
 }

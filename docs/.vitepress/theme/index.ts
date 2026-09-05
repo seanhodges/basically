@@ -33,5 +33,17 @@ export default {
       'MachinePicker',
       defineAsyncComponent(() => import('./components/MachinePicker.vue')),
     );
+    // The comparison's memory-layout section, and React for the same reason:
+    // it renders the IDE's own memory-map view, twice.
+    app.component(
+      'MemoryMapPair',
+      defineAsyncComponent(() => import('./components/MemoryMapPair.vue')),
+    );
+    // The same map on the hardware pages, one machine at a time, and lazy for
+    // the same reason: a reference page that draws no map must not pay for React.
+    app.component(
+      'MemoryMapSingle',
+      defineAsyncComponent(() => import('./components/MemoryMapSingle.vue')),
+    );
   },
 };

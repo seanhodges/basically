@@ -7,11 +7,11 @@
  * component so they are unit-testable (the project's component logic lives in
  * plain `.ts` siblings - see `inputOverlayMode.ts`, `memoryBands.ts`).
  *
- * Machine grouping used to live here too; it moved to `machinePicker.ts` when
- * the picker became shared with the toolbar's target switcher.
+ * Machine grouping lives in `machinePicker.ts`, which the toolbar's target
+ * switcher shares.
  */
 
-import type { Dialect, MemoryBlock, SampleFile } from '../dialects/types';
+import type { Dialect, Block, SampleFile } from '../dialects/types';
 import { materializeSampleBlocks } from '../app/sampleBlocks';
 import { UNTITLED_FILE_NAME } from '../storage/settings';
 
@@ -49,7 +49,7 @@ export function startingDocument(
   dialect: Dialect,
   point: StartingPoint,
   sample: SampleFile | undefined,
-): { source: string; blocks: MemoryBlock[] } {
+): { source: string; blocks: Block[] } {
   if (point !== 'sample' || !sample) return { source: '', blocks: [] };
   return {
     source: sample.text,

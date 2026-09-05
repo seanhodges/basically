@@ -1,13 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { dialects, getDialect } from './registry';
+import { basicFamilyOf, referencePageOf } from './referencePage';
 
 describe('dialect registry', () => {
+  /**
+   * The one machine whose program space is not a number of bytes.
+   *
+   * The GE-235's core store is 8,192 twenty-bit words, and the figure its
+   * memory map gives - 4,139 words of object code and variables - is not a byte
+   * count that could be compared against a source length in characters. Zero is
+   * the honest answer to a field asking for bytes on a machine that has none,
+   * and it is what turns the byte budget off rather than making it wrong.
+   */
+  const NOT_MEASURED_IN_BYTES = new Set(['ge235']);
+
   it('every dialect declares a positive program RAM estimate', () => {
     for (const d of dialects) {
       expect(
         Number.isInteger(d.programRamBytes),
         `${d.id} programRamBytes should be an integer`,
       ).toBe(true);
+      if (NOT_MEASURED_IN_BYTES.has(d.id)) {
+        expect(
+          d.programRamBytes,
+          `${d.id} counts words, so it declares no byte figure at all`,
+        ).toBe(0);
+        continue;
+      }
       expect(
         d.programRamBytes,
         `${d.id} programRamBytes should be positive`,
@@ -31,8 +50,21 @@ describe('dialect registry', () => {
     zxspectrum128: 'dec',
     trs80: 'dec',
     cpc464: 'hex',
+    cpc664: 'hex',
     cpc6128: 'hex',
     altair8800: 'dec',
+    pmd85: 'hex',
+    apple1: 'hex',
+    apple2: 'hex',
+    apple2plus: 'hex',
+    atari800: 'dec',
+    atari400: 'dec',
+    hb10p: 'hex',
+    // Word numbers, plainly written: nothing in this BASIC takes an address, so
+    // no program is ever written in a notation, and the octal its own listings
+    // use is carried in the map's notes rather than made a third toggle state.
+    ge235: 'dec',
+    samcoupe: 'dec',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -55,10 +87,37 @@ describe('dialect registry', () => {
     'zxspectrum',
     'zxspectrum128',
     'cpc464',
+    'cpc664',
     'cpc6128',
-    // The one machine whose image does not ship at all: supplying it is the
-    // only way to start the Altair (see `romBundled` on the dialect).
+    // Not a ROM at all on the real machine: an 8K BASIC object tape the
+    // emulator copies to 0x0000, and a replacement is fitted the same way.
     'altair8800',
+    // Ships its ROM pair concatenated in one image, and takes a replacement
+    // the same way - Monitor 2 first, then the BASIC-G module.
+    'pmd85',
+    // Likewise two chips in one image: WozMon first, then Integer BASIC. The
+    // monitor leads so that a short replacement - the monitor alone - still
+    // boots, the seam padding the rest with 0xFF.
+    'apple1',
+    // One image again, but a window rather than a pair: $D000-$FFFF, with
+    // Integer BASIC and the Monitor in it. A short replacement fills from
+    // $D000 up, so the BASIC half alone still leaves a machine that resets.
+    'apple2',
+    // The same window on the same board, with Applesoft and the Autostart
+    // Monitor in it rather than Integer BASIC and the old one.
+    'apple2plus',
+    // Same shape again: the OS leads so a BASIC-only replacement still boots
+    // to the Memo Pad rather than a machine that cannot reset.
+    'atari800',
+    'atari400',
+    // A single 32K image, BIOS first then BASIC, mapped as the machine's slot 0
+    // cartridge - a short replacement fills from 0x0000 up, so a BIOS-only
+    // image still boots to a machine that resets.
+    'hb10p',
+    // One 32K image, ROM 0 then ROM 1, which the machine pages in over the top
+    // and bottom of the window; a short replacement fills from the start, so a
+    // ROM 0 on its own still boots.
+    'samcoupe',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {
@@ -90,6 +149,47 @@ describe('dialect registry', () => {
         `${d.id} blurb should fit a picker row on a phone`,
       ).toBeLessThanOrEqual(72);
       expect(d.blurb, `${d.id} blurb should be one line`).not.toContain('\n');
+      // The picker groups and searches on `basicDialect`, and shows `blurb`.
+      // A machine whose description names a different BASIC from the one it
+      // declares would sort into one group and read as another.
+      expect(
+        d.basicDialect.trim(),
+        `${d.id} needs the name of the BASIC it runs`,
+      ).not.toBe('');
+      expect(
+        d.blurb,
+        `${d.id} blurb should name ${d.basicDialect}, the BASIC it declares`,
+      ).toContain(d.basicDialect);
+    }
+  });
+
+  // The picker's by-BASIC arrangement heads each group with the family, so a
+  // machine without one has no heading to read under.
+  it('every dialect resolves to a family of BASIC', () => {
+    for (const d of dialects) {
+      expect(
+        basicFamilyOf(d).trim(),
+        `${d.id} needs the family of BASIC it runs`,
+      ).not.toBe('');
+    }
+  });
+
+  // The reference carries one page per family, so two machines sharing a page
+  // and declaring different families would title that page after one of them.
+  it('machines sharing a reference page share a family', () => {
+    const familyByPage = new Map<string, { id: string; family: string }>();
+    for (const d of dialects) {
+      const page = referencePageOf(d);
+      const family = basicFamilyOf(d);
+      const first = familyByPage.get(page);
+      if (!first) {
+        familyByPage.set(page, { id: d.id, family });
+        continue;
+      }
+      expect(
+        family,
+        `${d.id} and ${first.id} share the ${page} reference page, so they must share a family`,
+      ).toBe(first.family);
     }
   });
 
@@ -99,9 +199,12 @@ describe('dialect registry', () => {
         Number.isInteger(d.year),
         `${d.id} year should be an integer`,
       ).toBe(true);
-      // The 8-bit microcomputer era, generously bounded - a typo like 19881
+      // From BASIC's own first machines to the end of the 8-bit era,
+      // generously bounded at both ends - the lower bound sits below 1964, when
+      // Dartmouth first ran the language, because a machine that predates the
+      // microcomputer can still run a BASIC this IDE targets. A typo like 19881
       // or a default 0 fails, a genuine machine does not.
-      expect(d.year, `${d.id} year looks wrong`).toBeGreaterThanOrEqual(1975);
+      expect(d.year, `${d.id} year looks wrong`).toBeGreaterThanOrEqual(1960);
       expect(d.year, `${d.id} year looks wrong`).toBeLessThanOrEqual(1995);
     }
   });

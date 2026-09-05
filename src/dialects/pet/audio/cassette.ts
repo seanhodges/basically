@@ -13,7 +13,7 @@
  * behind an auto-loader), and the import side recovers them - the block-aware
  * body layout and the multi-part decode convention are both shared.
  */
-import type { AudioDecodeResult, MemoryBlock } from '../../types';
+import type { AudioDecodeResult, Block } from '../../types';
 import { buildPrg } from '../targets';
 import { detokenizeProgram, detokenizeCbmTapeWithReport } from '../detokenizer';
 import { loaderProgramBytes } from '../loader';
@@ -43,7 +43,7 @@ export function buildCassetteSamples(
   source: string,
   programName: string,
   robust = false,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   loader = false,
 ): Float32Array {
   const program = buildPrg(source).subarray(2); // drop the $0401 load address

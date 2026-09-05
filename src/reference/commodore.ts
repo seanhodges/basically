@@ -8,10 +8,17 @@
 // commands appended at the end and tagged 'BASIC 4.0'. The PET's keyword table
 // (src/dialects/pet/keywords.ts) is the union checked by keyword-crosscheck.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const commodoreReference: BasicReferenceTableData = {
+const commodoreTable: BasicReferenceTableData = {
   title: 'Commodore 64, VIC-20 & PET BASIC',
   machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
+  placeholders: [
+    { id: 'drive', meaning: 'a drive number, written after a literal D' },
+    { id: 'device', meaning: 'a device number: 1 for tape, 8 for disc' },
+    { id: 'secondary', meaning: 'a secondary address' },
+    { id: 'id', meaning: 'a two-character disk id, written after a literal I' },
+  ],
   entries: [
     {
       name: 'END',
@@ -33,7 +40,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'NEXT',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'NEXT [<numvar>[, <numvar>…]]',
+      syntax: 'NEXT [<numvar>[, <numvar>]…]',
       description:
         'Closes the innermost FOR loop, or a named one. Several loop variables can be listed to close nested loops at once.',
     },
@@ -41,7 +48,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DATA',
       kind: 'command',
       domain: 'data',
-      syntax: 'DATA <constant>[, <constant>…]',
+      syntax: 'DATA <constant>[, <constant>]…',
       description:
         'Holds a list of inline numeric or string constants consumed in order by READ; the rest of the statement is stored verbatim, so unquoted text is allowed.',
     },
@@ -49,7 +56,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'INPUT#',
       kind: 'command',
       domain: 'storage',
-      syntax: 'INPUT# <file>, <var>[, <var>…]',
+      syntax: 'INPUT#<file>, <var>[, <var>]…',
       description:
         'Reads comma- or newline-separated values from an open file or device into the listed variables. The file must first be opened with OPEN.',
     },
@@ -57,7 +64,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'INPUT',
       kind: 'command',
       domain: 'input',
-      syntax: 'INPUT [<string>;] <var>[, <var>…]',
+      syntax: 'INPUT [<prompt>;] <var>[, <var>]…',
       description:
         'Prints the optional prompt followed by a "? " and reads one or more comma-separated values from the keyboard. It halts the program, so games use GET instead.',
     },
@@ -65,7 +72,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DIM',
       kind: 'command',
       domain: 'data',
-      syntax: 'DIM <var>(<number>[, <number>…])[, <var>(…)…]',
+      syntax: 'DIM <var>(<number>[, <number>]…)',
       description:
         'Declares one or more arrays with the given maximum subscripts; indices run from 0, so DIM A(10) gives 11 elements. Undimensioned arrays default to a size of 10.',
     },
@@ -73,7 +80,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'READ',
       kind: 'command',
       domain: 'data',
-      syntax: 'READ <var>[, <var>…]',
+      syntax: 'READ <var>[, <var>]…',
       description:
         'Assigns the next unread DATA constants to the listed variables, advancing the read pointer. Running past the last DATA gives ?OUT OF DATA ERROR.',
     },
@@ -136,7 +143,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'REM',
       kind: 'command',
       domain: 'program-editing',
-      syntax: 'REM [<text>]',
+      syntax: 'REM [<comment>]',
       description:
         'Marks a comment; the rest of the line is stored verbatim and ignored when the program runs.',
     },
@@ -152,7 +159,8 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'ON',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'ON <number> GOTO | GOSUB <line>[, <line>…]',
+      syntax:
+        'ON <number> GOTO <line>[, <line>]… | ON <number> GOSUB <line>[, <line>]…',
       description:
         'Uses the rounded value as a 1-based index to pick which line to GOTO or GOSUB. If the index is 0 or larger than the list, execution falls through to the next statement.',
     },
@@ -160,7 +168,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'WAIT',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'WAIT <number>, <number> [, <number>]',
+      syntax: 'WAIT <addr>, <mask>[, <mask>]',
       description:
         'Pauses until a memory location, ANDed with the mask and optionally XORed, is non-zero. Misuse can hang the machine since BASIC stops polling anything else.',
     },
@@ -168,7 +176,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'LOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'LOAD [<string> [, <number> [, <number>]]]',
+      syntax: 'LOAD [<filename> [, <device> [, <number>]]]',
       description:
         'Loads a program from tape (device 1, the default) or disk (device 8), optionally with a secondary address. A secondary address of 1 loads to the original address.',
     },
@@ -176,7 +184,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'SAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'SAVE [<string> [, <number> [, <number>]]]',
+      syntax: 'SAVE [<filename> [, <device> [, <number>]]]',
       description:
         'Saves the current program to tape or the named device, optionally with a secondary address that selects, for example, an end-of-tape marker.',
     },
@@ -184,7 +192,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'VERIFY',
       kind: 'command',
       domain: 'storage',
-      syntax: 'VERIFY [<string> [, <number>]]',
+      syntax: 'VERIFY [<filename> [, <device>]]',
       description:
         'Compares a saved program against the one in memory and reports ?VERIFY ERROR if they differ.',
     },
@@ -200,7 +208,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'POKE',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'POKE <number>, <number>',
+      syntax: 'POKE <addr>, <byte>',
       description:
         'Writes a byte (0–255) to a memory address (0–65535). The C64 has no graphics or sound keywords, so screen, colour, sprite and SID effects are all done by POKEing VIC-II and SID registers.',
     },
@@ -208,7 +216,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'PRINT#',
       kind: 'command',
       domain: 'storage',
-      syntax: 'PRINT# <file>[, <expr>[;|, <expr>…]]',
+      syntax: 'PRINT#<file>[, <expr>[;|, <expr>]…]',
       description:
         'Writes data to an open file or device instead of the screen, using the same formatting rules as PRINT.',
     },
@@ -216,7 +224,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'PRINT [<expr>][;|, <expr>…]',
+      syntax: 'PRINT [<expr>][;|, <expr>]…',
       description:
         'Prints values to the screen; a trailing semicolon suppresses the newline and a comma tabs to the next 10-column field. Printed CHR$ codes also control colour and cursor movement.',
     },
@@ -256,7 +264,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'SYS',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'SYS <number>',
+      syntax: 'SYS <addr>',
       description:
         'Jumps to a machine-code routine at the given address, returning to BASIC on RTS; the A, X, Y and status registers are taken from page-zero locations.',
     },
@@ -264,7 +272,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'OPEN',
       kind: 'command',
       domain: 'storage',
-      syntax: 'OPEN <file>, <number> [, <number> [, <string>]]',
+      syntax: 'OPEN <file>, <device> [, <secondary> [, <string>]]',
       description:
         'Opens a logical file, given its file number, device number, optional secondary address and optional name, for later use by PRINT#, INPUT#, GET# or CMD.',
     },
@@ -453,7 +461,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR(<number>)',
+      syntax: 'USR(<addr>)',
       description:
         'Passes the argument in the floating-point accumulator to the machine-code routine whose address is stored in the USR vector ($0311) and returns its result.',
     },
@@ -540,7 +548,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'PEEK',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'PEEK(<number>)',
+      syntax: 'PEEK(<addr>)',
       description:
         'Returns the byte (0–255) stored at the given memory address (0–65535); the counterpart to POKE for reading hardware and memory.',
     },
@@ -587,7 +595,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'LEFT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'LEFT$(<string>, <number>)',
+      syntax: 'LEFT$(<string>, <length>)',
       description:
         'Returns the leftmost n characters of the string, or the whole string if n is at least its length.',
     },
@@ -595,7 +603,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'RIGHT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'RIGHT$(<string>, <number>)',
+      syntax: 'RIGHT$(<string>, <length>)',
       description:
         'Returns the rightmost n characters of the string, or the whole string if n is at least its length.',
     },
@@ -603,7 +611,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'MID$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'MID$(<string>, <number> [, <number>])',
+      syntax: 'MID$(<string>, <start>[, <length>])',
       description:
         'Returns a substring starting at the 1-based position for the optional length (default: to the end of the string).',
     },
@@ -629,7 +637,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'CONCAT',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CONCAT <string> TO <string> [, D<number>]',
+      syntax: 'CONCAT <string> TO <string> [, D<drive>]',
       description:
         'Appends one sequential disk file onto the end of another, leaving the source unchanged.',
       tag: 'BASIC 4.0',
@@ -639,7 +647,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DOPEN',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DOPEN# <lf>, <string> [, D<number>] [, W]',
+      syntax: 'DOPEN#<file>, <string> [, D<drive>] [, W]',
       description:
         'Opens a disk file to a logical file number for reading, or for writing with W.',
       tag: 'BASIC 4.0',
@@ -649,7 +657,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DCLOSE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DCLOSE [# <lf>]',
+      syntax: 'DCLOSE [#<file>]',
       description:
         'Closes a disk file opened with DOPEN, or all open files when no logical file number is given.',
       tag: 'BASIC 4.0',
@@ -659,7 +667,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'RECORD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'RECORD# <lf>, <number> [, <number>]',
+      syntax: 'RECORD#<file>, <number> [, <number>]',
       description:
         'Positions to a record (and optional byte) within an open relative file.',
       tag: 'BASIC 4.0',
@@ -669,7 +677,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'HEADER',
       kind: 'command',
       domain: 'storage',
-      syntax: 'HEADER <string>, D<number>, I<id>',
+      syntax: 'HEADER <string>, D<drive>, I<id>',
       description:
         'Formats (news) a disk, writing a name and two-character id.',
       tag: 'BASIC 4.0',
@@ -679,7 +687,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'COLLECT',
       kind: 'command',
       domain: 'storage',
-      syntax: 'COLLECT [D<number>]',
+      syntax: 'COLLECT [D<drive>]',
       description:
         'Validates the disk, reclaiming space allocated to improperly closed files.',
       tag: 'BASIC 4.0',
@@ -689,7 +697,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'BACKUP',
       kind: 'command',
       domain: 'storage',
-      syntax: 'BACKUP D<number> TO D<number>',
+      syntax: 'BACKUP D<drive> TO D<drive>',
       description:
         'Duplicates an entire disk from one drive to another on a dual-drive unit.',
       tag: 'BASIC 4.0',
@@ -709,7 +717,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'APPEND',
       kind: 'command',
       domain: 'storage',
-      syntax: 'APPEND# <lf>, <string> [, D<number>]',
+      syntax: 'APPEND#<file>, <string> [, D<drive>]',
       description:
         'Opens an existing sequential file positioned at its end so PRINT# adds to it.',
       tag: 'BASIC 4.0',
@@ -719,7 +727,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DSAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DSAVE <string> [, D<number>]',
+      syntax: 'DSAVE <string> [, D<drive>]',
       description:
         'Saves the BASIC program to disk by name — the disk equivalent of SAVE.',
       tag: 'BASIC 4.0',
@@ -729,7 +737,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DLOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DLOAD <string> [, D<number>]',
+      syntax: 'DLOAD <string> [, D<drive>]',
       description:
         'Loads a BASIC program from disk by name — the disk equivalent of LOAD.',
       tag: 'BASIC 4.0',
@@ -739,7 +747,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'CATALOG',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CATALOG [D<number>]',
+      syntax: 'CATALOG [D<drive>]',
       description:
         'Displays the disk directory without disturbing the program in memory (synonym of DIRECTORY).',
       tag: 'BASIC 4.0',
@@ -758,7 +766,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'SCRATCH',
       kind: 'command',
       domain: 'storage',
-      syntax: 'SCRATCH <string> [, D<number>]',
+      syntax: 'SCRATCH <string> [, D<drive>]',
       description: 'Deletes (scratches) a file from the disk.',
       tag: 'BASIC 4.0',
       onlyOn: ['pet'],
@@ -767,11 +775,42 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DIRECTORY',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DIRECTORY [D<number>]',
+      syntax: 'DIRECTORY [D<drive>]',
       description:
         'Displays the disk directory without disturbing the program in memory.',
       tag: 'BASIC 4.0',
       onlyOn: ['pet'],
     },
+    {
+      name: '<=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <= <number> | <string> <= <string>',
+      description: 'Less than or equal.',
+    },
+    {
+      name: '>=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> >= <number> | <string> >= <string>',
+      description: 'Greater than or equal.',
+    },
+    {
+      name: '<>',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <> <number> | <string> <> <string>',
+      description: 'Not equal.',
+    },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const commodoreReference: BasicReferenceTableData = withAbbreviations(
+  'commodore',
+  commodoreTable,
+);

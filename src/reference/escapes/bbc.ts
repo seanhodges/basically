@@ -25,10 +25,12 @@ export const bbcEscapes: EscapeTableData = {
   title: 'BBC escape codes',
   machines: ['BBC Micro Model B', 'BBC Master'],
   categories: [
-    { id: 'text-colour', label: 'Text colour' },
-    { id: 'graphics-colour', label: 'Graphics colour' },
-    { id: 'effect', label: 'Teletext effects' },
-    { id: 'raw', label: 'Raw bytes' },
+    // Two chips, one class: teletext colours the following text or the following
+    // mosaic characters, and a port has the same job either way.
+    { id: 'text-colour', label: 'Text colour', class: 'colour' },
+    { id: 'graphics-colour', label: 'Graphics colour', class: 'colour' },
+    { id: 'effect', label: 'Teletext effects', class: 'screen-effect' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     teletext('RED', 0x81, 'text-colour', 'Teletext: red text from here.'),

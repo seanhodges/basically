@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { DetokenizeResult, MemoryBlock } from '../types';
+import type { DetokenizeResult, Block } from '../types';
 import { decodeSpan } from './charset';
 import { altair8800WordByToken } from './keywords';
 import { codeFilesToBlocks } from '../importBlocks';
@@ -81,7 +81,7 @@ export function detokenizeProgramWithReport(
     );
   }
   const trailing = program.length - decoded.end;
-  let blocks: MemoryBlock[] | undefined;
+  let blocks: Block[] | undefined;
   if (!decoded.truncated && trailing > 0) {
     const address = PROGRAM_BASE + decoded.end;
     blocks = codeFilesToBlocks([

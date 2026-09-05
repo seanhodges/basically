@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# The Basically toolchain, kept running. Rebuilds the bundle when it is stale,
+# so the client and the host are never built from different source.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+BUNDLE=scripts/headless/dist/server.mjs
+# The whole of src/, not just the toolchain's own folders: the bundle inlines
+# the dialect registry and every emulator with it, so a change to a machine is
+# as much a stale bundle as a change to an operation - and one that went
+# unnoticed handed the caller the old machine with nothing to say it had.
+SOURCES=(scripts/headless src)
+
+# The build's own output lives under scripts/headless, and the three bundles are
+# written one after another - so a scan that counted them would find the later
+# ones newer than the first and rebuild on every single invocation.
+needs_build() {
+  [ ! -f "$BUNDLE" ] && return 0
+  [ -n "$(find "${SOURCES[@]}" -type d -name dist -prune -o \
+            -type f -newer "$BUNDLE" -print -quit)" ]
+}
+
+if needs_build; then
+  echo "[basically-server] Building $BUNDLE..." >&2
+  node scripts/headless/build.mjs >&2
+fi
+
+exec node "$BUNDLE" "$@"

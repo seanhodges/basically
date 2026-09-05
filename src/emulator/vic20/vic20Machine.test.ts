@@ -5,6 +5,7 @@ import { Vic20Machine } from './vic20Machine';
 import type { Vic20Roms } from './memory';
 import { READ_BIT, WRITE_BIT } from '../memoryActivityBuffer';
 import { tokenizeProgram } from '../../dialects/vic20/tokenizer';
+import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 
 const ROOT = join(__dirname, '../../../public/roms/vic20');
 const roms: Vic20Roms = {
@@ -354,7 +355,9 @@ describe('Vic20Machine', () => {
     'synthesizes VIC-I audio while a voice sounds, and settles silent again',
     async () => {
       const m = new Vic20Machine({ roms });
-      expect(m.audioSampleRate).toBe(44100);
+      // The rate the machine emits at, not the synth's nominal 44100: 882
+      // samples a frame at this machine's own frame rate.
+      expect(m.audioSampleRate).toBeCloseTo(44132.01, 1);
       await m.whenReady();
       // Volume up, soprano voice on, then hold so the tone persists.
       m.loadProgram(image('10 POKE 36878,15\n20 POKE 36876,200\n30 GOTO 30\n'));
@@ -416,57 +419,117 @@ describe('Vic20Machine', () => {
       BOOT_TIMEOUT_MS,
     );
   });
-  describe('run state', () => {
-    /**
-     * Sample isProgramRunning() once per frame from the moment the program is
-     * handed over, so the hand-over itself is observable and not just the
-     * settled state. CURLIN deliberately isn't consulted: the ROM leaves it
-     * holding the last line executed once a program stops.
-     */
-    async function trace(
-      source: string,
-      frames = 500,
-    ): Promise<(boolean | null)[]> {
-      const m = new Vic20Machine({ roms });
-      await m.whenReady();
-      m.loadProgram(image(source));
-      await m.whenReady();
-      const seen: (boolean | null)[] = [];
-      for (let i = 0; i < frames; i++) {
-        m.runFrame();
-        seen.push(m.isProgramRunning());
-      }
+  // Whether a program is running - reported while it runs, not before it starts,
+  // and no longer once it has ended - is checked over the whole registry, on
+  // every machine, by src/dialects/programRunState.test.ts.
+});
+
+describe('Vic20Machine disk I/O over the VFS', () => {
+  /** Map-backed MachineFileStore, same shape as commodore/diskDrive.test.ts. */
+  function fakeStore() {
+    const files = new Map<string, { data: Uint8Array; kind?: string }>();
+    const store: MachineFileStore = {
+      save: (name, data, meta) =>
+        void files.set(name, { data: data.slice(), kind: meta?.kind }),
+      load: (name) => files.get(name)?.data.slice() ?? null,
+      list: (): MachineFileEntry[] =>
+        [...files.entries()].map(([name, f]) => ({
+          name,
+          size: f.data.length,
+          updatedAt: 1,
+          kind: f.kind,
+        })),
+      delete: (name) => files.delete(name),
+    };
+    return { store, files };
+  }
+
+  /** A stored file's contents as PETSCII-as-ASCII text. */
+  function text(
+    files: Map<string, { data: Uint8Array }>,
+    name: string,
+  ): string {
+    const f = files.get(name);
+    return f ? String.fromCharCode(...f.data) : '';
+  }
+
+  /** Tokenize, load and run a program against the given store. */
+  async function run(store: MachineFileStore, src: string, frames = 400) {
+    const m = new Vic20Machine({ roms, files: store });
+    await m.whenReady();
+    m.loadProgram(image(src));
+    await new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < frames; i++) m.runFrame();
+    return m;
+  }
+
+  it(
+    'writes a data file with OPEN/PRINT#/CLOSE on device 8',
+    async () => {
+      const { store, files } = fakeStore();
+      const m = await run(
+        store,
+        '10 OPEN 2,8,2,"DATA,S,W"\n' +
+          '20 PRINT#2,"HELLO"\n' +
+          '30 PRINT#2,42\n' +
+          '40 CLOSE 2\n' +
+          '50 PRINT "DONE"\n',
+      );
+      expect(contains(screen(m), screenCodes('DONE'))).toBe(true);
+      expect([...files.keys()]).toEqual(['DATA']);
+      expect(files.get('DATA')!.kind).toBe('data');
+      // PRINT# terminates each item with a carriage return ($0d).
+      expect(text(files, 'DATA')).toContain('HELLO');
+      expect(text(files, 'DATA')).toContain('42');
       m.dispose();
-      return seen;
-    }
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
-    it(
-      'reports a looping program as running',
-      async () => {
-        expect((await trace('10 GOTO 10\n')).at(-1)).toBe(true);
-      },
-      BOOT_TIMEOUT_MS,
-    );
+  it(
+    'reads a data file back with INPUT# (string then number)',
+    async () => {
+      const { store } = fakeStore();
+      // One machine writes the file...
+      const writer = await run(
+        store,
+        '10 OPEN 2,8,2,"REC,S,W"\n' +
+          '20 PRINT#2,"HELLO"\n' +
+          '30 PRINT#2,42\n' +
+          '40 CLOSE 2\n',
+      );
+      writer.dispose();
 
-    it(
-      'reports a finished program as not running',
-      async () => {
-        expect((await trace('10 PRINT "HI"\n')).at(-1)).toBe(false);
-      },
-      BOOT_TIMEOUT_MS,
-    );
+      // ...a second machine, sharing the store, reads it back.
+      const reader = await run(
+        store,
+        '10 OPEN 2,8,2,"REC,S,R"\n' +
+          '20 INPUT#2,A$\n' +
+          '30 INPUT#2,B\n' +
+          '40 CLOSE 2\n',
+      );
+      const byName = new Map(reader.readVariables().map((v) => [v.name, v]));
+      expect(byName.get('A$')).toMatchObject({
+        kind: 'string',
+        value: '"HELLO"',
+      });
+      expect(byName.get('B')).toMatchObject({ kind: 'number', value: '42' });
+      reader.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
-    it(
-      'never reads as finished before the program has started',
-      async () => {
-        // Everything up to the first `true` must be "not answerable yet" - a
-        // `false` there would report a program that has not begun as ended.
-        const seen = await trace('10 GOTO 10\n');
-        const started = seen.indexOf(true);
-        expect(started).toBeGreaterThanOrEqual(0);
-        expect(seen.slice(0, started)).not.toContain(false);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-  });
+  it(
+    'leaves the store untouched for ordinary screen output',
+    async () => {
+      // The trap table is keyed on the KERNAL's own entry points, which PRINT
+      // goes through too (CHROUT to device 3). Nothing may land in the store.
+      const { store, files } = fakeStore();
+      const m = await run(store, '10 PRINT "DONE"\n');
+      expect(contains(screen(m), screenCodes('DONE'))).toBe(true);
+      expect(files.size).toBe(0);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 });

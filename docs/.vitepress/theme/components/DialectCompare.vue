@@ -13,6 +13,7 @@ import type {
   PortingFacts,
   ReferenceTableData,
 } from '../../../../src/reference/types';
+import { writesByIndirection } from '../../../../src/reference/types';
 import {
   capabilitySections,
   composeGuidance,
@@ -22,14 +23,33 @@ import {
   escapeDiffForProgram,
   escapeSections,
   escapeTableForMachine,
+  factRows as buildFactRows,
   falseFriendsForProgram,
+  integerRangeNarrowingForProgram,
+  lineNumbersForProgram,
+  markerLossForProgram,
   noticeState,
+  conditionallyFreeForProgram,
+  programFitForTarget,
+  shortSpellingsForFit,
+  spellingExpansionsForProgram,
   statementLayoutForProgram,
   tableForMachine,
+  truncatedArithmeticForProgram,
   unsupportedCharactersForProgram,
+  variableCollisionsForProgram,
+  writeLandingsForProgram,
+  carriesMachineCodeGuidance,
+  machineCodeForProgram,
+  readLandingsForProgram,
+  positionsForProgram,
+  delaysForProgram,
+  lostCapabilitiesForProgram,
   type CapabilitySection,
   type EscapeSection,
+  type FactRow,
   type KeywordChange,
+  type ProgramSize,
   type ProgramVocabulary,
 } from '../../../../src/reference/compare';
 import {
@@ -39,8 +59,12 @@ import {
 } from '../../../../src/reference/porting';
 import { domainGuidance } from '../../../../src/reference/domain-guidance';
 import type { DomainGuidance } from '../../../../src/reference/domain-guidance';
+import { escapeGuidance } from '../../../../src/reference/escape-guidance';
+import type { EscapeGuidance } from '../../../../src/reference/escape-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
+import { showsSection } from '../sectionVisibility';
+import type { MemoryMap } from '../../../../src/dialects/types';
 
 /**
  * One selectable machine.
@@ -72,6 +96,13 @@ interface DialectOption {
   reference: ReferenceTableData;
   escapes?: EscapeTableData;
   facts: PortingFacts;
+  /**
+   * This machine's memory layout, where the IDE describes one. Absent for a
+   * machine whose layout it cannot describe, which is what makes the
+   * memory-layout section absent for any pair involving it rather than shown
+   * with one side empty.
+   */
+  memoryMap?: MemoryMap;
 }
 
 const props = defineProps<{ dialects: DialectOption[] }>();
@@ -147,12 +178,13 @@ const fullKeywordDiff = computed(() => {
   const s = source.value;
   const t = target.value;
   if (!s || !t || !sourceTable.value || !targetTable.value) return null;
-  // `from`/`to` stay *page* slugs: the cross-dialect spelling data
-  // (equivalences, false friends, pair notes) is a property of the BASIC, which
-  // every machine on a page shares.
+  // `from`/`to` are machine ids: the cross-dialect spelling data
+  // (equivalences, false friends, pair notes) is a property of the machine, not
+  // of the page it reads from — the ZX81 and the Spectrums share a page and
+  // spell the jump two ways.
   return diffKeywords(sourceTable.value, targetTable.value, {
-    from: s.page,
-    to: t.page,
+    from: s.id,
+    to: t.id,
     equivalences: keywordEquivalences,
   });
 });
@@ -165,13 +197,188 @@ const fullKeywordDiff = computed(() => {
 // the fact table instead (see factRows), not as prose.
 const guidance = computed(() =>
   composeGuidance({
-    from: source.value?.page ?? from.value,
-    to: target.value?.page ?? to.value,
+    from: source.value?.id ?? from.value,
+    to: target.value?.id ?? to.value,
     targetFacts: target.value?.facts,
     pairNotes: pairPortingNotes,
     falseFriends,
     domainGuidance,
   }),
+);
+
+/**
+ * Everything the memory-layout section needs, or null when it should not be
+ * shown at all.
+ *
+ * Null whenever either machine's layout is undescribed: a half-drawn comparison
+ * would invite the reader to conclude something about a machine the IDE cannot
+ * describe. Both maps span the same address space, which is what lets the two
+ * panes share one scale - `src/dialects/memoryMap.test.ts` holds that.
+ *
+ * The access sites are the *source* machine's, and are marked on both panes: on
+ * the source's because that is where the program aimed them, on the target's
+ * because that is where they would land. They follow the same narrowing as the
+ * rest of the page, so they are absent when there is no program to narrow to.
+ *
+ * Reads are marked beside the writes, in their own colour: an address the
+ * program reads is aimed at one machine's keyboard or clock exactly as surely as
+ * one it writes, and on the other machine it reaches whatever sits there.
+ */
+const memoryPair = computed(() => {
+  const s = source.value;
+  const t = target.value;
+  if (!s?.memoryMap || !t?.memoryMap) return null;
+  const v = narrowingBy.value;
+  return {
+    fromName: s.name,
+    toName: t.name,
+    fromMap: s.memoryMap,
+    toMap: t.memoryMap,
+    fromByIndirection: writesByIndirection(s.facts),
+    toByIndirection: writesByIndirection(t.facts),
+    sites: [
+      ...(v?.writeSites ?? []),
+      ...(v?.readSites ?? []).map((site) => ({
+        ...site,
+        role: 'read' as const,
+      })),
+    ],
+    notation: s.facts.addressNotation,
+  };
+});
+
+/**
+ * Where the program's writes land on the target, as findings rather than as
+ * marks on a picture.
+ *
+ * Absent on exactly the conditions the maps themselves are - either layout
+ * undescribed, or no program to narrow to - so a reader is never told half of
+ * this. A reader who never scrolls the maps still learns that four of their
+ * POKEs land in the target's BASIC program text.
+ */
+const writeLandings = computed(() => {
+  const pair = memoryPair.value;
+  const v = narrowingBy.value;
+  if (!pair || !v) return [];
+  return writeLandingsForProgram(pair.fromMap, pair.toMap, v);
+});
+
+/** How many of a group's addresses are named before the rest are counted. */
+const ADDRESSES_NAMED = 6;
+
+/**
+ * A finding's addresses in the source machine's own notation - the one the
+ * reader's program is written in, and the one the maps open in.
+ *
+ * A loop can write hundreds of addresses; naming six and counting the rest
+ * keeps a finding one line long without hiding how many there are.
+ */
+function addressList(addresses: number[]): string {
+  const fmt = (a: number) =>
+    source.value?.facts.addressNotation === 'hex'
+      ? `&${a.toString(16).toUpperCase().padStart(4, '0')}`
+      : `${a}`;
+  const named = addresses.slice(0, ADDRESSES_NAMED).map(fmt).join(', ');
+  const rest = addresses.length - ADDRESSES_NAMED;
+  return rest > 0 ? `${named} and ${rest} more` : named;
+}
+
+/**
+ * The verdicts as sentences: what the write reaches on the target, and what it
+ * aimed at where naming only one half would leave the reader to guess the
+ * other.
+ *
+ * `estimated` is the approximation carried through rather than laundered out -
+ * the same discipline the maps follow when they draw an approximate address,
+ * and the fit report when it reports a lower bound.
+ */
+const writeLandingRows = computed(() => {
+  const s = source.value;
+  const t = target.value;
+  if (!s || !t) return [];
+  return writeLandings.value.map((landing, index) => {
+    const aimed = landing.from?.label ?? 'memory';
+    const reached = landing.to?.label ?? '';
+    const detail = {
+      'different-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The write reaches something else entirely.`,
+      'read-only': `${aimed} on ${s.name}; ${reached} on ${t.name}, which is read-only — the write has no effect at all, and the line looks skipped.`,
+      outside: `${aimed} on ${s.name}. ${t.name} has no such address, so the write has nowhere to go.`,
+      'same-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The same kind of memory in a different place, so the address still has to change.`,
+    }[landing.verdict];
+    return {
+      key: `${landing.verdict}-${index}`,
+      addresses: addressList(landing.addresses),
+      detail,
+      estimated: landing.approximate,
+    };
+  });
+});
+
+/**
+ * Where the program's reads land on the target, on exactly the conditions the
+ * write landings appear on.
+ */
+const readLandings = computed(() => {
+  const pair = memoryPair.value;
+  const v = narrowingBy.value;
+  if (!pair || !v) return [];
+  return readLandingsForProgram(pair.fromMap, pair.toMap, v);
+});
+
+/**
+ * The read verdicts as sentences. Both regions are named wherever there are
+ * two: naming what the program was really asking for - the keyboard, the clock,
+ * the system variables - is what lets a reader find the target's own way of
+ * asking it. There is no read-only verdict; see `readLandingsForProgram`.
+ */
+const readLandingRows = computed(() => {
+  const s = source.value;
+  const t = target.value;
+  if (!s || !t) return [];
+  return readLandings.value.map((landing, index) => {
+    const aimed = landing.from?.label ?? 'memory';
+    const reached = landing.to?.label ?? '';
+    const detail = {
+      'different-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The read returns something else entirely.`,
+      outside: `${aimed} on ${s.name}. ${t.name} has no such address, so there is nothing there to read.`,
+      'same-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The same kind of memory in a different place, so the address still has to change.`,
+    }[landing.verdict];
+    return {
+      key: `${landing.verdict}-${index}`,
+      addresses: addressList(landing.addresses),
+      detail,
+      estimated: landing.approximate,
+    };
+  });
+});
+
+/**
+ * The machine code the program reaches, as rows among the rewrites.
+ *
+ * Not gated on the memory layouts, unlike the two landings: a routine is the
+ * source machine's processor code whether or not either machine's layout is
+ * described, and that is the whole finding.
+ */
+const machineCodeRows = computed(() => {
+  const s = source.value;
+  const v = narrowingBy.value;
+  if (!s || !v) return [];
+  return machineCodeForProgram(s.memoryMap, v).map((routine, index) => ({
+    key: `${routine.address}-${index}`,
+    name: routine.call ?? routine.block?.name ?? `${routine.address}`,
+    where: routine.block
+      ? `inside the attached block "${routine.block.name}" (${routine.block.size} bytes at ${addressList([routine.block.address])})`
+      : routine.region
+        ? `in ${routine.region.label}`
+        : `at ${addressList([routine.address])}`,
+    estimated: routine.approximate,
+  }));
+});
+
+/** Whether the pair's own guidance already says how machine code travels
+ *  between these two machines, so the finding points at it instead. */
+const machineCodeCrossReference = computed(() =>
+  carriesMachineCodeGuidance(guidance.value),
 );
 
 const sourceEscapes = computed(() => {
@@ -204,6 +411,8 @@ const fullEscapeDiff = computed(() => {
  */
 const vocabulary = ref<ProgramVocabulary | null>(null);
 const vocabularyStatus = ref<'ready' | 'empty' | 'unreadable' | null>(null);
+/** What the program measures on the target, as the app last reported it. */
+const targetSize = ref<ProgramSize | null>(null);
 /** Whether `?from=` named the source machine; a named link always wins. */
 const fromNamedByUrl = ref(false);
 /** So the program's own machine is selected once, not on every re-push. */
@@ -279,6 +488,286 @@ const statementLayout = computed(() => {
 });
 
 /**
+ * What the target's line-number range does to this program, or null.
+ *
+ * Narrowed like the statement layout, and for the same reason: without a program
+ * the target's range is a fact row and nothing more. The range itself is still
+ * reported there whether or not there is a program.
+ */
+const lineNumbers = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return null;
+  return lineNumbersForProgram(t, v);
+});
+
+/**
+ * The program's variable names the target machine would treat as one.
+ *
+ * Always narrowed, like the statement layout: which names collide is a fact
+ * about a program, and without one there is nothing to say that the "Variable
+ * names" fact row does not already say. The rule itself is reported there
+ * whether or not there is a program.
+ */
+const variableCollisions = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return [];
+  return variableCollisionsForProgram(s, t, v);
+});
+
+/**
+ * The arithmetic in this program an integer-only target truncates, or null.
+ *
+ * Narrowed for the same reason, and against the "Numbers" fact row: that says
+ * the target has no fractions, this says which of the reader's own calculations
+ * that costs.
+ */
+const truncatedArithmetic = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return null;
+  return truncatedArithmeticForProgram(t, v);
+});
+
+/**
+ * The type markers this program's names carry that the target does not have,
+ * narrowed like the collisions beside them: which markers a program leans on is
+ * a fact about a program. The "Variable names" fact row states each machine's
+ * rule whether or not there is one open.
+ */
+const markerLoss = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return [];
+  return markerLossForProgram(s, t, v);
+});
+
+/**
+ * What the target's narrower integer range costs this program, or null.
+ *
+ * Beside the truncation finding and narrowed the same way. Unlike that one it
+ * is present for the pair whether or not the program's text names a value the
+ * target cannot hold: a result can overflow where no literal does.
+ */
+const integerRangeNarrowing = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return integerRangeNarrowingForProgram(s, t, v);
+});
+
+/**
+ * Where this program's layout falls on the target's screen, or null.
+ *
+ * Only ever narrowed: it is a finding about the reader's own numbers, and a
+ * comparison of two machines in general has no positions to check. So the
+ * "show every difference" control has nothing to reveal here, exactly as it has
+ * nothing to reveal about the fit.
+ */
+const positionCheck = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return positionsForProgram(s, t, v);
+});
+
+/** The positions the target's screen does not contain, as rows to render. */
+const positionRows = computed(() =>
+  (positionCheck.value?.cells ?? []).map((cell) => ({
+    key: `${cell.row}-${cell.column}`,
+    label: `row ${cell.row}, column ${cell.column}`,
+  })),
+);
+
+/**
+ * What the target's speed does to this program's delays, or null.
+ *
+ * Narrowed for the same reason: the finding is about loops this program
+ * contains, and without a program there are none.
+ */
+const delayLoops = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return delaysForProgram(s, t, v);
+});
+
+/** The ratio as a reader reads it: "3.2× faster" rather than "3.2". */
+const delayFactor = computed(() => {
+  const delays = delayLoops.value;
+  if (!delays) return null;
+  const faster = delays.ratio >= 1;
+  return {
+    factor: (faster ? delays.ratio : 1 / delays.ratio).toFixed(1),
+    direction: faster ? 'faster' : 'slower',
+  };
+});
+
+/**
+ * The capabilities this program uses that the target does not have at all, so
+ * the account for each can ask what the capability was *for*.
+ *
+ * A set rather than a list, because the template asks it once per section.
+ */
+const lostCapabilities = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return new Set<string>();
+  return new Set<string>(lostCapabilitiesForProgram(t, capabilities.value));
+});
+
+/**
+ * Whether the program fits the target machine, or null.
+ *
+ * Only ever narrowed, like the statement layout: it is a statement about the
+ * reader's own program, so there is no unnarrowed form of it for the "show every
+ * difference" control to reveal - `narrowingBy` is deliberately not consulted
+ * here, because that control turning it on would be a claim about a program
+ * nobody has open. The notice state is what gates it.
+ *
+ * The size is checked against the machine now selected inside
+ * `programFitForTarget`, so a reply still in flight after the target changed
+ * reports nothing rather than the previous machine's answer.
+ */
+const programFit = computed(() => {
+  const t = target.value?.facts;
+  if (!t || notice.value.kind !== 'narrowed') return null;
+  return programFitForTarget(t, targetSize.value);
+});
+
+/**
+ * The verdict as a short phrase and the two figures behind it.
+ *
+ * The phrase carries the meaning and the colour only restates it, which is why
+ * this does not join the colour key below: the key exists for the capability
+ * groups, whose colour is the *only* thing saying how well the target covers
+ * them.
+ *
+ * `at-least` never says "fits", however far under the budget it falls. A machine
+ * that cannot store a line drops the whole line, so the measured figure is a
+ * floor with no ceiling - and what went unmeasured is exactly what would push
+ * the program over.
+ */
+const fitText = computed(() => {
+  const fit = programFit.value;
+  if (!fit) return null;
+  const name = target.value?.name ?? 'the target';
+  const bytes = fit.bytes.toLocaleString('en-GB');
+  const free = fit.freeBytes.toLocaleString('en-GB');
+  const of = `of the ${free} bytes a ${name} has free.`;
+  switch (fit.verdict) {
+    case 'over':
+      return {
+        label: 'Will not fit',
+        detail: `${bytes} bytes against the ${free} bytes a ${name} has free.`,
+      };
+    case 'at-least':
+      return {
+        label: `At least ${bytes} bytes`,
+        detail: `A ${name} has ${free} bytes free.`,
+      };
+    case 'tight':
+      return fit.severity === 'crit'
+        ? { label: 'No room left', detail: `${bytes} bytes ${of}` }
+        : { label: 'Close to the limit', detail: `${bytes} bytes ${of}` };
+    case 'fits':
+      return { label: 'Fits', detail: `${bytes} bytes ${of}` };
+  }
+  return null;
+});
+
+/**
+ * The program's spellings this target does not read, as work to do.
+ *
+ * `vocabulary`, not `narrowingBy`, for the reason the fit report and the
+ * conditionally-free regions read the same way: which spellings a listing uses
+ * is a statement about the reader's own program rather than a difference
+ * between two machines, so the "show every difference" control has nothing to
+ * reveal here - and reading it through the narrowing would make a real piece of
+ * work vanish the moment the reader asked to see more.
+ */
+const expansions = computed(() => {
+  const t = target.value?.facts;
+  const v = vocabulary.value;
+  if (!t || !v || notice.value.kind !== 'narrowed') return [];
+  return spellingExpansionsForProgram(t, v);
+});
+
+/**
+ * Abbreviation offered as a way to make room, and the decision it poses.
+ *
+ * Gated on the target storing short spellings as fewer bytes and on the fit
+ * being pressed, both inside `shortSpellingsForFit`: on every machine that
+ * stores a token per keyword this is never shown, whatever the fit. Worded as a
+ * decision and as something to reach for once the port runs, because a program
+ * abbreviated before it works is a program that is harder to fix.
+ *
+ * It sits beside the conditionally-free regions under the same gate and for the
+ * same reason: both are ways to make room, offered only once room is short.
+ */
+const fitSpellings = computed(() => {
+  const t = target.value?.facts;
+  if (!t) return null;
+  const measure = shortSpellingsForFit(t, programFit.value);
+  if (!measure) return null;
+  const name = target.value?.name ?? 'the target';
+  const example = measure.style === 'dot' ? 'P. for PRINT' : 'pO for POKE';
+  return (
+    `A ${name} stores a program as it is typed, so its own short spellings ` +
+    `(${example}) are fewer bytes every time they appear. Decide: abbreviate ` +
+    `once the port runs, or shorten the program another way — whichever ` +
+    `leaves it readable.`
+  );
+});
+
+/**
+ * Memory the target holds beyond its program area that this program may take.
+ *
+ * Gated inside `conditionallyFreeForProgram` on the fit report already calling
+ * the program close to the limit or over it, which is what squares the finding
+ * with the rule that this page never advertises what the target adds: under
+ * pressure the memory is part of the answer to "does it fit", and with room to
+ * spare it is a feature nobody asked about.
+ */
+const conditionallyFree = computed(() => {
+  const t = target.value?.facts;
+  const v = vocabulary.value;
+  // `vocabulary`, not `narrowingBy`, for the reason the fit report reads the
+  // same way: this is a statement about the reader's own program, so the "show
+  // every difference" control has nothing to reveal here. `programFit` is null
+  // outside the narrowed state, which is what keeps that honest.
+  if (!t || !v) return [];
+  return conditionallyFreeForProgram(t, v, programFit.value);
+});
+
+/** A region's bounds in the target machine's own notation. */
+function regionBounds(region: { start: number; end: number }): string {
+  const facts = target.value?.facts;
+  const fmt = (a: number) =>
+    facts?.addressNotation === 'hex'
+      ? `${facts.hexPrefix ?? '&'}${a.toString(16).toUpperCase().padStart(4, '0')}`
+      : `${a}`;
+  return `${fmt(region.start)}-${fmt(region.end)}`;
+}
+
+/**
+ * The caveat under the figure, where there is one to make. Only the lower-bound
+ * case has one, and it is what keeps that figure honest: the commands and
+ * characters the target cannot store are not counted in it.
+ */
+const fitCaveat = computed(() =>
+  programFit.value?.lowerBound
+    ? 'Measured from what the target can store — the commands and characters it cannot are not counted, so the real figure is larger.'
+    : '',
+);
+
+/**
  * How many differences the narrowing is holding back. Stating this is what keeps
  * the narrowing honest: a difference the analyser failed to recognise is never
  * silently lost, because the count reveals it and the control reaches it.
@@ -305,10 +794,13 @@ const heldBack = computed(() => {
   );
 });
 
-// Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 →
-// BBC). Cap each at TRUNCATE_LIMIT and let the reader reveal the rest -
-// section headings still count the full array, only the rendered rows are
-// capped. `resetKey` re-collapses every list when the compared pair changes.
+// Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 → BBC),
+// and the grouped sections below them to a group per capability or category.
+// TRUNCATE_LIMIT is what each opens with before the reader reveals the rest;
+// what it counts is whatever the list holds - rows here, whole groups for the
+// grouped sections, which are never cut mid-group. Section headings and group
+// counts still read the full array, only what renders is capped. `resetKey`
+// re-collapses every list when the compared pair changes.
 const TRUNCATE_LIMIT = 10;
 
 function useTruncatedList<T>(
@@ -344,6 +836,17 @@ const falseFriendsList = useTruncatedList(
   () => visibleFalseFriends.value,
   pairKey,
 );
+// A program that pokes at hardware in a loop can produce a long run of these,
+// even grouped: the writes are grouped by what they reach, and a program
+// reaching a dozen different things has a dozen findings.
+const writeLandingList = useTruncatedList(
+  () => writeLandingRows.value,
+  pairKey,
+);
+// The reads run longer than the writes on a program that polls: they are
+// grouped the same way, and truncated the same way.
+const readLandingList = useTruncatedList(() => readLandingRows.value, pairKey);
+const machineCodeList = useTruncatedList(() => machineCodeRows.value, pairKey);
 // The renames have no truncated list of their own: they are 1-4 commands for
 // every pair here, named in one run like the parenthesis rule below.
 
@@ -400,16 +903,35 @@ function listOf(parts: string[]): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-// Grouped by what the codes do, in each table's own category order - the same
-// treatment the commands to replace get, and for the same reason: the reader
-// acts per category, and an alphabetical cap buries the colour and cursor codes
-// a screen layout depends on under the block-graphics keycaps.
+// Grouped by what the codes do - the same treatment the commands to replace
+// get, and for the same reason: the reader acts per category, and an
+// alphabetical cap buries the colour and cursor codes a screen layout depends on
+// under the block-graphics keycaps.
+// Ranked the same way too: each group carries the verdict for its class of code
+// from the target's own guidance, and the groups lead with the classes the
+// target places worst. 63 key-graphics codes to redraw by hand and 5 cursor
+// codes that become a print-at are not equal work, so the heavier work is met
+// first rather than found by scanning the badges. Groups the guidance cannot
+// separate keep the source table's own category order.
 const escReplaceSections = computed<EscapeSection[]>(() => {
   const s = source.value;
+  const t = target.value;
   return escapeDiff.value && s?.escapes
-    ? escapeSections(escapeDiff.value.mustReplace, s.escapes)
+    ? escapeSections(
+        escapeDiff.value.mustReplace,
+        s.escapes,
+        escapeGuidance,
+        t?.id,
+      )
     : [];
 });
+// Capped by category rather than by code: a category is the unit the reader
+// acts on, and cutting one short would leave a group naming six of its 52 codes
+// with no way to tell that from a group of six.
+const escapeSectionList = useTruncatedList(
+  () => escReplaceSections.value,
+  pairKey,
+);
 // The codes the target adds and the source never used are not work the port has
 // to do, so they are a count and a pointer rather than a second grouped column -
 // the same treatment the capabilities the target adds already get.
@@ -429,11 +951,40 @@ const escapeAddedCategories = computed(() => {
 const escapeRechecked = computed(
   () => escapeDiff.value?.behaviourChanged ?? [],
 );
+// The same three colours the capability groups use, meaning the same three
+// things - but keyed again inside this section, because the capability key is
+// several screens up by the time a reader reaches the control codes, and a key
+// listing a colour this pair does not put on the page is its own small puzzle.
+const escapeLegend = computed<LegendItem[]>(() => {
+  const support = (level: EscapeGuidance['support']) =>
+    escReplaceSections.value.some((s) => s.guidance?.support === level);
+  const items: LegendItem[] = [];
+  if (support('none'))
+    items.push({
+      key: 'none',
+      className: 'cmp-key-none',
+      label: 'Nothing like it',
+    });
+  if (support('partial'))
+    items.push({
+      key: 'partial',
+      className: 'cmp-key-partial',
+      label: 'Partly covered',
+    });
+  if (support('full'))
+    items.push({
+      key: 'full',
+      className: 'cmp-key-full',
+      label: 'Under other spellings',
+    });
+  return items;
+});
 
 // One account per capability: the commands the port loses here, what to do
-// instead, and what the target adds here. Grouped rather than capped - a group
-// names its commands in one run instead of giving each a row, so 41 lost
-// graphics commands are a wrapped line and nothing has to be hidden.
+// instead, and what the target adds here. Grouped rather than capped by command
+// - a group names its commands in one run instead of giving each a row, so 41
+// lost graphics commands are a wrapped line rather than 41 rows. The cap counts
+// groups instead, and never cuts one short.
 // Capabilities the target has no equivalent of at all lead, because "you lose
 // sound entirely" is the headline, not entry 94 of an alphabetical list;
 // capabilities the port only gains follow, being news rather than work.
@@ -449,8 +1000,7 @@ const capabilities = computed<CapabilitySection[]>(() => {
     targetTable.value ?? t.reference,
     DOMAIN_ORDER,
     domainGuidance,
-    // Page-keyed: domain guidance is written per BASIC, not per machine.
-    t.page,
+    t.id,
   );
 });
 
@@ -479,6 +1029,14 @@ const visibleCapabilities = computed<CapabilitySection[]>(() =>
   showAdditions.value
     ? capabilities.value
     : capabilities.value.filter((s) => s.entries.length),
+);
+
+// Capped by capability rather than by command, as the control codes are: a
+// group's whole point is the account it gives of one capability, and half an
+// account is worse than the group being a click away.
+const capabilityList = useTruncatedList(
+  () => visibleCapabilities.value,
+  pairKey,
 );
 
 /** The authored (target, capability) advice for a group, if any. */
@@ -511,99 +1069,17 @@ function domainPaths(section: CapabilitySection): string {
   return section.domain ? DOMAIN_META[section.domain].paths : '';
 }
 
-/** One row of the language & hardware comparison. */
-interface FactRow {
-  label: string;
-  fromText: string;
-  toText: string;
-  changed: boolean;
-}
-
-function fmtSeparator(f: PortingFacts): string {
-  return f.statementSeparator
-    ? `Multiple, separated by "${f.statementSeparator}"`
-    : 'One statement per line';
-}
-function fmtElse(f: PortingFacts): string {
-  return f.elseSupported ? 'IF … THEN … ELSE' : 'IF … THEN only (no ELSE)';
-}
-function fmtLet(f: PortingFacts): string {
-  return {
-    required: 'Required (LET x=…)',
-    optional: 'Optional',
-    none: 'Not used',
-  }[f.letRequired];
-}
-function fmtRam(f: PortingFacts): string {
-  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
-}
-function fmtCharacters(f: PortingFacts): string {
-  return f.unsupportedCharacters.length === 0
-    ? 'All printable ASCII'
-    : `No ${f.unsupportedCharacters.join(' ')}`;
-}
-function fmtAddress(f: PortingFacts): string {
-  if (f.addressNotation === 'hex') {
-    return f.hexPrefix ? `Hexadecimal (${f.hexPrefix}nn)` : 'Hexadecimal';
-  }
-  return 'Decimal';
-}
-
 /**
- * The rows in the order a porter meets the work, most consequential first.
- *
- * The BASIC each machine runs leads: it is what the rest of the table is about,
- * it is the one row that says outright whether this is a port between two
- * BASICs or between two versions of one, and for the four families that share a
- * reference page it is the difference the page title cannot show.
- *
- * Then the differences by how much of the program they touch. Arithmetic and
- * free RAM decide whether the program can work at all - an integer-only target
- * rescales every fractional calculation, and 3,583 bytes is a rewrite a C64
- * program does not survive by editing keywords. The language rules that follow
- * force edits wherever they apply (two significant characters renames
- * variables; no ELSE restructures conditionals) but leave the program's shape
- * alone. The hardware the program draws and sounds on comes next.
- *
- * The memory facts close it as one run, addresses last: how memory is written
- * and how addresses are spelled, then the two addresses themselves. They are
- * the only rows that matter solely to a program that pokes at hardware, and
- * they were previously scattered - screen base between the screen and the free
- * RAM, program start after it, and the notation five rows further down.
+ * The language & hardware table, built by `factRows` in src/reference/compare.ts
+ * - the row list, the order and the formatting all live there, next to the
+ * facts they read, and `compare-facts-crosscheck.test.ts` pins them. This page
+ * only decides which of the rows to show.
  */
 const factRows = computed<FactRow[]>(() => {
   const s = source.value?.facts;
   const t = target.value?.facts;
   if (!s || !t) return [];
-  const rows: [string, (f: PortingFacts) => string][] = [
-    ['BASIC dialect', (f) => f.basicDialect],
-    // Whether the target has fractions at all decides how much of the port is
-    // arithmetic, so it leads the language rules rather than sitting among the
-    // hardware.
-    ['Numbers', (f) => f.numberHandling],
-    ['Free program RAM', fmtRam],
-    ['Variable names', (f) => f.variableNaming],
-    ['Conditionals', fmtElse],
-    ['Statements per line', fmtSeparator],
-    ['LET on assignment', fmtLet],
-    // With the language rules rather than the hardware: a character the machine
-    // has no glyph for is rejected when the program is read, not when it draws.
-    ['Characters', fmtCharacters],
-    ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
-    ['Line numbers', (f) => f.lineNumberRange],
-    ['Screen', (f) => f.screen],
-    ['Colour', (f) => f.colour],
-    ['Sound', (f) => f.sound],
-    ['Writing memory', (f) => f.memoryWriteSyntax],
-    ['Address notation', fmtAddress],
-    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
-    ['Program start', (f) => f.programStart ?? '—'],
-  ];
-  return rows.map(([label, get]) => {
-    const fromText = get(s);
-    const toText = get(t);
-    return { label, fromText, toText, changed: fromText !== toText };
-  });
+  return buildFactRows(s, t);
 });
 
 const changedFactCount = computed(
@@ -722,13 +1198,18 @@ interface LegendItem {
  * pair actually uses. Nothing else says why one group is tinted red and the
  * next has a green edge, and a key listing colours the pair does not use would
  * be its own small puzzle - so each entry is conditioned on the same thing the
- * template renders it from. The highlighted fact rows are not keyed: the table
- * they sit in has a "show unchanged rows" tick right above it, which says what
- * the highlight means better than a swatch does.
+ * template renders it from.
+ *
+ * Each label is the group badge's own words with the target's name dropped: the
+ * key names four colours on one line and the badge beside every group heading
+ * says which machine is meant, so repeating "in C64" four times only costs the
+ * width that keeps the key from wrapping into a list.
+ *
+ * The fact table's highlighted rows are not keyed, and no longer share a colour
+ * with anything here: the table has a "show unchanged rows" tick right above it,
+ * which says what its highlight means better than a swatch does.
  */
 const legend = computed<LegendItem[]>(() => {
-  const t = target.value;
-  if (!t) return [];
   const groups = visibleCapabilities.value;
   const losing = (
     s: CapabilitySection,
@@ -739,79 +1220,210 @@ const legend = computed<LegendItem[]>(() => {
     items.push({
       key: 'none',
       className: 'cmp-key-none',
-      label: `Nothing like it in ${t.name}`,
+      label: 'Nothing like it',
     });
   if (groups.some((s) => losing(s, 'partial')))
     items.push({
       key: 'partial',
       className: 'cmp-key-partial',
-      label: `Only partly covered in ${t.name}`,
+      label: 'Partly covered',
     });
   if (groups.some((s) => losing(s, 'full')))
     items.push({
       key: 'full',
       className: 'cmp-key-full',
-      label: `Covered in ${t.name} under other names`,
+      label: 'Under other names',
     });
   if (groups.some((s) => !s.entries.length))
     items.push({
       key: 'gain',
       className: 'cmp-key-gain',
-      label: `Nothing to replace — ${t.name} only adds here`,
+      label: 'Nothing to replace',
     });
   return items;
 });
 
+/*
+ * ---- The work list, in the order the work is done -----------------------
+ *
+ * Below the frame - the language and hardware differences and the guidance -
+ * the findings are ordered as five classes of work rather than by what kind of
+ * thing each finding is:
+ *
+ *   1  blocks the read   characters the target has no glyph for, statement
+ *                        layout that must be split, line numbers it will not take
+ *   2  mechanical        the commands that only change spelling
+ *   3  rewrites          the capabilities the target has no equivalent of, the
+ *                        control codes to replace, the commands whose usage
+ *                        differs, the addresses the program writes to
+ *   4  silent            same word different meaning, names that become one,
+ *                        type markers that go, arithmetic the target
+ *                        truncates, values the target cannot hold
+ *   5  fit               whether the result still fits the machine
+ *
+ * Three placements look wrong and are not. The renames come before the rewrites
+ * though they are the smaller finding: they are a search and replace, and doing
+ * them first leaves fewer unfamiliar spellings in the program the rewrites are
+ * done against. The fit comes last though it is the finding that can sink the
+ * port outright: it is a property of the *result*, and the size the program
+ * takes on the target is only settled once everything above it is done. And the
+ * memory layout is work rather than scene-setting, however much a picture
+ * between two machines looks like the latter: the addresses it draws are ones
+ * the port has to change.
+ *
+ * The order is what carries this; only two classes announce themselves in
+ * prose, and each of those lead-ins is conditioned on the sections it
+ * introduces, so a class this pair produces nothing for is absent rather than
+ * announced empty.
+ */
+const hasBlockingWork = computed(
+  () =>
+    charactersToReplace.value.length > 0 ||
+    statementLayout.value !== null ||
+    lineNumbers.value !== null,
+);
+const hasSilentWork = computed(
+  () =>
+    visibleFalseFriends.value.length > 0 ||
+    variableCollisions.value.length > 0 ||
+    markerLoss.value.length > 0 ||
+    truncatedArithmetic.value !== null ||
+    integerRangeNarrowing.value !== null ||
+    positionCheck.value !== null ||
+    delayLoops.value !== null,
+);
+
+/**
+ * What the additions filter is holding back, counted across every section it
+ * governs. Stated once beside the control rather than inside those sections: a
+ * section holding nothing but additions is not rendered, and its own copy of
+ * this sentence would go with it, at the point where nothing else on the page
+ * reports that the content exists.
+ */
+const additionsHeldBack = computed(
+  () => gainingCount.value + escapeAddedCategories.value,
+);
+
+const additionsHeldBackText = computed(() => {
+  const t = target.value;
+  if (!t || !additionsHeldBack.value) return '';
+  const parts: string[] = [];
+  if (gainingCount.value)
+    parts.push(count(gainingCount.value, 'capability area'));
+  if (escapeAddedCategories.value)
+    parts.push(
+      count(
+        escapeAddedCategories.value,
+        'control-code category',
+        'control-code categories',
+      ),
+    );
+  return `${listOf(parts)} ${t.name} only adds to ${
+    additionsHeldBack.value === 1 ? 'is' : 'are'
+  } hidden.`;
+});
+
+/**
+ * Whether each section has anything to render, by id.
+ *
+ * Narrowed, a section with nothing in it for the reader is not rendered at all:
+ * a heading and a count of zero cost a stop to read before they say that
+ * nothing is being asked, and a page of those reads like the comparison that
+ * was never narrowed. What holds a section open is work - findings to act on,
+ * and findings to be told about where the program's own text will not show
+ * them. What the target adds where the port loses nothing does not, until the
+ * reader asks for it.
+ *
+ * One record answers for both the jump nav and the sections themselves. The nav
+ * claims to list exactly what the page renders, and two sets of conditions kept
+ * apart drift: these two had, over the fact rows and the abbreviations.
+ */
+const sectionShown = computed<Record<string, boolean>>(() => {
+  const narrowed = notice.value.kind === 'narrowed';
+  const show = (work: number, reference = 0, referenceShown = false) =>
+    showsSection({ narrowed, work, reference, referenceShown });
+  const g = guidance.value;
+  const diff = keywordDiff.value;
+  const pair = memoryPair.value;
+  const fit = programFit.value;
+  return {
+    // Unchanged rows are reference rather than work, and answer to the filter
+    // sitting with the table they belong to.
+    'language-hardware': show(
+      changedFactCount.value,
+      factRows.value.length - changedFactCount.value,
+      showUnchanged.value,
+    ),
+    guidance: show(g.pairNotes.length + g.targetNotes.length),
+    characters: show(charactersToReplace.value.length),
+    'statement-layout': show(statementLayout.value ? 1 : 0),
+    'line-numbers': show(lineNumbers.value ? 1 : 0),
+    'different-form': show(
+      (diff?.renamed.length ?? 0) +
+        changedCount.value +
+        expansions.value.length,
+    ),
+    capabilities: show(
+      capabilities.value.filter((s) => s.entries.length).length,
+      gainingCount.value,
+      showAdditions.value,
+    ),
+    // The rechecks hold this section open on their own: a code that keeps its
+    // spelling and changes meaning edits nothing, which is why it has to be
+    // said rather than searched for.
+    'escape-codes': show(
+      escReplaceSections.value.length + escapeRechecked.value.length,
+      escapeAdded.value,
+      showAdditions.value,
+    ),
+    // The maps are drawn for the addresses the port has to change, so narrowed
+    // to a program that reaches none they have nothing of that program on them.
+    'memory-layout': show(pair ? pair.sites.length : 0, pair ? 1 : 0),
+    'machine-code': show(machineCodeRows.value.length),
+    'false-friends': show(visibleFalseFriends.value.length),
+    'variable-collisions': show(variableCollisions.value.length),
+    'marker-loss': show(markerLoss.value.length),
+    'truncated-arithmetic': show(truncatedArithmetic.value ? 1 : 0),
+    'integer-range': show(integerRangeNarrowing.value ? 1 : 0),
+    positions: show(positionCheck.value ? 1 : 0),
+    delays: show(delayLoops.value && delayFactor.value ? 1 : 0),
+    // A comfortable fit is the one verdict that asks nothing. "Will not fit",
+    // "tight" and a lower bound all still report.
+    fit: show(fit && fitText.value && fit.verdict !== 'fits' ? 1 : 0),
+  };
+});
+
 /**
  * The sections this pair actually renders, in page order: the "on this page"
- * row, and the ids its links and the headings share. Built from the same
- * conditions the template guards each section with, so a section is listed
- * exactly when it is shown. The headings are rendered by this component rather
- * than by markdown, so VitePress's own outline cannot see them.
+ * row, and the ids its links and the headings share. The headings are rendered
+ * by this component rather than by markdown, so VitePress's own outline cannot
+ * see them.
  */
 const pageSections = computed<{ id: string; label: string }[]>(() => {
   if (sameSelection.value || !keywordDiff.value) return [];
-  const g = guidance.value;
-  const entries: [boolean, string, string][] = [
-    [
-      visibleFactRows.value.length > 0,
-      'language-hardware',
-      'Language & hardware',
-    ],
-    [
-      g.pairNotes.length + g.targetNotes.length > 0,
-      'guidance',
-      'Before you start',
-    ],
-    [
-      visibleFalseFriends.value.length > 0,
-      'false-friends',
-      'Same word, different meaning',
-    ],
-    [capabilities.value.length > 0, 'capabilities', 'What changes'],
-    [
-      keywordDiff.value.renamed.length + changedCount.value > 0,
-      'different-form',
-      'Same command, different form',
-    ],
-    [
-      escReplaceSections.value.length +
-        escapeAdded.value +
-        escapeRechecked.value.length >
-        0,
-      'escape-codes',
-      'Control & escape codes',
-    ],
-    [
-      charactersToReplace.value.length > 0,
-      'characters',
-      'Characters to replace',
-    ],
-    [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
+  const labels: [string, string][] = [
+    ['language-hardware', 'Language & hardware'],
+    ['guidance', 'Before you start'],
+    ['characters', 'Characters to replace'],
+    ['statement-layout', 'Statement layout'],
+    ['line-numbers', 'Line numbers'],
+    ['different-form', 'Same command, different form'],
+    ['capabilities', 'What changes'],
+    ['escape-codes', 'Control & escape codes'],
+    ['memory-layout', 'Memory layout'],
+    ['machine-code', 'Machine code to re-achieve'],
+    ['false-friends', 'Same word, different meaning'],
+    ['variable-collisions', 'Names that become one'],
+    ['marker-loss', 'Type markers that go'],
+    ['truncated-arithmetic', 'Arithmetic that truncates'],
+    ['integer-range', 'Values that do not fit'],
+    ['positions', 'Where this program prints'],
+    ['delays', 'Loops that only pass time'],
+    ['fit', 'Fit'],
   ];
-  return entries
-    .filter(([shown]) => shown)
-    .map(([, id, label]) => ({ id, label }));
+  return labels
+    .filter(([id]) => sectionShown.value[id])
+    .map(([id, label]) => ({ id, label }));
 });
 
 /** Reference sub-pages for a dialect page slug, relative to /reference/compare. */
@@ -899,11 +1511,16 @@ function convertWithAi() {
  * *from*. Sent on mount and again whenever that machine changes - a vocabulary
  * describes one BASIC, so pointing the comparison somewhere else re-reads the
  * program in that language rather than abandoning the narrowing.
+ *
+ * `to` rides along for the one question the vocabulary cannot answer: what the
+ * program measures on the target, which only the target's own tokenizer knows.
+ * So the request is re-sent when *either* machine changes, and a reply is
+ * checked against both before it is used.
  */
 function requestVocabulary() {
   if (!embedded.value) return;
   window.parent.postMessage(
-    { type: VOCABULARY_REQUEST, from: from.value },
+    { type: VOCABULARY_REQUEST, from: from.value, to: to.value },
     window.location.origin,
   );
 }
@@ -925,12 +1542,86 @@ function onVocabularyMessage(e: MessageEvent) {
   vocabulary.value = {
     dialectId: String(data.dialectId ?? ''),
     keywords: Array.isArray(data.keywords) ? data.keywords : [],
+    spellings: Array.isArray(data.spellings) ? data.spellings : [],
+    variables: Array.isArray(data.variables) ? data.variables : [],
+    divides: data.divides === true,
+    fractionalLiteral: data.fractionalLiteral === true,
+    largeNumbers: Array.isArray(data.largeNumbers) ? data.largeNumbers : [],
     escapeCodes: Array.isArray(data.escapeCodes) ? data.escapeCodes : [],
     characters: Array.isArray(data.characters) ? data.characters : [],
     multiStatementLines: Array.isArray(data.multiStatementLines)
       ? data.multiStatementLines
       : [],
+    extraStatements: Number(data.extraStatements) || 0,
+    // Null rather than a zeroed shape for a program with no numbered line: the
+    // findings that read it ask "is there a span", and 0-to-0 is not one.
+    lineNumbers:
+      data.lineNumbers && typeof data.lineNumbers === 'object'
+        ? {
+            lowest: Number(data.lineNumbers.lowest) || 0,
+            highest: Number(data.lineNumbers.highest) || 0,
+            count: Number(data.lineNumbers.count) || 0,
+          }
+        : null,
+    writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
+    // Absent from an older app's reply, which is read as "this program reads
+    // nothing and calls nothing" - the same reading as a program that really
+    // does neither, and the only one that cannot invent a finding.
+    readSites: Array.isArray(data.readSites) ? data.readSites : [],
+    callSites: Array.isArray(data.callSites) ? data.callSites : [],
+    codeBlocks: Array.isArray(data.codeBlocks) ? data.codeBlocks : [],
+    // Null means the machine the program was read as has no command for
+    // selecting a screen mode - so nothing in the program selects one on the
+    // target either, and the target's boot mode decides. Most source machines
+    // are that machine, which is why the absent case is not read as "unknown":
+    // an older app answering without the field would otherwise take the
+    // finding away from every port that most needs it.
+    screenModes:
+      data.screenModes && typeof data.screenModes === 'object'
+        ? {
+            command: String(data.screenModes.command ?? ''),
+            modes: Array.isArray(data.screenModes.modes)
+              ? data.screenModes.modes
+              : [],
+            computed: data.screenModes.computed === true,
+          }
+        : null,
+    // Null likewise means the machine the program was read as has no command
+    // for stating a print position - it lays its screen out by printing - so
+    // there are no numbers to check and the finding stays away.
+    positions:
+      data.positions && typeof data.positions === 'object'
+        ? {
+            cells: Array.isArray(data.positions.cells)
+              ? data.positions.cells
+              : [],
+            columns: Array.isArray(data.positions.columns)
+              ? data.positions.columns
+              : [],
+            rows: Array.isArray(data.positions.rows) ? data.positions.rows : [],
+            offsets: Array.isArray(data.positions.offsets)
+              ? data.positions.offsets
+              : [],
+            origin: data.positions.origin === 1 ? 1 : 0,
+            computed: data.positions.computed === true,
+          }
+        : null,
+    emptyLoopLines: Array.isArray(data.emptyLoopLines)
+      ? data.emptyLoopLines
+      : [],
   };
+  // Carried beside the vocabulary rather than inside it: it describes the
+  // machine being ported *to*, while everything above describes the program in
+  // the language being ported *from*.
+  const size = data.targetSize;
+  targetSize.value =
+    size && typeof size === 'object' && typeof size.dialectId === 'string'
+      ? {
+          dialectId: size.dialectId,
+          bytes: Number(size.bytes) || 0,
+          clean: size.clean !== false,
+        }
+      : null;
   // On the first answer, open on the machine the program is written for: it is
   // the one selection under which the narrowing means anything. A link that
   // named the source machine still wins.
@@ -957,6 +1648,10 @@ onBeforeUnmount(() =>
   window.removeEventListener('message', onVocabularyMessage),
 );
 watch(from, requestVocabulary);
+// The target decides what the program is sized against, so a new target needs a
+// new measurement - `programFitForTarget` reports nothing until one arrives for
+// the machine now selected.
+watch(to, requestVocabulary);
 </script>
 
 <template>
@@ -1030,6 +1725,19 @@ watch(from, requestVocabulary);
           Show every difference, not just the ones your program uses
         </label>
         <!--
+          The additions filter, stated once for the page. It governs whole
+          sections rather than rows within one, and a section holding nothing
+          else is not rendered - so a copy inside each would go missing at
+          exactly the point where it is the only sign the content is there.
+        -->
+        <label v-if="additionsHeldBack" class="cmp-toggle">
+          <input v-model="showAdditions" type="checkbox" />
+          Show what {{ target.name }} adds that the program has not used
+        </label>
+        <p v-if="!showAdditions && additionsHeldBackText" class="cmp-empty">
+          {{ additionsHeldBackText }}
+        </p>
+        <!--
           The component renders every heading below, so VitePress's own outline
           (built from the markdown) cannot see them and none of them can be
           linked to. This row is the page's contents, listing exactly the
@@ -1061,7 +1769,7 @@ watch(from, requestVocabulary);
         the from/to inputs do.
       -->
       <section
-        v-if="visibleFactRows.length || factRows.length"
+        v-if="sectionShown['language-hardware']"
         id="language-hardware"
         class="cmp-section"
       >
@@ -1103,7 +1811,7 @@ watch(from, requestVocabulary);
         then what to watch for on the target whatever you arrive from.
       -->
       <section
-        v-if="guidance.pairNotes.length || guidance.targetNotes.length"
+        v-if="sectionShown['guidance']"
         id="guidance"
         class="cmp-section cmp-guidance"
       >
@@ -1123,58 +1831,221 @@ watch(from, requestVocabulary);
       </section>
 
       <!--
-        The colour key, once the reader has been told what to watch for and
-        immediately above the graded sections that use the colours: one row, so
-        it costs a glance rather than a paragraph, and only the colours this
-        pair puts on the page.
-      -->
-      <div v-if="legend.length" class="cmp-legend">
-        <span class="cmp-legend-title">Colour key</span>
-        <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
-          <span
-            class="cmp-legend-swatch"
-            :class="item.className"
-            aria-hidden="true"
-          />
-          {{ item.label }}
-        </span>
-      </div>
-
-      <!--
-        Before the lists of what to change: these are the only differences that
-        fail silently. The command exists on both machines, so nothing else on
-        this page flags it, and the program runs and quietly computes something
-        else.
+        Characters, not control codes: a character the target has no glyph for
+        is rejected when the program is read, wherever it sits - in a string, a
+        REM or a variable name. Narrowed to the program's own text where there
+        is one; the target's whole shortfall where there is not.
       -->
       <section
-        v-if="visibleFalseFriends.length"
-        id="false-friends"
-        class="cmp-section cmp-traps"
+        v-if="sectionShown['characters']"
+        id="characters"
+        class="cmp-section"
       >
-        <h2>Same word, different meaning ({{ visibleFalseFriends.length }})</h2>
+        <h2>Characters to replace ({{ charactersToReplace.length }})</h2>
         <p class="cmp-hint">
-          These exist on both machines, so they raise no error — they just do
-          something else.
+          {{ target.name }} has no glyph for
+          {{
+            narrowingBy
+              ? 'these characters the program uses'
+              : 'these characters'
+          }}, so they cannot appear anywhere in the program — not in a string,
+          and not in a comment.
         </p>
-        <ul class="cmp-list">
-          <li v-for="t in falseFriendsList.visible" :key="t.keyword">
-            <code>{{ t.keyword }}</code>
+        <p class="cmp-group-names">
+          <span v-for="(c, i) in charactersToReplace" :key="c" class="cmp-name">
+            <code>{{ c }}</code
+            ><span v-if="i < charactersToReplace.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+      </section>
+
+      <!--
+        Always narrowed: without a program this says nothing the "Statements per
+        line" fact row does not already say, and with one it is the only place
+        the reader learns which of their own lines the rule falls on.
+      -->
+      <section
+        v-if="sectionShown['statement-layout']"
+        id="statement-layout"
+        class="cmp-section"
+      >
+        <h2>
+          Statement layout ({{ count(statementLayout.lines.length, 'line') }})
+        </h2>
+        <p class="cmp-hint" v-if="statementLayout.kind === 'split'">
+          {{ target.name }} takes one statement per line, so every
+          <code>{{ statementLayout.from }}</code> becomes a new line. That
+          renumbers everything after it — <strong>Renumber file</strong> fixes
+          the line references.
+        </p>
+        <p class="cmp-hint" v-else>
+          {{ target.name }} separates statements with
+          <code>{{ statementLayout.to }}</code
+          >, not <code>{{ statementLayout.from }}</code
+          >. The lines keep their shape; only the separator changes.
+        </p>
+        <!--
+          Splitting is the one thing a port does that *creates* line numbers, so
+          the count it produces is reported against the target's range here
+          rather than left beside the range as two numbers to join up.
+        -->
+        <p v-if="statementLayout.projected" class="cmp-hint">
+          <template v-if="statementLayout.projected.overflows">
+            <strong class="cmp-fit-over">Will not renumber:</strong>
+            the split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, and {{ target.name }} numbers
+            lines {{ target.facts.lineNumberRange }} — too few to hold them
+            however they are renumbered.
+          </template>
+          <template v-else>
+            The split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, within the
+            {{ target.facts.lineNumberRange }} {{ target.name }} allows.
+          </template>
+        </p>
+        <!--
+          The program's own line numbers, as its listing prints them - not
+          editor line indices, which are a different number for any program not
+          written from line 1 in steps of one.
+        -->
+        <p class="cmp-group-names">
+          {{ statementLayout.lines.length === 1 ? 'Line' : 'Lines' }}
+          <span
+            v-for="(n, i) in statementLayout.lines"
+            :key="n"
+            class="cmp-name"
+          >
+            <code>{{ n }}</code
+            ><span v-if="i < statementLayout.lines.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+      </section>
+
+      <!--
+        Beside the statement layout, which is the other way a port runs out of
+        line numbers. The range itself is a fact row whether or not there is a
+        program; this is what the reader's own numbers do against it.
+      -->
+      <section
+        v-if="sectionShown['line-numbers']"
+        id="line-numbers"
+        class="cmp-section"
+      >
+        <h2>Line numbers</h2>
+        <p class="cmp-fit">
+          <strong class="cmp-fit-over">Must be renumbered —</strong>
+          {{ target.name }} numbers lines {{ target.facts.lineNumberRange }},
+          and your program
+          <template v-if="lineNumbers.belowMinimum && lineNumbers.aboveMaximum">
+            runs from {{ lineNumbers.lowest }} to {{ lineNumbers.highest }}.
+          </template>
+          <template v-else-if="lineNumbers.aboveMaximum">
+            reaches {{ lineNumbers.highest }}.
+          </template>
+          <template v-else> starts at {{ lineNumbers.lowest }}. </template>
+        </p>
+        <p class="cmp-hint">
+          A line the target will not accept cannot be typed in at all, whatever
+          else the port changes.
+        </p>
+      </section>
+
+      <!--
+        Renames and usage changes share a premise - the command is on both
+        machines, written differently - so they share a section; a rename is
+        its two spellings, not a row carrying a description the reference page
+        gives. That shared section is what puts the mechanical work and the
+        first of the rewrites in one place, at the seam between the two.
+      -->
+      <section
+        v-if="sectionShown['different-form']"
+        id="different-form"
+        class="cmp-section"
+      >
+        <h2>Same command, different form</h2>
+        <p class="cmp-hint">
+          On both machines, but not written the same way — a search and replace
+          for the first two, a look at each use for the rest.
+        </p>
+        <!--
+          Expansion is renaming's twin - the command survives, only the way it
+          is written changes - so it leads the mechanical work here. A spelling
+          the target reads as something of its own carries its warning on the
+          same line, because expanding it is what removes the trap.
+        -->
+        <p v-if="expansions.length" class="cmp-change-rule">
+          {{ count(expansions.length, 'spelling') }}
+          {{ target.name }} does not read — write the command out in full:
+          <span v-for="(e, i) in expansions" :key="e.spelling" class="cmp-name">
+            <code>{{ e.spelling }}</code> → <code>{{ e.keyword }}</code
+            ><span v-if="e.differentMeaning" class="cmp-change-what">
+              (left as it is, {{ target.name }} reads it as
+              {{ e.differentMeaning }} rather than failing)</span
+            ><span v-if="i < expansions.length - 1" class="cmp-sep">, </span>
+          </span>
+        </p>
+        <p v-if="keywordDiff.renamed.length" class="cmp-change-rule">
+          {{ count(keywordDiff.renamed.length, 'command') }} spelled
+          differently:
+          <span
+            v-for="(r, i) in keywordDiff.renamed"
+            :key="r.from.name"
+            class="cmp-name"
+          >
+            <code>{{ r.from.name }}</code> → <code>{{ r.to.name }}</code
+            ><span v-if="i < keywordDiff.renamed.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+        <!--
+          One rule of the target language, named once with the keywords it
+          applies to, rather than repeated as a row each: on Commodore →
+          Spectrum this alone would otherwise be fifteen rows saying the same
+          thing.
+        -->
+        <p v-if="parensChanged.length" class="cmp-change-rule">
+          {{ count(parensChanged.length, 'command') }} differing only in whether
+          the argument is bracketed — write them as {{ target.name }} does:
+          <span v-for="(c, i) in parensChanged" :key="c.name" class="cmp-name">
+            <code>{{ c.name }}</code
+            ><span v-if="i < parensChanged.length - 1" class="cmp-sep">, </span>
+          </span>
+        </p>
+        <ul v-if="detailedChanges.length" class="cmp-list cmp-change">
+          <li v-for="c in behaviourChangedList.visible" :key="c.name">
+            <span class="cmp-change-head">
+              <code>{{ c.name }}</code>
+              <span class="cmp-change-what">{{ CHANGE_LABEL[c.change] }}</span>
+            </span>
             <span class="cmp-change-detail">
-              <span class="cmp-from">{{ source.name }}: {{ t.from }}</span>
+              <span class="cmp-from"
+                >{{ source.name }}: {{ c.from.kind }} ·
+                <code>{{ c.from.syntax }}</code></span
+              >
               <span class="cmp-arrow">→</span>
-              <span class="cmp-to">{{ target.name }}: {{ t.to }}</span>
+              <span class="cmp-to"
+                >{{ target.name }}: {{ c.to.kind }} ·
+                <code>{{ c.to.syntax }}</code></span
+              >
             </span>
           </li>
           <li
-            v-if="falseFriendsList.hasMore && !falseFriendsList.expanded"
+            v-if="
+              behaviourChangedList.hasMore && !behaviourChangedList.expanded
+            "
             class="cmp-more"
           >
             <button
               type="button"
               class="cmp-expand"
-              @click="falseFriendsList.expand()"
+              @click="behaviourChangedList.expand()"
             >
-              Show {{ falseFriendsList.remaining }} more…
+              Show {{ behaviourChangedList.remaining }} more…
             </button>
           </li>
         </ul>
@@ -1185,11 +2056,15 @@ watch(from, requestVocabulary);
         instead, and what the target adds here. These were two sections until
         the measurements showed over half of all capability mentions were being
         made twice, from the two halves of the same authored guidance cell.
-        Grouped, not capped: a group names its commands in one run, so every
-        lost command is shown and a capability the port does not touch is simply
-        absent.
+        Grouped, then capped by group: a group names its commands in one run, so
+        every command a shown capability loses is shown, and the ten the section
+        opens with are the ten the ranking put first - worst answered first.
       -->
-      <section v-if="capabilities.length" id="capabilities" class="cmp-section">
+      <section
+        v-if="sectionShown['capabilities']"
+        id="capabilities"
+        class="cmp-section"
+      >
         <h2>What changes</h2>
         <p class="cmp-hint">
           {{ count(keywordDiff.mustReplace.length, 'command') }} to rewrite or
@@ -1197,12 +2072,24 @@ watch(from, requestVocabulary);
           their place. The capabilities {{ target.name }} has no equivalent of
           at all come first.
         </p>
-        <label v-if="gainingCount" class="cmp-toggle">
-          <input v-model="showAdditions" type="checkbox" />
-          Show what {{ target.name }} adds that the program has not used
-        </label>
+        <!--
+          The colour key, inside the section whose groups are graded by colour
+          and immediately above them: one row, so it costs a glance rather than
+          a paragraph, and only the colours this pair puts on the page.
+        -->
+        <div v-if="legend.length" class="cmp-legend">
+          <span class="cmp-legend-title">Colour key</span>
+          <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
+            <span
+              class="cmp-legend-swatch"
+              :class="item.className"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </span>
+        </div>
         <div
-          v-for="s in visibleCapabilities"
+          v-for="s in capabilityList.visible"
           :key="s.domain ?? 'other'"
           class="cmp-group"
           :class="{
@@ -1270,6 +2157,21 @@ watch(from, requestVocabulary);
               }}</code></pre>
             </div>
           </div>
+          <!--
+            The question the advice above cannot answer, asked only where the
+            target has none of this capability at all. A program uses colour and
+            sound two ways — as decoration, which a port drops, and as
+            information, which it has to re-encode or the program stops working
+            in a way no listing shows — and which one this program was doing is
+            not in its text.
+          -->
+          <p
+            v-if="s.domain && lostCapabilities.has(s.domain)"
+            class="cmp-hint cmp-group-decide"
+          >
+            Decide, for each: where the {{ s.domain }} was decoration, drop it;
+            where it told things apart, re-encode it by the means above.
+          </p>
           <ul v-if="substitutionsIn(s).length" class="cmp-group-instead">
             <li v-for="x in substitutionsIn(s)" :key="x.name">
               <code>{{ x.name }}</code> — {{ x.note }}
@@ -1300,105 +2202,37 @@ watch(from, requestVocabulary);
             </span>
           </p>
         </div>
-        <!-- Say what the filter is holding back, so it is discoverable. -->
-        <p v-if="!showAdditions && gainingCount" class="cmp-empty">
-          {{ count(gainingCount, 'capability area') }}
-          {{ target.name }} only adds to
-          {{ gainingCount === 1 ? 'is' : 'are' }} hidden.
-        </p>
-      </section>
-
-      <!--
-        From here down the page is reference rather than work. Renames and
-        usage changes share a premise - the command is on both machines,
-        written differently - so they share a section; a rename is its two
-        spellings, not a row carrying a description the reference page gives.
-      -->
-      <section
-        v-if="keywordDiff.renamed.length || changedCount"
-        id="different-form"
-        class="cmp-section"
-      >
-        <h2>Same command, different form</h2>
-        <p class="cmp-hint">
-          On both machines, but not written the same way — a search and replace
-          for the first two, a look at each use for the rest.
-        </p>
-        <p v-if="keywordDiff.renamed.length" class="cmp-change-rule">
-          {{ count(keywordDiff.renamed.length, 'command') }} spelled
-          differently:
-          <span
-            v-for="(r, i) in keywordDiff.renamed"
-            :key="r.from.name"
-            class="cmp-name"
-          >
-            <code>{{ r.from.name }}</code> → <code>{{ r.to.name }}</code
-            ><span v-if="i < keywordDiff.renamed.length - 1" class="cmp-sep"
-              >,
-            </span>
-          </span>
-        </p>
         <!--
-          One rule of the target language, named once with the keywords it
-          applies to, rather than repeated as a row each: on Commodore →
-          Spectrum this alone would otherwise be fifteen rows saying the same
-          thing.
+          One control for the whole section, below the groups it opens with. It
+          names the unit the cap counts in, because a bare "10 more" beside
+          groups that each count their own commands reads as commands.
         -->
-        <p v-if="parensChanged.length" class="cmp-change-rule">
-          {{ count(parensChanged.length, 'command') }} differing only in whether
-          the argument is bracketed — write them as {{ target.name }} does:
-          <span v-for="(c, i) in parensChanged" :key="c.name" class="cmp-name">
-            <code>{{ c.name }}</code
-            ><span v-if="i < parensChanged.length - 1" class="cmp-sep">, </span>
-          </span>
-        </p>
-        <ul v-if="detailedChanges.length" class="cmp-list cmp-change">
-          <li v-for="c in behaviourChangedList.visible" :key="c.name">
-            <span class="cmp-change-head">
-              <code>{{ c.name }}</code>
-              <span class="cmp-change-what">{{ CHANGE_LABEL[c.change] }}</span>
-            </span>
-            <span class="cmp-change-detail">
-              <span class="cmp-from"
-                >{{ source.name }}: {{ c.from.kind }} ·
-                <code>{{ c.from.syntax }}</code></span
-              >
-              <span class="cmp-arrow">→</span>
-              <span class="cmp-to"
-                >{{ target.name }}: {{ c.to.kind }} ·
-                <code>{{ c.to.syntax }}</code></span
-              >
-            </span>
-          </li>
-          <li
-            v-if="
-              behaviourChangedList.hasMore && !behaviourChangedList.expanded
-            "
-            class="cmp-more"
+        <p
+          v-if="capabilityList.hasMore && !capabilityList.expanded"
+          class="cmp-more-row"
+        >
+          <button
+            type="button"
+            class="cmp-expand"
+            @click="capabilityList.expand()"
           >
-            <button
-              type="button"
-              class="cmp-expand"
-              @click="behaviourChangedList.expand()"
-            >
-              Show {{ behaviourChangedList.remaining }} more…
-            </button>
-          </li>
-        </ul>
+            Show {{ count(capabilityList.remaining, 'more capability area') }}…
+          </button>
+        </p>
       </section>
 
       <!--
         The codes to replace are grouped by what they do, in the source's own
-        category order, and not capped: the same treatment the commands to
-        replace get. An alphabetical cap buried the colour and cursor codes a
-        screen layout depends on under the block-graphics keycaps. The codes the
-        target adds and the program never used are a count and a pointer - not
-        work the port has to do.
+        category order, then capped by category: the same treatment the commands
+        to replace get. The grouping is what makes the cap safe - a cap on codes
+        buried the colour and cursor codes a screen layout depends on under the
+        block-graphics keycaps, where a cap on ranked categories opens with the
+        class the target answers worst and shows all of it. The codes the target
+        adds and the program never used are a count and a pointer - not work the
+        port has to do.
       -->
       <section
-        v-if="
-          escReplaceSections.length || escapeAdded || escapeRechecked.length
-        "
+        v-if="sectionShown['escape-codes']"
         id="escape-codes"
         class="cmp-section"
       >
@@ -1408,24 +2242,67 @@ watch(from, requestVocabulary);
         </h2>
         <p class="cmp-hint">
           Embedded colour and graphics control codes differ between the
-          machines. Grouped by what they do; the
+          machines. Grouped by what they do, with the classes
+          {{ target.name }} has no way to express at all first; the
           <a :href="refLinks(source.page).escapes"
             >{{ source.name }} escape-code reference</a
           >
           gives every code's meaning.
         </p>
-        <label v-if="escapeAdded" class="cmp-toggle">
-          <input v-model="showAdditions" type="checkbox" />
-          Show what {{ target.name }} adds that the program has not used
-        </label>
+        <!--
+          The same key as the capabilities section, repeated here rather than
+          referred back to: by this point in the page the first one has scrolled
+          away, and it only lists the colours these groups actually use.
+        -->
+        <div v-if="escapeLegend.length" class="cmp-legend">
+          <span class="cmp-legend-title">Colour key</span>
+          <span
+            v-for="item in escapeLegend"
+            :key="item.key"
+            class="cmp-legend-item"
+          >
+            <span
+              class="cmp-legend-swatch"
+              :class="item.className"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </span>
+        </div>
         <div
-          v-for="s in escReplaceSections"
+          v-for="s in escapeSectionList.visible"
           :key="s.category ?? 'other'"
           class="cmp-group cmp-group-esc"
+          :class="{
+            'cmp-group-absent': s.guidance?.support === 'none',
+            'cmp-group-partial': s.guidance?.support === 'partial',
+            'cmp-group-covered': s.guidance?.support === 'full',
+          }"
         >
           <h3 class="cmp-group-head">
             {{ s.label }}
             <span class="cmp-group-count">{{ s.entries.length }}</span>
+            <!--
+              The verdict, once per group: 63 keycap graphics to redraw and 5
+              cursor codes that become one PRINT AT are both "codes to replace"
+              without it. The covered case is stated too, not just tinted - it
+              is what tells a reader the group is a search and replace.
+            -->
+            <span v-if="s.guidance?.support === 'none'" class="cmp-group-none">
+              nothing like it in {{ target.name }}
+            </span>
+            <span
+              v-else-if="s.guidance?.support === 'partial'"
+              class="cmp-group-partial-badge"
+            >
+              only partly covered in {{ target.name }}
+            </span>
+            <span
+              v-else-if="s.guidance?.support === 'full'"
+              class="cmp-group-covered-badge"
+            >
+              {{ target.name }} has these under its own spellings
+            </span>
           </h3>
           <p class="cmp-group-names">
             <span v-for="(e, i) in s.entries" :key="e.escape" class="cmp-name">
@@ -1433,7 +2310,38 @@ watch(from, requestVocabulary);
               ><span v-if="i < s.entries.length - 1" class="cmp-sep">, </span>
             </span>
           </p>
+          <div v-if="s.guidance" class="cmp-group-advice">
+            <p class="cmp-group-instead-text">{{ s.guidance.instead }}</p>
+            <div v-if="s.guidance.example" class="cmp-example">
+              <p class="cmp-example-caption">
+                {{ s.guidance.example.caption }}
+              </p>
+              <pre class="cmp-example-code"><code>{{
+                s.guidance.example.code.join('\n')
+              }}</code></pre>
+            </div>
+          </div>
         </div>
+        <!-- The section's own control, as under "What changes" above. -->
+        <p
+          v-if="escapeSectionList.hasMore && !escapeSectionList.expanded"
+          class="cmp-more-row"
+        >
+          <button
+            type="button"
+            class="cmp-expand"
+            @click="escapeSectionList.expand()"
+          >
+            Show
+            {{
+              count(
+                escapeSectionList.remaining,
+                'more category',
+                'more categories',
+              )
+            }}…
+          </button>
+        </p>
         <p v-if="!escReplaceSections.length" class="cmp-empty">
           No {{ source.name }} control code needs replacing.
         </p>
@@ -1443,7 +2351,10 @@ watch(from, requestVocabulary);
           because the work is different in kind: nothing in the program's text
           changes, so there is nothing to search for - the reader has to be told.
         -->
-        <div v-if="escapeRechecked.length" class="cmp-group cmp-group-esc">
+        <div
+          v-if="escapeRechecked.length"
+          class="cmp-group cmp-group-esc cmp-group-recheck"
+        >
           <h3 class="cmp-group-head">
             Same spelling, different meaning
             <span class="cmp-group-count">{{ escapeRechecked.length }}</span>
@@ -1480,71 +2391,510 @@ watch(from, requestVocabulary);
       </section>
 
       <!--
-        Characters, not control codes: a character the target has no glyph for
-        is rejected when the program is read, wherever it sits - in a string, a
-        REM or a variable name. Narrowed to the program's own text where there
-        is one; the target's whole shortfall where there is not.
+        The two machines' memory laid out side by side, closing the rewrites:
+        drawn rather than listed, but what it shows is an edit to make - where
+        the program's own writes land on the target, and which of its regions
+        they have to be re-aimed at. This is where the addresses are: the fact
+        table used to carry a screen base and a program start, which the maps
+        supersede - four numbers against a picture drawn to scale.
       -->
       <section
-        v-if="charactersToReplace.length"
-        id="characters"
+        v-if="sectionShown['memory-layout']"
+        id="memory-layout"
         class="cmp-section"
       >
-        <h2>Characters to replace ({{ charactersToReplace.length }})</h2>
+        <h2>Memory layout</h2>
+        <MemoryMapPair
+          :from-name="memoryPair.fromName"
+          :to-name="memoryPair.toName"
+          :from-map="memoryPair.fromMap"
+          :to-map="memoryPair.toMap"
+          :from-by-indirection="memoryPair.fromByIndirection"
+          :to-by-indirection="memoryPair.toByIndirection"
+          :sites="memoryPair.sites"
+          :notation="memoryPair.notation"
+        />
+
+        <!--
+          The conclusion the marks alone leave to the reader's eye. Two bands of
+          colour at the same height mean "this POKE now writes into the BASIC
+          program's own text", and only this says so - including to a reader on
+          a narrow screen, meeting the two maps one tab at a time.
+        -->
+        <div v-if="writeLandingRows.length" class="cmp-landings">
+          <h3 class="cmp-group-head">
+            Where these writes land ({{ writeLandingRows.length }})
+          </h3>
+          <ul class="cmp-list">
+            <li v-for="row in writeLandingList.visible" :key="row.key">
+              <code>{{ row.addresses }}</code>
+              <span class="cmp-change-detail">{{ row.detail }}</span>
+              <span v-if="row.estimated" class="cmp-landing-approx">
+                The address could only be estimated, so this is an estimate too
+                — the region is right, the exact byte may not be.
+              </span>
+            </li>
+            <li
+              v-if="writeLandingList.hasMore && !writeLandingList.expanded"
+              class="cmp-more"
+            >
+              <button
+                type="button"
+                class="cmp-expand"
+                @click="writeLandingList.expand()"
+              >
+                Show {{ writeLandingList.remaining }} more…
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!--
+          The same conclusion for the reads, which fail more quietly: nothing
+          is corrupted, the program simply computes with numbers that mean
+          nothing. Naming the region on both sides is what makes the target's
+          own way of asking the same question findable.
+        -->
+        <div v-if="readLandingRows.length" class="cmp-landings">
+          <h3 class="cmp-group-head">
+            Where these reads land ({{ readLandingRows.length }})
+          </h3>
+          <ul class="cmp-list">
+            <li v-for="row in readLandingList.visible" :key="row.key">
+              <code>{{ row.addresses }}</code>
+              <span class="cmp-change-detail">{{ row.detail }}</span>
+              <span v-if="row.estimated" class="cmp-landing-approx">
+                The address could only be estimated, so this is an estimate too
+                — the region is right, the exact byte may not be.
+              </span>
+            </li>
+            <li
+              v-if="readLandingList.hasMore && !readLandingList.expanded"
+              class="cmp-more"
+            >
+              <button
+                type="button"
+                class="cmp-expand"
+                @click="readLandingList.expand()"
+              >
+                Show {{ readLandingList.remaining }} more…
+              </button>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!--
+        The one categorical finding on this page: no substitution, rename or
+        piece of advice ports a machine-code routine, so the section does not
+        offer one. It states what the routines are and asks the question that
+        actually moves the port forward — what does this one do — because that
+        is what gets re-achieved with the target's own means.
+
+        Outside the memory-layout section, because it is not gated on either
+        machine having a described layout.
+      -->
+      <section
+        v-if="sectionShown['machine-code']"
+        id="machine-code"
+        class="cmp-section"
+      >
+        <h2>Machine code to re-achieve ({{ machineCodeRows.length }})</h2>
         <p class="cmp-hint">
-          {{ target.name }} has no glyph for
-          {{
-            narrowingBy
-              ? 'these characters the program uses'
-              : 'these characters'
-          }}, so they cannot appear anywhere in the program — not in a string,
-          and not in a comment.
+          These are {{ source.name }} processor code, not BASIC: nothing on the
+          {{ target.name }} runs them and no substitution carries them across.
         </p>
-        <p class="cmp-group-names">
-          <span v-for="(c, i) in charactersToReplace" :key="c" class="cmp-name">
-            <code>{{ c }}</code
-            ><span v-if="i < charactersToReplace.length - 1" class="cmp-sep"
-              >,
+        <ul class="cmp-list">
+          <li v-for="row in machineCodeList.visible" :key="row.key">
+            <code>{{ row.name }}</code>
+            <span class="cmp-change-detail">
+              {{ row.where }}.
+              <template v-if="row.estimated">
+                The address could only be estimated.
+              </template>
             </span>
-          </span>
+          </li>
+          <li
+            v-if="machineCodeList.hasMore && !machineCodeList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="machineCodeList.expand()"
+            >
+              Show {{ machineCodeList.remaining }} more…
+            </button>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Decide, for each: establish what the routine does, then do that with
+          the {{ target.name }}'s own means.
+          <template v-if="machineCodeCrossReference">
+            How machine code travels between these two machines is covered in
+            the guidance above; carrying it is a separate job from re-achieving
+            it.
+          </template>
+        </p>
+      </section>
+
+      <p v-if="hasSilentWork" class="cmp-stage">
+        <strong>Then what changes quietly.</strong>
+        Left until here because it is checked against code that has stopped
+        changing.
+      </p>
+
+      <!--
+        The command exists on both machines, so nothing else on this page flags
+        it, and the program runs and quietly computes something else. Read
+        after the rewrites: what a silent difference costs is only worth
+        checking against code that has stopped changing.
+      -->
+      <section
+        v-if="sectionShown['false-friends']"
+        id="false-friends"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Same word, different meaning ({{ visibleFalseFriends.length }})</h2>
+        <p class="cmp-hint">
+          These exist on both machines, so they raise no error — they just do
+          something else.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="t in falseFriendsList.visible" :key="t.keyword">
+            <code>{{ t.keyword }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ source.name }}: {{ t.from }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">{{ target.name }}: {{ t.to }}</span>
+            </span>
+          </li>
+          <li
+            v-if="falseFriendsList.hasMore && !falseFriendsList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="falseFriendsList.expand()"
+            >
+              Show {{ falseFriendsList.remaining }} more…
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        The other silent failure, and given the same weight as the one above:
+        the names exist on both machines, nothing fails to tokenize, and two of
+        the program's variables have quietly become one. Always narrowed - which
+        names collide is a fact about a program, not about a pair of machines.
+      -->
+      <section
+        v-if="sectionShown['variable-collisions']"
+        id="variable-collisions"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Names that become one ({{ variableCollisions.length }})</h2>
+        <p class="cmp-hint">
+          {{ target.name }} keeps less of a variable name than
+          {{ source.name }} does, so these become one variable and the program
+          computes the wrong answer without reporting anything.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="c in variableCollisions" :key="c.key">
+            <code>{{ c.key }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ c.names.join(', ') }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">all become {{ c.key }}</span>
+            </span>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Rename them so they differ inside what {{ target.name }} keeps, and
+          check the new name against every other name in the program.
         </p>
       </section>
 
       <!--
-        Always narrowed: without a program this says nothing the "Statements per
-        line" fact row does not already say, and with one it is the only place
-        the reader learns which of their own lines the rule falls on.
+        The names' other silent failure: they keep their spelling, and the type
+        their marker promised is not there to keep. The two ways that goes wrong
+        need opposite reactions, so each name says which it is.
       -->
-      <section v-if="statementLayout" id="statement-layout" class="cmp-section">
-        <h2>
-          Statement layout ({{ count(statementLayout.lines.length, 'line') }})
-        </h2>
-        <p class="cmp-hint" v-if="statementLayout.kind === 'split'">
-          {{ target.name }} takes one statement per line, so every
-          <code>{{ statementLayout.from }}</code> becomes a new line. That
-          renumbers everything after it — <strong>Renumber file</strong> fixes
-          the line references.
+      <section
+        v-if="sectionShown['marker-loss']"
+        id="marker-loss"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Type markers that go ({{ markerLoss.length }})</h2>
+        <p class="cmp-hint">
+          {{ target.name }} does not recognise these markers, so the type each
+          one promised goes with its spelling — the names alone are not the
+          change.
         </p>
-        <p class="cmp-hint" v-else>
-          {{ target.name }} separates statements with
-          <code>{{ statementLayout.to }}</code
-          >, not <code>{{ statementLayout.from }}</code
-          >. The lines keep their shape; only the separator changes.
-        </p>
-        <p class="cmp-group-names">
-          Editor
-          {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
-          <span
-            v-for="(n, i) in statementLayout.lines"
-            :key="n"
-            class="cmp-name"
-          >
-            <code>{{ n }}</code
-            ><span v-if="i < statementLayout.lines.length - 1" class="cmp-sep"
-              >,
+        <ul class="cmp-list">
+          <li v-for="m in markerLoss" :key="m.marker">
+            <code>{{ m.marker }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from"
+                >{{ m.meaning }} on {{ m.names.join(', ') }}</span
+              >
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">
+                <template v-if="m.trap"
+                  >{{ target.name }} takes the spelling: a name like this is
+                  {{ m.trap }}, so the port loads looking finished</template
+                >
+                <template v-else-if="m.precision"
+                  >held as {{ target.name }}'s ordinary numbers, and the extra
+                  digits go silently</template
+                >
+                <template v-else>no such type on {{ target.name }}</template>
+              </span>
             </span>
-          </span>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Decide: for each of these names, whether the program depends on the
+          type its marker promised — keep that by hand where it does, and drop
+          the marker where it does not.
         </p>
+      </section>
+
+      <!--
+        Beside the collisions, and silent in the same way: the expression ports
+        unchanged and stops being the calculation it was. The "Numbers" fact row
+        says the target has no fractions; this says what that costs here.
+      -->
+      <section
+        v-if="sectionShown['truncated-arithmetic']"
+        id="truncated-arithmetic"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Arithmetic that truncates</h2>
+        <p class="cmp-hint">
+          {{ target.name }} has no fractions at all — it holds whole numbers
+          from {{ truncatedArithmetic.min }} to {{ truncatedArithmetic.max }},
+          and every division truncates.
+        </p>
+        <p class="cmp-hint">
+          This program
+          <template v-if="truncatedArithmetic.divides">divides</template>
+          <template
+            v-if="
+              truncatedArithmetic.divides &&
+              truncatedArithmetic.fractionalLiteral
+            "
+          >
+            and
+          </template>
+          <template v-if="truncatedArithmetic.fractionalLiteral"
+            >carries fractional values</template
+          ><template v-if="!truncatedArithmetic.fractionsVia"
+            >, so rescale that arithmetic — work in tenths or hundredths, or
+            reorder so the multiply comes before the divide.</template
+          ><template v-else
+            >, and every one of those calculations lands on the
+            integers.</template
+          >
+        </p>
+        <!--
+          Where the machine reaches reals another way, rescaling is one of two
+          answers rather than the answer - and which one is right turns on
+          whether the fractions are the point of the program, which its text
+          cannot say. So the choice is posed rather than made.
+        -->
+        <p class="cmp-hint" v-if="truncatedArithmetic.fractionsVia">
+          Decide: if this program's fractions are essential, keep them in
+          {{ truncatedArithmetic.fractionsVia }}; if they are incidental,
+          rescale to whole numbers — work in tenths or hundredths.
+        </p>
+      </section>
+
+      <!--
+        Two integer machines of different widths: nothing divides, nothing is
+        fractional, and a value over the target's ceiling simply does not
+        arrive. Present for the pair whenever there is a program, because an
+        expression can overflow where no literal does.
+      -->
+      <section
+        v-if="sectionShown['integer-range']"
+        id="integer-range"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Values that do not fit</h2>
+        <p class="cmp-hint">
+          {{ source.name }} holds whole numbers from
+          {{ integerRangeNarrowing.from.min }} to
+          {{ integerRangeNarrowing.from.max }}; {{ target.name }} holds
+          {{ integerRangeNarrowing.to.min }} to
+          {{ integerRangeNarrowing.to.max }}.
+        </p>
+        <ul class="cmp-list" v-if="integerRangeNarrowing.values.length">
+          <li v-for="value in integerRangeNarrowing.values" :key="value">
+            <code>{{ value }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-to">beyond what {{ target.name }} can hold</span>
+            </span>
+          </li>
+        </ul>
+        <p class="cmp-hint" v-else>
+          No value in this program's own text is beyond it, but a result can be:
+          arithmetic written against the wider range has to be checked against
+          the narrower one.
+        </p>
+        <p class="cmp-hint">
+          Decide: rescale these values so they fit the range, or restructure the
+          arithmetic so its results stay inside it.
+        </p>
+      </section>
+
+      <!--
+        The layout, as numbers rather than commands. `PRINT AT 5,35` ports to a
+        32-column machine unchanged and lands off the edge, so nothing else on
+        this page can report it — and the screens here run from 22 columns to
+        80, which makes this most pairs rather than a corner case.
+      -->
+      <section
+        v-if="sectionShown['positions']"
+        id="positions"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Where this program prints</h2>
+        <p class="cmp-hint">
+          {{ source.name }} boots into {{ positionCheck.from.columns }}×{{
+            positionCheck.from.rows
+          }}
+          characters; {{ target.name }} boots into
+          {{ positionCheck.to.columns }}×{{ positionCheck.to.rows }}.
+        </p>
+        <ul v-if="positionRows.length" class="cmp-list">
+          <li v-for="row in positionRows" :key="row.key">
+            <code>{{ row.label }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-to">not on the {{ target.name }}'s screen</span>
+            </span>
+          </li>
+        </ul>
+        <p v-if="positionCheck.columns.length" class="cmp-hint">
+          Columns beyond its width:
+          <code>{{ positionCheck.columns.join(', ') }}</code
+          >.
+        </p>
+        <p v-if="positionCheck.rows.length" class="cmp-hint">
+          Rows beyond its height:
+          <code>{{ positionCheck.rows.join(', ') }}</code
+          >.
+        </p>
+        <p v-if="positionCheck.offsets.length" class="cmp-hint">
+          Offsets beyond its screen:
+          <code>{{ positionCheck.offsets.join(', ') }}</code
+          >.
+        </p>
+        <p v-if="positionCheck.widthEncoded" class="cmp-hint">
+          This program positions by a single offset from the start of the
+          screen, and an offset encodes the width it was written for —
+          {{ positionCheck.from.columns }} columns here,
+          {{ positionCheck.to.columns }} there. Every one of them has to be
+          recomputed for the target's width, in range or not.
+        </p>
+        <p v-if="positionCheck.otherModes" class="cmp-hint">
+          This program selects screen modes, so the check above describes the
+          screen {{ target.name }} boots into rather than whichever one the
+          program ends up on.
+        </p>
+        <p class="cmp-hint">
+          Decide: reflow the layout for the {{ target.name }}'s screen, or clip
+          what falls outside it.
+        </p>
+      </section>
+
+      <!--
+        The pauses, which are the source machine's speed written into the
+        program. Beside the positions and silent in the same way: the loop
+        tokenizes, runs, and takes a different length of time.
+      -->
+      <section
+        v-if="sectionShown['delays']"
+        id="delays"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Loops that only pass time</h2>
+        <p class="cmp-hint">
+          Lines opening a loop that counts and does nothing else:
+          <code>{{ delayLoops.lines.join(', ') }}</code
+          >. These are delays, and their counts are the {{ source.name }}'s
+          speed written into the program.
+        </p>
+        <p class="cmp-hint">
+          Measured in this IDE's emulators, {{ target.name }} runs the same
+          empty loop {{ delayFactor.factor }}× {{ delayFactor.direction }} ({{
+            delayLoops.fromSpeed
+          }}
+          against {{ delayLoops.toSpeed }} iterations a second), so every pause
+          changes by that factor. That is the emulators' figure rather than a
+          claim about the original hardware — and it is what this program will
+          do here once converted.
+        </p>
+        <p v-if="delayLoops.hasClock" class="cmp-hint">
+          Decide, for each: retune the count for the new speed, or put the delay
+          on the {{ target.name }}'s own clock — {{ delayLoops.clock }}.
+        </p>
+        <p v-else class="cmp-hint">
+          Retune each count for the new speed. There is no second course here:
+          {{ delayLoops.clock }}.
+        </p>
+      </section>
+
+      <!--
+        The one finding a port with nothing else to do can still fail - C64 to
+        VIC-20 is the same BASIC in a tenth of the memory - so it is never
+        conditioned on anything but having a program to size.
+      -->
+      <section v-if="sectionShown['fit']" id="fit" class="cmp-section">
+        <h2>Fit on {{ target.name }}</h2>
+        <p class="cmp-fit">
+          <strong :class="`cmp-fit-${programFit.verdict}`"
+            >{{ fitText.label }} —</strong
+          >
+          {{ fitText.detail }}
+        </p>
+        <p class="cmp-hint" v-if="fitCaveat">{{ fitCaveat }}</p>
+        <p class="cmp-hint">
+          The program area only — variables, arrays and strings claim their room
+          when the program runs.
+        </p>
+        <!--
+          Inside the fit block and nowhere else: this memory is reported only
+          because the program is pressed against the target's limit, which is
+          what makes it part of the answer to "does it fit" rather than an
+          advertisement for what the target adds.
+        -->
+        <template v-if="conditionallyFree.length > 0">
+          <p
+            v-for="region in conditionallyFree"
+            :key="region.start"
+            class="cmp-fit"
+          >
+            <strong
+              >{{ region.bytes.toLocaleString('en-GB') }} bytes more</strong
+            >
+            at {{ regionBounds(region) }} — {{ region.note }}, free while
+            {{ region.conditionText }}. This program's text meets that condition
+            as written.
+          </p>
+          <p class="cmp-hint">
+            Decide: put this program's data and machine code there, keeping the
+            condition true, or shorten the program instead.
+          </p>
+        </template>
+        <!--
+          The other way to make room, under the same gate and last of the two:
+          more memory is a better answer than fewer characters, and this one
+          costs the listing some of its readability.
+        -->
+        <p class="cmp-fit" v-if="fitSpellings">{{ fitSpellings }}</p>
       </section>
     </template>
   </div>
@@ -1639,14 +2989,17 @@ watch(from, requestVocabulary);
   cursor: pointer;
   font-size: 0.9rem;
 }
-/* The colour key: one horizontal run above the sections, wrapping on narrow
-   screens rather than becoming a stacked list that outgrows what it explains. */
+/* The colour key: one horizontal run above the graded groups it explains, and
+   one line however narrow the page gets. A key that wraps into a stacked list
+   outgrows what it explains, so the labels are short enough to fit and the run
+   scrolls sideways rather than folding if they ever do not. */
 .cmp-legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem 1rem;
-  margin: 1.25rem 0 0;
+  gap: 0.75rem;
+  margin: 0.25rem 0 0;
+  overflow-x: auto;
   font-size: 0.8rem;
   color: var(--vp-c-text-2);
 }
@@ -1654,37 +3007,79 @@ watch(from, requestVocabulary);
   font-weight: 600;
   color: var(--vp-c-text-1);
 }
+.cmp-legend-item,
+.cmp-legend-title {
+  white-space: nowrap;
+}
 .cmp-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
-/* Each swatch carries the treatment it explains: a left bar for the capability
-   groups, a filled block for the highlighted fact rows. */
+/* Each swatch carries the treatment it explains: the capability group's own
+   left bar, in the group's own colour. */
 .cmp-legend-swatch {
+  flex: none;
   width: 1.1rem;
   height: 0.9rem;
   border-radius: 2px;
   background: var(--vp-c-bg-soft);
 }
+/* One colour, one meaning - the four run from "you cannot avoid this work" to
+   "this is not work at all", and no other colour on the page repeats any of
+   them. */
 .cmp-key-none {
   border-left: 3px solid var(--vp-c-red-1);
   background: var(--vp-c-red-soft);
 }
 .cmp-key-partial {
-  border-left: 3px solid var(--vp-c-red-1);
+  border-left: 3px solid var(--vp-c-yellow-1);
 }
 .cmp-key-full {
-  border-left: 3px solid var(--vp-c-yellow-1);
+  border-left: 3px solid var(--vp-c-purple-1);
 }
 .cmp-key-gain {
   border-left: 3px solid var(--vp-c-green-1);
+}
+/* The verdict on whether the program fits. Its colour restates the phrase beside
+   it rather than encoding anything the phrase does not say, which is why it is
+   not in the colour key above: that key exists for the capability groups, where
+   colour is the only thing carrying the meaning. A lower bound is deliberately
+   never green - the figure is a floor, and green over an understatement is the
+   one outcome worse than saying nothing. */
+.cmp-fit-over {
+  color: var(--vp-c-red-1);
+}
+.cmp-fit-tight {
+  color: var(--vp-c-yellow-1);
+}
+.cmp-fit-fits {
+  color: var(--vp-c-green-1);
+}
+.cmp-fit-at-least {
+  color: var(--vp-c-text-1);
 }
 .cmp-section {
   margin-top: 2rem;
 }
 .cmp-section h2 {
   margin-bottom: 0.25rem;
+}
+/* A class of work opening. Set against the page edge rather than styled as a
+   heading: the sections under it carry the headings, and a third level above
+   them would read as a section of its own with nothing in it. The following
+   section keeps its own top margin, so the lead-in only needs the space above
+   it that separates it from the class before. */
+.cmp-stage {
+  margin: 3rem 0 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--vp-c-brand-1);
+  color: var(--vp-c-text-2);
+  font-size: 0.9rem;
+}
+.cmp-stage strong {
+  display: block;
+  color: var(--vp-c-text-1);
 }
 .cmp-hint,
 .cmp-note {
@@ -1721,8 +3116,12 @@ watch(from, requestVocabulary);
   color: var(--vp-c-text-2);
   font-weight: 600;
 }
+/* The rows that differ, when the unchanged ones are shown alongside them. A
+   plain raised tint rather than a colour: amber is what the capability groups
+   use for "only partly covered", and one colour meaning two things across one
+   page is worse than a highlight that is merely legible. */
 .cmp-facts .cmp-changed td {
-  background: var(--vp-c-warning-soft, var(--vp-c-yellow-soft));
+  background: var(--vp-c-default-soft, var(--vp-c-bg-soft));
 }
 .cmp-list {
   list-style: none;
@@ -1738,14 +3137,11 @@ watch(from, requestVocabulary);
   border-left: 3px solid transparent;
   border-bottom: 1px solid var(--vp-c-divider);
 }
-.cmp-remove li {
-  border-left-color: var(--vp-c-red-1);
-}
-.cmp-add li {
-  border-left-color: var(--vp-c-green-1);
-}
+/* On both machines, written differently - the same verdict the capability
+   groups draw purple, so it is the same purple here rather than a colour of
+   its own. */
 .cmp-change li {
-  border-left-color: var(--vp-c-yellow-1);
+  border-left-color: var(--vp-c-purple-1);
   flex-direction: column;
   align-items: stretch;
 }
@@ -1764,20 +3160,22 @@ watch(from, requestVocabulary);
   color: var(--vp-c-text-2);
   font-size: 0.75rem;
 }
-/* One rule of the target language, stated once above the per-keyword rows. */
+/* One rule of the target language, stated once above the per-keyword rows.
+   Purple, like everything else that says "on both machines, written
+   differently". */
 .cmp-change-rule {
   margin: 0.5rem 0 0;
   padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--vp-c-yellow-1);
+  border-left: 3px solid var(--vp-c-purple-1);
   background: var(--vp-c-bg-soft);
   font-size: 0.85rem;
   line-height: 1.9;
 }
 /* One capability's worth of lost commands: a heading and a run of names,
-   rather than a row per command. Red left edge to match .cmp-remove, which
-   this section no longer uses. Red is the "needs your attention" end of the
-   scale: the groups whose commands the target cannot replace outright keep it,
-   and the ones it does cover step down to amber. */
+   rather than a row per command. The edge grades the work, one colour per
+   verdict: red where the target cannot replace the commands at all, amber
+   where it covers the ground only partly, purple where it covers it under
+   other names, green where the port loses nothing here. */
 .cmp-group {
   margin: 0.75rem 0;
   padding: 0.5rem 0 0.5rem 0.7rem;
@@ -1788,14 +3186,14 @@ watch(from, requestVocabulary);
   background: var(--vp-c-red-soft);
 }
 /* Capabilities the target only partly covers - still work you have to think
-   about, so they keep the red edge and are told apart by the badge. */
+   about, but not the same work, so amber rather than a second red. */
 .cmp-group.cmp-group-partial {
-  border-left-color: var(--vp-c-red-1);
-}
-/* Capabilities the target covers under other names - the least of the work
-   here, so amber rather than red. */
-.cmp-group.cmp-group-covered {
   border-left-color: var(--vp-c-yellow-1);
+}
+/* Capabilities the target covers under other names - a translation rather than
+   a rewrite, which is what purple means everywhere on this page. */
+.cmp-group.cmp-group-covered {
+  border-left-color: var(--vp-c-purple-1);
 }
 /* Capabilities the port loses nothing from - news, not work, so they read as
    an addition rather than a loss and sit after the groups that cost something. */
@@ -1817,9 +3215,16 @@ watch(from, requestVocabulary);
   color: var(--vp-c-text-1);
   font-weight: 600;
 }
-/* A control-code category: the same group shape as a capability. */
+/* A control-code category: the same group shape as a capability, and the same
+   red edge, meaning the same thing - these have to be rewritten. */
 .cmp-group-esc {
   margin: 0.5rem 0;
+}
+/* Except the codes that survive the port and mean something else at the other
+   end. Nothing to rewrite, so no red: like the same-word-different-meaning
+   traps, its heading is what says what it is. */
+.cmp-group-esc.cmp-group-recheck {
+  border-left-color: var(--vp-c-divider);
 }
 .cmp-group-esc .cmp-group-head {
   font-size: 0.85rem;
@@ -1828,7 +3233,8 @@ watch(from, requestVocabulary);
 .cmp-group-esc .cmp-group-names {
   line-height: 1.8;
 }
-.cmp-group-partial-badge {
+.cmp-group-partial-badge,
+.cmp-group-covered-badge {
   color: var(--vp-c-text-2);
   font-size: 0.75rem;
   font-weight: 400;
@@ -1930,6 +3336,12 @@ watch(from, requestVocabulary);
 .cmp-expand:hover {
   background: var(--vp-c-brand-soft);
 }
+/* A grouped section's reveal control, below the groups it opens with. Aligned
+   with those groups rather than centred like .cmp-more, which is a row inside a
+   list and takes that list's width. */
+.cmp-more-row {
+  margin: 0.9rem 0 0;
+}
 .cmp-icon {
   display: inline-flex;
   align-items: center;
@@ -1968,8 +3380,11 @@ watch(from, requestVocabulary);
   font-weight: 500;
 }
 /* Same word, different meaning: the only differences here that fail silently. */
+/* The traps section takes no colour of its own: amber is what the capability
+   groups mean by "only partly covered", and the heading and its hint say what
+   this section is better than a tint would. */
 .cmp-traps h2 {
-  color: var(--vp-c-warning-1, var(--vp-c-text-1));
+  color: var(--vp-c-text-1);
 }
 .cmp-change-detail {
   display: flex;
@@ -1988,6 +3403,20 @@ watch(from, requestVocabulary);
   margin: 0.75rem 0 0;
   font-size: 0.85rem;
   color: var(--vp-c-text-2);
+}
+/* The verdicts, under the maps they are about: far enough below the picture to
+   read as its conclusion rather than as part of its controls. */
+.cmp-landings {
+  margin-top: 1.25rem;
+}
+/* Its own line under the finding it qualifies, and dimmer than the finding: the
+   doubt belongs to the verdict, and putting it in the same run of text would
+   let it be read as part of what was concluded. */
+.cmp-landing-approx {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--vp-c-text-3, var(--vp-c-text-2));
 }
 @media (max-width: 640px) {
   .cmp-facts tbody th {

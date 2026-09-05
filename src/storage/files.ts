@@ -116,6 +116,27 @@ export async function openBinaryFile(
   }));
 }
 
+/**
+ * Open a picture from disk - a photograph or scan of a printed listing, shown to
+ * the AI assistant (see `src/app/listingPhoto.ts`).
+ *
+ * Deliberately not the File System Access picker the openers above prefer: that
+ * picker cannot offer a camera at all, and a picture is read once and never
+ * written back, so a file handle buys nothing. The module's own hidden input
+ * gives a phone its choose-or-take sheet, and already carries the iOS Safari
+ * workaround documented on it.
+ *
+ * `accept="image/*"` with **no `capture` attribute**: `capture` does not add the
+ * camera to the picker, it *replaces* the picker with it on most mobile
+ * browsers, removing the photo library - which is useless to someone who
+ * photographed the page yesterday. Plain `image/*` is also what makes iOS
+ * transcode a HEIC to a JPEG on the way out, which is the one platform that
+ * writes them.
+ */
+export async function openImageFile(): Promise<File | null> {
+  return openViaInput('image/*', async (file) => file);
+}
+
 function openViaInput<T>(
   accept: string,
   read: (file: File) => Promise<T>,

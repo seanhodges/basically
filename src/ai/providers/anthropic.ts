@@ -105,27 +105,39 @@ function streamChat(
     ...(effort ? { output_config: { effort } } : {}),
     system,
     messages: toAnthropicMessages(messages),
-    // Cache the conversation prefix. Every turn re-sends the system prompt and
-    // the whole thread, and that prefix is already byte-stable: the system
-    // prompt is a per-dialect constant, the tool set is fixed for a
-    // conversation, and history is append-only - including a shown screen,
-    // which stays on the turn that showed it rather than being rewritten out of
-    // the prefix later (a cached image reads for a fraction of an input token;
-    // rewriting it would cost a full cache write on every turn after).
+    // Cache the conversation prefix. Every turn re-sends the tools, the system
+    // prompt and the whole thread, in that order, and each of the three is held
+    // stable by something upstream: the tool set is resolved from the provider
+    // once per conversation, the system prompt is a constant per (dialect,
+    // provider), and history is append-only - a turn is replayed exactly as it
+    // was sent, including a shown screen, which stays on the turn that showed
+    // it rather than being rewritten out of the prefix later (a cached image
+    // reads for a fraction of an input token; rewriting it would cost a full
+    // cache write on every turn after).
     //
-    // Tools are the one part of that prefix a caller could easily get wrong.
-    // They render AHEAD of the system prompt, so a set that gains, loses or
-    // reorders an entry between turns invalidates everything behind it - the
-    // system prompt and the whole thread - which is worse than never caching.
-    // What matters is that the set does not vary, not that it is empty: a fixed
-    // set is exactly as stable as the per-dialect system prompt already is.
+    // Tools are the most expensive part of that to get wrong, because they
+    // render AHEAD of the system prompt: a set that gains, loses or reorders an
+    // entry between turns invalidates everything behind it - the system prompt
+    // and the whole thread - which is worse than never caching. What matters is
+    // that the set does not vary, not that it is empty.
     //
-    // The top-level form puts the
-    // breakpoint at the end of the
-    // whole prefix - deliberately NOT on the system prompt alone, which is
-    // under the model's minimum cacheable size on most dialects and would
-    // silently never cache. Default 5-minute TTL: a read costs about a tenth
-    // of an input token against a 1.25x write, so it pays from the second turn.
+    // The top-level form puts the breakpoint at the end of the whole prefix,
+    // and it is the only one of the four this request spends. A second at the
+    // end of the system prompt would anchor the machine's description against
+    // history that changes rather than only grows - joining a continued answer
+    // onto its partial is the one thing here that does that. Measured on a live
+    // three-turn conversation it would buy nothing else: on a ZX81 the first
+    // turn writes 10,772 tokens and the second reads all 10,772 back, writing
+    // only the 321 that turn adds.
+    //
+    // Five minutes rather than an hour, from the same measurement. An hour
+    // doubles the write premium against 1.25x - some 8,600 tokens' worth on
+    // that conversation, paid whether or not it helps - and buys back about
+    // 12,400 only where a turn arrives after the shorter cache has expired. It
+    // is worth it only if most conversations leave a gap over five minutes, and
+    // the turns the IDE raises itself - the run check, the judgement, the
+    // correction - follow within seconds. A read costs about a tenth of an
+    // input token either way, so the cache pays from the second turn.
     cache_control: { type: 'ephemeral' },
   });
 

@@ -1,26 +1,23 @@
+import { referencePageOf } from '../dialects/referencePage';
 import type { Cpu } from '../asm/types';
 import type { Dialect } from '../dialects/types';
-
-/** First whitespace-delimited token of a selection (a stray trailing space or a
- * two-word drag still resolves to a single keyword). */
-function firstKeyword(selection: string): string {
-  return selection.trim().split(/\s+/)[0] ?? '';
-}
+import type { ActiveTab } from './store';
 
 /**
- * Docs sub-path for a dialect's reference page, optionally seeding the reference
- * table's search box with `selection`. Returns `null` when there's nothing to
- * search (the caller then falls back to the docs home).
+ * Docs sub-path for a dialect's reference page, seeding the reference table's
+ * search box with `keyword`. Returns `null` when there is nothing to search, so
+ * a caller with no keyword offers nothing rather than opening an empty table.
  *
- * The table search is a case-insensitive substring match on the keyword name.
+ * The table search is a case-insensitive substring match on the keyword name,
+ * and on the short spellings the machine accepts for it - so a keyword picked
+ * out of a listing finds its row however it was spelled there.
  */
 export function referenceTopic(
   dialect: Dialect,
-  selection: string,
+  keyword: string,
 ): string | null {
-  const keyword = firstKeyword(selection);
   if (!keyword) return null;
-  const page = dialect.docsReference ?? dialect.id;
+  const page = referencePageOf(dialect);
   return `reference/${page}?q=${encodeURIComponent(keyword)}`;
 }
 
@@ -31,14 +28,13 @@ const ASM_REFERENCE_PAGE: Record<Cpu, string> = {
 };
 
 /**
- * Docs sub-path for a CPU's assembly reference, seeded with the selected
- * mnemonic when there is one. Unlike {@link referenceTopic} it always returns a
- * topic: with a code block open the CPU page is the relevant context even
- * without a selection, so it opens the page rather than the docs home.
+ * Docs sub-path for a CPU's assembly reference, seeded with `keyword` when
+ * there is one. Unlike {@link referenceTopic} it always returns a topic: with a
+ * code block open the CPU page is the relevant context even with nothing
+ * picked, so the bare form opens the page rather than the docs home.
  */
-export function asmReferenceTopic(cpu: Cpu, selection: string): string {
+export function asmReferenceTopic(cpu: Cpu, keyword = ''): string {
   const page = ASM_REFERENCE_PAGE[cpu];
-  const keyword = firstKeyword(selection);
   return keyword
     ? `reference/${page}?q=${encodeURIComponent(keyword)}`
     : `reference/${page}`;
@@ -47,21 +43,23 @@ export function asmReferenceTopic(cpu: Cpu, selection: string): string {
 /** The store fields the context-help resolver reads. */
 export interface ReferenceTopicState {
   dialect: Dialect;
-  editorSelection: string;
-  activeBlockId: string | null;
+  activeTab: ActiveTab;
 }
 
 /**
- * Pick the right reference topic for the current context: with a machine-code
- * block tab active on a CPU-backed dialect, the assembly reference for that CPU
- * (seeded to the selected mnemonic); otherwise the dialect's BASIC reference.
+ * The reference topic the current context alone suggests, for an opener that
+ * names none of its own - the toolbar button, the drawer handle, F1.
+ *
+ * Only the active tab speaks here. A machine-code block tab on a CPU-backed
+ * dialect makes that CPU's page the relevant context whatever is in the buffer,
+ * so it opens there. Anything else yields null and the documentation opens at
+ * its home: picking out a particular keyword is the editor's own job, answered
+ * where the keyword is written rather than by a button elsewhere on screen.
  */
 export function referenceTopicFor(state: ReferenceTopicState): string | null {
   const cpu = state.dialect.memoryBlocks?.cpu;
-  if (state.activeBlockId !== null && cpu) {
-    return asmReferenceTopic(cpu, state.editorSelection);
-  }
-  return referenceTopic(state.dialect, state.editorSelection);
+  if (state.activeTab.kind === 'block' && cpu) return asmReferenceTopic(cpu);
+  return null;
 }
 
 /**

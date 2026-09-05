@@ -106,9 +106,11 @@ function detail(audits: DialectAudit[]): string {
     }
     if (a.declared.length === 0) {
       out.push(
-        'This machine has no block graphics at all: it has no video hardware',
-        'and no character generator, so every byte it can display is plain',
-        'ASCII drawn by whatever terminal is attached.',
+        'This machine has no block graphics at all - not a range nobody has',
+        'read off it yet, but a character set with no mosaic in it. Every byte',
+        'it can display is an ordinary character; see the citation beside its',
+        'entry in src/dialects/semigraphicsAudit.ts for how that was',
+        'established.',
         '',
       );
       continue;

@@ -1,32 +1,5 @@
 import type { Dialect } from '../dialects/types';
-import { indexKeyDefs } from '../keyboard/controllerConfig';
-
-/**
- * The names of the keys this machine has, for telling the assistant what it may
- * press when it drives a program.
- *
- * Derived from the machine's own keyboard layout rather than written down here,
- * because `MachineEmulator.setKey` takes an opaque machine-defined token and
- * those tokens are genuinely not uniform - one machine's `KeyA` is another's
- * bare `A`, and two of them map to raw matrix positions instead. A list written
- * by hand would be a second account of thirteen keyboards, drifting from the
- * first.
- *
- * Derivable without constructing an emulator, which matters: the system prompt
- * is built from the `Dialect` alone and has to stay byte-stable per dialect for
- * prefix caching. Sorted for exactly that reason - the layout's own order is an
- * arrangement of a keyboard, not a promise about iteration.
- *
- * Keys that emit nothing are left out. A key with no tokens presses nothing on
- * the matrix, so offering its name would be offering a key that silently fails.
- */
-export function driveKeyNames(dialect: Dialect): string[] {
-  const names: string[] = [];
-  for (const [id, def] of indexKeyDefs(dialect.keyboardLayout)) {
-    if (def.emits.length > 0) names.push(id);
-  }
-  return names.sort();
-}
+import { keyVocabulary } from '../keyboard/keyNames';
 
 /**
  * Dialect ids whose machines cannot report their BASIC variables.
@@ -46,10 +19,10 @@ export function driveKeyNames(dialect: Dialect): string[] {
 export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
-  // The Altair's VARTAB walk is Stage 5 of its plan (see
-  // docs/contributing/dialect-plans/altair8800.md); the machine offers no
-  // readVariables yet.
-  'altair8800',
+  // Unlike the two above, this one is outstanding work rather than a limit: the
+  // GE-235's interpreter holds its variables in a table it could hand back, and
+  // the watcher was simply deferred out of the work that brought the machine in.
+  'ge235',
 ]);
 
 /** Whether this dialect's machine can be asked for its BASIC variables. */
@@ -73,9 +46,6 @@ export function canReportVariables(dialectId: string): boolean {
 export const DIALECTS_WITHOUT_RUNTIME_REPORT: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
-  // Same: Altair BASIC *prints* its errors, so the report has to be scanned off
-  // the terminal grid, which is Stage 5 work.
-  'altair8800',
 ]);
 
 /**
@@ -86,6 +56,41 @@ export const DIALECTS_WITHOUT_RUNTIME_REPORT: ReadonlySet<string> = new Set([
  */
 export function canCheckByRunning(dialectId: string): boolean {
   return !DIALECTS_WITHOUT_RUNTIME_REPORT.has(dialectId);
+}
+
+/**
+ * Dialect ids whose machines produce no measurements of a run.
+ *
+ * Derived from the machines and crosschecked the same way. Two reasons, both of
+ * them about what the machine can actually account for:
+ *
+ * Charging a run's time to a BASIC line needs the machine to say which line it
+ * is executing, and Atom BASIC cannot - the same machine, for the same reason,
+ * that has no step-through debugger.
+ *
+ * Charging it at all needs a clock to charge in, and an interpreter backend has
+ * none: it interprets BASIC statements rather than executing a CPU over a RAM
+ * image, so there are no cycles to attribute. Such a machine could be given a
+ * made-up currency of its own, but every figure in the IDE would then have to
+ * carry which currency it was in - in a unit the hardware never had.
+ *
+ * Kept here rather than read off a machine because the decision is taken before
+ * any machine exists - the assistant's tool set is settled per conversation from
+ * the dialect alone, and the profile surface says what a machine cannot do
+ * before one has ever been run. `machineObservability.test.ts` constructs every
+ * registered machine and fails when this drifts from what they implement.
+ */
+export const DIALECTS_WITHOUT_PROFILE: ReadonlySet<string> = new Set([
+  'atom',
+  'trs80',
+  // The TRS-80's reason exactly: a clean-room interpreter with no CPU beneath
+  // it, so there are no cycles to attribute a line's cost in.
+  'ge235',
+]);
+
+/** Whether a run on this dialect's machine can be measured line by line. */
+export function canProfileRun(dialectId: string): boolean {
+  return !DIALECTS_WITHOUT_PROFILE.has(dialectId);
 }
 
 /**
@@ -114,39 +119,45 @@ export function buildExpectationRules(
 ): string {
   const variables = canReportVariables(dialect.id);
   const forms = [
+    `- \`EXPECT "<text>"\` - text that should be on the screen at that point.`,
+    `- \`EXPECT NOT "<text>"\` - text that should not be on the screen.`,
+    `- \`EXPECT STOPPED\` / \`EXPECT RUNNING\` - whether the program should have finished.`,
     ...(variables
       ? [
-          `- \`VAR <name> = <value>\` - the value a variable should hold, written as the program names it (\`A\`, \`N$\`, \`T%\`).`,
+          `- \`EXPECT VAR <name> = <value>\` - the value a variable should hold, written as the program names it (\`A\`, \`N$\`, \`T%\`).`,
         ]
       : []),
-    `- \`SCREEN CONTAINS "<text>"\` - text that should appear somewhere on the screen.`,
     ...(canShowScreen
       ? [
-          `- \`SCREEN SHOWS <description>\` - how the screen should look once the program has run, in your own words. This is the form for what characters cannot express: a shape, a layout, a colour, something drawn.`,
+          `- \`EXPECT SHOWS <description>\` - how the screen should look, in your own words. This is the form for what characters cannot express: a shape, a layout, a colour, something drawn.`,
         ]
       : []),
+    `- \`WAIT END\`, \`WAIT FOR "<text>"\`, \`WAIT <n>\` - let the program run on before the next line is judged.`,
   ].join('\n');
 
   const variableNotes = variables
     ? `
-- Variable values are read back ALREADY FORMATTED for display: a string comes back with its quotes around it, and a number however this machine prints it. Quotes and number formatting are forgiven on both sides, so \`VAR N$ = HELLO\` and \`VAR N$ = "HELLO"\` mean the same thing, and \`42\`, \`42.0\` and \` 42\` all agree.
+- Variable values are read back ALREADY FORMATTED for display: a string comes back with its quotes around it, and a number however this machine prints it. Quotes and number formatting are forgiven on both sides, so \`EXPECT VAR N$ = HELLO\` and \`EXPECT VAR N$ = "HELLO"\` mean the same thing, and \`42\`, \`42.0\` and \` 42\` all agree.
 - An array is reported as its shape plus a truncated preview, not as its elements, so never state an expectation about a single element of an array.`
     : `
-- This machine CANNOT report its variables, so do not state \`VAR\` expectations for it. Check it on its screen instead.`;
+- This machine CANNOT report its variables, so do not state \`EXPECT VAR\` expectations for it. Check it on its screen instead.`;
 
   const visualNotes = canShowScreen
     ? `
-- A \`SCREEN SHOWS\` expectation is settled by showing you a picture of the screen and asking whether it holds, so describe what you could settle by looking at one: what is drawn and roughly where, not exact pixel positions or counts of things too small to count.`
+- An \`EXPECT SHOWS\` expectation is settled by showing you a picture of the screen and asking whether it holds, so describe what you could settle by looking at one: what is drawn and roughly where, not exact pixel positions or counts of things too small to count.`
     : `
-- The screen CANNOT be shown to you as a picture here, so do not state \`SCREEN SHOWS\` expectations. Anything you want checked must be checkable as text or as a variable.`;
+- The screen CANNOT be shown to you as a picture here, so do not state \`EXPECT SHOWS\` expectations. Anything you want checked must be checkable as text or as a variable.`;
 
   return `CHECKING YOUR OWN PROGRAM
-- After the code, you MAY add a single \`\`\`basic-expect fenced block saying what should be true once the program has run. It is optional; omit it when there is nothing cheap and definite to state.
-- One expectation per line, in exactly one of these forms:
-${forms}${variableNotes}${visualNotes}
+- After the code, you MAY add a single \`\`\`basic-expect fenced block saying what should be true of the program once it has run. It is optional; omit it when there is nothing cheap and definite to state.
+- One line per action or expectation, IN THE ORDER THEY SHOULD HAPPEN, in exactly these forms:
+${forms}
+- The lines run IN ORDER against the running machine, so an expectation asks what is true at the point you wrote it. Start almost every block with \`WAIT END\`: without it you are asking what is on the screen before the program has printed anything.
+- For text your program prints and then clears, write \`WAIT FOR "<text>"\` - it runs until that text appears and fails if it never does. After \`WAIT END\` it has gone.
+- The first line that does not hold stops the block; the lines after it are not judged.${variableNotes}${visualNotes}
 - A \`basic-expect\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it, and do not use it to explain your reasoning.
 - Screen text is matched a row at a time, ignoring how many spaces separate words, and it is case-sensitive. Do not expect text to span two rows, and do not predict where on the screen it lands.
-- State only what your program definitely produces. A program that waits for a keypress never reaches its result, and expectations that were never reached are reported as unchecked rather than as failures.
+- State only what your program definitely produces. A program that waits for a keypress never reaches its result, and expectations that could not be evaluated are reported as unchecked rather than as failures.
 - If an expectation does not hold, you will be asked to correct the program exactly as you would be for a runtime error.
 
 ${buildScreenViewRules(canShowScreen)}`;
@@ -178,14 +189,14 @@ export function buildScreenViewRules(canShowScreen: boolean): string {
     ? `
 - Ask for \`SCREEN IMAGE\` when what your program produced is not characters: something plotted, drawn, coloured, or laid out as shapes - where seeing the picture tells you what the characters cannot.
 - Asking for both is reasonable when a screen is part text and part drawing. Asking for the picture alone, for a program that only prints, is not: you would be reading words back off pixels that you could have been given as words.
-- A \`SCREEN SHOWS\` expectation already asks to be shown the picture. You do not need a \`basic-view\` block as well when you have stated one.`
+- An \`EXPECT SHOWS\` expectation already asks to be shown the picture. You do not need a \`basic-view\` block as well when you have stated one.`
     : `
 - The screen CANNOT be shown to you as a picture on this setup, so do not ask for \`SCREEN IMAGE\`. What is on the screen as characters is still available to you.`;
 
   return `SEEING THE SCREEN
 - After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line. The views are ${views}.
-- Ask for \`SCREEN TEXT\` when your program's output is words, numbers, a table, a menu, or anything else made of characters - and when seeing the whole screen would tell you something a \`SCREEN CONTAINS\` expectation would not, because it says what is actually there rather than only whether the text you predicted appeared.
-- Do NOT ask for a view merely to confirm something you already stated as an expectation: \`SCREEN CONTAINS\` and \`VAR\` are checked directly against the machine, cost nothing, and are exact. A view is for seeing what you did not predict.${pictureRules}
+- Ask for \`SCREEN TEXT\` when your program's output is words, numbers, a table, a menu, or anything else made of characters - and when seeing the whole screen would tell you something an \`EXPECT\` would not, because it says what is actually there rather than only whether the text you predicted appeared.
+- Do NOT ask for a view merely to confirm something you already stated as an expectation: \`EXPECT\` and \`EXPECT VAR\` are checked directly against the machine, cost nothing, and are exact. A view is for seeing what you did not predict.${pictureRules}
 - Naming nothing is perfectly normal and is what most replies do. If you name nothing, you will not be shown the screen - including when the program fails, where you will instead be told that the screen can be shown if you ask for it.
 - A \`basic-view\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it.`;
 }
@@ -198,10 +209,12 @@ export function buildScreenViewRules(canShowScreen: boolean): string {
  * text of a listing distinguishes one that prints its answer from one that
  * stops at a prompt waiting for the input that would produce it.
  *
- * The key names are this machine's own, derived from its keyboard
- * ({@link driveKeyNames}), so the assistant cannot ask for a key that does not
- * exist here - and so this text stays a per-dialect constant, which the prompt
- * cache depends on.
+ * The key names are the shared vocabulary, resolved for this machine from its
+ * own keyboard ({@link keyVocabulary}): a machine is offered only the names it
+ * actually has, so the assistant cannot ask for a key that does not exist here,
+ * and the same name means the same key on the next machine. Derived from the
+ * `Dialect` with no emulator booted, so this text stays a per-dialect constant,
+ * which the prompt cache depends on.
  */
 export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
   if (!canDrive) {
@@ -209,7 +222,7 @@ export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
 - The machine CANNOT be driven on this setup, so do not ask to drive it. Write programs whose result you can check without input, and remember that a program waiting for a keypress never reaches its result.`;
   }
 
-  const names = driveKeyNames(dialect);
+  const names = keyVocabulary(dialect.keyboardLayout);
   const joystick = dialect.joystickModes?.length
     ? `- The joystick works too: hold a direction (\`up\`, \`down\`, \`left\`, \`right\`) or \`fire1\`/\`fire2\` for a number of frames. On this machine it reaches the program through its own joystick port.`
     : `- The joystick works too: hold a direction (\`up\`, \`down\`, \`left\`, \`right\`) or \`fire1\`/\`fire2\` for a number of frames. This machine has no joystick port, so those arrive as the keys its games actually read - which is what a person playing it would press.`;
@@ -217,7 +230,7 @@ export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
   return `DRIVING THE PROGRAM
 - After the code, you MAY add \`DRIVE\` to your \`\`\`basic-view block to be given this machine once your program is running. You can then press its keys, work its joystick, wait, and look at the screen - deciding each step from what the last one showed - before you say whether the program worked.
 - Ask when your program does not reach its result on its own: it waits for input, it starts on a title screen, it shows a menu, or it is a game that only does something once something is pressed. Do NOT ask when the program prints its answer and stops - there is nothing to drive it to.
-- The keys on this machine are named: ${names.join(', ')}. Press them by name. Nothing else is a key here, and asking for one that is not will tell you so rather than doing anything.
+- The keys you may press here are named: ${names.join(', ')}. These names mean the same key on every machine, so a sequence you write for one works on another. Press them by name, and join them with + to press them together (SHIFT+P). Nothing else is a key here, and asking for one that is not will tell you so rather than doing anything.
 ${joystick}
 - Prefer waiting for text on screen over waiting a fixed number of frames. These machines differ by seconds in how long they take to boot and to reach a prompt, so a frame count is a guess where waiting for the prompt to actually appear is not.
 - Looking costs you: prefer reading the screen as characters over asking for a picture of it, for the same reasons the view rules give.

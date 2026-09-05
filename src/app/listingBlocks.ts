@@ -3,7 +3,7 @@
 
 /**
  * Project the `#BIN` REM records embedded in a ZX80/ZX81 BASIC listing to
- * {@link MemoryBlock}s - the read side of the "blocks are a view over the
+ * {@link Block}s - the read side of the "blocks are a view over the
  * listing" model (see {@link MemoryBlocksSupport.inListing}). `source` is the
  * single source of truth; these blocks are derived, their addresses fixed by
  * where each record sits in the tokenized program, and they ride inside the
@@ -15,7 +15,8 @@
  */
 
 import { parseBinaryDirective } from '../dialects/binaryDirective';
-import type { ListingLayout, MemoryBlock } from '../dialects/types';
+import { readMachineDirective } from '../dialects/machineDirective';
+import type { ListingLayout, Block } from '../dialects/types';
 
 /**
  * User-assigned overrides for a derived listing block, keyed by ordinal (its
@@ -27,7 +28,7 @@ import type { ListingLayout, MemoryBlock } from '../dialects/types';
  */
 export interface ListingBlockMeta {
   name?: string;
-  kind?: 'code' | 'data';
+  kind?: Block['kind'];
   comment?: string;
   /**
    * The block editor's last-assembled source. A `#BIN` record holds only raw
@@ -42,9 +43,9 @@ export interface ListingBlockMeta {
 
 /** Overlay a user override onto a derived block (absent fields keep defaults). */
 export function applyListingMeta(
-  block: MemoryBlock,
+  block: Block,
   meta: ListingBlockMeta | undefined,
-): MemoryBlock {
+): Block {
   if (!meta) return block;
   return {
     ...block,
@@ -139,7 +140,7 @@ function codeSlice(
 export function deriveListingBlocks(
   source: string,
   layout: ListingLayout,
-): MemoryBlock[] {
+): Block[] {
   const binRecords: Uint8Array[] = [];
   for (const line of source.split('\n')) {
     const parsed = parseBinaryDirective(line.trim());
@@ -147,10 +148,10 @@ export function deriveListingBlocks(
   }
   if (binRecords.length === 0) return [];
 
-  const { bytes } = layout.tokenize(source);
+  const { bytes } = layout.tokenize(readMachineDirective(source).source);
   const records = walkRecords(bytes, layout);
 
-  const blocks: MemoryBlock[] = [];
+  const blocks: Block[] = [];
   let ptr = 0;
   binRecords.forEach((rec, i) => {
     let start: number | null = null;

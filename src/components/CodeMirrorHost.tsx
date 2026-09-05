@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Compartment,
-  EditorState,
   Prec,
+  Range,
   RangeSet,
   StateEffect,
   StateField,
+  type Extension,
 } from '@codemirror/state';
 import {
   Decoration,
@@ -26,11 +27,10 @@ import {
   cursorLineUp,
   defaultKeymap,
   deleteCharBackward,
+  deleteCharForward,
   history,
   historyKeymap,
   insertNewlineAndIndent,
-  redo,
-  undo,
 } from '@codemirror/commands';
 import {
   autocompletion,
@@ -46,7 +46,6 @@ import {
 } from '@codemirror/autocomplete';
 import { lintKeymap, setDiagnosticsEffect } from '@codemirror/lint';
 import {
-  openSearchPanel,
   closeSearchPanel,
   searchPanelOpen,
   searchKeymap,
@@ -59,12 +58,35 @@ import {
 import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
+import { machineCaseFilter } from '../editor/machineCase';
 import { basicHighlightStyle } from '../editor/basicLanguage';
 import { binaryLineExtension } from '../editor/binaryLineWidget';
 import { controlChipExtension } from '../editor/controlChipWidget';
+import {
+  variableUsagesFeature,
+  variableUsagesRow,
+} from '../editor/variableUsagesView';
+import { clickMenu } from '../editor/clickMenu';
+import { BASIC_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
+import { operatorSpellings } from '../dialects/operators';
+import { keywordSpellingsFor } from '../dialects/keywordSpellings';
+import { referenceTopic } from '../app/docsTopic';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
-import { useIdeStore } from '../app/store';
+import {
+  basicBufferKey,
+  bufferHistories,
+  freshBufferState,
+} from '../editor/bufferHistory';
+import { runViewEditorCommand } from '../editor/editorCommands';
+import {
+  useIdeStore,
+  selectActiveBreakpoints,
+  selectActiveSource,
+  selectVisibleDebugLine,
+  selectVisibleProfile,
+} from '../app/store';
+import { lineHeat, lineShares, type LineHeat } from '../app/runProfile';
 import type { EditorCommandName } from '../app/store';
 import { openDroppedFile } from '../app/fileCommands';
 import {
@@ -75,10 +97,12 @@ import {
   renumberProgram,
   MIN_LINE_NO,
   MAX_LINE_NO,
+  type UnnumberedLine,
 } from '../editor/lineNumbering';
+import { isBinaryDirective } from '../dialects/binaryDirective';
 import { findRowForLineNumber } from '../editor/programOutline';
 import { isMobileViewport } from '../app/useMediaQuery';
-import { isMac } from '../app/shortcuts';
+import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
 import styles from './CodeMirrorHost.module.css';
 
 /** Replace the whole document and drop the cursor at the end of `cursorLine`. */
@@ -94,6 +118,26 @@ function replaceDoc(
     selection: { anchor },
     scrollIntoView: true,
   });
+}
+
+/**
+ * A machine's own unnumbered program lines as a predicate, or nothing at all
+ * for a machine whose source is numbered lines and nothing else.
+ */
+function unnumberedFor(dialect: Dialect): UnnumberedLine | undefined {
+  const key = dialect.unnumberedLineKey;
+  return key ? (line: string) => key(line) !== null : undefined;
+}
+
+/**
+ * The active machine's unnumbered program lines, as the facet carries them.
+ *
+ * The numbering handlers are keymap callbacks taking only a view, so the
+ * dialect reaches them the same way the increment does - through the facet the
+ * host configures - rather than by widening every signature.
+ */
+function unnumberedOf(view: EditorView): UnnumberedLine | undefined {
+  return view.state.facet(numberingConfig).unnumbered;
 }
 
 /** Enter handler: auto-prefix a line number on the new line (and bootstrap the current one). */
@@ -113,6 +157,7 @@ function autoNumberOnEnter(view: EditorView): boolean {
     physical,
     line.number - 1,
     lineNumberIncrement,
+    unnumberedOf(view),
   );
   if (!result) return false; // nothing to number - fall back to default newline
   replaceDoc(view, result.lines, result.cursorLine);
@@ -214,6 +259,8 @@ function renumberCurrentLine(view: EditorView): boolean {
   const line = state.doc.lineAt(state.selection.main.head);
   const m = /^\s*(\d+)\s?/.exec(line.text);
   if (!m) return numberCurrentLineInPlace(view, line.number - 1);
+  // A line the machine takes unnumbered never had a number to change.
+  if (unnumberedOf(view)?.(line.text)) return true;
   const oldNo = parseInt(m[1]!, 10);
 
   const input = window.prompt(`Renumber line ${oldNo} to:`, String(oldNo));
@@ -232,7 +279,12 @@ function renumberCurrentLine(view: EditorView): boolean {
     return true;
   }
 
-  const newLines = renumberLine(docText, oldNo, newNo).split('\n');
+  const newLines = renumberLine(
+    docText,
+    oldNo,
+    newNo,
+    unnumberedOf(view),
+  ).split('\n');
   const ci = newLines.findIndex((l) =>
     new RegExp(`^\\s*${newNo}(\\s|$)`).test(l),
   );
@@ -252,7 +304,15 @@ function numberCurrentLineInPlace(view: EditorView, idx: number): boolean {
   if (state.doc.line(idx + 1).text.trim() === '') return false; // blank - let the key pass
   const increment = useIdeStore.getState().lineNumberIncrement;
   const physical = state.doc.toString().split('\n');
-  const result = numberLineInPlace(physical, idx, increment);
+  const result = numberLineInPlace(
+    physical,
+    idx,
+    increment,
+    unnumberedOf(view),
+  );
+  // Nothing to number: a line the machine takes as it stands, or a blank one.
+  if (!result && unnumberedOf(view)?.(state.doc.line(idx + 1).text))
+    return true;
   if (!result) {
     window.alert(
       `No room to number this line without exceeding ${MAX_LINE_NO}.`,
@@ -273,7 +333,8 @@ function renumberFile(view: EditorView): boolean {
   const { state } = view;
   const docText = state.doc.toString();
   const increment = useIdeStore.getState().lineNumberIncrement;
-  const renumbered = renumberProgram(docText, increment, increment);
+  const keep = unnumberedOf(view);
+  const renumbered = renumberProgram(docText, increment, increment, keep);
   if (renumbered === null) {
     window.alert(
       `Too many lines to renumber with an increment of ${increment} - the ` +
@@ -283,15 +344,19 @@ function renumberFile(view: EditorView): boolean {
   }
   if (renumbered === docText) return true; // empty program - nothing to do
 
-  // Keep the cursor on the same program line. Every non-blank line becomes
-  // numbered in source order, so the cursor line's new number is `increment ×`
-  // its 1-based rank among non-blank lines. A blank cursor line has no rank of
-  // its own and falls back to the nearest line above it (or the file end).
+  // Keep the cursor on the same program line. Each line that gets renumbered
+  // takes its number from its 1-based rank in source order, so the cursor
+  // line's new number is `increment ×` that rank. Only the lines renumbering
+  // actually numbers may be counted - a blank line, a `#BIN` payload or a line
+  // the machine takes unnumbered would each push the rank past the number the
+  // line really got, and land the cursor somewhere else.
   const cursorIdx = state.doc.lineAt(state.selection.main.head).number - 1;
   const physical = docText.split('\n');
+  const numbered = (row: string) =>
+    row.trim() !== '' && !isBinaryDirective(row) && !keep?.(row);
   let rank = 0;
   for (let i = 0; i <= cursorIdx && i < physical.length; i++) {
-    if (physical[i]!.trim() !== '') rank++;
+    if (numbered(physical[i]!)) rank++;
   }
   const newNo = rank === 0 ? null : rank * increment;
 
@@ -325,111 +390,15 @@ function openOutline(): boolean {
 }
 
 /**
- * Range to act on for copy/cut: the main selection, or - when it's empty - the
- * whole current line (incl. trailing newline), mirroring CodeMirror's default
- * clipboard behaviour for an empty selection.
+ * Run an Edit-menu command against the BASIC editor: the commands every buffer
+ * offers, plus the two renumbering ones that only a BASIC buffer has.
  */
-function clipboardRange(view: EditorView): { from: number; to: number } {
-  const sel = view.state.selection.main;
-  if (!sel.empty) return { from: sel.from, to: sel.to };
-  const line = view.state.doc.lineAt(sel.head);
-  return { from: line.from, to: Math.min(line.to + 1, view.state.doc.length) };
-}
-
-/**
- * Write to the clipboard, tolerating browsers/contexts without the async
- * Clipboard API (insecure http origins; older browsers). Falls back to the
- * legacy execCommand path via a temporary off-screen textarea. Returns whether
- * the text actually reached the clipboard.
- */
-async function copyTextToClipboard(text: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // fall through to the legacy path (e.g. permission denied)
-    }
-  }
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.setAttribute('readonly', '');
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  let ok = false;
-  try {
-    ok = document.execCommand('copy');
-  } catch {
-    ok = false;
-  }
-  ta.remove();
-  return ok;
-}
-
-/**
- * Read the clipboard, or null when this browser doesn't allow it (Firefox
- * < 125 has no readText; insecure contexts have no navigator.clipboard; the
- * user may deny the paste permission prompt). There is no legacy read
- * fallback - execCommand('paste') is blocked in web content.
- */
-async function readTextFromClipboard(): Promise<string | null> {
-  if (!navigator.clipboard?.readText) return null;
-  try {
-    return await navigator.clipboard.readText();
-  } catch {
-    return null;
-  }
-}
-
-/** Run an Edit-menu command against the editor. */
 async function runEditorCommand(
   view: EditorView,
   name: EditorCommandName,
 ): Promise<void> {
+  if (await runViewEditorCommand(view, name)) return;
   switch (name) {
-    case 'undo':
-      undo(view);
-      break;
-    case 'redo':
-      redo(view);
-      break;
-    case 'copy':
-    case 'cut': {
-      const { from, to } = clipboardRange(view);
-      const copied = await copyTextToClipboard(view.state.sliceDoc(from, to));
-      // Never cut what didn't reach the clipboard - that would destroy text.
-      if (name === 'cut' && copied) {
-        view.dispatch({ changes: { from, to }, userEvent: 'delete.cut' });
-      }
-      break;
-    }
-    case 'paste': {
-      const text = await readTextFromClipboard();
-      if (text === null) {
-        window.alert(
-          `This browser doesn't allow pasting from the menu - press ${
-            isMac() ? '⌘V' : 'Ctrl+V'
-          } in the editor instead.`,
-        );
-        break;
-      }
-      if (text)
-        view.dispatch(view.state.replaceSelection(text), {
-          userEvent: 'input.paste',
-        });
-      break;
-    }
-    case 'find':
-      // The panel contains both find and replace rows; one entry covers both.
-      openSearchPanel(view);
-      break;
-    case 'closeFind':
-      // Dismiss the panel without stealing focus back into the editor (so a tap
-      // on the emulator that triggered this keeps its own focus).
-      closeSearchPanel(view);
-      break;
     case 'renumber':
       renumberCurrentLine(view);
       break;
@@ -437,8 +406,7 @@ async function runEditorCommand(
       renumberFile(view);
       break;
   }
-  // The find/replace panel manages its own focus; everything else returns to the editor.
-  if (name !== 'find' && name !== 'closeFind') view.focus();
+  view.focus();
 }
 
 const gutterCompartment = new Compartment();
@@ -448,13 +416,24 @@ function gutterExt(show: boolean) {
   return show ? [lineNumbers(), highlightActiveLineGutter()] : [];
 }
 
+/** The heat of the buffer on screen, for the gutter to draw. */
+function visibleHeat(): Map<number, LineHeat> {
+  const profile = selectVisibleProfile(useIdeStore.getState());
+  return lineHeat(lineShares(profile?.lines ?? []));
+}
+
 /** Leading line number of an editor row, or null when the row has none. */
 function rowLineNumber(text: string): number | null {
   const m = /^\s*(\d+)/.exec(text);
   return m ? parseInt(m[1]!, 10) : null;
 }
 
-const breakpointCompartment = new Compartment();
+/**
+ * Carries the combined gutter, which is rebuilt whenever either of the two
+ * things it draws from the store changes: the breakpoint set, and the profile
+ * of the buffer on screen.
+ */
+const gutterMarkersCompartment = new Compartment();
 
 /** A breakpoint marker: same size/style as the lint marker, but blue (see CSS). */
 class BreakpointMarker extends GutterMarker {
@@ -465,6 +444,47 @@ class BreakpointMarker extends GutterMarker {
   }
 }
 const bpMarker = new BreakpointMarker();
+
+/**
+ * A measured line's share of the run, drawn as a coloured bar down the inside
+ * edge of the gutter (see {@link ../app/runProfile.lineHeat} for the banding).
+ *
+ * A bar rather than a third dot, because precedence between the three markings
+ * has to end with none of them hidden: the bar occupies the gutter's edge, where
+ * neither the red lint marker nor the blue breakpoint dot is drawn, so a line
+ * carrying a diagnostic or a breakpoint still shows its cost and still shows the
+ * marker. Between the two dots the existing rule stands - a diagnostic wins,
+ * because a line that will not run is a more urgent thing to say about it than
+ * how long it took last time.
+ *
+ * Carried as `elementClass` rather than as DOM so it composes: CodeMirror
+ * concatenates the classes of every marker on a line onto one gutter element,
+ * so the bar and a dot can be two markers in the same column.
+ */
+class HeatMarker extends GutterMarker {
+  constructor(
+    readonly level: number,
+    readonly share: number,
+  ) {
+    super();
+    this.elementClass = styles[`heat${level}`] ?? '';
+  }
+
+  override eq(other: HeatMarker): boolean {
+    return other.level === this.level && other.share === this.share;
+  }
+
+  toDOM() {
+    const el = document.createElement('div');
+    el.className = styles.heatHit!;
+    // Said on the marking itself, because a share is meaningless without both:
+    // whose time it is, and what it excludes.
+    el.title =
+      `${(this.share * 100).toFixed(1)}% of the run's time on this machine.\n` +
+      'This line only - time inside routines it calls is charged to them.';
+    return el;
+  }
+}
 
 /** Red error marker; DOM matches the default @codemirror/lint error marker. */
 class LintErrorMarker extends GutterMarker {
@@ -508,18 +528,46 @@ const lintGutterMarkerField = StateField.define<RangeSet<GutterMarker>>({
 });
 
 /**
- * The clickable combined gutter. Renders blue breakpoint markers (via lineMarker,
- * reading the live breakpoint set kept by BASIC line number so dots track
- * edits/renumbering) and red lint error markers (via the reactive
- * {@link lintGutterMarkerField}) in a single column. When a line has both, the
- * lint marker takes priority and the breakpoint is hidden. Toggles a breakpoint
- * on a gutter click. Reconfigured via {@link breakpointCompartment} when the set
- * changes.
+ * The clickable combined gutter: three markings in one column.
+ *
+ * Blue breakpoint dots (via lineMarker, reading the live breakpoint set kept by
+ * BASIC line number so dots track edits/renumbering), red lint error markers
+ * (via the reactive {@link lintGutterMarkerField}), and the measured cost of
+ * each line as a coloured bar down the gutter's inside edge ({@link HeatMarker}).
+ *
+ * Precedence, decided so that nothing a user needs is hidden: the cost bar is
+ * drawn on every measured line regardless, because it occupies an edge neither
+ * dot uses. Between the two dots, which share the one centred position, a lint
+ * marker still wins - a line that will not run is more urgent than how long it
+ * took last time, and the breakpoint is still in the set and still shown the
+ * moment the diagnostic is fixed.
+ *
+ * Toggles a breakpoint on a gutter click. Reconfigured via
+ * {@link gutterMarkersCompartment} when the breakpoints or the profile change.
  */
-function combinedGutterExt(breakpoints: ReadonlySet<number>) {
+function combinedGutterExt(
+  breakpoints: ReadonlySet<number>,
+  heat: ReadonlyMap<number, LineHeat>,
+) {
   return gutter({
     class: 'cm-combined-gutter',
-    markers: (view) => view.state.field(lintGutterMarkerField),
+    markers: (view) => {
+      const lint = view.state.field(lintGutterMarkerField);
+      if (heat.size === 0) return lint;
+      const ranges: Range<GutterMarker>[] = [];
+      lint.between(0, view.state.doc.length, (from, _to, marker) => {
+        ranges.push(marker.range(from));
+      });
+      const doc = view.state.doc;
+      for (let row = 1; row <= doc.lines; row++) {
+        const line = doc.line(row);
+        const lineNo = rowLineNumber(line.text);
+        const hot = lineNo === null ? undefined : heat.get(lineNo);
+        if (hot)
+          ranges.push(new HeatMarker(hot.level, hot.share).range(line.from));
+      }
+      return RangeSet.of(ranges, true);
+    },
     lineMarker(view, line) {
       // A lint marker on this line takes priority over the breakpoint dot.
       let hasLint = false;
@@ -565,6 +613,21 @@ const debugLineField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
+/**
+ * Everything Strict characters turns on: the errors it raises, and the case it
+ * forces. Compartmented because it is a setting the reader can flip at any
+ * moment, and the editor is otherwise rebuilt only when the dialect changes.
+ */
+const strictCompartment = new Compartment();
+
+/**
+ * Strict characters, as extensions: the machine's converted characters raised
+ * as errors, plus the filter that stops the editor producing them.
+ */
+function strictExt(dialect: Dialect, strict: boolean): Extension {
+  return [dialectLinter(dialect, strict), machineCaseFilter(dialect, strict)];
+}
+
 /** Suppresses the native on-screen keyboard while the virtual keyboard is the
     editor's input surface (the editor stays focusable and physical keyboards are
     unaffected). */
@@ -607,6 +670,11 @@ function applyEditorAction(view: EditorView, action: EditorKeyAction): void {
     case 'backspace':
       deleteCharBackward(view);
       break;
+    // The machines with a delete key but no backspace (the PMD 85): the key
+    // takes the character the cursor is on, not the one behind it.
+    case 'delete':
+      deleteCharForward(view);
+      break;
     case 'newline':
       if (!autoNumberOnEnter(view)) insertNewlineAndIndent(view);
       break;
@@ -627,8 +695,20 @@ function applyEditorAction(view: EditorView, action: EditorKeyAction): void {
 
 interface Props {
   dialect: Dialect;
-  /** Pushed into the editor whenever seq changes. */
+  /** Replacement text for the buffer on screen, pushed whenever seq changes. */
   override: { text: string; seq: number };
+  /**
+   * The BASIC buffer this view is holding: a scratch buffer's id, or `null` for
+   * the program. A change swaps the view's whole state, so each buffer keeps its
+   * own document, selection and history.
+   */
+  bufferId: string | null;
+  /**
+   * Whether this view is the surface the user is looking at. False while a
+   * memory block's editor is showing, where it holds the program out of sight
+   * and must not answer the Edit menu.
+   */
+  active: boolean;
   onChange(text: string): void;
   /** Receives a function the virtual keyboard calls to type into the editor. */
   inputRef?: React.MutableRefObject<((action: EditorKeyAction) => void) | null>;
@@ -637,6 +717,8 @@ interface Props {
 export function CodeMirrorHost({
   dialect,
   override,
+  bufferId,
+  active,
   onChange,
   inputRef,
 }: Props) {
@@ -650,152 +732,223 @@ export function CodeMirrorHost({
   const lastCommand = useRef(editorCommand.seq);
   const jumpTarget = useIdeStore((s) => s.jumpTarget);
   const lastJump = useRef(jumpTarget.seq);
+  // The buffer whose state the view is holding, and the last cache generation
+  // seen - the two things a state swap has to compare against.
+  const lastBuffer = useRef(bufferId);
+  const lastHistoryGeneration = useRef(bufferHistories.generation);
+  // Mirrors the search panel's open state so the store is only told when it
+  // actually changes. A ref, not a local: the extensions are rebuilt on every
+  // buffer swap and each rebuild must go on watching the same flag.
+  const searchOpen = useRef(false);
+
+  /**
+   * Forget an open find panel. The panel is view state no state swap carries
+   * over, so when the view is given a different state the store's flag has to be
+   * cleared by hand.
+   */
+  const closeFindPanel = useCallback(() => {
+    if (!searchOpen.current) return;
+    searchOpen.current = false;
+    useIdeStore.getState().setFindReplaceOpen(false);
+  }, []);
+
+  /**
+   * The view's extensions, built from the dialect and whatever the store says
+   * right now. Called for the first mount and again for every state the view is
+   * given afterwards - a restored buffer, a replaced document - so no
+   * compartment can come back configured for a moment that has passed.
+   */
+  const buildExtensions = useCallback(
+    (): Extension => [
+      Prec.highest(
+        keymap.of([
+          { key: 'Enter', run: handleEnter },
+          { key: 'Shift-Enter', run: handleShiftEnter },
+          { key: 'Mod-Alt-r', run: renumberCurrentLine },
+          { key: 'Mod-Shift-r', run: renumberFile },
+          { key: 'F9', run: toggleBreakpointAtCursor },
+          { key: 'Mod-Shift-o', run: openOutline },
+        ]),
+      ),
+      gutterCompartment.of(
+        gutterExt(useIdeStore.getState().showLineNumberGutter),
+      ),
+      numberingCompartment.of([
+        numberingConfig.of({
+          auto: useIdeStore.getState().autoLineNumbering,
+          increment: useIdeStore.getState().lineNumberIncrement,
+          unnumbered: unnumberedFor(dialect),
+        }),
+        fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
+      ]),
+      gutterMarkersCompartment.of(
+        combinedGutterExt(
+          selectActiveBreakpoints(useIdeStore.getState()),
+          visibleHeat(),
+        ),
+      ),
+      lintGutterMarkerField,
+      debugLineField,
+      highlightActiveLine(),
+      drawSelection(),
+      history(),
+      autocompletion({ activateOnTyping: true }),
+      EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
+      // Native-mobile seam: soft keyboards commit `.` through beforeinput
+      // rather than a `.`-keyed keydown, so intercept the typed text directly.
+      EditorView.inputHandler.of((view, _from, _to, text) =>
+        text === '.' ? acceptCompletionForPeriod(view) : false,
+      ),
+      highlightSelectionMatches(),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      syntaxHighlighting(basicHighlightStyle),
+      dialect.languageSupport(),
+      strictCompartment.of(
+        strictExt(dialect, useIdeStore.getState().strictCharacters),
+      ),
+      // Click a token to be offered what the editor can say about it: a
+      // variable's usages, matched as the machine would match them rather
+      // than as text, or a keyword's entry in this machine's reference.
+      clickMenu([
+        variableUsagesRow(dialect.id, dialect.keywords),
+        referenceRow({
+          kinds: BASIC_REFERENCE_KINDS,
+          operators: operatorSpellings(dialect),
+          spellings: keywordSpellingsFor(dialect.id),
+          topic: (word) => referenceTopic(dialect, word),
+          open: (topic) => useIdeStore.getState().openDocs(topic),
+        }),
+      ]),
+      variableUsagesFeature,
+      // Collapse opaque #BIN machine-code lines into chips, but only for
+      // dialects whose tokenizer accepts them - elsewhere the raw text must
+      // stay visible so its tokenizer error is.
+      ...(dialect.supportsBinaryLines ? [binaryLineExtension()] : []),
+      // Draw the machine's display control codes rather than spelling them:
+      // a MODE 7 line is mostly attributes, and `{GRAPHICS WHITE}` costs
+      // sixteen of its forty columns to say what a chip shows.
+      ...(dialect.displayControls
+        ? [
+            controlChipExtension(dialect.displayControls, (text) =>
+              dialect.charset.toMachine(text),
+            ),
+          ]
+        : []),
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...completionKeymap,
+        ...searchKeymap,
+        ...lintKeymap,
+      ]),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged && !isApplyingOverride.current)
+          onChangeRef.current(update.state.doc.toString());
+        if (update.focusChanged)
+          useIdeStore.getState().setEditorFocused(update.view.hasFocus);
+        const open = searchPanelOpen(update.state);
+        if (open !== searchOpen.current) {
+          searchOpen.current = open;
+          useIdeStore.getState().setFindReplaceOpen(open);
+        }
+      }),
+      // Tapping/clicking the editor body dismisses the find/replace panel.
+      // Returns false so the click still positions the cursor; the panel's own
+      // inputs live outside contentDOM, so typing there never triggers this.
+      EditorView.domEventHandlers({
+        mousedown: (_event, view) => {
+          if (searchPanelOpen(view.state)) closeSearchPanel(view);
+          return false;
+        },
+        touchstart: (_event, view) => {
+          if (searchPanelOpen(view.state)) closeSearchPanel(view);
+          return false;
+        },
+        // Dropping a file onto the editor opens it (like File → Open for
+        // .bas/.txt, or Import for a dialect binary format). Only intercept
+        // file drops - a text drag within the editor still uses CodeMirror's
+        // own drop handling. `preventDefault` + returning true stops both the
+        // browser navigating to the file and CM inserting it as text.
+        dragover: (event) => {
+          if (!event.dataTransfer?.types.includes('Files')) return false;
+          event.preventDefault();
+          return true;
+        },
+        drop: (event) => {
+          const file = event.dataTransfer?.files?.[0];
+          if (!file) return false;
+          event.preventDefault();
+          void openDroppedFile(file);
+          return true;
+        },
+      }),
+      inputModeCompartment.of(
+        inputModeExt(
+          shouldSuppressNativeKeyboard(
+            useIdeStore.getState().keyboardEnabled,
+            useIdeStore.getState().keyboardAutoShow,
+          ),
+        ),
+      ),
+      EditorView.theme({
+        '&': { height: '100%', fontSize: '14px' },
+        '.cm-scroller': {
+          fontFamily: 'var(--mono)',
+          // Fixed rather than derived from the font: the mono stack starts
+          // with the bundled graphics faces (src/styles.css), and letting the
+          // row height come from whichever face drew the line would resize a
+          // row the moment a block graphic appeared in it.
+          lineHeight: '1.3',
+        },
+      }),
+    ],
+    // Everything else this reads comes from the store at call time.
+    [dialect],
+  );
 
   useEffect(() => {
     if (!hostRef.current) return;
-    // Mirror the search panel's open state into the store, and hide the virtual
-    // keyboard the moment it opens (covers both the menu and the Mod-f shortcut).
-    let searchOpen = false;
-    const state = EditorState.create({
-      doc: override.text,
-      extensions: [
-        Prec.highest(
-          keymap.of([
-            { key: 'Enter', run: handleEnter },
-            { key: 'Shift-Enter', run: handleShiftEnter },
-            { key: 'Mod-Alt-r', run: renumberCurrentLine },
-            { key: 'Mod-Shift-r', run: renumberFile },
-            { key: 'F9', run: toggleBreakpointAtCursor },
-            { key: 'Mod-Shift-o', run: openOutline },
-          ]),
-        ),
-        gutterCompartment.of(
-          gutterExt(useIdeStore.getState().showLineNumberGutter),
-        ),
-        numberingCompartment.of([
-          numberingConfig.of({
-            auto: useIdeStore.getState().autoLineNumbering,
-            increment: useIdeStore.getState().lineNumberIncrement,
-          }),
-          fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
-        ]),
-        breakpointCompartment.of(
-          combinedGutterExt(useIdeStore.getState().breakpoints),
-        ),
-        lintGutterMarkerField,
-        debugLineField,
-        highlightActiveLine(),
-        drawSelection(),
-        history(),
-        autocompletion({ activateOnTyping: true }),
-        EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
-        // Native-mobile seam: soft keyboards commit `.` through beforeinput
-        // rather than a `.`-keyed keydown, so intercept the typed text directly.
-        EditorView.inputHandler.of((view, _from, _to, text) =>
-          text === '.' ? acceptCompletionForPeriod(view) : false,
-        ),
-        highlightSelectionMatches(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        syntaxHighlighting(basicHighlightStyle),
-        dialect.languageSupport(),
-        dialectLinter(dialect),
-        // Collapse opaque #BIN machine-code lines into chips, but only for
-        // dialects whose tokenizer accepts them - elsewhere the raw text must
-        // stay visible so its tokenizer error is.
-        ...(dialect.supportsBinaryLines ? [binaryLineExtension()] : []),
-        // Draw the machine's display control codes rather than spelling them:
-        // a MODE 7 line is mostly attributes, and `{GRAPHICS WHITE}` costs
-        // sixteen of its forty columns to say what a chip shows.
-        ...(dialect.displayControls
-          ? [
-              controlChipExtension(dialect.displayControls, (text) =>
-                dialect.charset.toMachine(text),
-              ),
-            ]
-          : []),
-        keymap.of([
-          ...defaultKeymap,
-          ...historyKeymap,
-          ...completionKeymap,
-          ...searchKeymap,
-          ...lintKeymap,
-        ]),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged && !isApplyingOverride.current)
-            onChangeRef.current(update.state.doc.toString());
-          if (update.focusChanged)
-            useIdeStore.getState().setEditorFocused(update.view.hasFocus);
-          if (update.selectionSet || update.docChanged) {
-            const sel = update.state.selection.main;
-            useIdeStore
-              .getState()
-              .setEditorSelection(
-                sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to),
-              );
-          }
-          const open = searchPanelOpen(update.state);
-          if (open !== searchOpen) {
-            searchOpen = open;
-            useIdeStore.getState().setFindReplaceOpen(open);
-          }
-        }),
-        // Tapping/clicking the editor body dismisses the find/replace panel.
-        // Returns false so the click still positions the cursor; the panel's own
-        // inputs live outside contentDOM, so typing there never triggers this.
-        EditorView.domEventHandlers({
-          mousedown: (_event, view) => {
-            if (searchPanelOpen(view.state)) closeSearchPanel(view);
-            return false;
-          },
-          touchstart: (_event, view) => {
-            if (searchPanelOpen(view.state)) closeSearchPanel(view);
-            return false;
-          },
-          // Dropping a file onto the editor opens it (like File → Open for
-          // .bas/.txt, or Import for a dialect binary format). Only intercept
-          // file drops - a text drag within the editor still uses CodeMirror's
-          // own drop handling. `preventDefault` + returning true stops both the
-          // browser navigating to the file and CM inserting it as text.
-          dragover: (event) => {
-            if (!event.dataTransfer?.types.includes('Files')) return false;
-            event.preventDefault();
-            return true;
-          },
-          drop: (event) => {
-            const file = event.dataTransfer?.files?.[0];
-            if (!file) return false;
-            event.preventDefault();
-            void openDroppedFile(file);
-            return true;
-          },
-        }),
-        inputModeCompartment.of(
-          inputModeExt(
-            shouldSuppressNativeKeyboard(
-              useIdeStore.getState().keyboardEnabled,
-              useIdeStore.getState().keyboardAutoShow,
-            ),
-          ),
-        ),
-        EditorView.theme({
-          '&': { height: '100%', fontSize: '14px' },
-          '.cm-scroller': {
-            fontFamily: 'var(--mono)',
-            // Fixed rather than derived from the font: the mono stack starts
-            // with the bundled graphics faces (src/styles.css), and letting the
-            // row height come from whichever face drew the line would resize a
-            // row the moment a block graphic appeared in it.
-            lineHeight: '1.3',
-          },
-        }),
-      ],
+    // The view is thrown away and rebuilt when the machine changes, so a switch
+    // that keeps the program has to hand the history across itself. Which
+    // switches those are is not decided here: a switch that starts a different
+    // program clears the histories, which moves the generation, so the state
+    // parked on the way out is refused and this comes back fresh - undo must
+    // never reach back across a New, an Open or a start-new switch.
+    const parked = bufferHistories.restore(
+      basicBufferKey(bufferId),
+      override.text,
+      buildExtensions(),
+    );
+    const view = new EditorView({
+      state:
+        parked.doc.toString() === override.text
+          ? parked
+          : // The text moved on without the snapshot: show what the store says
+            // and lose the history rather than the edit.
+            freshBufferState(override.text, buildExtensions()),
+      parent: hostRef.current,
     });
-    const view = new EditorView({ state, parent: hostRef.current });
     viewRef.current = view;
     lastSeq.current = override.seq;
+    lastBuffer.current = bufferId;
+    lastHistoryGeneration.current = bufferHistories.generation;
     if (inputRef)
       inputRef.current = (action) => applyEditorAction(view, action);
     return () => {
+      // Park the showing buffer on the way out, so a switch that keeps the
+      // program can put its history back. A buffer discarded by the switch has
+      // nothing to come back to, and `save` refuses a state whose generation
+      // the teardown has already moved past.
+      const outgoing = lastBuffer.current;
+      const stillOpen =
+        outgoing === null ||
+        useIdeStore.getState().scratchBuffers.some((b) => b.id === outgoing);
+      if (stillOpen)
+        bufferHistories.save(
+          basicBufferKey(outgoing),
+          view.state,
+          lastHistoryGeneration.current,
+        );
       view.destroy();
       viewRef.current = null;
       if (inputRef) inputRef.current = null;
@@ -804,6 +957,10 @@ export function CodeMirrorHost({
     // The editor is rebuilt only when the dialect changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialect]);
+
+  // Raising a dialog, panel or drawer over the editor takes away the completion
+  // list and the picked-token menu; the on-screen input overlays don't.
+  useRetireEditorPopups(viewRef);
 
   // Keep the native-OSK suppression in sync: suppress it whenever the virtual
   // keyboard is (or will be) the editor's input surface - the explicit toggle or
@@ -821,6 +978,18 @@ export function CodeMirrorHost({
       ),
     });
   }, [suppressNativeKeyboard]);
+
+  // Strict characters is a setting, not a dialect: flipping it reconfigures the
+  // compartment rather than rebuilding the view, so the buffer, its history and
+  // the cursor all survive.
+  const strictCharacters = useIdeStore((s) => s.strictCharacters);
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: strictCompartment.reconfigure(
+        strictExt(dialect, strictCharacters),
+      ),
+    });
+  }, [dialect, strictCharacters]);
 
   // On mobile, switching away from the app and back makes the browser restore
   // focus to the editor's contenteditable and re-summon the native on-screen
@@ -868,26 +1037,95 @@ export function CodeMirrorHost({
         numberingConfig.of({
           auto: autoLineNumbering,
           increment: lineNumberIncrement,
+          unnumbered: unnumberedFor(dialect),
         }),
         fullCompletion.of(fullCodeCompletion),
       ]),
     });
-  }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
+  }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion, dialect]);
 
-  // Re-render the combined gutter whenever the breakpoint set changes.
-  const breakpoints = useIdeStore((s) => s.breakpoints);
+  // Re-render the combined gutter whenever either of the things it draws from
+  // the store changes: the breakpoint set and the profile, both of the buffer on
+  // screen, so the markings always belong to the code they mark.
+  const breakpoints = useIdeStore(selectActiveBreakpoints);
+  const profile = useIdeStore(selectVisibleProfile);
+  const heat = useMemo(
+    () => lineHeat(lineShares(profile?.lines ?? [])),
+    [profile],
+  );
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: breakpointCompartment.reconfigure(
-        combinedGutterExt(breakpoints),
+      effects: gutterMarkersCompartment.reconfigure(
+        combinedGutterExt(breakpoints, heat),
       ),
     });
-  }, [breakpoints]);
+  }, [breakpoints, heat]);
+
+  // Swapping the buffer on screen: put the outgoing one's state away and give
+  // the view the incoming one's. `setState` rather than a transaction, because
+  // this is not an edit - it must not enter either buffer's history, and the
+  // change listener must not see it and write one buffer's text into the other.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || bufferId === lastBuffer.current) return;
+    const outgoing = lastBuffer.current;
+    lastBuffer.current = bufferId;
+    // A buffer the user has just closed has nothing to come back to, and its
+    // id is free for the next buffer to take.
+    const stillOpen =
+      outgoing === null ||
+      useIdeStore.getState().scratchBuffers.some((b) => b.id === outgoing);
+    if (stillOpen)
+      bufferHistories.save(
+        basicBufferKey(outgoing),
+        view.state,
+        lastHistoryGeneration.current,
+      );
+    view.setState(
+      bufferHistories.restore(
+        basicBufferKey(bufferId),
+        selectActiveSource(useIdeStore.getState()),
+        buildExtensions(),
+      ),
+    );
+    lastHistoryGeneration.current = bufferHistories.generation;
+    // The find panel belonged to the buffer that was showing; it is not part of
+    // the state that comes back, so the store has to be told it has gone.
+    closeFindPanel();
+  }, [bufferId, buildExtensions, closeFindPanel]);
+
+  // Text pushed in from outside: an AI apply, a file opened, a sample loaded,
+  // a listing-backed block written back into the program.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || override.seq === lastSeq.current) return;
+    lastSeq.current = override.seq;
+    // A push while a scratch buffer is showing belongs to the program, which is
+    // not in this view: the caller drops the program's snapshot, so the new text
+    // is picked up from the store on the way back to it.
+    if (lastBuffer.current !== null) return;
+    // A whole different document, rather than a change to this one: start with
+    // a clean history, since undo must not reach back past an Open.
+    if (bufferHistories.generation !== lastHistoryGeneration.current) {
+      lastHistoryGeneration.current = bufferHistories.generation;
+      view.setState(freshBufferState(override.text, buildExtensions()));
+      closeFindPanel();
+      return;
+    }
+    if (view.state.doc.toString() !== override.text) {
+      isApplyingOverride.current = true;
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: override.text },
+      });
+      isApplyingOverride.current = false;
+    }
+  }, [override, buildExtensions, closeFindPanel]);
 
   // Highlight (and scroll to) the line the debugger is paused on. Breakpoints
   // and the paused line are tracked by BASIC line number, so map to an editor
-  // row here; clear the highlight when there's no paused line.
-  const debugLine = useIdeStore((s) => s.debugLine);
+  // row here; clear the highlight when there's no paused line, or when the
+  // pause belongs to a buffer other than the one on screen.
+  const debugLine = useIdeStore(selectVisibleDebugLine);
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -906,34 +1144,25 @@ export function CodeMirrorHost({
     view.dispatch({ effects });
   }, [debugLine]);
 
-  // Switching the mobile view tab dismisses the find/replace panel.
+  // Switching the mobile view tab dismisses the find/replace panel, and so does
+  // switching to a tab this view isn't the surface for: the panel would search a
+  // buffer the user has stopped looking at.
   const mobileTab = useIdeStore((s) => s.mobileTab);
   useEffect(() => {
     const view = viewRef.current;
     if (view && searchPanelOpen(view.state)) closeSearchPanel(view);
-  }, [mobileTab]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view || override.seq === lastSeq.current) return;
-    lastSeq.current = override.seq;
-    if (view.state.doc.toString() !== override.text) {
-      isApplyingOverride.current = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: override.text },
-      });
-      isApplyingOverride.current = false;
-    }
-  }, [override]);
+  }, [mobileTab, active]);
 
   // The toolbar's Edit menu bumps editorCommand.seq; run the requested command
-  // here where we hold the EditorView.
+  // here where we hold the EditorView - but only while this view is the surface
+  // on screen. On a block tab the assembly editor answers instead, and this one
+  // is holding the program out of sight.
   useEffect(() => {
     if (editorCommand.seq === lastCommand.current) return;
     lastCommand.current = editorCommand.seq;
     const view = viewRef.current;
-    if (view) void runEditorCommand(view, editorCommand.name);
-  }, [editorCommand]);
+    if (view && active) void runEditorCommand(view, editorCommand.name);
+  }, [editorCommand, active]);
 
   // The outline dialog bumps jumpTarget.seq to move the cursor to a BASIC line
   // number and scroll it into view. Line numbers aren't 1:1 with editor rows, so

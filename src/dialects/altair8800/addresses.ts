@@ -15,11 +15,12 @@
  *     COPYRIGHT 1976 BY MITS INC.
  *
  * (md5 97eead711723295e9ce4f52b300002cf, the image the SIMH AltairZ80 software
- * collection distributes as `8kbas.bin`). That is the image a user has to supply
- * at `public/roms/altair8800/altair8800.rom`; it is Microsoft copyright and does not ship
- * here - see the note in `index.ts`. Offsets below are into that image, which
- * loads at 0x0000, so an image offset and a run-time address are the same number
- * and either can be checked with a hex editor.
+ * collection distributes as `8kbas.bin`). That is the image bundled at
+ * `public/roms/altair8800/altair8800.rom`, and the md5 above is what to check a
+ * replacement against: another Altair BASIC boots, but nothing below is
+ * promised of it. Offsets are into that image, which loads at 0x0000, so an
+ * image offset and a run-time address are the same number and either can be
+ * checked with a hex editor.
  *
  * Note the machine's unusual shape: Altair BASIC is **not** a ROM. The base
  * Altair had no firmware at all, and BASIC was loaded into RAM from paper tape
@@ -45,6 +46,67 @@ export const BASIC_IMAGE_SIZE = 0x2000;
 export const RESERVED_WORDS_BASE = 0x0073;
 /** The 0x80 end marker just past the last reserved word (MID$). */
 export const RESERVED_WORDS_END = 0x015a;
+
+/**
+ * The word `USR(x)` calls through - the "USR vector" a program POKEs before it
+ * can reach machine code at all. Decimal 73 and 74, which is how the MITS
+ * manual asks for it, and how `samples/kaleido.bas` writes it.
+ *
+ * There is no `CALL` in 8K BASIC, and `USR`'s own argument is data rather than
+ * an address, so this word is the machine's only route from BASIC into a
+ * routine of its own. It is not a hand-written `JMP` in the workspace: it is
+ * `USR`'s slot in the interpreter's *function dispatch table*, which is plain
+ * RAM here like everything else below {@link PROGRAM_BASE}, so poking it
+ * re-points the function itself.
+ *
+ * Derived from the image rather than assumed, three ways that agree:
+ *
+ *  1. The table starts at 0x0043 and holds one word per function token in
+ *     token order - 24 of them, {@link import('./keywords').altair8800Keywords}'
+ *     0xAE (SGN) through 0xC5 (MID$) - ending at 0x0071, immediately below
+ *     {@link RESERVED_WORDS_BASE}. `USR` is the fourth (0xB1), so its word is
+ *     0x0043 + 6.
+ *  2. The COS/SIN/TAN/ATN entries in that table read 0x1876/0x187C/0x18D9/
+ *     0x18EE - the routines {@link PROGRAM_BASE_NO_TRIG} says the program text
+ *     starts on top of when the cold-start dialogue declines them.
+ *  3. The word ships as 0x074D, which is `LD E,8 / JP 0x02D1` - the error
+ *     raiser with the code for FC. So `USR` before this is poked answers
+ *     `?FC ERROR`, which is what the manual promises and what the machine does.
+ *
+ * Confirmed at the console: poke this at a routine that writes a character to
+ * {@link SIO_DATA_PORT}, call `USR(0)`, and the character appears and BASIC
+ * carries on to the next statement.
+ */
+export const USR_VECTOR = 0x0049;
+
+/**
+ * CURLIN: the number of the BASIC line the interpreter is executing, and
+ * {@link DIRECT_MODE} when it is not executing one at all.
+ *
+ * The Microsoft convention - written as the interpreter moves from line to
+ * line, and put back to the direct-mode marker on every route to the prompt,
+ * whether the program ran off its end, hit END or STOP, raised an error, or was
+ * broken into with CTRL-C. It sits immediately below {@link TXTTAB}, which is
+ * where the family keeps it.
+ *
+ * Read off a running machine rather than out of the image: with
+ * `10 FOR I=1 TO 30000 / 20 NEXT I` looping, this is the only word in the
+ * workspace holding 20 that turns to 0xFFFF the moment the run ends. (Several
+ * others hold 10 throughout - they are the line the FOR was entered on, and
+ * they do not track.)
+ */
+export const CURLIN = 0x01d4;
+
+/** The line number {@link CURLIN} holds when BASIC is at its prompt. */
+export const DIRECT_MODE = 0xffff;
+
+/**
+ * Highest line number 8K BASIC accepts. Checked at the console: `65529 END` is
+ * stored, `65530 END` answers `?SN ERROR`. The tokenizer enforces it, and
+ * {@link CURLIN} is read against it - a word outside the range is the
+ * interpreter not executing a line rather than a line number to believe.
+ */
+export const MAX_LINE_NUMBER = 65529;
 
 /**
  * TXTTAB: pointer to the first byte of the tokenized program. Confirmed by
@@ -104,6 +166,29 @@ export const PROGRAM_BASE_NO_TRIG = 0x1877;
 export const RAM_TOP = 0xbfff;
 
 /**
+ * What 8K BASIC 4.0 reports as `BYTES FREE` in its sign-on banner on the
+ * modelled machine (48K fitted, transcendental functions retained), read off a
+ * booted console. `index.ts` quotes it as the dialect's `programRamBytes`.
+ */
+export const COLD_START_BYTES_FREE = 42628;
+
+/**
+ * The address BASIC counts its free space *down to*, and therefore the ceiling
+ * `readMemoryStats()` measures against.
+ *
+ * Not a number anyone typed: it follows from the banner above. A cold-started
+ * machine has an empty program - a bare 0x0000 end-of-program link at TXTTAB -
+ * so STREND sits at {@link PROGRAM_BASE} + 2 (the same arithmetic
+ * `basicImage.ts` does for a loaded program), and BASIC called the space above
+ * it {@link COLD_START_BYTES_FREE} bytes.
+ *
+ * That lands 65 bytes below the top of fitted RAM, which is BASIC keeping its
+ * 50-byte default string pool - the one `CLEAR n` resizes - at the top of
+ * memory, plus a handful of bytes above that it does not offer to a program.
+ */
+export const BASIC_FREE_TOP = PROGRAM_BASE + 2 + COLD_START_BYTES_FREE;
+
+/**
  * Front-panel sense-switch port. 8K BASIC reads it once at cold start and
  * patches its own console driver with the port numbers of the board the high
  * nibble selects; 0 selects the 88-2SIO. {@link SENSE_SWITCHES_2SIO} is the
@@ -130,11 +215,11 @@ export const SIO_DATA_PORT = 0x11;
 /**
  * Status bit 0, RDRF: a character is waiting to be read. **Active high** -
  * BASIC's input routine reads `IN 10 / ANI 01 / JZ back`, so it spins while the
- * bit is *clear*. (The plan for this dialect expected active-low flags. That is
- * true of the 88-SIO form the *unpatched* image carries - `ANI 01 / JNZ back` on
- * port 0x00 - but not of the 6850 ACIA on the 88-2SIO board BASIC patches itself
- * to use. Worth stating explicitly either way: get the polarity backwards and
- * the machine boots and then ignores every keystroke.)
+ * bit is *clear*. (The flags are active-low on the 88-SIO form the *unpatched*
+ * image carries - `ANI 01 / JNZ back` on port 0x00 - but not on the 6850 ACIA
+ * of the 88-2SIO board BASIC patches itself to use. Worth stating explicitly
+ * either way: get the polarity backwards and the machine boots and then ignores
+ * every keystroke.)
  */
 export const SIO_RX_READY = 0x01;
 

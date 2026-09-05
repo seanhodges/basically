@@ -28,7 +28,7 @@ export const PLAY_KEYWORD: KeywordInfo = {
 /**
  * 128 BASIC = the 48K Spectrum keyword table plus SPECTRUM and PLAY. Sharing
  * the 48K array keeps highlighting/completion identical for 48K-compatible code
- * and adds only the two new commands. See docs/dialect-plans/zxspectrum128.md.
+ * and adds only the two new commands.
  */
 export const spectrum128Keywords: KeywordInfo[] = [
   ...spectrumKeywords,

@@ -95,7 +95,7 @@ export function fatalErrors(errors: readonly TokenizeError[]): TokenizeError[] {
  * `LOAD "name"` requests are served as they would be off original hardware.
  * Machines without a deck still preserve them with the document so nothing is
  * silently discarded. CODE files are NOT represented here - they come back as
- * {@link MemoryBlock}s instead (RAM injection plus the memory-block UI).
+ * {@link Block}s instead (RAM injection plus the memory-block UI).
  */
 export interface TapeFile {
   /** Original tape header name, trailing spaces trimmed (for display). */
@@ -128,10 +128,10 @@ export interface DetokenizeResult {
    * Absent, or omitted, when the dialect's importer finds none; the caller
    * (`src/app/importProgram.ts`) installs them alongside `source` via
    * `loadUnsavedDocument`'s `blocks` option. Names are already sanitized to
-   * satisfy {@link MemoryBlock.name}'s pattern and are unique within this
+   * satisfy {@link Block.name}'s pattern and are unique within this
    * result.
    */
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
   /**
    * Extra tape files preserved off a multi-part image (see {@link TapeFile}),
    * beyond the one program in `source` and the CODE files in `blocks`. The
@@ -205,7 +205,7 @@ export interface BuildTarget {
     source: string,
     opts: {
       programName: string;
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       loader?: boolean;
     },
   ): Promise<ExportFile[]>;
@@ -316,6 +316,15 @@ export interface MachineFileEntry {
   updatedAt: number;
   /** Dialect-specific tag, e.g. 'code' | 'data-num' | 'data-str' | 'data'. */
   kind?: string;
+  /**
+   * True when the IDE mounted this file for the program to load, rather than
+   * the program writing it: the document's own memory blocks and imported tape
+   * files, put on the machine's store before a run so a program's own
+   * `LOAD "name"` is served. The store lists them because that is what the
+   * machine loads from, but they are the document going in, not output coming
+   * back, so nothing that shows the user what a program produced counts them.
+   */
+  mounted?: boolean;
 }
 
 /**
@@ -326,7 +335,17 @@ export interface MachineFileEntry {
  * owns the store's lifetime and clears it around emulator start/stop.
  */
 export interface MachineFileStore {
-  save(name: string, data: Uint8Array, meta?: { kind?: string }): void;
+  save(
+    name: string,
+    data: Uint8Array,
+    meta?: {
+      kind?: string;
+      /** Set only by the IDE mounting a file for the program to load; a
+       *  program's own save leaves it unset, which is what makes saving over a
+       *  mounted name turn it into output (see {@link MachineFileEntry}). */
+      mounted?: boolean;
+    },
+  ): void;
   /** The stored bytes, or null when no file has that name. */
   load(name: string): Uint8Array | null;
   /** All files in insertion order (oldest save first, like a tape). */
@@ -335,12 +354,68 @@ export interface MachineFileStore {
   delete(name: string): boolean;
 }
 
+/**
+ * A file the machine's file store holds, split into what the program saved and
+ * the framing the machine put around it - see {@link Dialect.unwrapStoredFile}.
+ */
+export interface UnwrappedFile {
+  /** The bytes the program saved. */
+  payload: Uint8Array;
+  /**
+   * The machine's own framing around the payload - the Spectrums' 17-byte tape
+   * header - or null where the stored bytes are the file.
+   */
+  container: Uint8Array | null;
+}
+
 /** Actual BASIC RAM figures read from a running machine's own pointers. */
 export interface MachineMemoryStats {
   /** Bytes of BASIC RAM in use (program + variables + workspace/stacks). */
   used: number;
   /** Bytes still free to the BASIC program. */
   free: number;
+}
+
+/**
+ * One BASIC line's measured cost over a run, in the CPU cycles the machine
+ * spent executing it.
+ *
+ * Cycles because a profiled machine is one running a real ROM on a real CPU
+ * model, and every one of those counts them because it must. A backend that
+ * interprets BASIC statements has no cycle budget to charge and is not
+ * profiled at all, rather than answering in a second unit everything reading
+ * these figures would have to carry.
+ */
+export interface LineCost {
+  /** The BASIC line number the cost was charged to. */
+  line: number;
+  /** CPU cycles spent executing that line. */
+  cost: number;
+  /**
+   * Bytes the machine's own BASIC memory figures rose by while the line was
+   * executing.
+   *
+   * Absent - not zero - on a machine that cannot attribute its memory to a
+   * line, which is a different thing from a line that took none. A machine
+   * reports the figure by reading its in-use total at the moments its executing
+   * line changes; one whose total moves with interpreter workspace rather than
+   * with the program's own allocation reports nothing here instead.
+   */
+  allocated?: number;
+  /**
+   * Bytes those same figures fell by while the line was executing - what BASIC
+   * reclaimed - as a positive number.
+   *
+   * Reported beside {@link allocated} rather than netted into it, because the
+   * two answer different questions: the net says what the line was left
+   * holding, and the pair says whether it churned. A Commodore's reclaim pause
+   * is a line that took a great deal and gave nearly all of it back, which a
+   * net figure alone cannot tell from a line that did nothing.
+   *
+   * Present and absent exactly when {@link allocated} is, so a machine's
+   * ability to attribute memory is one signal rather than two.
+   */
+  reclaimed?: number;
 }
 
 /**
@@ -369,7 +444,7 @@ export interface MachineEmulator {
    * Inject a built image (post-boot) and arrange for it to run.
    * `opts.blocks`, when given, are written directly into RAM before the
    * program starts (machine code / data at fixed addresses alongside the
-   * BASIC program) - see {@link MemoryBlock}. Optional and machine-specific:
+   * BASIC program) - see {@link Block}. Optional and machine-specific:
    * a machine that doesn't support blocks (or a dialect without
    * {@link Dialect.memoryBlocks}) simply ignores it.
    *
@@ -380,7 +455,7 @@ export interface MachineEmulator {
   loadProgram(
     image: Uint8Array,
     opts?: {
-      blocks?: readonly MemoryBlock[];
+      blocks?: readonly Block[];
       autoStart?: number | null;
       /**
        * Extra tape files preserved off a multi-part image (see
@@ -400,7 +475,11 @@ export interface MachineEmulator {
       bootDisc?: Uint8Array;
     },
   ): void;
-  /** Advance emulation by one display frame (50Hz) worth of CPU time. */
+  /**
+   * Advance emulation by one display frame's worth of CPU time, at
+   * {@link frameHz}. The host decides how often to call it; a machine never
+   * scales its own frame to go faster or slower.
+   */
   runFrame(): void;
   renderTo(ctx: CanvasRenderingContext2D): void;
   /** Returns true when the key event was consumed. */
@@ -425,19 +504,31 @@ export interface MachineEmulator {
    * the call site via `typeof machine.setJoystick === 'function'`.
    */
   setJoystick?(mode: JoystickMode, state: JoystickState): void;
-  /** Emulation speed multiplier (1 = real time). */
-  setSpeed(multiplier: number): void;
+  /**
+   * Display frames per second of real time - what one {@link runFrame} is worth,
+   * and the rate the host paces the run loop to. Rarely a round 50: the 48K
+   * Spectrum's ULA frame is 50.08Hz, the PAL C64's 50.125Hz. Read every tick
+   * rather than cached, because on the Amstrad it is derived from CRTC
+   * registers a program can reprogram mid-run.
+   */
+  readonly frameHz: number;
   readonly displayWidth: number;
   readonly displayHeight: number;
   dispose(): void;
   /**
    * Native sample rate (Hz) of the Float32 mono stream this machine produces.
    * Present only on machines that synthesize sound; paired with {@link readAudio}.
+   *
+   * This is the rate the machine *actually* emits at - samples per frame times
+   * {@link frameHz} - not the round number the synthesis was designed around.
+   * The two differ because no machine's frame rate is exactly 50Hz, and the
+   * host consumes at the rate reported here: claim 44100 while emitting 882
+   * samples 50.08 times a second and playback falls progressively behind.
    */
   readonly audioSampleRate?: number;
   /**
    * Mono samples generated since the previous call - typically one frame's worth
-   * (~audioSampleRate / 50). Called once per rAF tick, right after
+   * (`audioSampleRate / frameHz`). Called once per emulated frame, right after
    * {@link runFrame} (and {@link debugStep}). Returns an empty array when this
    * machine emits no audio this slice. The host owns buffering, resampling,
    * volume and scheduling; the machine owns synthesis. A machine "supports audio"
@@ -475,6 +566,13 @@ export interface MachineEmulator {
    * can't tap its memory bus omits this (and {@link drainMemoryActivity}) and
    * the overlay shows no live activity. Detected via
    * `typeof machine.setMemoryActivityRecording === 'function'`.
+   *
+   * Optional on this type, but owed by every machine with a bus to tap:
+   * `src/dialects/memoryActivity.test.ts` walks the registry and excuses only
+   * the machines named there with a reason. What it also pins is the half that
+   * is easy to miss - a machine's own introspection must read through a
+   * *non-recording* path, or the overlay reports the IDE's polling as the
+   * program's own accesses.
    */
   setMemoryActivityRecording?(enabled: boolean): void;
   /**
@@ -486,6 +584,35 @@ export interface MachineEmulator {
    * recording is off. Paired with {@link setMemoryActivityRecording}.
    */
   drainMemoryActivity?(recycle?: Uint8Array | null): Uint8Array | null;
+  /**
+   * Turn per-line profile recording on or off. Off by default and cheap when
+   * off - a not-taken branch on the step the machine already runs - so a
+   * machine nobody is measuring pays nothing. Armed by the run loop for the
+   * life of a run and drained by whoever armed it, exactly as
+   * {@link setMemoryActivityRecording} / {@link drainMemoryActivity} are.
+   *
+   * Arming or disarming SHALL NOT change what the program does: recording only
+   * reads the cell the machine already exposes as {@link currentLine}, so a
+   * measured run executes the same instructions and takes the same emulated
+   * time as an unmeasured one.
+   *
+   * Optional: a machine that cannot say which BASIC line it is executing omits
+   * this (and {@link drainProfile}) and yields no per-line costs. Detected via
+   * `typeof machine.setProfileRecording === 'function'`.
+   */
+  setProfileRecording?(enabled: boolean): void;
+  /**
+   * Drain the per-line costs accumulated since the previous drain, as a fresh
+   * array (one entry per line touched, in no particular order), and start the
+   * next accumulation empty. Returns null when recording is off, which is how a
+   * caller tells "nothing was measured" from "nothing ran". Paired with
+   * {@link setProfileRecording}.
+   *
+   * Time the machine spent outside a BASIC line - the ROM's own idle loop, the
+   * boot, an INPUT prompt - is charged to nothing and simply does not appear,
+   * so the entries sum to the time the program's lines were executing.
+   */
+  drainProfile?(): LineCost[] | null;
   /**
    * The BASIC line number about to be executed next, or null when none is
    * determinable (e.g. sitting at the ready/K cursor, mid-edit, or the program
@@ -515,14 +642,34 @@ export interface MachineEmulator {
    *
    * Distinct from {@link currentLine}, which several machines leave pointing at
    * the last line executed once a program stops - fine for labelling a paused
-   * line, useless for asking whether anything is still running.
+   * line, useless for asking whether anything is still running. Required where
+   * `currentLine` is optional: whether a program is running and which line it is
+   * on are independent questions, and the Atom answers the first without the
+   * second.
    *
-   * Optional: a machine whose ROM leaves no reliable trace of the difference
-   * (the Sinclair machines) simply omits it, and the post-run check falls back
-   * to "no error appeared inside the window". Detected via
-   * `typeof machine.isProgramRunning === 'function'`.
+   * Required to *answer*, not merely to exist. A machine handed a program that
+   * terminates must report `true` and then `false` within a bounded number of
+   * frames; returning `null` forever satisfies the type and leaves every caller
+   * waiting on an end that never comes, which is not an implementation. One
+   * registry-driven test (`src/dialects/programRunState.test.ts`) holds every
+   * registered machine to that.
+   *
+   * Two readings satisfy it, and a machine says which by how it is built:
+   *
+   *  - **The machine's state**, where the ROM keeps a cell for it - the
+   *    Commodore machines' cursor-blink flag, Locomotive's current-line
+   *    pointer. A `RUN` the user types at the emulated keyboard is reported like
+   *    any other.
+   *  - **The run the IDE started**, where it does not - the Sinclair machines
+   *    and the Atom latch the ROM address at which BASIC gives up on a program
+   *    (see `ProgramEndLatch`). Once that run has ended, a `RUN` the user types
+   *    afterwards is not picked up.
+   *
+   * Every caller asks about the run the IDE started - the stopwatch times it,
+   * the assistant's check watches it, the run control offers to start it again -
+   * so the difference is deliberate rather than a gap.
    */
-  isProgramRunning?(): boolean | null;
+  isProgramRunning(): boolean | null;
   /**
    * The characters currently on the screen, in reading order, or null when they
    * can't be determined *right now* - mid-boot before the ROM has set the screen
@@ -550,21 +697,17 @@ export interface AiProfile {
 }
 
 /**
- * A named span of raw machine bytes attached to a document, alongside its
- * BASIC source - e.g. a hand-assembled routine or a data table destined for a
- * fixed address. Purely a document-model concern here: nothing in the UI
- * surfaces blocks yet, and dialect-specific validity (does `address` make
- * sense on this machine, does `bytes` overlap the program area) is a later
- * concern layered on top of this shape.
+ * Fields every document block carries, whatever kind it is. Not exported: the
+ * app talks to {@link Block}, so a block always arrives with its `kind`
+ * narrowed.
  */
-export interface MemoryBlock {
+interface BlockBase {
   /** Stable UI id, not semantic (e.g. not derived from `name` or `address`). */
   id: string;
   /** Unique per document. Matches /^[A-Za-z][A-Za-z0-9_]*$/. */
   name: string;
   address: number;
   bytes: Uint8Array;
-  kind: 'code' | 'data';
   comment?: string;
   /**
    * Execution entry address recovered alongside an imported code payload (an
@@ -583,13 +726,62 @@ export interface MemoryBlock {
   asmSource?: string;
 }
 
+/** Machine code at a fixed address, edited as assembly where an engine exists. */
+export interface CodeBlock extends BlockBase {
+  kind: 'code';
+}
+
+/**
+ * A span of memory at a fixed address that is not code - a sprite table, a
+ * character set, a level map. Edited as bytes.
+ *
+ * Named `data` in documents written before files a program saves were also
+ * shown as blocks; the readers map that spelling onto this kind, and nothing
+ * writes it again.
+ */
+export interface MemoryBlock extends BlockBase {
+  kind: 'memory';
+}
+
+/**
+ * A named span of raw machine bytes attached to a document, alongside its
+ * BASIC source - e.g. a hand-assembled routine or a data table destined for a
+ * fixed address. Both kinds sit at an address, travel with the document, and
+ * are checked against the machine's memory map before a run.
+ *
+ * A file a running program saved is not one of these: it has no address and is
+ * not part of the document (see {@link DataBlock}).
+ */
+export type Block = CodeBlock | MemoryBlock;
+
+/**
+ * A file a running program saved to tape or disk, shown beside the document's
+ * blocks. No address: it is a file, not a location - which is why it is not
+ * one of {@link Block}'s arms and cannot be passed where an address is needed.
+ *
+ * Session-scoped and derived: the bytes live in the machine's file store
+ * (see {@link MachineFileStore}), and this is a view over what is there.
+ * Never autosaved, never written into a project, never shared or exported.
+ */
+export interface DataBlock {
+  /** The name the program saved the file under; unique within the store. */
+  name: string;
+  /** The bytes the program saved, with any container the machine wrapped
+   *  around them already stripped (see {@link Dialect.unwrapStoredFile}). */
+  bytes: Uint8Array;
+  /** The machine's own tag for the file, e.g. 'data-num' on a Spectrum. */
+  kind?: string;
+  /** Epoch ms of the last save, so the tabs sit in the order they arrived. */
+  updatedAt: number;
+}
+
 /**
  * An inclusive address range: `start` and `end` are both addresses that
  * belong to the range (so `end` is the last valid byte, not one past it) -
- * the same convention {@link MemoryRegion} uses, and the one the memory-blocks
- * plan's own notation writes in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
+ * the same convention {@link MemoryRegion} uses, and the one the memory maps
+ * are written in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
  * is the last display byte). `end >= start`; a one-byte range has
- * `end === start`. A {@link MemoryBlock} occupies the inclusive range
+ * `end === start`. A {@link Block} occupies the inclusive range
  * `[address, address + bytes.length - 1]` - except when `bytes.length === 0`,
  * which occupies no bytes at all (see {@link lintBlocks} in `src/app/blockLint.ts`).
  */
@@ -601,7 +793,71 @@ export interface MemoryRange {
 }
 
 /**
- * Where a dialect's {@link MemoryBlock}s may legally live - metadata only;
+ * The keyword a machine selects a screen mode with, and the mode it powers on
+ * in - `CLEAR 0`-`CLEAR 4` on the Atom, `MODE 0`-`MODE 7` on the BBCs.
+ *
+ * Declared so the program's own text can be read for the modes it selects
+ * (`src/app/programVocabulary.ts`), which is what
+ * {@link ConditionalFreeRange}'s screen-mode condition is decided from. A
+ * machine that omits it selects no modes as far as this app is concerned, and
+ * its programs decide no such condition.
+ */
+export interface ScreenModeCommand {
+  /** The keyword, upper case, in the machine's own spelling. */
+  keyword: string;
+  /** The mode a program that selects none of its own is running in. */
+  bootMode: number;
+}
+
+/**
+ * What a program's text has to show for a {@link ConditionalFreeRange} to be
+ * free. Both forms are decidable from the vocabulary alone, which is the bar a
+ * condition has to clear to be authored at all: a region whose freedom depends
+ * on what happens at run time (a moved RAMTOP, a banked-out ROM) is not
+ * modelled here, it is left claimed.
+ */
+export type ConditionalFreeCondition =
+  /**
+   * Every screen mode the program selects is one of `modes`. Argument-sensitive
+   * rather than keyword-sensitive because the keyword alone says nothing:
+   * `CLEAR 0` selects the Atom's text mode and must not forfeit the region the
+   * graphics modes claim.
+   */
+  | { kind: 'screen-modes'; modes: readonly number[] }
+  /** The program uses none of `keywords`, in the machine's own spelling. */
+  | { kind: 'without-keywords'; keywords: readonly string[] };
+
+/**
+ * Memory the hardware claims only while the program uses an optional feature,
+ * and the condition under which the program's own text proves it does not.
+ *
+ * Whether such a region is free is not a fact about the machine but about the
+ * machine and the program together: the Atom's video RAM holds six kilobytes
+ * because the highest graphics mode needs six, and a program that stays in text
+ * mode reaches only the first. Declaring the region lets the block linter
+ * accept what the real machine accepts (`src/app/blockLint.ts`) instead of
+ * refusing every placement on the assumption that every feature is in use.
+ *
+ * Doubt runs one way only: a condition that cannot be decided leaves the region
+ * claimed. Memory that cannot be proven free is not free.
+ */
+export interface ConditionalFreeRange {
+  /** The bytes in question, inclusive. */
+  range: MemoryRange;
+  /** What the program's text must show. */
+  condition: ConditionalFreeCondition;
+  /**
+   * The condition in words, phrased to follow "free while": "the program stays
+   * in text mode". Restated in the porting facts and pinned to this string by
+   * `src/reference/facts-crosscheck.test.ts`.
+   */
+  conditionText: string;
+  /** What claims the region when the condition does not hold. */
+  note: string;
+}
+
+/**
+ * Where a dialect's {@link Block}s may legally live - metadata only;
  * nothing renders it yet. Optional on {@link Dialect}: dialects that omit it
  * get no block-aware UI and no Run-path collision gate, so pure-BASIC
  * documents and dialects without a block editor are completely unaffected.
@@ -624,8 +880,27 @@ export interface MemoryBlocksSupport {
    * bytes, for the linter's block/program collision check. Dialect-specific:
    * knows where the program area starts and how much slack beyond the raw
    * program bytes to reserve.
+   *
+   * `source` is the open program's text, for a machine whose workspace the
+   * program itself moves - the Apple I's `LOMEM=`/`HIMEM=` preamble. Every
+   * other machine's area is fixed wherever the program sits and ignores it,
+   * which lints exactly as it did before.
    */
-  programArea(programByteSize: number): MemoryRange;
+  programArea(programByteSize: number, source?: string): MemoryRange;
+  /**
+   * Ranges the machine claims only for an optional feature, which a block may
+   * occupy while the open program's text proves the feature unused - whether or
+   * not {@link validRanges} covers them. Absent on every machine whose regions
+   * carry no condition this app can decide, which lints exactly as before.
+   */
+  conditionallyFree?: readonly ConditionalFreeRange[];
+  /**
+   * How this machine selects a screen mode, where it has a command for it. Read
+   * by the program scan, so a {@link ConditionalFreeRange} phrased in modes can
+   * be decided; a machine with conditional ranges phrased in keywords needs it
+   * no more than a machine with none.
+   */
+  screenModeCommand?: ScreenModeCommand;
   /** Suggested address to pre-fill when the user creates a new block. */
   defaultAddress: number;
   /**
@@ -647,7 +922,7 @@ export interface MemoryBlocksSupport {
 }
 
 /**
- * The program-area line-record layout for a dialect whose {@link MemoryBlock}s
+ * The program-area line-record layout for a dialect whose {@link Block}s
  * live inside the BASIC listing as `#BIN` REM records (see
  * {@link MemoryBlocksSupport.inListing}). A record is
  * `[u16 BE lineNo][u16 LE len?][body…][terminator]`, where the body starts with
@@ -676,14 +951,14 @@ export interface ListingLayout {
  * sample loads (see `src/app/sampleBlocks.ts`) - no binary fixtures.
  */
 export interface SampleBlockDef {
-  /** Block name; must satisfy {@link MemoryBlock.name}'s pattern. */
+  /** Block name; must satisfy {@link Block.name}'s pattern. */
   name: string;
   /** Load address; must equal the source's `ORG`. */
   address: number;
-  kind: 'code' | 'data';
+  kind: Block['kind'];
   /** Assembly source for the dialect's `memoryBlocks.cpu`. */
   asmSource: string;
-  /** Execution entry address (see {@link MemoryBlock.entry}). */
+  /** Execution entry address (see {@link Block.entry}). */
   entry?: number;
 }
 
@@ -766,11 +1041,21 @@ export interface MemoryRegion {
 /**
  * A machine's memory map for the viewer: the full address space split into
  * contiguous, ascending {@link MemoryRegion}s that cover it end to end. Static
- * per dialect for now; a dialect opts in by setting {@link Dialect.memoryMap}.
+ * per dialect; a dialect opts in by setting {@link Dialect.memoryMap}.
  */
 export interface MemoryMap {
   /** Size of the addressable space, e.g. 0x10000 for a 64K machine. */
   addressSpace: number;
+  /**
+   * What one address counts, where that is not a byte.
+   *
+   * Every 8-bit machine here addresses bytes, which is why this is absent on
+   * all of them. The GE-235 addresses twenty-bit words, so its `addressSpace`
+   * and every boundary in `regions` are word numbers - and the side-by-side
+   * comparison, which draws two maps at the same pixels per unit, has to say so
+   * rather than let a reader take one pane's units for the other's.
+   */
+  addressUnit?: 'byte' | 'word';
   /** Contiguous leaf regions, ascending, covering `0 .. addressSpace - 1`. */
   regions: MemoryRegion[];
   /**
@@ -821,6 +1106,46 @@ export interface MemoryWriteSyntax {
 }
 
 /**
+ * The other two ways a program addresses a machine directly: the addresses it
+ * *reads*, and the addresses it hands to the processor. Declared beside
+ * {@link MemoryWriteSyntax} rather than folded into it, so a machine that
+ * declares nothing here contributes nothing new and every existing write
+ * declaration stays exactly as it was.
+ *
+ * Nothing is inferred from the keyword table. `PEEK` is a function on every
+ * machine that has one and `USR` is a function on machines that mean quite
+ * different things by it, so a scan that guessed from spellings would read a
+ * Commodore `USR(X)` - whose argument is data, not an address - as a call to
+ * whatever number X held.
+ *
+ * The hex prefix and statement separator are not repeated here: an address is
+ * written the same way whichever direction it is used in, so both come from
+ * {@link MemoryWriteSyntax} on the machines that set them.
+ */
+export interface MemoryReadSyntax {
+  /**
+   * The expression forms that read memory:
+   * - `'peek'` - `PEEK(addr)` or, on the Sinclairs, `PEEK addr`.
+   * - `'indirection'` - `?addr` (byte) or `!addr` (word) read inside an
+   *   expression, as `C=?addr` or `IF ?addr=5`. The BBC and Atom form; a
+   *   *statement-leading* `?addr=` is a write and belongs to
+   *   {@link MemoryWriteSyntax} instead.
+   */
+  forms: ('peek' | 'indirection')[];
+  /**
+   * The keywords that run machine code at an address the program gives them -
+   * `SYS`, `CALL`, `LINK`, and the Sinclair/Acorn `USR`. Upper case, in the
+   * machine's own spelling.
+   *
+   * Only the forms whose argument really is the address. The Microsoft `USR(x)`
+   * calls a routine through a vector and passes `x` as data, so the Commodore,
+   * TRS-80 and Altair leave it out; what their programs reach is the vector
+   * they poked, which their writes already record.
+   */
+  calls?: string[];
+}
+
+/**
  * Result of {@link Dialect.audio.decodeSamples} - a recorded cassette decoded
  * back into an editable document. The mandatory `programName`/`source` are the
  * main program; the optional fields mirror {@link DetokenizeResult} so a
@@ -839,7 +1164,7 @@ export interface AudioDecodeResult {
   /** Import-fidelity notes (see {@link DetokenizeResult.warnings}). */
   warnings?: string[];
   /** Memory blocks recovered from CODE files on a multi-file tape. */
-  blocks?: MemoryBlock[];
+  blocks?: Block[];
   /** Extra tape files preserved off a multi-part tape (see {@link TapeFile}). */
   tapeFiles?: TapeFile[];
   /** Auto-start line recovered from the tape header, when present. */
@@ -866,9 +1191,41 @@ export interface Dialect {
    */
   year: number;
   /**
+   * The BASIC this machine runs, named as its own documentation names it -
+   * `Commodore BASIC V2`, `BBC BASIC IV`, `Locomotive BASIC 1.1`.
+   *
+   * Per machine, not per reference page: the two BBCs share a page and run
+   * different versions, which is exactly the difference a reader of
+   * "BBC BASIC (Micro & Master)" cannot see. The machine picker groups and
+   * searches on this, so it is the machine's own declaration rather than a
+   * phrase read back out of `blurb` - which names the same BASIC in prose that
+   * nothing enforces the shape of. A test holds the two together.
+   *
+   * Coexists with {@link basicFamily} deliberately: this names the version, that
+   * names the language it is a version of, and neither supersedes the other.
+   * The porting comparison names the machine's own version; the picker's
+   * headings and the reference pages name the family.
+   */
+  basicDialect: string;
+  /**
+   * The family of BASIC {@link basicDialect} is a version of - `Sinclair BASIC`
+   * for the ZX81 and both Spectrums, `BBC BASIC` for the Micro and the Master.
+   * Omitted where the version string is already the family name, which is the
+   * case for every machine that is the only one of its kind; `basicFamilyOf()`
+   * in src/dialects/referencePage.ts falls back to `basicDialect` for those.
+   *
+   * Drawn at the line the machines' own manuals draw it: Commodore BASIC,
+   * Applesoft and Level II BASIC are licensed Microsoft BASIC, and still keep
+   * their vendor names, because those are what a reader searches for. Machines
+   * sharing a family share a reference page, so a new machine picks the family
+   * of the page it joins rather than minting one.
+   */
+  basicFamily?: string;
+  /**
    * One line describing the machine, shown against it in the machine picker.
    * Two short sentences: one distinguishing fact about the machine, then the
-   * name of the BASIC it runs (`Runs BBC BASIC II.`). Aim for 60 characters
+   * name of the BASIC it runs (`Runs BBC BASIC II.`), which must be the name
+   * `basicDialect` gives. Aim for 60 characters
    * and never exceed 72 — the picker row clamps to two lines, so a longer one
    * is simply cut off on a phone. When only one of the two fits, the BASIC
    * wins; it is what the user is actually choosing.
@@ -886,6 +1243,26 @@ export interface Dialect {
    */
   fileExtensions: string[];
   keywords: KeywordInfo[];
+  /**
+   * Operator spellings this BASIC has that {@link keywords} does not carry,
+   * because the machine does not store them as a token: the Sinclair `↑`, `+`
+   * and `<` are character codes, every BBC symbolic operator is copied through
+   * verbatim, and Microsoft BASIC writes `<=` as two operator tokens rather than
+   * one. Omitted where the keyword table already holds the lot (the ZX80, the
+   * CPCs).
+   *
+   * Together with the symbolic entries in {@link keywords} this is the machine's
+   * whole operator set, and three things read it as one: the editor colours
+   * exactly these characters, `keyword-crosscheck.test.ts` requires a reference
+   * row for each, and the porting guide's operator facts are checked against it.
+   * Before it existed each of the three had its own idea, which is how the Atom
+   * came to be documented as having no way to raise to a power.
+   *
+   * Not the place for punctuation (`(`, `)`, `,`, `;`) - see the exemption in
+   * that cross-check - nor for alias spellings the tokenizer accepts but the
+   * machine never lists back (`^` for `↑` on the Commodores).
+   */
+  operators?: readonly string[];
   charset: CharsetMapping;
   /** CodeMirror language support: highlighting + languageData (incl. autocomplete). */
   languageSupport(): Extension;
@@ -902,6 +1279,20 @@ export interface Dialect {
   /** Tokenizer dry-run for editor linting. */
   lint(source: string): TokenizeError[];
   /**
+   * This machine's reading of a physical source line that carries no line
+   * number and is program text all the same - the commands a real Apple I
+   * listing opens and closes with (`SCR`, `LOMEM=768`, a trailing `RUN`).
+   *
+   * Answers a stable key naming what the line commands, so that two spellings
+   * of the same one merge rather than doubling, and null for an ordinary line.
+   *
+   * Absent on every machine whose source is numbered lines and nothing else,
+   * which behaves exactly as it did before. The line-numbering and AI-merge
+   * paths read it to leave such a line alone: numbering it, moving it among the
+   * numbered lines, or dropping it each change what it means.
+   */
+  unnumberedLineKey?(lineText: string): string | null;
+  /**
    * URL of the machine ROM (resolved against the deployed base path). Omitted by
    * dialects whose emulator needs no ROM image - e.g. a pure high-level
    * interpreter - in which case the app skips the ROM fetch entirely.
@@ -909,48 +1300,28 @@ export interface Dialect {
   romUrl?: string;
   /**
    * Exact size, in bytes, of the ROM image this dialect's {@link createEmulator}
-   * runs from `opts.rom`.
+   * runs from `opts.rom`. Doubles as the app's test for "can the user replace
+   * this machine's ROM?", so the offer and the fit cannot disagree; a supplied
+   * image need not match, and is padded or trimmed to it.
    *
-   * **Not implied by {@link romUrl}, and must never be derived from it.** Six
-   * registered dialects declare a `romUrl` yet ignore `opts.rom` entirely: the
-   * Acorn machines let jsbeeb resolve its model's ROM list through its own
-   * loader, and the Commodore machines fetch their three- and six-image sets
-   * themselves. Their declared URL still earns its keep - it warms the offline
-   * cache and names a representative image for tests - but nothing executes
-   * those bytes, so handing them a different image would change nothing. They
-   * omit this field, and the app uses its absence to say so rather than
-   * offering a replacement that would silently do nothing.
+   * **Not implied by {@link romUrl}.** The Acorn and Commodore dialects declare
+   * a URL (it warms the offline cache and names a representative image for
+   * tests) but let their cores load their own ROM sets and ignore `opts.rom`.
+   * They omit this field, and its absence is what stops the app offering a
+   * replacement that would silently do nothing.
    *
-   * One field carries both facts on purpose: it is the app's test for "can the
-   * user replace this machine's ROM?" *and* the size of the ROM area a
-   * replacement is fitted to (padded or trimmed - a supplied image need not
-   * match it), so the offer and the fit cannot disagree. Set it from the machine's own
-   * ROM-size constant rather than a literal (`ROM_BYTES` on the Sinclair
-   * machines, `CPC_ROM_SIZE` on the Amstrads) and it cannot disagree with the
-   * memory map either. `src/dialects/romImage.test.ts` pins it to the committed
-   * image, and pins the behavioural claim in both directions.
+   * Set it from the machine's own ROM-size constant (`ROM_BYTES` on the
+   * Sinclair machines, `CPC_ROM_SIZE` on the Amstrads), not a literal, so it
+   * cannot disagree with the memory map.
    */
   romBytes?: number;
   /**
-   * Whether an image actually ships at {@link romUrl}. Defaults to true, which
-   * is the case for every machine whose ROM this project may redistribute.
-   *
-   * `false` says the URL is where the *user's own* image goes and nothing is
-   * there in a stock build - the Altair, whose 8K BASIC is Microsoft copyright
-   * with no redistribution grant, so the machine cannot start until someone
-   * supplies one. That is a designed state rather than a fault, and this flag is
-   * what lets the app say so: without it the emulator pane surfaces a raw
-   * `Failed to fetch ROM (404)` and the settings page offers to "restore the
-   * bundled ROM" that was never there.
-   *
-   * Only meaningful alongside {@link romBytes}: a machine whose ROM cannot be
-   * replaced has nothing to say about where a replacement would come from.
-   */
-  romBundled?: boolean;
-  /**
    * Slug of this dialect's docs reference page under `/docs/reference/`.
    * Defaults to `id` when absent; set it when several dialects share one page
-   * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum').
+   * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum'), and also
+   * when a page one machine has to itself is named for the family of BASIC
+   * rather than for the machine (hb10p → 'msx', ge235 → 'dartmouth'). A page
+   * documents a language, so it is named for one.
    */
   docsReference?: string;
   /**
@@ -986,16 +1357,11 @@ export interface Dialect {
    * takes one statement per line (the ZX80 and ZX81). `':'` on most machines,
    * `';'` on the Atom.
    *
-   * Required, unlike its neighbours, because its two absent-ish values mean
-   * opposite things and a default cannot serve both. This exists because
-   * {@link MemoryWriteSyntax.statementSep} could not: that one is scoped to
-   * parsing a memory-write form, only the Atom declares it, and every reader
-   * falls back to `':'` - which reads a ZX81 line's ordinary colon
-   * (`PRINT "TIME: ";T`) as a statement break.
-   *
-   * `PortingFacts.statementSeparator` is pinned to this by
-   * facts-crosscheck.test.ts, so the guide and the tokenizer cannot disagree
-   * about whether a machine allows several statements on a line.
+   * Required, unlike its neighbours: its two absent-ish values mean opposite
+   * things, so no default serves both. Distinct from
+   * {@link MemoryWriteSyntax.statementSep}, which is scoped to parsing a
+   * memory-write form and falls back to `':'` - reading a ZX81 line's ordinary
+   * colon (`PRINT "TIME: ";T`) as a statement break.
    */
   statementSeparator: string | null;
   /**
@@ -1008,12 +1374,36 @@ export interface Dialect {
    */
   memoryWrites?: MemoryWriteSyntax;
   /**
-   * Where this dialect's {@link MemoryBlock}s may legally live, and the figures
+   * How this dialect reads memory and reaches machine code, for the porting
+   * guide's read landings and its machine-code finding. Absent for a machine
+   * whose reads and calls the app cannot name, which reports neither rather
+   * than guessing from the keyword table.
+   */
+  memoryReads?: MemoryReadSyntax;
+  /**
+   * Where this dialect's {@link Block}s may legally live, and the figures
    * `src/app/blockLint.ts`'s `lintBlocks` needs to gate the Run path on them.
    * Absent for dialects without a block editor - the capability is metadata
    * only, so leaving it off costs nothing beyond skipping block-aware UI.
    */
   memoryBlocks?: MemoryBlocksSupport;
+  /**
+   * Split a file this machine stored (see {@link MachineFileStore}) into the
+   * bytes a program saved and the container the machine wrapped around them.
+   * Absent means the stored bytes *are* the payload, which is true of every
+   * machine that writes raw bytes to its store; the Spectrums are the
+   * exception, keeping a whole two-block tape image - a 17-byte header ahead
+   * of the data - so a high-score table shown as stored would open on tape
+   * framing.
+   *
+   * Unwrapping only: rebuilding a machine's container around edited bytes is
+   * the return trip's problem, and nothing here puts bytes back.
+   *
+   * Never throws. Bytes it cannot make sense of - a truncated image, a file
+   * some other machine wrote - come back whole as the payload with no
+   * container, so the user still sees what is there.
+   */
+  unwrapStoredFile?(bytes: Uint8Array): UnwrappedFile;
   /**
    * True when this dialect's emulator implements the step-through debugger
    * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug
@@ -1038,13 +1428,34 @@ export interface Dialect {
    * the key bound to each fire button regardless of this field.
    */
   joystickFireButtons?: 1 | 2;
+  /**
+   * True when this dialect's machine routes the `files` store
+   * {@link createEmulator} hands it into its emulation, so a running program's
+   * own data files are captured and served back to it.
+   *
+   * "Captures", not "traps", because the mechanism differs and none of it is
+   * visible here: the Spectrums trap `SA-BYTES`, the Acorns and the Atom their
+   * filing-system vectors, the C64 the KERNAL jump table, and the TRS-80's
+   * interpreter services the file statements itself with no CPU involved.
+   *
+   * Declared by hand and crosschecked against the machine in
+   * `src/dialects/fileIo.test.ts`, because the store is a *constructor
+   * argument*: nothing on the returned {@link MachineEmulator} records whether
+   * it was kept, so there is no member to probe the way {@link debuggable} is
+   * probed, and a machine that accepts the store and drops it compiles
+   * perfectly. Absent means the machine captures nothing, and that test holds
+   * an exact list of which machines those are and why.
+   */
+  capturesDataFiles?: boolean;
   createEmulator(opts: {
     rom: Uint8Array;
     ramKb: 16 | 32 | 64;
     /**
      * Sink for program-driven data file I/O (the IDE's virtual filesystem).
      * Machines that intercept data SAVE/LOAD/OPEN… route it here; machines
-     * without such traps simply ignore it.
+     * without such traps simply ignore it. Which of the two a dialect is, it
+     * declares in {@link capturesDataFiles} - the option is offered to every
+     * machine, so taking it is not evidence of using it.
      */
     files?: MachineFileStore;
   }): MachineEmulator;
@@ -1104,10 +1515,18 @@ export interface Dialect {
       source: string,
       programName: string,
       robust: boolean,
-      opts?: { blocks?: readonly MemoryBlock[]; loader?: boolean },
+      opts?: { blocks?: readonly Block[]; loader?: boolean },
     ): Float32Array;
-    /** Loading instructions shown to the user, e.g. how to type LOAD "". */
-    loadInstructions: string;
+    /**
+     * Loading instructions shown to the user, e.g. how to type LOAD "".
+     *
+     * A function where the instructions depend on the program being sent. The
+     * Apple I is the case: it has no LOAD, so the user types the monitor
+     * address range by hand, and that range is the workspace the program's own
+     * `LOMEM=`/`HIMEM=` asked for. A fixed range there is not merely vague, it
+     * loads the wrong bytes.
+     */
+    loadInstructions: string | ((source: string) => string);
     /**
      * Decode recorded cassette samples back into an editable program (the
      * inverse of {@link buildSamples}). Throws when no valid signal is found.

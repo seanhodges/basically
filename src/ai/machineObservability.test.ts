@@ -8,12 +8,14 @@ import {
   buildExpectationRules,
   canCheckByRunning,
   canReportVariables,
-  driveKeyNames,
+  canProfileRun,
+  DIALECTS_WITHOUT_PROFILE,
   DIALECTS_WITHOUT_RUNTIME_REPORT,
   DIALECTS_WITHOUT_VARIABLE_READBACK,
 } from './machineObservability';
 import { createMachineControl } from '../app/machineControl';
 import { indexKeyDefs } from '../keyboard/controllerConfig';
+import { keyVocabulary, resolveKeyName } from '../keyboard/keyNames';
 
 /**
  * What the assistant is told this machine can be asked about must match what
@@ -49,7 +51,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-/** As screenReadable.test.ts: a ROM that cannot ship leaves an empty image. */
+/** As screenReadable.test.ts: a ROM a checkout deleted leaves an empty image. */
 function romFor(romUrl: string | undefined): Uint8Array {
   if (!romUrl) return new Uint8Array(0);
   const rel = romUrl.slice(romUrl.indexOf('roms/'));
@@ -60,11 +62,12 @@ function romFor(romUrl: string | undefined): Uint8Array {
 }
 
 describe('the key names offered match the machines', () => {
-  // The crosscheck that stops the assistant being told about a key that does
+  // The crosscheck that stops any caller being told about a key that does
   // nothing. The names come from layout data, the pressing goes through the
   // machine's own matrix, and nothing but a real machine can say whether the
   // two agree - so every registered one is built and every name it advertises
-  // is actually pressed.
+  // is actually pressed. Both callers are proved at once: the assistant is told
+  // the same vocabulary a schedule on the command line writes.
   for (const dialect of dialects) {
     it(`${dialect.id} can press every key name it offers`, () => {
       const machine = dialect.createEmulator({
@@ -79,7 +82,7 @@ describe('the key names offered match the machines', () => {
         step: () => machine.runFrame(),
       });
 
-      const names = driveKeyNames(dialect);
+      const names = keyVocabulary(dialect.keyboardLayout);
       // A machine offering no keys at all would leave driving useless on it
       // while still advertising the capability.
       expect(names.length, `${dialect.id} offers no key names`).toBeGreaterThan(
@@ -98,14 +101,30 @@ describe('the key names offered match the machines', () => {
   }
 
   it('offers no key that presses nothing', () => {
-    // A key with no tokens is a legend, not a key: naming it would hand the
-    // assistant something that silently fails.
+    // A key with no tokens is a legend, not a key: naming it would hand a
+    // caller something that silently fails. Read through the resolver rather
+    // than off the id index - a vocabulary name is not a key id.
     for (const dialect of dialects) {
-      const index = indexKeyDefs(dialect.keyboardLayout);
-      for (const name of driveKeyNames(dialect)) {
+      for (const name of keyVocabulary(dialect.keyboardLayout)) {
         expect(
-          index.get(name)!.emits.length,
+          resolveKeyName(dialect.keyboardLayout, name)?.length ?? 0,
           `${dialect.id} / ${name}`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('still presses every one of a layout’s own key ids', () => {
+    // The assistant is no longer told these names, but every script already
+    // written names them - and so does the browser spec, which drives with
+    // `PRESS KeyA`. They stay accepted; they simply stop being advertised.
+    for (const dialect of dialects) {
+      const layout = dialect.keyboardLayout;
+      for (const [id, def] of indexKeyDefs(layout)) {
+        if (def.emits.length === 0) continue;
+        expect(
+          resolveKeyName(layout, id)?.length ?? 0,
+          `${dialect.id} / ${id}`,
         ).toBeGreaterThan(0);
       }
     }
@@ -115,10 +134,9 @@ describe('the key names offered match the machines', () => {
     // The prompt is a per-dialect constant and must stay byte-identical across
     // builds, or every conversation pays a cache write on every turn.
     for (const dialect of dialects) {
-      expect(driveKeyNames(dialect)).toEqual(driveKeyNames(dialect));
-      expect(driveKeyNames(dialect)).toEqual(
-        [...driveKeyNames(dialect)].sort(),
-      );
+      const layout = dialect.keyboardLayout;
+      expect(keyVocabulary(layout)).toEqual(keyVocabulary(layout));
+      expect(keyVocabulary(layout)).toEqual([...keyVocabulary(layout)].sort());
     }
   });
 });
@@ -178,12 +196,62 @@ describe('the runtime-report table matches the machines', () => {
   });
 });
 
+describe('the profile table matches the machines', () => {
+  // The same bargain again, for whether a run on this machine can be measured
+  // at all. Drift here would offer the assistant a tool that always answers
+  // "nothing measured", and would have the profile surface promise a machine
+  // measurements it can never take.
+  for (const dialect of dialects) {
+    it(`${dialect.id} is described as it actually is`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      const actual = typeof machine.setProfileRecording === 'function';
+      expect(
+        canProfileRun(dialect.id),
+        `${dialect.id} ${actual ? 'implements' : 'does not implement'} ` +
+          `setProfileRecording, so the table should ${actual ? 'not ' : ''}list it`,
+      ).toBe(actual);
+      machine.dispose();
+    });
+  }
+
+  it('names only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of DIALECTS_WITHOUT_PROFILE) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+});
+
+describe('every registered machine reports whether a program is running', () => {
+  // No table to crosscheck here, and that is the point: this one is not a
+  // capability a dialect may decline, so there is nothing to keep in step with
+  // the machines - only the machines themselves. Whether each actually reaches
+  // a definite answer, rather than merely offering the method, is checked on
+  // the real ROMs by src/dialects/programRunState.test.ts.
+  for (const dialect of dialects) {
+    it(`${dialect.id} implements isProgramRunning`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      expect(
+        typeof machine.isProgramRunning,
+        `${dialect.id}'s machine must report whether a program is running`,
+      ).toBe('function');
+      machine.dispose();
+    });
+  }
+});
+
 describe('buildExpectationRules', () => {
   it('offers both forms on a machine that can report variables', () => {
     const dialect = dialects.find((d) => canReportVariables(d.id))!;
     const rules = buildExpectationRules(dialect);
-    expect(rules).toContain('VAR <name> = <value>');
-    expect(rules).toContain('SCREEN CONTAINS');
+    expect(rules).toContain('EXPECT VAR <name> = <value>');
+    expect(rules).toContain('EXPECT "<text>"');
     // The display convention, without which every expectation is written
     // against raw values.
     expect(rules).toContain('ALREADY FORMATTED');
@@ -196,9 +264,9 @@ describe('buildExpectationRules', () => {
     const dialect = dialects.find((d) => !canReportVariables(d.id))!;
     const rules = buildExpectationRules(dialect);
     expect(rules).toContain('CANNOT report its variables');
-    expect(rules).not.toContain('VAR <name> = <value>');
+    expect(rules).not.toContain('EXPECT VAR <name> = <value>');
     // The screen is always available, so it always has something to offer.
-    expect(rules).toContain('SCREEN CONTAINS');
+    expect(rules).toContain('EXPECT "<text>"');
   });
 
   it('names the fence tag and says the block is optional', () => {
@@ -225,7 +293,7 @@ describe('buildExpectationRules', () => {
   it('offers the visual form only where the screen can be shown', () => {
     for (const dialect of dialects) {
       const shown = buildExpectationRules(dialect, true);
-      expect(shown).toContain('SCREEN SHOWS <description>');
+      expect(shown).toContain('EXPECT SHOWS <description>');
       expect(shown).toContain('showing you a picture of the screen');
     }
   });
@@ -273,10 +341,10 @@ describe('buildExpectationRules', () => {
   it('forbids the visual form where the screen cannot be shown', () => {
     for (const dialect of dialects) {
       const unseen = buildExpectationRules(dialect, false);
-      expect(unseen).not.toContain('SCREEN SHOWS <description>');
-      expect(unseen).toContain('do not state `SCREEN SHOWS` expectations');
+      expect(unseen).not.toContain('EXPECT SHOWS <description>');
+      expect(unseen).toContain('do not state `EXPECT SHOWS` expectations');
       // Losing the visual form must not lose the text one.
-      expect(unseen).toContain('SCREEN CONTAINS');
+      expect(unseen).toContain('EXPECT "<text>"');
     }
   });
 });

@@ -1,6 +1,6 @@
 import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { atomCharset } from './charset';
-import { atomKeywords } from './keywords';
+import { atomKeywords, atomOperators } from './keywords';
 import { atomVariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
@@ -16,6 +16,7 @@ import { atomKeyboardLayout } from './keyboardLayout';
 import { atomSamples } from './samples';
 import { atomMemoryMap } from './memoryMap';
 import { atomMemoryBlocks } from './memoryBlocks';
+import { TEXT_START, TEXT_TOP } from './addresses';
 import { AtomMachine } from '../../emulator/atom/atomMachine';
 
 /**
@@ -33,9 +34,13 @@ export const atom: Dialect = {
   manufacturer: 'Acorn',
   year: 1980,
   blurb: 'Acorn’s forerunner to the BBC Micro. Runs Atom BASIC.',
-  programRamBytes: 8192,
+  basicDialect: 'Atom BASIC',
+  // A fully expanded 12K Atom holds 5K of internal RAM at #2800; the
+  // floating-point ROM takes the first page, leaving #2900-#3BFF for BASIC.
+  programRamBytes: TEXT_TOP - TEXT_START,
   fileExtensions: ['.txt', '.bas'],
   keywords: atomKeywords,
+  operators: atomOperators,
   charset: atomCharset,
   languageSupport: atomLanguageSupport,
   completionSource: atomCompletionSource,
@@ -85,6 +90,12 @@ export const atom: Dialect = {
     hexPrefix: '#',
     statementSep: ';',
   },
+  // Reads use the same sigils in an expression (`C=?#DE`); LINK is the Atom's
+  // one way into machine code.
+  memoryReads: { forms: ['indirection'], calls: ['LINK'] },
+
+  // FIN/FOUT/BGET/BPUT/SHUT, trapped at the redirected OS file vectors.
+  capturesDataFiles: true,
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is the VFS sink for Atom BASIC's FIN/FOUT/BGET/BPUT/SHUT.

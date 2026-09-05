@@ -22,7 +22,12 @@ const unprobed = { customRoms: {}, bundled: null };
 
 const zx81 = getDialect('zx81'); // ships its ROM, and runs it
 const c64 = getDialect('commodore64'); // fetches its own ROM set
-const altair = getDialect('altair8800'); // ships nothing at all
+
+/** What the probe reports in a checkout where the ZX81's image was deleted. */
+const zx81Deleted = {
+  customRoms: {},
+  bundled: new Set(dialects.map((d) => d.id).filter((id) => id !== 'zx81')),
+};
 
 describe('machineIsRunnable', () => {
   it('always offers a machine that loads its own ROM set', () => {
@@ -52,51 +57,34 @@ describe('machineIsRunnable', () => {
     ).toBe(true);
   });
 
-  it('withholds a machine that ships no image, without waiting to be told', () => {
-    // `romBundled: false` is itself the evidence: nothing is at that URL in a
-    // stock build, so there is nothing to wait for.
-    expect(altair.romBundled).toBe(false);
-    expect(machineIsRunnable(altair, unprobed)).toBe(false);
-  });
-
-  it('offers it once the user installs an image', () => {
-    const customRoms = { altair8800: rom(altair.romBytes!) };
-    expect(machineIsRunnable(altair, { customRoms, bundled: null })).toBe(true);
-    // …and still offers it when the probe confirms nothing is bundled.
-    expect(machineIsRunnable(altair, { customRoms, bundled: new Set() })).toBe(
-      true,
-    );
+  it('offers it again once the user installs an image', () => {
+    const customRoms = { zx81: rom(zx81.romBytes!) };
+    expect(machineIsRunnable(zx81, { ...zx81Deleted, customRoms })).toBe(true);
   });
 
   it('offers it for an installed image of any size', () => {
     // Size is no longer a condition of installing an image: one that doesn't
     // fill the machine's ROM area is padded to it, so the machine has something
     // to boot either way and hiding it would hide a machine that can start.
-    const customRoms = { altair8800: rom(1024) };
-    expect(machineIsRunnable(altair, { customRoms, bundled: null })).toBe(true);
-  });
-
-  it('offers a self-hosted drop-in the probe finds', () => {
-    // The documented way to run the Altair without uploading anything: put the
-    // image at public/roms/altair8800/altair8800.rom and rebuild.
-    expect(
-      machineIsRunnable(altair, {
-        customRoms: {},
-        bundled: new Set(['altair8800']),
-      }),
-    ).toBe(true);
+    const customRoms = { zx81: rom(1024) };
+    expect(machineIsRunnable(zx81, { ...zx81Deleted, customRoms })).toBe(true);
   });
 });
 
 describe('runnableMachines', () => {
-  it('hides nothing that ships its own ROM', () => {
+  it('hides nothing in a stock build', () => {
+    // Every registered machine ships whatever image it runs, so the picker
+    // offers the registry entire - in registry order, which its grouping
+    // relies on.
     const offered = runnableMachines(dialects, unprobed).map((d) => d.id);
-    expect(offered).not.toContain('altair8800');
-    expect(offered).toContain('zx81');
-    expect(offered).toContain('commodore64');
-    // …and keeps the registry's order, which the picker's grouping relies on.
+    expect(offered).toEqual(dialects.map((d) => d.id));
+  });
+
+  it('drops only the machine whose image was deleted', () => {
+    const offered = runnableMachines(dialects, zx81Deleted).map((d) => d.id);
+    expect(offered).not.toContain('zx81');
     expect(offered).toEqual(
-      dialects.map((d) => d.id).filter((id) => id !== 'altair8800'),
+      dialects.map((d) => d.id).filter((id) => id !== 'zx81'),
     );
   });
 
@@ -104,8 +92,8 @@ describe('runnableMachines', () => {
     // Reached by a share link or a saved project. Hiding it would leave the
     // picker with nothing selected and the trigger naming a machine not in the
     // list; the emulator pane is where the missing ROM gets explained.
-    const offered = runnableMachines(dialects, unprobed, 'altair8800');
-    expect(offered.map((d) => d.id)).toContain('altair8800');
+    const offered = runnableMachines(dialects, zx81Deleted, 'zx81');
+    expect(offered.map((d) => d.id)).toContain('zx81');
   });
 
   it('does not duplicate the kept machine when it is runnable anyway', () => {

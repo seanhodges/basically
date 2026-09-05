@@ -15,11 +15,11 @@ import type { Dialect } from '../dialects/types';
 /**
  * Resolve a machine id from the guide to a dialect.
  *
- * The guide sends a machine id and nothing else. It used to send a docs page
- * slug, which several machines share - so the lookup matched on the page and
- * returned whichever family member came first in the registry, and converting
- * to Locomotive BASIC opened a CPC 464 however clearly the reader had asked for
- * a 6128. Matching ids only is what removes that whole class of ambiguity.
+ * The guide sends a machine id and nothing else, and the lookup matches on id
+ * only. A docs page slug would not do: several machines share a page, so the
+ * match would return whichever family member came first in the registry, and
+ * converting to Locomotive BASIC would open a CPC 464 however clearly the
+ * reader had asked for a 6128.
  */
 export function dialectForMachineId(id: unknown): Dialect | undefined {
   if (typeof id !== 'string') return undefined;

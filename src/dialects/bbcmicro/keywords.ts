@@ -932,6 +932,32 @@ export const bbcMasterKeywords: KeywordInfo[] = [
 ].map(editorKeyword);
 
 /** Keywords sorted longest spelling first, for greedy matching. */
+/**
+ * BBC BASIC's symbolic operators. The tokenizer copies them through verbatim -
+ * only the alphabetic operators (AND, DIV, EOR, MOD, OR, NOT) get token bytes -
+ * so none of them can be a keyword-table entry, and the reference page carried no
+ * arithmetic or relational row at all until this list existed.
+ *
+ * `?`, `!` and `$` are the indirection operators, which are how a BBC program
+ * reads and writes memory: they belong with the rest rather than in a footnote.
+ */
+export const bbcOperators = [
+  '^',
+  '+',
+  '-',
+  '*',
+  '/',
+  '=',
+  '<',
+  '>',
+  '<=',
+  '>=',
+  '<>',
+  '?',
+  '!',
+  '$',
+] as const;
+
 export const bbcKeywordsByLength: BbcKeyword[] = [...bbcKeywordTable].sort(
   (a, b) => b.word.length - a.word.length,
 );
@@ -963,9 +989,15 @@ export interface BbcVariant {
   abbreviations: BbcKeyword[];
   /** BASIC IV accepts `EXT#chan=n` as a statement (set a file's extent). */
   extAsStatement: boolean;
+  /** The machine, as a diagnostic names it to the reader. */
+  label: string;
 }
 
-function variantFrom(table: BbcKeyword[], extAsStatement: boolean): BbcVariant {
+function variantFrom(
+  table: BbcKeyword[],
+  extAsStatement: boolean,
+  label: string,
+): BbcVariant {
   const wordByToken = new Map<number, string>();
   const byToken = new Map<number, BbcKeyword>();
   for (const k of table) {
@@ -985,14 +1017,20 @@ function variantFrom(table: BbcKeyword[], extAsStatement: boolean): BbcVariant {
     wordByToken,
     abbreviations,
     extAsStatement,
+    label,
   };
 }
 
 /** BBC BASIC II (Model B) - the default. */
-export const BASIC_II: BbcVariant = variantFrom(bbcKeywordTable, false);
+export const BASIC_II: BbcVariant = variantFrom(
+  bbcKeywordTable,
+  false,
+  'BBC Micro',
+);
 
 /** BBC BASIC IV (Master) - BASIC II plus EDIT and the EXT# statement form. */
 export const BASIC_IV: BbcVariant = variantFrom(
   [...bbcKeywordTable, ...basicIVExtraKeywords],
   true,
+  'BBC Master',
 );

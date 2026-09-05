@@ -140,7 +140,7 @@ const CASES: Case[] = [
       0x80: 'the blank cell; its text form would be a space, so it has none',
     },
   },
-  ...(['cpc464', 'cpc6128'] as const).map((id) => ({
+  ...(['cpc464', 'cpc664', 'cpc6128'] as const).map((id) => ({
     id,
     target: `${id}-bas`,
     unreachable: {

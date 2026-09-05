@@ -8,15 +8,17 @@
  * source; edits re-assemble on a debounce and, when clean, replace the
  * block's bytes through `upsertBlock`. Errors surface as inline diagnostics
  * and leave the bytes untouched - the text still persists via
- * `MemoryBlock.asmSource` so broken work-in-progress survives tab switches
+ * `Block.asmSource` so broken work-in-progress survives tab switches
  * and reloads.
  *
- * Mounted with `key={block.id}` by the Workspace, so switching blocks swaps
- * in a fresh editor (per-block undo history is not preserved; document text
- * is, via `asmSource`).
+ * One editor serves every block: switching blocks swaps the view's whole state
+ * for the incoming block's, so each block keeps its own document, selection and
+ * undo history for as long as it exists. Per-block bookkeeping - the pending
+ * assemble, the last bytes written, the reseed guard - is reset by the swap,
+ * which is what remounting used to do.
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import {
   defaultHighlightStyle,
@@ -24,7 +26,14 @@ import {
 } from '@codemirror/language';
 import type { Diagnostic } from '@codemirror/lint';
 import { lintKeymap, setDiagnostics } from '@codemirror/lint';
-import { EditorState } from '@codemirror/state';
+import {
+  closeSearchPanel,
+  highlightSelectionMatches,
+  search,
+  searchKeymap,
+  searchPanelOpen,
+} from '@codemirror/search';
+import { EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
   EditorView,
   drawSelection,
@@ -32,13 +41,22 @@ import {
   keymap,
   lineNumbers,
 } from '@codemirror/view';
-import { useIdeStore } from '../app/store';
+import { selectBlocks, useIdeStore } from '../app/store';
 import { asmLanguage } from '../asm/language';
-import { formatWord } from '../asm/format';
 import type { AsmEngine, AsmError } from '../asm/types';
-import type { MemoryBlock } from '../dialects/types';
+import type { Block } from '../dialects/types';
 import { basicHighlightStyle } from '../editor/basicLanguage';
+import { blockBufferKey, bufferHistories } from '../editor/bufferHistory';
+import { runViewEditorCommand } from '../editor/editorCommands';
+import { clickMenu } from '../editor/clickMenu';
+import { ASM_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
+import { asmReferenceTopic } from '../app/docsTopic';
+import { useRetireEditorPopups } from '../app/useRetireEditorPopups';
+import { BlockBar } from './BlockBar';
 import styles from './AsmEditor.module.css';
+
+/** No operator has a row on an assembly page, so no operator run is cut back. */
+const NO_OPERATORS: ReadonlySet<string> = new Set();
 
 /** How long after the last keystroke the source re-assembles. */
 const ASSEMBLE_DEBOUNCE_MS = 500;
@@ -47,6 +65,20 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/**
+ * The source a block's editor starts from: the source saved alongside its bytes
+ * (so labels, comments and data sections survive), else a fresh disassembly.
+ */
+function blockSource(block: Block, engine: AsmEngine): string {
+  return (
+    block.asmSource ??
+    engine
+      .disassembleReachable(block.bytes, block.address)
+      .map((l) => l.text)
+      .join('\n')
+  );
 }
 
 /** Map assembler errors onto the document, clamped like `dialectLinter`. */
@@ -75,13 +107,13 @@ export function AsmEditor({
   block,
   engine,
 }: {
-  block: MemoryBlock;
+  block: Block;
   engine: AsmEngine;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  // Latest block for the debounced callback (the prop advances on each
-  // upsert echo; the editor instance itself is keyed by block.id).
+  // Latest block for the debounced callback (the prop advances on each upsert
+  // echo, and on every block switch).
   const blockRef = useRef(block);
   blockRef.current = block;
   // The bytes array we last wrote through upsertBlock: when it comes back as
@@ -90,16 +122,22 @@ export function AsmEditor({
   const prevBytes = useRef(block.bytes);
   const debounceRef = useRef<number | null>(null);
   const reseeding = useRef(false);
+  // The block whose state the view is holding, so a change of prop can be told
+  // from the upsert echoes that arrive on the same one.
+  const lastBlockId = useRef(block.id);
+  // The history-cache generation the view's state was installed under, so a
+  // state parked on the way out cannot outlive the document it belongs to.
+  const lastHistoryGeneration = useRef(bufferHistories.generation);
+  const searchOpen = useRef(false);
+  const editorCommand = useIdeStore((s) => s.editorCommand);
+  const lastCommand = useRef(editorCommand.seq);
 
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    // On clean assembly the block's bytes update (and the text is kept as
-    // asmSource); on errors only the text and diagnostics update. Never
-    // called just for opening the tab, so viewing a block can't dirty the
-    // document - see seedDiagnostics below.
-    const runAssemble = (view: EditorView) => {
+  // On clean assembly the block's bytes update (and the text is kept as
+  // asmSource); on errors only the text and diagnostics update. Never called
+  // just for opening the tab, so viewing a block can't dirty the document -
+  // see seedDiagnostics below.
+  const runAssemble = useCallback(
+    (view: EditorView) => {
       const text = view.state.doc.toString();
       const current = blockRef.current;
       const result = engine.assemble(text, current.address);
@@ -139,11 +177,14 @@ export function AsmEditor({
         }
         store.setBlockAsmError(current.id, true);
       }
-    };
+    },
+    [engine],
+  );
 
-    // Mount-time diagnostics only: no upsert, so a pristine look at a block
-    // leaves the document clean.
-    const seedDiagnostics = (view: EditorView) => {
+  // Diagnostics for a block as it is opened: no upsert, so a pristine look at
+  // a block leaves the document clean.
+  const seedDiagnostics = useCallback(
+    (view: EditorView) => {
       const current = blockRef.current;
       const result = engine.assemble(
         view.state.doc.toString(),
@@ -155,76 +196,180 @@ export function AsmEditor({
         );
       }
       useIdeStore.getState().setBlockAsmError(current.id, !result.ok);
-    };
+    },
+    [engine],
+  );
 
-    const initial =
-      blockRef.current.asmSource ??
-      engine
-        .disassembleReachable(blockRef.current.bytes, blockRef.current.address)
-        .map((l) => l.text)
-        .join('\n');
+  /**
+   * Park the view's state under `blockId`, so coming back to that block finds
+   * its document, selection and history. A block that has just been deleted has
+   * nothing to come back to, and its id is free for another block to take.
+   */
+  const parkState = useCallback((view: EditorView, blockId: string) => {
+    const blocks = selectBlocks(useIdeStore.getState());
+    if (!blocks.some((b) => b.id === blockId)) return;
+    bufferHistories.save(
+      blockBufferKey(blockId),
+      view.state,
+      lastHistoryGeneration.current,
+    );
+  }, []);
 
-    const state = EditorState.create({
-      doc: initial,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLine(),
-        drawSelection(),
-        history(),
-        keymap.of([...defaultKeymap, ...historyKeymap, ...lintKeymap]),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        syntaxHighlighting(basicHighlightStyle),
-        asmLanguage(engine),
-        EditorView.updateListener.of((update) => {
-          // Mirror the selection into the store so F1 / the Docs button can
-          // open this CPU's assembly reference seeded to the selected mnemonic
-          // (see referenceTopicFor). Matches CodeMirrorHost's BASIC editor.
-          if (update.selectionSet || update.docChanged) {
-            const sel = update.state.selection.main;
-            useIdeStore
-              .getState()
-              .setEditorSelection(
-                sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to),
-              );
-          }
-          if (!update.docChanged || reseeding.current) return;
-          if (debounceRef.current !== null) {
-            window.clearTimeout(debounceRef.current);
-          }
-          debounceRef.current = window.setTimeout(() => {
-            debounceRef.current = null;
-            if (viewRef.current) runAssemble(viewRef.current);
-          }, ASSEMBLE_DEBOUNCE_MS);
+  /** Assemble now what the debounce is still holding, if anything. */
+  const flushPending = useCallback(
+    (view: EditorView) => {
+      if (debounceRef.current === null) return;
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      runAssemble(view);
+    },
+    [runAssemble],
+  );
+
+  /**
+   * The view's extensions. Built for the first mount and again for every block
+   * the view is given afterwards, so a restored block is configured for the
+   * machine and settings of the moment it comes back.
+   */
+  const buildExtensions = useCallback(
+    (): Extension => [
+      lineNumbers(),
+      highlightActiveLine(),
+      drawSelection(),
+      history(),
+      search(),
+      highlightSelectionMatches(),
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...searchKeymap,
+        ...lintKeymap,
+      ]),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      syntaxHighlighting(basicHighlightStyle),
+      asmLanguage(engine),
+      // Click an instruction or directive to be offered this processor's
+      // reference. The menu's completion guard reads that extension optionally,
+      // so it degrades to "not active" here, where it isn't mounted - don't add
+      // it to make the menu work.
+      clickMenu([
+        referenceRow({
+          kinds: ASM_REFERENCE_KINDS,
+          operators: NO_OPERATORS,
+          topic: (word) => asmReferenceTopic(engine.cpu, word),
+          open: (topic) => useIdeStore.getState().openDocs(topic),
         }),
-        EditorView.theme({
-          '&': { height: '100%', fontSize: '14px' },
-          '.cm-scroller': {
-            fontFamily: 'var(--mono)',
-            // See CodeMirrorHost: pinned so a graphics character cannot change
-            // the height of the row it lands in.
-            lineHeight: '1.3',
-          },
-        }),
-      ],
+      ]),
+      EditorView.updateListener.of((update) => {
+        const open = searchPanelOpen(update.state);
+        if (open !== searchOpen.current) {
+          searchOpen.current = open;
+          useIdeStore.getState().setFindReplaceOpen(open);
+        }
+        if (!update.docChanged || reseeding.current) return;
+        if (debounceRef.current !== null) {
+          window.clearTimeout(debounceRef.current);
+        }
+        debounceRef.current = window.setTimeout(() => {
+          debounceRef.current = null;
+          if (viewRef.current) runAssemble(viewRef.current);
+        }, ASSEMBLE_DEBOUNCE_MS);
+      }),
+      EditorView.theme({
+        '&': { height: '100%', fontSize: '14px' },
+        '.cm-scroller': {
+          fontFamily: 'var(--mono)',
+          // See CodeMirrorHost: pinned so a graphics character cannot change
+          // the height of the row it lands in.
+          lineHeight: '1.3',
+        },
+      }),
+    ],
+    [engine, runAssemble],
+  );
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const view = new EditorView({
+      state: bufferHistories.restore(
+        blockBufferKey(blockRef.current.id),
+        blockSource(blockRef.current, engine),
+        buildExtensions(),
+      ),
+      parent: host,
     });
-    const view = new EditorView({ state, parent: host });
     viewRef.current = view;
+    lastBlockId.current = blockRef.current.id;
+    lastHistoryGeneration.current = bufferHistories.generation;
     seedDiagnostics(view);
 
     return () => {
       // Flush a pending assemble so a fast tab switch doesn't drop the last
-      // keystrokes.
-      if (debounceRef.current !== null) {
-        window.clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        runAssemble(view);
-      }
+      // keystrokes, and park the history so coming back to this block finds it.
+      flushPending(view);
+      parkState(view, blockRef.current.id);
       view.destroy();
       viewRef.current = null;
+      if (searchOpen.current) {
+        searchOpen.current = false;
+        useIdeStore.getState().setFindReplaceOpen(false);
+      }
     };
-    // The component remounts per block (key={block.id}); the engine is fixed
-    // per dialect, so this runs once per opened block tab.
-  }, [engine]);
+    // The engine is fixed per dialect, so this runs once per opened block tab -
+    // switching between blocks swaps the view's state instead (below).
+  }, [engine, buildExtensions, flushPending, parkState, seedDiagnostics]);
+
+  // A different block in the same editor: park the outgoing one's state and
+  // give the view the incoming one's, resetting the per-block bookkeeping that
+  // a remount used to reset.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || block.id === lastBlockId.current) return;
+    const outgoing = lastBlockId.current;
+    lastBlockId.current = block.id;
+    flushPending(view);
+    parkState(view, outgoing);
+    lastWrittenBytes.current = null;
+    reseeding.current = false;
+    prevBytes.current = block.bytes;
+    view.setState(
+      bufferHistories.restore(
+        blockBufferKey(block.id),
+        blockSource(block, engine),
+        buildExtensions(),
+      ),
+    );
+    lastHistoryGeneration.current = bufferHistories.generation;
+    seedDiagnostics(view);
+    // The find panel belonged to the block that was showing, and is not part of
+    // the state that comes back.
+    if (searchOpen.current) {
+      searchOpen.current = false;
+      useIdeStore.getState().setFindReplaceOpen(false);
+    }
+  }, [
+    block,
+    engine,
+    buildExtensions,
+    flushPending,
+    parkState,
+    seedDiagnostics,
+  ]);
+
+  // Raising a dialog, panel or drawer over the editor takes away the
+  // picked-token menu; the on-screen input overlays don't.
+  useRetireEditorPopups(viewRef);
+
+  // The Edit menu acts on the buffer on screen, which is this one whenever this
+  // editor is mounted - `CodeMirrorHost` stands down while a block is showing.
+  useEffect(() => {
+    if (editorCommand.seq === lastCommand.current) return;
+    lastCommand.current = editorCommand.seq;
+    const view = viewRef.current;
+    if (view) void runViewEditorCommand(view, editorCommand.name);
+  }, [editorCommand]);
 
   // Defensive: if the block's bytes change identity while this tab is open
   // and it wasn't our own write echoing back (today every external write
@@ -250,34 +395,39 @@ export function AsmEditor({
       window.clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    // Prefer the block's saved assembly source (kept in sync with its bytes)
-    // so a data section survives; only fall back to disassembly when there is
-    // none - matching the mount-time seeding above.
-    const text =
-      block.asmSource ??
-      engine
-        .disassembleReachable(block.bytes, block.address)
-        .map((l) => l.text)
-        .join('\n');
     reseeding.current = true;
+    // Not the user's edit, so not theirs to undo: undoing it would leave source
+    // that no longer describes the block's bytes, which the editor would then
+    // assemble back over them.
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: text },
+      changes: {
+        from: 0,
+        to: view.state.doc.length,
+        insert: blockSource(block, engine),
+      },
+      annotations: Transaction.addToHistory.of(false),
     });
     view.dispatch(setDiagnostics(view.state, []));
     reseeding.current = false;
     useIdeStore.getState().setBlockAsmError(block.id, false);
   }, [block, engine]);
 
+  // Switching the mobile view tab dismisses the find/replace panel, as it does
+  // for the BASIC editor.
+  const mobileTab = useIdeStore((s) => s.mobileTab);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view && searchPanelOpen(view.state)) closeSearchPanel(view);
+  }, [mobileTab]);
+
   return (
     <div className={styles.asmEditor}>
-      <div className={styles.statusStrip}>
-        <strong>{block.name}</strong> · ORG {formatWord(block.address)} ·{' '}
-        {block.bytes.length} {block.bytes.length === 1 ? 'byte' : 'bytes'}
-        {block.entry !== undefined && <> · entry {formatWord(block.entry)}</>}
-        {block.comment !== undefined && (
-          <span className={styles.comment}> · {block.comment}</span>
-        )}
-      </div>
+      <BlockBar
+        address={block.address}
+        byteCount={block.bytes.length}
+        entry={block.entry}
+        comment={block.comment}
+      />
       <div className={styles.editorHost} ref={hostRef} />
     </div>
   );

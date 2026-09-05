@@ -15,12 +15,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
+import { referencePageOf } from '../dialects/referencePage';
 import { portingFacts } from '../reference/facts';
 import {
   loadEscapePage,
   loadMachineReference,
   loadReferencePage,
-  pageFor,
 } from './machineReference';
 
 /**
@@ -31,6 +31,11 @@ import {
 function keywordNames(dialectId: string): string[] {
   const dialect = dialects.find((d) => d.id === dialectId)!;
   return [...new Set(dialect.keywords.map((k) => k.word))];
+}
+
+/** `1524` → `1,524`, re-derived here rather than imported from the describer. */
+function grouped(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 describe('the machine description', () => {
@@ -106,6 +111,108 @@ describe('the machine description', () => {
       }
     },
   );
+
+  it.each(dialects.map((d) => d.id))(
+    'gives %s the boot screen a print position can be checked against',
+    async (id) => {
+      // The prose screen summary beside this says the same thing in the fact
+      // rows' own words ("MODE-dependent: 40x25 teletext ... up to 640x256"),
+      // which nothing can be checked against. These are the two numbers the
+      // porting guide checks a program's own positions with, so the assistant
+      // writing the program gets them in the same form.
+      const dialect = dialects.find((d) => d.id === id)!;
+      const facts = portingFacts.find((f) => f.id === id)!;
+      const text = await loadMachineReference(dialect);
+      expect(text).toContain(
+        `The text screen at switch-on is ${facts.textScreen.columns} columns by ${facts.textScreen.rows} rows`,
+      );
+      expect(text).toContain(
+        `columns run 0-${facts.textScreen.columns - 1} and rows 0-${facts.textScreen.rows - 1}`,
+      );
+    },
+  );
+
+  it.each(dialects.map((d) => d.id))(
+    'tells %s how to wait, and how fast it runs',
+    async (id) => {
+      // A pause written as a counting loop is the machine's speed written into
+      // the program, so a count recalled from a different machine runs for a
+      // different length of time and nothing in the listing says so. Both halves
+      // are here: the machine's own idiom for waiting, and the measured figure
+      // to size a loop against where the idiom is not available.
+      const dialect = dialects.find((d) => d.id === id)!;
+      const facts = portingFacts.find((f) => f.id === id)!;
+      const text = await loadMachineReference(dialect);
+      expect(text).toContain('TIMING AND WAITING');
+      expect(text).toContain(`Wait with ${facts.waitIdiom.text}.`);
+      if (facts.loopSpeed === undefined) {
+        // Nothing invented for a machine this project cannot benchmark - the
+        // same way doubt runs everywhere else in the reference data.
+        expect(text).not.toContain('An empty counting loop runs about');
+      } else {
+        expect(text).toContain(
+          `An empty counting loop runs about ${grouped(facts.loopSpeed)} iterations a second here`,
+        );
+        expect(text).toContain("measured in this IDE's own emulator");
+      }
+    },
+  );
+
+  it.each(dialects.map((d) => d.id))(
+    'names every region of the %s memory map',
+    async (id) => {
+      // The completeness sweep the keyword list gets, applied to the layout: a
+      // read of an address nobody named does not fail, it returns a number that
+      // means nothing. Half a map is worse than none, because an address absent
+      // from a partial list reads as an address the machine does not have.
+      const dialect = dialects.find((d) => d.id === id)!;
+      const text = await loadMachineReference(dialect);
+      if (dialect.memoryMap === undefined) {
+        expect(text).not.toContain('WHERE THINGS ARE IN MEMORY');
+        return;
+      }
+      expect(text).toContain('WHERE THINGS ARE IN MEMORY');
+      for (const region of dialect.memoryMap.regions) {
+        expect(text, `${id} ${region.label}`).toContain(region.label);
+      }
+    },
+  );
+
+  it('gives the C64 the addresses a program actually reaches for', async () => {
+    // The worked example for the sweep above: this machine's colour, sound and
+    // keyboard are all memory, and a program that pokes 53280 from recollection
+    // rather than from the map is how the wrong chip gets written to.
+    const c64 = dialects.find((d) => d.id === 'commodore64')!;
+    const text = await loadMachineReference(c64);
+    expect(text).toContain('The address space runs 0-65535');
+    expect(text).toContain('53248-54271 VIC-II registers');
+    expect(text).toContain('54272-55295 SID registers');
+    expect(text).toContain('56320-56575 CIA 1');
+    // The one region where a write is accepted and does nothing at all, marked
+    // beyond whatever the region's own note happens to say.
+    expect(text).toContain('BASIC ROM [read-only]');
+  });
+
+  it("writes each machine's addresses the way that machine writes them", async () => {
+    // A BBC addresses memory in hex and a Spectrum in decimal, and the map is
+    // read alongside code the assistant is about to write - so an address it
+    // cannot paste into a program is an address it has to convert first.
+    const bbc = dialects.find((d) => d.id === 'bbcmicro')!;
+    const spectrum = dialects.find((d) => d.id === 'zxspectrum')!;
+    expect(await loadMachineReference(bbc)).toContain('&FC00-&FEFF');
+    expect(await loadMachineReference(spectrum)).toContain(
+      '16384-22527 Display file',
+    );
+  });
+
+  it('says where the Spectrum keeps its user-defined graphics', async () => {
+    // Reachable as `USR "a"`, and the one address in the map that is not a
+    // region: a program that defines a character has to know where to put it.
+    const spectrum = dialects.find((d) => d.id === 'zxspectrum')!;
+    expect(await loadMachineReference(spectrum)).toContain(
+      'User-defined graphics start at 65368.',
+    );
+  });
 
   it('names the character a ZX81 program most often trips over', async () => {
     const zx81 = dialects.find((d) => d.id === 'zx81')!;
@@ -201,7 +308,7 @@ describe('the tables a port report is composed from', () => {
     'resolves both tables for %s',
     async (id) => {
       const dialect = dialects.find((d) => d.id === id)!;
-      const page = pageFor(dialect);
+      const page = referencePageOf(dialect);
       expect(await loadReferencePage(page)).toBeDefined();
       if (PAGES_WITHOUT_ESCAPES.includes(page)) {
         expect(await loadEscapePage(page)).toBeUndefined();

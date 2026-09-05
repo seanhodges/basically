@@ -11,7 +11,12 @@ import {
  *   0x5800-0x5AFF  attribute map (768 bytes)
  *   0x5B00-0xFFFF  general RAM (system variables, program, stacks…)
  *
- * Contended-memory timing is not modelled - it does not affect BASIC results.
+ * Reads and writes here cost nothing. The T-states the ULA takes off the CPU
+ * for an address below 0x8000 are charged one level up, in the machine's own
+ * bus hooks (see ulaContention.ts), because only the CPU's accesses owe them:
+ * the host reads through here too - the executing BASIC line, the profiler, the
+ * memory-map overlay, the tape traps - and none of that is time the emulated
+ * machine spends.
  */
 /** Size of the ZX Spectrum's 16K ROM image; the memory map's ROM region matches it. */
 export const ROM_BYTES = 16384;
@@ -27,16 +32,33 @@ export class SpectrumMemory {
   readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array) {
-    if (rom.length !== ROM_BYTES)
+    // Empty is the documented "no firmware to run" state, the same carve-out
+    // the CPC memory makes: images with no redistribution grant are meant to be
+    // removable (public/roms/ATTRIBUTION.md), and a machine given none has to
+    // construct so that the layer above can say so rather than dying inside a
+    // constructor. Any other wrong length is still refused - that is a caller
+    // handing over the wrong file, and a partly-filled ROM boots to a dead
+    // machine with nothing to explain it.
+    if (rom.length !== 0 && rom.length !== ROM_BYTES)
       throw new Error(
         `ZX Spectrum ROM must be ${ROM_BYTES} bytes, got ${rom.length}`,
       );
-    this.rom = rom;
+    this.rom = rom.length === ROM_BYTES ? rom : new Uint8Array(ROM_BYTES);
   }
 
   read = (address: number): number => {
+    if (this.activity.enabled) this.activity.hits[address & 0xffff] |= READ_BIT;
+    return this.peek(address);
+  };
+
+  /**
+   * Read a byte without recording the access. Host-side introspection - the
+   * executing BASIC line, and the profiler sampling it on the run hot path -
+   * reads through this, so the IDE's own polling never paints the memory-map
+   * overlay with activity the program never performed.
+   */
+  peek = (address: number): number => {
     const addr = address & 0xffff;
-    if (this.activity.enabled) this.activity.hits[addr] |= READ_BIT;
     if (addr < 0x4000) return this.rom[addr]!;
     return this.ram[addr - 0x4000]!;
   };
@@ -50,6 +72,11 @@ export class SpectrumMemory {
 
   readWord(addr: number): number {
     return this.read(addr) | (this.read(addr + 1) << 8);
+  }
+
+  /** {@link readWord} through {@link peek}: no activity recorded. */
+  rawReadWord(addr: number): number {
+    return this.peek(addr) | (this.peek(addr + 1) << 8);
   }
 
   writeWord(addr: number, value: number): void {

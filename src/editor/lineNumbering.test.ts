@@ -441,3 +441,89 @@ describe('#BIN directive lines', () => {
     expect(planConstructNumbering([bin0, '10 FOR'], 0, 10, 2)).toBeNull();
   });
 });
+
+/**
+ * Lines a dialect takes without a line number, the Apple I's prompt commands
+ * being the ones that exist. The predicate is a local stub rather than the real
+ * dialect's: what is under test is that these functions honour whatever they
+ * are given, and this module has no business knowing any machine's syntax.
+ */
+describe('lines the dialect takes unnumbered', () => {
+  const keep = (line: string) =>
+    /^\s*(SCR|CLR|OFF|RUN|LIST|DEL|AUTO|LOMEM=|HIMEM=)\b/i.test(line.trim());
+
+  it('renumberProgram leaves a preamble and a trailing RUN in place', () => {
+    const src = ['SCR', 'LOMEM=768', '5 CLS', '7 STOP', 'RUN'].join('\n');
+    expect(renumberProgram(src, 10, 10, keep)).toBe(
+      ['SCR', 'LOMEM=768', '10 CLS', '20 STOP', 'RUN'].join('\n'),
+    );
+  });
+
+  /**
+   * A kept line keeps its text but not its stale references: `RUN 5` names a
+   * line that renumbering moved, and a listing that still said 5 afterwards
+   * would start somewhere else.
+   */
+  it('renumberProgram still rewrites the references a kept line carries', () => {
+    const src = ['5 CLS', '7 STOP', 'RUN 5'].join('\n');
+    expect(renumberProgram(src, 10, 10, keep)).toBe(
+      ['10 CLS', '20 STOP', 'RUN 10'].join('\n'),
+    );
+  });
+
+  it('renumberLine keeps a preamble above the program and RUN below it', () => {
+    const src = ['LOMEM=768', '2 CLS', '3 STOP', 'RUN'].join('\n');
+    expect(renumberLine(src, 3, 9000, keep)).toBe(
+      ['LOMEM=768', '2 CLS', '9000 STOP', 'RUN'].join('\n'),
+    );
+  });
+
+  it('a preamble rides with the line it sits above', () => {
+    // The preamble anchors to line 2; renumbering 2 to 50 carries it along
+    // rather than stranding it below the line that used to follow it.
+    const src = ['SCR', '2 CLS', '3 STOP'].join('\n');
+    expect(renumberLine(src, 2, 50, keep)).toBe(
+      ['3 STOP', 'SCR', '50 CLS'].join('\n'),
+    );
+  });
+
+  it('applyRenumberMap carries them through a shift', () => {
+    const src = ['SCR', '10 CLS', '20 GOTO 10', 'RUN'].join('\n');
+    expect(applyRenumberMap(src, new Map([[20, 30]]), keep)).toBe(
+      ['SCR', '10 CLS', '30 GOTO 10', 'RUN'].join('\n'),
+    );
+  });
+
+  it('numberLineInPlace refuses to number one', () => {
+    expect(numberLineInPlace(['LOMEM=768'], 0, 10, keep)).toBeNull();
+  });
+
+  it('insertNumberedLineBelow falls back to a plain newline on one', () => {
+    expect(insertNumberedLineBelow(['SCR', '10 CLS'], 0, 10, keep)).toBeNull();
+  });
+
+  it('planConstructNumbering refuses one', () => {
+    expect(
+      planConstructNumbering(['RUN', '10 FOR'], 0, 10, 2, keep),
+    ).toBeNull();
+  });
+
+  /**
+   * The cross-dialect guarantee. With no predicate - which is every machine
+   * whose source is numbered lines and nothing else - the same text is numbered
+   * exactly as it always was, so a ZX81 user typing `PRINT 1` on row 1 still
+   * gets a line number for it.
+   */
+  it('numbers the very same lines when no predicate is given', () => {
+    const src = ['SCR', 'LOMEM=768', '5 CLS'].join('\n');
+    expect(renumberProgram(src, 10, 10)).toBe(
+      ['10 SCR', '20 LOMEM=768', '30 CLS'].join('\n'),
+    );
+    expect(numberLineInPlace(['RUN'], 0, 10)).toEqual({
+      lines: ['10 RUN'],
+      lineNo: 10,
+    });
+    expect(insertNumberedLineBelow(['SCR'], 0, 10)).not.toBeNull();
+    expect(planConstructNumbering(['RUN', '10 FOR'], 0, 10, 2)).not.toBeNull();
+  });
+});

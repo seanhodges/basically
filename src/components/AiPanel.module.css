@@ -242,3 +242,54 @@
   font-style: italic;
   opacity: 0.75;
 }
+
+/* The picture waiting to be sent, above the composer: what it will actually
+   look like on the wire, its name, and the way to take it back off. A
+   photograph, not pixel art - smoothed like any other photo. */
+.aiAttachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: 12px;
+}
+
+.aiAttachmentThumb {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.aiAttachmentText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.aiAttachmentName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiAttachmentNote {
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* Sits beside Send, and is the same height as it so the two read as one
+   control group rather than as a button and a decoration. */
+.aiAttach {
+  flex: none;
+  align-self: stretch;
+  padding: 0 8px;
+  font-size: 15px;
+  line-height: 1;
+}

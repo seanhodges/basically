@@ -5,6 +5,7 @@ import {
   PET_DISPLAY_HEIGHT,
 } from '../../emulator/pet/petMachine';
 import { petKeywords } from './keywords';
+import { c64Operators } from '../commodore64/keywords';
 import { petCharset } from './charset';
 import { petMemoryMap } from './memoryMap';
 import { petMemoryBlocks } from './memoryBlocks';
@@ -45,6 +46,8 @@ export const pet: Dialect = {
   manufacturer: 'Commodore',
   year: 1977,
   blurb: 'Commodore’s all-in-one original. Runs Commodore BASIC 4.0.',
+  basicDialect: 'Commodore BASIC 4.0',
+  basicFamily: 'Commodore BASIC',
   // BASIC 4.0 shares the merged 'commodore' reference page with the C64/VIC-20
   // (V2); its fifteen extra disk commands are tagged there as BASIC 4.0.
   docsReference: 'commodore',
@@ -58,8 +61,10 @@ export const pet: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-device'] },
+  memoryReads: { forms: ['peek'], calls: ['SYS'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: petKeywords,
+  operators: c64Operators,
   charset: petCharset,
   languageSupport: petLanguageSupport,
   completionSource: petCompletionSource,
@@ -102,8 +107,12 @@ export const pet: Dialect = {
 
   debuggable: true,
 
+  // The KERNAL channel-I/O routines, for devices 8-11: a virtual disk unit.
+  capturesDataFiles: true,
+
   // opts.rom/ramKb are ignored: the PET machine loads its own six ROM images and
-  // models a fixed 32 KB machine. opts.files is reserved for Stage 4 tape I/O.
+  // models a fixed 32 KB machine. opts.files is the VFS store the PET's KERNAL
+  // disk traps use for OPEN/PRINT#/INPUT#/GET#/CLOSE data-file I/O.
   createEmulator(opts) {
     return new PetMachine({ files: opts.files });
   },

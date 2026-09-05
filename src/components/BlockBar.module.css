@@ -1,0 +1,50 @@
+/* Same row height and font size as the tab strip above it (EditorTabBar's
+   .tabBar), so the whole stack of touch targets is consistent. */
+.blockBar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.85;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The element that gives way when the bar runs out of room: the addresses and
+   the controls are the bar's job, a comment is the block's own prose.
+   A zero flex basis is what pins the controls to this row - the bar wraps, and
+   in a wrapping row an item too wide for the room left moves to the next line
+   rather than shrinking, so a comment measured at its full width would push the
+   view toggle onto a second row and put back the row this change removed. */
+.comment {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
+.readOnly {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.refusal {
+  color: var(--error);
+  font-weight: 600;
+}
+
+/* The surface's own controls, pinned to the end and not shrinking - a narrow
+   bar wraps the comment rather than the controls. */
+.controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}

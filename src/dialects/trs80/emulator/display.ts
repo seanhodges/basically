@@ -8,6 +8,8 @@
  * asset); the glyph shapes differ slightly from the real font but the layout is
  * faithful.
  */
+import { screenChar } from '../charset';
+
 export const COLS = 64;
 export const ROWS = 16;
 export const CELL_W = 8;
@@ -40,15 +42,12 @@ export function renderDisplay(
       const y = row * CELL_H;
       if (code >= 0x80) {
         drawGraphics(ctx, x, y, code & 0x3f);
-      } else if (code >= 0x21 && code <= 0x7f) {
-        // Model I has no lower case: fold a–z onto A–Z for display.
-        const ch =
-          code >= 0x61 && code <= 0x7a
-            ? String.fromCharCode(code - 0x20)
-            : String.fromCharCode(code);
-        ctx.fillText(ch, x, y);
+      } else {
+        // The same helper the screen read uses, so what is drawn and what is
+        // reported cannot drift - including the Model I's lack of lower case.
+        const ch = screenChar(code);
+        if (ch !== undefined) ctx.fillText(ch, x, y);
       }
-      // codes 0x00-0x20 render as blank
     }
   }
 }

@@ -1,215 +1,126 @@
 # Contributing to Basically
 
-Thanks for wanting to help! This page is the practical
-starting point for contributors: how to set up, how the project is laid
-out, the quality bar a change has to clear, and how to get it reviewed and
-merged.
+Thanks for helping out. This page covers setup, the bar a change has to clear,
+and how to get it merged. For what Basically is and does, see the
+[README](https://github.com/seanhodges/basically#readme).
 
-If you are adding a whole new machine, read this page first, then jump to
+Adding a whole new machine is a bigger job with its own guide: read
 [Adding a dialect](/contributing/adding-a-dialect) and the
 [dialect plans](/contributing/dialect-plans/README).
 
 ## Ways to contribute
 
-- **Fix a bug or rough edge** - start small; a focused PR is the best way to
-  learn the codebase.
-- **Improve a dialect** - better tokenizer accuracy, keyword docs, samples, or
-  emulator fidelity for a machine you know well.
-- **Add a new target machine** - a BASIC dialect, emulator, and virtual
-  keyboard. This is a larger effort; see [Adding a dialect](/contributing/adding-a-dialect).
-- **Improve the docs** - these pages live under `docs/` and are always welcome.
-- **Report issues** - a clear bug report with steps to reproduce is a real
-  contribution.
+Bug fixes, dialect improvements (tokenizer accuracy, samples, emulator
+fidelity), documentation, and clear bug reports are all welcome. Start small —
+a focused PR is the fastest way to learn the codebase.
 
-If you are planning something large, please open a GitHub issue to discuss it
-first so we can agree on the approach before you invest the time.
+Open a GitHub issue before starting anything large, so we can agree on the
+approach before you invest the time.
 
 ## Getting set up
 
-You need a recent **Node.js LTS** and **git**. The IDE is TypeScript + React +
-Vite.
+You need a recent Node.js LTS and git.
 
-1. **Fork** the repository on GitHub
-   ([seanhodges/basically](https://github.com/seanhodges/basically)) to your own
-   account.
-2. **Clone your fork** and add the original as an `upstream` remote so you can
-   keep up to date:
+```bash
+git clone https://github.com/<your-username>/basically.git
+cd basically
+npm install
+npm run dev        # IDE at http://localhost:5173
+npm run docs:dev   # docs site at http://localhost:5173/docs/
+```
 
-   ```bash
-   git clone https://github.com/<your-username>/basically.git
-   cd basically
-   git remote add upstream https://github.com/seanhodges/basically.git
-   ```
+Confirm the checkout works before you change anything: in the IDE choose
+**File ▸ New project**, pick the **Breakout** sample, press **Create project**,
+then **▶ Run** (Ctrl+Enter). For the AI panel, click **✦ AI** and enter an API
+key for your provider — it stays in your browser.
 
-3. **Install and run:**
+## The one mental model
 
-   ```bash
-   npm install        # install dependencies
-   npm run dev        # Vite dev server serving the IDE at http://localhost:5173
-   npm run docs:dev   # Vite dev server serving docs at http://localhost:5173/docs/ (optional)
-   npm test           # unit tests, incl. booting the emulator ROM
-   ```
+The app only talks to the `Dialect` interface (`src/dialects/types.ts`) and the
+`MachineEmulator` it returns — never to a machine's specifics directly. Each
+machine lives in `src/dialects/<name>/`, and that seam is what keeps new
+machines pluggable. Get comfortable with it before making cross-cutting
+changes.
 
-Open the IDE, choose **File ▸ New project**, start from the **Breakout** sample
-and press **Create project**. Then press **▶ Run** (or Ctrl+Enter), click the
-screen and follow the in-game instructions.
-
-For AI generation, click **✦ AI**, pick your AI provider and follow the instructions to enter your API key.
-Open `http://localhost:5173` and create a project from a sample, then press
-**▶ Run** to confirm everything works before you change anything.
-
-To work on these docs, use `npm run docs:dev` (VitePress dev server).
-
-## How the project fits together
-
-The one mental model: **the app only talks to the `Dialect` interface**
-(`src/dialects/types.ts`) and the `MachineEmulator` it returns - never to a
-machine's specifics directly. Each machine lives in `src/dialects/<name>/`, and
-that seam is what keeps new machines pluggable. Get comfortable with it before
-making cross-cutting changes.
-
-| Path                       | Role                                                              |
-| -------------------------- | ----------------------------------------------------------------- |
-| `src/dialects/types.ts`    | The `Dialect` / `MachineEmulator` contracts - the app's only seam |
-| `src/dialects/registry.ts` | Registers the available dialects (`getDialect(id)`)               |
-| `src/dialects/<name>/`     | One folder per dialect (tokenizer, charset, keywords, samples, …) |
-| `src/emulator/`            | Vendored/third-party CPU cores and large machine wrappers         |
-| `src/editor/`              | Generic CodeMirror builders: language, completions, lint          |
-| `src/keyboard/`            | The data-driven virtual keyboard (no per-machine logic)           |
-| `src/app/`                 | Zustand store (`store.ts`) and app-level hooks                    |
-| `src/components/`          | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`       |
-| `src/ai/`                  | AI client, prompt builder, code extractor/merge                   |
-| `src/transfer/`            | Hardware export: WAV cassette, native images, WebSerial           |
-| `docs/`                    | This documentation site (VitePress)                               |
-
-For the full layer breakdown and data-flow diagrams, see the
-[architecture overview](/contributing/architecture); the project's `CLAUDE.md`
-at the repository root is the companion quick-reference map.
+The [architecture overview](/contributing/architecture) has the full layer
+breakdown and data-flow diagrams; `CLAUDE.md` at the repository root is the
+quick-reference map of where things live.
 
 ## Spec-driven changes (OpenSpec)
 
-The project uses [OpenSpec](https://github.com/Fission-AI/OpenSpec) for
-spec-driven development. Baseline capability specs — short, behavioural
-statements of what the product guarantees — live in
-`openspec/specs/<capability>/spec.md`, and each feature or behaviour change
-starts as a change folder under `openspec/changes/` (proposal, design, spec
-deltas, tasks) that is archived into the baseline once shipped. The CLI is a
-devDependency: `npx openspec list --specs` shows the capabilities and
-`npx openspec validate --specs` checks them. Specs describe **what** the
-product does; the [architecture overview](/contributing/architecture)
-describes **how** — keep implementation detail out of specs. Planning a whole
-new target system is the exception: that stays with the dialect plans under
-`docs/contributing/dialect-plans/`.
+Feature and behaviour changes go through
+[OpenSpec](https://github.com/Fission-AI/OpenSpec). Baseline capability specs
+live in `openspec/specs/`, in-flight changes in `openspec/changes/`;
+`npx openspec list --specs` and `npx openspec validate --specs` are the CLI you
+need. Specs say **what** the product guarantees, the architecture overview says
+**how** — keep implementation detail out of specs. Refactors get no spec delta,
+and planning a whole new target system stays with the dialect plans.
 
-## Conventions and best practices
+## Conventions
 
-- **Strict TypeScript.** `noUnusedLocals`, `noUnusedParameters`, and
-  `noFallthroughCasesInSwitch` are on; unused symbols fail the build. Avoid
-  `any`.
-- **Respect the seam.** A change that touches the editor, transfer dialog,
-  status bar, or emulator pane to support one machine usually means the seam is
-  being bypassed - keep machine-specific code inside `src/dialects/<name>/`.
-- **Errors, not throws.** The tokenizer collects `TokenizeError[]` (1-based
-  line, 0-based column) for inline display rather than throwing.
-- **State.** A single Zustand store; components subscribe via narrow selectors
-  (`useIdeStore((s) => s.source)`). Async work is requested by bumping a counter
-  that a `useEffect` watches, not by calling across modules.
-- **Naming.** Components `PascalCase`, functions/vars `camelCase`, hardware
-  constants `SCREAMING_SNAKE_CASE` (e.g. `TSTATES_PER_FRAME`).
-- **Tests live next to code.** Add or update colocated `*.test.ts` files,
-  especially for tokenizer, emulator, and charset changes - don't rely on
-  manual checking alone. Emulator tests may read the real ROMs under
-  `public/roms/`.
-- **Keep changes focused.** One logical change per PR makes review faster and
-  history cleaner.
+- **Respect the seam.** If supporting one machine means touching the editor,
+  transfer dialog, status bar or emulator pane, the seam is being bypassed —
+  keep machine-specific code in `src/dialects/<name>/`.
+- **Strict TypeScript.** Unused symbols fail the build. Avoid `any`.
+- **Errors, not throws.** The tokenizer collects `TokenizeError[]` for inline
+  display rather than throwing.
+- **Tests live next to the code**, as colocated `*.test.ts` — especially for
+  tokenizer, emulator and charset changes. Emulator tests may boot the real
+  ROMs under `public/roms/`.
+- **One logical change per PR.** Faster to review, cleaner history.
+
+`CLAUDE.md` carries the rest: naming, store patterns, comment and UI-label
+style.
 
 ### Don't touch
 
-Some code is vendored or third-party and must not be hand-edited or relicensed:
-
-- `src/emulator/z80/` - vendored Z80 core (fix bugs in the machine adapter
-  instead).
-- `src/emulator/6502/cpu6502.js` - vendored build output.
-- `src/emulator/c64/viciious/` - vendored viciious C64 core.
-- The **jsbeeb** npm package - wrap it in `src/emulator/bbc/`, don't fork it.
-- `public/roms/**` - third-party ROMs (see `public/roms/ATTRIBUTION.md`). Never
-  commit a ROM you don't have the right to distribute.
+Vendored emulator cores and the bundled ROMs are third-party — don't hand-edit
+or relicense them. Fix an emulation bug in the machine adapter that wraps the
+core, and never commit a ROM you don't have the right to distribute. `CLAUDE.md`
+lists the vendored paths; `public/roms/ATTRIBUTION.md` covers ROM provenance.
 
 ## Before you open a PR
 
-Run the full local check suite and make sure it is green. CI runs the same
-gates, so checking locally first saves a round-trip:
-
 ```bash
-npm run typecheck      # tsc -b, no bundle
-npm test               # vitest run (all unit tests)
-npm run lint           # ESLint
-npm run format:check   # Prettier check (use `npm run format` to auto-fix)
+npm run typecheck
+npm test
+npm run lint
+npm run format:check   # `npm run format` to auto-fix
 ```
 
 For changes that affect the running app (UI, emulator, transfer), also run the
-end-to-end / visual tests. The `e2e/` folders mirror the `openspec/specs/`
-capabilities, so you can run just the specs for the area you touched:
+end-to-end tests. The `e2e/` folders mirror the `openspec/specs/` capabilities,
+so you can run just the area you touched:
 
 ```bash
-npm run e2e:chromium -- e2e/<capability>   # Playwright, one capability, Chromium only
+npm run e2e:chromium -- e2e/<capability>   # one capability, Chromium only
 npm run e2e                                # the full cross-browser matrix
 ```
 
-If you changed behaviour, add or update a test that would have caught the bug.
+CI runs all of these plus `npm run docs:build`, so a docs change that breaks the
+VitePress build fails there. If you changed behaviour, add or update a test that
+would have caught the bug.
 
-## Git workflow: fork, branch, and raise a PR
+## Raising a PR
 
-Basically uses the standard **fork-and-pull-request** model. You don't push to
-the main repository directly - you propose changes from your fork and they get
-reviewed on GitHub before merging.
+Basically uses the standard fork-and-pull-request model. Fork the repository,
+branch off the latest `main`, and make focused commits with short imperative
+summary lines. Run the checks above, then open a PR against
+`seanhodges/basically:main` explaining **what** changed and **why**, linking any
+related issue and including a screenshot or short clip for UI changes.
 
-1. **Sync your fork** with upstream so you branch from the latest `main`:
-
-   ```bash
-   git checkout main
-   git pull upstream main
-   ```
-
-2. **Create a topic branch** with a descriptive name:
-
-   ```bash
-   git checkout -b fix/spectrum-tokenizer-edge-case
-   ```
-
-3. **Make your change**, with focused commits and clear messages (a short
-   imperative summary line, e.g. _"Make C64 breakout keys case-insensitive"_).
-
-4. **Run the checks** above and make sure they pass.
-
-5. **Push to your fork** and open a pull request against
-   `seanhodges/basically:main`:
-
-   ```bash
-   git push -u origin fix/spectrum-tokenizer-edge-case
-   ```
-
-   GitHub will offer a "Compare & pull request" button. In the PR description,
-   explain **what** changed and **why**, link any related issue, and include
-   screenshots or a short clip for UI changes.
-
-6. **Respond to review.** A maintainer will review your PR. Push follow-up
-   commits to the same branch to address feedback - the PR updates
-   automatically. Keep the discussion focused and don't force-push over review
-   history unless asked.
-
-Once approved and green, a maintainer will merge it. 🎉
+Push follow-up commits to the same branch to address review — the PR updates
+automatically. Don't force-push over review history unless asked.
 
 ## Licensing
 
-Basically is licensed under **GPL-3.0-or-later** (see `LICENSE`). This is partly
-because some emulator cores it builds on are themselves GPL (e.g. jsbeeb). By
-contributing, you agree your contribution is licensed under the same terms.
-Before adding a new dependency - especially an emulator core - check its license
-is compatible, and add attribution where required.
+Basically is GPL-3.0-or-later (see `LICENSE`); by contributing you agree your
+contribution is licensed under the same terms. Before adding a dependency —
+especially an emulator core — check its licence is compatible and add
+attribution where required.
 
 ## Questions
 
-If you're unsure about anything, open a GitHub issue or start a draft PR early
-and ask. We'd rather help you get the approach right than have you guess. You can
-also drop into the [Discord](/guide/community) for a quicker back-and-forth.
+Open a GitHub issue, or start a draft PR early and ask. We'd rather help you get
+the approach right than have you guess. The
+[Discord](/contributing/community) is good for a quicker back-and-forth.

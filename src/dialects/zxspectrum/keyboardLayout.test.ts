@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumCharset } from './charset';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
 
 const layout = spectrumKeyboardLayout;
 const allKeys = layout.rows.flat();
@@ -9,7 +12,6 @@ const allKeys = layout.rows.flat();
 const editorLayerIds = [
   ...(layout.editorModes ?? []).map((m) => m.layer),
   'caps',
-  'symbol',
 ];
 
 describe('zxspectrum keyboard layout', () => {
@@ -64,7 +66,8 @@ describe('zxspectrum keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyG')!, 'keyword')).toEqual({
       insert: 'GO TO ',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyP')!, 'symbol')).toEqual({
+    // '"' is the SYM cell on the C slot, pressing SymShift+P for the machine.
+    expect(resolveEditorAction(layout, byId.get('KeyC')!, 'symbols')).toEqual({
       insert: '"',
     });
     expect(resolveEditorAction(layout, byId.get('KeyQ')!, 'function')).toEqual({
@@ -89,5 +92,41 @@ describe('zxspectrum keyboard layout', () => {
         insert: '3',
       },
     );
+  });
+
+  it('puts the cursor arrows on 5/6/7/8, where the machine prints them', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    const arrows: [string, 'left' | 'down' | 'up' | 'right'][] = [
+      ['Digit5', 'left'],
+      ['Digit6', 'down'],
+      ['Digit7', 'up'],
+      ['Digit8', 'right'],
+    ];
+    for (const [id, action] of arrows) {
+      const key = byId.get(id)!;
+      // The arrow the machine prints on the CAPS layer and the CURSOR
+      // overlay are the same key, and both move the caret.
+      expect(resolveEditorAction(layout, key, 'caps'), id).toEqual({
+        action,
+      });
+      expect(resolveEditorAction(layout, key, 'cursor'), id).toEqual({
+        action,
+      });
+      // On the machine the CURSOR legend presses the pair the real keyboard
+      // sends, not the digit on its own.
+      expect(resolveEmits(layout, key, 'cursor'), id).toEqual([
+        'CapsShift',
+        id,
+      ]);
+    }
+    // The letter keys carry no arrow, so CURSOR mode blanks them: inert,
+    // like an unmapped SYM cell, rather than typing their letters.
+    for (const id of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      expect(
+        resolveEditorAction(layout, byId.get(id)!, 'cursor'),
+        id,
+      ).toBeNull();
+      expect(resolveEmits(layout, byId.get(id)!, 'cursor'), id).toEqual([]);
+    }
   });
 });

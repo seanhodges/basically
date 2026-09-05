@@ -2,21 +2,40 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { MachineVariable } from '../types';
+import {
+  readMsBasicVariables,
+  type MsBasicMemPort,
+  type MsBasicVarsLayout,
+} from '../../emulator/microsoftBasicVars';
+import { ARYTAB, STREND, VARTAB } from './addresses';
+import { plainChar } from './charset';
 
 /**
- * Read the running program's BASIC variables out of RAM for the variable
- * watcher (Stage 5), behind the machine's `readVariables()`.
+ * Where Altair 8K BASIC keeps its variables, for the shared Microsoft 8K BASIC
+ * decoder in `emulator/microsoftBasicVars.ts`.
  *
- * Microsoft BASIC keeps scalars in a simple table between its VARTAB and ARYTAB
- * pointers - name bytes then value - which the C64 and TRS-80 implementations
- * already walk, so the traversal is familiar. What has to be derived here is
- * where those pointers live in the Altair's RAM-resident interpreter, and the
- * exact float format 8K BASIC stores numbers in.
+ * The encoding behind these pointers was read off a booted machine - a program
+ * assigning one of each kind, then the bytes between the pointers - and came
+ * back identical to the PMD 85's in every field, which is why the walk itself
+ * is shared and only the addresses are here. That is the expected answer rather
+ * than a lucky one: BASIC-G is a Microsoft 8K BASIC too, and this is the
+ * Microsoft 8K BASIC.
  *
- * Not every dialect ships this: the ZX80 and the Acorn Atom both omit variable
- * watching where the machine makes it impractical, and that is an acceptable
- * outcome here too if the pointers cannot be pinned down from a primary source.
+ * There is no integer type to decode. `%` did not exist in 8K BASIC (see the
+ * marker traps in `src/reference/facts.ts`), so every numeric variable here is
+ * a 4-byte float and the two-flag type encoding the Commodores use never
+ * arises.
  */
-export function readVariables(_memory: Uint8Array): MachineVariable[] {
-  throw new Error('altair8800: not implemented');
+const ALTAIR_VARS_LAYOUT: MsBasicVarsLayout = {
+  vartab: VARTAB,
+  arytab: ARYTAB,
+  strend: STREND,
+  plainChar,
+};
+
+/** Every 8K BASIC variable the machine currently holds, scalars first. */
+export function readAltair8800Variables(
+  mem: MsBasicMemPort,
+): MachineVariable[] {
+  return readMsBasicVariables(mem, ALTAIR_VARS_LAYOUT);
 }

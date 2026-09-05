@@ -2,7 +2,14 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
-import { bottomRow } from '../../keyboard/templateRows';
+import { act, key as kitKey } from '../../keyboard/legendKit';
+import {
+  type SymbolTable,
+  bottomRow,
+  centerRow,
+  flankedRow,
+  withSymbolMode,
+} from '../../keyboard/templateRows';
 
 /**
  * The on-screen keyboard for the Altair - which, strictly, the Altair did not
@@ -24,59 +31,40 @@ import { bottomRow } from '../../keyboard/templateRows';
  *   depends on - above all CTRL-C to break a running program - so it is a real
  *   modifier here rather than decoration.
  *
- * **The SHIFT legends are not decoration either.** `emulator/keyboard.ts` sends
- * the byte the teletype's code bars would have sent, which is the unshifted
- * character with bit 4 flipped - so SHIFT-K really is `[`, SHIFT-P really is
- * `@`, and SHIFT-0 really is a space. Every shifted legend below is that byte,
- * and `keyboardLayout.test.ts` checks each one against `tokenToByte` rather than
- * trusting this file: a legend that disagreed would type one character into the
- * editor and send a different one to the machine.
+ * **SHIFT is a bit-4 flip.** `emulator/keyboard.ts` sends the byte the
+ * teletype's code bars would have sent, which is the unshifted character with
+ * bit 4 flipped - so SHIFT-K really is `[` and SHIFT-P really is `@` on the
+ * machine. Those pairs are the SYM table's, not keycap legends: the keycaps
+ * carry the letter alone, symbols are the SYM mode's work, and
+ * `keyboardLayout.test.ts` checks every SYM cell against `tokenToByte`.
  *
- * The keys carrying no second marking on a real ASR-33 - A-J, Q-Z and the space
- * bar - have no SHIFT legend, because flipping their bit 4 would land on another
- * letter and the mechanism simply does not do it. They fall back to their base
- * legend on the SHIFT layer, which is exactly what the machine does.
- *
- * Row order follows the teletype: digits, QWERTY, a home row ending in `;`, and
- * the punctuation row. `:` and `-` sat at the end of the teletype's own digit
- * band; here they move to the bottom row so every typing row keeps the project's
- * ten-key grid. The teletype's function keys - LINE FEED, RUB OUT and ALT MODE -
- * sit in the top strip rather than taking keycaps from the typing rows.
+ * The board is the standard template: digits, QWERTY, a centred nine-letter
+ * home row, the SHIFT/backspace-flanked bottom letter row, and CTRL in the
+ * bottom-left machine region beside the space bar, quote, and ENTER. The
+ * teletype's `; : -` keys keep their matrix tokens behind the canonical SYM
+ * positions, alongside the bit-4 pairs the letter keys carry (`[ \ ] ^ _ @`
+ * on K L M N O P). The teletype's function keys - LINE FEED, RUB OUT and
+ * ALT MODE - sit in the top strip rather than taking keycaps from the
+ * typing rows.
  */
 
 /** A printing key: one machine token, a base legend and an optional SHIFT one. */
-function key(token: string, main: string, shift?: string): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [{ text: main }, shift === undefined ? null : { text: shift }],
-  };
-}
+const key = (token: string, main: string, shift?: string): KeyDef =>
+  kitKey(token, [main, shift ?? null]);
 
-// SHIFT flips bit 4, so the shifted digits are the ASCII row 0x21-0x29 - and
-// SHIFT-0 (0x30 ^ 0x10) is a space, which is why the tenth key carries a `␣`
-// legend that inserts one.
 const numberRow: KeyDef[] = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
-  {
-    id: 'Digit0',
-    spanX: 4,
-    emits: ['Digit0'],
-    labels: [{ text: '0' }, { text: '␣', editor: { insert: ' ' } }],
-  },
+  key('Digit1', '1'),
+  key('Digit2', '2'),
+  key('Digit3', '3'),
+  key('Digit4', '4'),
+  key('Digit5', '5'),
+  key('Digit6', '6'),
+  key('Digit7', '7'),
+  key('Digit8', '8'),
+  key('Digit9', '9'),
+  key('Digit0', '0'),
 ];
 
-// Only K-P carry a second marking: those are the six letters whose bit-4 flip
-// lands outside A-Z, on `[ \ ] ^ _ @`.
 const qwertyRow: KeyDef[] = [
   key('KeyQ', 'Q'),
   key('KeyW', 'W'),
@@ -86,11 +74,11 @@ const qwertyRow: KeyDef[] = [
   key('KeyY', 'Y'),
   key('KeyU', 'U'),
   key('KeyI', 'I'),
-  key('KeyO', 'O', '_'),
-  key('KeyP', 'P', '@'),
+  key('KeyO', 'O'),
+  key('KeyP', 'P'),
 ];
 
-const homeRow: KeyDef[] = [
+const homeRow: KeyDef[] = centerRow([
   key('KeyA', 'A'),
   key('KeyS', 'S'),
   key('KeyD', 'D'),
@@ -98,23 +86,9 @@ const homeRow: KeyDef[] = [
   key('KeyG', 'G'),
   key('KeyH', 'H'),
   key('KeyJ', 'J'),
-  key('KeyK', 'K', '['),
-  key('KeyL', 'L', '\\'),
-  key('Semicolon', ';', '+'),
-];
-
-const punctuationRow: KeyDef[] = [
-  key('KeyZ', 'Z'),
-  key('KeyX', 'X'),
-  key('KeyC', 'C'),
-  key('KeyV', 'V'),
-  key('KeyB', 'B'),
-  key('KeyN', 'N', '^'),
-  key('KeyM', 'M', ']'),
-  key('Comma', ',', '<'),
-  key('Period', '.', '>'),
-  key('Slash', '/', '?'),
-];
+  key('KeyK', 'K'),
+  key('KeyL', 'L'),
+]);
 
 const ctrlKey: KeyDef = {
   id: 'Control',
@@ -141,12 +115,7 @@ const spaceKey = {
   labels: [{ text: '␣', editor: { insert: ' ' } }, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
-const enterKey: KeyDef = {
-  id: 'Enter',
-  spanX: 4,
-  emits: ['Enter'],
-  labels: [{ text: '↵', editor: { action: 'newline' } }, null],
-};
+const enterKey = kitKey('Enter', [act('↵', 'newline'), null], { spanX: 6 });
 
 /**
  * Not an ASR-33 key: a host keyboard's Backspace, which the machine adapter
@@ -154,24 +123,80 @@ const enterKey: KeyDef = {
  * character typed". In the editor it does the obvious thing instead.
  */
 const backspaceKey: KeyDef = {
-  id: 'Backspace',
-  spanX: 4,
-  emits: ['Backspace'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
+  ...kitKey('Backspace', [act('⌫', 'backspace'), null]),
+  spanX: 6,
 };
+
+const punctuationRow: KeyDef[] = flankedRow(
+  shiftKey,
+  [
+    key('KeyZ', 'Z'),
+    key('KeyX', 'X'),
+    key('KeyC', 'C'),
+    key('KeyV', 'V'),
+    key('KeyB', 'B'),
+    key('KeyN', 'N'),
+    key('KeyM', 'M'),
+  ],
+  backspaceKey,
+);
+
+// The quote is SHIFT+2 on the teletype, given its own bottom-row key as on
+// every board.
+const quoteKey = kitKey('Quote', ['"', null], { emits: ['Shift', 'Digit2'] });
 
 const rows: KeyDef[][] = [
   numberRow,
   qwertyRow,
   homeRow,
   punctuationRow,
-  bottomRow([ctrlKey, shiftKey], spaceKey, [
-    key('Colon', ':', '*'),
-    key('Minus', '-', '='),
-    enterKey,
-    backspaceKey,
-  ]),
+  bottomRow([ctrlKey], spaceKey, [quoteKey, enterKey]),
 ];
+
+/**
+ * How the teletype reaches each canonical SYM symbol: SHIFT flips bit 4, so
+ * the pairs are fixed by ASCII itself (`[ \ ] ^ _ @` on K L M N O P, the
+ * shifted digits, and the `;+ :* -= ,< .> /?` keys) - each checked against
+ * `tokenToByte` by the layout test.
+ */
+const ALTAIR_SYMBOLS: SymbolTable = {
+  '+': { emits: ['Shift', 'Semicolon'] },
+  '!': { emits: ['Shift', 'Digit1'] },
+  '-': { emits: ['Minus'] },
+  '=': { emits: ['Shift', 'Minus'] },
+  '/': { emits: ['Slash'] },
+  _: { emits: ['Shift', 'KeyO'] },
+  '<': { emits: ['Shift', 'Comma'] },
+  '>': { emits: ['Shift', 'Period'] },
+  '[': { emits: ['Shift', 'KeyK'] },
+  ']': { emits: ['Shift', 'KeyM'] },
+  '@': { emits: ['Shift', 'KeyP'] },
+  '#': { emits: ['Shift', 'Digit3'] },
+  $: { emits: ['Shift', 'Digit4'] },
+  '%': { emits: ['Shift', 'Digit5'] },
+  '^': { emits: ['Shift', 'KeyN'] },
+  '&': { emits: ['Shift', 'Digit6'] },
+  '*': { emits: ['Shift', 'Colon'] },
+  '(': { emits: ['Shift', 'Digit8'] },
+  ')': { emits: ['Shift', 'Digit9'] },
+  "'": { emits: ['Shift', 'Digit7'] },
+  '"': { emits: ['Shift', 'Digit2'] },
+  ':': { emits: ['Colon'] },
+  ';': { emits: ['Semicolon'] },
+  ',': { emits: ['Comma'] },
+  '.': { emits: ['Period'] },
+  '\\': { emits: ['Shift', 'KeyL'] },
+  '?': { emits: ['Shift', 'Slash'] },
+};
+
+/** A top-strip key: matrix token only, `editor: null` so it types nothing. */
+const fnKey = (id: string, text: string): KeyDef => ({
+  id,
+  spanX: 4,
+  emits: [id],
+  style: 'fn',
+  labels: [{ text, editor: null }, null],
+});
 
 /**
  * The teletype's own function keys, in the top strip. Each sends a fixed control
@@ -179,37 +204,41 @@ const rows: KeyDef[][] = [
  * editor, which is why they are here rather than on the typing grid.
  */
 const functionKeys: KeyDef[] = [
-  { id: 'LineFeed', spanX: 4, emits: ['LineFeed'], labels: [{ text: 'LF' }] },
-  { id: 'Rubout', spanX: 4, emits: ['Rubout'], labels: [{ text: 'RUB' }] },
-  { id: 'Escape', spanX: 4, emits: ['Escape'], labels: [{ text: 'ALT' }] },
+  fnKey('LineFeed', 'LF'),
+  fnKey('Rubout', 'RUB'),
+  fnKey('Escape', 'ALT'),
 ];
 
-export const altair8800KeyboardLayout: KeyboardLayout = {
-  id: 'altair8800',
-  name: 'Altair 8800',
-  theme: 'vk-theme-altair8800',
-  gridColumns: 40,
-  layers: [
-    {
-      id: 'base',
-      position: 'center',
-      activeWhen: [],
-      editorInsertStyle: 'char',
-    },
-    {
-      id: 'shift',
-      name: 'SHIFT',
-      position: 'tr',
-      activeWhen: ['shift'],
-      editorInsertStyle: 'char',
-    },
-  ],
-  modifiers: [
-    { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
-    { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
-  ],
-  rows,
-  functionKeys,
-  glyphs: {},
-  options: { minHoldFrames: 1 },
-};
+export const altair8800KeyboardLayout: KeyboardLayout = withSymbolMode(
+  {
+    id: 'altair8800',
+    name: 'Altair 8800',
+    theme: 'vk-theme-altair8800',
+    gridColumns: 40,
+    layers: [
+      {
+        id: 'base',
+        position: 'center',
+        activeWhen: [],
+        editorInsertStyle: 'char',
+      },
+      {
+        id: 'shift',
+        name: 'SHIFT',
+        position: 'tr',
+        activeWhen: ['shift'],
+        editorInsertStyle: 'char',
+      },
+    ],
+    editorModes: [{ id: 'abc', name: 'ABC', layer: 'base' }],
+    modifiers: [
+      { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
+      { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
+    ],
+    rows,
+    functionKeys,
+    glyphs: {},
+    options: { minHoldFrames: 1 },
+  },
+  ALTAIR_SYMBOLS,
+);

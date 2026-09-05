@@ -10,7 +10,7 @@ three round-trip back to editable source on import, and the IDE also imports a
 plain-text `.bas` listing. They all carry the BASIC program only; fixed-address
 [memory blocks](../file-formats#machine-code-data-blocks) travel with the
 document through the [project bundle](../file-formats#project-bundle-zip) and
-share links instead.
+share links instead. The Transfer dialog names the blocks an export would leave behind before it writes the file.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
@@ -47,6 +47,23 @@ dump: a header record then data records, the program split into 2K blocks of
 one such tape file; import replays the blocks back into the tokenized image and
 detokenizes it to source. On the real machine such a tape loads with `RUN"` (or
 `LOAD ""`).
+
+## Program data files
+
+A running program's own data files do not go to tape at all. `OPENOUT` with
+`PRINT #9`, and `OPENIN` with `INPUT #9` and `EOF`, are served by the IDE: what
+the program writes is kept as a named file you can view and download alongside
+the program, and the same program reads it straight back. Stream 9 is the file
+stream — streams 0 to 7 are screen windows and 8 is the printer.
+
+The file holds exactly the bytes the program wrote, so a `PRINT #9` record ends
+with the carriage return and line feed Locomotive BASIC lays down. Each run
+starts with an empty set of files.
+
+`LOAD`, `RUN"` and `CHAIN` open a file the same way `OPENIN` does, so they are
+served from the same place: a program can write a listing and then chain to it.
+A name that has not been saved is left to the cassette, as are `SAVE` and `CAT`
+— which is what the `.cdt` and audio sections below cover.
 
 ## Cassette audio
 

@@ -11,8 +11,18 @@ import { vic20 } from './vic20';
 import { atom } from './atom';
 import { trs80 } from './trs80';
 import { cpc464 } from './cpc464';
+import { cpc664 } from './cpc664';
 import { cpc6128 } from './cpc6128';
 import { altair8800 } from './altair8800';
+import { pmd85 } from './pmd85';
+import { apple1 } from './apple1';
+import { apple2 } from './apple2';
+import { apple2plus } from './apple2plus';
+import { atari800 } from './atari800';
+import { atari400 } from './atari400';
+import { hb10p } from './hb10p';
+import { ge235 } from './ge235';
+import { samcoupe } from './samcoupe';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -27,8 +37,18 @@ export const dialects: Dialect[] = [
   atom,
   trs80,
   cpc464,
+  cpc664,
   cpc6128,
   altair8800,
+  pmd85,
+  apple1,
+  apple2,
+  apple2plus,
+  atari800,
+  atari400,
+  hb10p,
+  ge235,
+  samcoupe,
 ];
 
 export function getDialect(id: string): Dialect {

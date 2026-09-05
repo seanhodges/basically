@@ -29,7 +29,7 @@
 /** Output rate of the stream; 44100 / 50 = 882 samples per frame (integer). */
 export const VIC_AUDIO_SAMPLE_RATE = 44100;
 /** Samples emitted per 50Hz frame. */
-const SAMPLES_PER_FRAME = VIC_AUDIO_SAMPLE_RATE / 50;
+export const VIC_SAMPLES_PER_FRAME = VIC_AUDIO_SAMPLE_RATE / 50;
 /** PAL VIC-20 system clock feeding the sound dividers (Hz). */
 const VIC_CLOCK_PAL = 1_108_404;
 
@@ -124,10 +124,10 @@ export class VicAudioRenderer {
       (r, v) => vicVoiceFreqHz(v, r & VOICE_X_MASK) / VIC_AUDIO_SAMPLE_RATE,
     );
 
-    const out = new Float32Array(SAMPLES_PER_FRAME);
+    const out = new Float32Array(VIC_SAMPLES_PER_FRAME);
     let prevIn = this.dcPrevIn;
     let prevOut = this.dcPrevOut;
-    for (let i = 0; i < SAMPLES_PER_FRAME; i++) {
+    for (let i = 0; i < VIC_SAMPLES_PER_FRAME; i++) {
       let sum = 0;
       for (let v = 0; v < 4; v++) {
         // Advance the phase even when the voice is disabled, so re-enabling

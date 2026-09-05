@@ -1,24 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { EscapeTableData } from '../types';
-import { zx81Escapes } from './zx81';
-import { zx80Escapes } from './zx80';
-import { zxspectrumEscapes } from './zxspectrum';
-import { bbcEscapes } from './bbc';
-import { commodoreEscapes } from './commodore';
-import { trs80Escapes } from './trs80';
-import { atomEscapes } from './atom';
-import { cpcEscapes } from './cpc';
+import { ESCAPE_CLASSES } from '../escape-classes';
+import { escapePages } from '../pages';
 
-const SETS: [string, EscapeTableData][] = [
-  ['zx81', zx81Escapes],
-  ['zx80', zx80Escapes],
-  ['zxspectrum', zxspectrumEscapes],
-  ['bbc', bbcEscapes],
-  ['commodore', commodoreEscapes],
-  ['trs80', trs80Escapes],
-  ['atom', atomEscapes],
-  ['cpc', cpcEscapes],
-];
+const SETS = Object.entries(escapePages);
 
 describe.each(SETS)('escape data: %s', (_id, data) => {
   it('has a title, machine list, categories and entries', () => {
@@ -51,9 +35,25 @@ describe.each(SETS)('escape data: %s', (_id, data) => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('has at most one catch-all (rest) row', () => {
+  // One catch-all *per machine*: a byte no row claims falls to the rest row, so
+  // two of them reachable from one machine would leave the fall-through
+  // undecided. A page whose machines do not share a charset carries one each -
+  // the ZX81 spells a raw byte `\{NN}` and the Spectrums `{0xNN}` - so the rule
+  // is that the rest rows are scoped and no machine is named by two of them.
+  it('has at most one catch-all (rest) row per machine', () => {
     const rest = data.entries.filter((e) => e.codes === 'rest');
-    expect(rest.length).toBeLessThanOrEqual(1);
+    if (rest.length <= 1) return;
+    const claimed = new Set<string>();
+    for (const row of rest) {
+      expect(
+        row.onlyOn,
+        `${row.escape} is a second catch-all, unscoped`,
+      ).toBeTruthy();
+      for (const id of row.onlyOn ?? []) {
+        expect(claimed.has(id), `${id} has two catch-alls`).toBe(false);
+        claimed.add(id);
+      }
+    }
   });
 
   it('every category has at least one entry', () => {
@@ -64,4 +64,26 @@ describe.each(SETS)('escape data: %s', (_id, data) => {
       ).toBe(true);
     }
   });
+
+  it('every category declares a class from the shared vocabulary', () => {
+    for (const c of data.categories) {
+      expect(
+        ESCAPE_CLASSES as readonly string[],
+        `"${c.class}" on category ${c.id} is not in the class vocabulary`,
+      ).toContain(c.class);
+    }
+  });
+});
+
+// A class no page classifies anything as is as much a defect as a category with
+// no class: nothing can ever be reported under it, so the guidance table would
+// carry a cell that cannot be reached and the vocabulary would read as a wish
+// list rather than a description of the tables.
+it('every class in the vocabulary is used by at least one page', () => {
+  const used = new Set(
+    SETS.flatMap(([, data]) => data.categories.map((c) => c.class)),
+  );
+  for (const cls of ESCAPE_CLASSES) {
+    expect(used, `no page classifies any category as "${cls}"`).toContain(cls);
+  }
 });

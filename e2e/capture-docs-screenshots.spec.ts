@@ -295,7 +295,7 @@ test('AI code generation panel', async ({ page }) => {
   await hideKeyboard(page);
   // The desktop AI control is the toolbar button (the ✦ tab only exists in the
   // mobile tab bar, which isn't rendered at this capture viewport).
-  await page.getByRole('button', { name: 'AI code generation' }).click();
+  await page.getByRole('button', { name: 'Show the AI assistant' }).click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/feature-ai.png` });
 });
@@ -368,12 +368,15 @@ test('getting-started: the New-project dialog', async ({ page }) => {
 test('getting-started: the machine picker', async ({ page }) => {
   await open(page);
   const dialog = await openNewProjectDialog(page);
-  // Every machine at once is taller than the capture viewport, and the panel
-  // caps at 88vh - so give it the height rather than shooting a scrolled slice.
-  await page.setViewportSize({ width: VIEWPORT.width, height: 1200 });
+  // No viewport shows every machine at once: the panel is a fixed height and
+  // the machines scroll inside it, opening on the one in use. That is what the
+  // reader sees, so it is what the figure shows.
   await dialog.locator('button[data-target-machine]').first().click();
   const picker = machinePicker(page);
   await picker.waitFor({ state: 'visible' });
+  // Off the rows, or whichever one the trigger's click left the pointer over
+  // picks up the hover border and reads as a second selected machine.
+  await page.mouse.move(0, 0);
   await page.waitForTimeout(300);
   await picker
     .locator('> div')
@@ -405,7 +408,7 @@ async function setEditorSource(page: Page, source: string) {
 
 /** Open the memory map from the toolbar and wait for its panel. */
 async function openMemoryMap(page: Page) {
-  await page.locator('button[title^="Memory map"]').click();
+  await page.locator('button[aria-label="Show the memory map"]').click();
   await page.locator('[class*="memoryHost"]').waitFor({ state: 'visible' });
 }
 
@@ -501,6 +504,55 @@ test('writing-basic: program outline', async ({ page }) => {
     .locator('[class*="modalBackdrop"] > div')
     .first()
     .screenshot({ path: `${OUT}/program-outline.png` });
+});
+
+test('writing-basic: variable usages', async ({ page }) => {
+  await open(page);
+  await hideKeyboard(page);
+  // A program where one name earns a tally: SCORE is written seven times but
+  // used only four, so the figure shows the bar's count disagreeing with a plain
+  // text search - which is the point of the feature.
+  await setEditorSource(
+    page,
+    [
+      '10 REM ** SCORE KEEPER **',
+      '20 LET SCORE=0',
+      '30 FOR I=1 TO 10',
+      '40 LET SCORE=SCORE+I',
+      '50 NEXT I',
+      '60 PRINT "TOTAL SCORE: ";SCORE',
+      '70 REM SCORE IS NOT COUNTED HERE',
+    ].join('\n'),
+  );
+  // Typed text leaves a completion popup open, and the offer stands aside for
+  // one, so put it away before asking.
+  await page.keyboard.press('Escape');
+  // Click the name itself: the menu anchors to the glyphs, not to an offset.
+  await page
+    .locator('.cm-line')
+    .filter({ hasText: '20 LET SCORE=0' })
+    .getByText('SCORE', { exact: true })
+    .click();
+  const offer = page.getByRole('button', { name: /Show where SCORE is used/ });
+  await offer.waitFor({ state: 'visible' });
+  await offer.click();
+  await page.locator('.cm-variableUsagesPanel').waitFor({ state: 'visible' });
+  // Re-open the menu so the figure carries both halves at once: the menu under
+  // the name, and the marks and bar its press produced.
+  await page
+    .locator('.cm-line')
+    .filter({ hasText: '40 LET SCORE=SCORE+I' })
+    .getByText('SCORE', { exact: true })
+    .first()
+    .click();
+  await offer.waitFor({ state: 'visible' });
+  await page.waitForTimeout(150);
+  // Crop to the editor column, so the shot is code and its bar rather than a
+  // window of chrome.
+  await page
+    .locator('[class*="editorPane"]')
+    .first()
+    .screenshot({ path: `${OUT}/variable-usages.png` });
 });
 
 test('writing-basic: byte budget in the status bar', async ({ page }) => {
@@ -607,7 +659,7 @@ test('annotated editor features - mobile', async ({ page }) => {
   await openCompletionPopup(page);
   // Open the "three dots" overflow menu (which carries the Edit actions on the
   // editor tab) without blurring the editor - see the desktop note above.
-  await page.getByTitle('Edit actions').dispatchEvent('click');
+  await page.getByTitle('Show the edit actions').dispatchEvent('click');
   await page
     .locator('[class*="menuItems"]')
     .first()
@@ -626,4 +678,104 @@ test('annotated editor features - mobile', async ({ page }) => {
   ]);
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/editor-features-mobile.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Architecture overview figure.
+//
+// One desktop frame with the main presentation components outlined and named,
+// so the layer description can point at what the reader sees. Grep it on its
+// own with:
+//
+//   npm run e2e:docs-screenshots -- -g "architecture"
+// ---------------------------------------------------------------------------
+
+/**
+ * Outline regions and tag each with a name in one corner. Unlike `annotate`,
+ * there is no leader line: a component fills its box, so a tag sat on the box
+ * says enough and stays out of the neighbouring regions. Purely visual.
+ */
+type RegionTag = {
+  sel: string;
+  text: string;
+  anchor: 'tl' | 'tr' | 'tc' | 'bl' | 'br' | 'bc';
+  maxH?: number;
+};
+async function tagRegions(page: Page, specs: RegionTag[]) {
+  await page.evaluate((items: RegionTag[]) => {
+    const PALETTE = ['#e5484d', '#0090ff', '#30a46c', '#f76b15', '#8e4ec6'];
+    document.getElementById('__ann')?.remove();
+    const layer = document.createElement('div');
+    layer.id = '__ann';
+    Object.assign(layer.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '2147483647',
+      pointerEvents: 'none',
+      font: '600 15px system-ui, -apple-system, sans-serif',
+    } as CSSStyleDeclaration);
+    document.body.appendChild(layer);
+    items.forEach((it, i) => {
+      const el = document.querySelector(it.sel);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const h = it.maxH ? Math.min(r.height, it.maxH) : r.height;
+      const color = PALETTE[i % PALETTE.length];
+      const hl = document.createElement('div');
+      Object.assign(hl.style, {
+        position: 'absolute',
+        left: r.left + 'px',
+        top: r.top + 'px',
+        width: r.width + 'px',
+        height: h + 'px',
+        border: '3px solid ' + color,
+        boxSizing: 'border-box',
+      } as CSSStyleDeclaration);
+      layer.appendChild(hl);
+      const lab = document.createElement('div');
+      lab.textContent = it.text;
+      Object.assign(lab.style, {
+        position: 'absolute',
+        background: color,
+        color: '#fff',
+        padding: '4px 10px',
+        borderRadius: '4px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+        lineHeight: '1.3',
+        whiteSpace: 'nowrap',
+      } as CSSStyleDeclaration);
+      layer.appendChild(lab);
+      const lr = lab.getBoundingClientRect();
+      const pad = 6;
+      const x = it.anchor.endsWith('l')
+        ? r.left + pad
+        : it.anchor.endsWith('r')
+          ? r.right - pad - lr.width
+          : r.left + r.width / 2 - lr.width / 2;
+      const y = it.anchor.startsWith('t')
+        ? r.top + pad
+        : r.top + h - pad - lr.height;
+      lab.style.left = x + 'px';
+      lab.style.top = y + 'px';
+    });
+  }, specs);
+}
+
+test('architecture: annotated presentation components', async ({ page }) => {
+  await open(page);
+  await useDialect(page, DIALECT);
+  await loadSample(page, DESKTOP_HERO_SAMPLE);
+  await runAndBoot(page);
+  await startGame(page);
+  await hideKeyboard(page);
+  await page.waitForTimeout(500);
+  await tagRegions(page, [
+    { sel: '[class*="_toolbar_"]', text: 'Toolbar', anchor: 'tc' },
+    { sel: '[class*="_tabBar_"]', text: 'EditorTabBar', anchor: 'tr' },
+    { sel: '.cm-editor', text: 'CodeMirrorHost', anchor: 'br' },
+    { sel: '[class*="_emulatorPane_"]', text: 'EmulatorPane', anchor: 'br' },
+    { sel: '[class*="_statusBar_"]', text: 'StatusBar', anchor: 'tc' },
+  ]);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/architecture-components.png` });
 });

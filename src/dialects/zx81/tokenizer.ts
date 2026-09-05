@@ -141,6 +141,7 @@ function tokenizeBody(
   let i = 0;
   let firstWordChecked = false;
   let prevSignificant = ''; // last significant source char, for literal-vs-identifier digits
+  let reportedColon = false; // one "two statements on a line" report per line
 
   const fail = (message: string, at: number): null => {
     errors.push({ line: editorLine, column: colOffset + at, message });
@@ -185,6 +186,25 @@ function tokenizeBody(
       if (!closed) return fail('Unterminated string', body.length - 1);
       prevSignificant = '"';
       continue;
+    }
+
+    // ZX81 BASIC has no statement separator - one statement per line is all
+    // the ROM's editor would accept - so a ':' out here (the string branch and
+    // REM below have already swallowed the places it belongs) is a second
+    // statement the machine cannot take. Report it once, since a listing
+    // pasted from a machine that does allow them would otherwise squiggle at
+    // every colon, and carry on emitting the character exactly as before: the
+    // bytes are unchanged, so an imported program still round-trips and runs.
+    if (ch === ':' && !reportedColon) {
+      reportedColon = true;
+      errors.push({
+        line: editorLine,
+        column: colOffset + i,
+        endColumn: colOffset + i + 1,
+        message:
+          'ZX81 BASIC has one statement per line - split this line at the ‘:’',
+        fatal: false,
+      });
     }
 
     // Keywords (longest match, word-boundary checked for alphabetic ones)

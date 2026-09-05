@@ -10,7 +10,7 @@ import type {
   ControllerOverrides,
   GamepadMode,
 } from '../keyboard/controllerConfig';
-import type { MemoryBlock, TapeFile } from '../dialects/types';
+import type { Block, TapeFile } from '../dialects/types';
 import {
   serializeBlocks,
   parseBlocks,
@@ -19,13 +19,18 @@ import {
   parseTapeFiles,
 } from './projectFile';
 import { bytesToBase64, base64ToBytes } from './vfs/base64';
+import {
+  DEFAULT_MACHINE_SORT,
+  MACHINE_SORTS,
+  type MachineSort,
+} from '../components/machinePicker';
 
 /** Ordinal-keyed listing-block overrides (see `parseListingBlockMeta`). */
 type ListingBlockMetaMap = Record<
   number,
   {
     name?: string;
-    kind?: 'code' | 'data';
+    kind?: Block['kind'];
     comment?: string;
     asmSource?: string;
   }
@@ -53,12 +58,30 @@ export type PersistedMessage = Omit<ChatMessage, 'image'> & {
    */
   baseFingerprint?: string;
   /**
-   * A screen was shown to the assistant with this turn. The image itself is
-   * deliberately absent - `Omit`ted from the type so it cannot be written by
-   * accident: conversation storage is a few megabytes shared with the autosaved
-   * program, and images belong in neither.
+   * The machine's screen was shown to the assistant with this turn. The image
+   * itself is deliberately absent - `Omit`ted from the type so it cannot be
+   * written by accident: conversation storage is a few megabytes shared with the
+   * autosaved program, and images belong in neither.
+   *
+   * Keeps its original meaning exactly, so a thread stored before photographs
+   * existed restores as the screens it recorded.
    */
   screenShown?: boolean;
+  /**
+   * A photograph of a printed listing was shown with this turn, rather than the
+   * machine's screen. The two are separate markers so a restored thread never
+   * describes a photograph as the machine's screen; the picture itself is absent
+   * for the same reason, and by the same `Omit`.
+   */
+  photoShown?: boolean;
+  /**
+   * What this turn said to the provider, where that differs from `content` -
+   * the program and its errors, which the panel does not show. Kept, unlike the
+   * image, because it is text and it is what a restored thread has to replay:
+   * a turn sent back in a shorter form than it was written in ends the
+   * provider's prefix match at that point.
+   */
+  sentContent?: string;
 };
 
 /**
@@ -81,12 +104,14 @@ const KEYS = {
   autosaveAutoStart: 'mbide.autosave.autostart',
   autosaveTapeFiles: 'mbide.autosave.tapefiles',
   autosaveBootDisc: 'mbide.autosave.bootdisc',
+  autosaveScratch: 'mbide.autosave.scratch',
   aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
   lineNumberIncrement: 'mbide.lineNumberIncrement',
   showLineNumberGutter: 'mbide.showLineNumberGutter',
   fullCodeCompletion: 'mbide.fullCodeCompletion',
+  strictCharacters: 'mbide.strictCharacters',
   crtEffect: 'mbide.crtEffect',
   splitRatio: 'mbide.splitRatio',
   emulatorSpeed: 'mbide.emulatorSpeed',
@@ -105,7 +130,11 @@ const KEYS = {
   controllerFireButtons: 'mbide.controllerFireButtons',
   gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
+  machinePickerQuery: 'mbide.machinePickerQuery',
+  machinePickerSort: 'mbide.machinePickerSort',
   lastShare: 'mbide.lastShare',
+  tabId: 'mbide.tabId',
+  tabRegistry: 'mbide.tabs',
 } as const;
 
 /**
@@ -191,8 +220,8 @@ export function setProviderApiKey(id: AiProviderId, key: string): void {
  *
  * One default for every machine: how many tokens a model may emit is a fact about
  * the model and about what the user wants, not about which microcomputer is
- * selected. These used to live on each dialect's AI profile, which meant thirteen
- * copies of one number that no dialect had a reason to differ on.
+ * selected. Holding it per-dialect would mean a copy of one number per machine
+ * that none of them has a reason to differ on.
  *
  * The budget must clear the largest listing any dialect asks for (the ZX Spectrum
  * prompt's "comfortably under 20KB of source", roughly 6-7k tokens) with room left
@@ -306,6 +335,91 @@ export function setDialectId(id: string): void {
   writeThrough(KEYS.dialectId, id);
 }
 
+/**
+ * How long a tab id stays vouched for after the tab last said it was alive.
+ * Generous on purpose: the registry is what decides whose saved files may be
+ * reclaimed, and a tab left open over a holiday weekend - or a laptop shut
+ * mid-session and reopened - must still own its files when it comes back. Only
+ * a tab that is really gone should age out, and the rows it left cost tens of
+ * KB, so waiting is cheap and sweeping early is not.
+ */
+const TAB_REGISTRY_CUTOFF_MS = 14 * 24 * 60 * 60 * 1000;
+
+let tabId: string | null = null;
+
+/**
+ * This browser tab's own id, generated on first read and kept in
+ * `sessionStorage` alone.
+ *
+ * Deliberately not `readSessionFirst`/`writeThrough`: the shared localStorage
+ * backup those use exists to seed a new tab from the last edited program, and
+ * applied to identity it would hand every new tab the previous tab's id - the
+ * opposite of the isolation the id is for. `sessionStorage` survives a reload
+ * of this tab (so its saved files come back) and a brand-new tab gets a new id
+ * (so it starts empty). A browser refusing to store site data gets the
+ * in-memory stand-in from `safeStorage`, and so a fresh id per load.
+ */
+export function getTabId(): string {
+  if (tabId !== null) return tabId;
+  let id: string | null = null;
+  try {
+    id = sessionStorage.getItem(KEYS.tabId);
+  } catch {
+    // No storage at all (a non-browser host): fall through to a fresh id.
+  }
+  if (id === null || id === '') {
+    id = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    try {
+      sessionStorage.setItem(KEYS.tabId, id);
+    } catch {
+      // Best-effort: the id still holds for this page's lifetime.
+    }
+  }
+  tabId = id;
+  return id;
+}
+
+/** The registry as stored: tab id to the epoch ms that tab last checked in. */
+function readTabRegistry(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(KEYS.tabRegistry);
+    if (raw === null) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const out: Record<string, number> = {};
+    for (const [id, seen] of Object.entries(parsed)) {
+      if (typeof seen === 'number' && Number.isFinite(seen)) out[id] = seen;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Record this tab as alive and return the ids of every tab still vouched for
+ * (this one included), dropping the entries past the cutoff as it goes.
+ *
+ * Shared across tabs (localStorage) because the point of it is to tell one tab
+ * which *other* tabs' saved files are still owned by a tab that could come
+ * back. Nothing runs at unload: browsers do not reliably deliver that event, so
+ * a tab announces that it is here rather than that it has gone.
+ */
+export function refreshTabRegistry(): string[] {
+  const now = Date.now();
+  const registry = readTabRegistry();
+  for (const [id, seen] of Object.entries(registry)) {
+    if (now - seen > TAB_REGISTRY_CUTOFF_MS) delete registry[id];
+  }
+  registry[getTabId()] = now;
+  try {
+    localStorage.setItem(KEYS.tabRegistry, JSON.stringify(registry));
+  } catch {
+    // Quota or blocked storage: the sweep just has less to go on this session.
+  }
+  return Object.keys(registry);
+}
+
 export function getAutoLineNumbering(): boolean {
   return localStorage.getItem(KEYS.autoLineNumbering) !== 'false'; // default on
 }
@@ -338,6 +452,34 @@ export function getFullCodeCompletion(): boolean {
 
 export function setFullCodeCompletion(on: boolean): void {
   localStorage.setItem(KEYS.fullCodeCompletion, on ? 'true' : 'false');
+}
+
+/**
+ * What the machine list was last narrowed by, and how it was last arranged, so
+ * it opens as the user left it. Shared by every picker in the IDE rather than
+ * held per dialog: the machine list is one list wherever it is shown.
+ */
+export function getMachinePickerQuery(): string {
+  return localStorage.getItem(KEYS.machinePickerQuery) ?? '';
+}
+
+export function setMachinePickerQuery(query: string): void {
+  localStorage.setItem(KEYS.machinePickerQuery, query);
+}
+
+/**
+ * Validated on the way out rather than on the way in: a value stored by an
+ * older build, or edited by hand, must not leave the list with no order.
+ */
+export function getMachinePickerSort(): MachineSort {
+  const stored = localStorage.getItem(KEYS.machinePickerSort);
+  return MACHINE_SORTS.some((s) => s.id === stored)
+    ? (stored as MachineSort)
+    : DEFAULT_MACHINE_SORT;
+}
+
+export function setMachinePickerSort(sort: MachineSort): void {
+  localStorage.setItem(KEYS.machinePickerSort, sort);
 }
 
 export function getCrtEffect(): boolean {
@@ -390,13 +532,15 @@ export function setKeyboardHaptics(on: boolean): void {
   localStorage.setItem(KEYS.keyboardHaptics, on ? 'true' : 'false');
 }
 
-export function getKeyboardKeyDisplay(): 'authentic' | 'compact' {
+export function getKeyboardKeyDisplay(): 'layered' | 'compact' {
+  // 'authentic' was this option's stored name before the layered rename;
+  // reading it as 'layered' migrates old settings silently.
   return localStorage.getItem(KEYS.keyboardKeyDisplay) === 'compact'
     ? 'compact'
-    : 'authentic'; // default authentic
+    : 'layered'; // default layered
 }
 
-export function setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void {
+export function setKeyboardKeyDisplay(v: 'layered' | 'compact'): void {
   localStorage.setItem(KEYS.keyboardKeyDisplay, v);
 }
 
@@ -505,6 +649,20 @@ export function setGamepadMode(mode: GamepadMode): void {
 }
 
 /**
+ * Whether the editor holds a program to the characters the target machine can
+ * actually store, reporting each character the machine would change as an error
+ * instead of converting it silently. Defaults off, where the conversion is
+ * merely counted in the status bar.
+ */
+export function getStrictCharacters(): boolean {
+  return localStorage.getItem(KEYS.strictCharacters) === 'true'; // default off
+}
+
+export function setStrictCharacters(on: boolean): void {
+  localStorage.setItem(KEYS.strictCharacters, on ? 'true' : 'false');
+}
+
+/**
  * Whether the Run gate counts the full editor lint set (tokenizer errors plus
  * the ROM-accurate name checks). When off, only tokenizer errors block a run;
  * lint findings still squiggle in the editor. Defaults on.
@@ -573,7 +731,7 @@ export function setEmulatorSpeed(n: number): void {
  * value is corrupt/unparseable (defensive: a broken autosave entry must not
  * crash boot, it just loses its blocks).
  */
-function loadAutosaveBlocks(): MemoryBlock[] {
+function loadAutosaveBlocks(): Block[] {
   const raw = readSessionFirst(KEYS.autosaveBlocks);
   if (raw === null) return [];
   try {
@@ -641,14 +799,47 @@ function loadAutosaveBootDisc(): Uint8Array | null {
   }
 }
 
+/**
+ * One scratch buffer as autosave stores it. Ids and breakpoints are session
+ * handles, so only the name and text are kept (the project bundle keeps the
+ * same pair, with the text in its own zip entry).
+ */
+export interface AutosavedScratchBuffer {
+  name: string;
+  text: string;
+}
+
+/**
+ * The autosaved scratch buffers, or `[]` when none are stored or the stored
+ * value is corrupt/unparseable (defensive, like {@link loadAutosaveBlocks}).
+ * Entries that are not a name/text pair are dropped individually.
+ */
+function loadAutosaveScratch(): AutosavedScratchBuffer[] {
+  const raw = readSessionFirst(KEYS.autosaveScratch);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((b) => {
+      if (b === null || typeof b !== 'object') return [];
+      const { name, text } = b as Record<string, unknown>;
+      if (typeof name !== 'string' || typeof text !== 'string') return [];
+      return [{ name, text }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function loadAutosave(): {
   name: string;
   text: string;
-  blocks: MemoryBlock[];
+  blocks: Block[];
   listingBlockMeta: ListingBlockMetaMap;
   autoStart: number | null;
   tapeFiles: TapeFile[];
   bootDisc: Uint8Array | null;
+  scratch: AutosavedScratchBuffer[];
 } | null {
   // Reading the doc first adopts the pair's storage into the session slot, so
   // the name/blocks reads that follow resolve from the same storage.
@@ -662,13 +853,38 @@ export function loadAutosave(): {
     autoStart: loadAutosaveAutoStart(),
     tapeFiles: loadAutosaveTapeFiles(),
     bootDisc: loadAutosaveBootDisc(),
+    scratch: loadAutosaveScratch(),
   };
+}
+
+/**
+ * Mirror the scratch buffers to autosave, or remove the key when there are
+ * none. Its own entry point rather than a {@link saveAutosave} parameter:
+ * buffers belong to the document but are retained independently of it, so a
+ * document that clears its own autosave can still have buffers standing (see
+ * the store's `persistAutosave`).
+ */
+export function saveAutosaveScratch(
+  buffers: readonly AutosavedScratchBuffer[],
+): void {
+  try {
+    if (buffers.length === 0) {
+      removeBoth(KEYS.autosaveScratch);
+    } else {
+      writeThrough(
+        KEYS.autosaveScratch,
+        JSON.stringify(buffers.map((b) => ({ name: b.name, text: b.text }))),
+      );
+    }
+  } catch {
+    // quota exceeded - autosave is best-effort
+  }
 }
 
 export function saveAutosave(
   name: string,
   text: string,
-  blocks: readonly MemoryBlock[] = [],
+  blocks: readonly Block[] = [],
   listingBlockMeta: ListingBlockMetaMap = {},
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],
@@ -721,8 +937,8 @@ export function saveAutosave(
  * localStorage backup: clearing work is a deliberate return to pristine and
  * must survive a browser restart. The backup is last-writer-wins; another live
  * tab's session slot is unaffected (though it won't re-mirror until its
- * content next changes). Also clears any autosaved memory blocks and preserved
- * tape files.
+ * content next changes). Also clears any autosaved memory blocks, preserved
+ * tape files and scratch buffers.
  */
 export function clearAutosave(): void {
   removeBoth(KEYS.autosaveDoc);
@@ -732,6 +948,7 @@ export function clearAutosave(): void {
   removeBoth(KEYS.autosaveAutoStart);
   removeBoth(KEYS.autosaveTapeFiles);
   removeBoth(KEYS.autosaveBootDisc);
+  removeBoth(KEYS.autosaveScratch);
 }
 
 /**

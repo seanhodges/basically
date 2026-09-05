@@ -18,11 +18,7 @@ export interface KeyboardLayout {
   gridColumns: number;
   layers: LayerDef[];
   modifiers: ModifierDef[];
-  /**
-   * The single-page key layout. When `tabs` is also present this is the wide
-   * variant, shown on screens wide enough for every key at once; otherwise it
-   * is simply the whole keyboard.
-   */
+  /** The whole keyboard, one entry per row of keys. */
   rows: KeyDef[][];
   glyphs: GlyphRegistry;
   /**
@@ -58,9 +54,11 @@ export interface KeyboardLayout {
     /** Minimum emulated frames a matrix press is held so the ROM scan sees it. */
     minHoldFrames?: number;
     /**
-     * Layer shown alongside the base layer when the keyboard is too narrow
-     * to render every legend (compact mode). Defaults to the first non-base
-     * layer.
+     * Layer offered as the key's secondary legend when neither a mode nor an
+     * engaged modifier names one. Defaults to the first non-base layer.
+     *
+     * A machine with a modifier layer reaches that first, so this only decides
+     * the legend on a machine that has none.
      */
     compactDefaultLayer?: string;
   };
@@ -73,6 +71,17 @@ export interface KeyboardLayout {
    * WASD/Space fallback (see controllerConfig).
    */
   controller?: ControllerConfig;
+  /**
+   * The letter case this machine's unshifted letter keys produce when it has
+   * just started - and therefore the case the layout's own base legends are
+   * authored in. A machine's case-lock key flips it from here.
+   *
+   * Absent on a machine with no lower case at all, where there is only one case
+   * to be in. Read off the booted ROMs rather than assumed
+   * (`src/dialects/caseKeys.test.ts`): the BBC powers up caps-locked and the
+   * CPC powers up in lower case, which no two machines here would predict.
+   */
+  powerOnCase?: 'upper' | 'lower';
 }
 
 /** Abstract game-controller controls a binding can fill. */
@@ -99,12 +108,31 @@ export interface ControllerConfig {
 
 export interface LayerDef {
   id: string;
-  /** Display name in the compact-mode legend selector (defaults to id). */
+  /** Display name for this layer's legends (defaults to id). */
   name?: string;
-  /** Where this layer's label sits on/around the keycap. */
+  /**
+   * Where the machine printed this layer's marking on its keycap. A key shows
+   * one marking at a time, so every position but `center` draws in the same
+   * slot under the base legend; the value records the machine's own keycap,
+   * which is what a theme's ink and a reader of this layout go by.
+   */
   position: 'center' | 'tl' | 'tr' | 'bl' | 'br' | 'below';
   /** Modifier ids that make this the active layer; [] = base layer. */
   activeWhen: string[];
+  /**
+   * Draw this layer's legends only while an editor mode pins it, and then
+   * draw them alone on the keys that carry them - the SYM pages and the
+   * cursor overlays, which are not printed on the machine's keycaps and so
+   * must not decorate them outside their mode. A key with a label on the
+   * pinned layer shows exactly that label (an empty label blanks the key);
+   * a key without one keeps its ordinary legends and behaviour - and
+   * `withSymbolMode` gives every key above the bottom row a label,
+   * blanking the ones the overlay leaves out. One
+   * exception: the layered key display prints the first SYM page's symbol
+   * as a small theme-coloured hint on each key, the way a phone keyboard
+   * prints its long-press hints.
+   */
+  modeOnly?: boolean;
   /**
    * Default editor action derived from a key's text label on this layer:
    * 'char' inserts the label text verbatim, 'word' inserts it plus a
@@ -117,7 +145,16 @@ export interface LayerDef {
 /** What a key does when the keyboard targets a text editor. */
 export type EditorKeyAction =
   | { insert: string }
-  | { action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down' };
+  | {
+      action:
+        | 'backspace'
+        | 'delete'
+        | 'newline'
+        | 'left'
+        | 'right'
+        | 'up'
+        | 'down';
+    };
 
 /** A selectable editor-target input mode (mirrors the ZX81 K/F/G cursor). */
 export interface EditorModeDef {
@@ -127,11 +164,14 @@ export interface EditorModeDef {
   /** Layer whose editor mapping applies (and is visually emphasised). */
   layer: string;
   /**
-   * Layer used while the SHIFT modifier is engaged within this mode, letting one
-   * mode carry two legend sets (e.g. the C64's GRAPHICS mode: the C= graphics
-   * unmodified, the SHIFT graphics with shift held). Omit when SHIFT has no
-   * distinct meaning in the mode. Ignored for a mode whose `layer` is the base
-   * layer (there the engaged modifier already drives the layer).
+   * Second legend set this mode can flip to, letting one mode carry two
+   * (the SYM mode's second symbol page). For a mode pinning a `modeOnly`
+   * layer the flip is a UI page toggle on the shift keycap - it presses
+   * nothing on the machine, because the second page's symbols carry their
+   * own combinations. For any other mode it is the layer used while the
+   * SHIFT modifier is engaged. Omit when the mode has a single legend set.
+   * Ignored for a mode whose `layer` is the base layer (there the engaged
+   * modifier already drives the layer).
    */
   shiftedLayer?: string;
   /**
@@ -204,6 +244,13 @@ export interface KeyLabel {
   /** Name of a glyph in the layout's glyph registry. */
   glyph?: string;
   /**
+   * Machine tokens this legend presses instead of the key's own `emits`, while
+   * its layer is the active one. Lets one keycap be a letter on the base layer
+   * and a cursor key under a CURSOR mode, so a legend declares both halves of
+   * what it does - to the editor and to the machine - in one place.
+   */
+  emits?: string[];
+  /**
    * Editor action override for this legend; null forces a no-op even when
    * the layer has a derivable default. undefined = use the layer default.
    */
@@ -218,6 +265,33 @@ export interface ModifierDef {
   sticky: boolean;
   /** Double-tap locks it until tapped again. */
   lockable: boolean;
+  /**
+   * The machine's own case lock, reached by locking this modifier - the shift
+   * key's second tap, as a phone keyboard's does - rather than by a keycap of
+   * its own. Locking taps {@link CaseLockDef.emits} and flips the case an
+   * unshifted letter key types; unlocking taps `releaseEmits`, which the Atari
+   * needs because CAPS alone only ever selects lower case there and it is
+   * SHIFT+CAPS that locks the capitals back on.
+   *
+   * The modifier's own tokens are *released* while it is locked, and its layer
+   * stops being the active one. A case lock is latched inside the ROM rather
+   * than held down, and the letters have already changed case: leaving the
+   * shift cell down would type the shifted legends over a latched case, which
+   * is not what any of these machines do.
+   *
+   * On the editor target, where there is no machine to latch anything, the
+   * engine's own case latch is what decides the case (see
+   * `KeyboardInputEngine`).
+   */
+  caseLock?: CaseLockDef;
+}
+
+/** How one machine's case lock is pressed; see {@link ModifierDef.caseLock}. */
+export interface CaseLockDef {
+  /** Tokens tapped to latch the other case. */
+  emits: string[];
+  /** Tokens tapped to latch it back, where that is not the same press. */
+  releaseEmits?: string[];
 }
 
 /**

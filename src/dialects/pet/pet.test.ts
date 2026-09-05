@@ -16,7 +16,7 @@ import {
  * keep their own `it.todo` placeholders below.
  */
 describe('pet dialect', () => {
-  // ---- Stage 1 — language core ------------------------------------------
+  // ---- language core -----------------------------------------------------
 
   it('tokenizes the BASIC 4.0 disk keywords to $CC-$DA', () => {
     // Every disk command with its documented token, in table order.
@@ -95,7 +95,7 @@ describe('pet dialect', () => {
   });
 
   it('exposes the disk keywords through the dialect and lints them cleanly', () => {
-    // The dialect surface is wired for Stage 1 (tokenize/detokenize/lint).
+    // The dialect surface is wired for tokenize/detokenize/lint.
     expect(petKeywords.some((k) => k.word === 'DIRECTORY')).toBe(true);
     const result = pet.tokenize('10 DOPEN#1,"DATA"\n');
     expect(result.errors).toEqual([]);
@@ -105,7 +105,7 @@ describe('pet dialect', () => {
     expect(pet.lint('10 DOPEN#1,"DATA"\n')).toEqual([]);
   });
 
-  // ---- Stage 2 — emulator core ------------------------------------------
+  // ---- emulator core -----------------------------------------------------
   // Covered by src/emulator/pet/petMachine.test.ts (boots the BASIC 4.0 ROMs to
   // READY. and runs an injected program) and the shared-chip unit tests under
   // src/emulator/commodore/.
@@ -115,7 +115,7 @@ describe('pet dialect', () => {
     expect(pet.romUrl).toMatch(/roms\/pet\/kernal/);
   });
 
-  // ---- Stage 3 — wire-up ------------------------------------------------
+  // ---- dialect wire-up ---------------------------------------------------
   // The keyboard layout itself is validated in keyboardLayout.test.ts; here we
   // confirm the machine's KeyMatrix unions physical + virtual presses using the
   // PET graphics-keyboard tokens.
@@ -166,7 +166,7 @@ describe('pet dialect', () => {
     expect(pet.samples[0]!.name).toBe('hello.bas');
   });
 
-  // ---- Stage 4 — transfer & tape I/O ------------------------------------
+  // ---- transfer & tape I/O -----------------------------------------------
   // The cassette codec itself is exercised in audio/cassette.test.ts; here we
   // confirm the dialect surface is wired: .prg import + tape audio in/out.
   it('exposes .prg/.d64 import and cassette audio through the dialect', () => {

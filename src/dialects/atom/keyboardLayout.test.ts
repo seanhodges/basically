@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { atomKeyboardLayout } from './keyboardLayout';
 import { atomCharset } from './charset';
 import { matrixForToken } from '../../emulator/atom/keyboard';
-import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  resolveEditorAction,
+  resolveEmits,
+} from '../../keyboard/editorActions';
+import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = atomKeyboardLayout;
 const functionKeys = layout.functionKeys ?? [];
@@ -14,6 +18,16 @@ const realKeys = allKeys.filter((k) => k.emits.length > 0 || k.modifier);
 const editorLayerIds = [
   ...(layout.editorModes ?? []).map((m) => m.layer),
   'shifted',
+];
+
+/**
+ * Every token a key can press: its own, plus any a layer's legend names in
+ * place of them (the CURSOR arrows over WASD). A legend's tokens bypass
+ * `emits`, so a check that walked `emits` alone would not see them.
+ */
+const tokensOf = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
 ];
 
 describe('atom keyboard layout', () => {
@@ -53,10 +67,9 @@ describe('atom keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
       action: 'right',
     });
-    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
-    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
-      insert: 'F',
-    });
+    // A letter outside the WASD cluster is blank and inert in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toBeNull();
+    expect(resolveEmits(layout, byId.get('KeyF')!, 'cursor')).toEqual([]);
   });
 
   it('labels are index-aligned with the layers', () => {
@@ -84,7 +97,7 @@ describe('atom keyboard layout', () => {
 
   it('every emitted token maps to the Atom key matrix', () => {
     for (const key of realKeys) {
-      for (const token of key.emits) {
+      for (const token of tokensOf(key)) {
         expect(matrixForToken(token), `${key.id} → ${token}`).toBeDefined();
       }
     }
@@ -121,42 +134,72 @@ describe('atom keyboard layout', () => {
     }
   });
 
-  it('surfaces the punctuation overflow as SYM-mode editor inserts', () => {
+  it('offers the punctuation at the canonical SYM positions', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'sym')).toEqual({
+    // Page 1: '[' and ']' on the O/P slots, '@' on A, '^' on G - the same
+    // positions every machine uses.
+    expect(resolveEditorAction(layout, byId.get('KeyO')!, 'symbols')).toEqual({
       insert: '[',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit4')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyP')!, 'symbols')).toEqual({
+      insert: ']',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'symbols')).toEqual({
       insert: '@',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyG')!, 'symbols')).toEqual({
       insert: '^',
     });
-    // Digits with no SYM legend keep typing through the base-layer fallback.
-    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'sym')).toEqual({
-      insert: '0',
+    // Page 2 holds the rarities: backslash on E; '?' sits above it on page 1.
+    expect(resolveEditorAction(layout, byId.get('KeyE')!, 'symbols2')).toEqual({
+      insert: '\\',
     });
-  });
-
-  it('reaches the Atom BASIC essentials through SHIFT', () => {
-    const byId = new Map(allKeys.map((k) => [k.id, k]));
-    // ! for byte work, " for strings, # for hex, $ for the string area.
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
-      { insert: '!' },
-    );
-    expect(resolveEditorAction(layout, byId.get('Digit2')!, 'shifted')).toEqual(
-      { insert: '"' },
-    );
-    expect(resolveEditorAction(layout, byId.get('Digit3')!, 'shifted')).toEqual(
-      { insert: '#' },
-    );
-    expect(resolveEditorAction(layout, byId.get('Digit4')!, 'shifted')).toEqual(
-      { insert: '$' },
-    );
-    // ? indirection sits on SHIFT+/.
-    expect(resolveEditorAction(layout, byId.get('Slash')!, 'shifted')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('KeyE')!, 'symbols')).toEqual({
       insert: '?',
     });
+    // On the machine, a SYM cell presses the Atom's own key for the symbol,
+    // not the letter underneath.
+    expect(resolveEmits(layout, byId.get('KeyO')!, 'symbols')).toEqual([
+      'BracketLeft',
+    ]);
+    // A blanked cell (the Atom has no '~') presses and types nothing.
+    expect(resolveEmits(layout, byId.get('KeyW')!, 'symbols2')).toEqual([]);
+    expect(
+      resolveEditorAction(layout, byId.get('KeyW')!, 'symbols2'),
+    ).toBeNull();
+    // Digits keep typing through the base-layer fallback in SYM mode.
+    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'symbols')).toEqual(
+      { insert: '0' },
+    );
+  });
+
+  it('reaches the Atom BASIC essentials through the SYM mode', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    // ! for byte work, # for hex, $ for the string area - each cell pressing
+    // the shifted digit the machine reads for it.
+    expect(resolveEditorAction(layout, byId.get('KeyW')!, 'symbols')).toEqual({
+      insert: '!',
+    });
+    expect(resolveEmits(layout, byId.get('KeyW')!, 'symbols')).toEqual([
+      'Shift',
+      'Digit1',
+    ]);
+    expect(resolveEditorAction(layout, byId.get('KeyS')!, 'symbols')).toEqual({
+      insert: '#',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyD')!, 'symbols')).toEqual({
+      insert: '$',
+    });
+    // ? indirection lives on the SYM first page, pressing SHIFT+/ - the
+    // combination the machine's own slash key sends.
+    const question = byId.get('KeyE')!;
+    expect(resolveEditorAction(layout, question, 'symbols')).toEqual({
+      insert: '?',
+    });
+    expect(resolveEmits(layout, question, 'symbols')).toEqual([
+      'Shift',
+      'Slash',
+    ]);
   });
 
   it('spot checks the common bottom row', () => {
