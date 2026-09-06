@@ -1,0 +1,41 @@
+{
+  "name": "@basically/cli",
+  "version": "0.0.0-placeholder",
+  "description": "The Basically toolchain outside the browser: describe, check, build, run and serve retro BASIC programs from the command line, an editor, or an agent.",
+  "keywords": [
+    "basic",
+    "retrocomputing",
+    "emulator",
+    "cli",
+    "lsp",
+    "mcp"
+  ],
+  "homepage": "https://ba.sical.ly/docs/",
+  "bugs": "https://github.com/seanhodges/basically/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seanhodges/basically.git",
+    "directory": "scripts/headless"
+  },
+  "author": "Sean Hodges",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "basically": "dist/basically",
+    "basically-server": "dist/basically-server"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node build.mjs"
+  },
+  "dependencies": {
+    "jsbeeb": "1.13.1"
+  }
+}

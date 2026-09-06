@@ -21,6 +21,10 @@ key, look again.
 basically mcp --stdio
 ```
 
+If you don't have that command yet, see [installing the
+toolchain](../guide/installing) — one line, and several machines run on a fresh
+install with no ROM at all.
+
 It doesn't finish and print something back — it holds the connection open and
 answers requests until the client disconnects. Point your client's server
 configuration at this command; most clients that support the protocol run a

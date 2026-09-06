@@ -33,7 +33,7 @@ export function formatMachineDescription(machine: MachineDescription): string {
       machine.basicFamily ? ` (${machine.basicFamily})` : ''
     }`,
     `program RAM    ${bytes(machine.programRamBytes)}`,
-    `ROM here       ${machine.romPresent ? 'yes' : 'no'}`,
+    `runs here      ${machine.canRun ? 'yes' : 'no'}`,
   ];
 
   if (machine.memoryMap) {

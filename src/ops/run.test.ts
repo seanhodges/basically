@@ -110,7 +110,7 @@ describe('running a program', () => {
     await expect(
       runOp.run(wants({ keys: 'PRESS A' }), {
         ...ctx,
-        roms: { present: () => false },
+        roms: { canRun: () => false },
       }),
     ).rejects.toThrow(/no ROM/);
   });

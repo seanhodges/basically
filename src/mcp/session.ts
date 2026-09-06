@@ -32,7 +32,7 @@ import type { MachineSession } from '../app/machineSession';
 import {
   bootMachine,
   configureRomRoot,
-  hasRom,
+  canRunMachine,
   installNodeRomLoading,
 } from '../dialects/bootHarness';
 import {
@@ -133,7 +133,7 @@ export function createServerMachine(): ServerMachine {
       displayWidth: 0,
       displayHeight: 0,
       frameHz: 0,
-      romPresent: hasRom(dialect),
+      canRun: canRunMachine(dialect),
     };
     // A program that cannot run leaves whatever was up exactly as it was:
     // nothing was replaced, because nothing was booted.

@@ -20,7 +20,7 @@ describe('the context the server runs an operation in', () => {
     const ctx = serverContext(server);
     expect(typeof ctx.runner).toBe('function');
     expect(ctx.painting).toBeDefined();
-    expect(ctx.roms.present).toBeDefined();
+    expect(ctx.roms.canRun).toBeDefined();
     // Its runner is the one that holds the machine, not the one-shot runner.
     expect(ctx.runner).toBe(server.run);
   });

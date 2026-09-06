@@ -1,6 +1,6 @@
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -103,6 +103,121 @@ await build({
   // esbuild's own info line names each file it wrote and how big it is.
   logLevel: 'info',
 });
+
+/* ------------------------------------------------------------------ */
+/* The launchers that go with the bundles                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The command line and the host, as programs rather than as bundles.
+ *
+ * These are the launchers under `scripts/` with the staleness scan taken out:
+ * an installation has no source that can go stale, and a scan over a package
+ * directory would find nothing to do on every run.
+ *
+ * They are emitted here, beside the bundles, rather than left to the installer
+ * to generate, because **the client finds its host beside itself**:
+ * `src/client/discover.ts` searches the bundle's own directory for a file named
+ * exactly `basically-server`, or `basically-server.cmd` where cmd.exe has to
+ * run it. An installer's generated shims live somewhere else entirely, so a
+ * client that found no host here would quietly run one as its own child and
+ * lose the machine between commands - which is the whole reason the host
+ * exists.
+ *
+ * Two forms per command, and each is reached by a different route:
+ *
+ * - The extensionless file is what an installer links onto PATH and what the
+ *   client spawns on POSIX. It is an ES module like everything else here - the
+ *   package says so, and that governs a file with no extension too - and it
+ *   reaches the bundle beside it through a dynamic import.
+ * - The `.cmd` is what cmd.exe can run, and what the client spawns on Windows,
+ *   where a file with no extension is not an executable image. It runs the file
+ *   above rather than repeating it, so there is one launcher and one place the
+ *   console encoding is dealt with.
+ */
+
+/** The node launcher for one bundle: what an installer links to. */
+const nodeLauncher = (name, bundle) => `#!/usr/bin/env node
+// ${name}: the Basically toolchain, as installed.
+//
+// The name is exactly this because the client looks for its host beside itself
+// under it; see src/client/discover.ts.
+
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// A console decides how to read the bytes a program writes it, and this one
+// writes UTF-8: without saying so, every screen the toolchain exists to print
+// comes out as mojibake in a Windows console. The codepage belongs to the
+// console rather than to this process, so it is set by asking, and put back
+// afterwards - it would otherwise outlive the command that changed it. Skipped
+// where output is not a console, which is where there is nothing to set.
+if (process.platform === 'win32' && process.stdout.isTTY) {
+  const { execFileSync } = await import('node:child_process');
+  const chcp = (args) => {
+    try {
+      return execFileSync('chcp.com', args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch {
+      return '';
+    }
+  };
+  // "Active code page: 437", localised - the number is the only run of digits
+  // in it, whatever language the console reports in.
+  const previous = (chcp([]).match(/[0-9]+/g) || []).pop();
+  if (previous && chcp(['65001']) !== '') {
+    process.on('exit', () => chcp([previous]));
+  }
+}
+
+// The bundle sits beside this file. Imported rather than spawned, so there is
+// one process: an exit code, a signal and a stream all mean what they would
+// have meant without a launcher in the way.
+const here = path.dirname(fileURLToPath(import.meta.url));
+await import(pathToFileURL(path.join(here, '${bundle}')).href);
+`;
+
+/** The same command for cmd.exe, which runs the launcher above. */
+const cmdLauncher = (name) => `@echo off
+rem ${name}: the Basically toolchain, as installed.
+rem
+rem This is what the client spawns on Windows, where an extensionless file is
+rem not an executable image. It runs the launcher beside it rather than
+rem repeating it.
+
+setlocal
+
+rem Node 22 or newer is required: the bundles are ES modules using top-level
+rem await.
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [${name}] Node.js was not found on PATH. Install Node 22 or newer.>&2
+  exit /b 1
+)
+
+node "%~dp0${name}" %*
+exit /b %ERRORLEVEL%
+`;
+
+/** Which launcher runs which bundle. The names are what a caller types. */
+const LAUNCHERS = { basically: 'cli.mjs', 'basically-server': 'server.mjs' };
+
+for (const [name, bundle] of Object.entries(LAUNCHERS)) {
+  const launcher = resolve(outdir, name);
+  await writeFile(launcher, nodeLauncher(name, bundle), 'utf8');
+  // Executable, because an installer links to it and the client spawns it: a
+  // launcher without the bit is a command that is there and cannot be run.
+  await chmod(launcher, 0o755);
+  // cmd.exe mis-parses a batch file that is missing its carriage returns, so
+  // these carry them whatever platform the build ran on.
+  await writeFile(
+    resolve(outdir, `${name}.cmd`),
+    cmdLauncher(name).replace(/\n/g, '\r\n'),
+    'utf8',
+  );
+}
 
 /**
  * What this build is, for the address a host listens on.

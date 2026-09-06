@@ -18,7 +18,7 @@ export function formatMachines(machines: readonly MachineSummary[]): string {
     .map(
       (m) =>
         `${m.id.padEnd(idWidth)}  ${m.name.padEnd(nameWidth)}  ` +
-        `${m.romPresent ? 'rom' : '  -'}  ${m.description}`,
+        `${m.canRun ? 'run' : '  -'}  ${m.description}`,
     )
     .join('\n');
 }

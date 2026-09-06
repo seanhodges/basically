@@ -57,8 +57,8 @@ export interface MachineDescription {
   /** The family that BASIC belongs to, where it is not the version's own name. */
   basicFamily?: string;
   description: string;
-  /** Whether this installation carries the machine's ROM. */
-  romPresent: boolean;
+  /** Whether this installation can run the machine. */
+  canRun: boolean;
   /** Bytes a BASIC program may occupy, as the machine's byte counter budgets it. */
   programRamBytes: number;
   /** The machine's address space, where it declares one. */
@@ -75,6 +75,11 @@ export interface MachineDescription {
 export interface InfoInput {
   /** A machine's id or name; the context's default machine when absent. */
   machine?: string;
+  /**
+   * Where this caller reads ROM images from, when it keeps its own. Only
+   * {@link MachineDescription.canRun} reads it: nothing else here needs a ROM.
+   */
+  romRoot?: string;
 }
 
 export function describeMachine(
@@ -100,7 +105,7 @@ export function describeMachine(
     basicDialect: dialect.basicDialect,
     basicFamily: dialect.basicFamily,
     description: dialect.blurb,
-    romPresent: ctx.roms.present(dialect),
+    canRun: ctx.roms.canRun(dialect, input.romRoot),
     programRamBytes: dialect.programRamBytes,
     memoryMap: dialect.memoryMap ?? null,
     basic: {
@@ -137,7 +142,7 @@ export function describeMachineForModel(machine: MachineDescription): string {
   const lines = [
     `${machine.name} (${machine.id}) - ${machine.manufacturer}, ${machine.year}. ${machine.description}`,
     `BASIC: ${machine.basicDialect}${machine.basicFamily ? ` (${machine.basicFamily})` : ''}.`,
-    `Program RAM: ${machine.programRamBytes} bytes. ROM here: ${machine.romPresent ? 'yes' : 'no'}.`,
+    `Program RAM: ${machine.programRamBytes} bytes. Runs here: ${machine.canRun ? 'yes' : 'no'}.`,
     `Statements per line: ${
       basic.statementSeparator === null
         ? 'one'
@@ -193,6 +198,7 @@ export const infoOp: Operation<InfoInput, MachineDescription> = {
         type: 'string',
         description: "A machine's id or name; this conversation's when absent.",
       },
+      romRoot: { type: 'string' },
     },
     additionalProperties: false,
   },
