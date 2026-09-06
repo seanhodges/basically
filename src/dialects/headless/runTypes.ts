@@ -135,8 +135,8 @@ export interface RunResult {
     displayWidth: number;
     displayHeight: number;
     frameHz: number;
-    /** Whether this checkout carries the machine's ROM at all. */
-    romPresent: boolean;
+    /** Whether this installation can run the machine at all. */
+    canRun: boolean;
   };
   /** Tokenizer diagnostics; a fatal one means nothing ran. */
   errors: TokenizeError[];

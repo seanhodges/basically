@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import { hasRom, installNodeRomLoading } from './bootHarness';
+import { canRunMachine, installNodeRomLoading } from './bootHarness';
 import { runListing } from './headless/runListing';
 import { screenLines } from './headless/runListing';
 
@@ -58,11 +58,15 @@ describe('every registered machine paints its starter sample', () => {
         // A ROM with no redistribution grant is meant to be removable
         // (public/roms/ATTRIBUTION.md), and a machine without its image draws
         // the missing-image notice instead - itself more than one colour, so it
-        // would pass the paint assertion without having run anything. Only a
-        // machine that *declares* a ROM can be missing one: the TRS-80 and the
-        // GE-235 run first-party interpreters and have no image to want.
-        if (dialect.romUrl !== undefined && !hasRom(dialect)) {
-          ctx.skip(`${dialect.id}'s ROM is not in this checkout`);
+        // would pass the paint assertion without having run anything.
+        //
+        // Gated on the same answer callers are given, which is what pairs this
+        // file with canRun.test.ts: that one holds the rule deciding who is
+        // reported runnable, and every machine it lets through has to run and
+        // paint here. A machine reported runnable that cannot run fails, rather
+        // than skipping quietly.
+        if (!canRunMachine(dialect)) {
+          ctx.skip(`${dialect.id} cannot be run in this checkout`);
         }
 
         const sample = dialect.samples[0];

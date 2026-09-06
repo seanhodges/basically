@@ -1,7 +1,7 @@
 import {
   bootMachine,
   configureRomRoot,
-  hasRom,
+  canRunMachine,
   installNodeRomLoading,
 } from '../bootHarness';
 import { hasFatalErrors } from '../types';
@@ -89,7 +89,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
     displayWidth: 0,
     displayHeight: 0,
     frameHz: 0,
-    romPresent: hasRom(dialect),
+    canRun: canRunMachine(dialect),
   };
   const refused = (): RunResult => ({
     machine: machineInfo,

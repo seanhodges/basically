@@ -110,7 +110,7 @@ describe('running a program', () => {
     await expect(
       runOp.run(wants({ keys: 'PRESS A' }), {
         ...ctx,
-        roms: { present: () => false },
+        roms: { canRun: () => false },
       }),
     ).rejects.toThrow(/no ROM/);
   });
@@ -131,7 +131,7 @@ describe('running a program', () => {
     const refusal = await runOp
       .run(wants({ keys: 'PRESS A' }), {
         ...ctx,
-        roms: { present: () => false },
+        roms: { canRun: () => false },
       })
       .then(
         () => null,

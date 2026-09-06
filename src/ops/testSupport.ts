@@ -9,7 +9,7 @@ import type { OpContext } from './types';
  */
 
 export function pureContext(over: Partial<OpContext> = {}): OpContext {
-  return { roms: { present: () => true }, session: null, ...over };
+  return { roms: { canRun: () => true }, session: null, ...over };
 }
 
 export interface StubSession extends MachineSession {

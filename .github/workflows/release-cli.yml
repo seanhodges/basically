@@ -1,0 +1,120 @@
+# Publishing @ba.sical.ly/cli.
+name: Release @ba.sical.ly/cli
+
+on:
+  workflow_run:
+    workflows: ['CI & Deploy']
+    types: [completed]
+    branches: [main]
+  # By hand, for the first release and for a release whose tag did not land
+  workflow_dispatch:
+
+# One release at a time. Two pushes landing together would otherwise read the
+# same published version and both claim the next number
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish when the toolchain has changed
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    environment: npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Check for minor or major bump check
+          fetch-depth: 0
+
+      - name: Check this is still what main points at
+        id: tip
+        if: github.event_name == 'workflow_run'
+        run: |
+          git fetch --no-tags origin main
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)" ]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Publishing needs npm 11.5.1 or newer, and the Node pinned above
+      # carries an older one
+      - run: npm install -g npm@latest
+      - run: npm ci
+
+      - name: Build the toolchain
+        run: node scripts/headless/build.mjs
+
+      - name: Ask the registry what is published
+        id: published
+        if: steps.tip.outputs.current != 'false'
+        run: |
+          npm view @ba.sical.ly/cli --json > published.json 2>/dev/null || echo '{}' > published.json
+
+      # Skipped when this commit is no longer the tip, which leaves `changed`
+      # unset and every step below it - the publish included - skipped with it
+      - name: Decide whether to publish, and what version
+        id: gate
+        if: steps.tip.outputs.current != 'false'
+        run: node .github/workflows/release-cli.mjs
+        env:
+          PUBLISHED: published.json
+          BUNDLE_DIR: scripts/headless/dist
+          MANIFEST: scripts/headless/package.json
+
+      # The build id goes in as a field of its own, so what is published records
+      # the build it came from and the gate above has something to ask for
+      - name: Stamp the version and the build id
+        if: steps.gate.outputs.changed == 'true'
+        run: node .github/workflows/release-cli.mjs --stamp
+        env:
+          PUBLISHED: published.json
+          BUNDLE_DIR: scripts/headless/dist
+          MANIFEST: scripts/headless/package.json
+
+      - name: Publish
+        if: steps.gate.outputs.changed == 'true'
+        run: npm publish --access public --ignore-scripts
+        working-directory: scripts/headless
+
+      - name: Tag the commit this was built from
+        if: steps.gate.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.gate.outputs.version }}
+          BUILD_ID: ${{ steps.gate.outputs.built }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "cli-v$VERSION" -m "@ba.sical.ly/cli $VERSION (build $BUILD_ID)"
+          git push origin "cli-v$VERSION"
+
+      - name: Say what happened
+        env:
+          CURRENT: ${{ steps.tip.outputs.current }}
+          COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+          CHANGED: ${{ steps.gate.outputs.changed }}
+          VERSION: ${{ steps.gate.outputs.version }}
+          BUILT: ${{ steps.gate.outputs.built }}
+          LATEST: ${{ steps.gate.outputs.latest }}
+        run: |
+          if [ "$CURRENT" = 'false' ]; then
+            echo "Stood down: main has moved past $COMMIT, and the run for what it points at now releases instead." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$CHANGED" = 'true' ]; then
+            echo "Published @ba.sical.ly/cli $VERSION (build $BUILT)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nothing to publish: ${LATEST:-nothing} already carries build $BUILT." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -27,16 +27,6 @@ jobs:
       - run: npm run format:check
       - run: npm run docs:build
 
-  # The unit suite is the long pole of the gate - one runner spent about five
-  # and a half of the seven minutes `checks` used to take - and it splits
-  # cleanly, so it runs beside the static checks rather than after them.
-  #
-  # Three ways is deliberate. Vitest assigns files to shards by hashing the
-  # file path, not by what they cost, and the cost here is nowhere near even:
-  # the top twenty files are about 72% of the runtime and the remaining four
-  # hundred are under 2%. So the split is only ever roughly balanced, and the
-  # single slowest file is a floor no shard count can go below - past three
-  # ways the shards mostly wait on that one file.
   test:
     name: Unit tests (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
@@ -54,13 +44,6 @@ jobs:
       - run: npm ci
       - run: npx vitest run --shard=${{ matrix.shard }}/3
 
-  # Blocking, and affordable enough to be: the suite runs against the built
-  # artifact rather than a dev server, which took it from about twelve minutes
-  # to about three, so gating on it costs less than the staleness it used to be
-  # allowed to accumulate. Failures upload the Playwright report as an artifact.
-  #
-  # `npm run e2e:chromium` builds the app and the docs into dist/ itself, as the
-  # Playwright webServer command - there is no separate build step here.
   e2e:
     name: E2E (Chromium)
     runs-on: ubuntu-latest
@@ -92,14 +75,14 @@ jobs:
           cache: npm
       - run: npm ci
       # Build the app into dist/ first (vite empties dist/), then build the
-      # docs into dist/docs/ so a single Pages artifact ships both.
+      # docs into dist/docs/ so a single Pages artifact ships both
       - run: npm run build
         env:
           VITE_SHARE_API_URL: ${{ vars.SHARE_API_URL }}
           VITE_BASICALLY_API_TOKEN: ${{ secrets.BASICALLY_API_TOKEN }}
       - run: npm run docs:build
       # Serving a copy of index.html as the 404 page lets cold deep links
-      # like /run/abc234 boot the app shell, which routes them to the standalone player.
+      # like /run/abc234 boot the app shell, which routes them to the standalone player
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
