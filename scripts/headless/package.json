@@ -1,6 +1,6 @@
 {
-  "name": "@basically/cli",
-  "version": "0.0.0-placeholder",
+  "name": "@ba.sical.ly/cli",
+  "version": "0.0.0-alpha.1",
   "description": "The Basically toolchain outside the browser: describe, check, build, run and serve retro BASIC programs from the command line, an editor, or an agent.",
   "keywords": [
     "basic",
@@ -16,6 +16,9 @@
     "type": "git",
     "url": "git+https://github.com/seanhodges/basically.git",
     "directory": "scripts/headless"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "author": "Sean Hodges",
   "license": "GPL-3.0-or-later",

@@ -11,7 +11,7 @@ into a file the machine loads, running one and reporting its screen, serving
 command-line toolchain you install once:
 
 ```bash
-npm install -g @basically/cli
+npm install -g @ba.sical.ly/cli
 ```
 
 That gives you two commands: `basically`, which does the work, and

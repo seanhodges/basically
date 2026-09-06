@@ -1,4 +1,4 @@
-# Publishing @basically/cli.
+# Publishing @ba.sical.ly/cli.
 #
 # THE NAME OF THIS FILE IS PART OF THE TRUST CONFIGURATION. The registry is
 # configured to trust `release-cli.yml` in this repository, and matches it
@@ -19,7 +19,7 @@
 # rather than against anything remembered here, so a deleted tag or a rewritten
 # history cannot make this publish twice.
 
-name: Release @basically/cli
+name: Release @ba.sical.ly/cli
 
 # What starts this is a finished run of the checks rather than the push itself.
 # The gate below asks whether the toolchain has changed, not whether it works,
@@ -118,7 +118,7 @@ jobs:
         id: published
         if: steps.tip.outputs.current != 'false'
         run: |
-          npm view @basically/cli --json > published.json 2>/dev/null || echo '{}' > published.json
+          npm view @ba.sical.ly/cli --json > published.json 2>/dev/null || echo '{}' > published.json
 
       # Skipped when this commit is no longer the tip, which leaves `changed`
       # unset and every step below it - the publish included - skipped with it.
@@ -172,7 +172,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag -a "cli-v$VERSION" -m "@basically/cli $VERSION (build $BUILD_ID)"
+          git tag -a "cli-v$VERSION" -m "@ba.sical.ly/cli $VERSION (build $BUILD_ID)"
           git push origin "cli-v$VERSION"
 
       - name: Say what happened
@@ -187,7 +187,7 @@ jobs:
           if [ "$CURRENT" = 'false' ]; then
             echo "Stood down: main has moved past $COMMIT, and the run for what it points at now releases instead." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$CHANGED" = 'true' ]; then
-            echo "Published @basically/cli $VERSION (build $BUILT)." >> "$GITHUB_STEP_SUMMARY"
+            echo "Published @ba.sical.ly/cli $VERSION (build $BUILT)." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Nothing to publish: ${LATEST:-nothing} already carries build $BUILT." >> "$GITHUB_STEP_SUMMARY"
           fi

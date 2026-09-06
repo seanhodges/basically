@@ -717,7 +717,7 @@ looks for its host beside itself, under exactly the name `basically-server`
 (`src/client/discover.ts`) - shims generated elsewhere would leave it finding
 none and quietly running a host as its own child, losing the machine between
 commands. `scripts/headless/package.json` publishes that directory as
-`@basically/cli` and points its entry points at those launchers;
+`@ba.sical.ly/cli` and points its entry points at those launchers;
 `src/client/packaging.test.ts` holds the names, the pinned `jsbeeb`, and what
 the tarball may carry.
 

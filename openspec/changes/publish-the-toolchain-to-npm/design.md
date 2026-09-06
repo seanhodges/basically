@@ -82,13 +82,14 @@ The published metadata lives in a hand-written `package.json` under
 `scripts/headless/`, so the publish takes `dist/` with it and nothing else. The
 root package stays `private: true`.
 
-The package is `@basically/cli`. The unscoped `basically` is held by an
-abandoned placeholder from 2012, and a scope is the better answer than a
-hyphenated name anyway: it is a claim on the product's identity rather than a
-near miss at it, and it leaves room for anything else published later. The
-commands themselves are unaffected — an entry point's name is independent of the
-package's, so the toolchain is still `basically` and `basically-server`, and
-every documentation page that already says so stays true.
+The package is `@ba.sical.ly/cli`. The unscoped `basically` is held by an
+abandoned placeholder from 2012 and the `basically` scope is reserved, so the
+organisation is `ba.sical.ly` — the product's own domain, which is a claim on
+its identity rather than a near miss at it and leaves room for anything else
+published later. The commands themselves are unaffected — an entry point's name
+is independent of the package's, so the toolchain is still `basically` and
+`basically-server`, and every documentation page that already says so stays
+true.
 
 `jsbeeb` must be declared a real runtime dependency there even though it is
 bundled: the Acorn ROM path resolves it through `createRequire` at run time, so

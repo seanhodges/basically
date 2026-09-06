@@ -3,8 +3,8 @@
 These are done by a person on the registry, and the workflow cannot do them: a
 trusted publisher can only be configured on a package that already exists.
 
-- [ ] 1.1 Create the `basically` organisation on the registry, so `@basically/cli`
-      can be published to it
+- [x] 1.1 Create the `ba.sical.ly` organisation on the registry, so
+      `@ba.sical.ly/cli` can be published to it
 - [ ] 1.2 Publish the first version by hand with a token, publicly — a scoped
       package is private unless the publish says otherwise
 - [ ] 1.3 Configure the trusted publisher on the registry against this repository
@@ -41,7 +41,7 @@ trusted publisher can only be configured on a package that already exists.
 
 ## 4. The published package
 
-- [x] 4.1 Write `scripts/headless/package.json`: `@basically/cli`,
+- [x] 4.1 Write `scripts/headless/package.json`: `@ba.sical.ly/cli`,
       `GPL-3.0-or-later`, `type: module`, `engines.node >= 22`, `files` limited to
       the bundle directory and the licence and readme, and `jsbeeb` as a runtime
       dependency pinned equal to the root's. The entry points stay named

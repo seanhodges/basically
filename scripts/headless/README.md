@@ -1,4 +1,4 @@
-# @basically/cli
+# @ba.sical.ly/cli
 
 The [Basically](https://github.com/seanhodges/basically) toolchain outside the
 browser: describe a machine, check a listing, build one into a file the machine
@@ -7,7 +7,7 @@ and serve the same operations to an editor over the Language Server Protocol or
 to an agent over the Model Context Protocol.
 
 ```sh
-npm install -g @basically/cli
+npm install -g @ba.sical.ly/cli
 
 basically machines                       # every machine, and whether it runs here
 basically info commodore64               # memory, BASIC rules, keywords, formats
