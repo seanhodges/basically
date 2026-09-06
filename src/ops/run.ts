@@ -24,6 +24,7 @@ import type {
 import { encodeBytes } from './bytes';
 import { driveOp, type DriveOutcome } from './drive';
 import { createHeadlessSession } from './headlessSession';
+import { noRomHere } from './romless';
 import {
   profileOp,
   timeOp,
@@ -108,15 +109,12 @@ export async function runProgram(
   if (!runner) throw new RunError('this caller cannot run a program');
   if (input.keys !== undefined) checkSchedule(input.keys);
   const dialect = requireMachine(input.machine);
-  if (input.keys !== undefined && !ctx.roms.present(dialect)) {
+  if (input.keys !== undefined && !ctx.roms.present(dialect, input.romRoot)) {
     // An undriven run on a ROM-less machine draws its missing-image notice,
     // which at least says the machine boots. A driven one has nothing to
     // drive, so it is refused before a step is taken rather than reporting a
     // schedule that failed against a notice.
-    throw new RunError(
-      `this installation carries no ROM for ${dialect.name}, so there is ` +
-        'nothing for --keys to drive',
-    );
+    throw new RunError(noRomHere(dialect.name, 'nothing for --keys to drive'));
   }
 
   const measuring = input.profile || input.time;

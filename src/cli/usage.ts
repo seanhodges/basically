@@ -65,11 +65,16 @@ On the machine a "run --hold" left up:
   expect     judge the machine against written expectations
   server     start, stop, or ask after the host these run on
 
+  roms       say where the machine ROM images come from, obtain them, discard them
   lsp        serve an editor over the Language Server Protocol
   mcp        serve an agent over the Model Context Protocol
 
 Every operation but "run" and "check" works with no ROM present. Where an operation takes a
 program, the path may be "-", or left out, to read it from standard input.
+
+ROM images are read from a source checkout's public/roms, or from --rom-root, if either has
+them. Otherwise "run" and "check" offer to download them, once, from where they are
+published - see "basically roms --help".
 
 The operations above act on one machine, held between commands: "run --hold" leaves the
 machine it booted running, and each of them acts on it until "server stop" or a
@@ -276,6 +281,43 @@ usage: basically expect <checks.txt> [--json]
 The same file "check" takes: a schedule of actions with EXPECT lines mixed in.
 Unlike "check", which boots a machine of its own, this judges the machine a
 "run --hold" left up.
+`,
+
+  roms: `
+say where the machine ROM images come from, obtain them, or discard them
+
+usage: basically roms [status|accept|fetch|clear] [--json]
+
+  status   say which images are being read from where, what is held, and when
+           the published set was last checked (the default). Never downloads
+           anything and never asks anything
+  accept   agree to the images being downloaded, and download them
+  fetch    check the published set for changes and download what is new or
+           changed, whether or not a check was due
+  clear    discard the downloaded images and the agreement to download them
+  --json   report the answer as JSON
+
+The images are the machines' original firmware. They are not part of this tool, they are
+published separately, and they carry their own terms - which is why nothing is downloaded
+until you say so. The notice setting those terms out travels with them, as
+public/roms/ATTRIBUTION.md in a source checkout and beside the images where they are
+published; "accept" names it before asking.
+
+Nothing is downloaded and nothing is asked when the images are already here: a source
+checkout carries them, and --rom-root on "run" or "check" points at a set you supply.
+Otherwise the first "run" or "check" that needs one asks. Agreeing once covers every later
+machine and every later update.
+
+Where there is no terminal to ask - a script, a scheduled build, an editor or agent served
+over a protocol - agree in advance with "basically roms accept" or by setting
+BASICALLY_ROM_CONSENT=yes. Such a caller is never left waiting on the question.
+
+Once agreed, the published set is re-checked about daily; "roms fetch" checks at once, which
+is how a machine added since the last check gets its image without waiting. A check that
+cannot be made changes nothing and is not reported: it can never fail the command it ran
+before. Set BASICALLY_ROM_REFRESH=off to stop the periodic
+check, and BASICALLY_ROMS_URL to read the images from somewhere else. BASICALLY_HOME says
+where they are kept.
 `,
 
   server: `

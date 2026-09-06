@@ -23,6 +23,7 @@ import type { MachineEmulator, MachineScreenText } from '../dialects/types';
 import type { TokenizeError } from '../dialects/types';
 import { expectOp, type ExpectOutcome } from './expect';
 import { createHeadlessSession } from './headlessSession';
+import { noRomHere } from './romless';
 import { requireMachine } from './resolve';
 import { checkSchedule } from './run';
 import type { OpContext, Operation } from './types';
@@ -78,14 +79,13 @@ export const checkOp: Operation<CheckInput, CheckOutcome> = {
     // caller's mistake rather than a check that got part-way.
     checkSchedule(input.expectations, 'the expectations');
     const dialect = requireMachine(input.machine);
-    if (!ctx.roms.present(dialect)) {
+    if (!ctx.roms.present(dialect, input.romRoot)) {
       // A verdict from a machine that ran nothing would say nothing about the
       // program: a ROM-less machine draws its missing-image notice, against
       // which every expectation would fail and every action would be driving
       // a notice.
       throw new RunError(
-        `this installation carries no ROM for ${dialect.name}, so there is ` +
-          'nothing to check the program against',
+        noRomHere(dialect.name, 'nothing to check the program against'),
       );
     }
 

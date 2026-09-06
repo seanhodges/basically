@@ -109,8 +109,9 @@ export function createServerMachine(): ServerMachine {
   const run: ListingRunner = async (opts: RunOptions): Promise<RunResult> => {
     const dialect = findMachine(opts.machine);
     if (!dialect) throw new RunError(`no registered machine "${opts.machine}"`);
-    const romRoot = opts.romRoot ?? findRomRoot();
-    if (romRoot) configureRomRoot(romRoot);
+    // Set even when nothing was found: the root is a global and a host serves
+    // many calls, so a previous call's directory must not linger into this one.
+    configureRomRoot(opts.romRoot ?? findRomRoot());
 
     const startedAt = performance.now();
     const timings: RunTimings = {

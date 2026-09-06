@@ -46,6 +46,11 @@ export const OPERATIONS = [
   'server',
   'lsp',
   'mcp',
+  // Not an operation in src/ops/: it needs the filesystem and the network,
+  // which that layer forbids, and what it manages - obtained images and the
+  // agreement to obtain them - belongs to this surface alone. Answered here,
+  // as `help` is, without a host.
+  'roms',
 ] as const;
 
 export type Operation = (typeof OPERATIONS)[number];
@@ -163,6 +168,19 @@ export interface ExpectArgs {
   input: Omit<ExpectInput, 'expectations'>;
 }
 
+/**
+ * Asking after the ROM images rather than after a program or a machine.
+ *
+ * `status` reports and never obtains anything; `accept` records the agreement
+ * and obtains the set; `fetch` checks for changes whether or not one was due;
+ * `clear` discards both the images and the agreement.
+ */
+export interface RomsArgs {
+  operation: 'roms';
+  action: 'status' | 'accept' | 'fetch' | 'clear';
+  json: boolean;
+}
+
 /** Asking after the host itself rather than after a program or a machine. */
 export interface ServerArgs {
   operation: 'server';
@@ -227,7 +245,8 @@ export type CliArgs =
   | ExpectArgs
   | ServerArgs
   | LspArgs
-  | McpArgs;
+  | McpArgs
+  | RomsArgs;
 
 function isOperation(word: string): word is Operation {
   return (OPERATIONS as readonly string[]).includes(word);
@@ -402,6 +421,29 @@ function parseServerCommand(argv: string[]): ServerArgs {
     throw new RunError(`server takes one action, got "${rest[1]}"`);
   }
   return { operation: 'server', action, json };
+}
+
+function parseRomsCommand(argv: string[]): RomsArgs {
+  let json = false;
+  const rest = scan(argv, (name) => {
+    if (name !== '--json') throw unknownOption('roms', name);
+    json = true;
+  });
+  const action = rest[0] ?? 'status';
+  if (
+    action !== 'status' &&
+    action !== 'accept' &&
+    action !== 'fetch' &&
+    action !== 'clear'
+  ) {
+    throw new RunError(
+      `roms takes status, accept, fetch or clear, not "${action}"`,
+    );
+  }
+  if (rest.length > 1) {
+    throw new RunError(`roms takes one action, got "${rest[1]}"`);
+  }
+  return { operation: 'roms', action, json };
 }
 
 function parseMachines(argv: string[]): MachinesArgs {
@@ -728,6 +770,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseExpect(rest);
     case 'server':
       return parseServerCommand(rest);
+    case 'roms':
+      return parseRomsCommand(rest);
     case 'lsp':
       return parseServer('lsp', rest);
     case 'mcp':

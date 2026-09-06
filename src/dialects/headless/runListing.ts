@@ -1,6 +1,3 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   bootMachine,
   configureRomRoot,
@@ -17,6 +14,7 @@ import { resolveTokenize } from '../resolveListing';
 import { findMachine } from '../machineLookup';
 import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
 import { RunError } from './runError';
+import { findRomRoot } from './romRoot';
 
 /**
  * Run a BASIC listing on a registered machine under node and report its screen.
@@ -176,27 +174,6 @@ export interface RunResult {
   timings: RunTimings;
 }
 
-/**
- * The `public/` holding the ROMs, found by walking up from this code and then
- * from the working directory.
- *
- * Bundled, this module has no idea where the checkout is - its own path is
- * wherever the bundle was written - so the directory is searched for rather
- * than derived. Returns null when there is none, which is a machine that draws
- * its missing-image notice rather than a failure.
- */
-export function findRomRoot(): string | null {
-  const starts = [path.dirname(fileURLToPath(import.meta.url)), process.cwd()];
-  for (const start of starts) {
-    for (let dir = start; ; dir = path.dirname(dir)) {
-      const candidate = path.join(dir, 'public');
-      if (existsSync(path.join(candidate, 'roms'))) return candidate;
-      if (path.dirname(dir) === dir) break;
-    }
-  }
-  return null;
-}
-
 /** A program that has begun cannot un-begin, so a `false` ends the run. */
 const DEFAULT_MAX_FRAMES = 4000;
 
@@ -214,14 +191,19 @@ const SETTLE_FRAMES = 2;
 
 export { RunError } from './runError';
 
+// Re-exported so the callers that already asked this module keep working; the
+// answer itself lives in a leaf, out of reach of the emulators below.
+export { findRomRoot } from './romRoot';
+
 // Re-exported for the CLI modules that already import these from here.
 export { findMachine, machineList } from '../machineLookup';
 
 export async function runListing(opts: RunOptions): Promise<RunResult> {
   const dialect = findMachine(opts.machine);
   if (!dialect) throw new RunError(`no registered machine "${opts.machine}"`);
-  const romRoot = opts.romRoot ?? findRomRoot();
-  if (romRoot) configureRomRoot(romRoot);
+  // Set even when nothing was found: the root is a global and a host serves
+  // many calls, so a previous call's directory must not linger into this one.
+  configureRomRoot(opts.romRoot ?? findRomRoot());
 
   const startedAt = performance.now();
   const timings: RunTimings = {

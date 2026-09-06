@@ -114,4 +114,30 @@ describe('running a program', () => {
       }),
     ).rejects.toThrow(/no ROM/);
   });
+
+  it('refuses to drive on the root the caller named, not on the one it found', async () => {
+    // As for check: the host's context carries no root, so --rom-root has to
+    // reach the probe through the input or a driven run goes ahead against a
+    // directory it will not read from.
+    await expect(
+      runOp.run(wants({ keys: 'PRESS A', romRoot: '/nowhere' }), cliContext()),
+    ).rejects.toThrow(/no ROM/);
+  });
+
+  it('says how to get one, so the refusal is not a dead end', async () => {
+    // The diagnosis on its own left the user with a true statement and nothing
+    // to do about it; the remedies are the command line's, so they are named.
+    const ctx = cliContext();
+    const refusal = await runOp
+      .run(wants({ keys: 'PRESS A' }), {
+        ...ctx,
+        roms: { present: () => false },
+      })
+      .then(
+        () => null,
+        (error: unknown) => (error as Error).message,
+      );
+    expect(refusal).toContain('roms accept');
+    expect(refusal).toContain('--rom-root');
+  });
 });

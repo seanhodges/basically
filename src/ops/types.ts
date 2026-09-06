@@ -61,9 +61,17 @@ export type McpRoute = { kind: 'tool' };
  */
 export type OpNeeds = 'nothing' | 'roms' | 'session' | 'runner';
 
-/** Whether a machine's ROM is here, answered without reading it. */
+/**
+ * Whether a machine's ROM is here, answered without reading it.
+ *
+ * `romRoot` is where the caller said to read ROMs from, for the operations
+ * whose input carries one. It has to be asked here and not only of the runner:
+ * the probe is what decides whether an operation is refused at all, so a probe
+ * answering about somewhere else would refuse a run whose ROMs are present, or
+ * let one through against a directory it will not read.
+ */
 export interface RomProbe {
-  present(dialect: Dialect): boolean;
+  present(dialect: Dialect, romRoot?: string): boolean;
 }
 
 /** Runs a program on a booted machine; the headless runner's own shape. */

@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { dialects } from '../dialects/registry';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
+import { romTail } from '../dialects/romRef';
 import {
   buildExpectationRules,
   canCheckByRunning,
@@ -36,8 +37,9 @@ beforeAll(() => {
   const utilsPath = require.resolve('jsbeeb/src/utils.js');
   configureNodeRomPath(path.dirname(path.dirname(utilsPath)));
   vi.stubGlobal('fetch', async (url: string) => {
-    const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.resolve(__dirname, '../../public', rel));
+    const data = readFileSync(
+      path.resolve(__dirname, '../../public/roms', romTail(String(url))),
+    );
     return {
       ok: true,
       status: 200,
@@ -54,8 +56,7 @@ afterAll(() => {
 /** As screenReadable.test.ts: a ROM a checkout deleted leaves an empty image. */
 function romFor(romUrl: string | undefined): Uint8Array {
   if (!romUrl) return new Uint8Array(0);
-  const rel = romUrl.slice(romUrl.indexOf('roms/'));
-  const file = path.resolve(__dirname, '../../public', rel);
+  const file = path.resolve(__dirname, '../../public/roms', romTail(romUrl));
   return existsSync(file)
     ? new Uint8Array(readFileSync(file))
     : new Uint8Array(0);

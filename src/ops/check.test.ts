@@ -108,6 +108,37 @@ describe('checking a program', () => {
     ).rejects.toThrow(/no ROM/);
   });
 
+  it('refuses on the root the caller named, not on the one it found', async () => {
+    // The regression this guards. A host builds its context knowing nothing
+    // about the call, so the probe used to answer from whatever ROMs it could
+    // find on disk while the run went to --rom-root - and a check against a
+    // directory with no ROMs ran anyway, reaching a verdict about a machine
+    // that drew its missing-image notice. The context here is built the way a
+    // host builds it: with no root of its own.
+    await expect(
+      checkOp.run(
+        wants({ machine: 'zx81', romRoot: '/nowhere' }),
+        cliContext(),
+      ),
+    ).rejects.toThrow(/no ROM/);
+  });
+
+  it('says how to get one, so the refusal is not a dead end', async () => {
+    // The diagnosis on its own left the user with a true statement and nothing
+    // to do about it; the remedies are the command line's, so they are named.
+    const refusal = await checkOp
+      .run(
+        wants({ machine: 'zx81', romRoot: '/nowhere' }),
+        cliContext('/nowhere'),
+      )
+      .then(
+        () => null,
+        (error: unknown) => (error as Error).message,
+      );
+    expect(refusal).toContain('roms accept');
+    expect(refusal).toContain('--rom-root');
+  });
+
   it('reports a program that cannot be built as failed, without a verdict', async () => {
     const outcome = await checkOp.run(
       wants({ source: '10 PRINT "\n', expectations: 'EXPECT "HI"' }),

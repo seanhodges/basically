@@ -1,3 +1,18 @@
+# Where these images are published
+
+This folder is the source of truth, and it is also mirrored: the same set is
+published read-only beside the share API, as a manifest (`index.json`, listing
+every image with its length and its SHA-256), an archive (`roms.zip`), the
+images themselves, and a copy of this notice. The command line downloads from
+there when an installation carries no images of its own, after asking the user
+once and pointing them at this notice - the permissions below are conditional
+on the notice travelling with the images, so it travels with them there too.
+
+A takedown therefore has two halves: remove the image here, and redeploy the
+mirror so it stops being served. A downloaded copy is discarded on the next
+check, because an image the manifest no longer lists is deleted rather than
+kept.
+
 # How this folder is laid out
 
 One folder per machine, named for the dialect id it belongs to

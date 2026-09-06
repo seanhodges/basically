@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { dialects } from './registry';
+import { romTail } from './romRef';
 
 const PUBLIC = path.resolve(__dirname, '../../public');
 
@@ -11,8 +12,7 @@ const PUBLIC = path.resolve(__dirname, '../../public');
 // unstubbed fetch logs a bringup failure per machine and buries real output.
 beforeAll(() => {
   vi.stubGlobal('fetch', async (url: string) => {
-    const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.join(PUBLIC, rel));
+    const data = readFileSync(path.join(PUBLIC, 'roms', romTail(String(url))));
     return {
       ok: true,
       status: 200,

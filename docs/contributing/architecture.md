@@ -238,6 +238,31 @@ does with a _wrong-length_ image is its own business and deliberately not
 uniform - the Sinclairs refuse one, the Apple I accepts a monitor-only image
 because that is a real Apple I.
 
+**Where the images come from differs by surface.** In the browser they are
+fetched from the app's own origin. Outside it, `findRomRoot()`
+(`src/dialects/headless/runListing.ts`) answers for the runner, the held-machine
+session and the command line's ROM probe alike, in this order: a set the command
+line downloaded and holds complete, then this installation's own `public/`, then
+a downloaded set that is short of the published one. A `--rom-root` named on
+`run` or `check` overrides the lot.
+
+Downloading is the command line's own work and happens in its own process, never
+in the host: obtaining images writes to a user's disk and asking about it needs a
+terminal, and the host has neither. So `src/cli/romCache.ts` (the manifest,
+digest verification, the periodic re-check) and `src/cli/romConsent.ts` (the
+question and its record) are reached only from `scripts/headless/cli.mts`, before
+it starts a host and before it reads a program from standard input - `run` and
+`check` take theirs from there, so a question asked afterwards would read its
+answer from a stream that has already ended. `findRomRoot()` itself never
+downloads and never asks; discovery and acquisition are deliberately separate, so
+`machines` can report what is here without touching the network.
+
+Two constraints hold that shape in place. `src/ops/` may import neither the
+filesystem nor the network, so the operations know only whether a ROM is present
+(`RomProbe`); and the command line's own bundle deliberately excludes the dialect
+registry, which is why `src/cli/romsReport.ts` counts images rather than
+machines.
+
 **A debug slice is a frame.** A debug session opens on an ordinary press of
 Play, so `debugStep()` is how most machines are usually run. Everything
 `runFrame()` does around CPU work (profiler charge, cycle counter, frame
