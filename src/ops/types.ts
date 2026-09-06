@@ -1,6 +1,6 @@
 import type { Dialect, MachineEmulator } from '../dialects/types';
 import type { MachineSession } from '../app/machineSession';
-import type { RunOptions, RunResult } from '../dialects/headless/runListing';
+import type { RunOptions, RunResult } from '../dialects/headless/runTypes';
 
 /**
  * One declaration per operation, from which every caller's surface is derived.

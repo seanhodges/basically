@@ -14,7 +14,7 @@
 
 import { parseDriveScript, type ScheduleStep } from '../app/driveScript';
 import { RunMeasurements } from '../app/runMeasurements';
-import type { RunObserver, RunResult } from '../dialects/headless/runListing';
+import type { RunObserver, RunResult } from '../dialects/headless/runTypes';
 import { RunError } from '../dialects/headless/runError';
 import type {
   MachineEmulator,

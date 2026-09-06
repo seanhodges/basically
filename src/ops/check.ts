@@ -18,7 +18,7 @@
 
 import type { ScheduleStep } from '../app/driveScript';
 import { RunError } from '../dialects/headless/runError';
-import type { RunResult } from '../dialects/headless/runListing';
+import type { RunResult } from '../dialects/headless/runTypes';
 import type { MachineEmulator, MachineScreenText } from '../dialects/types';
 import type { TokenizeError } from '../dialects/types';
 import { expectOp, type ExpectOutcome } from './expect';

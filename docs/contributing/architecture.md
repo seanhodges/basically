@@ -240,7 +240,7 @@ because that is a real Apple I.
 
 **Where the images come from differs by surface.** In the browser they are
 fetched from the app's own origin. Outside it, `findRomRoot()`
-(`src/dialects/headless/runListing.ts`) answers for the runner, the held-machine
+(`src/dialects/headless/romRoot.ts`) answers for the runner, the held-machine
 session and the command line's ROM probe alike, in this order: a set the command
 line downloaded and holds complete, then this installation's own `public/`, then
 a downloaded set that is short of the published one. A `--rom-root` named on

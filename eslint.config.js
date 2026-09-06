@@ -137,8 +137,12 @@ export default tseslint.config(
               allowTypeImports: true,
             },
             {
+              group: ['**/dialects/headless/runListing'],
+              message:
+                "The runner reaches node, and naming it is enough to put it in the website's import graph (src/build/webBoundary.test.ts walks type imports too). The shape of a run is in src/dialects/headless/runTypes.ts; the runner itself arrives through the context.",
+            },
+            {
               group: [
-                '**/dialects/headless/runListing',
                 '**/dialects/headless/headlessCanvas',
                 '**/dialects/bootHarness',
                 '**/cli/*',
