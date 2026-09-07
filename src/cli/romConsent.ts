@@ -118,9 +118,7 @@ export function consentQuestion(opts: {
       ? [
           'See https://github.com/seanhodges/basically/blob/main/public/roms/ATTRIBUTION.md.',
         ]
-      : [
-          `The terms are set out in the notice beside them, ${notice}.`,
-        ]),
+      : [`The terms are set out in the notice beside them, ${notice}.`]),
     '',
     'Answering yes covers future machines and updates; to retract, run "basically roms clear".',
   ];
