@@ -5,12 +5,6 @@
  * Reading a machine's ROM reference: the path behind a `romUrl`, and the base a
  * published set is read from.
  *
- * A `romUrl` is a deployed URL (`/roms/zx81/zx81.rom`), but every consumer
- * really wants the part after `roms/` - the node side to build a path under a
- * ROM root, the command line to name an entry in the published manifest. Four
- * callers worked that out for themselves and two of them disagreed about
- * whether the `roms/` stays on, so it is one function here.
- *
  * Nothing in this file imports node or the DOM: the browser, the command line
  * and the tests all read a ROM reference the same way.
  */
@@ -28,29 +22,32 @@ export function romTail(romUrl: string): string {
 }
 
 /**
- * Where the ROM set is published, with the trailing slash a caller can append a
- * tail to.
+ * The base to read the published set from, ending in exactly one slash, or
+ * `undefined` where this build names no publisher.
  *
- * Committed rather than configured because the command line has to work from a
- * fresh clone with nothing set up, and the route is an unauthenticated public
- * read - this is an address, not a secret. A deployment that moves overrides it
- * (`BASICALLY_ROMS_URL` on the command line); an override that cannot be
- * reached degrades to carrying no ROMs, which is a state everything here
- * already handles.
+ * Two ways in, and they are shaped differently on purpose:
+ *
+ * - `override` is a **full ROM base** (`https://…/roms/`), passed by the caller
+ *   from wherever that surface keeps it - the command line reads
+ *   `BASICALLY_ROMS_URL` out of the process environment. It is used as given.
+ * - Otherwise `VITE_SHARE_API_URL`, folded into the bundle at build time, is the
+ *   share server's **origin**, and the ROM set is the `roms/` under it. The set
+ *   is published by the share server, so there is one address for the server and
+ *   the build hands the same one to every bundle rather than each carrying its
+ *   own copy.
+ *
+ * Read here rather than at module scope so the value is the one in force when a
+ * caller asks, which is what lets a test stub it.
+ *
+ * Neither set means there is nowhere to read a published set from: a caller
+ * obtains nothing and says so. That is the state an installation with no ROMs is
+ * already in, so nothing downstream is new.
  */
-export const DEFAULT_ROMS_BASE_URL =
-  'https://86y7vk6qxc.execute-api.eu-west-2.amazonaws.com/roms/';
+export function romsBaseUrl(override?: string): string | undefined {
+  const named = override?.trim();
+  if (named) return `${named.replace(/\/+$/, '')}/`;
 
-/**
- * The base to read the published set from: `override` where it says anything,
- * the default otherwise, ending in exactly one slash.
- *
- * The override arrives as an argument rather than being read from an
- * environment here, because the two surfaces keep it in different places - the
- * command line in the process environment, the browser folded into the bundle -
- * and this file belongs to neither.
- */
-export function romsBaseUrl(override?: string): string {
-  const base = override?.trim() ? override.trim() : DEFAULT_ROMS_BASE_URL;
-  return `${base.replace(/\/+$/, '')}/`;
+  const origin = import.meta.env.VITE_SHARE_API_URL?.trim();
+  if (!origin) return undefined;
+  return `${origin.replace(/\/+$/, '')}/roms/`;
 }

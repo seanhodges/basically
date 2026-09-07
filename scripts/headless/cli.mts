@@ -14,6 +14,7 @@ import {
   BACKGROUND_TIMEOUT_MS,
   clearRomCache,
   fetchRomSet,
+  publisherConfigured,
   refreshDue,
   romCacheHome,
 } from '../../src/cli/romCache';
@@ -545,10 +546,15 @@ async function roms(
         home,
       );
     }
-    const { agreed } = await consentToFetch({ home });
-    if (!agreed) {
-      err(`nothing was downloaded: ${howToAgree()}\n`);
-      return EXIT_BAD_REQUEST;
+    // The question is only put where an answer would change something: a build
+    // that names no publisher has nowhere to download from, and the fetch below
+    // says so plainly rather than an agreement being asked for first.
+    if (publisherConfigured()) {
+      const { agreed } = await consentToFetch({ home });
+      if (!agreed) {
+        err(`nothing was downloaded: ${howToAgree()}\n`);
+        return EXIT_BAD_REQUEST;
+      }
     }
     const outcome = await fetchRomSet({ home, force: true });
     if (!outcome.ok) {
@@ -584,7 +590,7 @@ async function roms(
  * `check` take their program from standard input, so a question put afterwards
  * would be reading its answer from a stream that has already ended.
  *
- * Three ways this does nothing at all, which is the common case: a root was
+ * Several ways this does nothing at all, which is the common case: a root was
  * named - on the run or once for the installation, which is why the caller
  * resolves it before asking - this installation carries its own images, or a
  * complete set has already been downloaded. Only an installation with no ROMs anywhere reaches
@@ -594,6 +600,11 @@ async function roms(
  */
 async function ensureRoms(namedRoot: string | undefined): Promise<void> {
   if (namedRoot !== undefined) return;
+  // A fourth way this does nothing: a build that names no publisher has nowhere
+  // to obtain an image from, so there is no point putting a question whose yes
+  // could not be acted on. `roms fetch` still goes ahead and reports why it
+  // could not, because there the user asked about ROMs.
+  if (!publisherConfigured()) return;
 
   const root = findRomRoot();
   if (root === null) {

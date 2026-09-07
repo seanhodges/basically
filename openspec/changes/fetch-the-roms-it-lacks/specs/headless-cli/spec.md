@@ -72,8 +72,8 @@ obtained and agreed to, so the refusal is not a dead end.
 
 The tool SHALL NOT obtain any ROM image until the user has agreed to it, and
 SHALL ask only where it would otherwise have no ROM to run — never on an
-installation that already carries one, and never for an operation that needs
-none. Asking SHALL say what would be obtained, where it would be kept, and where
+installation that already carries one, never for an operation that needs none,
+and never where the tool has nowhere to obtain one from. Asking SHALL say what would be obtained, where it would be kept, and where
 the terms those images travel on are set out, so the user is agreeing to
 something they can read first.
 
@@ -101,6 +101,20 @@ so a user who says no is no worse off than before they were asked.
 - **THEN** nothing is obtained, and the run behaves exactly as it does with no
   ROM present — reporting the missing ROM as a condition of the run, or refusing
   where a schedule or a check required it
+
+#### Scenario: An installation with nowhere to obtain images from
+
+- **WHEN** the tool was built without being told where the set is published, and
+  the user runs a machine whose ROM the installation does not carry
+- **THEN** the user is not asked, nothing is obtained, and the run behaves as it
+  does when the question was declined
+
+#### Scenario: Asking for images with nowhere to obtain them from
+
+- **WHEN** the tool was built without being told where the set is published, and
+  the user asks for the ROMs to be obtained
+- **THEN** the tool says it has no publisher and how one is named, rather than
+  reporting a download that failed
 
 ### Requirement: A caller with no terminal is never left waiting
 
@@ -168,7 +182,8 @@ and SHALL say nothing about it in the command's own answer.
 
 ### Requirement: The user can ask about, obtain and discard ROMs directly
 
-The user SHALL be able to ask where the tool is reading ROMs from and why, which
+The user SHALL be able to ask where the tool is reading ROMs from and why, where
+the published set would be obtained from or that this build names nowhere, which
 machines it holds an image for, and when it last checked for changes; to agree
 and to obtain the set in one deliberate action rather than as a side effect of a
 run; and to discard everything it has obtained.

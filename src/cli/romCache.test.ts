@@ -45,6 +45,7 @@ beforeEach(() => {
 afterEach(() => {
   clearRomCache(home);
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 /** Put a manifest and its images in place without going near the network. */
@@ -141,6 +142,23 @@ describe('what the cache vouches for', () => {
 });
 
 describe('obtaining images', () => {
+  it('obtains nothing, and asks nothing, where the build names no publisher', async () => {
+    // The address is folded in at build time, so a bundle can genuinely have
+    // none - and then there is nowhere to ask. Stubbed rather than left to the
+    // environment for the same reason: a checkout's .env.local names a server
+    // and CI names none.
+    vi.stubEnv('VITE_SHARE_API_URL', '');
+    const asked = vi.fn();
+    vi.stubGlobal('fetch', asked);
+
+    const outcome = await fetchRomSet({ home });
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toContain('names no ROM publisher');
+    expect(outcome.reason).toContain('BASICALLY_ROMS_URL');
+    expect(asked, 'there is nobody to ask').not.toHaveBeenCalled();
+  });
+
   it('verifies each digest and keeps what matches', async () => {
     vi.stubGlobal('fetch', publisher());
     const outcome = await fetchRomSet({

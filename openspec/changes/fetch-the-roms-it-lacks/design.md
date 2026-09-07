@@ -181,14 +181,22 @@ assistant and the server — was considered and rejected: the browser has no ROM
 cache to manage, and a server has no terminal to be asked in, so both exemptions
 would say the same thing twice and the declaration would earn nothing.
 
-### The base URL is committed, with an override
+### The base URL comes from the build, with an override
 
-`./scripts/basically` has to work from a fresh clone with no configuration, so
-the published base is a constant in the source with an environment override,
-rather than something read from `.env.local` at bundle time. The route is an
-unauthenticated public read, so the constant is not a secret; and the bundle is
-built by whoever runs the wrapper, so a build-time environment read would make
-the tool's behaviour depend on the builder's shell.
+The set is published by the share server, so its address is the share server's
+address: the build is handed one origin (`VITE_SHARE_API_URL`, the same variable
+the web build already reads) and the ROM set is the `roms/` under it. Committing
+the address instead would spell the same server twice — once as a deployment
+variable and once in the source — and leave the checked-in half wrong the day the
+server moves.
+
+A build told nothing names no publisher, and that is a state rather than a
+failure: it obtains nothing, asks nothing, and says so, which is exactly where an
+installation with no ROMs already stood. A checkout is unaffected, because it
+reads its own `public/roms` and never reaches for a publisher; `BASICALLY_ROMS_URL`
+names one at runtime for an installation that needs it. The override stays a whole
+ROM base rather than an origin, because what it exists for is a set that has moved
+on its own.
 
 ## Risks / Trade-offs
 
@@ -209,9 +217,14 @@ the tool's behaviour depend on the builder's shell.
   after a manifest is fetched and parsed successfully, only removes files inside
   the tool's own cache directory, and never touches `--rom-root` or the
   installation's `public/`.
-- **A committed base URL is a redeploy away from being wrong.** → The environment
-  override is the escape, and a wrong base degrades to "cannot obtain ROMs", which
-  is exactly today's behaviour, rather than to a broken command.
+- **A build made without the address quietly carries no publisher.** A locally
+  rebuilt bundle downloads nothing where the released one would. → It is what
+  `roms` reports first, the run that would have asked stands down silently rather
+  than putting a question it could not act on, and a checkout - which is what a
+  local build has - reads its own images anyway.
+- **A wrong or moved base is a redeploy away.** → The environment override is the
+  escape, and a wrong base degrades to "cannot obtain ROMs" rather than to a
+  broken command.
 - **Node's global `fetch` is stubbed by `installNodeRomLoading()`** so machines
   that fetch their own sets read from disk. The cache's own fetching runs in the
   client process, before and outside any of that, so the two never overlap — but

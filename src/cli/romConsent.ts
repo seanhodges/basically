@@ -106,16 +106,23 @@ export function consentQuestion(opts: {
 }): string[] {
   const env = opts.env ?? process.env;
   const home = opts.home ?? romCacheHome(env);
+  const notice = attributionUrl(undefined, env);
   return [
     'The machine ROM images are not part of this tool: they are the original',
     'firmware, published separately and covered by their own terms.',
     '',
-    `They would be downloaded to ${path.join(home, 'roms')}`,
-    `The terms are set out in the notice beside them, ${attributionUrl(undefined, env)}`,
-    '(the same notice is at public/roms/ATTRIBUTION.md in a source checkout).',
+    `They can be downloaded to ${path.join(home, 'roms')}`,
+    // Where this build names no publisher there is no served notice to point at,
+    // so the checkout's copy - the same words - is named on its own instead.
+    ...(notice === undefined
+      ? [
+          'See https://github.com/seanhodges/basically/blob/main/public/roms/ATTRIBUTION.md.',
+        ]
+      : [
+          `The terms are set out in the notice beside them, ${notice}.`,
+        ]),
     '',
-    'Answering yes covers later machines and later updates; it is remembered',
-    'until you run "basically roms clear".',
+    'Answering yes covers future machines and updates; to retract, run "basically roms clear".',
   ];
 }
 

@@ -1,6 +1,6 @@
 ## 1. The shared ROM reference
 
-- [x] 1.1 Add `src/dialects/romRef.ts`: `romTail(romUrl)` (the `<dir>/<file>` behind a `romUrl`), `DEFAULT_ROMS_BASE_URL` (the published base, committed), and `romsBaseUrl(override)` normalising to one trailing slash. Pure — no node, no DOM, no environment reads; each surface passes its own override.
+- [x] 1.1 Add `src/dialects/romRef.ts`: `romTail(romUrl)` (the `<dir>/<file>` behind a `romUrl`) and `romsBaseUrl(override)`, which is the share server the build names with `roms/` under it, an override used as a whole base, or nothing where the build named no server. No node and no DOM: each surface passes its own override, and the build value is the one address both are handed.
 - [x] 1.2 Replace the four hand-rolled `indexOf('roms/')` slices with `romTail`: `src/dialects/bootHarness.ts` (the fetch stub and `romPath`), `src/dialects/romLayout.test.ts`, `src/dialects/debugCapability.test.ts`. Note that the test copy adds `'roms/'.length` where the harness copies do not — keep the harness behaviour and fix the caller. (There turned out to be seven, not four: also `src/ai/machineObservability.test.ts` ×2, `src/dialects/frameRate.test.ts` and `src/emulator/romNotice.test.ts`.)
 - [x] 1.3 Extend `src/dialects/romLayout.test.ts` to assert `romTail` is the one spelling, over every registered machine's `romUrl`, including the declared Acorn and Atari exceptions.
 

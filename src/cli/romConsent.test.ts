@@ -157,13 +157,26 @@ describe('a caller with no terminal', () => {
 
 describe('what the question says', () => {
   it('names where the images go and where the terms are', () => {
+    // Stubbed rather than left to the build: the address is folded in at build
+    // time, so an unstubbed run would say one thing in a checkout whose
+    // .env.local names a server and another in CI, where nothing does.
+    vi.stubEnv('VITE_SHARE_API_URL', 'https://api.test');
     const lines = consentQuestion({ home, env: {} }).join('\n');
     expect(lines).toContain(path.join(home, 'roms'));
     expect(lines).toContain('ATTRIBUTION.md');
     expect(
       lines,
       'the published notice is the one a user with no checkout has',
-    ).toMatch(/https?:\/\/\S+ATTRIBUTION\.md/);
+    ).toContain('https://api.test/roms/ATTRIBUTION.md');
+  });
+
+  it('names only the checkout notice where the build has no publisher', () => {
+    vi.stubEnv('VITE_SHARE_API_URL', '');
+    const lines = consentQuestion({ home, env: {} }).join('\n');
+    expect(lines).toContain('public/roms/ATTRIBUTION.md');
+    expect(lines, 'there is no published notice to send a user to').not.toMatch(
+      /https?:\/\//,
+    );
   });
 
   it('says the answer is remembered, and how to take it back', () => {

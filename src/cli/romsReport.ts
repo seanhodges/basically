@@ -53,8 +53,8 @@ export interface RomsStatus {
   root?: string;
   /** Where downloaded images are kept, whether or not any are. */
   home: string;
-  /** Where the published set is read from. */
-  publishedAt: string;
+  /** Where the published set is read from, absent where this build names one. */
+  publishedAt?: string;
   /** Whether downloading has been agreed to. */
   agreed: boolean;
   /** How many images the root in use holds. */
@@ -159,11 +159,20 @@ export function formatRomsStatus(status: RomsStatus): string {
     );
   }
   lines.push(
-    `published at ${status.publishedAt}`,
-    status.agreed
-      ? 'downloading was agreed to'
-      : 'downloading has not been agreed to; the first run that needs an image will ask',
+    status.publishedAt === undefined
+      ? 'this build names no publisher, so nothing can be downloaded (BASICALLY_ROMS_URL names one)'
+      : `published at ${status.publishedAt}`,
   );
+  // The agreement is only worth a line where it governs something: with no
+  // publisher there is no download to agree to, and promising that the next run
+  // will ask would be promising a question it has no reason to put.
+  if (status.agreed) {
+    lines.push('downloading was agreed to');
+  } else if (status.publishedAt !== undefined) {
+    lines.push(
+      'downloading has not been agreed to; the first run that needs an image will ask',
+    );
+  }
   if (status.checkedAt !== undefined) {
     lines.push(`last checked ${status.checkedAt}`);
   }

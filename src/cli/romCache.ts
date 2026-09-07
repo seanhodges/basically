@@ -135,6 +135,9 @@ const STATE_FILE = 'roms-state.json';
 const MANIFEST_FILE = 'index.json';
 const ATTRIBUTION_FILE = 'ATTRIBUTION.md';
 
+/** How a build with no publisher of its own is given one. */
+const PUBLISHER_HINT = 'BASICALLY_ROMS_URL names one';
+
 /**
  * Where obtained ROMs are kept.
  *
@@ -342,6 +345,19 @@ export async function fetchRomSet(
   const obtained: string[] = [];
   const removed: string[] = [];
 
+  // Nowhere to ask. Reported like any other way this can go wrong, but without
+  // going through `fail` below: nothing was attempted, so there is no attempt to
+  // record and no publisher to leave alone for an hour.
+  if (base === undefined) {
+    return {
+      ok: false,
+      reason: `this build names no ROM publisher (${PUBLISHER_HINT})`,
+      unchanged: false,
+      obtained,
+      removed,
+    };
+  }
+
   try {
     const held = readCachedManifest(home);
     const state = readCacheState(home);
@@ -463,12 +479,28 @@ export async function fetchRomSet(
   }
 }
 
-/** Where the notice can be read, for a caller with no checkout to point at. */
+/**
+ * Where the notice can be read, for a caller with no checkout to point at, or
+ * nothing where this build names no publisher.
+ */
 export function attributionUrl(
   base?: string,
   env: NodeJS.ProcessEnv = process.env,
-): string {
-  return `${romsBaseUrl(base ?? env.BASICALLY_ROMS_URL)}${ATTRIBUTION_FILE}`;
+): string | undefined {
+  const root = romsBaseUrl(base ?? env.BASICALLY_ROMS_URL);
+  return root === undefined ? undefined : `${root}${ATTRIBUTION_FILE}`;
+}
+
+/**
+ * Whether this build has anywhere to obtain images from.
+ *
+ * For the callers that only need the answer and not the address - a run must not
+ * put the consent question to a user whose yes could not be acted on.
+ */
+export function publisherConfigured(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return romsBaseUrl(env.BASICALLY_ROMS_URL) !== undefined;
 }
 
 /** The manifest, or that the publisher says it has not changed. */
