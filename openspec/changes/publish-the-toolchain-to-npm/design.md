@@ -211,7 +211,38 @@ intended  = the newest cli-v* tag, if there is one
 intended ahead of latest  →  publish intended
                              (a person pushed a tag asking for a minor or major)
 otherwise                 →  publish latest with the patch raised
+
+then                      →  raise the patch again past anything the registry
+                             already holds, so a number spent out of band is a
+                             gap to step over rather than a publish it refuses
 ```
+
+**An answer the registry could not give is not "nothing is published."** The two
+look alike and behave nothing alike. Read as "nothing is published", an
+unreadable answer sends the arithmetic above to the tags — and the newest tag
+names the version that most recently shipped, so the run publishes over what is
+already there and keeps failing on every push until someone reads the log. Only
+an explicit "not found" means the package is not there yet; anything else stops
+the release while the reason is still in hand.
+
+**The registry is read over plain HTTP, not through npm.** What is published is
+a public fact and needs no credentials, and asking for it through the tooling of
+the job that publishes made a release depend on machinery it has no need of —
+`npm view`, in a job holding an OIDC token for a package with a trusted
+publisher, answered with nothing once the package existed, and the step's
+`2>/dev/null` left no record of why. Its one apparent success was the first
+release, where the package genuinely was not there and the failure was
+indistinguishable from the truth. A `GET` of the packument has none of that
+around it: a status code says which of the three answers this is, and the body
+goes into the log when it is the third.
+
+Ask for it without an `Accept` header. The abbreviated packument
+(`application/vnd.npm.install-v1+json`) drops fields it does not recognise, and
+the build id is one of them. The two readings also disagree about where that id
+lives — the registry's own document keys a manifest by each version and carries
+the id inside it, while `npm view --json` flattens the newest manifest over the
+document — so the gate looks in both places, and across every version rather
+than the newest alone.
 
 That is what makes a lost tag harmless. If a publish succeeds and the tag push
 then fails, the next push finds the build id already on the registry and stops —
