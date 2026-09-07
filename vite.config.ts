@@ -101,6 +101,9 @@ export default defineConfig({
       'src/**/*.test.ts',
       'docs/**/*.test.ts',
       'eslint-rules/**/*.test.ts',
+      // The release gate decides which version npm publishes, and a wrong
+      // answer there is a release that cannot be taken back.
+      '.github/**/*.test.ts',
     ],
     /**
      * Vitest's default is 5s, which suits unit tests and does not suit this

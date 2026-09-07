@@ -51,9 +51,12 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Publishing needs npm 11.5.1 or newer, and the Node pinned above
-      # carries an older one
-      - run: npm install -g npm@latest
+      # Publishing needs npm 11.5.1 or newer, and the Node pinned above carries
+      # an older one. Pinned to the major rather than `@latest`: this is the one
+      # job whose mistakes cannot be taken back, and `@latest` moves to a new
+      # major without anyone here choosing it. 12 because 12 is what has been
+      # publishing - it was already `@latest` when the first release shipped
+      - run: npm install -g npm@12
       - run: npm ci
 
       - name: Build the toolchain
@@ -65,7 +68,23 @@ jobs:
         id: published
         if: steps.tip.outputs.current != 'false'
         run: |
-          npm view @ba.sical.ly/cli --json > published.json 2>/dev/null || echo '{}' > published.json
+          code=$(curl -sS --retry 3 --retry-all-errors --retry-connrefused \
+            -o published.json -w '%{http_code}' \
+            'https://registry.npmjs.org/@ba.sical.ly%2Fcli')
+          case "$code" in
+            200)
+              echo "Read the registry document ($(wc -c < published.json) bytes)."
+              ;;
+            404)
+              echo 'Nothing published yet.'
+              printf '{"basicallyAbsent":true}\n' > published.json
+              ;;
+            *)
+              echo "The registry answered $code:" >&2
+              cat published.json >&2
+              exit 1
+              ;;
+          esac
 
       # Skipped when this commit is no longer the tip, which leaves `changed`
       # unset and every step below it - the publish included - skipped with it
