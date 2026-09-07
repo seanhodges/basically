@@ -58,6 +58,8 @@ jobs:
 
       - name: Build the toolchain
         run: node scripts/headless/build.mjs
+        env:
+          VITE_SHARE_API_URL: ${{ vars.SHARE_API_URL }}
 
       - name: Ask the registry what is published
         id: published

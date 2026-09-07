@@ -18,11 +18,12 @@
 
 import type { ScheduleStep } from '../app/driveScript';
 import { RunError } from '../dialects/headless/runError';
-import type { RunResult } from '../dialects/headless/runListing';
+import type { RunResult } from '../dialects/headless/runTypes';
 import type { MachineEmulator, MachineScreenText } from '../dialects/types';
 import type { TokenizeError } from '../dialects/types';
 import { expectOp, type ExpectOutcome } from './expect';
 import { createHeadlessSession } from './headlessSession';
+import { noRomHere } from './romless';
 import { requireMachine } from './resolve';
 import { checkSchedule } from './run';
 import type { OpContext, Operation } from './types';
@@ -84,8 +85,7 @@ export const checkOp: Operation<CheckInput, CheckOutcome> = {
       // which every expectation would fail and every action would be driving
       // a notice.
       throw new RunError(
-        `this installation carries no ROM for ${dialect.name}, so there is ` +
-          'nothing to check the program against',
+        noRomHere(dialect.name, 'nothing to check the program against'),
       );
     }
 

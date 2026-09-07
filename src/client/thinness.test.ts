@@ -54,7 +54,15 @@ async function bundledModules(entry: string): Promise<string[]> {
     target: 'node22',
     metafile: true,
     write: false,
-    define: { 'import.meta.env': JSON.stringify({ BASE_URL: '/' }) },
+    // The same stand-in for Vite's environment that scripts/headless/build.mjs
+    // uses. Only the module graph is read here, so the values do not matter -
+    // the shape does, because a missing key is a build that resolves differently.
+    define: {
+      'import.meta.env': JSON.stringify({
+        BASE_URL: '/',
+        VITE_SHARE_API_URL: '',
+      }),
+    },
     plugins: [rawImports as never],
     logLevel: 'silent',
   });

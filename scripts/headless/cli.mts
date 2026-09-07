@@ -5,11 +5,27 @@ import { screenLines } from '../../src/dialects/headless/screenText';
 import { stepLines } from '../../src/app/driveScript';
 import { parseArgs, type CliArgs, type ProgramInput } from '../../src/cli/args';
 import { usage } from '../../src/cli/usage';
-import { withRomRoot } from '../../src/cli/romRoot';
+import { romRootFor, withRomRoot } from '../../src/cli/romRoot';
 import { formatMachines } from '../../src/cli/machines';
 import { formatMachineDescription } from '../../src/cli/info';
 import { formatProblems } from '../../src/cli/lint';
 import { formatVerdict } from '../../src/cli/check';
+import {
+  BACKGROUND_TIMEOUT_MS,
+  clearRomCache,
+  fetchRomSet,
+  publisherConfigured,
+  refreshDue,
+  romCacheHome,
+} from '../../src/cli/romCache';
+import {
+  consentToFetch,
+  forgetConsent,
+  howToAgree,
+  recordConsent,
+} from '../../src/cli/romConsent';
+import { formatRomsStatus, romsStatus } from '../../src/cli/romsReport';
+import { findRomRoot } from '../../src/dialects/headless/romRoot';
 import { decodeBytes, encodeBytes } from '../../src/ops/bytes';
 import type { CheckOutcome } from '../../src/ops/check';
 import type { ConvertOutcome } from '../../src/ops/convert';
@@ -503,6 +519,115 @@ async function server(
   return 0;
 }
 
+/**
+ * The `roms` command, answered here rather than by the host.
+ *
+ * A host has no terminal to put the question on and no business writing to a
+ * user's cache directory, so obtaining images and agreeing to obtain them are
+ * this process's work - as `help` is.
+ */
+async function roms(
+  args: Extract<CliArgs, { operation: 'roms' }>,
+): Promise<number> {
+  const home = romCacheHome();
+  if (args.action === 'clear') {
+    clearRomCache(home);
+    forgetConsent(home);
+    err(`discarded the downloaded images and the agreement, from ${home}\n`);
+    return 0;
+  }
+
+  if (args.action === 'accept' || args.action === 'fetch') {
+    // `accept` is the user saying yes out loud, so it records the agreement
+    // without asking; `fetch` asks first if it has to.
+    if (args.action === 'accept') {
+      recordConsent(
+        { acceptedAt: new Date().toISOString(), source: 'accept' },
+        home,
+      );
+    }
+    // The question is only put where an answer would change something: a build
+    // that names no publisher has nowhere to download from, and the fetch below
+    // says so plainly rather than an agreement being asked for first.
+    if (publisherConfigured()) {
+      const { agreed } = await consentToFetch({ home });
+      if (!agreed) {
+        err(`nothing was downloaded: ${howToAgree()}\n`);
+        return EXIT_BAD_REQUEST;
+      }
+    }
+    const outcome = await fetchRomSet({ home, force: true });
+    if (!outcome.ok) {
+      throw new RunError(
+        `could not download the ROM images: ${outcome.reason}`,
+      );
+    }
+    if (outcome.obtained.length > 0) {
+      err(`downloaded ${outcome.obtained.length} images\n`);
+    }
+    if (outcome.removed.length > 0) {
+      err(
+        `withdrawn by the publisher, and discarded: ${outcome.removed.join(' ')}\n`,
+      );
+    }
+    if (outcome.unchanged) err('already up to date\n');
+  }
+
+  const status = romsStatus({ home });
+  out(
+    args.json
+      ? `${JSON.stringify(status, null, 2)}\n`
+      : `${formatRomsStatus(status)}\n`,
+  );
+  return 0;
+}
+
+/**
+ * Have ROM images to run on, asking about it once if that means downloading
+ * them.
+ *
+ * Called before a host is reached and **before the program is read**: `run` and
+ * `check` take their program from standard input, so a question put afterwards
+ * would be reading its answer from a stream that has already ended.
+ *
+ * Several ways this does nothing at all, which is the common case: a root was
+ * named - on the run or once for the installation, which is why the caller
+ * resolves it before asking - this installation carries its own images, or a
+ * complete set has already been downloaded. Only an installation with no ROMs anywhere reaches
+ * the question, and declining it is not an error - the run carries on exactly
+ * as it does today, drawing the machine's missing-image notice or refusing a
+ * schedule it cannot drive.
+ */
+async function ensureRoms(namedRoot: string | undefined): Promise<void> {
+  if (namedRoot !== undefined) return;
+  // A fourth way this does nothing: a build that names no publisher has nowhere
+  // to obtain an image from, so there is no point putting a question whose yes
+  // could not be acted on. `roms fetch` still goes ahead and reports why it
+  // could not, because there the user asked about ROMs.
+  if (!publisherConfigured()) return;
+
+  const root = findRomRoot();
+  if (root === null) {
+    const { agreed } = await consentToFetch({});
+    if (!agreed) return;
+    const outcome = await fetchRomSet({ force: true });
+    if (!outcome.ok) {
+      // Not fatal: the run behaves as it does on an installation with no ROMs,
+      // which is a state every machine here already handles.
+      err(`could not download the ROM images: ${outcome.reason}\n`);
+    }
+    return;
+  }
+
+  // Keeping a downloaded set current, and only ever a downloaded one: this
+  // installation's own images are not ours to change. Silent, short and
+  // swallowed - it runs in front of a command that was going to work anyway,
+  // so it must not be able to cost that command its answer.
+  if (root === romCacheHome() && refreshDue({ home: root })) {
+    await fetchRomSet({ home: root, timeoutMs: BACKGROUND_TIMEOUT_MS });
+  }
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
 
@@ -511,6 +636,17 @@ async function main(): Promise<number> {
   if (args.operation === 'help') {
     out(usage(args.topic));
     return 0;
+  }
+
+  // Also answered without a host, and for the same reason with one more: the
+  // question it may put needs this process's terminal, which the host has not
+  // got.
+  if (args.operation === 'roms') return await roms(args);
+
+  // Before a host is started and before any program is read from standard
+  // input. See ensureRoms.
+  if (args.operation === 'run' || args.operation === 'check') {
+    await ensureRoms(romRootFor(args.input.romRoot, process.env));
   }
 
   const directory = bundleDirectory(import.meta.url);

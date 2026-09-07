@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
+import { romTail } from './romRef';
 import type { Dialect, MachineEmulator, MachineFileStore } from './types';
 
 /**
@@ -27,8 +28,15 @@ import type { Dialect, MachineEmulator, MachineFileStore } from './types';
  */
 let romRoot: string | null = null;
 
-/** Point the ROM loaders at a `public/` directory other than this checkout's. */
-export function configureRomRoot(dir: string): void {
+/**
+ * Point the ROM loaders at a `public/` directory other than this checkout's,
+ * or back at this one with `null`.
+ *
+ * Takes `null` so a caller that found nothing can say so: this is a global and
+ * a host serves many calls, so leaving a previous call's directory in place
+ * would have the next one read it.
+ */
+export function configureRomRoot(dir: string | null): void {
   romRoot = dir;
 }
 
@@ -58,8 +66,7 @@ export function installNodeRomLoading(): () => void {
 
   const previous = globalThis.fetch;
   globalThis.fetch = (async (url: string) => {
-    const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.join(publicDir(), rel));
+    const data = readFileSync(romPath(String(url)));
     return {
       ok: true,
       status: 200,
@@ -75,7 +82,7 @@ export function installNodeRomLoading(): () => void {
 
 /** The path under public/ behind a dialect's `romUrl`. */
 export function romPath(romUrl: string): string {
-  return path.join(publicDir(), romUrl.slice(romUrl.indexOf('roms/')));
+  return path.join(publicDir(), 'roms', romTail(romUrl));
 }
 
 /**

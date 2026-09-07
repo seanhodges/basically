@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { drawRomNotice, noRomNotice, NOTICE_LINE_CHARS } from './romNotice';
 import { HeadlessCanvas } from '../dialects/headless/headlessCanvas';
 import { dialects } from '../dialects/registry';
+import { romTail } from '../dialects/romRef';
 
 /**
  * The shared no-firmware notice.
@@ -37,7 +38,7 @@ describe('what the notice says', () => {
     for (const dialect of dialects) {
       const url = dialect.romUrl;
       if (url === undefined) continue;
-      const romPath = `public/${url.slice(url.indexOf('roms/'))}`;
+      const romPath = `public/roms/${romTail(url)}`;
       for (const line of noRomNotice(`${dialect.name}'s ROM`, romPath)) {
         expect(line.length, `${dialect.id}: ${line}`).toBeLessThanOrEqual(
           NOTICE_LINE_CHARS,

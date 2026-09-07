@@ -28,6 +28,12 @@ export interface ServerContextOptions {
  * The context as it stands now. Built per call rather than once, so a request
  * arriving after a program has been run is given the machine that program left
  * running rather than the absence there was at startup.
+ *
+ * No ROM root is named here, and that is not an omission: an operation whose
+ * input carries one asks the probe about it (`RomProbe.canRun`), so the
+ * caller's `--rom-root` reaches the question of whether a machine can be run by
+ * the same route it reaches the run. Naming one here would be this module
+ * guessing at something the request already says.
  */
 export function serverContext(
   server: ServerMachine,

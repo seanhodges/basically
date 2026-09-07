@@ -11,6 +11,7 @@
 
 import { DRIVE_ACTIONS } from '../app/driveScript';
 import type { Operation } from './args';
+import { REPO_ATTRIBUTION_URL } from './romCache';
 
 /** The actions a schedule accepts, as help lists them: syntax, then meaning. */
 function actionLines(): string {
@@ -42,19 +43,20 @@ function actionLines(): string {
 }
 
 const SUMMARY = `
-the Basically toolchain, outside the browser
+A CLI for Basically - write, run and ship games and programs for real hardware from your 
+browser. https://ba.sical.ly/
 
 usage: basically <operation> [options]
 
-  machines   list every machine, and whether this installation can run it
-  info       describe one machine: its memory, rules, keywords and formats
-  lint       report a program's problems without running it
-  build      write a program as a file the machine loads
-  run        run a program and report its screen
-  check      check a program against what it should do
-  convert    read a machine's own binary program file back into BASIC
+  machines   list all the machines Basically can support
+  info       describe a machine: memory, rules, keywords, formats
+  lint       check for problems in a source listing
+  build      write a program as a tape or disk file the machine can load
+  run        run a program headless, report what the screen shows, and how it ended (ROM required)
+  check      check a program against an assertion script, report a pass or failure (ROM required)
+  convert    read a tape or disk file back into source code
 
-On the machine a "run --hold" left up:
+"run --hold" leaves a machine running until stopped, the following operations act on the running machine:
 
   drive      press keys and wait, through a schedule of actions
   look       report what is on the screen
@@ -65,25 +67,17 @@ On the machine a "run --hold" left up:
   expect     judge the machine against written expectations
   server     start, stop, or ask after the host these run on
 
+Other CLI-specific modes and operations:
+
+  roms       say where the machine ROM images come from, obtain them, discard them
   lsp        serve an editor over the Language Server Protocol
   mcp        serve an agent over the Model Context Protocol
 
-Every operation but "run" and "check" works with no ROM present. Where an operation takes a
-program, the path may be "-", or left out, to read it from standard input.
+ Where an operation takes a program, the path may be "-", or left out, to read it from 
+ standard input.
 
-The operations above act on one machine, held between commands: "run --hold" leaves the
-machine it booted running, and each of them acts on it until "server stop" or a
-"run --hold" for another program. The same capabilities are reachable as options on a
-single "run" - --keys, --screen-text, --screenshot, --profile, --time, --variables - for a
-caller that wants an answer and no machine afterwards.
-
-Only "run" and "check" need a ROM, and only for a machine that needs one - a
-machine whose emulator carries its own ROM set runs anywhere. Set
-BASICALLY_ROM_ROOT to a directory holding a "roms/" tree to say once, for this
-installation, where images of your own are read from; "--rom-root" on a single
-run overrides it.
-
-"basically <operation> --help" says what one operation takes.
+"basically <operation> --help" says what one operation takes. Some operations require 
+ROM images. See "basically roms --help".
 `.trimStart();
 
 const OPERATION_USAGE: Record<Operation, string> = {
@@ -93,11 +87,6 @@ list every registered machine, and whether this installation can run it
 usage: basically machines [--json]
 
   --json   report the machines as JSON rather than a table
-
-A machine runs here when it needs no ROM at all, when its emulator carries its
-own ROM set, or when this installation has the image it needs. Set
-BASICALLY_ROM_ROOT to a directory holding a "roms/" tree to say where images of
-your own are read from.
 `.trimStart(),
 
   info: `
@@ -121,7 +110,7 @@ usage: basically lint [file] [-m <machine>] [--json]
                     and overrides the declaration when both are given
   --json            the problems as JSON rather than one per line
 
-The problems go to standard output; the exit code says whether any was fatal.
+Error messages go to standard output; the exit code says whether any was fatal.
 `.trimStart(),
 
   build: `
@@ -140,9 +129,6 @@ usage: basically build [file] [-m <machine>] -o <path> [-t <target>]
                     machine's first
   --program-name    the name the machine stores the program under; derived
                     from --out when absent
-
-A format that is more than one file writes the rest beside --out under their
-own names. Every path written is reported on standard error.
 `.trimStart(),
 
   run: `
@@ -153,9 +139,9 @@ usage: basically run [file] -m <machine> [options]
   [file]            the program, or "-"/nothing to read standard input
   -m, --machine     the machine to run on
   --frames <n>      run exactly n frames instead of waiting for the program;
-                    with --keys, n more frames after the schedule
+                    with --keys, n more frames after the keys are pressed
   --max-frames <n>  cap on that wait (default 4000); not with --keys
-  --keys <script>   a schedule of what to press and when (see below); needs
+  --keys <script>   a schedule of keys to press and when (see below); needs
                     the machine's ROM
   --screen-text     report the screen as text (the default when nothing else
                     is asked for)
@@ -175,16 +161,14 @@ usage: basically run [file] -m <machine> [options]
                     toolchain was installed; overrides BASICALLY_ROM_ROOT,
                     which says the same thing once for the installation
 
-A schedule is one action per line, or several separated by ";". A run given one
-ends where the schedule ends, so the screen reported is the one the last action
-left, and a step that could not be carried out fails the run.
+A --keys script is one action per line, or several separated by ";".
 
 ${actionLines()}
 
 Keys are named the same way on every machine - the letters, the digits, SPACE,
 ENTER and SHIFT everywhere, and DELETE, ESCAPE, CTRL, TAB, the cursor keys and
 the function keys wherever the machine has them. "basically info <machine>"
-lists the names that machine answers to.
+lists the keys that machine answers to.
 `.trimStart(),
 
   check: `
@@ -202,26 +186,16 @@ usage: basically check [file] -m <machine> -e <path> [--json]
                     toolchain was installed; overrides BASICALLY_ROM_ROOT,
                     which says the same thing once for the installation
 
-A file of expectations is a schedule: the same actions "run --keys" takes,
-with expectations mixed in, one per line or several separated by ";". It is
-run in the order it is written, so an expectation asks what is true at that
-point - and text a program prints and then clears is waited for rather than
-expected at the end.
+A file of expectations is a script: the same actions "run --keys" takes,
+with expectations mixed in, one per line or several separated by ";".
 
 ${actionLines()}
-
-The check passes when every action was carried out and every expectation held,
-and fails at the first that did not, naming its line and showing the screen as
-it stood. An expectation nobody here can settle - "EXPECT SHOWS", or a reading
-this machine cannot give - is reported as unevaluated and counted as neither.
-A file with a line the parser cannot read, or a machine whose ROM is missing,
-is refused before anything boots.
 `.trimStart(),
 
   drive: `
-act on the machine that is up, through a schedule of what to press and when
+act on the running machine, through a script of what to press and when
 
-usage: basically drive '<schedule>' [--json]
+usage: basically drive '<script>' [--json]
 
   --json   report what each action did as JSON
 
@@ -232,17 +206,15 @@ ${actionLines()}
 `,
 
   look: `
-report what is on the screen of the machine that is up
+show what's on the screen of the running machine
 
 usage: basically look [--json]
 
   --json   report the screen as JSON rather than as lines
-
-Costs no frames: reading the screen never advances the machine.
 `,
 
   screenshot: `
-write a picture of the screen of the machine that is up
+save a picture of the screen of the running machine
 
 usage: basically screenshot <file.png> [--json]
 
@@ -252,7 +224,7 @@ usage: basically screenshot <file.png> [--json]
 `,
 
   profile: `
-report where the run's time and memory went, on the machine that is up
+report where the run's time and memory went, on the running machine
 
 usage: basically profile [--json]
 
@@ -264,7 +236,7 @@ executing says so rather than reporting nothing.
 `,
 
   time: `
-report how long the run took and how it ended, on the machine that is up
+report how long the run took and how it ended, on the running machine
 
 usage: basically time [--json]
 
@@ -272,7 +244,7 @@ usage: basically time [--json]
 `,
 
   variables: `
-report what the program's variables hold, on the machine that is up
+report what the program's variables hold, on the running machine
 
 usage: basically variables [--json]
 
@@ -280,21 +252,37 @@ usage: basically variables [--json]
 `,
 
   expect: `
-judge the machine that is up against written expectations
+judge the running machine against written expectations
 
 usage: basically expect <checks.txt> [--json]
 
   -e, --expect <file>   the expectations to judge against; may also be given as
                         the first argument, or "-" for standard input
   --json                report the verdict as JSON
+`,
 
-The same file "check" takes: a schedule of actions with EXPECT lines mixed in.
-Unlike "check", which boots a machine of its own, this judges the machine a
-"run --hold" left up.
+  roms: `
+say where the machine ROM images come from, obtain them, or discard them
+
+usage: basically roms [status|accept|fetch|clear] [--json]
+
+  status   say which images are being read from where, what is held, and when
+           the published set was last checked (the default). Never downloads
+           anything and never asks anything
+  accept   agree to the images being downloaded, and download them
+  fetch    check the published set for changes and download what is new or
+           changed, whether or not a check was due
+  clear    discard the downloaded images and the agreement to download them
+  --json   report the answer as JSON
+
+The images are the machines' original firmware. They are not part of this tool, they are
+provided separately, and they carry their own terms.
+
+See ${REPO_ATTRIBUTION_URL}.
 `,
 
   server: `
-start, stop, or ask after the host the toolchain runs on
+start, stop, or ask after the Basically server instance
 
 usage: basically server [start|stop|status] [--json]
 
@@ -303,10 +291,6 @@ usage: basically server [start|stop|status] [--json]
   status   say whether a host is running, what it serves, and what it holds
            (the default)
   --json   report the answer as JSON
-
-A host is started for you by any command that needs one, so "start" is only for
-warming one up in advance. A host stops on its own once nothing has needed it
-for a while.
 `,
   convert: `
 read a machine's own binary program file back into the BASIC it holds
@@ -320,12 +304,6 @@ usage: basically convert [file] [-m <machine>] [-o <path>]
                      machine, and overrides that inference when both settle it
   -o, --out         where to write the recovered BASIC; standard output when
                      absent
-
-Where the file's format matches more than one machine, the machine must be
-named: the operation declines rather than guess. Anything the conversion
-could not carry over - a warning, a block of bytes that is not BASIC, an
-auto-start line - is reported on standard error rather than dropped. This is
-the reverse of "basically build"; that is where the other direction lives.
 `.trimStart(),
 
   lsp: `
@@ -344,10 +322,6 @@ editors run a language server as a child process over stdio. For example, a
 generic LSP client config might read:
 
   { "command": "basically", "args": ["lsp", "--stdio"] }
-
-The server holds its streams open for the conversation and has no verdict to
-report, so it exits 0 when the editor disconnects; starting it with a bad
-option, or a machine that is not registered, exits 1 without serving anything.
 `.trimStart(),
 
   mcp: `
@@ -359,21 +333,13 @@ usage: basically mcp --stdio [-m <machine>]
   -m, --machine     a machine every request defaults to, when nothing is
                     specified by the program or caller; optional
 
-Every operation this command line has is offered to the client, and one machine
-is held between requests: running a program leaves it up, so the client can
-look at it, act on it, measure it and check it without running the program
-again. Running a second program lets the first machine go, and disconnecting
-lets go of whatever is up.
-
 Point your client's server configuration at this command - most clients run a
 server as a child process over stdio. For example, a generic client config
 might read:
 
   { "command": "basically", "args": ["mcp", "--stdio"] }
 
-The server holds its streams open for the conversation and has no verdict to
-report, so it exits 0 when the client disconnects; starting it with a bad
-option, or a machine that is not registered, exits 1 without serving anything.
+Note: Only one machine can be run at a time, the server is not multi-tenant.
 `.trimStart(),
 };
 

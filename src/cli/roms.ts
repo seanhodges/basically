@@ -21,10 +21,14 @@ import type { OpContext } from '../ops/types';
  *
  * A caller who named a `public/` of its own passes it, so asking whether a ROM
  * is there means the same thing as running against it.
+ *
+ * Finding nothing is set too, rather than left alone. The root is a global in
+ * the boot harness and a host outlives any one call, so a call that named a
+ * directory would otherwise leave every later call reading it - which is only
+ * invisible where the search always succeeds.
  */
 export function locateRoms(romRoot?: string): void {
-  const root = romRoot ?? findRomRoot();
-  if (root) configureRomRoot(root);
+  configureRomRoot(romRoot ?? findRomRoot());
 }
 
 /**
@@ -35,6 +39,9 @@ export function locateRoms(romRoot?: string): void {
 export function cliContext(romRoot?: string): OpContext {
   return {
     roms: {
+      // The call's own `--rom-root` wins over the one this context was built
+      // with: the context is made once per request and the operation knows
+      // where the caller asked to read from.
       canRun: (dialect, asked) => {
         locateRoms(asked ?? romRoot);
         return canRunMachine(dialect);

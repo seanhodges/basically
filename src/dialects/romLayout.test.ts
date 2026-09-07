@@ -2,6 +2,7 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { dialects } from './registry';
+import { romTail } from './romRef';
 
 /**
  * Where a machine's ROM image lives, and that the next one lands in the same
@@ -48,11 +49,6 @@ const SHARED_FOLDERS: Record<string, readonly string[]> = {
 };
 
 const ids = new Set(dialects.map((d) => d.id));
-
-/** The `roms/…` tail of a `romUrl`, which is otherwise a deployed URL. */
-function romTail(romUrl: string): string {
-  return romUrl.slice(romUrl.indexOf('roms/') + 'roms/'.length);
-}
 
 /** Every file under `public/roms/`, as a path relative to it. */
 function romFiles(dir = ROM_DIR, prefix = ''): string[] {
@@ -120,6 +116,38 @@ describe('the ROM folder layout', () => {
         `public/roms/${file} is in a folder no registered dialect is named for - name it for the dialect id, or declare it in SHARED_FOLDERS with the reason`,
       ).toBe(true);
     }
+  });
+
+  it('every romUrl reads back as a path under public/roms/', () => {
+    // romTail is what the node side joins onto a ROM root and what the command
+    // line names an entry of the published manifest by, so a romUrl it cannot
+    // take apart is a machine neither can find an image for. Four callers used
+    // to work this out for themselves and two disagreed about whether the
+    // `roms/` stayed on, which is why there is one function and this check.
+    let checked = 0;
+    for (const dialect of dialects) {
+      const url = dialect.romUrl;
+      if (url === undefined) continue;
+      checked++;
+      const tail = romTail(url);
+      expect(tail, `${dialect.id}: romTail kept the roms/ prefix`).not.toMatch(
+        /^roms\//,
+      );
+      expect(tail, `${dialect.id}: romTail left a leading slash`).not.toMatch(
+        /^\//,
+      );
+      expect(
+        url.endsWith(`roms/${tail}`),
+        `${dialect.id}: romTail(${url}) gave ${tail}, which is not its tail`,
+      ).toBe(true);
+      expect(
+        romFiles(),
+        `${dialect.id} points at roms/${tail}, which is not committed`,
+      ).toContain(tail);
+    }
+    expect(checked, 'no registered dialect declares a romUrl').toBeGreaterThan(
+      0,
+    );
   });
 
   it('the exception tables carry nothing stale', () => {

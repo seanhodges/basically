@@ -1,6 +1,3 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   bootMachine,
   configureRomRoot,
@@ -8,15 +5,13 @@ import {
   installNodeRomLoading,
 } from '../bootHarness';
 import { hasFatalErrors } from '../types';
-import type {
-  MachineEmulator,
-  MachineScreenText,
-  TokenizeError,
-} from '../types';
+import type { MachineScreenText } from '../types';
 import { resolveTokenize } from '../resolveListing';
 import { findMachine } from '../machineLookup';
 import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
 import { RunError } from './runError';
+import { findRomRoot } from './romRoot';
+import type { RunOptions, RunResult, RunTimings } from './runTypes';
 
 /**
  * Run a BASIC listing on a registered machine under node and report its screen.
@@ -30,172 +25,6 @@ import { RunError } from './runError';
  * caller owns its own input and output, so a command line and a server can each
  * wrap this without either inheriting the other's shape.
  */
-
-/** One frame, as {@link RunOptions.until} sees it. */
-export interface RunFrame {
-  /** The characters the machine says are on screen, or null if it cannot say. */
-  screen: MachineScreenText | null;
-  /**
-   * Distinct colours in this frame, painting it if the caller asks. One means
-   * a flat screen; more than one is the headless reading of "it has drawn
-   * something", which is what the browser check this replaces polled for.
-   */
-  colours: () => number;
-}
-
-/**
- * A caller watching a run from the outside: told when the program is loaded,
- * after every frame, and once the run is over while the machine is still up.
- *
- * The runner hands over the machine and nothing else - it is told nothing
- * about measurements, sessions or schedules, which is what keeps this folder
- * free of `src/app/` and of the operation layer. Every frame the runner spends
- * is reported, including the frames a {@link RunOptions.drive} hook steps and
- * the settling frames after the program stops, so an observer folding
- * measurements sees the same frames the browser's run loop would.
- */
-export interface RunObserver {
-  /** The image is loaded and the machine is about to run its first frame. */
-  loaded?(machine: MachineEmulator): void;
-  /** One frame has run. */
-  frame?(machine: MachineEmulator): void;
-  /**
-   * The run is over and its screen read; the machine is still alive and is
-   * disposed once this settles.
-   */
-  finished?(machine: MachineEmulator): void | Promise<void>;
-}
-
-export interface RunOptions {
-  /** A dialect id, or a machine name; matched case-insensitively. */
-  machine: string;
-  /** The BASIC listing. */
-  source: string;
-  /**
-   * Run exactly this many frames rather than waiting for the program to end.
-   * The answer for a program that never ends - a game loop - and the only way
-   * to see a machine part-way through one.
-   */
-  frames?: number;
-  /** Cap on the wait for a program to end. */
-  maxFrames?: number;
-  /** Frames to run after the program stops; see {@link SETTLE_FRAMES}. */
-  settleFrames?: number;
-  /**
-   * Stop at the first frame this holds of, rather than waiting for the program
-   * to end.
-   *
-   * Wanted because a program that never ends is not the only thing a frame
-   * count reads wrong: a program that loops over a screen it keeps clearing has
-   * no single settled picture, so any fixed number lands on an arbitrary moment
-   * of the animation - blank as often as not. A predicate names the moment
-   * instead, and costs nothing on a machine that reaches it in a few frames.
-   *
-   * The frame is handed over with its picture behind a call rather than a
-   * value, because painting one costs more than reading the characters and a
-   * predicate that only wants the characters should not pay for it.
-   */
-  until?: (frame: RunFrame) => boolean;
-  /**
-   * Act on the machine once the program is loaded, before the runner's own
-   * loop: `step` advances one frame, and every frame it spends is counted into
-   * {@link RunResult.driveFrames}.
-   *
-   * The runner is handed a machine and a clock and is told nothing about what a
-   * schedule is - which is what keeps `src/dialects/headless/` free of
-   * `src/app/` and keeps this module's promise of touching nothing but ROMs.
-   *
-   * When a hook is given, the run ends where the hook left it: its own waits
-   * already said how long to let the program run, and the screen the caller
-   * wants is the one the last action reached. A game never ends, so waiting for
-   * the program afterwards would pay the whole cap and then read an arbitrary
-   * later frame. `frames` still runs that many more, for the game that needs a
-   * moment to draw after the key.
-   */
-  drive?: (machine: MachineEmulator, step: () => void) => void;
-  /** Watch the run; see {@link RunObserver}. */
-  observe?: RunObserver;
-  /** Paint the machine's picture as well as reading its screen text. */
-  pixels?: boolean;
-  /** `public/` to read the ROMs from; discovered by {@link findRomRoot} when absent. */
-  romRoot?: string;
-}
-
-export interface RunTimings {
-  /** Constructing the machine and waiting for its ROMs. */
-  bootMs: number;
-  /** Text to a loadable image. */
-  tokenizeMs: number;
-  /** Handing the machine the image, which boots its ROM and types at it. */
-  loadMs: number;
-  /** Running frames. */
-  runMs: number;
-  /** One `renderTo`. */
-  renderMs: number;
-  totalMs: number;
-}
-
-export interface RunResult {
-  machine: {
-    id: string;
-    name: string;
-    manufacturer: string;
-    displayWidth: number;
-    displayHeight: number;
-    frameHz: number;
-    /** Whether this installation can run the machine at all. */
-    canRun: boolean;
-  };
-  /** Tokenizer diagnostics; a fatal one means nothing ran. */
-  errors: TokenizeError[];
-  /** Size of the tokenized program, as the RAM budget counts it. */
-  programBytes: number;
-  frames: number;
-  /** Of those, the frames {@link RunOptions.drive} spent. */
-  driveFrames: number;
-  /** Whether the machine was ever seen running the program, and then stopped. */
-  started: boolean;
-  ended: boolean;
-  /** Whether {@link RunOptions.until} held before the cap; true when unused. */
-  reached: boolean;
-  screen: MachineScreenText | null;
-  /** The painted frame, when `pixels` was asked for. */
-  picture: {
-    width: number;
-    height: number;
-    rgba: Uint8ClampedArray;
-    /** Distinct colours in the frame - one means nothing was drawn. */
-    colours: number;
-    /**
-     * Glyphs drawn in the stand-in font. Non-zero means this machine paints
-     * text through the host's font, so the picture is legible rather than
-     * faithful; zero means it is the frame a browser would show.
-     */
-    hostFontGlyphs: number;
-  } | null;
-  timings: RunTimings;
-}
-
-/**
- * The `public/` holding the ROMs, found by walking up from this code and then
- * from the working directory.
- *
- * Bundled, this module has no idea where the checkout is - its own path is
- * wherever the bundle was written - so the directory is searched for rather
- * than derived. Returns null when there is none, which is a machine that draws
- * its missing-image notice rather than a failure.
- */
-export function findRomRoot(): string | null {
-  const starts = [path.dirname(fileURLToPath(import.meta.url)), process.cwd()];
-  for (const start of starts) {
-    for (let dir = start; ; dir = path.dirname(dir)) {
-      const candidate = path.join(dir, 'public');
-      if (existsSync(path.join(candidate, 'roms'))) return candidate;
-      if (path.dirname(dir) === dir) break;
-    }
-  }
-  return null;
-}
 
 /** A program that has begun cannot un-begin, so a `false` ends the run. */
 const DEFAULT_MAX_FRAMES = 4000;
@@ -214,14 +43,30 @@ const SETTLE_FRAMES = 2;
 
 export { RunError } from './runError';
 
+// Re-exported so the callers that already asked this module keep working; the
+// answer itself lives in a leaf, out of reach of the emulators below.
+export { findRomRoot } from './romRoot';
+
+// The same, for the shape of a run: it is declared in a leaf so a caller can
+// name it without naming this module, and re-exported so the callers that
+// already ask this one keep working.
+export type {
+  RunFrame,
+  RunObserver,
+  RunOptions,
+  RunResult,
+  RunTimings,
+} from './runTypes';
+
 // Re-exported for the CLI modules that already import these from here.
 export { findMachine, machineList } from '../machineLookup';
 
 export async function runListing(opts: RunOptions): Promise<RunResult> {
   const dialect = findMachine(opts.machine);
   if (!dialect) throw new RunError(`no registered machine "${opts.machine}"`);
-  const romRoot = opts.romRoot ?? findRomRoot();
-  if (romRoot) configureRomRoot(romRoot);
+  // Set even when nothing was found: the root is a global and a host serves
+  // many calls, so a previous call's directory must not linger into this one.
+  configureRomRoot(opts.romRoot ?? findRomRoot());
 
   const startedAt = performance.now();
   const timings: RunTimings = {

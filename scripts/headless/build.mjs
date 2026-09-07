@@ -74,9 +74,20 @@ await build({
   // reads back: `RunError` and the charset errors are recognised by class name
   // when they cross the socket to the client.
   keepNames: true,
-  // The app is served from the site root, so this is the base every dialect's
-  // `romUrl` is built from; the ROM loader only reads the `roms/...` tail.
-  define: { 'import.meta.env': JSON.stringify({ BASE_URL: '/' }) },
+  // Vite's build-time environment, which this bundle has none of: `BASE_URL` is
+  // the base every dialect's `romUrl` is built from (the app is served from the
+  // site root, and the ROM loader only reads the `roms/...` tail), and
+  // `VITE_SHARE_API_URL` is the share server this build talks to, ROM set
+  // included. Taken from the process environment and nowhere else - no `.env`
+  // file is read, so what a bundle points at is what the build was told, and a
+  // build told nothing carries no publisher rather than one borrowed from
+  // whoever happened to run it.
+  define: {
+    'import.meta.env': JSON.stringify({
+      BASE_URL: '/',
+      VITE_SHARE_API_URL: process.env.VITE_SHARE_API_URL ?? '',
+    }),
+  },
   // jsbeeb's `utils_atom.js` picks a keyboard layout at module scope and probes
   // for a stored one with `typeof localStorage`. Node exposes `localStorage` as
   // a getter that emits an ExperimentalWarning unless `--localstorage-file` was
