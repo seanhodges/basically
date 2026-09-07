@@ -9,7 +9,7 @@
 - [x] 2.1 Add `src/cli/romCache.ts` with `romCacheHome()`: `BASICALLY_HOME`, else `%LOCALAPPDATA%\basically` on win32, else `${XDG_CACHE_HOME:-~/.cache}/basically`. Images live at `<home>/roms/<tail>` so the home is a valid rom root.
 - [x] 2.2 Add `cachedRomRoot()`: the home when `<home>/roms/index.json` is present and every image the manifest lists is there at the right length; `null` otherwise.
 - [x] 2.3 Add the manifest type and its fetch: conditional `GET <base>index.json` sending the stored `ETag` as `If-None-Match`, behind an `AbortSignal.timeout`.
-- [x] 2.4 Add image acquisition: fetch each listed image that is missing or whose `sha256` no longer matches, verify the digest with `node:crypto`, and write through a temporary name so an interrupted download leaves no partial file. Fetch `ATTRIBUTION.md` whenever the manifest version changes.
+- [x] 2.4 Add image acquisition: fetch each listed image that is missing or whose `sha256` no longer matches, verify the digest with `node:crypto`, and write through a temporary name so an interrupted download leaves no partial file. (`ATTRIBUTION.md` was fetched alongside at first and is not fetched at all in the end: a publisher serving the images it was asked for need not serve the notice too, so obtaining it risked a broken link for a file the consent question can name outright.)
 - [x] 2.5 Add pruning: delete every cached image the manifest no longer lists, scoped strictly to the tool's own cache directory.
 - [x] 2.6 Add `refreshDue()` / `noteChecked()` over `<home>/roms-state.json` (`etag`, `version`, `checkedAt`): due after `REFRESH_INTERVAL_MS` (24 h, a named constant with the publisher's `max-age` as its reason), ~~due immediately when a registered machine's ROM tail is absent from the held manifest~~, and skipped entirely when `BASICALLY_ROM_REFRESH=off`.
 
@@ -22,7 +22,7 @@
 ## 3. Consent
 
 - [x] 3.1 Add `src/cli/romConsent.ts` with `consentFromEnv()` accepting `BASICALLY_ROM_CONSENT` in `yes|y|1|true`, and `recordedConsent()` / `recordConsent()` over `<home>/consent.json` (`acceptedAt`, `romsVersion`, `source`).
-- [x] 3.2 Add `askForConsent()` using `node:readline/promises`, guarded on `process.stdin.isTTY && process.stdout.isTTY`; a non-TTY returns false immediately without reading stdin. The prompt names what is obtained, where it is written, and the attribution notice — the checkout's copy and the published one, so a user with no checkout can still read it.
+- [x] 3.2 Add `askForConsent()` using `node:readline/promises`, guarded on `process.stdin.isTTY && process.stdout.isTTY`; a non-TTY returns false immediately without reading stdin. The prompt names what is obtained, where it is written, and the attribution notice — one address, the repository's own copy, which reads the same whether or not the user has a checkout and whether or not this build has a publisher.
 - [x] 3.3 Add `src/cli/romConsent.test.ts`: every accepted spelling of the environment setting; a recorded consent is not asked again; a non-TTY returns false without touching stdin.
 
 ## 4. Wiring the cache into ROM discovery
@@ -49,7 +49,7 @@
 
 ## 6. Docs
 
-- [x] 6.1 Add a line to `public/roms/ATTRIBUTION.md` recording that the set is also published read-only from the share API, and that the notice travels with the images.
+- [x] 6.1 Add a line to `public/roms/ATTRIBUTION.md` recording that the set is also published read-only from the share API, and that the command line downloads the images from there and names this notice by its address when it asks.
 - [x] 6.2 Update the ROM section of `docs/contributing/architecture.md` with the command line's new source and the client/host split that keeps network and prompting out of the host. Leave the "Four things cross the network" table to the follow-up change, which is what moves the browser's traffic.
 
 ## 7. Quality gates

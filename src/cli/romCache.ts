@@ -13,7 +13,6 @@
  *
  * ```
  * <home>/roms/index.json          the manifest that was verified against
- * <home>/roms/ATTRIBUTION.md      the notice the images travel on
  * <home>/roms/zx81/zx81.rom       an image, at the same tail as public/roms/
  * <home>/roms-state.json          the ETag, the version, and when last checked
  * ```
@@ -56,7 +55,6 @@ export interface RomManifestEntry {
 /** The published manifest. Unknown fields are kept: the publisher may add some. */
 export interface RomManifest {
   version: string;
-  attribution?: string;
   archive?: string;
   roms: RomManifestEntry[];
 }
@@ -133,6 +131,8 @@ export const RETRY_AFTER_FAILURE_MS = 60 * 60 * 1000;
 
 const STATE_FILE = 'roms-state.json';
 const MANIFEST_FILE = 'index.json';
+// Nothing writes this any more, but a cache filled by a version that did will
+// still hold one, and it was never an image.
 const ATTRIBUTION_FILE = 'ATTRIBUTION.md';
 
 /** How a build with no publisher of its own is given one. */
@@ -409,24 +409,6 @@ export async function fetchRomSet(
         obtained.push(entry.path);
       }
 
-      // The notice is not optional cargo: the terms the images travel on are
-      // conditional on it travelling with them.
-      const attribution = path.join(dir, ATTRIBUTION_FILE);
-      if (!existsSync(attribution) || manifest.version !== held?.version) {
-        try {
-          writeAtomically(
-            attribution,
-            await getBytes(
-              `${base}${manifest.attribution ?? ATTRIBUTION_FILE}`,
-              timeoutMs,
-            ),
-          );
-        } catch {
-          // Worth having, not worth refusing a set the user already agreed to;
-          // the images themselves are what was asked for.
-        }
-      }
-
       for (const tail of heldTails(dir)) {
         if (listed.has(tail)) continue;
         // The publisher prunes on deploy, so an image it stopped listing has
@@ -480,16 +462,17 @@ export async function fetchRomSet(
 }
 
 /**
- * Where the notice can be read, for a caller with no checkout to point at, or
- * nothing where this build names no publisher.
+ * Where the terms the images travel on are set out.
+ *
+ * The repository's copy is named whatever this build's publisher is, and the
+ * notice is never obtained alongside the images: a publisher serving only the
+ * images it was asked for is the ordinary case, so reading the address off the
+ * publisher would hand the user a broken link to prove a point. This one is
+ * readable by anyone, with or without a checkout, and it is the copy the images
+ * are described in.
  */
-export function attributionUrl(
-  base?: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string | undefined {
-  const root = romsBaseUrl(base ?? env.BASICALLY_ROMS_URL);
-  return root === undefined ? undefined : `${root}${ATTRIBUTION_FILE}`;
-}
+export const REPO_ATTRIBUTION_URL =
+  'https://github.com/seanhodges/basically/blob/main/public/roms/ATTRIBUTION.md';
 
 /**
  * Whether this build has anywhere to obtain images from.

@@ -11,6 +11,7 @@
 
 import { DRIVE_ACTIONS } from '../app/driveScript';
 import type { Operation } from './args';
+import { REPO_ATTRIBUTION_URL } from './romCache';
 
 /** The actions a schedule accepts, as help lists them: syntax, then meaning. */
 function actionLines(): string {
@@ -277,7 +278,7 @@ usage: basically roms [status|accept|fetch|clear] [--json]
 The images are the machines' original firmware. They are not part of this tool, they are
 provided separately, and they carry their own terms.
 
-See https://github.com/seanhodges/basically/blob/main/public/roms/ATTRIBUTION.md.
+See ${REPO_ATTRIBUTION_URL}.
 `,
 
   server: `

@@ -3,10 +3,12 @@
 This folder is the source of truth, and it is also mirrored: the same set is
 published read-only beside the share API, as a manifest (`index.json`, listing
 every image with its length and its SHA-256), an archive (`roms.zip`), the
-images themselves, and a copy of this notice. The command line downloads from
-there when an installation carries no images of its own, after asking the user
-once and pointing them at this notice - the permissions below are conditional
-on the notice travelling with the images, so it travels with them there too.
+images themselves, and a copy of this notice. The command line downloads the
+images from there when an installation carries no images of its own, after
+asking the user once and naming this notice by its address - the permissions
+below are conditional on the notice travelling with the images, and the address
+is the copy that is always readable and always current, whether or not the
+mirror serves one and whether or not the reader has a checkout.
 
 A takedown therefore has two halves: remove the image here, and redeploy the
 mirror so it stops being served. A downloaded copy is discarded on the next

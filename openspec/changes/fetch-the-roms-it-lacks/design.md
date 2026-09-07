@@ -23,10 +23,12 @@ an operation knows about ROMs stays what it knows now: a `RomProbe` that answers
 whether one is present.
 
 The publisher side already exists and is not ours to change: `GET /roms/index.json`
-returns `{version, attribution, archive, roms:[{path, bytes, sha256}]}` with a
-content-derived `version` and an `ETag`, images are `max-age=86400`, the manifest
-is `max-age=300`, and `ATTRIBUTION.md` is published alongside because the terms
-the images travel on are conditional on the notice travelling with them.
+returns `{version, archive, roms:[{path, bytes, sha256}]}` with a
+content-derived `version` and an `ETag`, images are `max-age=86400`, and the
+manifest is `max-age=300`. Only the images are obtained: a publisher that serves
+the images it was asked for need not serve a notice too, so the terms are named
+by the address they are always readable at rather than fetched from a place that
+may answer 404.
 
 ## Goals / Non-Goals
 

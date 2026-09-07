@@ -28,7 +28,6 @@ const IMAGE = Buffer.from('zx81 rom bytes');
 const DIGEST = createHash('sha256').update(IMAGE).digest('hex');
 const MANIFEST = {
   version: 'aaaabbbbcccc',
-  attribution: 'ATTRIBUTION.md',
   archive: 'roms.zip',
   roms: [{ path: 'zx81/zx81.rom', bytes: IMAGE.length, sha256: DIGEST }],
 };
@@ -64,9 +63,6 @@ function publisher(image: Buffer = IMAGE) {
         status: 200,
         headers: { etag: '"v1"' },
       });
-    }
-    if (String(url).endsWith('ATTRIBUTION.md')) {
-      return new Response('the notice', { status: 200 });
     }
     return new Response(image, { status: 200 });
   });
@@ -168,7 +164,17 @@ describe('obtaining images', () => {
     expect(outcome.ok).toBe(true);
     expect(outcome.obtained).toEqual(['zx81/zx81.rom']);
     expect(cachedRomRoot(home)).toBe(home);
-    expect(existsSync(path.join(home, 'roms', 'ATTRIBUTION.md'))).toBe(true);
+  });
+
+  it('obtains the images and nothing else', async () => {
+    // The notice is named in the consent question rather than downloaded, so a
+    // publisher serving only images is not asked for a file it may not have.
+    const fetched = publisher();
+    vi.stubGlobal('fetch', fetched);
+    await fetchRomSet({ home, base: 'https://roms.test/roms/' });
+    const asked = fetched.mock.calls.map(([url]) => String(url));
+    expect(asked.filter((url) => url.endsWith('ATTRIBUTION.md'))).toEqual([]);
+    expect(existsSync(path.join(home, 'roms', 'ATTRIBUTION.md'))).toBe(false);
   });
 
   it('refuses an image that is not what the publisher describes', async () => {

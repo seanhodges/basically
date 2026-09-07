@@ -8,9 +8,9 @@
  * its arguments, does the work and exits - so this is the one place a question
  * is put, and the reason it earns an exception is that obtaining a ROM writes
  * someone else's firmware onto a disk under terms the user has not seen. The
- * notice those terms live in (`public/roms/ATTRIBUTION.md`, published beside
- * the images) is named in the question, so agreeing is agreeing to something
- * readable rather than to a yes/no.
+ * notice those terms live in (`public/roms/ATTRIBUTION.md`, readable in the
+ * repository whether or not the user has a checkout) is named in the question,
+ * so agreeing is agreeing to something readable rather than to a yes/no.
  *
  * What is agreed to is *obtaining ROM images from the publisher*, not one
  * version of one set: the record is a single file and it covers every later
@@ -32,7 +32,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
-import { attributionUrl, romCacheHome } from './romCache';
+import { REPO_ATTRIBUTION_URL, romCacheHome } from './romCache';
 
 const CONSENT_FILE = 'consent.json';
 
@@ -106,19 +106,12 @@ export function consentQuestion(opts: {
 }): string[] {
   const env = opts.env ?? process.env;
   const home = opts.home ?? romCacheHome(env);
-  const notice = attributionUrl(undefined, env);
   return [
     'The machine ROM images are not part of this tool: they are the original',
     'firmware, published separately and covered by their own terms.',
     '',
     `They can be downloaded to ${path.join(home, 'roms')}`,
-    // Where this build names no publisher there is no served notice to point at,
-    // so the checkout's copy - the same words - is named on its own instead.
-    ...(notice === undefined
-      ? [
-          'See https://github.com/seanhodges/basically/blob/main/public/roms/ATTRIBUTION.md.',
-        ]
-      : [`The terms are set out in the notice beside them, ${notice}.`]),
+    `The terms are set out in the notice at ${REPO_ATTRIBUTION_URL}.`,
     '',
     'Answering yes covers future machines and updates; to retract, run "basically roms clear".',
   ];

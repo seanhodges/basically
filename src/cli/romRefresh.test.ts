@@ -43,17 +43,14 @@ const entry = (tail: string, bytes: Buffer) => ({
 
 const ONE_MACHINE = {
   version: 'v1',
-  attribution: 'ATTRIBUTION.md',
   roms: [entry('zx81/zx81.rom', ZX81)],
 };
 const TWO_MACHINES = {
   version: 'v2',
-  attribution: 'ATTRIBUTION.md',
   roms: [entry('zx81/zx81.rom', ZX81), entry('pet/kernal.bin', PET)],
 };
 const WITHDRAWN = {
   version: 'v3',
-  attribution: 'ATTRIBUTION.md',
   roms: [entry('pet/kernal.bin', PET)],
 };
 
@@ -93,9 +90,6 @@ function publisher(manifest: unknown, etag = '"tag"') {
         status: 200,
         headers: { etag },
       });
-    }
-    if (at.endsWith('ATTRIBUTION.md')) {
-      return new Response('the notice', { status: 200 });
     }
     const tail = at.slice(BASE.length);
     const bytes = IMAGES[tail];
@@ -279,7 +273,6 @@ describe('a check that goes wrong changes nothing', () => {
     await obtain();
     const corrupt = {
       version: 'v9',
-      attribution: 'ATTRIBUTION.md',
       roms: [
         entry('zx81/zx81.rom', ZX81),
         { path: 'pet/kernal.bin', bytes: PET.length, sha256: 'a'.repeat(64) },

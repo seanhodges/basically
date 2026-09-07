@@ -156,27 +156,34 @@ describe('a caller with no terminal', () => {
 });
 
 describe('what the question says', () => {
+  // Spelled out rather than read from REPO_ATTRIBUTION_URL: asserting a
+  // constant against itself would pass whatever the address became.
+  const NOTICE =
+    'https://github.com/seanhodges/basically/blob/main/public/roms/ATTRIBUTION.md';
+
   it('names where the images go and where the terms are', () => {
-    // Stubbed rather than left to the build: the address is folded in at build
-    // time, so an unstubbed run would say one thing in a checkout whose
-    // .env.local names a server and another in CI, where nothing does.
-    vi.stubEnv('VITE_SHARE_API_URL', 'https://api.test');
     const lines = consentQuestion({ home, env: {} }).join('\n');
     expect(lines).toContain(path.join(home, 'roms'));
-    expect(lines).toContain('ATTRIBUTION.md');
     expect(
       lines,
-      'the published notice is the one a user with no checkout has',
-    ).toContain('https://api.test/roms/ATTRIBUTION.md');
+      'a user with no checkout still needs an address for the terms',
+    ).toContain(NOTICE);
   });
 
-  it('names only the checkout notice where the build has no publisher', () => {
+  it('names the same notice whatever the build has to obtain images from', () => {
+    // The publisher serves the images it was asked for and need not serve the
+    // notice, so the address must not be read off it: a build with a publisher
+    // and one without say the same readable thing.
+    vi.stubEnv('VITE_SHARE_API_URL', 'https://api.test');
+    const served = consentQuestion({ home, env: {} }).join('\n');
     vi.stubEnv('VITE_SHARE_API_URL', '');
-    const lines = consentQuestion({ home, env: {} }).join('\n');
-    expect(lines).toContain('public/roms/ATTRIBUTION.md');
-    expect(lines, 'there is no published notice to send a user to').not.toMatch(
-      /https?:\/\//,
-    );
+    const unserved = consentQuestion({ home, env: {} }).join('\n');
+    expect(served).toContain(NOTICE);
+    expect(served).toBe(unserved);
+    expect(
+      served,
+      'nothing points at a notice the publisher may not have',
+    ).not.toContain('api.test');
   });
 
   it('says the answer is remembered, and how to take it back', () => {
