@@ -21,8 +21,14 @@ import {
   openDocument,
   rebindAllDocuments,
   referencesForPosition,
+  semanticTokensForDocument,
+  semanticTokensForRange,
   symbolsForDocument,
 } from '../../src/lsp/handlers';
+import {
+  SEMANTIC_TOKEN_MODIFIERS,
+  SEMANTIC_TOKEN_TYPES,
+} from '../../src/lsp/semanticTokens';
 import { divertLogging } from '../../src/server/logging';
 
 /**
@@ -133,6 +139,17 @@ export function runLsp(
         documentSymbolProvider: true,
         referencesProvider: true,
         documentHighlightProvider: true,
+        semanticTokensProvider: {
+          legend: {
+            tokenTypes: [...SEMANTIC_TOKEN_TYPES],
+            tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
+          },
+          // Both, because both are answered: an editor showing one screen of a
+          // long listing asks for the range, and one that colours the whole
+          // document asks for all of it.
+          full: true,
+          range: true,
+        },
       },
     };
   });
@@ -196,6 +213,12 @@ export function runLsp(
   );
   connection.onDocumentHighlight((params) =>
     highlightsForPosition(store, params.textDocument.uri, params.position),
+  );
+  connection.languages.semanticTokens.on((params) =>
+    semanticTokensForDocument(store, params.textDocument.uri),
+  );
+  connection.languages.semanticTokens.onRange((params) =>
+    semanticTokensForRange(store, params.textDocument.uri, params.range),
   );
 
   documents.listen(connection);

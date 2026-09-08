@@ -94,9 +94,30 @@ Once a program is bound to a machine, your editor should offer:
 - **Every use of a variable**, following the machine's own rules for what
   counts as the same variable - including a machine that only distinguishes
   the first few characters of a name.
+- **Colour**, from the same reading of the program the IDE colours by - so a
+  name that's a keyword on one machine and an ordinary variable on another is
+  coloured as whichever it is here, and a listing written without spaces is
+  split where that machine's ROM splits it.
 
 Every answer is exactly what the IDE itself would give for the same program,
 because it's produced the same way.
+
+### Two kinds your editor may not know
+
+Colour is described to your editor as a list of kinds, and most of them -
+keyword, function, operator, comment, string, number, variable - are ones every
+editor already has a colour for. Two aren't, because nothing outside a BASIC
+listing needs them:
+
+| Kind    | What it is                                                                    |
+| ------- | ----------------------------------------------------------------------------- |
+| `label` | A line number at the start of a line, as opposed to a number in an expression |
+| `atom`  | A graphics character or one of the machine's escape spellings for one         |
+
+The Basically extension for VS Code gives both a colour out of the box. In
+another editor they'll be uncoloured until you say what they should look like -
+your editor's own documentation covers how, usually by naming
+`@lsp.type.label` and `@lsp.type.atom` or something close to it.
 
 See [Writing BASIC](/guide/writing-basic) for what these features look like
 inside the IDE, and

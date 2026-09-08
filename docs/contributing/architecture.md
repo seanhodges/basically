@@ -905,10 +905,13 @@ flowchart TB
 Every answer is the editor's own, reached headlessly: a document's
 `EditorState` is built from its bound dialect's `languageSupport()` under
 Node, exactly as `src/editor/completions.test.ts` already proves runs with no
-DOM, and `src/lsp/completion.ts`, `hover.ts`, `definition.ts`, `symbols.ts` and
-`references.ts` translate what `src/editor/` and the `Dialect` seam already
-answer into the protocol's shapes - no second classifier, no second reading of
-a program.
+DOM, and `src/lsp/completion.ts`, `hover.ts`, `definition.ts`, `symbols.ts`,
+`references.ts` and `semanticTokens.ts` translate what `src/editor/` and the
+`Dialect` seam already answer into the protocol's shapes - no second classifier,
+no second reading of a program. Colour is the clearest case of that rule:
+`src/editor/tokenRuns.ts` walks the same stream-language tree
+`src/editor/tokenAt.ts` resolves a single position in, so what an editor colours
+a run is the tag that dialect's own tokenizer returned for it.
 
 What it deliberately does not reach: no ROM is read and no machine is ever
 booted, so a user with none installed gets the same help as one with every
