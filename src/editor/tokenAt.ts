@@ -39,11 +39,27 @@ export interface EditorToken {
 }
 
 /**
- * How long to spend parsing up to the clicked line before giving up and using
- * whatever tree exists. Measured against a ~79KB program, where the whole
+ * How long to spend parsing up to the position asked about before giving up and
+ * using whatever tree exists. Measured against a ~79KB program, where the whole
  * document parses well inside this; one line has room to spare.
  */
 const PARSE_BUDGET_MS = 50;
+
+/**
+ * A tree parsed at least as far as `upto`, or the lazily-parsed one when that
+ * cannot be had inside the budget.
+ *
+ * Shared with {@link ./tokenRuns}, which needs the same guarantee for a range
+ * rather than a point and would otherwise fail silently: a click that lands past
+ * the parsed region at least finds no node, whereas a *range* past it simply
+ * holds no tokens, which reads exactly like a range of whitespace.
+ */
+export function treeCovering(
+  state: EditorState,
+  upto: number,
+): ReturnType<typeof syntaxTree> {
+  return ensureSyntaxTree(state, upto, PARSE_BUDGET_MS) ?? syntaxTree(state);
+}
 
 /**
  * The token `tree` holds at `pos`, whatever its kind, or null for none.
@@ -81,14 +97,7 @@ export function tokenAt(
   kinds: readonly string[],
 ): EditorToken | null {
   let node = nodeAt(syntaxTree(state), pos);
-  if (!node) {
-    const forced = ensureSyntaxTree(
-      state,
-      state.doc.lineAt(pos).to,
-      PARSE_BUDGET_MS,
-    );
-    if (forced) node = nodeAt(forced, pos);
-  }
+  if (!node) node = nodeAt(treeCovering(state, state.doc.lineAt(pos).to), pos);
   if (!node || !kinds.includes(node.name)) return null;
   return {
     text: state.sliceDoc(node.from, node.to),

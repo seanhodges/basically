@@ -17,6 +17,8 @@ import type {
   Hover,
   Location,
   Position,
+  Range,
+  SemanticTokens,
 } from 'vscode-languageserver';
 import { DocumentStore, type OpenDocument } from './documents';
 import { diagnosticsFor } from './diagnostics';
@@ -25,6 +27,7 @@ import { hoverAt } from './hover';
 import { definitionAt } from './definition';
 import { documentSymbols } from './symbols';
 import { documentHighlightsAt, referencesAt } from './references';
+import { semanticTokensFor, semanticTokensForRangeOf } from './semanticTokens';
 
 export function openDocument(
   store: DocumentStore,
@@ -120,4 +123,23 @@ export function highlightsForPosition(
   const doc = store.get(uri);
   if (!doc) return [];
   return documentHighlightsAt(doc, position);
+}
+
+/** What every run of characters in the program is; empty for a document with no machine. */
+export function semanticTokensForDocument(
+  store: DocumentStore,
+  uri: string,
+): SemanticTokens {
+  return semanticTokensFor(store.editorState(uri)) ?? { data: [] };
+}
+
+/** The same for one range - what an editor showing part of a long listing asks for. */
+export function semanticTokensForRange(
+  store: DocumentStore,
+  uri: string,
+  range: Range,
+): SemanticTokens {
+  return (
+    semanticTokensForRangeOf(store.editorState(uri), range) ?? { data: [] }
+  );
 }

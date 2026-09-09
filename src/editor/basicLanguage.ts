@@ -5,6 +5,7 @@ import {
 } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import type { CompletionSource } from '@codemirror/autocomplete';
+import { isMachineDirective } from '../dialects/machineDirective';
 import type { EditorKeyword } from '../dialects/types';
 import {
   spellingAt,
@@ -248,6 +249,13 @@ export function buildBasicLanguage(
         state.afterRem = false;
         // #BIN directives carry an opaque binary payload, not code.
         if (stream.match(/^\s*#bin(?![^\s])/i)) {
+          stream.skipToEnd();
+          return 'meta';
+        }
+        // #MACHINE names the machine the listing is for. Recognised through the
+        // directive's own module rather than a second regex here, so the line
+        // the tokenizer colours is exactly the line every other path strips.
+        if (isMachineDirective(stream.string)) {
           stream.skipToEnd();
           return 'meta';
         }
