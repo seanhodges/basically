@@ -5,9 +5,9 @@ trusted publisher can only be configured on a package that already exists.
 
 - [x] 1.1 Create the `ba.sical.ly` organisation on the registry, so
       `@ba.sical.ly/cli` can be published to it
-- [ ] 1.2 Publish the first version by hand with a token, publicly — a scoped
+- [x] 1.2 Publish the first version by hand with a token, publicly — a scoped
       package is private unless the publish says otherwise
-- [ ] 1.3 Configure the trusted publisher on the registry against this repository
+- [x] 1.3 Configure the trusted publisher on the registry against this repository
       and the release workflow's exact filename, and tag that first release
       `cli-v<version>` so the workflow has a tag to count from
 
@@ -99,7 +99,7 @@ trusted publisher can only be configured on a package that already exists.
       race for the same version number
 - [x] 6.7 Handle the registry having no published version yet — the gate treats an
       absent package as a difference rather than an error
-- [ ] 6.8 Prove all three paths before relying on the workflow: a docs-only push
+- [x] 6.8 Prove all three paths before relying on the workflow: a docs-only push
       publishes nothing and tags nothing; a push that changes the bundles
       publishes once and tags once; and a publish that fails leaves no tag behind
 
@@ -114,8 +114,10 @@ trusted publisher can only be configured on a package that already exists.
 - [x] 7.3 Add an install section to `README.md`
 - [x] 7.4 Update `docs/contributing/architecture.md` for the `Dialect` seam's new
       member and the emitted launchers — the rows they belong in, not new prose
-- [ ] 7.5 Ask whether the new guide page should join the docs sidebar; leave
-      `docs/.vitepress/config.ts` untouched unless the answer is yes
+- [x] 7.5 Ask whether the new guide page should join the docs sidebar; leave
+      `docs/.vitepress/config.ts` untouched unless the answer is yes — _asked and
+      answered no, so the sidebar config stays as it is; the page is reached by
+      link rather than from the sidebar_
 
 ## 8. Gates
 

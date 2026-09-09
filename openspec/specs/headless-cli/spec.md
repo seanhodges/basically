@@ -8,7 +8,6 @@ without running it, build it into the file its machine loads, and run it and
 report its screen — with predictable streams and exit codes so a script or an
 agent can consume the result directly, and with only running a machine ever
 requiring its ROM.
-
 ## Requirements
 ### Requirement: The command line is named for the product and organised by operation
 
@@ -30,11 +29,13 @@ machine SHALL be reachable from every other caller. No caller SHALL gain a
 capability another silently lacks.
 
 Parity is of capability, not of invocation. How a caller reaches an operation
-MAY differ, because their circumstances differ: an invocation of the command
-line holds no machine between runs, so what a caller that is holding a machine
-asks of that machine, the command line asks of a run — as an option on that run
-or as an action within it. What SHALL be equal is what can be asked, not how it
-is spelled.
+MAY differ, because their circumstances differ. Where a caller can hold a
+machine between one request and the next, what is asked of that machine SHALL be
+reachable as an operation in its own right; where it cannot, the same capability
+SHALL be reachable as an option on a run or as an action within one. A caller
+that gains the ability to hold a machine SHALL gain those operations, and SHALL
+keep offering the one-shot spelling too, so that what was written against it
+goes on working. What SHALL be equal is what can be asked, not how it is spelled.
 
 Where a caller deliberately lacks an operation, that absence SHALL be declared
 together with the reason for it, so that an asymmetry is a decision on record
@@ -46,6 +47,10 @@ A reason SHALL be particular to the caller it is claimed of. An absence which
 holds because of the circumstances one caller works in SHALL NOT be carried over
 to a caller those circumstances do not describe, so that adding a caller widens
 what is offered rather than inheriting what was withheld.
+
+A host that serves a caller SHALL NOT itself be a caller: it offers no operation
+of its own and declares no absence of its own, and every operation reaches it
+only as one of the callers it serves.
 
 #### Scenario: An operation one caller gains
 
@@ -77,6 +82,19 @@ what is offered rather than inheriting what was withheld.
 - **WHEN** an operation previously declared unavailable to a caller becomes
   available to it
 - **THEN** it is no longer declared as unavailable
+
+#### Scenario: A caller that gains a machine it can hold
+
+- **WHEN** a caller that could hold no machine between requests becomes able to
+- **THEN** every operation that acts on a machine is reachable from it as an
+  operation of its own, and the option that spelled the same capability on a
+  single run still works
+
+#### Scenario: A host is not a surface
+
+- **WHEN** the toolchain is served to its callers from a shared host
+- **THEN** the host offers no operation of its own and declares no absence of its
+  own, and parity is judged of the callers it serves
 
 ### Requirement: A program is named as a file, and a pipe still works
 
@@ -115,14 +133,35 @@ remain the caller's mistake whether or not the program declares one.
 
 The user SHALL be able to ask which machines are available and receive every
 registered machine, each with the name and short description the product uses for
-it elsewhere, and whether the machine's ROM is present — so that a caller can tell
+it elsewhere, and whether this installation can run it — so that a caller can tell
 what it is able to run before trying to run it.
+
+Whether a machine can be run SHALL be answered from where that machine's ROM
+actually comes from, not from whether the product carries an image for it. A
+machine that needs no ROM, and a machine whose ROM comes from the emulator behind
+it rather than from the product's own images, SHALL both be reported as runnable
+on an installation carrying no ROMs.
 
 #### Scenario: Listing the machines
 
 - **WHEN** the user asks for the available machines
 - **THEN** every registered machine is reported with its identifier, its name, its
-  description, and whether its ROM is present
+  description, and whether this installation can run it
+
+#### Scenario: A machine that carries its own ROM
+
+- **WHEN** the user lists machines on an installation with no ROMs present, and a
+  registered machine's ROM comes from the emulator behind it rather than from the
+  product's own images
+- **THEN** that machine is reported as runnable, and running a program on it
+  succeeds
+
+#### Scenario: A machine that needs no ROM at all
+
+- **WHEN** the user lists machines on an installation with no ROMs present, and a
+  registered machine runs without any ROM image
+- **THEN** that machine is reported as runnable, and running a program on it
+  succeeds
 
 ### Requirement: A machine can be described in full
 
@@ -384,12 +423,47 @@ carrying no ROMs is still useful for everything but running. Running a machine
 SHALL let the user say where ROMs are read from, rather than only ever reading them
 from where the product was installed.
 
+Where ROMs are read from SHALL be sayable once for the installation, so that a
+user who keeps ROMs of their own need not repeat it on every run. An option given
+on a single run SHALL take precedence over what was said for the installation, and
+both SHALL take precedence over any images the product was installed with.
+
+Where the user has said where ROMs are read from, or the installation already
+carries them, the tool SHALL read them from there and SHALL obtain nothing.
+Otherwise it SHALL be able to obtain a machine's ROM from where the product
+publishes them, keep what it obtained for later runs, and prefer what it has
+kept over what the installation carries.
+
 #### Scenario: Working without ROMs
 
 - **WHEN** the user lists machines, describes one, checks a program or builds a
   program on an installation with no ROMs present
 - **THEN** each operation succeeds, and reports no ROM as missing because none was
   needed
+
+#### Scenario: Saying where ROMs are once
+
+- **WHEN** the user has said where this installation reads ROMs from, and then runs
+  a program on a machine whose ROM is there, without naming that place again
+- **THEN** the program runs on that machine's real ROM
+
+#### Scenario: Overriding what the installation was told
+
+- **WHEN** the user has said where this installation reads ROMs from, and then runs
+  a program naming a different place to read them from
+- **THEN** the place named on the run is used
+
+#### Scenario: An installation that already carries the ROM
+
+- **WHEN** the user runs a machine on an installation that carries its ROM, or
+  says where ROMs are read from
+- **THEN** the run reads that ROM, nothing is obtained, and the user is asked
+  nothing
+
+#### Scenario: A ROM obtained once is kept
+
+- **WHEN** the user runs a machine whose ROM was obtained by an earlier run
+- **THEN** the run uses what was kept, and obtains nothing again
 
 ### Requirement: A run can be told what to press and when
 
@@ -497,12 +571,15 @@ refuse a machine whose ROM is absent as the caller's mistake before any action i
 taken. A run given no schedule SHALL keep reporting a missing ROM as a condition
 of the run rather than refusing.
 
+Refusing SHALL say what the user can do about it, naming the ways a ROM is
+obtained and agreed to, so the refusal is not a dead end.
+
 #### Scenario: Driving without the ROM
 
 - **WHEN** the user runs a program with a schedule on a machine whose ROM is not
   present
-- **THEN** the run is refused as the caller's mistake, saying the ROM is missing,
-  and no action is carried out
+- **THEN** the run is refused as the caller's mistake, saying the ROM is missing
+  and how one is obtained, and no action is carried out
 
 ### Requirement: Checking a program requires its ROM
 
@@ -511,11 +588,14 @@ refuse a machine whose ROM is absent as the caller's mistake before any action i
 taken — a verdict from a machine that ran nothing would say nothing about the
 program.
 
+Refusing SHALL say what the user can do about it, naming the ways a ROM is
+obtained and agreed to, so the refusal is not a dead end.
+
 #### Scenario: Checking without the ROM
 
 - **WHEN** the user checks a program on a machine whose ROM is not present
 - **THEN** the check is refused as the caller's mistake, saying the ROM is
-  missing, and no action is carried out
+  missing and how one is obtained, and no action is carried out
 
 ### Requirement: A machine's binary program file can be read back as BASIC
 
@@ -547,4 +627,268 @@ reported rather than dropped silently.
   block that is not BASIC, or an auto-start line
 - **THEN** the source is returned alongside a report of everything the
   conversion could not carry, rather than the source alone
+
+### Requirement: The command line can hold a machine between commands
+
+The command line SHALL be able to leave the machine a run booted still running
+when the command that started it has ended, and a later command SHALL be able to
+act on that machine. What one command does to the machine SHALL be what the next
+command sees.
+
+The user SHALL be able to say that a run is to leave its machine up, to ask which
+machine is being held, and to let a held machine go. A machine SHALL be let go
+when the user says so, and SHALL NOT be left running indefinitely with nothing
+attending to it.
+
+The machine SHALL advance only when a command asks it to. A command that acts on
+the machine SHALL spend the time it needs; a command that only reads the machine
+SHALL spend none, so that reading the screen never changes it. Every measurement
+SHALL be in the emulated machine's own time and SHALL NOT vary with how long the
+user took between commands.
+
+A command that needs a machine when none is being held SHALL say so and say how
+to start one, rather than failing without explanation.
+
+#### Scenario: Acting and then looking
+
+- **WHEN** the user runs a program that waits at a prompt so that its machine is
+  left up, presses a key in a later command, and reads the screen in a third
+- **THEN** the screen read is the one that keypress left, not the one the program
+  started at
+
+#### Scenario: Reading without disturbing
+
+- **WHEN** the user reads a held machine's screen twice with nothing in between
+- **THEN** the same screen is reported both times
+
+#### Scenario: A pause between commands
+
+- **WHEN** a long time passes between two commands acting on a held machine
+- **THEN** the machine is where the earlier command left it, and the run's
+  measurements are the same as if the commands had come one after another
+
+#### Scenario: Letting a machine go
+
+- **WHEN** the user asks for the held machine to be let go
+- **THEN** it is let go, and a later command reports that no machine is being
+  held
+
+#### Scenario: Acting before a machine is up
+
+- **WHEN** the user asks for something that needs a machine while none is held
+- **THEN** it is reported that no machine is being held and how to start one
+
+### Requirement: A run that holds no machine still works as it did
+
+A run that is not asked to leave its machine up SHALL behave exactly as it does
+when no machine can be held: it boots, reports, and lets the machine go when it
+ends. Every option that asks a single run to drive, measure or picture a machine
+SHALL keep working and SHALL keep meaning what it means today, so that what a
+user or a script has already written goes on working unchanged.
+
+#### Scenario: A one-shot run
+
+- **WHEN** the user runs a program without asking for its machine to be kept
+- **THEN** the run reports what it reports today and leaves no machine held
+  afterwards
+
+#### Scenario: A schedule on a single run
+
+- **WHEN** the user runs a program with a schedule of keys, asking for the
+  screen, a picture and the run's measurements, without asking for its machine to
+  be kept
+- **THEN** each is reported as it is today, and no machine is left held
+
+### Requirement: Obtaining a ROM is agreed to first
+
+The tool SHALL NOT obtain any ROM image until the user has agreed to it, and
+SHALL ask only where it would otherwise have no ROM to run — never on an
+installation that already carries one, never for an operation that needs none,
+and never where the tool has nowhere to obtain one from. Asking SHALL say what would be obtained, where it would be kept, and where
+the terms those images travel on are set out, so the user is agreeing to
+something they can read first.
+
+The agreement SHALL be remembered, and SHALL cover every later machine and every
+later run rather than being asked again for each. Declining SHALL NOT be an
+error: the run SHALL carry on exactly as it does on an installation with no ROM,
+so a user who says no is no worse off than before they were asked.
+
+#### Scenario: Asked before the first ROM is obtained
+
+- **WHEN** the user runs a machine whose ROM the installation does not carry and
+  has not been agreed to before
+- **THEN** the user is asked before anything is obtained, and is told what would
+  be obtained, where it would be kept, and where the terms are set out
+
+#### Scenario: Agreeing once covers later runs
+
+- **WHEN** the user has agreed, and later runs a different machine whose ROM is
+  not yet held
+- **THEN** that ROM is obtained without asking again
+
+#### Scenario: Declining leaves the run as it was
+
+- **WHEN** the user is asked and declines
+- **THEN** nothing is obtained, and the run behaves exactly as it does with no
+  ROM present — reporting the missing ROM as a condition of the run, or refusing
+  where a schedule or a check required it
+
+#### Scenario: An installation with nowhere to obtain images from
+
+- **WHEN** the tool was built without being told where the set is published, and
+  the user runs a machine whose ROM the installation does not carry
+- **THEN** the user is not asked, nothing is obtained, and the run behaves as it
+  does when the question was declined
+
+#### Scenario: Asking for images with nowhere to obtain them from
+
+- **WHEN** the tool was built without being told where the set is published, and
+  the user asks for the ROMs to be obtained
+- **THEN** the tool says it has no publisher and how one is named, rather than
+  reporting a download that failed
+
+### Requirement: A caller with no terminal is never left waiting
+
+A caller that cannot be asked — a program driving the tool, a scheduled build,
+an editor or agent served over a protocol — SHALL NOT be blocked on a question
+it has no way to answer. The user SHALL be able to agree in advance, both as a
+setting the tool is started with and as an action of its own that records the
+agreement and returns.
+
+Where no agreement has been given and there is no one to ask, the tool SHALL
+say so promptly and SHALL treat it as the caller's mistake rather than waiting,
+naming both ways of agreeing in advance.
+
+#### Scenario: Agreed in advance
+
+- **WHEN** a caller that cannot be asked runs a machine whose ROM is not held,
+  having agreed in advance
+- **THEN** the ROM is obtained without any question, and the run proceeds
+
+#### Scenario: Nobody to ask
+
+- **WHEN** a caller that cannot be asked runs a machine whose ROM is not held,
+  with no agreement given
+- **THEN** the tool does not wait, and says how to agree in advance
+
+### Requirement: An obtained ROM set is kept current
+
+Once the user has agreed, the tool SHALL keep what it obtained current without
+asking again, so that a machine added after the user agreed brings its ROM with
+it and an image the publisher withdraws stops being kept. It SHALL check for
+changes no more than occasionally rather than on every run, and the user SHALL
+be able to ask for a check at any time rather than waiting for the next one.
+
+Keeping current SHALL NOT be able to fail a command: where the check cannot be
+made or cannot be trusted, the tool SHALL carry on with what it already holds
+and SHALL say nothing about it in the command's own answer.
+
+#### Scenario: A machine added later
+
+- **WHEN** a machine the tool did not previously know about is registered, and
+  the tool next checks for changes
+- **THEN** its ROM is obtained without the user being asked again
+
+#### Scenario: Not waiting for the next check
+
+- **WHEN** the user asks for the ROMs to be obtained rather than waiting for the
+  next check
+- **THEN** the publisher is asked at once, and anything new is obtained
+
+#### Scenario: A withdrawn image
+
+- **WHEN** the publisher withdraws an image and the tool next checks
+- **THEN** the tool stops keeping that image
+
+#### Scenario: Checking when the publisher cannot be reached
+
+- **WHEN** the tool would check for changes but cannot reach the publisher
+- **THEN** the command runs on what is already held, succeeds or fails on its own
+  terms, and reports nothing about the check
+
+#### Scenario: An image that is not what it should be
+
+- **WHEN** an obtained image does not match what the publisher says it should be
+- **THEN** it is not kept, and nothing already held is disturbed
+
+### Requirement: The user can ask about, obtain and discard ROMs directly
+
+The user SHALL be able to ask where the tool is reading ROMs from and why, where
+the published set would be obtained from or that this build names nowhere, which
+machines it holds an image for, and when it last checked for changes; to agree
+and to obtain the set in one deliberate action rather than as a side effect of a
+run; and to discard everything it has obtained.
+
+#### Scenario: Asking where ROMs come from
+
+- **WHEN** the user asks about ROMs
+- **THEN** the tool reports which source it would read from and why that one,
+  what it holds, and when it last checked
+
+#### Scenario: Obtaining deliberately
+
+- **WHEN** the user asks for the ROMs to be obtained
+- **THEN** the tool asks for agreement if it does not have it, checks for changes
+  whether or not one was due, and obtains what is missing or changed
+
+#### Scenario: Discarding
+
+- **WHEN** the user asks for what was obtained to be discarded
+- **THEN** the tool holds no obtained images afterwards, and a later run asks
+  before obtaining them again only if the agreement was discarded too
+
+### Requirement: The toolchain can be obtained without a checkout
+
+The toolchain SHALL be installable as a published package, under the product's
+own name, so that reaching it does not require a copy of the product's source or
+knowledge of how it is built. An installation SHALL carry both the command line
+and the host, and SHALL need no build step before its first use.
+
+The command line and the host of one installation SHALL find each other, so that
+a machine is held between commands exactly as it is when the toolchain is run
+from a checkout. An installation SHALL never reach a host built from different
+source than its own.
+
+The published toolchain SHALL carry no ROM image.
+
+A published version SHALL correspond to exactly one build of the toolchain: two
+installations of the same version are the same program, and a build that differs
+from the published one SHALL be reachable as a version of its own. A published
+version SHALL record which build it carries, so that what is installed can be
+told apart from what is merely named the same.
+
+#### Scenario: Running the toolchain on a machine that has never seen the source
+
+- **WHEN** a user with no checkout of the product installs the toolchain and asks
+  for the available machines
+- **THEN** every registered machine is reported, with no build step having been
+  run and no further setup asked of the user
+
+#### Scenario: A machine held between commands on an installation
+
+- **WHEN** a user runs a program on an installed toolchain, and then acts on that
+  machine in a further command
+- **THEN** the second command reaches the machine the first left running, as it
+  would from a checkout
+
+#### Scenario: Two installations of one version
+
+- **WHEN** the toolchain is installed twice at the same published version, by the
+  same user on one computer
+- **THEN** both are the same build, and a command from either reaches the host the
+  other started
+
+#### Scenario: A build that is not the published one
+
+- **WHEN** the toolchain is built and the result differs in any way from the build
+  the published version carries
+- **THEN** it is published as a version of its own rather than replacing what is
+  there, because the two cannot serve each other
+
+#### Scenario: Serving an editor or an agent from an installation
+
+- **WHEN** an editor or an agent starts the installed toolchain as its language
+  server or its Model Context Protocol server
+- **THEN** it is served and answered exactly as it is when the toolchain is run
+  from a checkout
 
