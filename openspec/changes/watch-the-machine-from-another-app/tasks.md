@@ -1,8 +1,8 @@
 ## 1. Prerequisites
 
-- [ ] 1.1 Confirm `hold-a-machine-between-commands` is archived, so `toolchain-daemon` is a baseline capability in `openspec/specs/` and this change's delta applies to it rather than to another change's delta
-- [ ] 1.2 Confirm `publish-the-toolchain-to-npm` has landed, so the "a port is bound only when a view is asked for" rule is documented in the installable toolchain from its first release rather than introduced to existing installations
-- [ ] 1.3 Re-run `npx openspec validate watch-the-machine-from-another-app` against the updated baseline and reconcile the `toolchain-daemon` delta if its requirement text moved during archiving
+- [x] 1.1 Confirm `hold-a-machine-between-commands` is archived, so `toolchain-daemon` is a baseline capability in `openspec/specs/` and this change's delta applies to it rather than to another change's delta
+- [ ] 1.2 Confirm `publish-the-toolchain-to-npm` has landed, so the "a port is bound only when a view is asked for" rule is documented in the installable toolchain from its first release rather than introduced to existing installations — _its change is archived and its code is present, but nothing is published yet: publishing the first version by hand and configuring the registry's trusted publisher both remain outstanding, so this stays unchecked until a release exists_
+- [x] 1.3 Re-run `npx openspec validate watch-the-machine-from-another-app` against the updated baseline and reconcile the `toolchain-daemon` delta if its requirement text moved during archiving
 
 ## 2. The operation
 
