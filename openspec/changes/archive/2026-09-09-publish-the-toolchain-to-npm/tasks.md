@@ -114,8 +114,10 @@ trusted publisher can only be configured on a package that already exists.
 - [x] 7.3 Add an install section to `README.md`
 - [x] 7.4 Update `docs/contributing/architecture.md` for the `Dialect` seam's new
       member and the emitted launchers — the rows they belong in, not new prose
-- [ ] 7.5 Ask whether the new guide page should join the docs sidebar; leave
-      `docs/.vitepress/config.ts` untouched unless the answer is yes
+- [x] 7.5 Ask whether the new guide page should join the docs sidebar; leave
+      `docs/.vitepress/config.ts` untouched unless the answer is yes — _asked and
+      answered no, so the sidebar config stays as it is; the page is reached by
+      link rather than from the sidebar_
 
 ## 8. Gates
 
