@@ -5,9 +5,9 @@ trusted publisher can only be configured on a package that already exists.
 
 - [x] 1.1 Create the `ba.sical.ly` organisation on the registry, so
       `@ba.sical.ly/cli` can be published to it
-- [ ] 1.2 Publish the first version by hand with a token, publicly — a scoped
+- [x] 1.2 Publish the first version by hand with a token, publicly — a scoped
       package is private unless the publish says otherwise
-- [ ] 1.3 Configure the trusted publisher on the registry against this repository
+- [x] 1.3 Configure the trusted publisher on the registry against this repository
       and the release workflow's exact filename, and tag that first release
       `cli-v<version>` so the workflow has a tag to count from
 
