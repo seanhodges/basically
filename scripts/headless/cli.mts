@@ -30,6 +30,7 @@ import { decodeBytes, encodeBytes } from '../../src/ops/bytes';
 import type { CheckOutcome } from '../../src/ops/check';
 import type { ConvertOutcome } from '../../src/ops/convert';
 import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
+import { viewOp } from '../../src/ops/view';
 import type { RunOutcome } from '../../src/ops/run';
 import { hostAddress } from '../../src/server/address';
 import {
@@ -394,6 +395,7 @@ async function onTheHeldMachine(
         | 'drive'
         | 'look'
         | 'screenshot'
+        | 'view'
         | 'profile'
         | 'time'
         | 'variables'
@@ -460,6 +462,8 @@ function describeHeld(operation: string, value: unknown): string {
     }
     case 'expect':
       return formatVerdict(value as CheckOutcome);
+    case 'view':
+      return viewOp.describe(value as never);
     default:
       return '';
   }
@@ -765,6 +769,17 @@ async function main(): Promise<number> {
 
       case 'convert':
         return await convert(args, host);
+
+      case 'view':
+        // Giving a view up is a request about the host's own arrangements
+        // rather than an operation on the machine, which is untouched by it.
+        if (args.stop) {
+          const { holding } = await host.ask('unview');
+          if (args.json) json({ viewing: false, holding: holding ?? null });
+          else err('the view has ended\n');
+          return 0;
+        }
+        return await onTheHeldMachine(args, host);
 
       default:
         return await onTheHeldMachine(args, host);

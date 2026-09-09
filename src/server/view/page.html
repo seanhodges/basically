@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  The page a view is shown through.
+
+  Hand-written and standalone: no framework, no build step of its own, nothing
+  from the IDE. It is inlined into the host's bundle as text, so an installed
+  toolchain resolves nothing at runtime to serve it.
+
+  What it contracts to do is show the machine. How it does that is private and
+  may change - the third party's contract is "a URL you put in a frame", which
+  is why the event stream below is not documented anywhere a viewer can see.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- The address is the only thing protecting this view, so it must not
+         travel to whatever the embedding page reaches next. -->
+    <meta name="referrer" content="no-referrer" />
+    <title>Basically - the machine</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #e8e8ea;
+        --quiet: #8b8b94;
+        --ground: #16161a;
+        --edge: #2a2a31;
+        --live: #6ee7a0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font:
+          13px/1.4 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      /* The embedding application chooses the size of the frame, and it may be
+         any shape at all: the screen takes what is left after the status line
+         and is centred in it, at its own aspect ratio and never upscaled past
+         the box. */
+      #screen {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        place-items: center;
+        padding: 8px;
+      }
+      #picture {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        /* A machine's screen is a few hundred pixels across; smoothing it into
+           the frame's size would blur every character it draws. */
+        image-rendering: pixelated;
+        display: block;
+      }
+      #picture[hidden] {
+        display: none;
+      }
+      #status {
+        flex: 0 0 auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 10px;
+        border-top: 1px solid var(--edge);
+        color: var(--quiet);
+        /* A frame narrow enough that the words do not fit gets the dot and as
+           much of them as there is room for, rather than a sideways scroll. */
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      #dot {
+        width: 8px;
+        height: 8px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--quiet);
+      }
+      #status[data-state='working'] #dot {
+        background: var(--live);
+      }
+      #said {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #nothing {
+        color: var(--quiet);
+        text-align: center;
+        padding: 16px;
+        max-width: 34ch;
+      }
+      #nothing[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="screen">
+      <img id="picture" alt="The machine's screen" hidden />
+      <p id="nothing">Waiting for the machine.</p>
+    </div>
+    <div id="status" data-state="no-machine">
+      <span id="dot"></span>
+      <span id="said">Connecting.</span>
+    </div>
+    <script>
+      (function () {
+        var picture = document.getElementById('picture');
+        var nothing = document.getElementById('nothing');
+        var status = document.getElementById('status');
+        var said = document.getElementById('said');
+
+        var WORDS = {
+          idle: 'Idle - the machine advances only when a request asks it to.',
+          working: 'Working - a request is running the machine.',
+          'no-machine': 'No machine is up. Run a program to start one.',
+          gone: 'The view has ended.',
+        };
+
+        function show(state) {
+          status.setAttribute('data-state', state);
+          said.textContent = WORDS[state] || state;
+          if (state === 'no-machine' || state === 'gone') {
+            picture.hidden = true;
+            picture.removeAttribute('src');
+            nothing.hidden = false;
+            nothing.textContent = WORDS[state];
+          }
+        }
+
+        // Relative, so the view works at whatever address it was given and the
+        // page never has to know its own token.
+        var stream = new EventSource('stream');
+
+        stream.addEventListener('frame', function (message) {
+          var frame = JSON.parse(message.data);
+          picture.width = frame.width;
+          picture.height = frame.height;
+          picture.src = 'data:image/png;base64,' + frame.png;
+          picture.hidden = false;
+          nothing.hidden = true;
+        });
+
+        stream.addEventListener('state', function (message) {
+          show(JSON.parse(message.data).state);
+        });
+
+        // A view ends with the caller that asked for it, and the host then
+        // stops answering at this address. Reconnecting forever would leave a
+        // frame quietly retrying against nothing, so the page says so instead.
+        stream.addEventListener('error', function () {
+          if (stream.readyState === EventSource.CLOSED) show('gone');
+        });
+      })();
+    </script>
+  </body>
+</html>

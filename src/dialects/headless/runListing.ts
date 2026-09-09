@@ -8,7 +8,12 @@ import { hasFatalErrors } from '../types';
 import type { MachineScreenText } from '../types';
 import { resolveTokenize } from '../resolveListing';
 import { findMachine } from '../machineLookup';
-import { HeadlessCanvas, installCanvasGlobals } from './headlessCanvas';
+import {
+  encodePng,
+  HeadlessCanvas,
+  installCanvasGlobals,
+} from './headlessCanvas';
+import { createFrameTap } from './frameTap';
 import { RunError } from './runError';
 import { findRomRoot } from './romRoot';
 import type { RunOptions, RunResult, RunTimings } from './runTypes';
@@ -129,10 +134,6 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       timings.loadMs = performance.now() - loadAt;
       const observe = opts.observe;
       observe?.loaded?.(machine);
-      const runFrame = () => {
-        machine.runFrame();
-        observe?.frame?.(machine);
-      };
 
       const runAt = performance.now();
       const fixed = opts.frames;
@@ -151,15 +152,35 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       // frame the predicate accepted rather than another one taken later.
       let canvas: HeadlessCanvas | null = null;
       let renderMs = 0;
-      const paint = (): HeadlessCanvas => {
-        const at = performance.now();
+      const repaint = (): HeadlessCanvas => {
         canvas ??= new HeadlessCanvas(
           machine.displayWidth,
           machine.displayHeight,
         );
         machine.renderTo(canvas.renderContext);
-        renderMs += performance.now() - at;
         return canvas;
+      };
+      const paint = (): HeadlessCanvas => {
+        const at = performance.now();
+        const painted = repaint();
+        renderMs += performance.now() - at;
+        return painted;
+      };
+      // A view paints through the same canvas and encoder, and keeps its own
+      // clock: what it costs is taken back out of `runMs` below rather than
+      // added to `renderMs`, which is a figure about the run.
+      const tap = opts.view
+        ? createFrameTap({
+            sink: opts.view,
+            paint: repaint,
+            encodePng,
+          })
+        : null;
+
+      const runFrame = () => {
+        machine.runFrame();
+        observe?.frame?.(machine);
+        tap?.frame();
       };
 
       // Sampled per frame while a schedule is running, the same tri-state way
@@ -227,7 +248,10 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         const settle = opts.settleFrames ?? SETTLE_FRAMES;
         for (let i = 0; i < settle; i++, frames++) runFrame();
       }
-      timings.runMs = performance.now() - runAt;
+      // What the view cost comes back out: the tap fires inside this window,
+      // and a run must not report having taken longer for being watched.
+      tap?.settle();
+      timings.runMs = performance.now() - runAt - (tap?.costMs ?? 0);
 
       const screen =
         opts.until !== undefined && reached && !settled

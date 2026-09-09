@@ -19,6 +19,7 @@ import { divertLogging } from '../../src/server/logging';
 import {
   createInProcessHolder,
   createWorkerHolder,
+  reachesFromCli,
   type MachineHolder,
   type MessageChannelLike,
 } from '../../src/server/machineWorker';
@@ -28,6 +29,8 @@ import {
   type Conversation,
 } from '../../src/server/protocol';
 import { createSessions } from '../../src/server/sessions';
+import { createViewHost } from '../../src/server/view/host';
+import type { SessionView } from '../../src/server/view/link';
 
 // The editor and agent protocol stacks are each larger than everything else a
 // host carries, and a host serves at most one of them: `--ops` needs neither.
@@ -135,6 +138,7 @@ function parseArgs(argv: string[]): Args | 'help' | 'address' {
 /** A machine in a worker of its own, started from the bundle beside this one. */
 function workerHolder(
   directory: string,
+  view: SessionView,
   defaultMachine?: string,
 ): MachineHolder {
   return createWorkerHolder(() => {
@@ -150,7 +154,7 @@ function workerHolder(
       port: worker as unknown as MessageChannelLike,
       terminate: () => worker.terminate().then(() => undefined),
     };
-  });
+  }, view);
 }
 
 async function main(): Promise<number> {
@@ -189,7 +193,12 @@ async function main(): Promise<number> {
     }
     if (only === 'mcp') {
       const { runMcpServer } = await import('./mcp.mts');
-      await runMcpServer(args.machine);
+      const agentViews = createViewHost();
+      try {
+        await runMcpServer(args.machine, undefined, agentViews.forSession());
+      } finally {
+        await agentViews.close();
+      }
       return 0;
     }
     const restore = divertLogging();
@@ -202,7 +211,15 @@ async function main(): Promise<number> {
   }
 
   const address = hostAddress(buildId, environment);
-  const sessions = createSessions(() => workerHolder(directory, args.machine));
+  // Nothing is bound here: the view host binds a port on the first caller that
+  // asks for a view, and stops listening again when the last one ends.
+  const views = createViewHost({
+    note: (message) => err(`[basically-server] ${message}\n`),
+  });
+  const sessions = createSessions(
+    (view) => workerHolder(directory, view, args.machine),
+    views,
+  );
   let listening: Awaited<ReturnType<typeof listenOn>> | null = null;
 
   // Resolved by the shutdown, whichever thing asked for it. Until then the
@@ -220,6 +237,8 @@ async function main(): Promise<number> {
     {
       connected: () => connections,
       shutdown: async () => {
+        // The sessions go first, and every view goes with the caller that
+        // asked for it; `closeAll` then stops the view host listening.
         await sessions.closeAll();
         await listening?.close();
         stopped();
@@ -240,11 +259,15 @@ async function main(): Promise<number> {
       },
       serveAgent: (connection: Duplex) => {
         life.touch();
+        // A view of its own, ending with the agent that asked for it: an agent
+        // is a caller like any other, and no caller sees another's machine.
+        const view = views.forSession();
         void import('./mcp.mts').then(({ runMcpServer }) =>
-          runMcpServer(args.machine, {
-            input: connection,
-            output: connection,
-          }),
+          runMcpServer(
+            args.machine,
+            { input: connection, output: connection },
+            view,
+          ),
         );
       },
       stop: () => void life.stop(),
@@ -294,7 +317,13 @@ async function main(): Promise<number> {
  * there was a host at all.
  */
 function serveOverStdio(options: { defaultMachine?: string }): Promise<void> {
-  const sessions = createSessions(() => createInProcessHolder(options));
+  const views = createViewHost({
+    note: (message) => err(`[basically-server] ${message}\n`),
+  });
+  const sessions = createSessions(
+    (view) => createInProcessHolder(options, reachesFromCli, view),
+    views,
+  );
   return new Promise<void>((resolve) => {
     const connection = Duplex.from({
       readable: process.stdin,

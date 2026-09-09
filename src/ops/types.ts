@@ -106,6 +106,34 @@ export interface HeadlessPainting {
   ) => Uint8Array;
 }
 
+/**
+ * A view of the held machine's display, at an address something that can show
+ * a web page can be pointed at.
+ *
+ * Handed in for the same reason {@link HeadlessPainting} is: projecting one
+ * needs a listener on the network, and this layer imports nothing of node's.
+ * A caller with no way to project - the browser IDE, where the machine is
+ * already on the screen - simply carries none.
+ */
+export interface ViewProjection {
+  /**
+   * Open a view of the machine that is up, or hand back the one already open.
+   * Answers rather than throws when no view can be projected, so the operation
+   * can say why.
+   */
+  open(): Promise<ViewOpened>;
+}
+
+/** What asking for a view produced. */
+export interface ViewOpened {
+  /** Where to point something that can show a web page, or null when nowhere. */
+  address: string | null;
+  /** Why there is no address, when there is none. */
+  problem: string | null;
+  /** Whether a view was already open, and this is that one. */
+  already: boolean;
+}
+
 /** Everything an operation may be given, by the caller that knows it. */
 export interface OpContext {
   roms: RomProbe;
@@ -115,6 +143,8 @@ export interface OpContext {
   runner?: ListingRunner;
   /** Present alongside {@link runner}. */
   painting?: HeadlessPainting;
+  /** Present only for a caller that can project a view; see {@link ViewProjection}. */
+  view?: ViewProjection;
   /**
    * The machine a program-reading operation defaults to when its input names
    * none and the program declares none. The assistant's conversation is pinned

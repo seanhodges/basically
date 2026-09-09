@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseDriveScript, runDriveScript } from '../app/driveScript';
 import { decodeBytes } from '../ops/bytes';
+import type { FrameSink, ViewFrame } from '../dialects/headless/frameTap';
 import { createServerMachine, type ServerMachine } from './session';
 
 /**
@@ -20,9 +21,20 @@ const WAITING =
 let server: ServerMachine | null = null;
 
 /** A server whose machine is let go however the test ends. */
-function serving(): ServerMachine {
-  server = createServerMachine();
+function serving(view?: FrameSink): ServerMachine {
+  server = createServerMachine(view);
   return server;
+}
+
+/** A viewer that takes every frame offered and keeps them. */
+function watching(): FrameSink & { frames: ViewFrame[] } {
+  const frames: ViewFrame[] = [];
+  return {
+    frames,
+    watching: () => true,
+    free: () => true,
+    send: (frame) => frames.push(frame),
+  };
 }
 
 afterEach(() => {
@@ -152,4 +164,85 @@ describe('the machine the server holds', () => {
     ).rejects.toThrow(/no registered machine/);
     expect(server.held()).toBeNull();
   });
+});
+
+/**
+ * The one guarantee this whole arrangement rests on: a machine that is being
+ * watched is the same machine.
+ *
+ * Every measurement is counted in the machine's own frames and cycles, and a
+ * view spends none of them, so those are identical rather than close. The
+ * host's own clock is not identical - nothing timed on a real computer twice
+ * is - but the view's cost is accounted for and taken back out, so the watched
+ * run must not be systematically the slower of the two.
+ */
+describe('a machine that is being watched', () => {
+  /** Something to measure: a loop that prints, and its running total. */
+  const MEASURED = '10 FOR I=1 TO 200\n20 LET S=S+I\n30 NEXT I\n40 PRINT S\n';
+
+  /**
+   * A fixed count rather than "until it ends", so both runs spend exactly the
+   * same frames and enough of them for the tap to sample several times.
+   */
+  const FRAMES = 60;
+
+  it('answers exactly as it would unwatched, and reports no longer for it', async () => {
+    const unwatched = serving();
+    const alone = await unwatched.run({
+      machine: 'zx81',
+      source: MEASURED,
+      frames: FRAMES,
+    });
+    const aloneSession = unwatched.session()!;
+    const aloneReadings = {
+      profile: aloneSession.measurements().profile,
+      timing: aloneSession.timing(),
+      variables: aloneSession.variables(),
+      screen: aloneSession.readText(),
+    };
+    unwatched.dispose();
+
+    const viewer = watching();
+    const watched = serving(viewer);
+    const seen = await watched.run({
+      machine: 'zx81',
+      source: MEASURED,
+      frames: FRAMES,
+    });
+    watched.settleView();
+    const seenSession = watched.session()!;
+
+    // Somebody really was watching, or the comparison proves nothing.
+    expect(viewer.frames.length).toBeGreaterThan(1);
+
+    // Machine time: identical, not merely close.
+    expect(seen.frames).toBe(alone.frames);
+    expect(seenSession.measurements().profile).toEqual(aloneReadings.profile);
+    expect(seenSession.timing()).toEqual(aloneReadings.timing);
+    expect(seenSession.variables()).toEqual(aloneReadings.variables);
+    expect(seenSession.readText()).toEqual(aloneReadings.screen);
+
+    // Host time: what the view cost is taken back out, so the reported run
+    // time stays a figure about the run. Compared with room for the ordinary
+    // variation between two runs on a shared machine - the assertion is that
+    // watching does not add its cost, not that a clock repeats itself.
+    const encoding = viewer.frames.reduce((sum, f) => sum + f.png.length, 0);
+    expect(encoding).toBeGreaterThan(0);
+    expect(seen.timings.runMs).toBeLessThan(alone.timings.runMs * 3 + 50);
+  }, 40_000);
+
+  it('advances no frames while nothing is asked of it', async () => {
+    const viewer = watching();
+    const server = serving(viewer);
+    await server.run({ machine: 'zx81', source: WAITING, frames: 40 });
+    const session = server.session()!;
+
+    const before = session.readText();
+    const sampled = viewer.frames.length;
+    // Nothing between the two reads but time, which the machine does not run
+    // on: a view is a mirror, and a mirror asks for no frames.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(session.readText()).toEqual(before);
+    expect(viewer.frames.length).toBe(sampled);
+  }, 30_000);
 });

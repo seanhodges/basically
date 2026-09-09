@@ -40,6 +40,11 @@ import {
   HeadlessCanvas,
   installCanvasGlobals,
 } from '../dialects/headless/headlessCanvas';
+import {
+  createFrameTap,
+  type FrameSink,
+  type FrameTap,
+} from '../dialects/headless/frameTap';
 import { RunError } from '../dialects/headless/runError';
 import {
   findRomRoot,
@@ -90,18 +95,31 @@ export interface ServerMachine {
   session(): MachineSession | null;
   /** Run a program, leaving the machine it ran on up. */
   run: ListingRunner;
+  /**
+   * Show whoever is watching the picture the last request left.
+   *
+   * Called once a request has settled rather than per frame: a sampled run
+   * only takes every Nth frame, so the frame a request actually stopped on is
+   * as likely as not to have been skipped - and that is the one a viewer will
+   * be looking at until the next request comes. Costs nothing when nobody is
+   * watching.
+   */
+  settleView(): void;
   /** Let go of whatever is held; safe to call when nothing is. */
   dispose(): void;
 }
 
-export function createServerMachine(): ServerMachine {
+export function createServerMachine(viewSink?: FrameSink): ServerMachine {
   /** The process-wide stand-ins come off in the order they went on. */
   let held: (HeldMachine & { restore: (() => void)[] }) | null = null;
+  /** The tap over the machine that is up; there is nothing to sample without one. */
+  let tap: FrameTap | null = null;
 
   function dispose(): void {
     if (!held) return;
     const { machine, restore } = held;
     held = null;
+    tap = null;
     machine.dispose();
     for (const undo of restore.reverse()) undo();
   }
@@ -194,22 +212,34 @@ export function createServerMachine(): ServerMachine {
     // reads the machine's picture now, which is what a later request wants.
     let canvas: HeadlessCanvas | null = null;
     let renderMs = 0;
-    const paint = (): HeadlessCanvas => {
-      const at = performance.now();
+    const repaint = (): HeadlessCanvas => {
       canvas ??= new HeadlessCanvas(
         machine.displayWidth,
         machine.displayHeight,
       );
       machine.renderTo(canvas.renderContext);
-      renderMs += performance.now() - at;
       return canvas;
     };
+    const paint = (): HeadlessCanvas => {
+      const at = performance.now();
+      const painted = repaint();
+      renderMs += performance.now() - at;
+      return painted;
+    };
+
+    // The sink is this machine's rather than the run's, because a view
+    // outlives any one program: the caller asked for it once, and every
+    // program it runs afterwards is projected to the same address.
+    const sink = viewSink ?? opts.view;
+    tap = sink ? createFrameTap({ sink, paint: repaint, encodePng }) : null;
+    const sampling = tap;
 
     const observe = opts.observe;
     const runFrame = () => {
       machine.runFrame();
       measurements.frame(machine);
       observe?.frame?.(machine);
+      sampling?.frame();
     };
     observe?.loaded?.(machine);
 
@@ -308,7 +338,9 @@ export function createServerMachine(): ServerMachine {
       const settle = opts.settleFrames ?? SETTLE_FRAMES;
       for (let i = 0; i < settle; i++, frames++) runFrame();
     }
-    timings.runMs = performance.now() - runAt;
+    // What the view cost comes back out: the tap fires inside this window, and
+    // a run must not report having taken longer for being watched.
+    timings.runMs = performance.now() - runAt - (sampling?.costMs ?? 0);
 
     const screen =
       opts.until !== undefined && reached && !settled
@@ -351,6 +383,7 @@ export function createServerMachine(): ServerMachine {
     held: () => held,
     session: () => held?.session ?? null,
     run,
+    settleView: () => tap?.settle(),
     dispose,
   };
 }

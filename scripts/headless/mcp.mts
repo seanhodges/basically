@@ -9,6 +9,7 @@ import { SERVER_INFO } from '../../src/mcp/identity';
 import { createServerMachine } from '../../src/mcp/session';
 import { mcpToolDefinitions, runMcpCall } from '../../src/mcp/tools';
 import { divertLogging } from '../../src/server/logging';
+import type { SessionView } from '../../src/server/view/link';
 
 /**
  * The transport: the protocol's own streams and lifecycle, and nothing that
@@ -43,11 +44,12 @@ export interface AgentStreams {
 export function runMcpServer(
   defaultMachine: string | undefined,
   streams?: AgentStreams,
+  view?: SessionView,
 ): Promise<void> {
   // Only a server that owns the process may divert its logging; one served
   // over a socket shares the process with everything else the host is doing.
   const restoreLogging = streams ? () => {} : divertLogging();
-  const held = createServerMachine();
+  const held = createServerMachine(view);
   const server = new Server(SERVER_INFO, { capabilities: { tools: {} } });
 
   server.setRequestHandler(ListToolsRequestSchema, () => ({
@@ -59,6 +61,7 @@ export function runMcpServer(
       request.params.arguments ?? {},
       held,
       defaultMachine === undefined ? {} : { defaultMachine },
+      view,
     ),
   );
 
@@ -69,6 +72,9 @@ export function runMcpServer(
       finished = true;
       // Whatever machine is up goes with the connection, so a client that is
       // killed strands neither a machine nor the stand-ins it is running on.
+      // The view goes with it: a projection outlives neither the machine it
+      // shows nor the caller that asked for it.
+      void view?.end();
       held.dispose();
       restoreLogging();
       resolve();
@@ -88,6 +94,7 @@ export function runMcpServer(
     server.connect(transport).catch((error: unknown) => {
       if (finished) return;
       finished = true;
+      void view?.end();
       held.dispose();
       restoreLogging();
       reject(error instanceof Error ? error : new Error(String(error)));

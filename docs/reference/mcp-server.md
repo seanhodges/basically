@@ -65,6 +65,7 @@ the toolchain uses everywhere else:
 | `drive`<br>`look`<br>`screenshot`  | Press keys on the machine; read its screen; picture its display               |
 | `profile`<br>`time`<br>`variables` | Where a run's time and memory went; how long it took; what its variables hold |
 | `expect`                           | Say what the machine should be showing, and check it                          |
+| `view`                             | Project the display to an address a web view can be pointed at                |
 
 There is nothing here the command line cannot also do, and nothing the command
 line can do that isn't here. The two are the same operations, reached
@@ -115,6 +116,16 @@ and getting one screen back.
 **One machine at a time.** Running a second program lets the first machine go,
 and the answer says so. Disconnecting lets go of whatever is still up, so a
 client that stops without saying so leaves nothing behind.
+
+## Letting somebody watch
+
+A still picture per request is not the only way to see the machine. `view` hands
+back an address anything that can show a web page can be pointed at, and it goes
+on showing the machine as you work — useful when a person is supervising what
+you're doing, or when the application around you wants to show its user the
+machine. Whoever watches can only watch: they cannot press a key, run a program
+or reach any tool. See [watching the machine](./watching-the-machine) for what a
+view is, and for who can see one.
 
 ## A picture as a picture
 
