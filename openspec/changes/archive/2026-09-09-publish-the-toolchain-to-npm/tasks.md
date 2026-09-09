@@ -99,7 +99,7 @@ trusted publisher can only be configured on a package that already exists.
       race for the same version number
 - [x] 6.7 Handle the registry having no published version yet — the gate treats an
       absent package as a difference rather than an error
-- [ ] 6.8 Prove all three paths before relying on the workflow: a docs-only push
+- [x] 6.8 Prove all three paths before relying on the workflow: a docs-only push
       publishes nothing and tags nothing; a push that changes the bundles
       publishes once and tags once; and a publish that fails leaves no tag behind
 
