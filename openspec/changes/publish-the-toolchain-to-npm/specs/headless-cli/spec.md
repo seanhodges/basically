@@ -104,6 +104,12 @@ user who keeps ROMs of their own need not repeat it on every run. An option give
 on a single run SHALL take precedence over what was said for the installation, and
 both SHALL take precedence over any images the product was installed with.
 
+Where the user has said where ROMs are read from, or the installation already
+carries them, the tool SHALL read them from there and SHALL obtain nothing.
+Otherwise it SHALL be able to obtain a machine's ROM from where the product
+publishes them, keep what it obtained for later runs, and prefer what it has
+kept over what the installation carries.
+
 #### Scenario: Working without ROMs
 
 - **WHEN** the user lists machines, describes one, checks a program or builds a
@@ -122,3 +128,15 @@ both SHALL take precedence over any images the product was installed with.
 - **WHEN** the user has said where this installation reads ROMs from, and then runs
   a program naming a different place to read them from
 - **THEN** the place named on the run is used
+
+#### Scenario: An installation that already carries the ROM
+
+- **WHEN** the user runs a machine on an installation that carries its ROM, or
+  says where ROMs are read from
+- **THEN** the run reads that ROM, nothing is obtained, and the user is asked
+  nothing
+
+#### Scenario: A ROM obtained once is kept
+
+- **WHEN** the user runs a machine whose ROM was obtained by an earlier run
+- **THEN** the run uses what was kept, and obtains nothing again
