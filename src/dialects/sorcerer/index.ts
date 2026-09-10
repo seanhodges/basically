@@ -7,10 +7,13 @@ import type {
   TokenizeError,
   TokenizeResult,
 } from '../types';
+import { hasFatalErrors } from '../types';
 import { sorcererCharset } from './charset';
 import { sorcererKeywords, sorcererOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { buildBasicImage } from './basicImage';
+import { sorcererVariableErrors } from '../../editor/variableLint';
 import {
   sorcererCompletionSource,
   sorcererCrunched,
@@ -107,12 +110,24 @@ export const sorcerer: Dialect = {
   languageSupport: sorcererLanguageSupport,
   completionSource: sorcererCompletionSource,
 
-  tokenize(source: string, opts?: { programName?: string }): TokenizeResult {
-    return tokenizeProgram(source, opts);
+  tokenize(source: string): TokenizeResult {
+    const { program, errors } = tokenizeProgram(source);
+    const image = hasFatalErrors(errors)
+      ? new Uint8Array(0)
+      : buildBasicImage(program);
+    return {
+      programBytes: program,
+      image,
+      errors,
+      byteSize: program.length,
+    };
   },
   detokenize: detokenizeProgram,
-  lint(_source: string): TokenizeError[] {
-    throw new Error('sorcerer: lint not implemented');
+  lint(source: string): TokenizeError[] {
+    return [
+      ...tokenizeProgram(source).errors,
+      ...sorcererVariableErrors(source, sorcererKeywords),
+    ];
   },
 
   /** Spaces outside strings, REM and DATA are eaten, so `FORI=1TO5` is valid. */
