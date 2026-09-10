@@ -89,8 +89,18 @@ runs out.
 request served as itself rather than by slicing a whole-program answer. An
 editor showing one screen of a 2000-line listing then pays for one screen. A
 budget that runs out yields the runs that were parsed, not an error: a partly
-coloured listing is what the user would see mid-scroll in any editor, and it
-resolves itself on the next request.
+coloured listing is what the user would see mid-scroll in any editor.
+
+> **Correction (superseded by `colour-all-of-a-long-listing`).** This passage
+> originally added that a budget that runs out "resolves itself on the next
+> request". It does not, and nothing here should be reasoned from as though it
+> did. The fallback when the budget runs out is the lazily-parsed tree, which
+> covers a fixed few kilobytes whatever the program's length — so the failure is
+> a cliff rather than a shorter answer. And it does not heal: the `EditorState`
+> is cached per version, so every later request about an unedited program
+> repeats the same short answer at the same cost. Colour therefore no longer
+> shares the click path's budget; it parses to completion, and the guarantee it
+> now owes is in the `language-server` specification.
 
 Deltas (`semanticTokens/full/delta`) are not implemented. The listing is
 re-classified from a cached `EditorState` that `DocumentStore` already keys by

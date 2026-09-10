@@ -39,15 +39,15 @@ export interface EditorToken {
 }
 
 /**
- * How long to spend parsing up to the position asked about before giving up and
- * using whatever tree exists. Measured against a ~79KB program, where the whole
- * document parses well inside this; one line has room to spare.
- */
-const PARSE_BUDGET_MS = 50;
-
-/**
- * A tree parsed at least as far as `upto`, or the lazily-parsed one when that
- * cannot be had inside the budget.
+ * A tree parsed at least as far as `upto` within `budgetMs`, or the lazily-parsed
+ * one when that cannot be had inside it.
+ *
+ * The budget belongs to the caller because the two callers' exposure to it
+ * differs. What a click asks to have parsed is one line, however long the
+ * program is; what colour asks for grows with the program, so colour is the only
+ * caller that can reach a cap at all - and reaching one is a cliff rather than a
+ * shorter answer, because the fallback covers a fixed few kilobytes whatever the
+ * program's length.
  *
  * Shared with {@link ./tokenRuns}, which needs the same guarantee for a range
  * rather than a point and would otherwise fail silently: a click that lands past
@@ -57,8 +57,9 @@ const PARSE_BUDGET_MS = 50;
 export function treeCovering(
   state: EditorState,
   upto: number,
+  budgetMs: number,
 ): ReturnType<typeof syntaxTree> {
-  return ensureSyntaxTree(state, upto, PARSE_BUDGET_MS) ?? syntaxTree(state);
+  return ensureSyntaxTree(state, upto, budgetMs) ?? syntaxTree(state);
 }
 
 /**
@@ -84,6 +85,17 @@ function nodeAt(tree: ReturnType<typeof syntaxTree>, pos: number) {
 }
 
 /**
+ * How long a click spends parsing up to the position asked about before giving
+ * up and using whatever tree exists.
+ *
+ * A bound is right here and nowhere else: somebody is waiting on this answer,
+ * and the worst a short one costs them is a menu row that is sometimes missing.
+ * Measured against a ~79KB program, where the whole document parses well inside
+ * this; the one line a click asks for has room to spare.
+ */
+const CLICK_PARSE_BUDGET_MS = 50;
+
+/**
  * The token at `pos` whose kind is one of `kinds`, or null.
  *
  * The already-parsed tree answers first because it costs nothing and, in a live
@@ -97,7 +109,12 @@ export function tokenAt(
   kinds: readonly string[],
 ): EditorToken | null {
   let node = nodeAt(syntaxTree(state), pos);
-  if (!node) node = nodeAt(treeCovering(state, state.doc.lineAt(pos).to), pos);
+  if (!node) {
+    node = nodeAt(
+      treeCovering(state, state.doc.lineAt(pos).to, CLICK_PARSE_BUDGET_MS),
+      pos,
+    );
+  }
   if (!node || !kinds.includes(node.name)) return null;
   return {
     text: state.sliceDoc(node.from, node.to),

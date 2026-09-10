@@ -19,6 +19,25 @@ import { EditorState } from '@codemirror/state';
 import { treeCovering, type EditorToken } from './tokenAt';
 
 /**
+ * What this spends parsing: as long as it takes.
+ *
+ * Affordable here where it is not for a click, for two reasons the call cannot
+ * state for itself. Nothing is waiting on this answer - it is asked for
+ * asynchronously, so the only cost of taking longer is arriving later. And a
+ * stream language tokenizes each line once, so the parse is linear in the
+ * program's length: the tens of kilobytes any machine this product targets can
+ * hold is single-digit milliseconds, and a file far larger than one could load
+ * is a fraction of a second, paid once per document version.
+ *
+ * A cap of any size would re-admit the failure this replaces, because running
+ * out of one does not yield a shorter answer: the fallback is the lazily-parsed
+ * tree, a fixed few kilobytes whatever the program's length, so a long listing
+ * comes back with its first screen classified and the rest reported as holding
+ * nothing at all.
+ */
+const NO_PARSE_BUDGET = Number.POSITIVE_INFINITY;
+
+/**
  * Every token overlapping `[from, to)`, in document order.
  *
  * The tree is forced up to `to` rather than trusted: an unparsed region holds
@@ -32,7 +51,7 @@ export function tokensIn(
 ): EditorToken[] {
   if (to <= from) return [];
   const tokens: EditorToken[] = [];
-  treeCovering(state, to).iterate({
+  treeCovering(state, to, NO_PARSE_BUDGET).iterate({
     from,
     to,
     enter(node) {
