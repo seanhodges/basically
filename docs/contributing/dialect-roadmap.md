@@ -85,12 +85,13 @@ The CPU is free and the display is a memory-mapped character grid or a plain
 bitmap, with no custom chip to work out first. Wire the core into an in-tree bus
 as `pet` and `vic20` do, then proceed as for any dialect.
 
-| Status | Machine                            | BASIC                    | Core    | Note                                                                       |
-| ------ | ---------------------------------- | ------------------------ | ------- | -------------------------------------------------------------------------- |
-| ⬜     | Compukit UK101 / OSI Superboard II | Microsoft 6502 BASIC     | 6502.ts | 1K character display, 6850 ACIA, no video chip. Commodore BASIC's ancestor |
-| ⬜     | Mattel Aquarius                    | Microsoft BASIC (subset) | Z80.js  | 40×24 text, 80×72 semigraphics; 4K RAM, so very little program space       |
-| ⬜     | Exidy Sorcerer / Nascom 2          | Microsoft BASIC          | Z80.js  | Mono character display, programmable charset; the MS variable lint fits    |
-| ⬜     | Commodore CBM 8032                 | Commodore BASIC 4.0      | 6502.ts | Language free via `CbmVariant`, but the 80-column 6545 CRTC is new         |
+| Status | Machine                                       | BASIC                    | Core    | Note                                                                          |
+| ------ | --------------------------------------------- | ------------------------ | ------- | ----------------------------------------------------------------------------- |
+| ⬜     | Compukit UK101 / OSI Superboard II            | Microsoft 6502 BASIC     | 6502.ts | 1K character display, 6850 ACIA, no video chip. Commodore BASIC's ancestor    |
+| ⬜     | Mattel Aquarius                               | Microsoft BASIC (subset) | Z80.js  | 40×24 text, 80×72 semigraphics; 4K RAM, so very little program space          |
+| ⬜     | [Exidy Sorcerer](./dialect-plans/sorcerer.md) | Exidy Standard BASIC     | Z80.js  | 64×30 mono display, charset half in RAM; the MS variable lint fits            |
+| ⬜     | Nascom 2                                      | Microsoft BASIC          | Z80.js  | Mono character display, programmable charset; a kit machine, so no one config |
+| ⬜     | Commodore CBM 8032                            | Commodore BASIC 4.0      | 6502.ts | Language free via `CbmVariant`, but the 80-column 6545 CRTC is new            |
 
 ## Tier 3 - New bus, custom video or sound chip
 
