@@ -125,7 +125,7 @@ before wiring it.
 
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
-| 1     | Language core                      | ⬜     |
+| 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ⬜     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
@@ -135,7 +135,7 @@ before wiring it.
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change.
 
@@ -147,34 +147,44 @@ image (entries back to back in token order, bit 7 set on the first character of
 each spelling), then confirm each byte a second way by typing the keyword at the
 interpreter and reading the stored program text back.
 
-- [ ] `addresses.ts` — fill in the ROM-derived offsets beside the hardware
-      constants the stub already carries (reserved-word table bounds, the BASIC
-      control-area pointers)
-- [ ] `keywords.ts` — `KeywordInfo[]` with the token byte, `kind`, signature and
-      one-line doc for each word, plus the `operators` list for the spellings the
-      ROM stores as characters (`<=` is two operator tokens on this family)
-- [ ] `charset.ts` — `CharsetMapping` over the four bands above. Give each block
-      graphic its exact unicode character where one exists (Block Elements, then
-      Symbols for Legacy Computing) and fall back to an escape only where
-      injectivity or unicode forces it
-- [ ] declare the machine's graphics range in `SEMIGRAPHIC_CODES`
-      (`src/dialects/semigraphicsAudit.ts`), cited to the generator bitmaps — or
-      leave it `null` rather than guessing. `192-255` are user-definable and so
-      are **not** a fixed set; only `0-31` and `128-191` are candidates
-- [ ] `language.ts` — `languageSupport()` + `completionSource`. This family
-      crunches (spaces outside strings/REM/DATA are eaten), so set `crunched`
-- [ ] `constructsByDialect.sorcerer` in `src/editor/constructs.ts` — **the array
-      and the map entry**; nothing fails until registration, so a
-      written-but-unwired list survives six stages
-- [ ] `sorcererVariableErrors` in `src/editor/variableLint.ts` — a thin wrapper
+- [x] `addresses.ts` — the ROM-derived offsets beside the hardware constants:
+      reserved-word table bounds and token base, the statement dispatch table,
+      the line-number ceiling, the cold start's control-area image, and
+      TXTTAB / VARTAB / ARYTAB / STREND
+- [x] `keywords.ts` — 71 words, tokens `0x80`-`0xC6`, read out of the ROM PAC's
+      reserved-word table at `0xC0F6`. Exidy's addition is `BYE` at `0x84`, so
+      every token from `INPUT` up is one above the Altair's; `keywords.test.ts`
+      pins exactly that relationship against `altair8800/keywords.ts`
+- [x] `charset.ts` — the four bands. `0x80`-`0xBF` map to exact characters from
+      Box Drawing, Block Elements, Geometric Shapes and Symbols for Legacy
+      Computing; `0x00`-`0x1F` (pictorial symbols Unicode does not draw),
+      `0x8D` and `0xC0`-`0xFF` (no shape until a program pokes one in) take
+      `{0xNN}` escapes
+- [x] `language.ts` — `languageSupport()` + `completionSource`, `crunched` set.
+      Note the ROM disagrees with the summary above it: CRUNCH sends a space
+      straight to its store path, so spaces are **stored verbatim** and are
+      significant to the match, exactly as on the Altair. `crunched` still
+      holds — it means greedy position-independent matching
+- [x] `sorcererVariableErrors` in `src/editor/variableLint.ts` — a thin wrapper
       over `microsoftVariableErrors`, as `altair8800VariableErrors` is
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, don't throw
-- [ ] `basicImage.ts` — tokenized bytes → the RAM image BASIC expects at `$01D5`,
-      plus the workspace pointers `loadMicrosoftBasicProgram` will need
-      (`basicImagePointers()`, as the Altair and PMD 85 both supply)
-- [ ] `tapeFile.ts` — the Exidy cassette record (header + 256-byte blocks +
-      checksums), and parse it back
-- [ ] tests: tokenizer round-trip, charset, image-builder pointer consistency
+- [x] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, don't throw
+- [x] `basicImage.ts` — tokenized bytes → the RAM image BASIC expects at `$01D5`,
+      plus `basicImagePointers()`
+- [x] `tapeFile.ts` — the Exidy cassette record, built and parsed. Every field
+      and the checksum rule are read off the Monitor ROM's own SAVE path
+- [x] tests: keywords, charset, tokenizer round-trip, image-builder pointer
+      consistency, tape record
+- [x] `SORCERER_CONSTRUCTS` in `src/editor/constructs.ts` — the array only.
+      **The map entry could not land here**: `constructs.test.ts` holds
+      `constructsByDialect` to the registered dialects and fails on a key that
+      is not one, so the entry moves to the registry change (see Stage 7)
+- [x] the graphics band is derived and exported as `SORCERER_GRAPHIC_CODES`
+      (`charset.ts`), cited to the generator bitmaps: `0x80`-`0xBF`, the
+      standard set the Monitor copies into generator RAM. `0x00`-`0x1F` are
+      pictorial symbols rather than mosaic cells and `0xC0`-`0xFF` are
+      user-definable, so neither is in it. **The `SEMIGRAPHIC_CODES` entry could
+      not land here** either, for the same reason — `semigraphicsAudit.test.ts`
+      rejects an unregistered id — so it moves to Stage 7
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
@@ -365,6 +375,13 @@ disappears with the registry line.
 - [ ] **register in `src/dialects/registry.ts` and add the `usr` entry to
       `SHARE_VERBS` in `src/player/routes.ts` in the same change** —
       `routes.test.ts` enforces a strict bijection with the registry
+- [ ] the two table entries Stage 1 could not land, because both tables are held
+      to the registered dialects: the `sorcerer` key in `constructsByDialect`
+      (`src/editor/constructs.ts`), whose value is the `SORCERER_CONSTRUCTS`
+      array already exported there, and the `sorcerer` key in
+      `SEMIGRAPHIC_CODES`, whose value is `SORCERER_GRAPHIC_CODES` from
+      `sorcerer/charset.ts`. Both values are already written; only the keys are
+      missing
 - [ ] the machine-keyed half of the reference bundle, which can only land here:
       `src/reference/machines.ts`, the `facts.ts` porting entry (`loopSpeed`
       **measured**, not authored), and the `referenceByPage`, `escapesByPage` and

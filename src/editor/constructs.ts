@@ -479,6 +479,44 @@ const ALTAIR: ConstructTemplate[] = [
   ]),
 ];
 
+/**
+ * Exidy Standard BASIC's blocks. It is the Altair's interpreter, so it is the
+ * Altair's set of shapes: the same statements, the same cassette pair and the
+ * same one-argument function library. `BYE` is the only word Exidy added and it
+ * is a bare command with nothing to fill in, so it stays a plain keyword
+ * completion rather than a block.
+ *
+ * Exported rather than wired into {@link constructsByDialect}: that map is held
+ * to the registered dialects, so the entry goes in with the registry line.
+ */
+export const SORCERER_CONSTRUCTS: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('CLOAD', 'load "n" from cassette'),
+  stringCmd('CSAVE', 'save "n" to cassette'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['INP', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['MID$', 'sn'],
+    ['PEEK', 'n'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
 /** Locomotive BASIC has real ELSE, WHILE…WEND loops and MERGE/CHAIN. */
 /**
  * BASIC-G. The Microsoft core the Altair also has, plus this machine's own

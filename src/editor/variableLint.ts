@@ -402,6 +402,21 @@ export function altair8800VariableErrors(
 }
 
 /**
+ * Exidy Standard BASIC inherits both rules from the same 8K interpreter the
+ * Altair runs: two significant characters, and `$` as the only type suffix, the
+ * `%`/`!`/`#` tags belonging to the larger Microsoft BASICs that came later.
+ */
+export function sorcererVariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'Sorcerer',
+    lexis: lexisFor('sorcerer'),
+  });
+}
+
+/**
  * Apple 1 Integer BASIC has only the embedded-keyword half of the Microsoft
  * rules, and it has it for a different reason.
  *
