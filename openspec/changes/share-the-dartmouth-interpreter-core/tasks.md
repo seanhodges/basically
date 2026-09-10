@@ -59,16 +59,16 @@
 
 ## 4. Verify the whole change
 
-- [ ] 4.1 Re-read the diff adversarially against `design.md`'s review test: read
+- [x] 4.1 Re-read the diff adversarially against `design.md`'s review test: read
       `src/dialects/ge235/profile.ts` alone and check every number against a
       1965 listing. If you cannot, a citation was lost — restore it.
-- [ ] 4.2 `npm run typecheck && npm run lint && npm run format:check`
+- [x] 4.2 `npm run typecheck && npm run lint && npm run format:check`
       (`npm run format` to fix). No `docs/` change, so no `docs:build`.
-- [ ] 4.3 `npm test` — this change moves a file every registry-driven battery
+- [x] 4.3 `npm test` — this change moves a file every registry-driven battery
       reaches through the `Dialect` seam, and renames a field three of them
       assert on, so the full suite is the right gate here rather than a
       targeted run.
-- [ ] 4.4 No e2e run is required: nothing app-visible changes but the machine
+- [x] 4.4 No e2e run is required: nothing app-visible changes but the machine
       picker's label for one machine, which `registry.test.ts` and
       `machines-crosscheck.test.ts` already pin. Do not add an e2e task to
       claim otherwise.
