@@ -5,7 +5,7 @@ import type {
   MachineEmulator,
   MachineReport,
   MachineScreenText,
-} from '../../types';
+} from '../../dialects/types';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './terminal';
 import { FRAME_HZ, Interpreter } from './interpreter';
 

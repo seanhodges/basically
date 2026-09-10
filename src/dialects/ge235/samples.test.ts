@@ -8,7 +8,7 @@ import { ge235Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { ge235VariableErrors } from '../../editor/variableLint';
-import { COLS } from './interpreter/terminal';
+import { COLS } from '../../emulator/dartmouth/terminal';
 import { bootMachine, runUntil } from '../bootHarness';
 import type { MachineEmulator } from '../types';
 

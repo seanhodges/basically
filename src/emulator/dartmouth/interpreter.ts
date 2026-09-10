@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { MachineReport } from '../../types';
+import type { MachineReport } from '../../dialects/types';
 import { BasicError, CompileError, errorMessage } from './errors';
 import type { CompileFault } from './errors';
 import { Stream, type Lexeme } from './lex';

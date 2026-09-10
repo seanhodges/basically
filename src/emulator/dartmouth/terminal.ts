@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { CharsetError, type MachineScreenText } from '../../types';
-import { plainChar, parseChar, SPACE } from '../charset';
+import { CharsetError, type MachineScreenText } from '../../dialects/types';
+import { plainChar, parseChar, SPACE } from '../../dialects/ge235/charset';
 
 /**
  * The DTSS terminal was a Teletype Model 33 ASR printing on a paper roll, so

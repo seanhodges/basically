@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { CompileError } from './errors';
-import { ge235Keywords } from '../keywords';
+import { ge235Keywords } from '../../dialects/ge235/keywords';
 
 /**
  * One lexical unit of a line body.

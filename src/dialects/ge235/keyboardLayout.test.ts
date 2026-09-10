@@ -7,7 +7,7 @@ import {
   ge235KeyTokens,
   ge235TypeableChars,
   tokenToChar,
-} from './interpreter/keyboard';
+} from '../../emulator/dartmouth/keyboard';
 import { plainChar } from './charset';
 import { resolveEditorAction } from '../../keyboard/editorActions';
 import { GRID_COLUMNS, KEY_SPAN } from '../../keyboard/templateRows';
@@ -31,7 +31,7 @@ function insertOn(key: KeyDef, layerId: string): string | null {
 
 describe('ge235 keyboard layout', () => {
   it('emits a token for every key the teletype adapter can translate', () => {
-    // The layout and `interpreter/keyboard.ts` are two halves of one
+    // The layout and `src/emulator/dartmouth/keyboard.ts` are two halves of one
     // vocabulary: a key emitting a token the adapter does not know queues
     // nothing at all, and the failure is silent.
     const known = new Set(ge235KeyTokens());

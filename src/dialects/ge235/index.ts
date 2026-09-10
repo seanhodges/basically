@@ -17,7 +17,7 @@ import { ge235AiProfile } from './aiProfile';
 import { ge235BuildTargets } from './targets';
 import { ge235KeyboardLayout } from './keyboardLayout';
 import { ge235Samples } from './samples';
-import { Ge235InterpreterMachine } from './interpreter/machine';
+import { Ge235InterpreterMachine } from '../../emulator/dartmouth/machine';
 import { ge235MemoryMap } from './memoryMap';
 
 /**

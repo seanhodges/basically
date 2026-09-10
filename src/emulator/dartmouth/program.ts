@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { ge235Charset, CR, EOM } from '../charset';
-import { MAX_LINES, MAX_LINE_NUMBER } from '../tokenizer';
+import { ge235Charset, CR, EOM } from '../../dialects/ge235/charset';
+import { MAX_LINES, MAX_LINE_NUMBER } from '../../dialects/ge235/tokenizer';
 import { CompileError, type CompileFault } from './errors';
 import { deleteBlanks, lexBody, type Lexeme } from './lex';
 

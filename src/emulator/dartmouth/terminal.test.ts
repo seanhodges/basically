@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import { ge235Charset } from '../charset';
+import { ge235Charset } from '../../dialects/ge235/charset';
 import { CELL_HEIGHT, CELL_WIDTH, COLS, Ge235Terminal, ROWS } from './terminal';
 
 describe('Ge235Terminal', () => {
