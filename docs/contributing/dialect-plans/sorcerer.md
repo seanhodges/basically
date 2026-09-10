@@ -23,11 +23,11 @@
   length / load address / execution address as LE words, zero padding, checksum),
   a second lead, then the data in 256-byte blocks each with its own checksum.
   1200 baud FSK by default, 300 baud selectable.
-- **ROM:** `public/roms/sorcerer/sorcerer.rom` — the 4K Monitor (`$E000-$EFFF`,
-  dated 07/26/78) and the 8K Standard BASIC ROM PAC (`$C000-$DFFF`)
-  **concatenated into one image**, Monitor first, exactly as `pmd85.rom` carries
-  its two halves. See `src/dialects/pmd85/romImage.ts` for the pattern and
-  Stage 2 below for the attribution question. _Do not commit a fabricated ROM._
+- **ROM:** `public/roms/sorcerer/sorcerer.rom` — the 4K Monitor (`$E000-$EFFF`),
+  the 8K Standard BASIC ROM PAC (`$C000-$DFFF`) and the 1K character generator
+  (`$F800-$FBFF`) **concatenated into one image** in that order, 13312 bytes.
+  Three devices rather than the two this plan first assumed: the generator is
+  its own chip and nothing else holds the shapes of codes 0-127.
 - **Share verb:** `usr` — `USR` is a real Exidy Standard BASIC keyword (the
   Software Manual documents it as the Z80 machine-code call) and is free in
   `SHARE_VERBS`. `cload` is taken by `trs80` and `csave` by `altair8800`, so the
@@ -63,7 +63,7 @@ answer against the booted ROM, which from Stage 2 onwards is the cheaper check.
 The banner is the worked example: the machine signs on as
 
     EXIDY STANDARD BASIC VER 1.0
-    COPYRIGHT (C) BY EXIDY INC.
+    COPYRIGHT (C) 1978 BY EXIDY INC.
     31976 BYTES FREE
 
 on a 32K machine, so `programRamBytes` is a figure to **read off the boot
@@ -126,7 +126,7 @@ before wiring it.
 | Stage | Title                              | Status |
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
-| 2     | Emulator core                      | ⬜     |
+| 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ⬜     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
@@ -189,34 +189,57 @@ interpreter and reading the stored program text back.
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
-- [ ] `src/emulator/sorcerer/` — the bus over the vendored Z80 core: `memory.ts`
+- [x] `src/emulator/sorcerer/` — the bus over the vendored Z80 core: `memory.ts`
       (the map above, with the generator ROM/RAM split), `display.ts` (scan
       `$F080-$F7FF` through the generator into a 512×240 frame), `keyboard.ts`
-      (the `$FE` scan), `sorcererMachine.ts` implementing `MachineEmulator`
-- [ ] build `runFrame`/`debugStep` from **`createMachineLoop`**, not by hand —
-      a debug session opens on any press of Play, so the profile charge, the
-      cycle counter the cassette reads itself against and the frame counter all
-      have to happen in a slice too. See the skill's run-measurement rules for
-      the three shipped bugs that came from writing the run loop first
-- [ ] `reset` / `loadProgram` / `renderTo` / `keyEvent` / `setKey` /
-      `releaseAllKeys` / `isProgramRunning` / `dispose`, and `readScreenText` —
-      `screenReadable.test.ts` holds every registered machine to the last one,
-      and every later stage's headless verification reads through it
-- [ ] `loadProgram` via `loadMicrosoftBasicProgram` — write the image at `$01D5`,
+      (the `$FE` scan), `screenText.ts`, `clock.ts`, `sorcererMachine.ts`
+      implementing `MachineEmulator`
+- [x] `runFrame`/`debugStep` built from **`createMachineLoop`**, so the profile
+      charge and the frame position the VSYNC bit is read against both happen in
+      a debug slice as well as a plain frame
+- [x] `reset` / `loadProgram` / `renderTo` / `keyEvent` / `setKey` /
+      `releaseAllKeys` / `isProgramRunning` / `dispose`, `readScreenText`,
+      `currentLine` / `debugStep`, and the memory-activity pair
+- [x] `loadProgram` via `loadMicrosoftBasicProgram` — write the image at `$01D5`,
       fix the control-area pointers, poke the blocks, type `RUN`
-- [ ] `romImage.ts` — split the concatenated image into Monitor and ROM PAC, and
-      stay constructible on a missing or truncated one so the pane can say so on
-      screen rather than throw (`pmd85/romImage.ts` is the model)
-- [ ] ROM into `public/roms/sorcerer/sorcerer.rom` **+ an attribution block in
-      `public/roms/ATTRIBUTION.md`**. There is no formal blanket permission from
-      the rights holder here, so the block follows the Acorn / Commodore / Apple
-      wording already in that file rather than the Sinclair or Amstrad one —
-      **write it honestly and check with the user before committing bytes**
-- [ ] `displaySize: { width: 512, height: 240 }` on the dialect
-- [ ] test: boot the ROM, assert the sign-on banner on screen, inject a program,
-      assert on display memory
+- [x] `romImage.ts` — **three** parts, not two: the Monitor, the ROM PAC and the
+      1K character generator, concatenated in that order. The generator is a
+      separate chip at `$F800` and nothing else holds the shapes of codes
+      0-127, so an image without it boots a machine with a permanently blank
+      screen. `romBytes` is 13312. Stays constructible on a short image
+- [x] ROM at `public/roms/sorcerer/sorcerer.rom` + the Exidy block in
+      `public/roms/ATTRIBUTION.md`, following the Acorn / Commodore / Tesla
+      wording. The folder is listed in `PENDING_FOLDERS` in
+      `src/dialects/romLayout.test.ts`, which holds every committed image to a
+      registered dialect — **that entry is deleted with the registry line**
+- [x] `displaySize: { width: 512, height: 240 }` on the dialect
+- [x] tests: `romImage.test.ts`, `memory.test.ts`, `display.test.ts`,
+      `keyboard.test.ts` and a `sorcererMachine.test.ts` that boots the real ROM
+      to the banner, injects and runs a program, redefines a character and reads
+      the painted frame back
+
+### What the booted machine settled, for the stages after this one
+
+- **The banner is `EXIDY STANDARD BASIC VER 1.0` / `COPYRIGHT (C) 1978 BY EXIDY
+INC.` / `31976 BYTES FREE`** — the year is in it, and `programRamBytes` is
+  confirmed at 31976 on the modelled 32K machine.
+- **The machine enters BASIC by itself.** The Monitor's cold start tests for a
+  `C3` at `$DFFD` and jumps there, so there is no Monitor prompt to get past.
+- **`CURLIN` is `$0147`**, two bytes below TXTTAB in the same control area, and
+  direct mode is the high byte `$FF` (the cold start seeds `$FFFE`, every route
+  back to the prompt writes `$FFFF`).
+- **`POKE` takes a signed 16-bit address.** Everything above `$7FFF` — the
+  screen, the generator, the whole top of the map — has to be written as a
+  negative number; the positive form answers `?FC ERROR`. Worth a line in the
+  samples and the AI profile.
+- **Typing at the machine holds SHIFT LOCK, not SHIFT.** The unshifted alphabet
+  is lower case and the reserved words are upper case only, but the shift layer
+  on the digits is punctuation — so a held SHIFT turns `RUN 81` into `RUN (!`.
+- **The parallel port must read 0 and the UART status `$E1`.** The Monitor waits
+  for bit 7 of `$FF` to fall before printing and for bit 0 of `$FD` before
+  sending, so an all-ones bus hangs the machine on the first `LPRINT`.
 
 **Depends on:** Stage 1 (charset for the display, image builder for
 `loadProgram`).
