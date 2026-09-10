@@ -39,26 +39,21 @@ export interface SessionView extends ViewLink {
   end(): Promise<void>;
 }
 
-/** A host that projects nothing, for an arrangement that serves no view. */
-export function noViews(): {
-  forSession(): SessionView;
-  close(): Promise<void>;
-} {
+/** A view that never opens, for an arrangement that projects none. */
+export function noView(): SessionView {
   return {
-    forSession: () => ({
-      open: () =>
-        Promise.resolve<ViewOpened>({
-          address: null,
-          problem: CANNOT_PROJECT,
-          already: false,
-        }),
-      watching: () => false,
-      free: () => true,
-      send: () => {},
-      working: () => {},
-      settled: () => {},
-      end: () => Promise.resolve(),
-    }),
-    close: () => Promise.resolve(),
+    open: () =>
+      Promise.resolve<ViewOpened>({
+        address: null,
+        problem: CANNOT_PROJECT,
+        already: false,
+        endedPlay: false,
+      }),
+    watching: () => false,
+    free: () => true,
+    send: () => {},
+    working: () => {},
+    settled: () => {},
+    end: () => Promise.resolve(),
   };
 }

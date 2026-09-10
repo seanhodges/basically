@@ -73,10 +73,10 @@ export interface HostRequest {
   id: number;
   /**
    * `status` reports what is served and what is held; `release` lets this
-   * caller's machine go; `unview` ends its view without touching the machine;
-   * `stop` ends the host.
+   * caller's machine go; `unview` ends its view and `unplay` its play channel,
+   * neither touching the machine; `stop` ends the host.
    */
-  action: 'status' | 'stop' | 'release' | 'unview';
+  action: 'status' | 'stop' | 'release' | 'unview' | 'unplay';
 }
 
 /**

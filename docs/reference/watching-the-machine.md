@@ -89,7 +89,9 @@ measurements, or what a request reports changes because somebody is watching.
 do nothing else: they cannot press a key, start or stop the machine, load or run
 a program, or reach any part of the toolchain. That is what makes it safe to
 show a machine to someone without handing it over — the caller that holds the
-machine is still the only one that can act on it.
+machine is still the only one that can act on it. Handing the machine over is
+the other thing, and it is a different address with a different promise:
+[playing the machine](./playing-the-machine).
 
 **It says what it's showing.** A still picture is ambiguous, so the view
 distinguishes a machine sitting idle from one a request is working on, and says
@@ -122,9 +124,11 @@ Read this part before you put a view anywhere.
 ## When a view ends
 
 A view lasts as long as the caller that asked for it. It ends when you give it
-up with `view --stop`, when you disconnect, or when the host stops — and nothing
-is reachable at its address afterwards. Giving up a view does not give up the
-machine.
+up with `view --stop`, when you disconnect, when the host stops, or when you ask
+to [play](./playing-the-machine) the same machine — and nothing is reachable at
+its address afterwards. Giving up a view does not give up the machine. A machine
+has a view or a play channel, never both, and you are told which of them ended
+rather than being left with an address that has quietly stopped answering.
 
 Until somebody asks for a view, none exists: a toolchain nobody has asked to be
 watched is reachable at no network address at all.

@@ -61,7 +61,7 @@ import type {
   MachineScreenText,
 } from '../dialects/types';
 import { createHeadlessSession } from '../ops/headlessSession';
-import type { ListingRunner } from '../ops/types';
+import type { ListingRunner, PaintedFrame } from '../ops/types';
 
 /** Cap on the wait for a program to end, when the caller names none. */
 const DEFAULT_MAX_FRAMES = 4000;
@@ -105,13 +105,21 @@ export interface ServerMachine {
    * watching.
    */
   settleView(): void;
+  /**
+   * The display as it is now, or null when there is no machine or no painting
+   * it. Spends none of the machine's frames, exactly as the view's tap does:
+   * painting reads the picture the machine already has.
+   */
+  paint(): PaintedFrame | null;
   /** Let go of whatever is held; safe to call when nothing is. */
   dispose(): void;
 }
 
 export function createServerMachine(viewSink?: FrameSink): ServerMachine {
   /** The process-wide stand-ins come off in the order they went on. */
-  let held: (HeldMachine & { restore: (() => void)[] }) | null = null;
+  let held:
+    | (HeldMachine & { restore: (() => void)[]; repaint: () => PaintedFrame })
+    | null = null;
   /** The tap over the machine that is up; there is nothing to sample without one. */
   let tap: FrameTap | null = null;
 
@@ -272,6 +280,14 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
       dialect,
       machine,
       restore,
+      repaint: () => {
+        const painted = repaint();
+        return {
+          width: painted.width,
+          height: painted.height,
+          rgba: painted.rgba,
+        };
+      },
       session: createHeadlessSession({
         machine,
         dialect,
@@ -384,6 +400,7 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
     session: () => held?.session ?? null,
     run,
     settleView: () => tap?.settle(),
+    paint: () => held?.repaint() ?? null,
     dispose,
   };
 }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { exemptionFor } from '../ops/parity';
 import { OPERATIONS } from '../ops/registry';
 import { toolDefinitions } from '../ops/tools';
 import { createServerMachine, type ServerMachine } from './session';
@@ -54,10 +55,16 @@ function isText(block: unknown): block is { type: 'text'; text: string } {
 }
 
 describe('what the server offers', () => {
-  it('offers every operation the toolchain declares', () => {
+  it('offers every operation the toolchain declares, bar the ones it declares why not', () => {
     expect(mcpToolDefinitions().map((t) => t.name)).toEqual(
-      OPERATIONS.map((op) => op.name),
+      OPERATIONS.filter((op) => op.mcp !== undefined).map((op) => op.name),
     );
+    // And every absence from that list is a decision on record, which
+    // `src/ops/parity.test.ts` is what holds to its reason.
+    for (const op of OPERATIONS) {
+      if (op.mcp !== undefined) continue;
+      expect(exemptionFor(op, 'mcp'), op.name).toBeDefined();
+    }
     for (const tool of mcpToolDefinitions()) {
       expect(tool.description, tool.name).toBeTruthy();
       expect(tool.inputSchema.type, tool.name).toBe('object');

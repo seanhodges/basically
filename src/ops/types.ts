@@ -132,6 +132,51 @@ export interface ViewOpened {
   problem: string | null;
   /** Whether a view was already open, and this is that one. */
   already: boolean;
+  /**
+   * Whether a play channel was ended to open this.
+   *
+   * A machine is projected one way or the other, so asking for a view of one
+   * that is being played ends the playing. Reported rather than done quietly:
+   * an address that has stopped answering with nothing said is worse than one
+   * the caller was told about.
+   */
+  endedPlay: boolean;
+}
+
+/**
+ * A play channel onto the held machine, at an address something that can show
+ * a web page can be pointed at.
+ *
+ * Handed in for the same reason {@link ViewProjection} is. What is at the
+ * address drives the machine rather than mirroring it, so a caller with no way
+ * to serve one - the browser IDE, where the machine is already under the
+ * user's own keyboard - carries none.
+ */
+export interface PlayProjection {
+  /**
+   * Open a play channel onto the machine that is up, or hand back the one
+   * already open. Answers rather than throws when none can be opened, so the
+   * operation can say why.
+   */
+  open(): Promise<PlayOpened>;
+  /**
+   * Whether a play channel is open on this caller's machine, and so whether
+   * that machine is advancing on its own clock. What every operation declaring
+   * itself refused while a machine is played is refused on.
+   */
+  playing(): boolean;
+}
+
+/** What asking for a play channel produced. */
+export interface PlayOpened {
+  /** Where to point something that can show a web page, or null when nowhere. */
+  address: string | null;
+  /** Why there is no address, when there is none. */
+  problem: string | null;
+  /** Whether a play channel was already open, and this is that one. */
+  already: boolean;
+  /** Whether a view was ended to open this; see {@link ViewOpened.endedPlay}. */
+  endedView: boolean;
 }
 
 /** Everything an operation may be given, by the caller that knows it. */
@@ -145,6 +190,8 @@ export interface OpContext {
   painting?: HeadlessPainting;
   /** Present only for a caller that can project a view; see {@link ViewProjection}. */
   view?: ViewProjection;
+  /** Present only for a caller that can serve one; see {@link PlayProjection}. */
+  play?: PlayProjection;
   /**
    * The machine a program-reading operation defaults to when its input names
    * none and the program declares none. The assistant's conversation is pinned
@@ -182,4 +229,18 @@ export interface Operation<I = unknown, O = unknown> {
   describe(outcome: O): string;
   /** Whether the outcome is the operation not having done what was asked. */
   failed?(outcome: O): boolean;
+  /**
+   * What becomes of this operation while the machine is being played.
+   *
+   * A played machine advances on its own clock, driven by a person rather than
+   * by requests, so nothing taken from it is a measurement. An operation that
+   * acts on such a machine or measures it declares `refuse` and is refused
+   * with the reason and the remedy; one that only reads it declares `answer`
+   * and is answered, having caught a machine that is moving.
+   *
+   * Declared by every operation that needs a session, which
+   * `src/ops/play.test.ts` holds them to: a new operation on the held machine
+   * has to decide, rather than inheriting whichever default was quieter.
+   */
+  played?: 'refuse' | 'answer';
 }

@@ -62,6 +62,7 @@ usage: basically <operation> [options]
   look       report what is on the screen
   screenshot write a picture of the screen
   view       project the screen to an address a web view can be pointed at
+  play       open an address a web view can be pointed at to drive the machine
   profile    report where the run's time and memory went
   time       report how long the run took and how it ended
   variables  report what the program's variables hold
@@ -71,6 +72,7 @@ usage: basically <operation> [options]
 Other CLI-specific modes and operations:
 
   roms       say where the machine ROM images come from, obtain them, discard them
+  ops        serve an application these operations over standard streams
   lsp        serve an editor over the Language Server Protocol
   mcp        serve an agent over the Model Context Protocol
 
@@ -244,6 +246,37 @@ view ends when the machine is released or the host stops; asking again while one
 is open reports the address it already has.
 `,
 
+  play: `
+play the running machine: see its screen and type at it from a web view
+
+usage: basically play [--stop] [--json]
+
+  --stop   give the play channel up; the machine stays up, and stops advancing
+           unasked the moment the channel ends
+  --json   report the address as JSON
+
+Prints an address anything that can show a web page can be pointed at - a
+browser tab, or a frame inside an application of your own. What is there shows
+the machine's screen and sends what you type to the machine, at the machine's
+own rate.
+
+The address is reachable from this computer only, and holding it is the whole of
+what admits whoever plays: treat it as a secret. What it admits is acting on the
+machine, not watching it - anyone holding it can type at whatever the machine is
+running.
+
+While the channel is open the machine advances on its own clock rather than only
+when a command asks it to, so it is not a machine anything can measure: profile,
+time, variables, expect and drive are refused until you give the channel up, and
+say so. Looking at the screen and taking a picture still work, and catch a
+machine that is moving.
+
+A machine has a play channel or a view, never both: asking for one ends the
+other and says so. The channel ends when the machine's holder releases it, gives
+the channel up, or the host stops; asking again while one is open reports the
+address it already has.
+`,
+
   profile: `
 report where the run's time and memory went, on the running machine
 
@@ -325,6 +358,27 @@ usage: basically convert [file] [-m <machine>] [-o <path>]
                      machine, and overrides that inference when both settle it
   -o, --out         where to write the recovered BASIC; standard output when
                      absent
+`.trimStart(),
+
+  ops: `
+serve an application these operations over this process's standard streams
+
+usage: basically ops --stdio [-m <machine>]
+
+  --stdio           the only transport; required
+  -m, --machine     a machine every request defaults to, when the request
+                    names none and the program declares none; optional, since
+                    a caller may say which machine it means per request
+
+Point an application that embeds the toolchain at this command - it starts it
+as a child process and speaks the operations conversation over its standard
+streams. For example:
+
+  { "command": "basically", "args": ["ops", "--stdio"] }
+
+The application holds a machine of its own, separate from the one the command
+line holds between commands, so neither is given the other's machine and
+neither disturbs it.
 `.trimStart(),
 
   lsp: `

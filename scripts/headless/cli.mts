@@ -30,6 +30,7 @@ import { decodeBytes, encodeBytes } from '../../src/ops/bytes';
 import type { CheckOutcome } from '../../src/ops/check';
 import type { ConvertOutcome } from '../../src/ops/convert';
 import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
+import { playOp } from '../../src/ops/play';
 import { viewOp } from '../../src/ops/view';
 import type { RunOutcome } from '../../src/ops/run';
 import { hostAddress } from '../../src/server/address';
@@ -396,6 +397,7 @@ async function onTheHeldMachine(
         | 'look'
         | 'screenshot'
         | 'view'
+        | 'play'
         | 'profile'
         | 'time'
         | 'variables'
@@ -464,6 +466,8 @@ function describeHeld(operation: string, value: unknown): string {
       return formatVerdict(value as CheckOutcome);
     case 'view':
       return viewOp.describe(value as never);
+    case 'play':
+      return playOp.describe(value as never);
     default:
       return '';
   }
@@ -658,11 +662,15 @@ async function main(): Promise<number> {
   const buildId = readBuildId(directory);
   const address = hostAddress(buildId, environment);
 
-  // `lsp` and `mcp` are servers rather than operations: the caller starting one
-  // wants the streams of the process it started, so it is served here rather
-  // than over a connection to somewhere else. The host serves them too, for a
-  // caller that reaches it over a socket.
-  if (args.operation === 'lsp' || args.operation === 'mcp') {
+  // `ops`, `lsp` and `mcp` are servers rather than operations: the caller
+  // starting one wants the streams of the process it started, so it is served
+  // here rather than over a connection to somewhere else. The host serves all
+  // three too, for a caller that reaches it over a socket.
+  if (
+    args.operation === 'ops' ||
+    args.operation === 'lsp' ||
+    args.operation === 'mcp'
+  ) {
     return serveOverOwnStreams(args.operation, args.machine, directory);
   }
 
@@ -781,6 +789,21 @@ async function main(): Promise<number> {
         }
         return await onTheHeldMachine(args, host);
 
+      case 'play':
+        // As with a view, and with one thing more to say: the machine stops
+        // advancing on its own the moment the channel ends.
+        if (args.stop) {
+          const { holding } = await host.ask('unplay');
+          if (args.json) json({ playing: false, holding: holding ?? null });
+          else
+            err(
+              'the play channel has ended; the machine advances only when a ' +
+                'command asks it to again\n',
+            );
+          return 0;
+        }
+        return await onTheHeldMachine(args, host);
+
       default:
         return await onTheHeldMachine(args, host);
     }
@@ -790,16 +813,22 @@ async function main(): Promise<number> {
 }
 
 /**
- * Hand this process's streams to the host, serving one editor or one agent.
+ * Hand this process's streams to the host, serving one caller: an editor, an
+ * agent, or an application speaking the operations conversation.
  *
  * The spellings stay exactly as they were, so nothing anyone has configured
  * breaks - but the server behind them is the host's, reached by handing it
  * these streams rather than by carrying a second copy of it here. That is what
  * keeps the protocol libraries, the dialect registry and every emulator out of
  * a program whose job is to parse arguments and render an answer.
+ *
+ * A caller served this way is a caller of its own, holding a machine of its
+ * own: the command line's session is deliberately shared across its
+ * connections so a machine survives between commands, so an application that
+ * shelled out to the command line would find itself holding the user's.
  */
 async function serveOverOwnStreams(
-  which: 'lsp' | 'mcp',
+  which: 'ops' | 'lsp' | 'mcp',
   machine: string | undefined,
   directory: string,
 ): Promise<number> {

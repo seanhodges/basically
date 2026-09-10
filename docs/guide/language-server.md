@@ -50,6 +50,10 @@ basically server stop     # stop it
 Your editor is served the same way and given the same answers either way, so
 nothing in its configuration needs to change.
 
+An editor that wants to _run_ what its user has written, rather than only help
+with writing it, needs the toolchain's own operations conversation as well as
+this one — see [embedding the toolchain](../reference/embedding-the-toolchain).
+
 ## Telling it which machine
 
 Every program is for one machine, and the server needs to know which before

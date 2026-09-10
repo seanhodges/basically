@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSessions } from './sessions';
 import type { MachineHolder } from './machineWorker';
 import type { SessionView } from './view/link';
-import type { ViewHost } from './view/host';
+import { noPlay } from './play/link';
+import type { ProjectionHost, SessionProjection } from './projection/link';
 
 /** A holder that records what was asked of it, without booting anything. */
 function stubHolder(name: string | null = null) {
@@ -186,16 +187,20 @@ describe('the session the command line shares', () => {
 
 /**
  * A view that records what its caller's session told it, without binding
- * anything. What a real one does over a socket is `./view/host.test.ts`.
+ * anything. What a real one does over a socket is `./projection/host.test.ts`.
  */
-function stubViews(): ViewHost & { made: StubView[] } {
+function stubViews(): ProjectionHost & { made: StubView[] } {
   const made: StubView[] = [];
   return {
     made,
-    forSession: () => {
+    forSession: (): SessionProjection => {
       const view = stubView();
       made.push(view);
-      return view;
+      return {
+        view,
+        play: noPlay(),
+        end: () => view.end(),
+      };
     },
     close: () => Promise.resolve(),
   };
@@ -220,6 +225,7 @@ function stubView(): StubView {
         address: 'http://127.0.0.1:1/v/token/',
         problem: null,
         already,
+        endedPlay: false,
       });
     },
     watching: () => open,

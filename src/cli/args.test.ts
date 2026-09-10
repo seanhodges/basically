@@ -107,7 +107,7 @@ describe('the command line grammar', () => {
       out: '/tmp/game.bas',
       input: { machine: 'zx81' },
     });
-    for (const operation of ['lsp', 'mcp'] as const) {
+    for (const operation of ['ops', 'lsp', 'mcp'] as const) {
       expect(parseArgs([operation, '--stdio', '-m', 'zx81'])).toEqual({
         operation,
         stdio: true,
@@ -117,10 +117,10 @@ describe('the command line grammar', () => {
   });
 
   it('takes no machine at all for a server, since its client may name one later', () => {
-    // The editor sets `basically.machine` once it has started; an agent says
-    // which machine it means on the request. Neither is the caller's mistake
-    // at the point the server is started.
-    for (const operation of ['lsp', 'mcp'] as const) {
+    // The editor sets `basically.machine` once it has started; an agent and an
+    // embedding application say which machine they mean on the request. None
+    // is the caller's mistake at the point the server is started.
+    for (const operation of ['ops', 'lsp', 'mcp'] as const) {
       expect(parseArgs([operation, '--stdio'])).toEqual({
         operation,
         stdio: true,
@@ -193,6 +193,8 @@ describe('the command line grammar', () => {
       ['an unknown operation', ['dance', '-m', 'zx81']],
       ['an unknown option', ['lint', '-m', 'zx81', '--loudly']],
       ['an unknown option on convert', ['convert', 'game.p', '--loudly']],
+      ['an unknown option on ops', ['ops', '--stdio', '--loudly']],
+      ['a positional argument on ops', ['ops', '--stdio', 'prog.bas']],
       ['an unknown option on lsp', ['lsp', '--stdio', '--loudly']],
       ['a positional argument on lsp', ['lsp', '--stdio', 'prog.bas']],
       ['an unknown option on mcp', ['mcp', '--stdio', '--loudly']],

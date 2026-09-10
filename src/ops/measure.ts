@@ -233,6 +233,9 @@ export const profileOp: Operation<Record<never, never>, ProfileOutcome> = {
   cli: { kind: 'operation', name: 'profile' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
+  // A profile is a statement about where a run's time went, and a machine
+  // being driven by a person is not a run.
+  played: 'refuse',
   run: (_input, ctx: OpContext) =>
     profileFromSession(requireSession(ctx.session)),
   describe: describeProfile,
@@ -281,6 +284,9 @@ export const timeOp: Operation<Record<never, never>, TimeOutcome> = {
   cli: { kind: 'operation', name: 'time' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
+  // How long a run took stops meaning anything the moment the machine goes
+  // on running with nothing having asked it to.
+  played: 'refuse',
   run: (_input, ctx) => {
     const timing = requireSession(ctx.session).timing();
     return {
@@ -329,6 +335,9 @@ export const variablesOp: Operation<Record<never, never>, VariablesOutcome> = {
   cli: { kind: 'operation', name: 'variables' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
+  // What a variable holds is read from a machine that is moving as somebody
+  // types at it, so the answer would be about a moment already gone.
+  played: 'refuse',
   run: (_input, ctx) => {
     const variables = requireSession(ctx.session).variables();
     return {

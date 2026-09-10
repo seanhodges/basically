@@ -24,10 +24,23 @@
  */
 
 import type { ViewFrame } from '../dialects/headless/frameTap';
-import type { Operation, ViewOpened } from '../ops/types';
+import type {
+  Operation,
+  PlayOpened,
+  PlayProjection,
+  ViewOpened,
+} from '../ops/types';
 import { serverContext, type ServerContextOptions } from '../mcp/context';
 import { CANNOT_PROJECT } from '../ops/view';
 import type { ViewLink } from './view/link';
+import type { PlayFrame } from './play/frames';
+import {
+  CANNOT_PLAY,
+  type PlayLink,
+  type PlayState,
+  type SessionPlay,
+} from './play/link';
+import { createPlayedMachine } from './play/machine';
 import { createServerMachine, type ServerMachine } from '../mcp/session';
 import { CallRefused, runOperation, type CallOutcome } from './ops';
 import type { FailureKind } from './protocol';
@@ -58,8 +71,34 @@ export function createInProcessHolder(
   options: ServerContextOptions = {},
   reaches: (op: Operation) => boolean = reachesFromCli,
   view?: ViewLink,
+  play?: PlayLink,
 ): MachineHolder {
   const server: ServerMachine = createServerMachine(view);
+  // The clock and the keys, beside the machine. Made whether or not a channel
+  // is ever asked for: it starts nothing until one is, and a caller that never
+  // plays pays for a closure.
+  const played = play
+    ? createPlayedMachine({
+        held: () => server.held(),
+        step: () => void server.session()?.advance(1),
+        paint: () => server.paint(),
+        play,
+      })
+    : null;
+  // The operation is given a projection whose opening starts the clock: the
+  // machine has to be running by the time the caller has an address to hand
+  // somebody, and nothing else knows that a channel has just opened.
+  const projection: PlayProjection | undefined =
+    play && played
+      ? {
+          open: async (): Promise<PlayOpened> => {
+            const opened = await play.open();
+            if (opened.address !== null) played.start();
+            return opened;
+          },
+          playing: () => play.playing(),
+        }
+      : undefined;
   return {
     call: async (operation, input) => {
       try {
@@ -67,7 +106,7 @@ export function createInProcessHolder(
           operation,
           input,
           {
-            context: () => serverContext(server, options, view),
+            context: () => serverContext(server, options, view, projection),
             heldMachine: () => {
               const held = server.held();
               return held && { name: held.dialect.name, token: held.machine };
@@ -85,6 +124,7 @@ export function createInProcessHolder(
     },
     held: () => Promise.resolve(server.held()?.dialect.name ?? null),
     dispose: () => {
+      played?.stop();
       server.dispose();
       return Promise.resolve();
     },
@@ -116,10 +156,15 @@ export type WorkerReply =
 /**
  * What the thread holding the machine says without having been asked.
  *
- * The only traffic that starts on the worker's side. A view is projected from
- * the host's thread, because that is where a listener can be, while the
- * machine and its picture are here - so the frames travel one way and the
+ * The only traffic that starts on the worker's side. Both projections are
+ * served from the host's thread, because that is where a listener can be, while
+ * the machine and its picture are here - so the frames travel one way and the
  * address that answers the caller travels back.
+ *
+ * A key is the one thing that travels the other way, from the host to the
+ * machine: a `play-key` answer, sent when somebody typed rather than in reply
+ * to anything. That direction did not exist before a machine could be played,
+ * and it is why a play channel is not a view that also does something.
  */
 export type WorkerNote =
   /** Asking the host to open (or hand back) this caller's view. */
@@ -128,19 +173,49 @@ export type WorkerNote =
    * One sampled frame. Already PNG bytes, which is what a structured clone
    * carries across a thread without either side writing them down.
    */
-  | { kind: 'view-frame'; frame: ViewFrame };
+  | { kind: 'view-frame'; frame: ViewFrame }
+  /** Asking the host to open (or hand back) this caller's play channel. */
+  | { kind: 'play-open'; id: number }
+  /** One frame of a played machine, already compressed. */
+  | { kind: 'play-frame'; frame: PlayFrame }
+  /** What the play channel is showing. */
+  | { kind: 'play-state'; state: PlayState };
 
 /** What the host says back to a {@link WorkerNote}. */
 export type WorkerAnswer =
   | { kind: 'view-opened'; id: number; opened: ViewOpened }
   /** The last frame has reached the viewers; another may be sent. */
-  | { kind: 'view-free' };
+  | { kind: 'view-free' }
+  | { kind: 'play-opened'; id: number; opened: PlayOpened }
+  /** The last frame has reached whoever is playing; another may be sent. */
+  | { kind: 'play-free' }
+  /** Somebody typed. Unprompted: the one thing that travels toward the machine. */
+  | { kind: 'play-key'; key: string; down: boolean }
+  /** The channel has ended, so the machine stops advancing unasked. */
+  | { kind: 'play-ended' };
+
+const NOTE_KINDS = new Set([
+  'view-open',
+  'view-frame',
+  'play-open',
+  'play-frame',
+  'play-state',
+]);
+
+const ANSWER_KINDS = new Set([
+  'view-opened',
+  'view-free',
+  'play-opened',
+  'play-free',
+  'play-key',
+  'play-ended',
+]);
 
 /** Whether a message from the worker is one of its own notes. */
 function asNote(value: unknown): WorkerNote | null {
   if (typeof value !== 'object' || value === null) return null;
   const kind = (value as { kind?: unknown }).kind;
-  return kind === 'view-open' || kind === 'view-frame'
+  return typeof kind === 'string' && NOTE_KINDS.has(kind)
     ? (value as WorkerNote)
     : null;
 }
@@ -149,7 +224,7 @@ function asNote(value: unknown): WorkerNote | null {
 function asAnswer(value: unknown): WorkerAnswer | null {
   if (typeof value !== 'object' || value === null) return null;
   const kind = (value as { kind?: unknown }).kind;
-  return kind === 'view-opened' || kind === 'view-free'
+  return typeof kind === 'string' && ANSWER_KINDS.has(kind)
     ? (value as WorkerAnswer)
     : null;
 }
@@ -190,14 +265,80 @@ export function createWorkerViewLink(post: (note: WorkerNote) => void): {
       },
     },
     answer(message) {
-      if (message.kind === 'view-free') {
-        inFlight = false;
+      if (message.kind !== 'view-opened') {
+        if (message.kind === 'view-free') inFlight = false;
         return;
       }
       const pending = waiting.get(message.id);
       if (!pending) return;
       waiting.delete(message.id);
       pending(message.opened);
+    },
+  };
+}
+
+/**
+ * The machine's side of a play channel, over the port to the thread serving it.
+ *
+ * The same shape as the view's link and for the same reasons - `free` is a flag
+ * the host clears rather than a question, because the clock asks it in the
+ * middle of a frame - with one addition the view has no use for: a key arriving
+ * unprompted from the host, which is handed to whatever registered for it.
+ */
+export function createWorkerPlayLink(post: (note: WorkerNote) => void): {
+  link: PlayLink;
+  answer(message: WorkerAnswer): void;
+} {
+  const waiting = new Map<number, (opened: PlayOpened) => void>();
+  let nextId = 1;
+  let playing = false;
+  let inFlight = false;
+  let press: ((key: string, down: boolean) => void) | null = null;
+
+  return {
+    link: {
+      open: () =>
+        new Promise<PlayOpened>((resolve) => {
+          const id = nextId++;
+          waiting.set(id, (opened) => {
+            if (opened.address !== null) playing = true;
+            resolve(opened);
+          });
+          post({ kind: 'play-open', id });
+        }),
+      playing: () => playing,
+      free: () => !inFlight,
+      send: (frame) => {
+        inFlight = true;
+        post({ kind: 'play-frame', frame });
+      },
+      say: (state) => post({ kind: 'play-state', state }),
+      pressed: (handler) => {
+        press = handler;
+      },
+    },
+    answer(message) {
+      switch (message.kind) {
+        case 'play-free':
+          inFlight = false;
+          return;
+        case 'play-key':
+          press?.(message.key, message.down);
+          return;
+        case 'play-ended':
+          playing = false;
+          inFlight = false;
+          return;
+        case 'play-opened': {
+          const pending = waiting.get(message.id);
+          if (!pending) return;
+          waiting.delete(message.id);
+          pending(message.opened);
+          return;
+        }
+        default:
+          return;
+      }
     },
   };
 }
@@ -223,12 +364,15 @@ export function serveMachineWorker(
   options: ServerContextOptions = {},
   reaches: (op: Operation) => boolean = reachesFromCli,
 ): void {
-  const view = createWorkerViewLink((note) => port.postMessage(note));
-  const holder = createInProcessHolder(options, reaches, view.link);
+  const post = (note: WorkerNote) => port.postMessage(note);
+  const view = createWorkerViewLink(post);
+  const play = createWorkerPlayLink(post);
+  const holder = createInProcessHolder(options, reaches, view.link, play.link);
   port.on('message', (request: WorkerRequest) => {
     const answer = asAnswer(request);
     if (answer) {
       view.answer(answer);
+      play.answer(answer);
       return;
     }
     const reply = (message: WorkerReply) => port.postMessage(message);
@@ -288,6 +432,7 @@ export function createWorkerHolder(
     terminate(): Promise<void> | void;
   },
   view?: ViewLink,
+  play?: SessionPlay,
 ): MachineHolder {
   let worker: ReturnType<typeof spawn> | null = null;
   let nextId = 1;
@@ -313,27 +458,78 @@ export function createWorkerHolder(
     port: MessageChannelLike,
     note: WorkerNote,
   ): Promise<void> {
-    if (note.kind === 'view-frame') {
-      view?.send(note.frame);
-      // The tap holds off until this lands, so a machine that changes faster
-      // than the viewer can be shown drops samples rather than queueing them.
-      port.postMessage({ kind: 'view-free' } satisfies WorkerAnswer);
-      return;
+    switch (note.kind) {
+      case 'view-frame':
+        view?.send(note.frame);
+        // The tap holds off until this lands, so a machine that changes faster
+        // than the viewer can be shown drops samples rather than queueing them.
+        port.postMessage({ kind: 'view-free' } satisfies WorkerAnswer);
+        return;
+      case 'view-open': {
+        const opened = view
+          ? await view.open()
+          : {
+              address: null,
+              problem: CANNOT_PROJECT,
+              already: false,
+              endedPlay: false,
+            };
+        port.postMessage({
+          kind: 'view-opened',
+          id: note.id,
+          opened,
+        } satisfies WorkerAnswer);
+        return;
+      }
+      case 'play-frame':
+        play?.send(note.frame);
+        // The clock holds off until this lands, so a machine drawing faster
+        // than the channel can carry drops frames rather than queueing them.
+        port.postMessage({ kind: 'play-free' } satisfies WorkerAnswer);
+        return;
+      case 'play-state':
+        play?.say(note.state);
+        return;
+      case 'play-open': {
+        const opened = play
+          ? await play.open()
+          : {
+              address: null,
+              problem: CANNOT_PLAY,
+              already: false,
+              endedView: false,
+            };
+        // Keys travel toward the machine from here on: whoever is playing
+        // types at the host's thread and the press crosses to the worker.
+        if (opened.address !== null) {
+          play?.pressed((key, down) =>
+            port.postMessage({
+              kind: 'play-key',
+              key,
+              down,
+            } satisfies WorkerAnswer),
+          );
+        }
+        port.postMessage({
+          kind: 'play-opened',
+          id: note.id,
+          opened,
+        } satisfies WorkerAnswer);
+        return;
+      }
     }
-    const opened = view
-      ? await view.open()
-      : { address: null, problem: CANNOT_PROJECT, already: false };
-    port.postMessage({
-      kind: 'view-opened',
-      id: note.id,
-      opened,
-    } satisfies WorkerAnswer);
   }
 
   function connected(): NonNullable<typeof worker> {
     if (worker) return worker;
     const started = spawn();
     worker = started;
+    // The channel can end without this thread having asked anything - the
+    // caller gave it up, or asked for a view instead - and the machine's own
+    // thread has no other way to learn that it should stop its clock.
+    play?.ended(() =>
+      started.port.postMessage({ kind: 'play-ended' } satisfies WorkerAnswer),
+    );
     started.port.on('message', (reply: WorkerReply) => {
       const note = asNote(reply);
       if (note) {

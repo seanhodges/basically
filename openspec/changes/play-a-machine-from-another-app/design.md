@@ -114,6 +114,29 @@ all of them. Retro displays are blocky and largely unchanging between frames, so
 raw deflate is cheap and compresses hard; identical frames are skipped entirely,
 which is the common case at a `READY` prompt.
 
+**Measured**, on the widest display among the registered machines (the BBC
+Micro's 896x600 at 50Hz, so a frame budget of 19.97ms), over sixty frames idle
+at the `READY` prompt and sixty with the screen scrolling:
+
+| per frame          | idle              | scrolling         |
+| ------------------ | ----------------- | ----------------- |
+| raw pixels         | 2100 KiB          | 2100 KiB          |
+| raw deflate (L1)   | 12.0 KiB / 1.30ms | 27.2 KiB / 1.35ms |
+| PNG                | 4.4 KiB / 7.77ms  | 10.7 KiB / 6.13ms |
+| painting the frame | 10.92ms           | 10.06ms           |
+| comparing to the last frame | 0.25ms   | 0.27ms            |
+| frames identical to the last | 53/60    | 59/60             |
+
+Painting is the floor and is paid whatever the carriage. On top of it, raw
+deflate spends 1.35ms of the remaining 9ms, and a PNG spends 7.8ms - which puts
+the widest machine within a millisecond or two of missing its frame. Raw pixels
+uncompressed are 105 MB/s at this size, which is not a thing to put on a socket
+fifty times a second when a thirtieth of a millisecond of comparison and a
+millisecond of deflate reduce it to under a megabyte a second. Comparing the
+raw pixels costs a fifth of what deflating them does, so identical frames are
+found by comparison rather than by compressing them and looking at the result -
+and at a prompt that is seven frames in eight.
+
 **Alternatives considered.** *Server-Sent Events plus a request per key* —
 reuses the whole of the existing listener and adds no framing code, and remains
 the fallback if the handshake proves troublesome; rejected on the base64 tax and
@@ -214,11 +237,45 @@ which is the coupling the streams arrangement exists to avoid.
   the fault is not in this change. That is deliberate, and it is why no
   machine-specific code is added.
 
+### Full frames at the machine's own rate
+
+**Decision.** A play channel carries whole frames at the machine's own rate.
+Only what changed between frames is not sent, and the rate is stated as the
+machine's own rather than as a floor beneath it. What keeps that affordable is
+the two cheap steps either side of the deflate: a frame identical to the one
+before it is not sent at all, found by comparing the raw pixels, and a frame
+handed over while the far end is behind is dropped rather than queued.
+
+**Why.** The table above is the whole argument: on the widest machine here,
+painting and carrying a frame together spend about 12ms of a 20ms budget in the
+worst case measured, and about 11ms in the common one. A delta encoding would
+buy bytes that are not the constraint - under a megabyte a second is not what
+runs out - at the cost of a decoder in the page, a keyframe rule, and a way to
+recover a channel that has missed one.
+
+**Alternatives considered.** *Only what changed between frames* - the fallback
+the risk below names, kept available and unnecessary at these numbers. *A floor
+beneath the machine's rate* - a weaker promise that the measurement does not
+require, and one that would make a program's timing look like the carriage's
+fault.
+
+### The handshake is hand-rolled against `node:http`
+
+**Decision confirmed.** The upgrade is taken from `node:http`'s own `upgrade`
+event and answered in the host: the accept key is a SHA-1 over the client's key
+and the protocol's fixed GUID, and the framing is the subset RFC 6455 requires
+of a server - unmasked binary out, unmasked-refused masked frames in, close and
+ping answered. The view's Server-Sent Events arrangement is not the fallback it
+was left as.
+
+**Why.** The framing is about two hundred lines against `node:crypto` and a
+socket, all of it decided by the specification rather than by us, and every
+check the view's listener makes is already written beside it. The alternative
+carries a base64 tax on every frame and a second path for keys whose ordering
+against the frames it causes is not defined anywhere.
+
 ## Open Questions
 
-- What the guaranteed rate should be, and whether it is stated as the machine's
-  own rate or as a floor beneath it. The prototype above settles this, and the
-  spec should not be written until it has.
 - Whether a played machine should be refused to a caller that cannot be told it
   is being played — an agent holding a machine that someone else's editor is
   playing is not a situation the session model can currently produce, but it is

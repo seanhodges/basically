@@ -69,6 +69,10 @@ export const expectOp: Operation<ExpectInput, ExpectOutcome> = {
   cli: { kind: 'operation', name: 'expect' },
   assistant: { kind: 'block', fence: 'basic-expect', example: 'EXPECT "HI"' },
   mcp: { kind: 'tool' },
+  // Expectations are judged by driving the machine and then measuring it,
+  // and a played machine is neither this caller's to drive nor anything's to
+  // measure.
+  played: 'refuse',
   run: (input, ctx) => {
     const session = requireSession(ctx.session);
     const report = runDriveScript(
