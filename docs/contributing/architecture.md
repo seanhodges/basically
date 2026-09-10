@@ -764,9 +764,35 @@ because one convenience import puts the whole toolchain back.
 
 Because the host outlives a command, **the command line holds a machine between
 commands**: `run --hold` leaves the machine it booted running, and `drive`,
-`look`, `screenshot`, `profile`, `time`, `variables` and `expect` act on it
-until it is released. The options on `run` and `check` remain the one-shot
-spelling of those same capabilities.
+`look`, `screenshot`, `profile`, `time`, `variables`, `expect` and `view` act
+on it until it is released. The options on `run` and `check` remain the
+one-shot spelling of those same capabilities.
+
+### The projection
+
+Beside the conversations it serves, the host can **project a held machine's
+display** to something that can show a web page (`src/server/view/`). A caller
+asks with the `view` operation and is given an address; the page served there
+(`page.html`, inlined into the bundle as text by the build's `raw-imports`
+plugin) reads the display as Server-Sent Events, so an application embedding
+the toolchain can put the machine in a frame of its own without knowing how the
+picture is carried.
+
+| What is guaranteed<br>and where it is held                                   | How                                                                                                                                                                   |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A viewer is not a caller<br>`src/server/sessions.test.ts`                    | The projection hangs off an existing `HostSession`; a viewer gets no session, no machine and no operation dispatch, so "a machine belongs to one caller" is untouched |
+| Nothing is bound until a view is asked for<br>`src/server/view/host.test.ts` | The `node:http` listener starts on the first `view` and stops when the last one ends; no dependency is added                                                          |
+| The address is the whole of admission<br>`src/server/view/host.test.ts`      | Loopback only, an unguessable per-view path, never reused; the `Host` header is checked against DNS rebinding and no referrer is sent                                 |
+| Being watched changes no answer<br>`src/mcp/session.test.ts`                 | The tap paints without advancing the machine, so machine-time measurements are identical; what it costs the host is accumulated and taken back out of `timings.runMs` |
+
+The tap itself is `src/dialects/headless/frameTap.ts`, driven from the same
+`runFrame` both runners already call. It samples every _N_ th frame and drops a
+sample whose predecessor is still on its way, so a viewer sees the machine's
+present rather than a backlog. A machine in a worker sends its frames across as
+PNG bytes and its caller's request for an address back the other way
+(`WorkerNote` / `WorkerAnswer` in `src/server/machineWorker.ts`); the view
+follows the session rather than any one machine, so a caller that runs a second
+program keeps its address and its frame.
 
 ### One operation layer, every caller
 

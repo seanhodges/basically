@@ -23,8 +23,11 @@
  * same way, so nothing above here knows which it has.
  */
 
-import type { Operation } from '../ops/types';
+import type { ViewFrame } from '../dialects/headless/frameTap';
+import type { Operation, ViewOpened } from '../ops/types';
 import { serverContext, type ServerContextOptions } from '../mcp/context';
+import { CANNOT_PROJECT } from '../ops/view';
+import type { ViewLink } from './view/link';
 import { createServerMachine, type ServerMachine } from '../mcp/session';
 import { CallRefused, runOperation, type CallOutcome } from './ops';
 import type { FailureKind } from './protocol';
@@ -54,22 +57,32 @@ export function reachesFromCli(op: Operation): boolean {
 export function createInProcessHolder(
   options: ServerContextOptions = {},
   reaches: (op: Operation) => boolean = reachesFromCli,
+  view?: ViewLink,
 ): MachineHolder {
-  const server: ServerMachine = createServerMachine();
+  const server: ServerMachine = createServerMachine(view);
   return {
-    call: (operation, input) =>
-      runOperation(
-        operation,
-        input,
-        {
-          context: () => serverContext(server, options),
-          heldMachine: () => {
-            const held = server.held();
-            return held && { name: held.dialect.name, token: held.machine };
+    call: async (operation, input) => {
+      try {
+        return await runOperation(
+          operation,
+          input,
+          {
+            context: () => serverContext(server, options, view),
+            heldMachine: () => {
+              const held = server.held();
+              return held && { name: held.dialect.name, token: held.machine };
+            },
           },
-        },
-        reaches,
-      ),
+          reaches,
+        );
+      } finally {
+        // The frame a request stopped on is the one a viewer will be looking
+        // at until the next request, and a sampled run is as likely as not to
+        // have skipped it. Refused and failed calls settle too: what the
+        // machine shows now is what it shows.
+        server.settleView();
+      }
+    },
     held: () => Promise.resolve(server.held()?.dialect.name ?? null),
     dispose: () => {
       server.dispose();
@@ -100,6 +113,95 @@ export type WorkerReply =
   | { id: number; kind: 'refused'; failure: FailureKind; message: string }
   | { id: number; kind: 'threw'; message: string };
 
+/**
+ * What the thread holding the machine says without having been asked.
+ *
+ * The only traffic that starts on the worker's side. A view is projected from
+ * the host's thread, because that is where a listener can be, while the
+ * machine and its picture are here - so the frames travel one way and the
+ * address that answers the caller travels back.
+ */
+export type WorkerNote =
+  /** Asking the host to open (or hand back) this caller's view. */
+  | { kind: 'view-open'; id: number }
+  /**
+   * One sampled frame. Already PNG bytes, which is what a structured clone
+   * carries across a thread without either side writing them down.
+   */
+  | { kind: 'view-frame'; frame: ViewFrame };
+
+/** What the host says back to a {@link WorkerNote}. */
+export type WorkerAnswer =
+  | { kind: 'view-opened'; id: number; opened: ViewOpened }
+  /** The last frame has reached the viewers; another may be sent. */
+  | { kind: 'view-free' };
+
+/** Whether a message from the worker is one of its own notes. */
+function asNote(value: unknown): WorkerNote | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const kind = (value as { kind?: unknown }).kind;
+  return kind === 'view-open' || kind === 'view-frame'
+    ? (value as WorkerNote)
+    : null;
+}
+
+/** Whether a message from the host is an answer rather than a request. */
+function asAnswer(value: unknown): WorkerAnswer | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const kind = (value as { kind?: unknown }).kind;
+  return kind === 'view-opened' || kind === 'view-free'
+    ? (value as WorkerAnswer)
+    : null;
+}
+
+/**
+ * The machine's side of a view, over the port to the thread holding the view.
+ *
+ * `free` has to answer without waiting, because the tap asks it in the middle
+ * of a frame, so it is a flag the host clears rather than a question: a frame
+ * is on its way until the host says otherwise, and a sample due while one is
+ * is dropped.
+ */
+export function createWorkerViewLink(post: (note: WorkerNote) => void): {
+  link: ViewLink;
+  answer(message: WorkerAnswer): void;
+} {
+  const waiting = new Map<number, (opened: ViewOpened) => void>();
+  let nextId = 1;
+  let projecting = false;
+  let inFlight = false;
+
+  return {
+    link: {
+      open: () =>
+        new Promise<ViewOpened>((resolve) => {
+          const id = nextId++;
+          waiting.set(id, (opened) => {
+            if (opened.address !== null) projecting = true;
+            resolve(opened);
+          });
+          post({ kind: 'view-open', id });
+        }),
+      watching: () => projecting,
+      free: () => !inFlight,
+      send: (frame) => {
+        inFlight = true;
+        post({ kind: 'view-frame', frame });
+      },
+    },
+    answer(message) {
+      if (message.kind === 'view-free') {
+        inFlight = false;
+        return;
+      }
+      const pending = waiting.get(message.id);
+      if (!pending) return;
+      waiting.delete(message.id);
+      pending(message.opened);
+    },
+  };
+}
+
 /** Enough of a `MessagePort` for either side; the real ones satisfy it. */
 export interface MessageChannelLike {
   postMessage(value: unknown): void;
@@ -121,8 +223,14 @@ export function serveMachineWorker(
   options: ServerContextOptions = {},
   reaches: (op: Operation) => boolean = reachesFromCli,
 ): void {
-  const holder = createInProcessHolder(options, reaches);
+  const view = createWorkerViewLink((note) => port.postMessage(note));
+  const holder = createInProcessHolder(options, reaches, view.link);
   port.on('message', (request: WorkerRequest) => {
+    const answer = asAnswer(request);
+    if (answer) {
+      view.answer(answer);
+      return;
+    }
     const reply = (message: WorkerReply) => port.postMessage(message);
     const fail = (error: unknown) => {
       if (error instanceof CallRefused) {
@@ -179,6 +287,7 @@ export function createWorkerHolder(
     port: MessageChannelLike;
     terminate(): Promise<void> | void;
   },
+  view?: ViewLink,
 ): MachineHolder {
   let worker: ReturnType<typeof spawn> | null = null;
   let nextId = 1;
@@ -195,11 +304,42 @@ export function createWorkerHolder(
     for (const one of pending) one.reject(new CallRefused(reason));
   };
 
+  /**
+   * What the machine's thread says of its own accord: the frames it sampled,
+   * and its caller asking for a view. Answered here, on the thread where a
+   * listener can be.
+   */
+  async function serveNote(
+    port: MessageChannelLike,
+    note: WorkerNote,
+  ): Promise<void> {
+    if (note.kind === 'view-frame') {
+      view?.send(note.frame);
+      // The tap holds off until this lands, so a machine that changes faster
+      // than the viewer can be shown drops samples rather than queueing them.
+      port.postMessage({ kind: 'view-free' } satisfies WorkerAnswer);
+      return;
+    }
+    const opened = view
+      ? await view.open()
+      : { address: null, problem: CANNOT_PROJECT, already: false };
+    port.postMessage({
+      kind: 'view-opened',
+      id: note.id,
+      opened,
+    } satisfies WorkerAnswer);
+  }
+
   function connected(): NonNullable<typeof worker> {
     if (worker) return worker;
     const started = spawn();
     worker = started;
     started.port.on('message', (reply: WorkerReply) => {
+      const note = asNote(reply);
+      if (note) {
+        void serveNote(started.port, note);
+        return;
+      }
       const pending = waiting.get(reply.id);
       if (!pending) return;
       waiting.delete(reply.id);

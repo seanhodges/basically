@@ -12,7 +12,7 @@
  */
 
 import { cliContext } from '../cli/roms';
-import type { OpContext } from '../ops/types';
+import type { OpContext, ViewProjection } from '../ops/types';
 import type { ServerMachine } from './session';
 
 export interface ServerContextOptions {
@@ -38,11 +38,13 @@ export interface ServerContextOptions {
 export function serverContext(
   server: ServerMachine,
   options: ServerContextOptions = {},
+  view?: ViewProjection,
 ): OpContext {
   return {
     ...cliContext(),
     session: server.session(),
     runner: server.run,
+    ...(view ? { view } : {}),
     ...(options.defaultMachine !== undefined
       ? { defaultMachine: options.defaultMachine }
       : {}),

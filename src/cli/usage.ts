@@ -61,6 +61,7 @@ usage: basically <operation> [options]
   drive      press keys and wait, through a schedule of actions
   look       report what is on the screen
   screenshot write a picture of the screen
+  view       project the screen to an address a web view can be pointed at
   profile    report where the run's time and memory went
   time       report how long the run took and how it ended
   variables  report what the program's variables hold
@@ -221,6 +222,26 @@ usage: basically screenshot <file.png> [--json]
   -o, --out <file>   where to write the picture; may also be given as the
                      first argument
   --json             report the picture's size and colours as JSON
+`,
+
+  view: `
+project the screen of the running machine, so it can be watched from elsewhere
+
+usage: basically view [--stop] [--json]
+
+  --stop   give the view up; the machine stays up and can still be acted on
+  --json   report the address as JSON
+
+Prints an address anything that can show a web page can be pointed at - a
+browser tab, or a frame inside an application of your own. The view mirrors the
+machine and never drives it, so the machine advances only when a command asks it
+to and no measurement changes for having been watched.
+
+The address is reachable from this computer only, and holding it is the whole of
+what admits a viewer: treat it as a secret. A viewer sees the screen and can do
+nothing else - it cannot press a key, run a program, or reach any operation. The
+view ends when the machine is released or the host stops; asking again while one
+is open reports the address it already has.
 `,
 
   profile: `

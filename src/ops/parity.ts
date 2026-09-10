@@ -62,6 +62,17 @@ export const EXEMPTIONS: readonly Exemption[] = [
       'from inside the IDE, which is the reason this reaches no caller ' +
       'without one.',
   },
+  {
+    operation: 'view',
+    caller: 'assistant',
+    reason:
+      'A view exists so that a machine nobody can see can be watched from ' +
+      'somewhere else. The assistant runs in the browser IDE, where the ' +
+      'machine it would project is already painted on the screen in front of ' +
+      'the user, and there is no host beside it to project from - the machine ' +
+      "is the page's own. The reason is that arrangement, so a caller whose " +
+      'machine the user cannot already see is offered the operation.',
+  },
 ];
 
 /** Whether the operation is reachable from that caller. */

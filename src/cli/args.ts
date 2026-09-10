@@ -39,6 +39,7 @@ export const OPERATIONS = [
   'drive',
   'look',
   'screenshot',
+  'view',
   'profile',
   'time',
   'variables',
@@ -154,6 +155,22 @@ export interface ScreenshotArgs {
   input: Record<never, never>;
 }
 
+/**
+ * Asking for the held machine's display to be projected somewhere it can be
+ * watched. Takes nothing: the machine is the one that is up, and where the
+ * view is reachable is the host's to decide rather than the caller's.
+ */
+export interface ViewArgs {
+  operation: 'view';
+  json: boolean;
+  /**
+   * Give the view up rather than asking for one. The machine stays: a caller
+   * that has finished being watched has not finished with what it is running.
+   */
+  stop: boolean;
+  input: Record<never, never>;
+}
+
 export interface MeasureArgs {
   operation: 'profile' | 'time' | 'variables';
   json: boolean;
@@ -241,6 +258,7 @@ export type CliArgs =
   | DriveArgs
   | LookArgs
   | ScreenshotArgs
+  | ViewArgs
   | MeasureArgs
   | ExpectArgs
   | ServerArgs
@@ -372,6 +390,24 @@ function parseScreenshot(argv: string[]): ScreenshotArgs {
   }
   out ??= rest[0];
   return { operation: 'screenshot', json, out, input: {} };
+}
+
+/**
+ * `view` and `view --stop`: asking for the display to be projected, and giving
+ * that up again.
+ */
+function parseView(argv: string[]): ViewArgs {
+  let json = false;
+  let stop = false;
+  const rest = scan(argv, (name) => {
+    if (name === '--json') json = true;
+    else if (name === '--stop') stop = true;
+    else throw unknownOption('view', name);
+  });
+  if (rest.length > 0) {
+    throw new RunError(`view takes no arguments, got "${rest[0]}"`);
+  }
+  return { operation: 'view', json, stop, input: {} };
 }
 
 function parseExpect(argv: string[]): ExpectArgs {
@@ -762,6 +798,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return { operation: 'look', json: takeJson(rest, 'look'), input: {} };
     case 'screenshot':
       return parseScreenshot(rest);
+    case 'view':
+      return parseView(rest);
     case 'profile':
     case 'time':
     case 'variables':

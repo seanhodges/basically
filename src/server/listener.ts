@@ -209,6 +209,16 @@ export function serveConnection(connection: Duplex, host: HostServices): void {
         await session?.release();
         send({ kind: 'host-result', id: request.id, holding: null });
         return;
+      case 'unview':
+        // The view goes; the machine and the session stay, so the caller can
+        // go on acting on what it holds.
+        await session?.unview();
+        send({
+          kind: 'host-result',
+          id: request.id,
+          holding: (await session?.held()) ?? null,
+        });
+        return;
       case 'stop':
         // Answered before the host goes, so the caller learns it was stopped
         // rather than only that the connection ended.

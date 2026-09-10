@@ -17,6 +17,7 @@ import { lintOp } from './lint';
 import { machinesOp } from './machines';
 import { profileOp, timeOp, variablesOp } from './measure';
 import { runOp } from './run';
+import { viewOp } from './view';
 import type { Operation } from './types';
 
 // Each is typed over its own input and outcome; the list is over `unknown`
@@ -36,6 +37,7 @@ export const OPERATIONS: readonly Operation[] = [
   variablesOp,
   expectOp,
   convertOp,
+  viewOp,
 ] as Operation[];
 
 /** The operation of that name, or undefined. */

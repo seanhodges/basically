@@ -22,7 +22,7 @@
 
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { OPERATIONS } from '../ops/registry';
-import type { Operation } from '../ops/types';
+import type { Operation, ViewProjection } from '../ops/types';
 import { CallRefused, runOperation, WITHOUT_A_MACHINE } from '../server/ops';
 import { outcomeContent } from './content';
 import { serverContext, type ServerContextOptions } from './context';
@@ -57,13 +57,14 @@ export async function runMcpCall(
   input: unknown,
   server: ServerMachine,
   options: ServerContextOptions = {},
+  view?: ViewProjection,
 ): Promise<CallToolResult> {
   try {
     const { outcome, notes, failed } = await runOperation(
       name,
       input,
       {
-        context: () => serverContext(server, options),
+        context: () => serverContext(server, options, view),
         heldMachine: () => {
           const held = server.held();
           return held && { name: held.dialect.name, token: held.machine };
@@ -80,5 +81,10 @@ export async function runMcpCall(
   } catch (error) {
     if (error instanceof CallRefused) return refuse(error.message);
     throw error;
+  } finally {
+    // The frame this request stopped on is what whoever is watching will be
+    // looking at until the next one; a sampled run is as likely as not to have
+    // skipped it. Costs nothing when nobody is watching.
+    server.settleView();
   }
 }

@@ -26,6 +26,8 @@
 
 import type { CallOutcome } from './ops';
 import type { MachineHolder } from './machineWorker';
+import { noViews, type SessionView } from './view/link';
+import type { ViewHost } from './view/host';
 
 /** One caller of the host, for as long as it is connected. */
 export interface HostSession {
@@ -36,6 +38,8 @@ export interface HostSession {
   held(): Promise<string | null>;
   /** Let this caller's machine go, keeping the session open. */
   release(): Promise<void>;
+  /** Give up this caller's view, keeping the machine and the session. */
+  unview(): Promise<void>;
   /** The caller is gone: let go of the machine and the worker under it. */
   close(): Promise<void>;
 }
@@ -58,9 +62,18 @@ export interface Sessions {
 
 /**
  * `newHolder` is what a session's machine is held by - a worker on a listening
- * host, this thread on one serving a single caller over its own streams.
+ * host, this thread on one serving a single caller over its own streams. It is
+ * handed the caller's view because the machine is what produces the frames,
+ * and a machine let go and started again is projected to the same view: the
+ * view follows the caller, not any one machine.
+ *
+ * `views` is where a caller's projection comes from. The default projects
+ * nothing, which is a host that binds no network address at all.
  */
-export function createSessions(newHolder: () => MachineHolder): Sessions {
+export function createSessions(
+  newHolder: (view: SessionView) => MachineHolder,
+  views: ViewHost = noViews(),
+): Sessions {
   const live = new Map<number, HostSession>();
   let nextId = 1;
   let commandLine: HostSession | null = null;
@@ -68,24 +81,43 @@ export function createSessions(newHolder: () => MachineHolder): Sessions {
   const sessions: Sessions = {
     open(): HostSession {
       const id = nextId++;
-      // Made on first use rather than on connecting: a caller that only lints
-      // never pays for a worker.
+      // Both made on first use rather than on connecting: a caller that only
+      // lints pays for neither a worker nor a network address.
       let holder: MachineHolder | null = null;
-      const require = () => (holder ??= newHolder());
+      const view = views.forSession();
+      const require = () => (holder ??= newHolder(view));
 
       const letGo = async () => {
         const held = holder;
         holder = null;
+        // The machine has gone; whoever is watching is told so rather than
+        // left looking at a picture of it. The view itself stays open, and
+        // its address stays valid, because it belongs to the caller.
+        view.settled(null);
         await held?.dispose();
       };
 
       const session: HostSession = {
         id,
-        call: (operation, input) => require().call(operation, input),
+        call: async (operation, input) => {
+          const machine = require();
+          view.working();
+          try {
+            return await machine.call(operation, input);
+          } finally {
+            // Asked only while somebody is watching, so a caller with no view
+            // pays nothing for the state a view would have shown.
+            view.settled(
+              view.watching() ? await machine.held().catch(() => null) : null,
+            );
+          }
+        },
         held: () => holder?.held() ?? Promise.resolve(null),
         release: letGo,
+        unview: () => view.end(),
         close: async () => {
           live.delete(id);
+          await view.end();
           await letGo();
         },
       };
@@ -101,8 +133,9 @@ export function createSessions(newHolder: () => MachineHolder): Sessions {
         return {
           ...session,
           // A command ending is not the command line going away, so closing
-          // its connection must not take the machine with it. Only an explicit
-          // release, a stop, or the host letting itself go does that.
+          // its connection must not take the machine - or the view of it -
+          // with it. Only an explicit release, a stop, or the host letting
+          // itself go does that.
           close: () => Promise.resolve(),
         };
       })();
@@ -121,6 +154,8 @@ export function createSessions(newHolder: () => MachineHolder): Sessions {
       commandLine = null;
       await Promise.all(all.map((session) => session.close()));
       live.clear();
+      // Nothing is left to project to, so nothing goes on listening.
+      await views.close();
     },
   };
   return sessions;

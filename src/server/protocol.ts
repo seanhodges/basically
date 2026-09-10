@@ -71,8 +71,12 @@ export interface OpsRequest {
 export interface HostRequest {
   kind: 'host';
   id: number;
-  /** `status` reports what is served and what is held; `stop` ends the host. */
-  action: 'status' | 'stop' | 'release';
+  /**
+   * `status` reports what is served and what is held; `release` lets this
+   * caller's machine go; `unview` ends its view without touching the machine;
+   * `stop` ends the host.
+   */
+  action: 'status' | 'stop' | 'release' | 'unview';
 }
 
 /**

@@ -4,9 +4,13 @@ import { CallRefused } from './ops';
 import {
   createInProcessHolder,
   createWorkerHolder,
+  createWorkerViewLink,
   serveMachineWorker,
   type MessageChannelLike,
+  type WorkerAnswer,
+  type WorkerNote,
 } from './machineWorker';
+import type { ViewLink } from './view/link';
 
 /**
  * A holder served over a real `MessageChannel` in this thread.
@@ -16,17 +20,20 @@ import {
  * thread is `spawn`'s business, and the integration test that runs the built
  * bundle is where a real one is proved.
  */
-function overAChannel() {
+function overAChannel(view?: ViewLink) {
   const channel = new MessageChannel();
   serveMachineWorker(channel.port2 as unknown as MessageChannelLike);
   channel.port2.unref();
-  return createWorkerHolder(() => ({
-    port: channel.port1 as unknown as MessageChannelLike,
-    terminate: () => {
-      channel.port1.close();
-      channel.port2.close();
-    },
-  }));
+  return createWorkerHolder(
+    () => ({
+      port: channel.port1 as unknown as MessageChannelLike,
+      terminate: () => {
+        channel.port1.close();
+        channel.port2.close();
+      },
+    }),
+    view,
+  );
 }
 
 describe('a machine held in this thread', () => {
@@ -166,5 +173,71 @@ describe('the fact one worker per caller rests on', () => {
     } finally {
       delete (globalThis as Record<string, unknown>).document;
     }
+  });
+});
+
+/**
+ * A view of a machine that is running in another thread.
+ *
+ * The picture is made where the machine is and the listener is on the host's
+ * thread, so the frames have to cross - as PNG bytes, which is what a
+ * structured clone carries without either side writing them down.
+ */
+describe('a view across the thread boundary', () => {
+  it('opens the view on the host thread and answers the machine with it', async () => {
+    const opened = {
+      address: 'http://127.0.0.1:1/v/token/',
+      problem: null,
+      already: false,
+    };
+    const frames: number[][] = [];
+    const view: ViewLink = {
+      open: () => Promise.resolve(opened),
+      watching: () => true,
+      free: () => true,
+      send: (frame) => frames.push([...frame.png]),
+    };
+    const holder = overAChannel(view);
+    // Booting a machine to sample would take a ROM and a run; what crosses is
+    // what is checked here, so the machine's side is driven directly.
+    const posted: WorkerNote[] = [];
+    const worker = createWorkerViewLink((note) => posted.push(note));
+
+    const asking = worker.link.open();
+    expect(posted[0]).toEqual({ kind: 'view-open', id: 1 });
+    worker.answer({ kind: 'view-opened', id: 1, opened });
+    expect(await asking).toEqual(opened);
+    expect(worker.link.watching()).toBe(true);
+
+    worker.link.send({ width: 1, height: 1, png: new Uint8Array([7]) });
+    expect(posted[1]).toEqual({
+      kind: 'view-frame',
+      frame: { width: 1, height: 1, png: new Uint8Array([7]) },
+    });
+    // Nothing more is sampled until the host says the last frame landed, so a
+    // machine changing faster than the viewer drops samples rather than
+    // queueing them.
+    expect(worker.link.free()).toBe(false);
+    worker.answer({ kind: 'view-free' } satisfies WorkerAnswer);
+    expect(worker.link.free()).toBe(true);
+
+    await holder.dispose();
+  });
+
+  it('samples nothing until its caller has asked for a view', () => {
+    const worker = createWorkerViewLink(() => {});
+    // The tap exists for every run; what stops it costing anything is this.
+    expect(worker.link.watching()).toBe(false);
+  });
+
+  it('tells the machine there is nowhere to project when the host offers none', async () => {
+    const holder = overAChannel();
+    const outcome = await holder
+      .call('view', {})
+      .catch((error: Error) => error.message);
+    // No machine is up, which is the answer that comes first; what matters is
+    // that the crossing itself did not fail.
+    expect(String(outcome)).toContain('No machine is up');
+    await holder.dispose();
   });
 });

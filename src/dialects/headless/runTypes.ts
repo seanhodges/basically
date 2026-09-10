@@ -17,6 +17,7 @@
  * Nothing here but types over the `Dialect` seam: no node, no DOM.
  */
 
+import type { FrameSink } from './frameTap';
 import type {
   MachineEmulator,
   MachineScreenText,
@@ -107,6 +108,16 @@ export interface RunOptions {
   drive?: (machine: MachineEmulator, step: () => void) => void;
   /** Watch the run; see {@link RunObserver}. */
   observe?: RunObserver;
+  /**
+   * Where sampled frames of this run's display go, for something projecting
+   * the machine to a view; see {@link FrameSink}.
+   *
+   * Sampling paints the machine and never advances it, so a watched run is the
+   * same run: the frames it spends, and every measurement counted in them, do
+   * not move. What the tap costs the host is measured and taken back out of
+   * {@link RunTimings.runMs}, so the reported time does not move either.
+   */
+  view?: FrameSink;
   /** Paint the machine's picture as well as reading its screen text. */
   pixels?: boolean;
   /** `public/` to read the ROMs from; the runner finds one when absent. */
