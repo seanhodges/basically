@@ -46,15 +46,17 @@ export const ge235: Dialect = {
   // The machine, not the language: the GE-235 reached Dartmouth in 1964 and
   // compiled the February 1965 BASIC this folder implements.
   year: 1964,
-  blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC.',
-  basicDialect: 'Dartmouth BASIC',
+  blurb: 'The machine BASIC was born on. Runs Dartmouth BASIC (February 1965).',
+  // The version, not the family: Dartmouth revised BASIC every year or two and
+  // shipped each revision on the machine it had, so naming the family here
+  // would say only which lineage this is and not which of its BASICs ran.
+  basicDialect: 'Dartmouth BASIC (February 1965)',
+  basicFamily: 'Dartmouth BASIC',
 
   /**
    * The reference page is named for the language, not for this machine: what it
    * documents is Dartmouth BASIC, which several machines ran and which every
-   * other BASIC here descends from. `basicFamily` is left off because
-   * `basicDialect` is already the family name - this is the only machine in the
-   * registry that runs it.
+   * other BASIC here descends from.
    */
   docsReference: 'dartmouth',
 

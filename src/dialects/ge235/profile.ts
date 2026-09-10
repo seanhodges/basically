@@ -2,7 +2,18 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { DartmouthProfile } from '../../emulator/dartmouth/profile';
-import { ge235Charset, plainChar, parseChar, CR, EOM, SPACE } from './charset';
+import {
+  ge235Charset,
+  plainChar,
+  parseChar,
+  BELL,
+  CR,
+  EOM,
+  FILL,
+  LF,
+  SPACE,
+  TAB,
+} from './charset';
 import { ge235Keywords } from './keywords';
 import { MAX_LINES, MAX_LINE_NUMBER } from './tokenizer';
 
@@ -16,22 +27,12 @@ import { MAX_LINES, MAX_LINE_NUMBER } from './tokenizer';
  * them against the drawn memory map, so a number that drifts from the map
  * fails.
  *
- * Two of the limits are not declared here. `MAX_LINES` and `MAX_LINE_NUMBER`
- * are the compiler's own bounds on a tape, so the tokenizer enforces them when
- * one is punched and carries their citations; restating either here would give
- * the same figure two homes to drift between.
+ * What this file does not declare, it references. The control codes are slots
+ * in `charset.ts`'s own code table, and `MAX_LINES` and `MAX_LINE_NUMBER` are
+ * the compiler's bounds on a tape, which the tokenizer enforces when one is
+ * punched. Both carry their citations where they are declared; restating either
+ * here would give one figure two homes to drift between.
  */
-
-/**
- * Control codes the paper acts on. A carriage return moves the carriage and
- * nothing else, and a line feed advances the paper and nothing else - the two
- * are separate mechanisms on a teletype, and a program that sends only one of
- * them overprints or steps down a column, which is what the machine did.
- */
-const LF = 0o72;
-const BELL = 0o32;
-const TAB = 0o52;
-const FILL = 0o77;
 
 /**
  * How deep `FOR` loops may nest. The compiler builds its loop table three words

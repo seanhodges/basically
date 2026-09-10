@@ -15,6 +15,12 @@
  * the characters the machine's own 6-bit set can carry are queued; the rest of
  * the teletype's shifted row has no code here and is dropped rather than
  * guessed at.
+ *
+ * That filtering is the one machine fact left in this adapter: the shifted
+ * tables below are written already narrowed to what the GE-235's set carries,
+ * rather than narrowed against the profile's charset. A Dartmouth machine with
+ * a wider set - ASCII rather than 6-bit BCD - reaches more of the shifted row
+ * than these tables offer, and would want them driven from its charset instead.
  */
 
 /** How many keystrokes wait before the oldest is dropped. */
@@ -103,7 +109,7 @@ export function tokenToChar(token: string, shift = false): string | undefined {
  * too but are not here: they are the host keyboard's names for keys the
  * teletype calls something else, not keycaps a layout should carry.
  */
-export function ge235KeyTokens(): string[] {
+export function dartmouthKeyTokens(): string[] {
   const letters = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c) => `Key${c}`);
   const digits = [...'0123456789'].map((d) => `Digit${d}`);
   return [
@@ -116,13 +122,13 @@ export function ge235KeyTokens(): string[] {
 }
 
 /**
- * Every character the adapter can produce from {@link ge235KeyTokens}. The
+ * Every character the adapter can produce from {@link dartmouthKeyTokens}. The
  * layout's test holds itself to this set: a character the machine can type and
  * no keycap or SYM cell offers is one the on-screen keyboard cannot reach.
  */
-export function ge235TypeableChars(): string[] {
+export function dartmouthTypeableChars(): string[] {
   const chars = new Set<string>();
-  for (const token of ge235KeyTokens()) {
+  for (const token of dartmouthKeyTokens()) {
     for (const shift of [false, true]) {
       const ch = tokenToChar(token, shift);
       if (ch !== undefined) chars.add(ch);

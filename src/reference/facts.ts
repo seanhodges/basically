@@ -1709,7 +1709,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'ge235',
-    basicDialect: 'Dartmouth BASIC',
+    basicDialect: 'Dartmouth BASIC (February 1965)',
     portingNotes: [
       {
         text: 'There are no strings: a variable holds a number, and the only text the machine handles is the literal inside PRINT. Anything a port does with words or characters has to become numbers, or be dropped.',

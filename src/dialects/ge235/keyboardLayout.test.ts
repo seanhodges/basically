@@ -4,8 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import { ge235KeyboardLayout } from './keyboardLayout';
 import {
-  ge235KeyTokens,
-  ge235TypeableChars,
+  dartmouthKeyTokens,
+  dartmouthTypeableChars,
   tokenToChar,
 } from '../../emulator/dartmouth/keyboard';
 import { plainChar } from './charset';
@@ -34,7 +34,7 @@ describe('ge235 keyboard layout', () => {
     // The layout and `src/emulator/dartmouth/keyboard.ts` are two halves of one
     // vocabulary: a key emitting a token the adapter does not know queues
     // nothing at all, and the failure is silent.
-    const known = new Set(ge235KeyTokens());
+    const known = new Set(dartmouthKeyTokens());
     for (const key of driving) {
       for (const token of key.emits) {
         expect(
@@ -50,7 +50,7 @@ describe('ge235 keyboard layout', () => {
     // emits is a character the on-screen keyboard cannot produce. The SYM
     // legends' own tokens count, since they bypass `emits`.
     const emitted = new Set(driving.flatMap(allTokens));
-    for (const token of ge235KeyTokens()) {
+    for (const token of dartmouthKeyTokens()) {
       expect(emitted.has(token), `no key emits "${token}"`).toBe(true);
     }
   });
@@ -117,7 +117,7 @@ describe('ge235 keyboard layout', () => {
     // typeable: the letters and digits on their keycaps, the rest through the
     // SYM pages. A character the machine can punch and the keyboard cannot
     // reach would have to be typed on a host keyboard instead.
-    const typeable = new Set(ge235TypeableChars());
+    const typeable = new Set(dartmouthTypeableChars());
     for (let code = 0; code < 64; code++) {
       const ch = plainChar(code);
       if (ch === undefined) continue;
