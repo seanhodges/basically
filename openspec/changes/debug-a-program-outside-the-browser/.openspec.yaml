@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-10
+goal: "Take the BASIC line debugger that exists in the browser IDE out to every
+  caller of the toolchain: breakpoints, stepping, continuing and where a run is
+  paused, declared as operations on a held machine."
