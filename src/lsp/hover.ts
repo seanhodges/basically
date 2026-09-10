@@ -22,14 +22,22 @@ import {
 } from '../editor/referenceRow';
 import { operatorSpellings } from '../dialects/operators';
 import { keywordSpellingsFor } from '../dialects/keywordSpellings';
-import { referencePageOf } from '../dialects/referencePage';
+import {
+  PUBLIC_DOCS_BASE,
+  referencePageOf,
+  referenceTopicOf,
+} from '../dialects/referencePage';
 import { loadReferencePage } from '../ai/machineReference';
 import type { ReferenceEntry } from '../reference/types';
 import type { EditorKeyword } from '../dialects/types';
 import { offsetToPosition, positionToOffset } from './documents';
 import type { OpenDocument } from './documents';
 
-function composeFromEntry(word: string, entry: ReferenceEntry): string {
+function composeFromEntry(
+  word: string,
+  entry: ReferenceEntry,
+  topic: string | null,
+): string {
   const lines = [
     `**${word}**`,
     '',
@@ -38,6 +46,14 @@ function composeFromEntry(word: string, entry: ReferenceEntry): string {
     entry.description,
   ];
   if (entry.tag) lines.push('', `_${entry.tag}_`);
+  // The route on to the full entry, for a reader who wants more than this.
+  // Absolute, because the editor rendering it is outside the browser and has
+  // no `/docs/` mount of its own to resolve against.
+  if (topic)
+    lines.push(
+      '',
+      `[Open ${word} in the reference](${PUBLIC_DOCS_BASE}${topic})`,
+    );
   return lines.join('\n');
 }
 
@@ -55,14 +71,20 @@ function composeFromKeyword(
  * The markdown for `word`: the reference page's own row where the page has
  * one, else the dialect's own `signature`/`doc` - so every machine explains
  * something, even a keyword the reference has no row for.
+ *
+ * Only the reference-backed form carries the route on to the full entry.
+ * Offering it from the fallback would send the reader to a page that searches
+ * for a keyword it has no row for and shows nothing, which costs them the trip
+ * to find out.
  */
 export function composeHover(
   word: string,
   entry: ReferenceEntry | undefined,
   keyword: EditorKeyword | undefined,
+  topic: string | null = null,
 ): string {
   return entry
-    ? composeFromEntry(word, entry)
+    ? composeFromEntry(word, entry, topic)
     : composeFromKeyword(word, keyword);
 }
 
@@ -98,7 +120,14 @@ export async function hoverAt(
   return {
     contents: {
       kind: MarkupKind.Markdown,
-      value: composeHover(word, entry, keyword),
+      // `word`, not `token.text`: a short spelling reaches the entry for the
+      // keyword it stands for rather than for the spelling.
+      value: composeHover(
+        word,
+        entry,
+        keyword,
+        referenceTopicOf(dialect, word),
+      ),
     },
     range: {
       start: offsetToPosition(doc.text, token.from),

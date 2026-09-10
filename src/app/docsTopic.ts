@@ -1,24 +1,19 @@
-import { referencePageOf } from '../dialects/referencePage';
+import { referenceTopicOf } from '../dialects/referencePage';
 import type { Cpu } from '../asm/types';
 import type { Dialect } from '../dialects/types';
 import type { ActiveTab } from './store';
 
 /**
  * Docs sub-path for a dialect's reference page, seeding the reference table's
- * search box with `keyword`. Returns `null` when there is nothing to search, so
- * a caller with no keyword offers nothing rather than opening an empty table.
- *
- * The table search is a case-insensitive substring match on the keyword name,
- * and on the short spellings the machine accepts for it - so a keyword picked
- * out of a listing finds its row however it was spelled there.
+ * search box with `keyword`, or `null` when there is nothing to search for.
+ * The rule itself lives beside the page rule in `src/dialects/referencePage.ts`,
+ * because the language server needs it too and may not import the app layer.
  */
 export function referenceTopic(
   dialect: Dialect,
   keyword: string,
 ): string | null {
-  if (!keyword) return null;
-  const page = referencePageOf(dialect);
-  return `reference/${page}?q=${encodeURIComponent(keyword)}`;
+  return referenceTopicOf(dialect, keyword);
 }
 
 /** The per-CPU assembly reference page slug. */

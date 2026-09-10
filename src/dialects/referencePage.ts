@@ -38,3 +38,34 @@ export function basicFamilyOf(machine: {
 }): string {
   return machine.basicFamily ?? machine.basicDialect;
 }
+
+/**
+ * Where the product's documentation is published. A link the browser follows
+ * can be relative to the IDE's own `/docs/` mount, but one handed to an editor
+ * outside the browser - an explanation the language server sends - has to be
+ * absolute, so the address is named once here beside the rule for which page a
+ * machine reads from.
+ */
+export const PUBLIC_DOCS_BASE = 'https://ba.sical.ly/docs/';
+
+/**
+ * Where a keyword's reference entry is published: the page its machine reads
+ * from, opened with the reference table's search box seeded with the keyword.
+ * Null when there is no keyword to search for, so a caller offers nothing
+ * rather than an empty table.
+ *
+ * The table search is a case-insensitive substring match on the keyword name,
+ * and on the short spellings the machine accepts for it - so a keyword picked
+ * out of a listing finds its row however it was spelled there.
+ *
+ * Relative to the documentation root, so the IDE can resolve it against its own
+ * mount and the language server against {@link PUBLIC_DOCS_BASE}. Takes the
+ * same shape `referencePageOf` does, and imports nothing, for the same reason.
+ */
+export function referenceTopicOf(
+  machine: { id: string; docsReference?: string },
+  keyword: string,
+): string | null {
+  if (!keyword) return null;
+  return `reference/${referencePageOf(machine)}?q=${encodeURIComponent(keyword)}`;
+}

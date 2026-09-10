@@ -44,6 +44,18 @@ describe('composeHover', () => {
     expect(markup).toContain('PRINT <expr>');
     expect(markup).toContain('prints something');
   });
+
+  it('offers no route on from an explanation the reference is not behind', () => {
+    // Even handed a topic: the page would search for a keyword it has no row
+    // for and show nothing, so the reader is not sent on the trip.
+    const markup = composeHover(
+      'FROB',
+      undefined,
+      { word: 'FROB', kind: 'command', doc: 'frobs' },
+      'reference/zx80?q=FROB',
+    );
+    expect(markup).not.toContain('http');
+  });
 });
 
 describe('hoverAt', () => {
@@ -66,6 +78,29 @@ describe('hoverAt', () => {
     expect(hover).not.toBeNull();
     const markup = (hover!.contents as { value: string }).value;
     expect(markup).toContain('PRINT');
+  });
+
+  it("offers the full entry at the bound machine's own reference page", async () => {
+    const text = '10 PRINT "HI"';
+    const hover = await hoverFor(
+      'commodore64',
+      text,
+      text.indexOf('PRINT') + 1,
+    );
+    const markup = (hover!.contents as { value: string }).value;
+    expect(markup).toContain(
+      'https://ba.sical.ly/docs/reference/commodore?q=PRINT',
+    );
+  });
+
+  it('offers the entry for the keyword a short spelling stands for', async () => {
+    const text = '10 ?"HI"';
+    const hover = await hoverFor('commodore64', text, text.indexOf('?'));
+    const markup = (hover!.contents as { value: string }).value;
+    expect(markup).toContain(
+      'https://ba.sical.ly/docs/reference/commodore?q=PRINT',
+    );
+    expect(markup).not.toContain('q=%3F');
   });
 
   it('gives nothing for a declined document', async () => {
