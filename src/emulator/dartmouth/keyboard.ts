@@ -131,7 +131,7 @@ export function ge235TypeableChars(): string[] {
   return [...chars];
 }
 
-export class Ge235Keyboard {
+export class DartmouthKeyboard {
   private pending: string[] = [];
   private shift = false;
 

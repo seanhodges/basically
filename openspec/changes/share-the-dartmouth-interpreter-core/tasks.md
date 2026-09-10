@@ -1,14 +1,14 @@
 ## 1. Move the interpreter, changing nothing but paths
 
-- [ ] 1.1 `git mv src/dialects/ge235/interpreter src/emulator/dartmouth`, so the
+- [x] 1.1 `git mv src/dialects/ge235/interpreter src/emulator/dartmouth`, so the
       rename is recorded and `git log --follow` still reaches the 1965 work.
-- [ ] 1.2 Fix the import paths the move breaks — `../../types` becomes
+- [x] 1.2 Fix the import paths the move breaks — `../../types` becomes
       `../../dialects/types` in `interpreter.ts`, `machine.ts` and
       `terminal.ts`; the four upward imports into `src/dialects/ge235/` become
       the longer relative path for now and are inverted in group 2.
-- [ ] 1.3 Update the imports in `src/dialects/ge235/index.ts` and anywhere else
+- [x] 1.3 Update the imports in `src/dialects/ge235/index.ts` and anywhere else
       that names the old path (`grep -rn "ge235/interpreter\|./interpreter/"`).
-- [ ] 1.4 `npx vitest run src/dialects/ge235/ src/emulator/dartmouth/` — green,
+- [x] 1.4 `npx vitest run src/dialects/ge235/ src/emulator/dartmouth/` — green,
       with **no test edited** but import paths. Commit this as a pure move
       before touching behaviour.
 

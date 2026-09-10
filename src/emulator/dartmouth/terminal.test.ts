@@ -3,11 +3,18 @@
 
 import { describe, expect, it } from 'vitest';
 import { ge235Charset } from '../../dialects/ge235/charset';
-import { CELL_HEIGHT, CELL_WIDTH, COLS, Ge235Terminal, ROWS } from './terminal';
+import { GE235_PROFILE } from '../../dialects/ge235/profile';
+import {
+  CELL_HEIGHT,
+  CELL_WIDTH,
+  COLS,
+  DartmouthTerminal,
+  ROWS,
+} from './terminal';
 
-describe('Ge235Terminal', () => {
+describe('DartmouthTerminal', () => {
   it('stores what was struck as BCD codes, not as Unicode', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     term.printText('AZ09');
     expect([...term.cells.slice(0, 4)]).toEqual([
       ...ge235Charset.toMachine('AZ09'),
@@ -15,7 +22,7 @@ describe('Ge235Terminal', () => {
   });
 
   it('separates the carriage from the paper, as the two mechanisms were', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     term.printText('ABC');
     term.write(0o37); // carriage return: back to the left, same line
     expect(term.column).toBe(0);
@@ -28,7 +35,7 @@ describe('Ge235Terminal', () => {
   });
 
   it('swallows the codes that frame a tape rather than printing them', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     term.write(0o32); // bell
     term.write(0o77); // fill
     term.write(0o55); // end of message
@@ -39,14 +46,14 @@ describe('Ge235Terminal', () => {
   });
 
   it('wraps at the margin instead of overprinting the last column', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     term.printText('X'.repeat(COLS + 2));
     expect(term.readRow(0)).toBe('X'.repeat(COLS));
     expect(term.readRow(1)).toBe('XX');
   });
 
   it('rolls the paper past the platen once the window is full', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     for (let row = 0; row <= ROWS; row++) {
       if (row > 0) term.newline();
       term.printText(`L${row}`);
@@ -58,7 +65,7 @@ describe('Ge235Terminal', () => {
   });
 
   it('reads back as full-width rows, blanks and all', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     term.printText('HI');
     const screen = term.screenText();
     expect(screen.cols).toBe(COLS);
@@ -69,7 +76,7 @@ describe('Ge235Terminal', () => {
   });
 
   it('paints each cell where the screen reader says it is', () => {
-    const term = new Ge235Terminal();
+    const term = new DartmouthTerminal(GE235_PROFILE.charset);
     term.printText('AB');
     const drawn = new Map<string, string>();
     const ctx = {

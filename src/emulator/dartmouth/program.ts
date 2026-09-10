@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { ge235Charset, CR, EOM } from '../../dialects/ge235/charset';
-import { MAX_LINES, MAX_LINE_NUMBER } from '../../dialects/ge235/tokenizer';
 import { CompileError, type CompileFault } from './errors';
-import { deleteBlanks, lexBody, type Lexeme } from './lex';
+import { deleteBlanks, keywordWords, lexBody, type Lexeme } from './lex';
+import type { DartmouthCharset, DartmouthProfile } from './profile';
 
 export interface BasicLine {
   lineNo: number;
@@ -31,13 +30,18 @@ export interface Program {
  * A `REM` line is not lexed past its keyword: the comment text is prose, and
  * the compiler stopped reading the line as soon as it recognised the word.
  */
-export function parseProgram(image: Uint8Array): Program {
+export function parseProgram(
+  image: Uint8Array,
+  profile: DartmouthProfile,
+): Program {
   const lines: BasicLine[] = [];
   const index = new Map<number, number>();
   const faults: CompileFault[] = [];
+  const { charset, limits } = profile;
+  const words = keywordWords(profile.keywords);
 
-  for (const record of records(image)) {
-    const text = ge235Charset.toUnicode(record);
+  for (const record of records(image, charset)) {
+    const text = charset.mapping.toUnicode(record);
     if (text.trim() === '') continue; // blank paper between records
     const match = /^\s*(\d+)(.*)$/.exec(text);
     if (!match) {
@@ -45,7 +49,7 @@ export function parseProgram(image: Uint8Array): Program {
       continue;
     }
     const lineNo = Number(match[1]);
-    if (lineNo > MAX_LINE_NUMBER) {
+    if (lineNo > limits.maxLineNumber) {
       faults.push({ code: 'ILLEGAL_NUMBER', line: lineNo });
       continue;
     }
@@ -61,7 +65,7 @@ export function parseProgram(image: Uint8Array): Program {
       lexemes = [{ kind: 'kw', word: 'REM' }];
     } else {
       try {
-        lexemes = lexBody(body);
+        lexemes = lexBody(body, words);
       } catch (e) {
         if (!(e instanceof CompileError)) throw e;
         faults.push({ code: e.code, line: lineNo });
@@ -73,19 +77,25 @@ export function parseProgram(image: Uint8Array): Program {
     lines.push({ lineNo, lexemes });
   }
 
-  if (lines.length > MAX_LINES) {
-    faults.push({ code: 'PROGRAM_TOO_LONG', line: lines[MAX_LINES]!.lineNo });
+  if (lines.length > limits.maxLines) {
+    faults.push({
+      code: 'PROGRAM_TOO_LONG',
+      line: lines[limits.maxLines]!.lineNo,
+    });
   }
   return { lines, index, faults };
 }
 
 /** The tape's line records: codes between carriage returns, up to end of message. */
-function* records(image: Uint8Array): Generator<number[]> {
+function* records(
+  image: Uint8Array,
+  charset: DartmouthCharset,
+): Generator<number[]> {
   let record: number[] = [];
   for (const byte of image) {
     const code = byte & 0o77;
-    if (code === EOM) break;
-    if (code === CR) {
+    if (code === charset.eom) break;
+    if (code === charset.cr) {
       if (record.length > 0) yield record;
       record = [];
       continue;

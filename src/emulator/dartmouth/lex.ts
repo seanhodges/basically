@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
+import type { KeywordInfo } from '../../dialects/types';
 import { CompileError } from './errors';
-import { ge235Keywords } from '../../dialects/ge235/keywords';
 
 /**
  * One lexical unit of a line body.
@@ -20,9 +20,11 @@ export type Lexeme =
   | { kind: 'punct'; ch: string };
 
 /** Every keyword, longest first, so `RETURN` is never read as `REM` + junk. */
-const WORDS: readonly string[] = ge235Keywords
-  .map((k) => k.word)
-  .sort((a, b) => b.length - a.length);
+export function keywordWords(
+  keywords: readonly KeywordInfo[],
+): readonly string[] {
+  return keywords.map((k) => k.word).sort((a, b) => b.length - a.length);
+}
 
 const DIGIT = /[0-9]/;
 const LETTER = /[A-Z]/;
@@ -52,8 +54,11 @@ export function deleteBlanks(text: string): string {
  * enough to swallow a keyword and a keyword can be matched greedily wherever it
  * appears. A second digit is the compiler's own "bad variable": `A1` is a
  * variable and `A12` is nothing at all.
+ *
+ * `words` is the machine's vocabulary as {@link keywordWords} orders it, which
+ * is what decides where a keyword ends and a name begins.
  */
-export function lexBody(body: string): Lexeme[] {
+export function lexBody(body: string, words: readonly string[]): Lexeme[] {
   const out: Lexeme[] = [];
   let i = 0;
   while (i < body.length) {
@@ -92,7 +97,7 @@ export function lexBody(body: string): Lexeme[] {
     }
 
     if (LETTER.test(ch)) {
-      const word = WORDS.find((w) => body.startsWith(w, i));
+      const word = words.find((w) => body.startsWith(w, i));
       if (word !== undefined) {
         out.push({ kind: 'kw', word });
         i += word.length;
