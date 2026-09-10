@@ -134,6 +134,73 @@ describe('semanticTokensForRangeOf', () => {
     });
     expect(decode(answer!.data).map((t) => t.line)).toEqual([1, 1, 1]);
   });
+
+  it('reports a range at the end of a long listing as fully as one at the start', () => {
+    const store = new DocumentStore();
+    store.open(URI, LONG_LISTING, 1, 'zx81');
+    const state = store.editorState(URI);
+    const kindsOfLine = (line: number) =>
+      decode(
+        semanticTokensForRangeOf(state, {
+          start: { line, character: 0 },
+          end: { line, character: longListingLine(line).length },
+        })!.data,
+      ).map((t) => t.type);
+    expect(kindsOfLine(LONG_LISTING_LINES - 1)).toEqual(kindsOfLine(0));
+    expect(kindsOfLine(LONG_LISTING_LINES - 1)).toEqual([
+      'label',
+      'keyword',
+      'string',
+    ]);
+  });
+});
+
+/**
+ * A listing far longer than an editor shows at once, and far longer than the
+ * few kilobytes a lazy parse covers: the whole point of the tests below is that
+ * a program's length changes how much there is to report and nothing else.
+ *
+ * Every line is the same three runs, differing only in its number, so a
+ * truncated answer shows up as the last line holding nothing at all rather than
+ * as a difference in what its runs are.
+ */
+const LONG_LISTING_LINES = 2000;
+const longListingLine = (index: number) => `${(index + 1) * 10} PRINT "LINE"`;
+const LONG_LISTING = Array.from({ length: LONG_LISTING_LINES }, (_, i) =>
+  longListingLine(i),
+).join('\n');
+
+describe('colour covers all of what was asked about', () => {
+  it('reports a listing far longer than a lazy parse covers, to its last line', () => {
+    const store = new DocumentStore();
+    store.open(URI, LONG_LISTING, 1, 'zx81');
+    // The lazy tree stops a fixed few kilobytes in whatever the program's
+    // length, and the old budget fell back to it, so the last line of a listing
+    // this long is exactly what used to be lost.
+    expect(LONG_LISTING.length).toBeGreaterThan(20_000);
+    const found = decode(semanticTokensFor(store.editorState(URI))!.data);
+    const lastLine = longListingLine(LONG_LISTING_LINES - 1);
+    expect(found.at(-1)).toEqual({
+      line: LONG_LISTING_LINES - 1,
+      character: lastLine.indexOf('"'),
+      length: '"LINE"'.length,
+      type: 'string',
+    });
+    expect(found).toHaveLength(LONG_LISTING_LINES * 3);
+  });
+
+  it('tells an editor asking twice about an unchanged program the same thing both times', () => {
+    // The `EditorState` is cached per version, so a first answer that stopped
+    // short stayed short for as long as the document was open: this fails on a
+    // truncating implementation rather than passing on the repetition alone,
+    // because both answers are checked against the whole listing.
+    const store = new DocumentStore();
+    store.open(URI, LONG_LISTING, 1, 'zx81');
+    const first = semanticTokensFor(store.editorState(URI))!.data;
+    const second = semanticTokensFor(store.editorState(URI))!.data;
+    expect(second).toEqual(first);
+    expect(decode(second)).toHaveLength(LONG_LISTING_LINES * 3);
+  });
 });
 
 /**
