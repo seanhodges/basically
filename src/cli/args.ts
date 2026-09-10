@@ -40,11 +40,13 @@ export const OPERATIONS = [
   'look',
   'screenshot',
   'view',
+  'play',
   'profile',
   'time',
   'variables',
   'expect',
   'server',
+  'ops',
   'lsp',
   'mcp',
   // Not an operation in src/ops/: it needs the filesystem and the network,
@@ -171,6 +173,23 @@ export interface ViewArgs {
   input: Record<never, never>;
 }
 
+/**
+ * Asking for the held machine to be played, and giving that up again.
+ *
+ * Takes nothing for the reason `view` takes nothing: the machine is the one
+ * that is up, and where the channel is reachable is the host's to decide.
+ */
+export interface PlayArgs {
+  operation: 'play';
+  json: boolean;
+  /**
+   * Give the play channel up rather than asking for one. The machine stays,
+   * and stops advancing unasked the moment the channel ends.
+   */
+  stop: boolean;
+  input: Record<never, never>;
+}
+
 export interface MeasureArgs {
   operation: 'profile' | 'time' | 'variables';
   json: boolean;
@@ -218,6 +237,29 @@ export interface ConvertArgs {
   input: Omit<ConvertInput, 'base64' | 'fileName'>;
 }
 
+/**
+ * Serving the toolchain's own operations conversation over these streams.
+ *
+ * The same shape as the two protocol servers because it is the same kind of
+ * thing: an application starts the toolchain as a child process and speaks to
+ * it, rather than asking one question and reading an answer. What it speaks is
+ * the conversation the command line speaks over a socket, so an application
+ * embedding the toolchain holds a machine of its own.
+ */
+export interface OpsArgs {
+  operation: 'ops';
+  /** Serve over standard input/output; the only transport, so always set once parsed. */
+  stdio: boolean;
+  /**
+   * The machine a program-reading request defaults to when it names none and
+   * the program declares none, absent when the caller is expected to say on
+   * each request. Optional for the same reason it is optional for `lsp` and
+   * `mcp`: the server outlives any one request, and a caller may work on a
+   * machine it only decides on later.
+   */
+  machine?: string;
+}
+
 export interface LspArgs {
   operation: 'lsp';
   /** Serve over standard input/output; the only transport, so always set once parsed. */
@@ -259,9 +301,11 @@ export type CliArgs =
   | LookArgs
   | ScreenshotArgs
   | ViewArgs
+  | PlayArgs
   | MeasureArgs
   | ExpectArgs
   | ServerArgs
+  | OpsArgs
   | LspArgs
   | McpArgs
   | RomsArgs;
@@ -408,6 +452,24 @@ function parseView(argv: string[]): ViewArgs {
     throw new RunError(`view takes no arguments, got "${rest[0]}"`);
   }
   return { operation: 'view', json, stop, input: {} };
+}
+
+/**
+ * `play` and `play --stop`: asking for the machine to be played, and giving
+ * that up again.
+ */
+function parsePlay(argv: string[]): PlayArgs {
+  let json = false;
+  let stop = false;
+  const rest = scan(argv, (name) => {
+    if (name === '--json') json = true;
+    else if (name === '--stop') stop = true;
+    else throw unknownOption('play', name);
+  });
+  if (rest.length > 0) {
+    throw new RunError(`play takes no arguments, got "${rest[0]}"`);
+  }
+  return { operation: 'play', json, stop, input: {} };
 }
 
 function parseExpect(argv: string[]): ExpectArgs {
@@ -734,11 +796,11 @@ function parseConvert(argv: string[]): ConvertArgs {
 }
 
 /**
- * The two operations that serve rather than answer take the same arguments: a
- * transport and an optional machine. Neither takes a program, because a client
+ * The operations that serve rather than answer take the same arguments: a
+ * transport and an optional machine. None takes a program, because a caller
  * sends its own.
  */
-function parseServer<T extends 'lsp' | 'mcp'>(
+function parseServer<T extends 'ops' | 'lsp' | 'mcp'>(
   operation: T,
   argv: string[],
 ): { operation: T; stdio: boolean; machine?: string } {
@@ -800,6 +862,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseScreenshot(rest);
     case 'view':
       return parseView(rest);
+    case 'play':
+      return parsePlay(rest);
     case 'profile':
     case 'time':
     case 'variables':
@@ -810,6 +874,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseServerCommand(rest);
     case 'roms':
       return parseRomsCommand(rest);
+    case 'ops':
+      return parseServer('ops', rest);
     case 'lsp':
       return parseServer('lsp', rest);
     case 'mcp':

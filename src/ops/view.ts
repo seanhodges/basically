@@ -19,6 +19,8 @@ export interface ViewOutcome {
   address: string | null;
   /** Whether a view was already open, and this is that one. */
   already: boolean;
+  /** Whether a play channel onto the same machine was ended to open this. */
+  endedPlay: boolean;
   /** Why there is no address, when there is none. */
   problem: string | null;
 }
@@ -46,21 +48,36 @@ export const viewOp: Operation<Record<never, never>, ViewOutcome> = {
   needs: 'session',
   cli: { kind: 'operation', name: 'view' },
   mcp: { kind: 'tool' },
+  // A machine is projected one way or the other, and asking for a view of one
+  // that is being played is how a caller changes which - so it is answered,
+  // and the play channel ends.
+  played: 'answer',
   run: async (_input, ctx): Promise<ViewOutcome> => {
     if (!ctx.view) {
-      return { address: null, already: false, problem: CANNOT_PROJECT };
+      return {
+        address: null,
+        already: false,
+        endedPlay: false,
+        problem: CANNOT_PROJECT,
+      };
     }
     // A machine with no picture would be given an address showing nothing,
     // which is worse than being told. Asked of the session rather than of the
     // dialect because painting is what actually has to work, and capture()
     // spends none of the machine's frames.
     if (ctx.session?.capture() === null) {
-      return { address: null, already: false, problem: CANNOT_BE_PICTURED };
+      return {
+        address: null,
+        already: false,
+        endedPlay: false,
+        problem: CANNOT_BE_PICTURED,
+      };
     }
     const opened: ViewOpened = await ctx.view.open();
     return {
       address: opened.address,
       already: opened.already,
+      endedPlay: opened.endedPlay,
       problem: opened.problem,
     };
   },
@@ -72,10 +89,15 @@ export const viewOp: Operation<Record<never, never>, ViewOutcome> = {
     const opening = outcome.already
       ? 'The view already open is at'
       : 'The display is being projected to';
+    const ended = outcome.endedPlay
+      ? ' The play channel onto this machine has ended; a machine is ' +
+        'projected one way or the other.'
+      : '';
     return (
       `${opening} ${outcome.address} - show it in a web view or open it in a ` +
       'browser. It is reachable from this computer only, anyone holding the ' +
-      'address can watch, and watching does not act on the machine.'
+      'address can watch, and watching does not act on the machine.' +
+      ended
     );
   },
 };

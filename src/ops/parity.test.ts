@@ -105,14 +105,26 @@ describe('capability parity', () => {
     }
   });
 
-  it('carries no exemption for the caller that both boots a machine and holds one', () => {
-    // The two absences on record are the assistant's, and both are because
-    // the IDE around it runs the program on the user's own machine. A caller
-    // with no IDE is not described by that reason, so nothing is withheld
-    // here - and the emptiness is the assertion, because an operation this
-    // caller could not serve would have to say why.
-    expect(EXEMPTIONS.filter((e) => e.caller === 'mcp')).toEqual([]);
-    expect(OPERATIONS.every((op) => reachable(op, 'mcp'))).toBe(true);
+  it("withholds nothing from the caller that boots and holds a machine on another caller's reason", () => {
+    // Most of the absences on record are the assistant's, and they are about
+    // the IDE around it running the program on the user's own machine. A
+    // caller with no IDE is not described by that reason, so nothing is
+    // withheld here on it: an absence declared here has to be about what this
+    // caller itself is, and to say so in words the assistant's does not.
+    for (const mine of EXEMPTIONS.filter((e) => e.caller === 'mcp')) {
+      const others = EXEMPTIONS.filter(
+        (e) => e.operation === mine.operation && e.caller !== 'mcp',
+      );
+      for (const other of others) {
+        expect(mine.reason, mine.operation).not.toBe(other.reason);
+      }
+    }
+    for (const op of OPERATIONS) {
+      expect(
+        reachable(op, 'mcp') || exemptionFor(op, 'mcp') !== undefined,
+        `${op.name} is missing from the server with no declared reason`,
+      ).toBe(true);
+    }
   });
 
   it('reads a provider without tools as a property of the provider, not of any operation', () => {
@@ -195,6 +207,7 @@ describe('inputs and outcomes', () => {
       look: ['look'],
       screenshot: ['screenshot', 'a.png'],
       view: ['view'],
+      play: ['play'],
       profile: ['profile'],
       time: ['time'],
       variables: ['variables'],
@@ -205,6 +218,7 @@ describe('inputs and outcomes', () => {
       const args = parseArgs(argv[op.name]!);
       if (
         args.operation === 'help' ||
+        args.operation === 'ops' ||
         args.operation === 'lsp' ||
         args.operation === 'mcp' ||
         args.operation === 'server'
@@ -240,6 +254,7 @@ describe('inputs and outcomes', () => {
       look: {},
       screenshot: {},
       view: {},
+      play: {},
       profile: {},
       time: {},
       variables: {},

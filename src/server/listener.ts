@@ -219,6 +219,16 @@ export function serveConnection(connection: Duplex, host: HostServices): void {
           holding: (await session?.held()) ?? null,
         });
         return;
+      case 'unplay':
+        // The channel goes and the clock with it; the machine stays, and is
+        // again a machine that advances only when a request asks it to.
+        await session?.unplay();
+        send({
+          kind: 'host-result',
+          id: request.id,
+          holding: (await session?.held()) ?? null,
+        });
+        return;
       case 'stop':
         // Answered before the host goes, so the caller learns it was stopped
         // rather than only that the connection ended.

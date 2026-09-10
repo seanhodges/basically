@@ -1,0 +1,297 @@
+<!doctype html>
+<!--
+  The page a machine is played through.
+
+  Hand-written and standalone: no framework, no build step of its own, nothing
+  from the IDE. It is inlined into the host's bundle as text, so an installed
+  toolchain resolves nothing at runtime to serve it.
+
+  What it contracts to do is show the machine and type at it. How it does that
+  is private and may change - the third party's contract is "a URL you put in a
+  frame", which is why the socket below is not documented anywhere a player can
+  see.
+
+  The browser's key codes are mapped onto the machine's key names here, so the
+  host never sees a browser event. The names are the ones a written schedule
+  uses, which is what makes a key pressed by hand and the same key in a
+  schedule the same key to the machine.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- The address is the only thing admitting whoever plays, so it must not
+         travel to whatever the embedding page reaches next. -->
+    <meta name="referrer" content="no-referrer" />
+    <title>Basically - playing the machine</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #e8e8ea;
+        --quiet: #8b8b94;
+        --ground: #16161a;
+        --edge: #2a2a31;
+        --live: #6ee7a0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font:
+          13px/1.4 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      /* The embedding application chooses the size of the frame, and it may be
+         any shape at all: the screen takes what is left after the status line
+         and is centred in it, at its own aspect ratio and never upscaled past
+         the box. */
+      #screen {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        place-items: center;
+        padding: 8px;
+      }
+      #picture {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        /* A machine's screen is a few hundred pixels across; smoothing it into
+           the frame's size would blur every character it draws. */
+        image-rendering: pixelated;
+        display: block;
+        /* The page takes the keyboard, so the canvas carries the focus ring. */
+        outline: none;
+      }
+      #picture[hidden] {
+        display: none;
+      }
+      #status {
+        flex: 0 0 auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 10px;
+        border-top: 1px solid var(--edge);
+        color: var(--quiet);
+        /* A frame narrow enough that the words do not fit gets the dot and as
+           much of them as there is room for, rather than a sideways scroll. */
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      #dot {
+        width: 8px;
+        height: 8px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--quiet);
+      }
+      #status[data-state='playing'] #dot {
+        background: var(--live);
+      }
+      #said {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #nothing {
+        color: var(--quiet);
+        text-align: center;
+        padding: 16px;
+        max-width: 34ch;
+      }
+      #nothing[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="screen">
+      <canvas id="picture" width="256" height="192" tabindex="0" hidden
+        >The machine's screen</canvas
+      >
+      <p id="nothing">Waiting for the machine.</p>
+    </div>
+    <div id="status" data-state="no-machine">
+      <span id="dot"></span>
+      <span id="said">Connecting.</span>
+    </div>
+    <script>
+      (function () {
+        var picture = document.getElementById('picture');
+        var nothing = document.getElementById('nothing');
+        var status = document.getElementById('status');
+        var said = document.getElementById('said');
+        var paint = picture.getContext('2d');
+
+        var WORDS = {
+          playing: 'Playing - type at the machine.',
+          'no-machine': 'No machine is up. Run a program to start one.',
+          gone: 'The play channel has ended.',
+        };
+
+        function show(state) {
+          status.setAttribute('data-state', state);
+          said.textContent = WORDS[state] || state;
+          if (state === 'no-machine' || state === 'gone') {
+            picture.hidden = true;
+            nothing.hidden = false;
+            nothing.textContent = WORDS[state];
+          }
+        }
+
+        /* The names the machine's own keyboard answers to, which are the names
+           a written schedule uses. Everything not named here that types a
+           single character is sent as that character upper-cased; anything the
+           machine has no key for is refused there rather than guessed at
+           here. */
+        var NAMED = {
+          Enter: 'ENTER',
+          NumpadEnter: 'ENTER',
+          Backspace: 'DELETE',
+          Delete: 'DELETE',
+          ArrowLeft: 'LEFT',
+          ArrowRight: 'RIGHT',
+          ArrowUp: 'UP',
+          ArrowDown: 'DOWN',
+          Escape: 'ESCAPE',
+          Tab: 'TAB',
+          ' ': 'SPACE',
+          Shift: 'SHIFT',
+          Control: 'CTRL',
+          Alt: 'ALT',
+          Meta: 'SYMBOL',
+        };
+
+        function nameOf(event) {
+          var named = NAMED[event.key];
+          if (named) return named;
+          /* A function key is named by its own cap - F1, F0 - and the machines
+             disagree about where the numbering starts, so it is passed through
+             as the browser spells it rather than renumbered. */
+          if (/^F\d+$/.test(event.key)) return event.key;
+          if (event.key === 'Pause' || event.key === 'ScrollLock') {
+            return 'BREAK';
+          }
+          return event.key.length === 1 ? event.key.toUpperCase() : null;
+        }
+
+        /* Relative, so the channel works at whatever address it was given and
+           the page never has to know its own token. */
+        var where = new URL('socket', location.href);
+        where.protocol = where.protocol === 'https:' ? 'wss:' : 'ws:';
+        var socket = new WebSocket(where.href);
+        socket.binaryType = 'arraybuffer';
+
+        function send(key, down) {
+          if (socket.readyState !== WebSocket.OPEN) return;
+          socket.send(JSON.stringify({ key: key, down: down }));
+        }
+
+        /* Decompressing a frame is asynchronous, and the machine goes on
+           drawing while it happens. Only the newest frame is kept: showing a
+           backlog of a machine's past is worse than skipping it. */
+        var pending = null;
+        var decoding = false;
+
+        function draw(width, height, pixels) {
+          if (picture.width !== width || picture.height !== height) {
+            picture.width = width;
+            picture.height = height;
+          }
+          paint.putImageData(
+            new ImageData(new Uint8ClampedArray(pixels), width, height),
+            0,
+            0,
+          );
+          picture.hidden = false;
+          nothing.hidden = true;
+        }
+
+        function decode() {
+          if (decoding || !pending) return;
+          decoding = true;
+          var frame = pending;
+          pending = null;
+          new Response(
+            new Blob([frame.pixels])
+              .stream()
+              .pipeThrough(new DecompressionStream('deflate-raw')),
+          )
+            .arrayBuffer()
+            .then(function (pixels) {
+              draw(frame.width, frame.height, pixels);
+            })
+            .catch(function () {
+              /* A frame that will not decompress is one frame; the next is
+                 twenty milliseconds away. */
+            })
+            .then(function () {
+              decoding = false;
+              decode();
+            });
+        }
+
+        socket.addEventListener('message', function (message) {
+          var bytes = new Uint8Array(message.data);
+          if (bytes[0] === 0x01) {
+            var head = new DataView(message.data, 1, 4);
+            pending = {
+              width: head.getUint16(0),
+              height: head.getUint16(2),
+              pixels: bytes.subarray(5),
+            };
+            decode();
+            return;
+          }
+          if (bytes[0] === 0x02) {
+            show(new TextDecoder().decode(bytes.subarray(1)));
+          }
+        });
+
+        socket.addEventListener('open', function () {
+          picture.focus();
+        });
+
+        /* A play channel ends with the caller that asked for it, and the host
+           then stops answering at this address. */
+        socket.addEventListener('close', function () {
+          show('gone');
+        });
+
+        /* Held on the window rather than the canvas so a click anywhere in the
+           frame does not lose the machine its keyboard. A key the machine has
+           a name for is the machine's; everything else is the browser's. */
+        function typed(event, down) {
+          if (event.metaKey && event.key !== 'Meta') return;
+          var name = nameOf(event);
+          if (!name) return;
+          event.preventDefault();
+          if (down && event.repeat) return;
+          send(name, down);
+        }
+        window.addEventListener('keydown', function (event) {
+          typed(event, true);
+        });
+        window.addEventListener('keyup', function (event) {
+          typed(event, false);
+        });
+        /* A frame that loses focus must not leave a key held down on the
+           machine for the rest of the session. */
+        window.addEventListener('blur', function () {
+          send('*', false);
+        });
+      })();
+    </script>
+  </body>
+</html>

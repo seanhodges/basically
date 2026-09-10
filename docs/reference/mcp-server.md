@@ -67,10 +67,16 @@ the toolchain uses everywhere else:
 | `expect`                           | Say what the machine should be showing, and check it                          |
 | `view`                             | Project the display to an address a web view can be pointed at                |
 
-There is nothing here the command line cannot also do, and nothing the command
-line can do that isn't here. The two are the same operations, reached
-differently — including keeping a machine up between requests, which the command
-line now does too.
+One operation the command line has is deliberately not here: `play`, which hands
+a machine's keyboard to a person at a web view. An agent works in turns and
+cannot type at a machine that keeps running between them, and a machine on that
+clock is not one an agent's own measurements could trust —
+[playing the machine](./playing-the-machine) says so at more length.
+
+Apart from that one, there is nothing here the command line cannot also do and
+nothing the command line can do that isn't here. The two are the same
+operations, reached differently — including keeping a machine up between
+requests, which the command line now does too.
 
 ### Sharing one server
 
@@ -88,6 +94,10 @@ basically server stop     # stop it
 You are offered the same tools and answered the same way either way, and the
 machine your client is working on is yours: nothing else reaching that host can
 see it or disturb it. A client that starts the server itself needs no change.
+
+An application that is neither an agent nor an editor has a third way to start
+the toolchain and hold a machine of its own — see
+[embedding the toolchain](./embedding-the-toolchain).
 
 Most of these need no ROM. Running a program and checking one do, because they
 boot the machine; the rest work whether or not the machine's ROM is installed.

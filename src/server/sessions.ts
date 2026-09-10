@@ -26,8 +26,11 @@
 
 import type { CallOutcome } from './ops';
 import type { MachineHolder } from './machineWorker';
-import { noViews, type SessionView } from './view/link';
-import type { ViewHost } from './view/host';
+import {
+  noProjections,
+  type ProjectionHost,
+  type SessionProjection,
+} from './projection/link';
 
 /** One caller of the host, for as long as it is connected. */
 export interface HostSession {
@@ -40,6 +43,12 @@ export interface HostSession {
   release(): Promise<void>;
   /** Give up this caller's view, keeping the machine and the session. */
   unview(): Promise<void>;
+  /**
+   * Give up this caller's play channel, keeping the machine and the session.
+   * The machine stops advancing unasked and is again one that advances only
+   * when a request asks it to.
+   */
+  unplay(): Promise<void>;
   /** The caller is gone: let go of the machine and the worker under it. */
   close(): Promise<void>;
 }
@@ -63,16 +72,18 @@ export interface Sessions {
 /**
  * `newHolder` is what a session's machine is held by - a worker on a listening
  * host, this thread on one serving a single caller over its own streams. It is
- * handed the caller's view because the machine is what produces the frames,
- * and a machine let go and started again is projected to the same view: the
- * view follows the caller, not any one machine.
+ * handed the caller's projections because the machine is what produces the
+ * frames and what a key reaches, and a machine let go and started again is
+ * projected to the same address: a projection follows the caller, not any one
+ * machine.
  *
- * `views` is where a caller's projection comes from. The default projects
- * nothing, which is a host that binds no network address at all.
+ * `projections` is where a caller's view and play channel come from. The
+ * default projects nothing, which is a host that binds no network address at
+ * all.
  */
 export function createSessions(
-  newHolder: (view: SessionView) => MachineHolder,
-  views: ViewHost = noViews(),
+  newHolder: (projection: SessionProjection) => MachineHolder,
+  projections: ProjectionHost = noProjections(),
 ): Sessions {
   const live = new Map<number, HostSession>();
   let nextId = 1;
@@ -84,16 +95,19 @@ export function createSessions(
       // Both made on first use rather than on connecting: a caller that only
       // lints pays for neither a worker nor a network address.
       let holder: MachineHolder | null = null;
-      const view = views.forSession();
-      const require = () => (holder ??= newHolder(view));
+      const projection = projections.forSession();
+      const view = projection.view;
+      const require = () => (holder ??= newHolder(projection));
 
       const letGo = async () => {
         const held = holder;
         holder = null;
         // The machine has gone; whoever is watching is told so rather than
-        // left looking at a picture of it. The view itself stays open, and
-        // its address stays valid, because it belongs to the caller.
+        // left looking at a picture of it, and whoever is playing is told
+        // there is nothing to play. Both projections stay open, and their
+        // addresses stay valid, because they belong to the caller.
         view.settled(null);
+        projection.play.say('no-machine');
         await held?.dispose();
       };
 
@@ -115,9 +129,10 @@ export function createSessions(
         held: () => holder?.held() ?? Promise.resolve(null),
         release: letGo,
         unview: () => view.end(),
+        unplay: () => projection.play.end(),
         close: async () => {
           live.delete(id);
-          await view.end();
+          await projection.end();
           await letGo();
         },
       };
@@ -155,7 +170,7 @@ export function createSessions(
       await Promise.all(all.map((session) => session.close()));
       live.clear();
       // Nothing is left to project to, so nothing goes on listening.
-      await views.close();
+      await projections.close();
     },
   };
   return sessions;

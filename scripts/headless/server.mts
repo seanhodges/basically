@@ -29,8 +29,8 @@ import {
   type Conversation,
 } from '../../src/server/protocol';
 import { createSessions } from '../../src/server/sessions';
-import { createViewHost } from '../../src/server/view/host';
-import type { SessionView } from '../../src/server/view/link';
+import { createProjectionHost } from '../../src/server/projection/host';
+import type { SessionProjection } from '../../src/server/projection/link';
 
 // The editor and agent protocol stacks are each larger than everything else a
 // host carries, and a host serves at most one of them: `--ops` needs neither.
@@ -138,23 +138,27 @@ function parseArgs(argv: string[]): Args | 'help' | 'address' {
 /** A machine in a worker of its own, started from the bundle beside this one. */
 function workerHolder(
   directory: string,
-  view: SessionView,
+  projection: SessionProjection,
   defaultMachine?: string,
 ): MachineHolder {
-  return createWorkerHolder(() => {
-    const worker = new Worker(path.join(directory, 'machineWorker.mjs'), {
-      workerData: defaultMachine === undefined ? {} : { defaultMachine },
-      // The worker's own output would otherwise interleave with whatever this
-      // host is serving on its standard streams.
-      stdout: true,
-      stderr: true,
-    });
-    worker.stderr.pipe(process.stderr);
-    return {
-      port: worker as unknown as MessageChannelLike,
-      terminate: () => worker.terminate().then(() => undefined),
-    };
-  }, view);
+  return createWorkerHolder(
+    () => {
+      const worker = new Worker(path.join(directory, 'machineWorker.mjs'), {
+        workerData: defaultMachine === undefined ? {} : { defaultMachine },
+        // The worker's own output would otherwise interleave with whatever this
+        // host is serving on its standard streams.
+        stdout: true,
+        stderr: true,
+      });
+      worker.stderr.pipe(process.stderr);
+      return {
+        port: worker as unknown as MessageChannelLike,
+        terminate: () => worker.terminate().then(() => undefined),
+      };
+    },
+    projection.view,
+    projection.play,
+  );
 }
 
 async function main(): Promise<number> {
@@ -193,9 +197,13 @@ async function main(): Promise<number> {
     }
     if (only === 'mcp') {
       const { runMcpServer } = await import('./mcp.mts');
-      const agentViews = createViewHost();
+      const agentViews = createProjectionHost();
       try {
-        await runMcpServer(args.machine, undefined, agentViews.forSession());
+        await runMcpServer(
+          args.machine,
+          undefined,
+          agentViews.forSession().view,
+        );
       } finally {
         await agentViews.close();
       }
@@ -211,14 +219,15 @@ async function main(): Promise<number> {
   }
 
   const address = hostAddress(buildId, environment);
-  // Nothing is bound here: the view host binds a port on the first caller that
-  // asks for a view, and stops listening again when the last one ends.
-  const views = createViewHost({
+  // Nothing is bound here: the projection host binds a port on the first caller
+  // that asks for a view or a play channel, and stops listening again when the
+  // last one ends.
+  const projections = createProjectionHost({
     note: (message) => err(`[basically-server] ${message}\n`),
   });
   const sessions = createSessions(
-    (view) => workerHolder(directory, view, args.machine),
-    views,
+    (projection) => workerHolder(directory, projection, args.machine),
+    projections,
   );
   let listening: Awaited<ReturnType<typeof listenOn>> | null = null;
 
@@ -237,8 +246,8 @@ async function main(): Promise<number> {
     {
       connected: () => connections,
       shutdown: async () => {
-        // The sessions go first, and every view goes with the caller that
-        // asked for it; `closeAll` then stops the view host listening.
+        // The sessions go first, and every projection goes with the caller
+        // that asked for it; `closeAll` then stops the listener.
         await sessions.closeAll();
         await listening?.close();
         stopped();
@@ -260,8 +269,10 @@ async function main(): Promise<number> {
       serveAgent: (connection: Duplex) => {
         life.touch();
         // A view of its own, ending with the agent that asked for it: an agent
-        // is a caller like any other, and no caller sees another's machine.
-        const view = views.forSession();
+        // is a caller like any other, and no caller sees another's machine. No
+        // play channel: an agent acts in turns, and a machine that ran between
+        // them would not be one it could measure - see `src/ops/parity.ts`.
+        const view = projections.forSession().view;
         void import('./mcp.mts').then(({ runMcpServer }) =>
           runMcpServer(
             args.machine,
@@ -317,12 +328,18 @@ async function main(): Promise<number> {
  * there was a host at all.
  */
 function serveOverStdio(options: { defaultMachine?: string }): Promise<void> {
-  const views = createViewHost({
+  const projections = createProjectionHost({
     note: (message) => err(`[basically-server] ${message}\n`),
   });
   const sessions = createSessions(
-    (view) => createInProcessHolder(options, reachesFromCli, view),
-    views,
+    (projection) =>
+      createInProcessHolder(
+        options,
+        reachesFromCli,
+        projection.view,
+        projection.play,
+      ),
+    projections,
   );
   return new Promise<void>((resolve) => {
     const connection = Duplex.from({

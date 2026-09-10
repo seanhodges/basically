@@ -24,6 +24,7 @@
 
 import { RunError } from '../dialects/headless/runError';
 import { profileOp, timeOp } from '../ops/measure';
+import { beingPlayed } from '../ops/play';
 import { findOperation } from '../ops/registry';
 import { schemaProblem } from '../ops/schema';
 import type { OpContext, Operation } from '../ops/types';
@@ -105,6 +106,14 @@ export async function runOperation(
   const ctx = host.context();
   if (op.needs === 'session' && ctx.session === null) {
     throw new CallRefused(WITHOUT_A_MACHINE);
+  }
+  // A machine being played advances on its own clock while somebody types at
+  // it, so what it would be asked to do here would fight them and what would
+  // be measured of it would not be a measurement. Each operation declares
+  // which it is; the reason and the remedy are what the caller gets, rather
+  // than a code it has to look up.
+  if (op.played === 'refuse' && ctx.play?.playing()) {
+    throw new CallRefused(beingPlayed(op.name));
   }
   const problem = schemaProblem(op.input, input);
   if (problem) throw new CallRefused(problem);

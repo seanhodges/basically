@@ -25,6 +25,7 @@ function stubProjection(address: string | null = 'http://127.0.0.1:1/v/abc/'): {
         address,
         problem: address === null ? 'nothing to project to' : null,
         already,
+        endedPlay: false,
       });
     },
   };
@@ -45,6 +46,7 @@ describe('asking for a view', () => {
     expect(outcome).toEqual({
       address: 'http://127.0.0.1:1/v/abc/',
       already: false,
+      endedPlay: false,
       problem: null,
     });
     expect(JSON.parse(JSON.stringify(outcome))).toEqual(outcome);

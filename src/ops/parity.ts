@@ -30,6 +30,30 @@ export interface Exemption {
 
 export const EXEMPTIONS: readonly Exemption[] = [
   {
+    operation: 'play',
+    caller: 'assistant',
+    reason:
+      'Playing is a person at a keyboard watching a machine answer them, and ' +
+      'the assistant is not at one: it drives a machine through a schedule, ' +
+      'a step at a time, and reads the screen between steps. It also runs in ' +
+      "the browser IDE, where the machine is already under the user's own " +
+      'hands and needs no channel to reach. The reason is what this caller ' +
+      'is rather than anything about playing, so a caller that can hold a ' +
+      'keyboard is offered it.',
+  },
+  {
+    operation: 'play',
+    caller: 'mcp',
+    reason:
+      'An agent cannot type at a machine as it runs - it acts in turns, and ' +
+      'a played machine keeps going between them - and it already has the ' +
+      'way to drive one that suits it, which is a schedule that spends ' +
+      'exactly the frames it says. Handing it an address a person is meant ' +
+      'to sit at would give it nothing it can use and would put the machine ' +
+      'on a clock its own measurements assume is not running. The reason is ' +
+      'how an agent works, so it reaches no caller that works otherwise.',
+  },
+  {
     operation: 'run',
     caller: 'assistant',
     reason:

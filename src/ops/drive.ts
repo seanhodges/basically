@@ -79,6 +79,10 @@ export const driveOp: Operation<DriveInput, DriveOutcome> = {
   cli: { kind: 'operation', name: 'drive' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
+  // A schedule spends the machine's frames deliberately, and a played machine
+  // is spending them on its own clock while somebody types: the two would be
+  // driving one keyboard against each other.
+  played: 'refuse',
   run: (input, ctx) => {
     const session = requireSession(ctx.session);
     const report = runDriveScript(session, parseDriveScript(input.script));
@@ -106,6 +110,9 @@ export const lookOp: Operation<Record<never, never>, LookOutcome> = {
   cli: { kind: 'operation', name: 'look' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
+  // Reading the screen spends none of the machine's frames, so it is answered
+  // about a played machine - having caught one that is moving.
+  played: 'answer',
   run: (_input, ctx) => ({ screen: requireSession(ctx.session).readText() }),
   describe: (outcome) => describeScreen(outcome.screen),
 };
@@ -136,6 +143,9 @@ export const screenshotOp: Operation<
   cli: { kind: 'operation', name: 'screenshot' },
   assistant: { kind: 'block', fence: 'basic-view', example: 'SCREEN IMAGE' },
   mcp: { kind: 'tool' },
+  // Painting spends none of the machine's frames, so a picture of a played
+  // machine is taken - of a machine that is moving, and two of them may differ.
+  played: 'answer',
   run: (_input, ctx) => ({ picture: requireSession(ctx.session).capture() }),
   describe: (outcome) =>
     outcome.picture
