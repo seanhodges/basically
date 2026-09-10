@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import { InsertTextFormat } from 'vscode-languageserver';
+import { CompletionItemKind, InsertTextFormat } from 'vscode-languageserver';
 import { getDialect } from '../dialects/registry';
 import { DocumentStore, offsetToPosition } from './documents';
 import { completionsAt } from './completion';
@@ -38,13 +38,60 @@ describe('completion', () => {
     });
   });
 
+  it("offers the program's own names alongside the machine's keywords", async () => {
+    const text = '10 LET SCORE=1\n20 PRINT SC';
+    const items = await completionsFor('zx81', text, text.length);
+    const score = items.find((i) => i.label === 'SCORE');
+    // Marked as a variable, so an editor showing kinds tells it from a keyword.
+    expect(score?.kind).toBe(CompletionItemKind.Variable);
+    expect(items.some((i) => i.label === 'PRINT')).toBe(true);
+  });
+
+  it('offers a name local to a procedure only from inside it', async () => {
+    const text = [
+      '10 total=1',
+      '20 PROCwork',
+      '30 PRINT t',
+      '40 END',
+      '50 DEF PROCwork',
+      '60 LOCAL tally',
+      '70 tally=2',
+      '80 PRINT t',
+      '90 ENDPROC',
+    ].join('\n');
+    const outside = await completionsFor(
+      'bbcmicro',
+      text,
+      text.indexOf('30 PRINT t') + '30 PRINT t'.length,
+    );
+    expect(outside.some((i) => i.label === 'total')).toBe(true);
+    expect(outside.some((i) => i.label === 'tally')).toBe(false);
+
+    const inside = await completionsFor(
+      'bbcmicro',
+      text,
+      text.indexOf('80 PRINT t') + '80 PRINT t'.length,
+    );
+    expect(inside.some((i) => i.label === 'tally')).toBe(true);
+  });
+
   it('offers nothing inside a string literal', async () => {
     const text = '10 PRINT "PR';
     const items = await completionsFor('zx81', text, text.length);
     expect(items).toEqual([]);
   });
 
+  it('offers no name either inside a string literal', async () => {
+    const text = '10 LET SCORE=1\n20 PRINT "SC';
+    const items = await completionsFor('zx81', text, text.length);
+    expect(items).toEqual([]);
+  });
+
   it('replaces only the tail on a crunched machine, not the whole run', async () => {
+    // Still one range across every item here, with two sources answering: the
+    // variable source blanks the word under the cursor before it scans, so a
+    // lone name finds no names and stands down, leaving the keyword source's
+    // re-anchored run as the only answer.
     const text = '10 POKEA';
     const items = await completionsFor('commodore64', text, text.length);
     expect(items.length).toBeGreaterThan(0);

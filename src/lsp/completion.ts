@@ -4,13 +4,18 @@
 /**
  * Completion, translated from the browser editor's own answer.
  *
- * `dialect.completionSource` already decides everything that matters: which
- * keywords and block constructs the machine has, whether the cursor sits
- * inside a string (nothing is offered there), and - on a crunched dialect -
- * where a completion accepted mid-run should really start
- * (`src/editor/completions.ts`'s re-anchoring). This module's whole job is
- * turning that CodeMirror `CompletionResult` into the protocol's shape;
- * nothing here is a second decision about what to offer.
+ * The sources come off the document's own `EditorState`, exactly as
+ * CodeMirror's `autocompletion()` reads them - `buildBasicLanguage` registers
+ * the dialect's keyword and construct source and the document-scanning
+ * variable source on the same language data, and a source registered later is
+ * answered over the protocol without this module learning about it. They
+ * already decide everything that matters: which keywords, constructs and names
+ * in scope the machine and the program have, whether the cursor sits inside a
+ * string (nothing is offered there), and - on a crunched dialect - where a
+ * completion accepted mid-run should really start (`src/editor/completions.ts`
+ * and `src/editor/variables.ts` each re-anchor for what they know). This
+ * module's whole job is turning their CodeMirror `CompletionResult`s into the
+ * protocol's shape; nothing here is a second decision about what to offer.
  *
  * A construct's `apply` closure (`makeConstructApply` in
  * `src/editor/completions.ts`) drives an `EditorView` to number the lines it
@@ -21,7 +26,11 @@
  * protocol's own syntax - the same fallback `makeConstructApply` itself takes
  * when auto-numbering is off.
  */
-import { CompletionContext } from '@codemirror/autocomplete';
+import {
+  CompletionContext,
+  type CompletionResult,
+  type CompletionSource,
+} from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 import {
   CompletionItemKind,
@@ -55,38 +64,43 @@ export async function completionsAt(
   const dialect = doc.binding.dialect;
   const pos = positionToOffset(doc.text, position);
   const context = new CompletionContext(state, pos, true);
+  const sources = state.languageDataAt<CompletionSource>('autocomplete', pos);
   // A CompletionSource may answer synchronously or asynchronously; every
-  // dialect here answers synchronously, but `await`ing a plain value resolves
+  // source here answers synchronously, but `await`ing a plain value resolves
   // immediately, so this reads correctly either way.
-  const result = await dialect.completionSource(context);
-  if (!result) return [];
+  const results = await Promise.all(sources.map((source) => source(context)));
 
   const constructs = constructsByDialect[dialect.id] ?? [];
   const constructByLabel = new Map(constructs.map((c) => [c.label, c]));
 
-  // One anchor for the whole result, exactly as CodeMirror's own consumers
-  // read it - the crunch re-anchoring already moved `result.from` for a mid-run
-  // completion, so every option replaces the same (possibly shortened) range.
-  const range = {
-    start: offsetToPosition(doc.text, result.from),
-    end: offsetToPosition(doc.text, result.to ?? pos),
+  const itemsFrom = (result: CompletionResult): CompletionItem[] => {
+    // The anchor belongs to the result, not to the request: on a machine whose
+    // ROM matches keywords greedily each source re-anchors against what it
+    // knows, so two sources can legitimately disagree about where the user's
+    // word starts, and each item replaces what it was offered for.
+    const range = {
+      start: offsetToPosition(doc.text, result.from),
+      end: offsetToPosition(doc.text, result.to ?? pos),
+    };
+    return result.options.map((option): CompletionItem => {
+      const construct =
+        typeof option.apply === 'function'
+          ? constructByLabel.get(option.label)
+          : undefined;
+      const insertText = construct ? construct.lines.join('\n') : option.label;
+      return {
+        label: option.label,
+        kind: KIND_BY_TYPE[option.type ?? ''] ?? CompletionItemKind.Text,
+        detail: option.detail,
+        documentation:
+          typeof option.info === 'string' ? option.info : undefined,
+        insertTextFormat: construct
+          ? InsertTextFormat.Snippet
+          : InsertTextFormat.PlainText,
+        textEdit: { range, newText: insertText },
+      };
+    });
   };
 
-  return result.options.map((option): CompletionItem => {
-    const construct =
-      typeof option.apply === 'function'
-        ? constructByLabel.get(option.label)
-        : undefined;
-    const insertText = construct ? construct.lines.join('\n') : option.label;
-    return {
-      label: option.label,
-      kind: KIND_BY_TYPE[option.type ?? ''] ?? CompletionItemKind.Text,
-      detail: option.detail,
-      documentation: typeof option.info === 'string' ? option.info : undefined,
-      insertTextFormat: construct
-        ? InsertTextFormat.Snippet
-        : InsertTextFormat.PlainText,
-      textEdit: { range, newText: insertText },
-    };
-  });
+  return results.flatMap((result) => (result ? itemsFrom(result) : []));
 }

@@ -383,6 +383,13 @@ Two boundaries hold this in place:
 every dialect. `loadReferencePage` / `loadEscapePage` return `undefined`,
 because their caller is a click that must still do what it can.
 
+Which page a machine reads from, and where a keyword's entry in it is
+published, are stated once in `src/dialects/referencePage.ts`. It answers to a
+shape rather than to a `Dialect` and imports nothing, so it sits inside both
+boundaries above: the app routes its own docs drawer through it, and the
+language server - which has no `/docs/` mount to resolve against - composes the
+absolute address it names into the explanation it sends.
+
 ### Integration services
 
 | Service                                              | Contents                                                                                                                                                                                                                                                          |
@@ -963,7 +970,12 @@ Node, exactly as `src/editor/completions.test.ts` already proves runs with no
 DOM, and `src/lsp/completion.ts`, `hover.ts`, `definition.ts`, `symbols.ts`,
 `references.ts` and `semanticTokens.ts` translate what `src/editor/` and the
 `Dialect` seam already answer into the protocol's shapes - no second classifier,
-no second reading of a program. Colour is the clearest case of that rule:
+no second reading of a program. Completion takes that literally: it runs every
+source the state's own language data carries, as `autocompletion()` does in the
+browser, so a source registered there later is served over the protocol without
+the server being taught about it. Each result keeps its own replaced range,
+because two sources re-anchoring against different vocabularies can disagree
+about where the word under the cursor starts. Colour is the clearest case of that rule:
 `src/editor/tokenRuns.ts` walks the same stream-language tree
 `src/editor/tokenAt.ts` resolves a single position in, so what an editor colours
 a run is the tag that dialect's own tokenizer returned for it.
