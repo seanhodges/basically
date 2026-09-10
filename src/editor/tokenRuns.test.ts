@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
+import { syntaxTree } from '@codemirror/language';
 import { getDialect } from '../dialects/registry';
 import { tokensIn } from './tokenRuns';
 
@@ -124,14 +125,25 @@ describe('tokensIn', () => {
   });
 
   it('reaches past the region a lazy parse would have covered', () => {
-    // A program long enough that the tree is not parsed to the end up front:
-    // the last line must still yield its runs.
+    // The lazy tree stops a few kilobytes in whatever the program's length, so
+    // a line past that mark is the case this has to get right.
+    //
+    // The program is sized just past the mark rather than as long as possible.
+    // Forcing the parse is bounded by a budget, so a test needing a long parse
+    // to finish inside it measures the machine it runs on rather than this
+    // code - which is how an earlier 4000-line version of this passed here and
+    // failed on a loaded CI runner. At this length the parse has two orders of
+    // magnitude of headroom against the budget.
     const lines = Array.from(
-      { length: 4000 },
+      { length: 400 },
       (_, i) => `${(i + 1) * 10} PRINT "LINE"`,
     );
     const state = stateFor('zx81', lines.join('\n'));
     const last = state.doc.line(state.doc.lines);
+    expect(
+      syntaxTree(state).length,
+      'the lazy tree already reaches the last line, so this proves nothing',
+    ).toBeLessThan(last.from);
     expect(tokensIn(state, last.from, last.to).map((t) => t.kind)).toEqual([
       'labelName',
       'keyword',
