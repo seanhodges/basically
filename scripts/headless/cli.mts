@@ -29,6 +29,7 @@ import { findRomRoot } from '../../src/dialects/headless/romRoot';
 import { decodeBytes, encodeBytes } from '../../src/ops/bytes';
 import type { CheckOutcome } from '../../src/ops/check';
 import type { ConvertOutcome } from '../../src/ops/convert';
+import { breakOp, continueOp, stepOp, whereOp } from '../../src/ops/debug';
 import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
 import { playOp } from '../../src/ops/play';
 import { viewOp } from '../../src/ops/view';
@@ -155,7 +156,15 @@ function report(result: RunOutcome, wrote: string | null): void {
       // Sampling starts after loadProgram, which pumps frames of its own while
       // it types at the machine - so a short program can be over before the
       // first sample, and "stopped without being seen running" is not a fault.
-      `${result.ended ? 'stopped' : 'still running at the cap'}` +
+      // Three ways to finish, not two: a run that stopped on a line is left
+      // there, and "still running at the cap" would say nothing about where.
+      `${
+        result.stoppedAt !== null
+          ? `stopped before line ${result.stoppedAt}`
+          : result.ended
+            ? 'stopped'
+            : 'still running at the cap'
+      }` +
       `${result.ended && !result.started ? ' (already finished when sampling began)' : ''}\n` +
       `tokenize ${ms(timings.tokenizeMs)}  boot ${ms(timings.bootMs)}  ` +
       `load ${ms(timings.loadMs)}  run ${ms(timings.runMs)}  ` +
@@ -298,6 +307,7 @@ async function run(
       keys: result.keys,
       started: result.started,
       ended: result.ended,
+      stoppedAt: result.stoppedAt,
       screen: result.screen,
       picture: picture
         ? {
@@ -330,6 +340,12 @@ async function run(
   }
 
   report(result, wrote);
+  if (result.stoppedAt !== null && args.hold) {
+    err(
+      'the machine is left there: "basically where", "basically variables", ' +
+        '"basically step" and "basically continue" act on it\n',
+    );
+  }
   if (result.keys) {
     // The steps go to standard error beside the run's own figures: standard
     // output carries the screen and nothing else, so `| diff` still works on a
@@ -401,6 +417,10 @@ async function onTheHeldMachine(
         | 'profile'
         | 'time'
         | 'variables'
+        | 'break'
+        | 'step'
+        | 'continue'
+        | 'where'
         | 'expect';
     }
   >,
@@ -447,6 +467,16 @@ function describeHeld(operation: string, value: unknown): string {
       return timeOp.describe(value as never);
     case 'variables':
       return variablesOp.describe(value as never);
+    // Each of the four says where the program now is in its own words; the
+    // command line uses them rather than inventing a second rendering.
+    case 'break':
+      return breakOp.describe(value as never);
+    case 'step':
+      return stepOp.describe(value as never);
+    case 'continue':
+      return continueOp.describe(value as never);
+    case 'where':
+      return whereOp.describe(value as never);
     case 'look': {
       const screen = (value as { screen: RunOutcome['screen'] }).screen;
       return screenLines(screen).join('\n');

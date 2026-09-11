@@ -5,7 +5,7 @@ import {
   installNodeRomLoading,
 } from '../bootHarness';
 import { hasFatalErrors } from '../types';
-import type { MachineScreenText } from '../types';
+import type { DebugStepResult, MachineScreenText } from '../types';
 import { resolveTokenize } from '../resolveListing';
 import { findMachine } from '../machineLookup';
 import {
@@ -105,6 +105,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
     started: false,
     ended: false,
     reached: false,
+    stoppedAt: null,
     screen: null,
     picture: null,
     timings: { ...timings, totalMs: performance.now() - startedAt },
@@ -183,6 +184,31 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         tap?.frame();
       };
 
+      // The lines this run is to stop before, and the machine's own stopping
+      // path in place of a whole frame where any were named. A machine that
+      // cannot say which BASIC line it is executing takes the ordinary path
+      // whatever is named, and so does a run nobody asked to stop - which is
+      // what confines the slower path to the callers that asked for it.
+      const stops = new Set(opts.breakpoints ?? []);
+      const stopping =
+        stops.size > 0 && typeof machine.debugStep === 'function';
+      let stoppedAt: number | null = null;
+      // The line the run resumed from, threaded through every slice: a slice may
+      // exhaust its budget while still on it, and in run mode a stop is ignored
+      // until execution has left it.
+      let fromLine: number | null = null;
+      const runSlice = (): DebugStepResult => {
+        const result = machine.debugStep!({
+          breakpoints: stops,
+          mode: 'run',
+          fromLine,
+        });
+        if (result.paused) fromLine = result.line;
+        observe?.frame?.(machine);
+        tap?.frame();
+        return result;
+      };
+
       // Sampled per frame while a schedule is running, the same tri-state way
       // the undriven loop samples it: a program cannot un-begin, so once it has
       // been seen running and then stopped, it has ended - and a schedule whose
@@ -204,7 +230,16 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       let reached = opts.until === undefined;
       let lastScreen: MachineScreenText | null = null;
       for (; frames < driveFrames + cap; frames++) {
-        runFrame();
+        if (stopping) {
+          const sliced = runSlice();
+          if (sliced.paused) {
+            stoppedAt = sliced.line;
+            frames++;
+            break;
+          }
+        } else {
+          runFrame();
+        }
         if (opts.drive) sample();
         if (opts.until !== undefined) {
           lastScreen = machine.readScreenText?.() ?? null;
@@ -243,7 +278,11 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
       // A driven run settles only where the program actually stopped: the
       // caller's own frame count is exact, and a schedule that left a game
       // running has no settled picture to wait for.
-      const settling = opts.drive ? ended : fixed === undefined;
+      // A stopped run settles nothing either: the program is mid-flight before
+      // the line the caller asked it to stop at, and settling frames would run
+      // it past that line.
+      const settling =
+        stoppedAt === null && (opts.drive ? ended : fixed === undefined);
       if (settling && settled) {
         const settle = opts.settleFrames ?? SETTLE_FRAMES;
         for (let i = 0; i < settle; i++, frames++) runFrame();
@@ -283,6 +322,7 @@ export async function runListing(opts: RunOptions): Promise<RunResult> {
         started,
         ended,
         reached,
+        stoppedAt,
         screen,
         picture,
         timings: { ...timings, totalMs: performance.now() - startedAt },

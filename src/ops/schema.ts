@@ -5,10 +5,10 @@ import type { InputSchema } from './types';
  * from a model and an input from the command line's parser are held to the
  * same shape before an operation sees either.
  *
- * Objects with typed properties, a required list and no extras; strings,
- * numbers, integers and booleans; an enum of strings. Nothing else is written
- * in a schema here, and a schema using anything else fails loudly rather than
- * passing whatever it cannot read.
+ * Objects with typed properties, a required list and no extras; lists of one
+ * declared item type; strings, numbers, integers and booleans; an enum of
+ * strings. Nothing else is written in a schema here, and a schema using
+ * anything else fails loudly rather than passing whatever it cannot read.
  */
 
 /** Why a value does not fit its schema, or null when it does. */
@@ -39,9 +39,33 @@ export function schemaProblem(
       return Number.isInteger(value) ? null : `${path} must be a whole number`;
     case 'object':
       return objectProblem(schema, value, path);
+    case 'array':
+      return arrayProblem(schema, value, path);
     default:
       throw new Error(`schema at ${path} uses an unsupported type "${type}"`);
   }
+}
+
+/**
+ * A list, checked item by item against the one type its schema declares.
+ *
+ * A schema with no declared item type throws rather than accepting anything,
+ * for the reason the unsupported types throw: a check that silently passes
+ * whatever it cannot read is worse than no check.
+ */
+function arrayProblem(
+  schema: InputSchema,
+  value: unknown,
+  path: string,
+): string | null {
+  if (!Array.isArray(value)) return `${path} must be a list`;
+  const items = schema.items as InputSchema | undefined;
+  if (!items) throw new Error(`schema at ${path} is a list of nothing`);
+  for (const [index, item] of value.entries()) {
+    const problem = schemaProblem(items, item, `${path}[${index}]`);
+    if (problem) return problem;
+  }
+  return null;
 }
 
 function objectProblem(

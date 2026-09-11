@@ -10,6 +10,7 @@
 import { buildOp } from './build';
 import { checkOp } from './check';
 import { convertOp } from './convert';
+import { breakOp, continueOp, stepOp, whereOp } from './debug';
 import { driveOp, lookOp, screenshotOp } from './drive';
 import { expectOp } from './expect';
 import { infoOp } from './info';
@@ -36,6 +37,10 @@ export const OPERATIONS: readonly Operation[] = [
   profileOp,
   timeOp,
   variablesOp,
+  breakOp,
+  stepOp,
+  continueOp,
+  whereOp,
   expectOp,
   convertOp,
   viewOp,

@@ -246,3 +246,132 @@ describe('a machine that is being watched', () => {
     expect(viewer.frames.length).toBe(sampled);
   }, 30_000);
 });
+
+/**
+ * Stopping a program on a line, on the machine the server holds.
+ *
+ * Here rather than over a stub because the questions are about the held
+ * machine: whether the lines in force survive between requests as the machine
+ * does, whether the stop leaves the machine where it stopped, and whether a
+ * machine nobody asked to stop is the machine it was before.
+ */
+describe('the held machine stopping on a line', () => {
+  /** A loop, so the same line is reached more than once. */
+  const COUNTING =
+    '10 LET A=0\n' +
+    '20 LET A=A+1\n' +
+    '30 IF A<4 THEN GOTO 20\n' +
+    '40 PRINT A\n';
+
+  it('stops the run before the line it was told to, and leaves the machine there', async () => {
+    const server = serving();
+    const result = await server.run({
+      machine: 'zx81',
+      source: COUNTING,
+      breakpoints: [30],
+    });
+
+    expect(result.stoppedAt).toBe(30);
+    // A run that stopped is not a run that ended, and says so structurally.
+    expect(result.ended).toBe(false);
+    const session = server.session()!;
+    expect(session.position()).toMatchObject({ line: 30, running: true });
+    // The lines the run was given are the lines in force afterwards, so a
+    // later continue stops where the run would have.
+    expect(session.breakpoints()).toEqual([30]);
+    expect(session.variables()).toContainEqual(
+      expect.objectContaining({ name: 'A', value: '1' }),
+    );
+  }, 30_000);
+
+  it('keeps the lines in force between requests, and steps on from where it stopped', async () => {
+    const server = serving();
+    await server.run({
+      machine: 'zx81',
+      source: COUNTING,
+      breakpoints: [30],
+    });
+    const session = server.session()!;
+
+    // Nothing is remembered by the caller: the machine is asked, a step later.
+    expect(session.stepLine(400)).toMatchObject({
+      ending: 'stopped',
+      line: 20,
+    });
+    expect(session.continueRun(400)).toMatchObject({
+      ending: 'stopped',
+      line: 30,
+    });
+    expect(session.variables()).toContainEqual(
+      expect.objectContaining({ name: 'A', value: '2' }),
+    );
+    // Changed between stops, and the program then runs to its end.
+    session.setBreakpoints([]);
+    expect(session.continueRun(800).ending).toBe('ended');
+    expect(shows(server, '4')).toBe(true);
+  }, 30_000);
+
+  it('leaves a machine nobody asked to stop exactly as it was', async () => {
+    const server = serving();
+    const result = await server.run({ machine: 'zx81', source: COUNTING });
+
+    // The ordinary path, and the ordinary answers: the program ran to its end
+    // and its picture was settled afterwards.
+    expect(result.stoppedAt).toBeNull();
+    expect(result.ended).toBe(true);
+    expect(shows(server, '4')).toBe(true);
+    expect(server.session()!.breakpoints()).toEqual([]);
+  }, 30_000);
+
+  it('runs to the end when the line it was told to stop before is never reached', async () => {
+    const server = serving();
+    const asked = await server.run({
+      machine: 'zx81',
+      source: COUNTING,
+      breakpoints: [999],
+    });
+    server.dispose();
+    const plain = await serving().run({ machine: 'zx81', source: COUNTING });
+
+    expect(asked.stoppedAt).toBeNull();
+    expect(asked.ended).toBe(true);
+    // The same run it would have been with nothing asked for.
+    expect(asked.screen?.lines).toEqual(plain.screen?.lines);
+  }, 40_000);
+
+  it('takes the same emulated time as a run with nothing named to stop on', async () => {
+    // Frames are the machine's own clock, so "the same emulated time" is the
+    // same frame count: stopping is reachable, and a run nobody stopped pays
+    // nothing for it.
+    const server = serving();
+    const asked = await server.run({
+      machine: 'zx81',
+      source: COUNTING,
+      breakpoints: [999],
+    });
+    server.dispose();
+    const plain = await serving().run({ machine: 'zx81', source: COUNTING });
+
+    expect(asked.frames).toBe(plain.frames);
+  }, 40_000);
+
+  it('gives two callers two machines that stop independently', async () => {
+    // One server is one caller; a host gives each of its callers its own.
+    const mine = serving();
+    const yours = createServerMachine();
+    try {
+      await mine.run({ machine: 'zx81', source: COUNTING, breakpoints: [30] });
+      const stopped = mine.session()!;
+      // Running a second program here would let the first machine go - one
+      // machine per process - so the second caller is asked about without
+      // booting: the lines in force are this caller's alone.
+      expect(stopped.breakpoints()).toEqual([30]);
+      expect(yours.session()).toBeNull();
+      stopped.setBreakpoints([20]);
+      expect(stopped.breakpoints()).toEqual([20]);
+      expect(yours.session()).toBeNull();
+    } finally {
+      yours.dispose();
+    }
+  }, 30_000);
+});

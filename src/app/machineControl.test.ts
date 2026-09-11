@@ -22,7 +22,11 @@ const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../public/roms/zx81/zx81.rom')),
 );
 
-function boot(source: string): {
+function boot(
+  source: string,
+  /** Hand over the machine's stopping path, as a holder that can step does. */
+  stepping = false,
+): {
   machine: Zx81Machine;
   control: MachineControl;
 } {
@@ -35,6 +39,7 @@ function boot(source: string): {
     gamepadMode: 'keymapped',
     fireButtons: 1,
     step: () => machine.runFrame(),
+    ...(stepping ? { debugSlice: (opts) => machine.debugStep(opts) } : {}),
   });
   return { machine, control };
 }
@@ -216,5 +221,135 @@ describe('the bound on a step', () => {
     const step = control.waitForText('NOWHERE', MAX_DRIVE_FRAMES * 5);
 
     expect(step.frames).toBe(MAX_DRIVE_FRAMES);
+  });
+});
+
+/**
+ * Stopping a program on a line, stepping it and continuing it, against the real
+ * ROM.
+ *
+ * A stub machine would answer every one of these by construction: the questions
+ * are whether the ROM's own line cell says what the stepper reads at the moment
+ * it pauses, and whether a line the program dwells on is one step rather than
+ * one per frame. Only a real machine answers those.
+ */
+describe('stopping a program on a line', () => {
+  it('stops before the line it was told to stop on, and nowhere else', () => {
+    const { control } = boot('10 LET A=1\n20 LET A=2\n30 PRINT A\n', true);
+
+    control.setBreakpoints([20]);
+    const stop = control.continueRun(400);
+
+    expect(stop.ending).toBe('stopped');
+    expect(stop.line).toBe(20);
+    // Stopped before the line, not after it: the assignment on 20 has not run.
+    expect(control.variables()).toContainEqual(
+      expect.objectContaining({ name: 'A', value: '1' }),
+    );
+    expect(control.position()).toMatchObject({
+      canStep: true,
+      line: 20,
+      running: true,
+      breakpoints: [20],
+    });
+  });
+
+  it('reports the lines in force as it was given them, sorted and deduplicated', () => {
+    const { control } = boot('10 PRINT 1\n', true);
+
+    control.setBreakpoints([30, 10, 30]);
+    expect(control.breakpoints()).toEqual([10, 30]);
+    // A second naming replaces the first rather than adding to it.
+    control.setBreakpoints([20]);
+    expect(control.breakpoints()).toEqual([20]);
+    control.setBreakpoints([]);
+    expect(control.breakpoints()).toEqual([]);
+  });
+
+  it('steps to the next line, and a line the program dwells on is one step', () => {
+    // PAUSE 100 is two seconds of the machine's own time on one line, so a
+    // stepper that stopped when its frame budget ran out rather than when the
+    // line changed would land on line 20 still.
+    const { machine, control } = boot(
+      '10 LET A=1\n20 PAUSE 100\n30 PRINT A\n',
+      true,
+    );
+
+    control.setBreakpoints([20]);
+    expect(control.continueRun(400).line).toBe(20);
+
+    const step = control.stepLine(400);
+
+    expect(step.ending).toBe('stopped');
+    expect(step.line).toBe(30);
+    // Many frames, one step - and the cost is reported in the machine's own
+    // time rather than the host's.
+    expect(step.frames).toBeGreaterThan(1);
+    expect(step.seconds).toBeCloseTo(step.frames / machine.frameHz, 5);
+  });
+
+  it('continues off a line that is itself a stop rather than stopping again at once', () => {
+    const { control } = boot(
+      '10 LET A=0\n20 LET A=A+1\n30 IF A<3 THEN GOTO 20\n40 PRINT A\n',
+      true,
+    );
+
+    control.setBreakpoints([20]);
+    expect(control.continueRun(400).line).toBe(20);
+    const again = control.continueRun(400);
+
+    // Round the loop once and back to 20, rather than re-triggering on the line
+    // execution resumed from.
+    expect(again.ending).toBe('stopped');
+    expect(again.line).toBe(20);
+    expect(control.variables()).toContainEqual(
+      expect.objectContaining({ name: 'A', value: '1' }),
+    );
+  });
+
+  it('says the program ended rather than naming a line it never reached', () => {
+    const { control } = boot('10 LET A=1\n20 PRINT A\n', true);
+
+    control.setBreakpoints([20]);
+    expect(control.continueRun(400).line).toBe(20);
+    const off = control.stepLine(400);
+
+    expect(off.ending).toBe('ended');
+    expect(off.line).toBeNull();
+    // And where the program is, afterwards, is nowhere rather than the last
+    // line the machine's own cell still holds.
+    expect(control.position()).toMatchObject({ line: null, running: false });
+  });
+
+  it('exhausts its bound on a program that will not finish, and says so', () => {
+    const { control } = boot('10 GOTO 10\n', true);
+
+    const ran = control.continueRun(30);
+
+    // An ordinary outcome: 10 GOTO 10 is an ordinary BASIC program.
+    expect(ran.ending).toBe('exhausted');
+    expect(ran.frames).toBe(30);
+    expect(control.programState()).toBe(true);
+  });
+
+  it('never spends more frames than the waits beside it may', () => {
+    const { control } = boot('10 GOTO 10\n', true);
+
+    expect(control.continueRun(MAX_DRIVE_FRAMES * 10).frames).toBe(
+      MAX_DRIVE_FRAMES,
+    );
+  });
+
+  it('says a machine with no stopping path cannot be stepped', () => {
+    // The holder handed none, which is what a machine with no `debugStep` does.
+    const { control } = boot('10 PRINT 1\n');
+
+    expect(control.canStep()).toBe(false);
+    expect(control.position().canStep).toBe(false);
+    for (const ran of [control.stepLine(100), control.continueRun(100)]) {
+      expect(ran.ending).toBe('cannot-step');
+      expect(ran.frames).toBe(0);
+      expect(ran.line).toBeNull();
+    }
   });
 });

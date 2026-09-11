@@ -87,6 +87,49 @@ export const EXEMPTIONS: readonly Exemption[] = [
       'without one.',
   },
   {
+    operation: 'break',
+    caller: 'assistant',
+    reason:
+      'The assistant works inside an IDE whose editor already has a gutter the ' +
+      'user clicks to breakpoint a line, and the lines in force are the ones ' +
+      'in the buffer the user is looking at. An assistant that set its own ' +
+      'would be setting them on a program the user is editing, in a place the ' +
+      'user cannot see them and cannot clear them. The reason is that gutter ' +
+      'and that IDE, so a caller holding a machine nobody is looking at is ' +
+      'offered the operation.',
+  },
+  {
+    operation: 'step',
+    caller: 'assistant',
+    reason:
+      'Stepping is already on the toolbar beside the assistant, acting on the ' +
+      "machine on the user's own screen with the stopped line highlighted in " +
+      'their editor. A second stepper would advance that same machine from ' +
+      'under the user between their own presses. The reason is the IDE around ' +
+      'this caller, so it reaches no caller that has none.',
+  },
+  {
+    operation: 'continue',
+    caller: 'assistant',
+    reason:
+      'Continuing is the other half of the same toolbar, and the machine it ' +
+      'would continue is the one paused in front of the user at the line they ' +
+      'are reading. Continuing it on the assistant’s account would lose ' +
+      'the user the pause they stopped at. Again the reason is that IDE, and ' +
+      'holds only for a caller inside one.',
+  },
+  {
+    operation: 'where',
+    caller: 'assistant',
+    reason:
+      'Where a stopped program is, the IDE already shows the assistant’s ' +
+      'user directly: the paused line is highlighted in the editor and the ' +
+      'variable watcher is open beside it. Asking would answer about a machine ' +
+      'the user is looking at, which is the circumstance this caller works in ' +
+      'rather than anything about the question, so a caller that cannot see ' +
+      'its machine is offered it.',
+  },
+  {
     operation: 'view',
     caller: 'assistant',
     reason:

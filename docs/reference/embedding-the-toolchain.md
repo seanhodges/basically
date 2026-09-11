@@ -55,7 +55,7 @@ which machine it means each time.
 Every operation the command line has, reached the same way and answered the
 same way: describe a machine, check a listing, build one into a file the machine
 loads, run one, drive it, look at its screen, measure it, check it against what
-it should do. Two of them are what an embedding application usually wants next:
+it should do. Three of them are what an embedding application usually wants next:
 
 - [`view`](./watching-the-machine) hands back an address anything that can show
   a web page can be pointed at, so your user can watch the machine you are
@@ -65,6 +65,14 @@ it should do. Two of them are what an embedding application usually wants next:
   address admits acting on the machine rather than watching it — read
   [who can play it](./playing-the-machine#who-can-play-it) before you put one
   anywhere.
+- [`break`, `step`, `continue` and `where`](./debugging-a-program) stop a program
+  on a BASIC line, step it on a line at a time and say where it is, so your user
+  can find out where a program goes wrong rather than adding `PRINT` statements
+  to it. An editor with the whole language behind it is the caller this is most
+  for. Ask [`info`](./debugging-a-program#machines-that-cannot-be-stepped)
+  whether a machine can be stepped before you offer it: not every machine can say
+  which BASIC line it is executing, and the copy of the toolchain you are talking
+  to may not be the one you shipped with.
 
 ## Sharing one host
 

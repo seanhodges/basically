@@ -1,4 +1,9 @@
-import type { Dialect, MachineEmulator } from '../dialects/types';
+import type {
+  DebugStepOptions,
+  DebugStepResult,
+  Dialect,
+  MachineEmulator,
+} from '../dialects/types';
 import type { GamepadMode } from '../keyboard/controllerConfig';
 import { canProfileRun } from '../ai/machineObservability';
 import { outlineCapabilities } from '../editor/programOutline';
@@ -29,6 +34,11 @@ export interface BrowserSessionDeps {
   gamepadMode: GamepadMode;
   /** Advance one frame and render, so a look sees what the user would see. */
   step: () => void;
+  /**
+   * Advance one slice of the machine's stopping path, rendering as a frame
+   * does. Absent for a machine with no stopping path.
+   */
+  debugSlice?: (opts: DebugStepOptions) => DebugStepResult;
 }
 
 export function createBrowserSession(deps: BrowserSessionDeps): MachineSession {
@@ -39,6 +49,7 @@ export function createBrowserSession(deps: BrowserSessionDeps): MachineSession {
     gamepadMode: deps.gamepadMode,
     fireButtons: dialect.joystickFireButtons ?? 1,
     step: deps.step,
+    debugSlice: deps.debugSlice,
   });
   return {
     ...control,

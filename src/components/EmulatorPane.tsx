@@ -369,6 +369,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             machine.runFrame();
             render();
           },
+          // The stopping path handed over the same way, so a slice renders what
+          // a frame renders. Absent on a machine with no stepper, which is what
+          // has the session report that it cannot be stepped.
+          debugSlice: machine.debugStep
+            ? (opts) => {
+                const result = machine.debugStep!(opts);
+                render();
+                return result;
+              }
+            : undefined,
         }),
       );
     },

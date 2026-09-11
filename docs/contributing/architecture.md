@@ -829,7 +829,10 @@ typed - and the names it carries are resolved through the same
 `resolveKeyName` a written schedule goes through, so a key pressed live and the
 same key in a schedule reach the machine identically. Either projection follows
 the session rather than any one machine, so a caller that runs a second program
-keeps its address.
+keeps its address. Nothing else needs a direction of its own: an operation runs
+beside the machine it acts on, so asking a machine in a worker where its program
+is stopped crosses as an ordinary `call` and its answer comes back as that call's
+reply.
 
 ### One operation layer, every caller
 
@@ -892,7 +895,8 @@ the provider, never as an operation being absent.
 
 **A machine session is one interface over a running machine.** `MachineSession`
 is the driver (`src/app/machineControl.ts`: press keys, work the joystick,
-advance, wait for text or for the program to end, read the screen) plus a
+advance, wait for text or for the program to end, read the screen, and stop the
+program on a BASIC line) plus a
 capture of the display, the run's measurements, its timing and its variables.
 The pane registers the browser implementation while a machine is up; a
 headless run builds the other over the machine the runner owns. An operation
@@ -930,6 +934,30 @@ the seam on the runner's side: it hands the hook a machine and its own frame
 advance and knows nothing about what a schedule is, which keeps
 `src/dialects/headless/` free of `src/app/` and of the operation layer. A run
 given a schedule ends where the schedule ends.
+
+**Stopping a program is the machine's own path, driven the way the IDE drives
+it.** The driver's debug members - the lines to stop before, `stepLine`,
+`continueRun` and `position` - are built on one slice of
+`MachineEmulator.debugStep`, handed in by the holder beside the frame advance it
+already hands in, so whatever a holder folds into a frame (a view's sampled
+picture, a run's frame count, the profiler's charge) is folded into a slice. A
+holder whose machine has no stopping path hands none and the driver reports that
+the machine cannot be stepped; `Dialect.debuggable` is the same fact asked before
+a machine is booted, and `src/dialects/debugCapability.test.ts` holds every
+registered machine's declaration to what it implements and to how it is
+described. The line the caller resumed from lives beside the driver rather than
+in the machine: it is the caller's intention, which is what makes continuing off
+a line that is itself a stop run on instead of stopping again at once, and two
+callers holding two machines each have their own. The lines in force live there
+too, so they survive between requests exactly as the held machine does. Stepping
+and continuing are bounded by `MAX_DRIVE_FRAMES`, the bound the driver's waits
+already use, and exhausting it is an ordinary outcome. `RunOptions.breakpoints`
+is how the first ones reach a program - a machine is held by having run
+something, so a caller that could only ask afterwards would be breakpointing a
+program that had already finished - and `RunResult.stoppedAt` is the third way a
+run can finish, beside ending and using up its frames. A run that stopped settles
+nothing: settling frames would run the program past the line it was asked to stop
+before.
 
 **Expectations are part of that vocabulary, not a second one.** The same
 schedule carries `EXPECT` lines saying what should be on the screen, what

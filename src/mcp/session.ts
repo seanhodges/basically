@@ -56,6 +56,8 @@ import { findMachine } from '../dialects/machineLookup';
 import { resolveTokenize } from '../dialects/resolveListing';
 import { hasFatalErrors } from '../dialects/types';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   Dialect,
   MachineEmulator,
   MachineScreenText,
@@ -173,6 +175,7 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
       started: false,
       ended: false,
       reached: false,
+      stoppedAt: null,
       screen: null,
       picture: null,
       timings: { ...timings, totalMs: performance.now() - startedAt },
@@ -249,6 +252,18 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
       observe?.frame?.(machine);
       sampling?.frame();
     };
+    // The same fold, around a slice of the machine's own stopping path instead
+    // of a whole frame: a frame spent stopping is a frame the run counted, the
+    // view painted and the measurements were charged, exactly as any other.
+    const debugSlice = machine.debugStep
+      ? (debugOpts: DebugStepOptions): DebugStepResult => {
+          const result = machine.debugStep!(debugOpts);
+          measurements.frame(machine);
+          observe?.frame?.(machine);
+          sampling?.frame();
+          return result;
+        }
+      : undefined;
     observe?.loaded?.(machine);
 
     const runAt = performance.now();
@@ -292,6 +307,7 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
         machine,
         dialect,
         step,
+        debugSlice,
         source: opts.source,
         measurements,
         paint: () => {
@@ -314,10 +330,29 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
       frames += driveFrames;
     }
 
+    // Only where the caller named a line: a machine nobody has asked to stop
+    // keeps exactly the path it takes today and pays nothing for the debugger
+    // being reachable. The lines go onto the session because that is what
+    // survives between requests, so a later step or continue resumes from the
+    // line this run stopped on.
+    const stopping =
+      debugSlice !== undefined && (opts.breakpoints?.length ?? 0) > 0;
+    let stoppedAt: number | null = null;
+    if (stopping) held.session.setBreakpoints(opts.breakpoints!);
+
     let reached = opts.until === undefined;
     let lastScreen: MachineScreenText | null = null;
     for (; frames < driveFrames + cap; frames++) {
-      runFrame();
+      if (stopping) {
+        const sliced = held.session.debugSlice('run');
+        if (sliced?.paused) {
+          stoppedAt = sliced.line;
+          frames++;
+          break;
+        }
+      } else {
+        runFrame();
+      }
       if (opts.drive) sample();
       if (opts.until !== undefined) {
         lastScreen = machine.readScreenText?.() ?? null;
@@ -349,7 +384,11 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
     // Settling is for a run the program itself ended; a predicate stop already
     // named the frame it wanted, and an exact count is exact.
     const settled = !reached || opts.until === undefined;
-    const settling = opts.drive ? ended : fixed === undefined;
+    // A stopped run settles nothing: the machine is to be left where the stop
+    // left it, and settling frames would run the program on past the line the
+    // caller asked it to stop before.
+    const settling =
+      stoppedAt === null && (opts.drive ? ended : fixed === undefined);
     if (settling && settled) {
       const settle = opts.settleFrames ?? SETTLE_FRAMES;
       for (let i = 0; i < settle; i++, frames++) runFrame();
@@ -389,6 +428,7 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
       started,
       ended,
       reached,
+      stoppedAt,
       screen,
       picture,
       timings: { ...timings, totalMs: performance.now() - startedAt },

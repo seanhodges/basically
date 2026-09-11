@@ -22,6 +22,7 @@ import type {
   TokenizeError,
 } from '../dialects/types';
 import { encodeBytes } from './bytes';
+import { CANNOT_STEP } from './debug';
 import { driveOp, type DriveOutcome } from './drive';
 import { createHeadlessSession } from './headlessSession';
 import { noRomHere } from './romless';
@@ -45,6 +46,12 @@ export interface RunInput {
   maxFrames?: number;
   /** A schedule of what to press and when, as the caller wrote it. */
   keys?: string;
+  /**
+   * BASIC line numbers this run is to stop before, so a program can be stopped
+   * part-way through the first time it is run. The machine is left where the
+   * stop left it, for the operations that act on one.
+   */
+  breakpoints?: number[];
   /** Report the screen as text. */
   screenText: boolean;
   /** Paint the screen and return it as a picture. */
@@ -70,6 +77,12 @@ export interface RunOutcome {
   keys: { ok: boolean; steps: ScheduleStep[] } | null;
   started: boolean;
   ended: boolean;
+  /**
+   * The BASIC line the run stopped before, or null when it did not stop. The
+   * third way a run can finish, told apart from ending and from using up its
+   * frames without reading any prose.
+   */
+  stoppedAt: number | null;
   screen: MachineScreenText | null;
   picture: {
     width: number;
@@ -115,6 +128,20 @@ export async function runProgram(
     // drive, so it is refused before a step is taken rather than reporting a
     // schedule that failed against a notice.
     throw new RunError(noRomHere(dialect.name, 'nothing for --keys to drive'));
+  }
+  const stops = input.breakpoints ?? [];
+  if (stops.length > 0) {
+    // The same reason, in its own words: without the ROM no BASIC line is ever
+    // executed, so the stop the caller asked for could never come.
+    if (!ctx.roms.canRun(dialect, input.romRoot)) {
+      throw new RunError(
+        noRomHere(dialect.name, 'no BASIC line is ever reached to stop before'),
+      );
+    }
+    // Asked of the machine rather than discovered after a run that never
+    // stopped: steppability is what the machine declares, and a caller told now
+    // can still run the program without a stop.
+    if (dialect.debuggable !== true) throw new RunError(CANNOT_STEP);
   }
 
   const measuring = input.profile || input.time;
@@ -168,6 +195,7 @@ export async function runProgram(
     source: input.source,
     frames: input.frames,
     maxFrames: input.maxFrames,
+    breakpoints: stops,
     drive:
       input.keys === undefined
         ? undefined
@@ -200,6 +228,7 @@ export async function runProgram(
     keys: drive ? { ok: drive.ok, steps: drive.steps } : null,
     started: result.started,
     ended: result.ended,
+    stoppedAt: result.stoppedAt,
     screen: result.screen,
     picture: result.picture
       ? {
@@ -230,6 +259,14 @@ export async function runProgram(
 export const runOp: Operation<RunInput, RunOutcome> = {
   name: 'run',
   summary: 'Run a program on its machine and report what the screen shows.',
+  description:
+    'Run a program on its machine and report what the screen shows. ' +
+    '`breakpoints` names BASIC lines the program is to stop before: a run ' +
+    'that stopped says which line it stopped at and leaves the machine there, ' +
+    'for "where", "variables", "step" and "continue" to act on. They are given ' +
+    'here rather than afterwards because a machine is held by having run ' +
+    'something, so by the time one could be asked to stop, the program it was ' +
+    'to stop has finished.',
   input: {
     type: 'object',
     properties: {
@@ -238,6 +275,7 @@ export const runOp: Operation<RunInput, RunOutcome> = {
       frames: { type: 'integer' },
       maxFrames: { type: 'integer' },
       keys: { type: 'string' },
+      breakpoints: { type: 'array', items: { type: 'integer' } },
       screenText: { type: 'boolean' },
       screenshot: { type: 'boolean' },
       profile: { type: 'boolean' },

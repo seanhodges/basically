@@ -13,7 +13,12 @@ import type { MachineSession } from '../app/machineSession';
 import type { RunMeasurements } from '../app/runMeasurements';
 import { canProfileRun } from '../ai/machineObservability';
 import { outlineCapabilities } from '../editor/programOutline';
-import type { Dialect, MachineEmulator } from '../dialects/types';
+import type {
+  DebugStepOptions,
+  DebugStepResult,
+  Dialect,
+  MachineEmulator,
+} from '../dialects/types';
 import { encodeBytes } from './bytes';
 import type { PaintedFrame } from './types';
 
@@ -22,6 +27,12 @@ export interface HeadlessSessionDeps {
   dialect: Dialect;
   /** Advance one frame, folding whatever the run folds per frame. */
   step: () => void;
+  /**
+   * Advance one slice of the machine's stopping path, folding what a frame
+   * folds. Absent for a machine with no stopping path, and the session then
+   * reports that it cannot be stepped.
+   */
+  debugSlice?: (opts: DebugStepOptions) => DebugStepResult;
   /** The program being run, for summing a profile over its routines. */
   source: string;
   /** The run's measurements, or null when the run is not measuring. */
@@ -54,6 +65,7 @@ export function createHeadlessSession(
     gamepadMode: dialect.joystickModes?.[0] ?? 'keymapped',
     fireButtons: dialect.joystickFireButtons ?? 1,
     step: deps.step,
+    debugSlice: deps.debugSlice,
   });
   return {
     ...control,

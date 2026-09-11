@@ -141,3 +141,94 @@ describe('running a program', () => {
     expect(refusal).toContain('--rom-root');
   });
 });
+
+/**
+ * A run told where to stop.
+ *
+ * Breakpoints have to be in place before the program starts, so a run is where
+ * the first ones arrive - and this is the one-shot runner, which disposes its
+ * machine afterwards, so what it proves is that the stop happened and that the
+ * three ways a run can finish are told apart. That the machine is left *there*
+ * is a fact about the runner that holds one, and `src/mcp/session.test.ts`
+ * proves it of that one.
+ */
+describe('running a program that is going to stop', () => {
+  const COUNTING =
+    '10 LET A=0\n' +
+    '20 LET A=A+1\n' +
+    '30 IF A<4 THEN GOTO 20\n' +
+    '40 PRINT A\n';
+
+  it('stops before the line it was told to, with the program part-way through', async () => {
+    const outcome = await runOp.run(
+      wants({ source: COUNTING, breakpoints: [30], variables: true }),
+      cliContext(),
+    );
+
+    expect(outcome.stoppedAt).toBe(30);
+    // The variables are the ones that line was reached with, not the ones the
+    // program would have ended on.
+    expect(outcome.variables?.variables).toContainEqual(
+      expect.objectContaining({ name: 'A', value: '1' }),
+    );
+  }, 20_000);
+
+  it('tells the three ways a run can finish apart without reading prose', async () => {
+    const stopped = await runOp.run(
+      wants({ source: COUNTING, breakpoints: [30] }),
+      cliContext(),
+    );
+    const finished = await runOp.run(wants({ source: COUNTING }), cliContext());
+    const capped = await runOp.run(
+      wants({ source: '10 GOTO 10\n', maxFrames: 30 }),
+      cliContext(),
+    );
+
+    expect([stopped.stoppedAt, stopped.ended]).toEqual([30, false]);
+    expect([finished.stoppedAt, finished.ended]).toEqual([null, true]);
+    expect([capped.stoppedAt, capped.ended]).toEqual([null, false]);
+  }, 40_000);
+
+  it('ends as it would have when the line it was told to stop before is never reached', async () => {
+    const asked = await runOp.run(
+      wants({ source: COUNTING, breakpoints: [999] }),
+      cliContext(),
+    );
+    const plain = await runOp.run(wants({ source: COUNTING }), cliContext());
+
+    expect(asked.stoppedAt).toBeNull();
+    expect(asked.ended).toBe(true);
+    // The same run, in the machine's own time as well as on its screen: a
+    // caller pays nothing for a stop it never reaches.
+    expect(asked.screen?.lines).toEqual(plain.screen?.lines);
+    expect(asked.frames).toBe(plain.frames);
+  }, 40_000);
+
+  it('refuses a stop on a machine whose ROM is not here, before anything runs', async () => {
+    const ctx = cliContext();
+    const refusal = await runOp
+      .run(wants({ source: COUNTING, breakpoints: [30] }), {
+        ...ctx,
+        roms: { canRun: () => false },
+      })
+      .then(
+        () => null,
+        (error: unknown) => (error as Error).message,
+      );
+    // The caller's mistake, with the remedy the schedule's refusal already
+    // names: without the ROM no BASIC line is ever reached to stop before.
+    expect(refusal).toContain('no ROM');
+    expect(refusal).toContain('roms accept');
+  });
+
+  it('refuses a stop on a machine that cannot be stepped, saying what it can still do', async () => {
+    // The Atom keeps no readable cell for the line being executed, so a line
+    // named to stop before would never be reached.
+    await expect(
+      runOp.run(
+        wants({ machine: 'atom', source: COUNTING, breakpoints: [30] }),
+        cliContext(),
+      ),
+    ).rejects.toThrow(/cannot be stepped/);
+  });
+});

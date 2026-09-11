@@ -1,5 +1,7 @@
 import type { ControllerRole, KeyboardLayout } from '../keyboard/layoutSchema';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   MachineEmulator,
   MachineScreenText,
   MachineVariable,
@@ -67,8 +69,94 @@ export interface MachineControl {
    * variable to hold a value, and a schedule runs against the driver.
    */
   variables(): MachineVariable[] | null;
+  /**
+   * Whether this machine can be stopped on a BASIC line at all, which is
+   * whether its holder handed over a stopping path. False on a machine that
+   * cannot say which line it is executing; everything below then answers
+   * {@link DebugRun.ending} `cannot-step` rather than pretending.
+   */
+  canStep(): boolean;
+  /** The BASIC lines a program is to stop before, ascending. */
+  breakpoints(): number[];
+  /**
+   * Name the BASIC lines a program is to stop before, replacing whatever was
+   * in force. An empty list stops the program nowhere. A line no line of the
+   * program carries is kept and simply never reached: a caller may breakpoint
+   * a line it is about to write.
+   */
+  setBreakpoints(lines: readonly number[]): void;
+  /**
+   * One slice of the stopping path - up to a frame's worth of stepping that may
+   * stop early - with the resumed-from line threaded through it and advanced
+   * where it pauses.
+   *
+   * Here as well as the two loops below because a caller spending its own
+   * frames needs the same account of "run until this line" they get: a run that
+   * was told where to stop keeps its own loop (it yields between frames so the
+   * ROM loads that settle on timers can land) and takes this for each of them,
+   * so the line it stops on and the line a later continue resumes from are one
+   * piece of bookkeeping rather than two. Null on a machine with no stopping
+   * path.
+   */
+  debugSlice(mode: DebugStepOptions['mode']): DebugStepResult | null;
+  /**
+   * Run a stopped program on until the line about to execute differs from the
+   * one it stopped at, so a line the program dwells on is one step.
+   */
+  stepLine(maxFrames?: number): DebugRun;
+  /** Run a stopped program on until it stops again or until it ends. */
+  continueRun(maxFrames?: number): DebugRun;
+  /** Where the program is now, without advancing the machine. */
+  position(): DebugPosition;
   /** Release everything this driver is holding. */
   releaseAll(): void;
+}
+
+/**
+ * How a step or a continue ended.
+ *
+ * `exhausted` is an ordinary outcome rather than a failure: continuing a
+ * program that loops forever is continuing an ordinary BASIC program, and
+ * `10 GOTO 10` is one.
+ */
+export type DebugEnding =
+  /** Execution stopped before a BASIC line; {@link DebugRun.line} names it. */
+  | 'stopped'
+  /** The program ended, so there is no line it is stopped before. */
+  | 'ended'
+  /** The frames ran out with neither a stop nor an end reached. */
+  | 'exhausted'
+  /** This machine cannot be stepped, and nothing was run. */
+  | 'cannot-step';
+
+/** What one step or continue did. */
+export interface DebugRun {
+  ending: DebugEnding;
+  /** The BASIC line the program is now stopped before, or null. */
+  line: number | null;
+  /** Emulated frames it cost. */
+  frames: number;
+  /**
+   * Emulated seconds of the machine's own time it cost - the same clock
+   * everything else is measured in, so a stretch of a program timed a line at
+   * a time adds up to the time the whole of it takes.
+   */
+  seconds: number;
+}
+
+/** Where a program is, as a caller that remembers nothing is told it. */
+export interface DebugPosition {
+  /** Whether this machine can be stepped a BASIC line at a time. */
+  canStep: boolean;
+  /**
+   * The BASIC line about to execute, or null where none can be determined -
+   * nothing is running, or the machine is sitting at its prompt.
+   */
+  line: number | null;
+  /** Whether a program is running; tri-state as {@link MachineControl.programState} is. */
+  running: boolean | null;
+  /** The lines in force to stop before, ascending. */
+  breakpoints: number[];
 }
 
 /**
@@ -115,6 +203,18 @@ export interface MachineControlDeps {
   fireButtons: 1 | 2;
   /** Advance one frame and render, so a look sees what the user would see. */
   step: () => void;
+  /**
+   * Advance one slice of the machine's own stopping path, folding whatever the
+   * holder folds into a frame.
+   *
+   * Handed in beside {@link step} rather than reached for on the machine, for
+   * the reason `step` is: the frames the driver spends are frames the holder
+   * saw, so a sampled view still paints them, a run still counts them and a
+   * profile is still charged them. A holder whose machine has no stopping path
+   * - `machine.debugStep` absent - hands none, and the driver reports the
+   * machine cannot be stepped.
+   */
+  debugSlice?: (opts: DebugStepOptions) => DebugStepResult;
 }
 
 /**
@@ -125,12 +225,83 @@ export interface MachineControlDeps {
  * the only way to know the timings actually work on the ROMs.
  */
 export function createMachineControl(deps: MachineControlDeps): MachineControl {
-  const { machine, layout, gamepadMode, fireButtons, step } = deps;
+  const { machine, layout, gamepadMode, fireButtons, step, debugSlice } = deps;
   const holdDefault =
     layout.options?.minHoldFrames ?? DEFAULT_DRIVE_HOLD_FRAMES;
   // Every token this driver has pressed and not yet released, so a step that
   // fails part-way cannot leave a key stuck down for the rest of the run.
   const held = new Set<string>();
+  // The lines a program is to stop before. This caller's alone: a driver is
+  // made over one machine, and two callers holding two machines stop in two
+  // different places.
+  let stops: number[] = [];
+  /**
+   * The line the caller resumed from, threaded through every slice.
+   *
+   * Beside the driver rather than in the machine, because it is the caller's
+   * intention and not the machine's state: a slice may exhaust its budget while
+   * still on this line, and it is what makes continuing off a line that is
+   * itself a stop run on instead of stopping again on the spot.
+   */
+  let fromLine: number | null = null;
+
+  const slice = (mode: DebugStepOptions['mode']): DebugStepResult | null => {
+    if (!debugSlice) return null;
+    const result = debugSlice({
+      breakpoints: new Set(stops),
+      mode,
+      fromLine,
+    });
+    if (result.paused) {
+      fromLine = result.line;
+      // Nothing stays held while a program is stopped, exactly as the IDE's
+      // debugger releases: a key still down would go on being scanned by the
+      // next thing that runs the machine on.
+      machine.releaseAllKeys();
+      held.clear();
+    }
+    return result;
+  };
+
+  /**
+   * Run slices until something stops, the program ends, or the frames run out.
+   *
+   * The end of the program is read the same tri-state way every other loop over
+   * this machine reads it: a program cannot un-begin, so only a `false` after a
+   * `true` is the program having ended - which is what lets a run that has not
+   * started yet take this path as well as a continue from a stop.
+   */
+  const debugRun = (
+    mode: DebugStepOptions['mode'],
+    maxFrames: number,
+  ): DebugRun => {
+    const cost = (frames: number) => ({
+      frames,
+      seconds: machine.frameHz > 0 ? frames / machine.frameHz : 0,
+    });
+    if (!debugSlice) {
+      return { ending: 'cannot-step', line: null, ...cost(0) };
+    }
+    const limit = Math.max(0, Math.min(maxFrames, MAX_DRIVE_FRAMES));
+    let started = machine.isProgramRunning() === true;
+    for (let i = 0; i < limit; i++) {
+      const result = slice(mode)!;
+      if (result.paused) {
+        return { ending: 'stopped', line: result.line, ...cost(i + 1) };
+      }
+      const running = machine.isProgramRunning();
+      if (running === true) started = true;
+      else if (running === false && started) {
+        fromLine = null;
+        return { ending: 'ended', line: null, ...cost(i + 1) };
+      }
+    }
+    return {
+      ending: 'exhausted',
+      line: machine.currentLine?.() ?? null,
+      ...cost(limit),
+    };
+  };
 
   const run = (frames: number): number => {
     const capped = Math.max(0, Math.min(frames, MAX_DRIVE_FRAMES));
@@ -254,6 +425,38 @@ export function createMachineControl(deps: MachineControlDeps): MachineControl {
     },
 
     programState: () => machine.isProgramRunning(),
+
+    canStep: () => debugSlice !== undefined,
+
+    breakpoints: () => [...stops],
+
+    setBreakpoints(lines) {
+      // Sorted and deduplicated so the lines a caller is told are in force read
+      // the same however it named them, and held as numbers the machine's own
+      // set is built from per slice.
+      stops = [...new Set(lines)].sort((a, b) => a - b);
+    },
+
+    debugSlice: (mode) => slice(mode),
+
+    stepLine: (maxFrames) => debugRun('step', maxFrames ?? MAX_DRIVE_FRAMES),
+
+    continueRun: (maxFrames) => debugRun('run', maxFrames ?? MAX_DRIVE_FRAMES),
+
+    position: () => {
+      const running = machine.isProgramRunning();
+      return {
+        canStep: debugSlice !== undefined,
+        // No line where nothing is running, rather than whatever the machine
+        // still has in its cell: several machines leave the line being executed
+        // pointing at the last line of a program that has finished, which is
+        // fine for labelling a pause and wrong as an answer to where the
+        // program is.
+        line: running === false ? null : (machine.currentLine?.() ?? null),
+        running,
+        breakpoints: [...stops],
+      };
+    },
 
     readText: () => machine.readScreenText?.() ?? null,
 

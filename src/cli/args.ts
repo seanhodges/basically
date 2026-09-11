@@ -21,6 +21,7 @@ import type { ConvertInput } from '../ops/convert';
 import type { InfoInput } from '../ops/info';
 import type { LintInput } from '../ops/lint';
 import type { MachinesInput } from '../ops/machines';
+import type { BreakInput, DebugRunInput } from '../ops/debug';
 import type { DriveInput } from '../ops/drive';
 import type { ExpectInput } from '../ops/expect';
 import type { RunInput } from '../ops/run';
@@ -44,6 +45,10 @@ export const OPERATIONS = [
   'profile',
   'time',
   'variables',
+  'break',
+  'step',
+  'continue',
+  'where',
   'expect',
   'server',
   'ops',
@@ -196,6 +201,32 @@ export interface MeasureArgs {
   input: Record<never, never>;
 }
 
+/**
+ * Saying where the held machine's program is to stop.
+ *
+ * Takes the line numbers and nothing else: the machine is the one that is up,
+ * and naming none clears whatever was in force.
+ */
+export interface BreakArgs {
+  operation: 'break';
+  json: boolean;
+  input: BreakInput;
+}
+
+/** Running the stopped program on: to its next line, or to its next stop. */
+export interface DebugRunArgs {
+  operation: 'step' | 'continue';
+  json: boolean;
+  input: DebugRunInput;
+}
+
+/** Asking where the held machine's program is, which changes nothing. */
+export interface WhereArgs {
+  operation: 'where';
+  json: boolean;
+  input: Record<never, never>;
+}
+
 export interface ExpectArgs {
   operation: 'expect';
   /** Where the expectations come from. */
@@ -303,6 +334,9 @@ export type CliArgs =
   | ViewArgs
   | PlayArgs
   | MeasureArgs
+  | BreakArgs
+  | DebugRunArgs
+  | WhereArgs
   | ExpectArgs
   | ServerArgs
   | OpsArgs
@@ -321,6 +355,23 @@ function positiveInteger(flag: string, raw: string): number {
     throw new RunError(`${flag} wants a positive whole number, got "${raw}"`);
   }
   return value;
+}
+
+/**
+ * BASIC line numbers, as a list written however a shell makes convenient:
+ * separated by commas, by spaces, or by both.
+ *
+ * One rule for the option on a run and for the operation that changes them
+ * between stops, so `--break 20,30` and `break 20 30` mean the same thing. A
+ * line number is a positive whole number, which is the rule every count option
+ * beside it is already held to.
+ */
+function lineNumbers(flag: string, raw: string): number[] {
+  const words = raw.split(/[,\s]+/).filter((word) => word !== '');
+  if (words.length === 0) {
+    throw new RunError(`${flag} wants BASIC line numbers, got "${raw}"`);
+  }
+  return words.map((word) => positiveInteger(flag, word));
 }
 
 /**
@@ -636,6 +687,7 @@ function parseRun(argv: string[]): RunArgs {
   let frames: number | undefined;
   let maxFrames: number | undefined;
   let keys: string | undefined;
+  let breakpoints: number[] | undefined;
   let screenshot: string | undefined;
   let screenText = false;
   let profile = false;
@@ -661,6 +713,9 @@ function parseRun(argv: string[]): RunArgs {
         break;
       case '--keys':
         keys = value();
+        break;
+      case '--break':
+        breakpoints = lineNumbers(name, value());
         break;
       case '--screenshot':
         screenshot = value();
@@ -708,6 +763,7 @@ function parseRun(argv: string[]): RunArgs {
       frames,
       maxFrames,
       keys,
+      breakpoints,
       // The screen's text is what a run reported before it could report
       // anything else, so it stays the answer for a caller who asked for no
       // output at all. Asking only for a picture, or only for a measurement,
@@ -722,6 +778,45 @@ function parseRun(argv: string[]): RunArgs {
       romRoot,
     },
   };
+}
+
+function parseBreak(argv: string[]): BreakArgs {
+  let json = false;
+  const rest = scan(argv, (name) => {
+    if (name !== '--json') throw unknownOption('break', name);
+    json = true;
+  });
+  // No lines at all is how the caller clears them, so an empty list is the
+  // whole of a valid invocation rather than a missing argument.
+  return {
+    operation: 'break',
+    json,
+    input: { lines: rest.flatMap((word) => lineNumbers('break', word)) },
+  };
+}
+
+function parseDebugRun(
+  operation: 'step' | 'continue',
+  argv: string[],
+): DebugRunArgs {
+  let json = false;
+  let maxFrames: number | undefined;
+  const rest = scan(argv, (name, value) => {
+    switch (name) {
+      case '--max-frames':
+        maxFrames = positiveInteger(name, value());
+        break;
+      case '--json':
+        json = true;
+        break;
+      default:
+        throw unknownOption(operation, name);
+    }
+  });
+  if (rest.length > 0) {
+    throw new RunError(`${operation} takes no arguments, got "${rest[0]}"`);
+  }
+  return { operation, json, input: { maxFrames } };
 }
 
 function parseCheck(argv: string[]): CheckArgs {
@@ -868,6 +963,13 @@ export function parseArgs(argv: string[]): CliArgs {
     case 'time':
     case 'variables':
       return { operation: first, json: takeJson(rest, first), input: {} };
+    case 'break':
+      return parseBreak(rest);
+    case 'step':
+    case 'continue':
+      return parseDebugRun(first, rest);
+    case 'where':
+      return { operation: 'where', json: takeJson(rest, 'where'), input: {} };
     case 'expect':
       return parseExpect(rest);
     case 'server':
