@@ -1,23 +1,25 @@
 ---
-title: GE-235 file formats
+title: Dartmouth BASIC file formats
 ---
 
-# GE-235 file formats
+# Dartmouth BASIC file formats
 
-The GE-235 had no cassette deck, no disc a user could reach and no native
-program container. What it had was the punch and reader built into the Teletype
-Model 33 ASR, so there is exactly one export here — a **paper tape**, written as
-plain text in a `.txt` file. It is text, so it opens straight back through the
-ordinary file path and needs no import format of its own. No GE-235 export
-carries [memory blocks](../file-formats#machine-code-data-blocks), because this
-machine is offered as BASIC only and has none.
+Neither machine had a cassette deck, a disc a user could reach or a native
+program container. What each had was the punch and reader built into the
+Teletype Model 33 ASR, so there is exactly one export apiece — a **paper tape**,
+written as plain text in a `.txt` file. It is text, so it opens straight back
+through the ordinary file path and needs no import format of its own. No export
+here carries [memory blocks](../file-formats#machine-code-data-blocks), because
+both machines are offered as BASIC only and neither has any.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine format overview, see the [file formats
 overview](../file-formats). See also the [Dartmouth BASIC
 reference](../dartmouth) and its [escape codes](./escapes).
 
-## GE-235 paper tape `.txt`
+## The GE-235
+
+### GE-235 paper tape `.txt`
 
 How a program left a machine with no storage of its own: `LIST` with the
 Teletype's punch running, and the reader feeds the tape back a line at a time.
@@ -44,9 +46,42 @@ character the Teletype's keyboard had, and the revision of ASCII that spells it
 `^` is two years younger than the machine — so the tape carries the character
 the machine had, which is also the one the editor reads back.
 
-## Cassette audio
+### Cassette audio {#ge235-cassette-audio}
 
 There is none. The GE-235 had no tape interface to model: a user reached it over
 a telephone line from a teletype, and the only thing that recorded a program was
 that teletype's paper-tape punch, described above. The IDE offers no `.wav`
 export and no cassette import for this machine.
+
+## The GE-635
+
+### GE-635 paper tape `.txt`
+
+The same procedure on the same terminal, and the manual gives it in full:
+`LISTNH` with the paper-tape unit switched on to punch one, then `NEW`, the file
+name, `TAPE` and `KEY` to read one back.
+
+The export is again the listing as the tape carries it — the line number, one
+space, the trimmed body — with blank editor lines gone, the lines in the order
+they were typed, and each closed by the carriage return and line feed a Teletype
+needs. `↑` is written as itself here too: it is code 94, the character the
+ASR-33's key face carries and this BASIC raises to a power with, rather than the
+`^` a later ASCII puts there.
+
+Where this parts company with the GE-235's tape is the one place the two
+machines differ underneath:
+
+- **A `{0xNN}` escape resolves to the byte it names.** These codes are ASCII, so
+  the escape names a byte the punch really wrote and the tape carries it, as the
+  Altair's does. Reading the tape back turns an unprintable code into its escape
+  again, so the round trip is exact either way.
+- **Nothing closes the file**, and for a different reason: ASCII has no
+  end-of-message code, the manual names none, and the end of the file says the
+  same thing.
+
+### Cassette audio {#ge635-cassette-audio}
+
+There is none, for the same reason as on the GE-235. The machine had no tape
+interface to model — a user reached it over a telephone line — and the only
+thing that recorded a program was the teletype's own paper-tape punch. The IDE
+offers no `.wav` export and no cassette import for this machine.

@@ -23,6 +23,9 @@ export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   // GE-235's interpreter holds its variables in a table it could hand back, and
   // the watcher was simply deferred out of the work that brought the machine in.
   'ge235',
+  // Its sibling's position, through the same shared interpreter: the table is
+  // there to hand back and the watcher has not been wired to it.
+  'ge635',
 ]);
 
 /** Whether this dialect's machine can be asked for its BASIC variables. */
@@ -86,6 +89,7 @@ export const DIALECTS_WITHOUT_PROFILE: ReadonlySet<string> = new Set([
   // The TRS-80's reason exactly: a clean-room interpreter with no CPU beneath
   // it, so there are no cycles to attribute a line's cost in.
   'ge235',
+  'ge635',
 ]);
 
 /** Whether a run on this dialect's machine can be measured line by line. */

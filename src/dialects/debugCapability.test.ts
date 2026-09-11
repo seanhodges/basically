@@ -71,6 +71,9 @@ const NOT_DEBUGGABLE: Record<string, string> = {
   // on - but the stepper and the variable watcher were both deferred out of the
   // work that brought the machine in. Outstanding work, not a limitation.
   ge235: 'the stepper is not wired up yet',
+  // Its sibling's position exactly, and the same shared interpreter behind it:
+  // the line it is on is there to be read, and nothing reads it yet.
+  ge635: 'the stepper is not wired up yet',
 };
 
 describe('the debuggable flag matches the machines', () => {

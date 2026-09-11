@@ -952,6 +952,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   atari400: ATARI_CONSTRUCTS,
   hb10p: MSX_CONSTRUCTS,
   ge235: GE235_CONSTRUCTS,
+  ge635: GE635_CONSTRUCTS,
   samcoupe: SAMCOUPE_CONSTRUCTS,
 };
 

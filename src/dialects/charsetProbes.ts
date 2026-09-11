@@ -48,6 +48,10 @@ import {
   decodeSpan as ge235DecodeSpan,
 } from './ge235/charset';
 import {
+  parseChar as ge635ParseChar,
+  decodeSpan as ge635DecodeSpan,
+} from './ge635/charset';
+import {
   parseChar as samcoupeParseChar,
   decodeSpan as samcoupeDecodeSpan,
 } from './samcoupe/charset';
@@ -406,9 +410,14 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     // printing, and there is no second half to escape. Nor is there a picture
     // in it - the terminal is a paper roll, so a code either strikes a type bar
     // or works the carriage.
-    id: 'dartmouth',
+    //
+    // Named for the machine rather than for its page, as the two Sinclair
+    // families are: the GE-235 and the GE-635 share a BASIC and a reference
+    // page, and share no character at all above 0o77.
+    id: 'ge235',
+    page: 'dartmouth',
     varName: 'dartmouthEscapes',
-    title: 'GE-235 escape codes',
+    title: 'Dartmouth BASIC escape codes',
     machines: ['GE-235'],
     dialects: ['ge235'],
     codeCount: 64,
@@ -417,6 +426,25 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_OCTAL_BRACE,
     rawSpelling: '{0oNN}',
+  },
+  {
+    // ASCII, and the sibling's opposite: section 2.7 of the fourth-edition
+    // manual gives characters to codes 32 through 95 out of "128 characters
+    // numbered 0 through 127", so the escapes are everything below the space
+    // and everything from 96 up - the lower-case half among them, which a
+    // Model 33 has no type bars for.
+    id: 'ge635',
+    page: 'dartmouth',
+    varName: 'dartmouthEscapes',
+    title: 'Dartmouth BASIC escape codes',
+    machines: ['GE-635'],
+    dialects: ['ge635'],
+    codeCount: 128,
+    decode: (b) => ge635DecodeSpan(Uint8Array.of(b), 0).text,
+    ...parseAll(ge635ParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
   },
   {
     id: 'samcoupe',

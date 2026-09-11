@@ -180,6 +180,7 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   zx80: {},
   zx81: {},
   ge235: GE235_LEXIS,
+  ge635: GE635_LEXIS,
   zxspectrum: {},
   zxspectrum128: {},
   // `_` is a name character here, and `&FF` a hex literal whose letters are not.

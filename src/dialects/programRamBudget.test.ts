@@ -72,6 +72,11 @@ const UNMEASURABLE: Record<string, string> = {
   // compared against. The dialect declares 0 for the same reason, which is what
   // turns the byte budget off rather than making it wrong.
   ge235: 'the machine counts words, so there is no byte figure to report',
+  // The same, in a wider word: the GE-635's budget is 8,000 thirty-six-bit
+  // words shared by the program text, the arrays and the strings, and the
+  // manual states it as `C/4 + M + S < 8000`. Four characters to a word is not
+  // a byte count either, so this dialect declares 0 as its sibling does.
+  ge635: 'the machine counts words, so there is no byte figure to report',
 };
 
 /** How far above the reading a budget may sit: the empty program's end marker. */

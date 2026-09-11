@@ -43,7 +43,8 @@ each of them runs:
 - [BASIC-G](./pmd85) — Tesla PMD 85-2
 - [BBC BASIC](./bbc) — BBC Micro (BASIC II), BBC Master (BASIC IV)
 - [Commodore BASIC](./commodore) — PET (4.0), VIC-20 and Commodore 64 (V2)
-- [Dartmouth BASIC](./dartmouth) — GE-235, running the February 1965 language
+- [Dartmouth BASIC](./dartmouth) — GE-235 and GE-635, running the February 1965
+  language and the fourth edition
 - [Exidy Standard BASIC](./sorcerer) — Exidy Sorcerer
 - [Integer BASIC](./integer-basic) — Apple I, Apple II
 - [Locomotive BASIC](./cpc) — Amstrad CPC 464 (1.0), CPC 664 and CPC 6128 (1.1)

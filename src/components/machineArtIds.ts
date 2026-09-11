@@ -35,6 +35,7 @@ export const MACHINE_ART_IDS = [
   'atari400',
   'hb10p',
   'ge235',
+  'ge635',
   'samcoupe',
 ] as const;
 

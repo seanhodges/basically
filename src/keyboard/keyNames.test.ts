@@ -76,6 +76,7 @@ const NO_SUCH_KEY: Record<string, Record<string, string>> = {
     trs80: 'no escape keycap on the machine',
     pmd85: 'no escape keycap on the machine',
     ge235: 'a teletype: no escape keycap on the machine',
+    ge635: 'a teletype: no escape keycap on the machine',
     cpc464: 'the layout carries no ESC keycap',
     cpc664: 'the layout carries no ESC keycap',
     cpc6128: 'the layout carries no ESC keycap',
@@ -99,6 +100,7 @@ const NO_SUCH_KEY: Record<string, Record<string, string>> = {
     cpc6128: 'the layout declares no CTRL modifier',
     samcoupe: 'the layout declares no CTRL modifier',
     ge235: 'the layout declares no CTRL modifier',
+    ge635: 'the layout declares no CTRL modifier',
   },
   UP: {
     altair8800: 'a front panel and a teletype: no cursor keys',
@@ -106,6 +108,7 @@ const NO_SUCH_KEY: Record<string, Record<string, string>> = {
     apple2: 'two arrows only, both on the base layer, and neither goes up',
     apple2plus: 'two arrows only, both on the base layer, and neither goes up',
     ge235: 'paper, not a screen: the carriage only moves forward',
+    ge635: 'paper, not a screen: the carriage only moves forward',
   },
   DOWN: {
     altair8800: 'a front panel and a teletype: no cursor keys',
@@ -114,6 +117,7 @@ const NO_SUCH_KEY: Record<string, Record<string, string>> = {
     apple2plus:
       'two arrows only, both on the base layer, and neither goes down',
     ge235: 'paper, not a screen: the carriage only moves forward',
+    ge635: 'paper, not a screen: the carriage only moves forward',
     // The Monitor's key-code table gives the cell below the left arrow no code
     // at all, so the editing block has three arrows and no fourth.
     pmd85: 'the machine has three cursor keys and no fourth',
@@ -126,11 +130,13 @@ const NO_SUCH_KEY: Record<string, Record<string, string>> = {
     apple2: 'the left arrow is the rub-out, and is offered as DELETE',
     apple2plus: 'the left arrow is the rub-out, and is offered as DELETE',
     ge235: 'paper, not a screen: the carriage only moves forward',
+    ge635: 'paper, not a screen: the carriage only moves forward',
   },
   RIGHT: {
     altair8800: 'a front panel and a teletype: no cursor keys',
     apple1: 'an ASCII keyboard with no cursor addressing to move in',
     ge235: 'paper, not a screen: the carriage only moves forward',
+    ge635: 'paper, not a screen: the carriage only moves forward',
   },
 };
 

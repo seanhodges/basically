@@ -200,8 +200,24 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
     // a machine running compiled code. It needs the END that `programs` leaves
     // off, because a program without one does not run here at all: the compiler
     // reports "no end instruction" instead.
-    id: 'dartmouth',
+    id: 'ge235',
     dialects: ['ge235'],
+    iterations: 500,
+    base: [`10 ${PRINT_MARKER}`, '20 END', ''].join('\n'),
+    loop: [
+      '10 FOR I=1 TO 500',
+      '20 NEXT I',
+      `30 ${PRINT_MARKER}`,
+      '40 END',
+      '',
+    ].join('\n'),
+  },
+  {
+    // The same statement budget through the same shared interpreter, so the
+    // same count and the same END: what differs between the two Dartmouth
+    // machines is the language, not the pace it is run at.
+    id: 'ge635',
+    dialects: ['ge635'],
     iterations: 500,
     base: [`10 ${PRINT_MARKER}`, '20 END', ''].join('\n'),
     loop: [

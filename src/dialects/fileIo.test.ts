@@ -114,6 +114,10 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // Dartmouth BASIC has no file statement of any kind. A program's own data
   // lived in its DATA lines, and the tape the Teletype punched is a listing.
   ge235: 'no file statements at all; the paper tape is a listing, not a file',
+  // The fourth edition is no different, and says so itself: Appendix E lists
+  // data files among the things not yet built, beside passwords and program
+  // chaining. Files arrive in the fifth edition.
+  ge635: 'no file statements at all; the paper tape is a listing, not a file',
   // The same shape as the MSX's, and outstanding work for the same reason: SAM
   // BASIC has OPEN, CLOSE and the rest, but the machine is never handed the
   // store and traps nothing, so a file statement reaches a tape deck or a disk

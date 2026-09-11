@@ -36,5 +36,6 @@ export const BOOT_MACHINES = [
   { id: 'atari400', label: 'Atari 400' },
   { id: 'hb10p', label: 'HB-10P' },
   { id: 'ge235', label: 'GE-235' },
+  { id: 'ge635', label: 'GE-635' },
   { id: 'samcoupe', label: 'SAM Coupé' },
 ];

@@ -180,8 +180,9 @@ export default withPwa(
             },
             {
               // Named for the language rather than the machine, as the MSX and
-              // Locomotive pages are: Dartmouth BASIC is what the GE-235 ran,
-              // and it is the ancestor of every other BASIC listed here.
+              // Locomotive pages are: Dartmouth BASIC is what the GE-235 and
+              // the GE-635 ran, and it is the ancestor of every other BASIC
+              // listed here.
               text: 'Dartmouth BASIC',
               link: '/reference/dartmouth',
               collapsed: true,

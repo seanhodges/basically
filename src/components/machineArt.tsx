@@ -905,6 +905,74 @@ function Ge235Art({ size }: ArtProps) {
   );
 }
 
+/**
+ * GE-635: this machine too is in another room, so the portrait is again the
+ * terminal - but the fourth edition's manual names Teletype models 33 *and*
+ * 35, and the 35 is what tells the two apart on a picker row. It is a
+ * floor-standing console rather than a desktop pedestal: a heavier grey cabinet
+ * on legs, the paper standing up behind the keyboard, and the punch and reader
+ * on a separate stand to its left rather than bolted to the same deck.
+ */
+function Ge635Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      {/* The paper standing up behind the keyboard, with a line of type on it. */}
+      <path d="M15 2h20v12H15z" fill={ASR33_PAPER} />
+      {[0, 1, 2].map((r) => (
+        <rect
+          key={`t${r}`}
+          x="17.5"
+          y={4.5 + r * 2.8}
+          width={r === 2 ? 8 : 15 - r * 2.5}
+          height="1.1"
+          fill={ASR33_INK}
+        />
+      ))}
+      {/* The console cabinet, and the deck the keyboard sits in. */}
+      <path d="M12 14h32v9H12z" fill={BASE.teletype} />
+      <path d="M13 23h30v4H13z" fill={ASR33_CASE} />
+      {/* The legs the console stands on. */}
+      <rect x="14" y="27" width="2.5" height="3" fill={BASE.teletype} />
+      <rect x="39.5" y="27" width="2.5" height="3" fill={BASE.teletype} />
+      {/* The tape stand at the left, standing clear of the console. */}
+      <rect x="3" y="17" width="7" height="10" fill={ASR33_CASE} />
+      <rect x="4.4" y="18.6" width="4.2" height="1.4" fill={ASR33_PAPER} />
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: 4 }, (_, c) => (
+          <circle
+            key={`h${r}-${c}`}
+            cx={4.9 + c * 1.2}
+            cy={21.6 + r * 1.1}
+            r="0.3"
+            fill={ASR33_PAPER}
+          />
+        )),
+      )}
+      {/* Three rows of round keys, each row a little further right. */}
+      {[0, 1, 2].map((r) =>
+        Array.from({ length: 9 }, (_, c) => (
+          <circle
+            key={`k${r}-${c}`}
+            cx={15.4 + r * 0.9 + c * 3}
+            cy={16.2 + r * 2.4}
+            r="1.1"
+            fill={ASR33_KEYS}
+          />
+        )),
+      )}
+      {/* The space bar. */}
+      <rect
+        x="18"
+        y="23.6"
+        width="14"
+        height="1.3"
+        rx="0.5"
+        fill={ASR33_KEYS}
+      />
+    </svg>
+  );
+}
+
 /* ---------------------------------------------------------------------------
    MGT */
 
@@ -981,6 +1049,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   hb10p: Hb10pArt,
   samcoupe: SamCoupeArt,
   ge235: Ge235Art,
+  ge635: Ge635Art,
 };
 
 /** A machine's portrait, `size` px tall. */

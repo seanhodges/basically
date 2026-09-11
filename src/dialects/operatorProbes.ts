@@ -557,9 +557,45 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
     // a value in this BASIC, and exists only between IF and THEN. So REL asks
     // its question the only way the machine can be asked it - by jumping on
     // `<=` and printing which way it went.
-    id: 'dartmouth',
+    id: 'ge235',
     machines: ['GE-235'],
     dialects: ['ge235'],
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2↑3',
+      '30 PRINT "ASSC";2↑3↑2',
+      '40 PRINT "UNMI";0-2↑2',
+      '50 PRINT "DIVV";7/2',
+      '60 LET R=0',
+      '70 IF 1<=2 THEN 90',
+      '80 GOTO 100',
+      '90 LET R=1',
+      '100 PRINT "REL";R',
+      '110 PRINT "ZZEND"',
+      '120 END',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      DIVV: '3.5',
+      REL: '1',
+    },
+  },
+  {
+    // The fourth edition's operator set is the February 1965 one unchanged, so
+    // this probe is its sibling's line for line. What the edition added is a
+    // type rather than an operator: there are strings here and still nothing
+    // to join two of them with, `CHANGE` being the whole of the machinery, so
+    // CAT has no answer on this machine either. There is no AND, OR or NOT, no
+    // integer division and no remainder, and TRU is unaskable for the same
+    // reason as on the GE-235 - a comparison is not a value - so REL jumps on
+    // `<=` and prints which way it went.
+    id: 'ge635',
+    machines: ['GE-635'],
+    dialects: ['ge635'],
     program: [
       '10 PRINT "PREC";2+3*4',
       '20 PRINT "POWR";2↑3',

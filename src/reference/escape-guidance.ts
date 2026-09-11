@@ -1831,6 +1831,120 @@ export const escapeGuidance: EscapeGuidance[] = [
       'Respell the code as {0oNN} - two octal digits, because the characters are six bits and this machine is octal throughout.',
   },
 
+  // ---------------------------------------------------------------- ge635 --
+  // The same Teletype and the same answers, with one difference that matters:
+  // the codes are ASCII here rather than 6-bit BCD, so the printable set is
+  // wider and a raw code is respelled in hex.
+  {
+    to: 'ge635',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour: the type is black and the paper is white. Drop the code, or mark the text some other way where the colour carried the meaning.',
+    example: {
+      caption: 'Mark the text instead of colouring it',
+      code: ['10 PRINT "*** ALERT ***"'],
+    },
+  },
+  {
+    to: 'ge635',
+    class: 'cursor',
+    support: 'partial',
+    instead:
+      'Nothing addresses a carriage: paper only moves forward. TAB(n) reaches a column on the line being printed, and a comma steps to the next of five fifteen-column zones.',
+    example: {
+      caption: 'TAB reaches a column on this line',
+      code: ['10 PRINT "NAME";TAB(20);"SCORE"'],
+    },
+  },
+  {
+    to: 'ge635',
+    class: 'editing',
+    support: 'none',
+    instead:
+      'Nothing printed can be erased. Replace a screen clear with blank PRINTs, and print a whole line again where the original deleted part of one.',
+  },
+  {
+    to: 'ge635',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'One type basket and no modes to switch: drop the code. The Teletype prints the characters its set has - capitals, digits and punctuation - and nothing else.',
+  },
+  {
+    to: 'ge635',
+    class: 'screen-effect',
+    support: 'none',
+    instead:
+      'Nothing flashes, conceals or doubles on paper: drop the effect, or give the text a line of its own where it has to catch the eye.',
+  },
+  {
+    to: 'ge635',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'The ASR-33 has no function key and no code for one: ask with INPUT and branch on what was typed.',
+  },
+  {
+    to: 'ge635',
+    class: 'block-graphics',
+    support: 'none',
+    instead:
+      'No graphics characters: a shape here is a piece of metal in a type basket. Redraw the picture from punctuation - # and . are within reach - or drop it.',
+    example: {
+      caption: 'A bar from punctuation',
+      code: ['10 PRINT "##########"'],
+    },
+  },
+  {
+    to: 'ge635',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'Nothing is redefinable: the shapes are cast in metal. Build the figure from several ordinary characters, or drop it.',
+  },
+  {
+    to: 'ge635',
+    class: 'inverse-video',
+    support: 'none',
+    instead:
+      'Nothing is reversible on paper. Where inverse marked text out, bracket it with punctuation instead - the set has no lower case to contrast with.',
+  },
+  {
+    to: 'ge635',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces, or reach the column with TAB(n). A comma reaches the next fifteen-column zone.',
+  },
+  {
+    to: 'ge635',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'ge635',
+    class: 'literal',
+    support: 'partial',
+    instead:
+      'Type the character itself: the set runs from the space to code 95, so ! # % & ’ @ are ordinary characters here. Only ^ _ ` { | } ~ are missing - 94 and 95 print the ASR-33’s ↑ and ←.',
+  },
+  {
+    to: 'ge635',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Five codes work the Teletype - {0x04} end of transmission, {0x07} bell, {0x0A} line feed, {0x0D} carriage return and {0x7F} rub-out. Drop anything else; none of them is a screen command.',
+  },
+  {
+    to: 'ge635',
+    class: 'raw-byte',
+    support: 'full',
+    instead:
+      'Respell the code as {0xNN} - two hexadecimal digits, the codes here being ASCII rather than the GE-235’s six-bit BCD.',
+  },
+
   // ------------------------------------------------------------- samcoupe --
   // A bitmap screen with real colour, and a string that carries its own print
   // controls: the SAM answers most of these under its own `{PEN n}`-style

@@ -54,6 +54,7 @@ import {
 import { atariKeywords, atariStatements } from './atari800/keywords';
 import { hb10pKeywords, HB10P_ALIASES } from './hb10p/keywords';
 import { ge235Keywords } from './ge235/keywords';
+import { ge635Keywords } from './ge635/keywords';
 import { samcoupeKeywords } from './samcoupe/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
@@ -119,6 +120,10 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   // rest out, so there is no prefix to shorten and no symbol that stands for a
   // command - `?` is not even in the character set.
   ge235: ge235Keywords,
+  // Nor here: the fourth edition's compiler reads whole words too, and the
+  // suffixed RESTORE$ and RESTORE* are longer spellings rather than shorter
+  // ones.
+  ge635: ge635Keywords,
   samcoupe: samcoupeKeywords,
 };
 

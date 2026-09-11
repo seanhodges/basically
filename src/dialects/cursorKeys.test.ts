@@ -220,6 +220,9 @@ const NO_CURSOR_KEYS: Record<string, string> = {
   // Paper, not a screen: a Teletype's carriage only ever moves forward, and
   // there is nothing already printed for an arrow to move back over.
   ge235: 'no cursor keys on the machine, and paper cannot be moved over',
+  // The same terminal, three years later and with an ASCII code set: still a
+  // printing one, so there is still nothing to move a cursor over.
+  ge635: 'no cursor keys on the machine, and paper cannot be moved over',
 };
 
 describe('every registered machine is covered by a cursor-key claim', () => {

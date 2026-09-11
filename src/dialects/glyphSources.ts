@@ -195,12 +195,16 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // `&H` rather than one; it mirrors memoryWrites.hexPrefix like the Acorn,
   // Amstrad and PMD entries above.
   hb10p: '&H',
-  // Empty, and the only empty sigil here: the GE-235 has no glyph to record an
-  // address for, so nothing ever formats one. Its own listings write plain
-  // octal with no sigil in front of it - `top: eqo 17777` - and there is no
-  // spelling to borrow, this BASIC having no PEEK, no POKE and no way to name
-  // an address at all. The key is present so the omission is deliberate.
+  // Empty, as the two Dartmouth machines both are: neither has a glyph to
+  // record an address for, so nothing ever formats one. The GE-235's own
+  // listings write plain octal with no sigil in front of them - `top: eqo
+  // 17777` - and there is no spelling to borrow, this BASIC having no PEEK, no
+  // POKE and no way to name an address at all. The keys are present so the
+  // omission is deliberate.
   ge235: '',
+  // The fourth edition adds no way to name an address either, and its manual
+  // counts a program's space in plain decimal words.
+  ge635: '',
   // SAM BASIC writes `&FE00`, mirroring memoryWrites.hexPrefix as the Acorn,
   // Amstrad, PMD and MSX entries above do.
   samcoupe: '&',
@@ -667,6 +671,11 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   // there is no ROM, no chip and no logic anywhere in the machine that holds a
   // bitmap - the glyphs this IDE draws are the font the browser has.
   ge235: [],
+
+  // Empty for the same reason, and the same type basket: the GE-635's terminal
+  // is a Model 33 as well, so its shapes are pieces of metal rather than
+  // bitmaps and the glyphs this IDE draws are the font the browser has.
+  ge635: [],
 
   apple1: [
     {
