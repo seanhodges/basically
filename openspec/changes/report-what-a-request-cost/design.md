@@ -5,12 +5,18 @@ none of it. `StreamResult` — the shape all three backends return through the
 single seam in `src/ai/aiClient.ts` — carries the answer's text, why it stopped,
 and any tools the model asked to run. Nothing else survives.
 
-The three backends do not report the same things. Anthropic reports what was newly
-processed, what was written to its cache, what was read back from it, and the
-answer's own size. OpenAI and Gemini report the request and the answer, and
-nothing about caching, because neither offers the kind of caching the IDE can
-address. So the shape this change adds is one where absence is normal and must be
-representable.
+The three backends do not report the same things, and they do not divide the way
+one might expect. All three report how much of a request was served from cache:
+Anthropic as `cache_read_input_tokens`, OpenAI within `prompt_tokens_details`,
+Gemini as `cachedContentTokenCount`. Only Anthropic reports what was *written* to
+the cache, because only Anthropic is asked to cache anything — on the other two it
+happens implicitly or not at all, and there is no write for the caller to be told
+about. So the shape this change adds is one where absence is normal, must be
+representable, and can apply to one half of caching and not the other.
+
+The providers also disagree, several-fold, about how large a request must be
+before they will cache it. Below that floor a request silently never caches: no
+error, just a cache figure that is honestly nought and reads like a fault.
 
 See `docs/contributing/architecture.md` for where the assistant sits.
 
@@ -79,7 +85,18 @@ cache" and "the answer" say what happened; input and output tokens say how the
 API bills. The unit is tokens because that is the only unit the IDE actually
 knows, but the labels describe the request, not the invoice.
 
-**6. It does not touch the seam.**
+**6. A request too small to cache is a stated reason, not a zero.**
+
+Each provider sets a floor below which it will not cache, and they differ
+several-fold. A request under that floor reports nothing served from cache, which
+is true and useless: it looks identical to a cache that has broken. Stating the
+reason separates "there was nothing to serve" from "the prefix stopped matching",
+which are the two things anyone reading this figure is trying to tell apart.
+
+This stays a property of the chosen provider, declared alongside what it accepts
+and whether it supports tools, rather than something derived per request.
+
+**7. It does not touch the seam.**
 
 No `Dialect` and no `MachineEmulator` is involved. This is entirely inside the
 assistant's own provider boundary, which is a different seam and one this change
@@ -87,10 +104,12 @@ widens by exactly one optional field.
 
 ## Risks / Trade-offs
 
-- **Three providers, three shapes, and only one with cache figures** → the
+- **Three providers, three shapes, and each missing something different** → the
   optional-everywhere type, and a test per backend that a missing figure arrives
-  missing rather than as nought. The distinction is the whole point of the change,
-  so it is worth a test each rather than one shared one.
+  missing rather than as nought. Two of the three report reads but not writes,
+  which is the case most likely to be mishandled by a type that treats caching as
+  one thing. The distinction is the whole point of the change, so it is worth a
+  test each rather than one shared one.
 - **A stopped answer may report nothing** → aborting a stream can leave the final
   usage unavailable, in which case the answer states what it can and marks the
   rest unavailable. The spec requires the statement "where the provider reports
@@ -99,10 +118,12 @@ widens by exactly one optional field.
   answer, against a budget already carrying the answers themselves. Negligible,
   but it shares a quota with the autosaved program, so persistence stays
   best-effort as everything else there is.
-- **The figure will look bad before it looks good** → until the prefix is stable,
-  this will honestly report that nothing is ever served from cache. That is the
-  change working, not failing, and it is the reason to land the two together
-  rather than to hold this back until the number is flattering.
+- **The figure is expected to look good, which is its own risk** → the prefix was
+  stabilised and measured by hand, so a healthy conversation should report most of
+  its request served from cache from the second turn. A change that only ever
+  confirms good news is easy to build wrong and never notice, so the tests drive
+  the unhappy shapes directly — a withheld figure, a request under the floor, a
+  turn that ended early — rather than relying on live use to produce them.
 - **Showing cost could read as discouraging use** → it is secondary by design,
   and the alternative is a user who discovers the cost somewhere the IDE cannot
   show them. In a bring-your-own-key product the honest number is the kinder one.

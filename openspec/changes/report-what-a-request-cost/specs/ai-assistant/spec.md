@@ -36,6 +36,13 @@ being asked for, and never in the way of reading the reply.
 - **THEN** those figures are stated as unavailable, and what the request and the
   answer came to is still stated
 
+#### Scenario: A provider that reports one half of caching
+
+- **WHEN** the answer came from a provider that reports how much of the request
+  was served from cache but not how much was written to it
+- **THEN** what was served from cache is stated, and what was written to it is
+  stated as unavailable rather than as nought
+
 #### Scenario: An answer that used the machine before replying
 
 - **WHEN** the assistant drove or looked at the machine before finishing its
@@ -56,3 +63,35 @@ being asked for, and never in the way of reading the reply.
 
 - **WHEN** the user reloads the page on a conversation that had already run
 - **THEN** the restored conversation states the total it had reached
+
+### Requirement: A request too small to cache says so
+
+Providers differ, several-fold, in how large a request must be before they will
+cache any of it. Below that size a request is never cached, and reports nothing
+served from cache — which is true, and indistinguishable from a cache that has
+stopped matching.
+
+Where a request is too small for the chosen provider to cache, the assistant SHALL
+state that as the reason nothing was served from cache, rather than stating only
+the nought. Where a request clears that size and still nothing was served from
+cache, the assistant SHALL NOT offer that explanation, so that the two remain
+distinguishable.
+
+The size at which a provider begins to cache SHALL be a stated property of that
+provider, as what it accepts and whether it supports tools already are. A provider
+that does not publish one SHALL carry none, rather than an assumed figure borrowed
+from another provider; on such a provider the assistant SHALL state what was
+served from cache without ever attributing a nought to the request's size.
+
+#### Scenario: A request below the provider's caching size
+
+- **WHEN** a request is smaller than the chosen provider will cache
+- **THEN** the answer states that the request was too small to cache, rather than
+  reporting only that nothing was served from cache
+
+#### Scenario: A large request that was not served from cache
+
+- **WHEN** a request is large enough for the chosen provider to cache but nothing
+  was served from cache
+- **THEN** the answer states that nothing was served from cache and does not
+  attribute it to the request's size
