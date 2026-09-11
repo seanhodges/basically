@@ -17,6 +17,7 @@
  */
 
 import { access, constants } from 'node:fs/promises';
+import type { SpawnOptions } from 'node:child_process';
 import path from 'node:path';
 
 /** The file names a host program goes by, most preferred first. */
@@ -72,21 +73,45 @@ export async function findHostPrograms(
   return found;
 }
 
+/** How a host is started, which is not the same question on every platform. */
+export function startOptions(
+  program: string,
+  platform: NodeJS.Platform,
+): SpawnOptions {
+  const windows = platform === 'win32';
+  return {
+    // `setsid`, so the host is not in the caller's process group and does not
+    // go down with the terminal that started it. Not on Windows, where a child
+    // already outlives its parent whatever this says, and where the flag costs
+    // a window: DETACHED_PROCESS leaves the child no console, cmd.exe then
+    // allocates itself a visible one, and CreateProcess ignores the request
+    // below when DETACHED_PROCESS is set.
+    detached: !windows,
+    // A console with no window rather than no console at all - which is what
+    // keeps the host off the screen, and also keeps the caller's Ctrl+C off the
+    // host, the isolation `detached` is wanted for elsewhere. It only takes
+    // effect because no stream below is inherited.
+    windowsHide: windows,
+    stdio: 'ignore',
+    // A `.cmd` or `.bat` is not an executable image; Windows needs its shell to
+    // run one.
+    shell: windows && /\.(cmd|bat)$/i.test(program),
+  };
+}
+
 /**
  * Start a host and stop caring about it.
  *
- * Detached and with its streams let go, so the host outlives the command that
- * started it: a client that starts a host and then exits must not take it down
- * with it, and must not be kept alive by it either.
+ * Its streams are let go and it is put out of the caller's reach, so the host
+ * outlives the command that started it: a client that starts a host and then
+ * exits must not take it down with it, and must not be kept alive by it either.
  */
-export async function startHost(program: string): Promise<void> {
+export async function startHost(
+  program: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
   const { spawn } = await import('node:child_process');
-  const child = spawn(program, [], {
-    detached: true,
-    stdio: 'ignore',
-    // A `.cmd` is not an executable image; Windows needs its shell to run one.
-    shell: process.platform === 'win32' && program.endsWith('.cmd'),
-  });
+  const child = spawn(program, [], startOptions(program, platform));
   await new Promise<void>((resolve, reject) => {
     child.once('error', reject);
     // Nothing to wait for beyond the spawn succeeding: the host binds its

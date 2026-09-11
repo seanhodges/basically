@@ -55,7 +55,7 @@ export function realWorld(
     // gone - another client cleared it first - is not an error.
     clear: (address) => rm(address, { force: true }),
     candidates: () => findHostPrograms(besides, process.env.PATH, platform),
-    start: startHost,
+    start: (program) => startHost(program, platform),
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
 }

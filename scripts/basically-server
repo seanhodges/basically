@@ -15,9 +15,15 @@ SOURCES=(scripts/headless src)
 # The build's own output lives under scripts/headless, and the three bundles are
 # written one after another - so a scan that counted them would find the later
 # ones newer than the first and rebuild on every single invocation.
+#
+# Test files are skipped too: nothing bundles them, so editing one is not a
+# stale bundle. The command line prunes them as well, and a host that did not
+# would rebuild on every start after a test was touched - unseen, because a
+# host is started with no streams to say so.
 needs_build() {
   [ ! -f "$BUNDLE" ] && return 0
-  [ -n "$(find "${SOURCES[@]}" -type d -name dist -prune -o \
+  [ -n "$(find "${SOURCES[@]}" \
+            \( -type d -name dist -o -name '*.test.ts' -o -name '*.test.tsx' \) -prune -o \
             -type f -newer "$BUNDLE" -print -quit)" ]
 }
 

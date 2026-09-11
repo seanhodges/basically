@@ -5,7 +5,7 @@ import {
   type Connection,
   type ConnectWorld,
 } from './connect';
-import { programNames, searchPath } from './discover';
+import { programNames, searchPath, startOptions } from './discover';
 
 const aConnection = {} as Connection;
 
@@ -217,5 +217,33 @@ describe('where a host program is looked for', () => {
     expect(programNames('win32')[0]).toBe('basically-server.cmd');
     expect(programNames('linux')).toEqual(['basically-server']);
     expect(programNames('darwin')).toEqual(['basically-server']);
+  });
+});
+
+describe('how a host is started', () => {
+  it('asks Windows for a console with no window, not for no console', () => {
+    // The two go together: DETACHED_PROCESS leaves cmd.exe to allocate itself a
+    // visible console, and makes CreateProcess ignore the request for a
+    // windowless one. A Windows child outlives its parent either way.
+    const options = startOptions('basically-server.cmd', 'win32');
+    expect(options.detached).toBe(false);
+    expect(options.windowsHide).toBe(true);
+    expect(options.stdio).toBe('ignore');
+  });
+
+  it('runs what only cmd.exe can run through cmd.exe', () => {
+    expect(startOptions('basically-server.cmd', 'win32').shell).toBe(true);
+    expect(startOptions('basically-server.bat', 'win32').shell).toBe(true);
+    expect(startOptions('basically-server', 'win32').shell).toBe(false);
+  });
+
+  it('puts a host beyond the terminal that started it elsewhere', () => {
+    for (const platform of ['linux', 'darwin'] as const) {
+      const options = startOptions('/usr/bin/basically-server', platform);
+      expect(options.detached).toBe(true);
+      expect(options.shell).toBe(false);
+      expect(options.windowsHide).toBe(false);
+      expect(options.stdio).toBe('ignore');
+    }
   });
 });
