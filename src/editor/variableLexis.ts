@@ -125,6 +125,29 @@ export const GE235_LEXIS: VariableLexis = {
   dataIsVerbatim: true,
 };
 
+/**
+ * Dartmouth BASIC's fourth edition, which differs from the February 1965 lexis
+ * above in exactly one thing: it has strings, so `$` is a name character
+ * again. Section 2.7 of *BASIC, Fourth Edition* puts it on any ordinary
+ * variable - `A$`, and `Z7$` in its own example - so the one-letter-plus-
+ * optional-digit rule carries over unchanged and the marker simply returns.
+ * `$` is the only marker: there is no second numeric type and no `%`.
+ *
+ * A separate constant rather than a widened {@link GE235_LEXIS}: the GE-235
+ * rejects `$` outright, and the two machines share a reference page precisely
+ * because their differences are worth stating rather than blurring.
+ *
+ * `DATA` still holds values rather than expressions, and now holds strings
+ * too: section 2.7 says they "are recognized by the fact that they start with
+ * a letter", so a bare word inside a DATA statement is a string constant and
+ * not a variable this scanner should report.
+ */
+export const GE635_LEXIS: VariableLexis = {
+  suffixChars: '$',
+  crunched: true,
+  dataIsVerbatim: true,
+};
+
 export const MSX_LEXIS: VariableLexis = {
   suffixChars: '$%!#',
   hexPrefix: '&[HhOoBb]?',

@@ -138,6 +138,16 @@ Adding the GE-235 widened the era bound in `src/dialects/registry.test.ts` to
 1960-1995; widening it again belongs in the plan for the machine that needs it,
 not in a passing test edit.
 
+**The GE-265 is not a machine to add.** It is GE's name for the pair the
+shipped `ge235` already models - a GE-235 with a DATANET-30 front end handling
+the terminals - sold as the GE Mark I service from 1965. So a GE-265 row here
+would be the GE-235 twice. The Dartmouth BASIC that ran on that pair is the
+one `ge235` implements; every edition from the third on was written for the
+GE-635, which the fourth edition's own manual says of itself ("the current
+implementation on a GE-635 time-sharing system", section 2.9) and which its
+sample sessions date to October 1967. Phase II replaced Phase I at Dartmouth on
+1 April 1969.
+
 ## Acorn Atom language gaps
 
 Genuine Atom BASIC features the shipped `atom` tokenizer does not cover, so they

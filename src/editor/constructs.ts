@@ -868,6 +868,61 @@ export const GE235_CONSTRUCTS: ConstructTemplate[] = [
   ]),
 ];
 
+/**
+ * Dartmouth BASIC's fourth edition. The February 1965 set above is the base -
+ * `THEN` still takes a line number and nothing else, and `LET` still earns a
+ * template because this BASIC has no bare assignment - and three of the
+ * edition's own shapes join it: the multi-line `DEF` that `FNEND` closes
+ * (section 2.2), the `ON ... GO TO` switch (1.7.6) and `MAT` (2.6), which is
+ * the only way to touch a whole matrix. `CHANGE` is a one-liner with two
+ * operands rather than a block, so it stays a plain keyword completion.
+ *
+ * Exported rather than wired into {@link constructsByDialect}: that map is
+ * held to the registered dialects, so the entry goes in with the registry
+ * line.
+ */
+export const GE635_CONSTRUCTS: ConstructTemplate[] = [
+  {
+    label: 'IF',
+    lines: ['IF ${1:condition} THEN ${0:line}'],
+    detail: 'IF \u2026 THEN line',
+  },
+  forNext(),
+  gosub('GOSUB'),
+  {
+    label: 'LET',
+    lines: ['LET ${1:A}=${0}'],
+    detail: 'assign a value',
+  },
+  {
+    label: 'DEF',
+    lines: ['DEF FN${1:A}(${2:X})', '${0}', 'FNEND'],
+    detail: 'multi-line function',
+  },
+  {
+    label: 'ON',
+    lines: ['ON ${1:X} GO TO ${0:100,200}'],
+    detail: 'many-way switch',
+  },
+  {
+    label: 'MAT',
+    lines: ['MAT ${1:A}=${0:ZER}'],
+    detail: 'whole-matrix operation',
+  },
+  {
+    label: 'CHANGE',
+    lines: ['CHANGE ${1:A$} TO ${0:A}'],
+    detail: 'string to codes, or back',
+  },
+  stringCmd('PRINT', 'print a string'),
+  ...fns([
+    ['ABS', 'n'],
+    ['EXP', 'n'],
+    ['INT', 'n'],
+    ['SGN', 'n'],
+  ]),
+];
+
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   zx81: ZX81,
   zx80: ZX80,
