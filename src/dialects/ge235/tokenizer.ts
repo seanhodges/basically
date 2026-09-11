@@ -39,11 +39,16 @@ export interface TokenizedProgram {
 }
 
 /**
- * The largest line number the compiler accepts. `comp` in `BA-1` counts the
- * digits and takes at most five (`bxh 6,2`, guarding a table the routine's own
- * comment calls "5 dig in tester or regular basic").
+ * Digits the compiler will read in a line number, which is where this limit
+ * really lives: `comp` in `BA-1` counts them and takes at most five (`bxh 6,2`,
+ * guarding a table the routine's own comment calls "5 dig in tester or regular
+ * basic"). It counts what was punched rather than what the digits come to, so
+ * `000010` is six of them and refused although the number is ten.
  */
-export const MAX_LINE_NUMBER = 99999;
+export const MAX_LINE_DIGITS = 5;
+
+/** The largest line number that many digits can spell. */
+export const MAX_LINE_NUMBER = 10 ** MAX_LINE_DIGITS - 1;
 
 /**
  * How many lines a program may have. `comp` builds two words of `f` per line
@@ -158,12 +163,12 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     }
     const digits = m[2]!;
     const lineNo = parseInt(digits, 10);
-    if (lineNo > MAX_LINE_NUMBER) {
+    if (digits.length > MAX_LINE_DIGITS) {
       errors.push({
         line: editorLine,
         column: m[1]!.length,
         endColumn: m[1]!.length + digits.length,
-        message: `Line number ${lineNo} out of range 0–${MAX_LINE_NUMBER}`,
+        message: `Line number ${lineNo} has more than ${MAX_LINE_DIGITS} digits (0–${MAX_LINE_NUMBER})`,
       });
       continue;
     }

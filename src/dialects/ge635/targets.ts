@@ -2,7 +2,8 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { BuildTarget } from '../types';
-import { assertNoFatalErrors, fileTarget } from '../targetHelpers';
+import { fileTarget, paperTapeListing } from '../targetHelpers';
+import { detokenizeProgram } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 
 /**
@@ -15,47 +16,42 @@ import { tokenizeProgram } from './tokenizer';
  * and `KEY` to read one back.
  *
  * The tape is text, so it opens straight back through `fileExtensions` and
- * needs no `binaryImports` entry - the same arrangement the Altair's paper tape
- * has. There is no `audio` member anywhere in this dialect for the same reason
- * the Ataris have none: the machine had no tape interface to model.
+ * needs no `binaryImports` entry - the same arrangement the GE-235's and the
+ * Altair's paper tapes have. There is no `audio` member anywhere in this
+ * dialect for the same reason the Ataris have none: the machine had no tape
+ * interface to model.
  *
  * No target carries memory blocks, because the dialect has none - this machine
  * is offered as BASIC only.
  */
 
 /**
- * The listing as a paper tape: the bytes the tokenizer punches, which are the
- * canonical record - line number, one space, the trimmed body - each line
- * closed by the CR LF a Teletype needs, with blank editor lines gone and the
- * lines in the order they were typed.
+ * The listing as a paper tape, built by the same {@link paperTapeListing} the
+ * GE-235 uses - the two machines punch the same shape of file, and the helper
+ * carries why it is the listing rather than the machine's own codes.
  *
- * **A `{0xNN}` escape resolves to the byte it names**, which is where this
- * parts company with the GE-235's tape. There the escape is written out
- * literally, because the code behind it is a six-bit BCD value no reader of a
- * text file could show and the file would stop being openable. Here the codes
- * are ASCII (section 2.7), so an escape names a byte the punch really wrote
- * and the tape carries it - as the Altair's does. Reading the tape back turns
- * an unprintable code into its escape again, so the round trip is exact either
- * way.
+ * The one thing worth saying here is what that costs *this* machine, because it
+ * is the machine that had the choice. Its codes are ASCII (section 2.7), so a
+ * `{0xNN}` escape names a byte the punch really could have written - but a
+ * `.txt` is read back as text, and an ASCII control code is not a character the
+ * charset can encode, so the more faithful artifact would be a file that could
+ * not be opened again. The GE-235 never had the choice: a 6-bit BCD code has no
+ * text form at all. So both spell their escapes out, and this one gives up a
+ * fidelity it could have had.
  *
  * `↑` is written as itself, the character the ASR-33's key face carries and
- * this BASIC raises to a power with. It is code 94, where a later ASCII puts
- * `^`, and the tape holds the code rather than the later reading of it.
- *
- * There is nothing to terminate the tape with: ASCII has no end-of-message
- * code, the manual names none, and the end of the file says the same thing.
+ * this BASIC raises to a power with. On the tape it is code 94, where a later
+ * ASCII puts `^`; on the file it is the arrow, which is the character the
+ * editor reads and the only one of the two this charset can encode.
  */
 export function buildPaperTape(source: string): Uint8Array {
-  const { image, errors } = tokenizeProgram(source);
-  assertNoFatalErrors(errors);
-  if (image.length === 0) throw new Error('Program is empty');
-  return image;
+  return paperTapeListing(tokenizeProgram(source), detokenizeProgram);
 }
 
 export const ge635BuildTargets: BuildTarget[] = [
   fileTarget(
     'ge635-paper-tape',
-    'Export paper tape (ASCII)',
+    'Export paper tape (text)',
     'txt',
     (source) =>
       new Blob([buildPaperTape(source) as BlobPart], { type: 'text/plain' }),

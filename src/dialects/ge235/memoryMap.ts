@@ -12,9 +12,9 @@ import type { MemoryMap } from '../types';
  * is the one thing to hold in mind reading this file: a "location" is 20 bits,
  * and a number takes two of them.
  *
- * The other machines here address bytes, and the difference is not cosmetic:
- * the same span looks eight times smaller and every figure in a note is a word
- * count.
+ * Almost every other machine here addresses bytes, and the difference is not
+ * cosmetic: the same span looks eight times smaller and every figure in a note
+ * is a word count.
  *
  * Two more things make this map unlike the rest:
  *
@@ -170,8 +170,8 @@ export const SYMBOL_TABLE = 0o17326;
 
 export const ge235MemoryMap: MemoryMap = {
   addressSpace: CORE_WORDS,
-  // The one map here that is not byte-addressed, and every reader of it has to
-  // know: the boundaries below are word numbers.
+  // Not byte-addressed, and every reader of this map has to know: the
+  // boundaries below are word numbers.
   addressUnit: 'word',
   regions: [
     {

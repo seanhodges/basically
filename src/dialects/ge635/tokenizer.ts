@@ -50,11 +50,17 @@ export interface TokenizedProgram {
 }
 
 /**
- * The largest line number the compiler accepts. Section 2.8's
- * `ILLEGAL LINE NUMBER` is what a longer one gets: "Line number is of
- * incorrect form, or contains more than five digits."
+ * Digits the compiler will read in a line number, which is where this limit
+ * really lives. Section 2.8's `ILLEGAL LINE NUMBER` is what a longer one gets:
+ * "Line number is of incorrect form, or contains more than five digits." It is
+ * the digits that are counted and not the number they come to, so `000010` is
+ * six of them and refused although the number is ten - which is what the
+ * GE-235's compiler listing counts too.
  */
-export const MAX_LINE_NUMBER = 99999;
+export const MAX_LINE_DIGITS = 5;
+
+/** The largest line number that many digits can spell. */
+export const MAX_LINE_NUMBER = 10 ** MAX_LINE_DIGITS - 1;
 
 /**
  * The most characters a program may hold, and the one size rule the manual
@@ -183,12 +189,12 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     }
     const digits = m[2]!;
     const lineNo = parseInt(digits, 10);
-    if (digits.length > 5) {
+    if (digits.length > MAX_LINE_DIGITS) {
       errors.push({
         line: editorLine,
         column: m[1]!.length,
         endColumn: m[1]!.length + digits.length,
-        message: `Line number ${lineNo} has more than five digits (0–${MAX_LINE_NUMBER})`,
+        message: `Line number ${lineNo} has more than ${MAX_LINE_DIGITS} digits (0–${MAX_LINE_NUMBER})`,
       });
       continue;
     }

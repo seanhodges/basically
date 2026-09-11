@@ -6,6 +6,7 @@ import { hasFatalErrors } from '../types';
 import { ge635 } from './index';
 import { CR, LF, ge635Charset } from './charset';
 import {
+  MAX_LINE_DIGITS,
   MAX_LINE_NUMBER,
   MAX_PROGRAM_CHARACTERS,
   tokenizeProgram,
@@ -82,10 +83,16 @@ describe('ge635 tokenizer', () => {
     // five digits".
     const { errors, image } = tokenizeProgram('100000 END');
     expect(errors).toHaveLength(1);
-    expect(errors[0]!.message).toContain('more than five digits');
+    expect(errors[0]!.message).toContain(`more than ${MAX_LINE_DIGITS} digits`);
     expect(hasFatalErrors(errors)).toBe(true);
     expect(image).toHaveLength(0);
     expect(messages(`${MAX_LINE_NUMBER} END`)).toEqual([]);
+    // The digits are counted, not the number they come to, so padding a small
+    // line number past the field is refused as well. The GE-235's compiler
+    // listing counts the same way.
+    expect(messages('000010 END')).toEqual([
+      `Line number 10 has more than ${MAX_LINE_DIGITS} digits (0–${MAX_LINE_NUMBER})`,
+    ]);
   });
 
   it('reports an out-of-order line without spoiling the tape', () => {
