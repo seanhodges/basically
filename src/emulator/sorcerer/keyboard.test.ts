@@ -29,9 +29,10 @@ describe('SorcererKeyboard', () => {
   it('pulls one bit of one line low per key', () => {
     const keyboard = new SorcererKeyboard();
     keyboard.setKey('KeyA', true);
+    // Line 0 first: an ordinary key waits for that read before it appears.
+    expect(keyboard.readLine(0)).toBe(0x1f);
     // A is bit 2 of the line 1/Q/A/Z/X share.
     expect(keyboard.readLine(2)).toBe(0x1f & ~0x04);
-    expect(keyboard.readLine(0)).toBe(0x1f);
 
     keyboard.setKey('Shift', true);
     expect(keyboard.readLine(0)).toBe(0x1f & ~0x10);
@@ -41,9 +42,43 @@ describe('SorcererKeyboard', () => {
     expect(keyboard.readLine(2)).toBe(0x1f);
   });
 
+  /**
+   * An ordinary key reaches the matrix only once the modifier line has been
+   * read, so the scan that finds it has already read the modifiers it goes
+   * with. Without the gate, a keycap that taps SHIFT and `[` in the same
+   * instant lands between the Monitor's modifier read and its read of line 10,
+   * and types `[`.
+   */
+  it('holds an ordinary key back until the modifier line is read', () => {
+    const keyboard = new SorcererKeyboard();
+    keyboard.setKey('Shift', true);
+    keyboard.setKey('BracketLeft', true);
+    // Mid-pass: the modifier read has been and gone, so the key is not here yet.
+    expect(keyboard.readLine(10)).toBe(0x1f);
+    // The next pass reads the modifiers, and the key arrives behind them.
+    expect(keyboard.readLine(0)).toBe(0x1f & ~0x10);
+    expect(keyboard.readLine(10)).toBe(0x1f & ~0x08);
+  });
+
+  /**
+   * The backstop: code free to read one line and nothing else would otherwise
+   * hold a key out for ever. A whole pass of the sixteen lines, so it cannot
+   * fire inside the pass the gate exists to protect.
+   */
+  it('gives up waiting after a whole pass of reads', () => {
+    const keyboard = new SorcererKeyboard();
+    keyboard.setKey('Enter', true);
+    // Each read answers with the matrix as it was and then opens the gate, so
+    // the whole pass goes by reading high and the key is there on the next one.
+    for (let i = 0; i < 16; i++)
+      expect(keyboard.readLine(11), `read ${i}`).toBe(0x1f);
+    expect(keyboard.readLine(11)).toBe(0x1f & ~0x02);
+  });
+
   it('reads only the low four bits of the selected line number', () => {
     const keyboard = new SorcererKeyboard();
     keyboard.setKey('Enter', true);
+    keyboard.readLine(0);
     expect(keyboard.readLine(11)).toBe(0x1f & ~0x02);
     expect(keyboard.readLine(11 + 0x30)).toBe(0x1f & ~0x02);
   });
@@ -68,6 +103,9 @@ describe('SorcererKeyboard', () => {
     keyboard.setKey('KeyQ', true);
     keyboard.handleEvent(press('Space'), true);
     keyboard.releaseAll();
+    // Line 0 among them, so a key the gate was still holding is dropped too
+    // rather than arriving after the release.
+    expect(keyboard.readLine(0)).toBe(0x1f);
     expect(keyboard.readLine(2)).toBe(0x1f);
     expect(keyboard.readLine(1)).toBe(0x1f);
   });

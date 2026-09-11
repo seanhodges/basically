@@ -1357,3 +1357,42 @@
 .vk-theme-samcoupe .vk-layer-cursor.vk-active {
   color: #ffd2cc;
 }
+
+/* ---------------------------------------------------------------------------
+   Exidy Sorcerer keyboard theme: the cream wedge the machine is, with the dark
+   brown keycaps and white legends it carries. The SHIFT markings are the white
+   the machine prints them in; the SYMBOL and CURSOR overlays take a warmer
+   amber, which is this stylesheet's own doing rather than the machine's - the
+   keyboard prints nothing for either, the arrows being a mode here and not a
+   cluster, so the ink is there to say a marking came from an overlay rather
+   than off the cap. The graphics are not here at all: they are on the front
+   faces of the keycaps, which the template has no slot for, and the GRAPHICS
+   palette carries them instead. Activated by the layout's
+   `theme: 'vk-theme-sorcerer'`. */
+.virtual-keyboard.vk-theme-sorcerer {
+  background: #cfc8b4;
+}
+
+.vk-theme-sorcerer .vk-keycap {
+  background: linear-gradient(#4a433a, #383229);
+}
+
+.vk-theme-sorcerer .vk-layer-shift {
+  color: #e8e4da;
+}
+
+.vk-theme-sorcerer .vk-layer-shift.vk-active {
+  color: #ffffff;
+}
+
+.vk-theme-sorcerer .vk-layer-symbols,
+.vk-theme-sorcerer .vk-layer-symbols2,
+.vk-theme-sorcerer .vk-layer-cursor {
+  color: #d29a4e;
+}
+
+.vk-theme-sorcerer .vk-layer-symbols.vk-active,
+.vk-theme-sorcerer .vk-layer-symbols2.vk-active,
+.vk-theme-sorcerer .vk-layer-cursor.vk-active {
+  color: #f5d3a0;
+}

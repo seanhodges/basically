@@ -15,6 +15,7 @@ import { dartmouthReference } from '../../src/reference/dartmouth';
 import { msxReference } from '../../src/reference/msx';
 import { pmd85Reference } from '../../src/reference/pmd85';
 import { samcoupeReference } from '../../src/reference/samcoupe';
+import { sorcererReference } from '../../src/reference/sorcerer';
 import { trs80Reference } from '../../src/reference/trs80';
 import { zx80Reference } from '../../src/reference/zx80';
 import { sinclairReference } from '../../src/reference/sinclair';
@@ -31,6 +32,7 @@ import { dartmouthEscapes } from '../../src/reference/escapes/dartmouth';
 import { msxEscapes } from '../../src/reference/escapes/msx';
 import { pmd85Escapes } from '../../src/reference/escapes/pmd85';
 import { samcoupeEscapes } from '../../src/reference/escapes/samcoupe';
+import { sorcererEscapes } from '../../src/reference/escapes/sorcerer';
 import { trs80Escapes } from '../../src/reference/escapes/trs80';
 import { zx80Escapes } from '../../src/reference/escapes/zx80';
 import { sinclairEscapes } from '../../src/reference/escapes/sinclair';
@@ -54,6 +56,7 @@ import { hb10pMemoryMap } from '../../src/dialects/hb10p/memoryMap';
 import { pmd85MemoryMap } from '../../src/dialects/pmd85/memoryMap';
 import { petMemoryMap } from '../../src/dialects/pet/memoryMap';
 import { samcoupeMemoryMap } from '../../src/dialects/samcoupe/memoryMap';
+import { sorcererMemoryMap } from '../../src/dialects/sorcerer/memoryMap';
 import { vic20MemoryMap } from '../../src/dialects/vic20/memoryMap';
 import { zx80MemoryMap } from '../../src/dialects/zx80/memoryMap';
 import { zx81MemoryMap } from '../../src/dialects/zx81/memoryMap';
@@ -80,6 +83,7 @@ const referenceByPage = {
   msx: msxReference,
   pmd85: pmd85Reference,
   samcoupe: samcoupeReference,
+  sorcerer: sorcererReference,
   trs80: trs80Reference,
   sinclair: sinclairReference,
   zx80: zx80Reference,
@@ -97,6 +101,7 @@ const escapesByPage = {
   msx: msxEscapes,
   pmd85: pmd85Escapes,
   samcoupe: samcoupeEscapes,
+  sorcerer: sorcererEscapes,
   trs80: trs80Escapes,
   sinclair: sinclairEscapes,
   zx80: zx80Escapes,
@@ -129,6 +134,7 @@ const memoryMapById = {
   pet: petMemoryMap,
   pmd85: pmd85MemoryMap,
   samcoupe: samcoupeMemoryMap,
+  sorcerer: sorcererMemoryMap,
   vic20: vic20MemoryMap,
   zx80: zx80MemoryMap,
   zx81: zx81MemoryMap,

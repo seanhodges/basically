@@ -2066,4 +2066,121 @@ export const escapeGuidance: EscapeGuidance[] = [
     support: 'full',
     instead: RESPELL_HEX,
   },
+  // ------------------------------------------------------------ sorcerer --
+  // A real screen driven entirely by control codes, and a character generator
+  // half in RAM: the cursor class is the one this machine genuinely has, and the
+  // graphics classes are answered by characters rather than by attributes.
+  {
+    to: 'sorcerer',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'No colour: the display is monochrome. Drop the code, or mark the text with a graphics character where the colour carried meaning.',
+    example: {
+      caption: 'Mark the text instead of colouring it',
+      code: ['10 PRINT "*** ALERT ***"'],
+    },
+  },
+  {
+    to: 'sorcerer',
+    class: 'cursor',
+    support: 'partial',
+    instead:
+      'The cursor moves by control code but cannot be sent to a row and column: {0x11} homes it, {0x01}/{0x13}/{0x17}/{0x1A} step it one cell. POKE the cell for an absolute position.',
+    example: {
+      caption: 'Home, then POKE the cell',
+      code: ['10 PRINT CHR$(17);', '20 POKE -3968+5*64+10,65'],
+    },
+  },
+  {
+    to: 'sorcerer',
+    class: 'editing',
+    support: 'partial',
+    instead:
+      '{0x0C} clears the screen and homes the cursor - keep the trailing semicolon or everything lands a row low. Nothing deletes a character: overwrite the cell instead.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'One screen and one character set: drop the switch. The graphics bands are always reachable, there being no mode to enter for them.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'screen-effect',
+    support: 'none',
+    instead:
+      'No attribute to flash, conceal or double - a cell holds a character code and nothing else. Give the text a line of its own where it has to catch the eye.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'No function keys and no code for one: ask with INPUT and branch on what was typed.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'block-graphics',
+    support: 'full',
+    instead:
+      'Respell the cell as the Sorcerer code that draws the same shape: {0x80}-{0xBF} are its rules, junctions, corners, quadrants, halves and dithers.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'user-defined-graphics',
+    support: 'partial',
+    instead:
+      'Codes {0xC0}-{0xFF} are definable, but nothing in BASIC defines them: POKE eight bitmap rows into the generator RAM at -1024+(code-128)*8 first.',
+    example: {
+      caption: 'Define code 192, then print it',
+      code: [
+        '10 FOR I=0 TO 7',
+        '20 READ B:POKE -1024+64*8+I,B',
+        '30 NEXT I',
+        '40 PRINT CHR$(192)',
+        '50 DATA 255,129,129,129,129,129,129,255',
+      ],
+    },
+  },
+  {
+    to: 'sorcerer',
+    class: 'inverse-video',
+    support: 'none',
+    instead:
+      'Nothing inverts a cell and there is no inverse band in the character set. Use a solid or dithered graphics code behind the text, or capitals, where inverse marked it out.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces, or skip to the column with TAB(n) or SPC(n).',
+  },
+  {
+    to: 'sorcerer',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'sorcerer',
+    class: 'literal',
+    support: 'partial',
+    instead: PLAIN_LITERAL,
+  },
+  {
+    to: 'sorcerer',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Nine codes reach the screen driver - the cursor moves, {0x0C} clear and {0x0D} carriage return. The other twenty-three below {0x20} are discarded by PRINT, so drop them.',
+  },
+  {
+    to: 'sorcerer',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
+  },
 ];

@@ -117,6 +117,7 @@ const BOOTABLE: [string, 16 | 32 | 48 | 64 | null][] = [
   ['atari800', null],
   ['hb10p', 64],
   ['samcoupe', 64],
+  ['sorcerer', 32],
 ];
 
 /** Machines whose tables are proved elsewhere, and by what. */

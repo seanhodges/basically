@@ -51,6 +51,7 @@ const EXPECTED_WIDTHS: Record<string, number> = {
   ge235: 1152, // 576 x2
   ge635: 1200, // 600 x2
   samcoupe: 1024, // 512 x2
+  sorcerer: 1024, // 512 x2
 };
 
 describe('screenshotScale', () => {

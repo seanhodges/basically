@@ -74,6 +74,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       // Beta BASIC's spelling is the Spectrum's, two words - GOTO is not a
       // keyword on this machine at all.
       samcoupe: 'GO TO',
+      sorcerer: 'GOTO',
     },
   },
   {
@@ -97,6 +98,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx81: 'GOSUB',
       ...sameFor(SPECTRUMS, 'GO SUB'),
       samcoupe: 'GO SUB',
+      sorcerer: 'GOSUB',
     },
   },
   {
@@ -115,6 +117,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx80: 'CONTINUE',
       ...sameFor(SPECTRUMS, 'CONTINUE'),
       samcoupe: 'CONTINUE',
+      sorcerer: 'CONT',
     },
   },
   {
@@ -137,6 +140,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       zx81: 'CLEAR',
       ...sameFor(SPECTRUMS, 'CLEAR'),
       samcoupe: 'CLEAR',
+      sorcerer: 'CLEAR',
     },
   },
   {
@@ -207,6 +211,7 @@ export const falseFriends: FalseFriend[] = [
       ),
       samcoupe:
         'Picks a value as the Spectrum does, so 5 AND 3 is 5. BAND is the bitwise one here, and gives 1.',
+      sorcerer: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
     },
   },
   {
@@ -238,6 +243,7 @@ export const falseFriends: FalseFriend[] = [
       ),
       samcoupe:
         'Picks a value as the Spectrum does, so 5 OR 3 is 1. BOR is the bitwise one here, and gives 7.',
+      sorcerer: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
     },
   },
   {
@@ -260,6 +266,7 @@ export const falseFriends: FalseFriend[] = [
       hb10p: 'Natural (base-e) logarithm. There is no LN.',
       pmd85: 'Natural (base-e) logarithm. There is no LN.',
       trs80: 'Natural (base-e) logarithm.',
+      sorcerer: 'Natural (base-e) logarithm. There is no LN.',
     },
   },
   {
@@ -285,6 +292,7 @@ export const falseFriends: FalseFriend[] = [
         'Discards all variables, leaving the program intact.',
       ),
       samcoupe: 'Discards all variables, leaving the program intact.',
+      sorcerer: 'Discards all variables, leaving the program intact.',
     },
   },
   {
@@ -383,6 +391,8 @@ export const falseFriends: FalseFriend[] = [
       ),
       samcoupe:
         'The argument is the address: it calls machine code there and returns the BC register pair. CALL runs a routine here too, and is the ordinary way to reach one.',
+      sorcerer:
+        'Neither: the argument is data, and the address is a vector a program POKEs into locations 260 and 261 first. The call leaves the argument untouched and returns it, so a routine answers by poking a byte the program then PEEKs.',
     },
   },
   {

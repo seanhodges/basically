@@ -24,7 +24,7 @@ fonts, which is precisely the shape vocabulary these machines used — so the
 block graphics look like block graphics rather than like a text font's
 approximation of them.
 
-Covers 284 of the 323 code points the dialects emit.
+Covers 294 of the 333 code points the dialects emit.
 
 ## `basically-graphics-extra.woff2` — unscii-16-full
 

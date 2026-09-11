@@ -92,6 +92,10 @@ const PROMPT_CEILINGS: Record<string, number> = {
   // machine's screen, palette, sound and disk vocabulary on top of a Sinclair
   // core.
   samcoupe: 51_000,
+  // Short language, long control codes: sixty-eight keywords make a small table
+  // and the escape page makes a large one, for the reason the section ceiling
+  // below states.
+  sorcerer: 40_000,
 };
 
 /**
@@ -126,7 +130,12 @@ const SECTION_CEILINGS: Record<string, number> = {
   // hardware vocabulary onto a Microsoft BASIC that already had one of the
   // longer ones.
   'EVERY COMMAND, FUNCTION AND OPERATOR THIS MACHINE HAS': 33_000,
-  'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 3_000,
+  // The Sorcerer sets this, and the reason is its character generator: codes
+  // 0x00-0x1F are pictorial symbols Unicode cannot draw, so each takes a row of
+  // its own saying what it is - and nine of them say it twice over, a code below
+  // 0x20 being a symbol in screen RAM and a control on its way through PRINT.
+  // Every other machine's page names a handful of named escapes.
+  'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 5_200,
   // The two Dartmouth machines set this between them, and the reason is what
   // they are: the ancestor of every other BASIC here and its first revision, so
   // each is short in eleven or more of the thirteen capability domains and

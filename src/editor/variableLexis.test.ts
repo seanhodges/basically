@@ -135,6 +135,12 @@ const ROM_NAME_FACTS: Record<
   // expressions the READ evaluates, as on the Sinclair machines this BASIC
   // descends from, rather than the text between the commas.
   samcoupe: { significant: 'all', case: 'folded', dataItems: 'evaluated' },
+  // The Altair's interpreter on a machine that can type both cases, and unlike
+  // the PMD 85 it folds: typing `10 print ab` and listing it back gives
+  // `10 PRINT AB`. Two significant characters and a verbatim DATA, like the rest
+  // of the Microsoft family - `AB`, `ABC` and `ABZZZ` are one variable on the
+  // booted ROM.
+  sorcerer: { significant: 2, case: 'folded', dataItems: 'verbatim' },
 };
 
 describe('name facts are stated per machine', () => {

@@ -81,6 +81,10 @@ const NO_SUCH_KEY: Record<string, Record<string, string>> = {
     cpc664: 'the layout carries no ESC keycap',
     cpc6128: 'the layout carries no ESC keycap',
     hb10p: 'the layout carries no ESC keycap',
+    // The nearest key on this machine is STOP, which the standard template
+    // leaves off the board; naming it ESCAPE would make one name mean two
+    // different things across the machines.
+    sorcerer: 'the layout carries no ESC keycap',
   },
   CTRL: {
     zx81: 'no CTRL keycap on the machine',

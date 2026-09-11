@@ -37,6 +37,7 @@ export const MACHINE_ART_IDS = [
   'ge235',
   'ge635',
   'samcoupe',
+  'sorcerer',
 ] as const;
 
 export type MachineArtId = (typeof MACHINE_ART_IDS)[number];

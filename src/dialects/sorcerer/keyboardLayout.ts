@@ -157,7 +157,10 @@ const controlKey: KeyDef = {
   id: 'Control',
   spanX: KEY_SPAN,
   emits: ['Control'],
-  modifier: 'control',
+  // `ctrl`, the id every other machine with this key uses: the shared key
+  // vocabulary offers a modifier under its own id, so `control` here would
+  // answer to CONTROL where the rest of the machines answer to CTRL.
+  modifier: 'ctrl',
   labels: [{ text: 'CTRL', editor: null }, null, null],
 };
 
@@ -280,7 +283,7 @@ export const sorcererKeyboardLayout: KeyboardLayout = withSymbolMode(
       // so locking the shift key here holds SHIFT down, which is the same
       // thing on this machine. The host's CAPS LOCK reaches the real key.
       { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
-      { id: 'control', emits: ['Control'], sticky: true, lockable: false },
+      { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
       { id: 'graphic', emits: ['Graphic'], sticky: true, lockable: true },
     ],
     rows,

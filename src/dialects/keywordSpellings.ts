@@ -56,6 +56,7 @@ import { hb10pKeywords, HB10P_ALIASES } from './hb10p/keywords';
 import { ge235Keywords } from './ge235/keywords';
 import { ge635Keywords } from './ge635/keywords';
 import { samcoupeKeywords } from './samcoupe/keywords';
+import { sorcererKeywords, SORCERER_ALIASES } from './sorcerer/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -125,6 +126,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   // ones.
   ge635: ge635Keywords,
   samcoupe: samcoupeKeywords,
+  sorcerer: [...sorcererKeywords, ...SORCERER_ALIASES],
 };
 
 /** The registered machines this module knows a keyword table for. */

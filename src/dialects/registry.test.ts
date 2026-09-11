@@ -68,6 +68,8 @@ describe('dialect registry', () => {
     // either, and its manual counts a program's space in plain decimal.
     ge635: 'dec',
     samcoupe: 'dec',
+    // The Monitor and both Exidy manuals address memory in hex throughout.
+    sorcerer: 'hex',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -121,6 +123,11 @@ describe('dialect registry', () => {
     // and bottom of the window; a short replacement fills from the start, so a
     // ROM 0 on its own still boots.
     'samcoupe',
+    // Three chips in one image - Monitor, then the Standard BASIC ROM PAC, then
+    // the character generator - and a replacement is fitted the same way. The
+    // firmware leads so the two parts a user is likeliest to swap sit at fixed
+    // offsets; see `sorcerer/romImage.ts`.
+    'sorcerer',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {

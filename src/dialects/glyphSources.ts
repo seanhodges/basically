@@ -208,6 +208,11 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // SAM BASIC writes `&FE00`, mirroring memoryWrites.hexPrefix as the Acorn,
   // Amstrad, PMD and MSX entries above do.
   samcoupe: '&',
+  // Exidy Standard BASIC has no hex literal - POKE takes decimal - and the
+  // Monitor's own notation is a bare four-digit hex number (`GO C000`), which
+  // an index cannot use: unprefixed, it reads as a decimal one. So this takes
+  // the same house `$` as the other decimal-only machines above.
+  sorcerer: '$',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -738,6 +743,46 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
         'code rather than stored - bit 1 the top left and bit 0 the top right, ' +
         'which is not the Sinclair order.',
     },
+  ],
+  sorcerer: [
+    {
+      kind: 'rom',
+      file: 'sorcerer/sorcerer.rom',
+      base: 0xf800,
+      baseCode: 0x00,
+      // Third in the concatenated image, after the 4K Monitor and the 8K ROM
+      // PAC; see `sorcerer/romImage.ts` for why the three travel as one.
+      fileOffset: 0x1000 + 0x2000,
+      stride: 8,
+      cell: { w: 8, h: 8 },
+      codes: range(0x00, 0x7f),
+      indexOf: linear(0x00, 0x7f),
+      note:
+        'The character generator, a chip of its own on its own select. It holds ' +
+        'the pictorial symbols at 0x00-0x1F and then ASCII in both cases - the ' +
+        'Sorcerer had lower case as standard, which was unusual in 1978.',
+    },
+    {
+      kind: 'rom',
+      file: 'sorcerer/sorcerer.rom',
+      base: 0xedfe,
+      baseCode: 0x80,
+      // First in the image, so the Monitor's own address less its 0xE000 base.
+      fileOffset: 0xedfe - 0xe000,
+      stride: 8,
+      cell: { w: 8, h: 8 },
+      codes: range(0x80, 0xbf),
+      indexOf: linear(0x80, 0xbf),
+      note:
+        'The standard graphics set, and the address is in the Monitor rather ' +
+        'than in the generator because these shapes are not a font: the cold ' +
+        'start copies these 64 bitmaps into generator RAM at 0xFC00, so this is ' +
+        'where they are stored and 0xFC00 is only where a just-booted machine ' +
+        'happens to have put them. A running program may overwrite any of it.',
+    },
+    // Codes 0xC0-0xFF have no source of any kind, which is a fact rather than a
+    // gap: the Monitor leaves that half of the generator RAM as it found it, so
+    // those codes have no shape at all until a program pokes eight bytes in.
   ],
 };
 

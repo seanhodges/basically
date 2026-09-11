@@ -82,6 +82,8 @@ const RESTATED: Record<string, string> = {
   ge635: 'no lower case; keyword case folds; names fold; encoding folds',
   samcoupe:
     'lower case always; keyword case folds; names fold; encoding preserves',
+  sorcerer:
+    'lower case always; keyword case folds; names fold; encoding preserves',
 };
 
 /** Turn one restatement back into the fields it claims. */

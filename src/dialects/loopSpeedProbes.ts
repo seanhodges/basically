@@ -161,6 +161,7 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
       'pmd85',
       'apple2plus',
       'hb10p',
+      'sorcerer',
     ],
     iterations: 2000,
     ...programs(2000),

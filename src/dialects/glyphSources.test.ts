@@ -285,6 +285,21 @@ const ANCHORS: Record<
       '........',
     ],
   },
+  // A narrow apex sitting a row proud of the crossbar, and the whole letter
+  // drawn in the left six columns of an eight-wide cell.
+  sorcerer: {
+    code: 0x41,
+    rows: [
+      '...#....',
+      '..#.#...',
+      '.#...#..',
+      '.#...#..',
+      '.#####..',
+      '.#...#..',
+      '.#...#..',
+      '........',
+    ],
+  },
 };
 
 /**
@@ -459,6 +474,19 @@ const LOWER_ANCHORS: Record<
       '..#####.',
       '.##..##.',
       '..#####.',
+      '........',
+    ],
+  },
+  sorcerer: {
+    code: 0x61,
+    rows: [
+      '........',
+      '........',
+      '..###...',
+      '.....#..',
+      '..####..',
+      '.#...#..',
+      '..####..',
       '........',
     ],
   },

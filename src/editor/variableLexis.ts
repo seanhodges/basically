@@ -257,6 +257,16 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   atari400: { suffixChars: '$', crunched: true, dataIsVerbatim: true },
   hb10p: MSX_LEXIS,
   samcoupe: SAMCOUPE_LEXIS,
+  // Exidy Standard BASIC is the Altair's 8K interpreter, so it takes the Altair's
+  // rules: `$` is the only type marker, spaces are crunched out, DATA items are
+  // kept verbatim, and a name is two significant characters - booted and run,
+  // `AB`, `ABC` and `ABZZZ` are one variable, which the watcher reports as `AB`.
+  sorcerer: {
+    suffixChars: '$',
+    crunched: true,
+    significantChars: 2,
+    dataIsVerbatim: true,
+  },
 };
 
 /**

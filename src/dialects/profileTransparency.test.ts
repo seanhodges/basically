@@ -66,6 +66,10 @@ const FAMILIES: Record<string, string[]> = {
    *  the same vendored Z80 core: page registers, a video chip fetching from a
    *  RAM page, and a run loop that steps the ASIC alongside the CPU. */
   samcoupe: ['samcoupe'],
+  /** The Sorcerer's own bus in src/emulator/sorcerer/, over the same vendored
+   *  Z80 core: RAM the video circuit scans, a character generator half in ROM
+   *  and half in RAM, and a run loop of its own. */
+  sorcerer: ['sorcerer'],
 };
 
 /** Machines with no profiled run to compare, and why. */
