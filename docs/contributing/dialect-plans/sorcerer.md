@@ -397,29 +397,67 @@ two contradict what `tapeFile.ts` assumed:
   half-cycle would read as fast. `KcsFraming.fastQuantile` is that knob, and it
   defaults to the median so no other machine changes.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection ✅
 
-- [ ] `memoryMap.ts` — the regions tabled above, tiling the whole 64K
+- [x] `memoryMap.ts` — the regions tabled above, tiling the whole 64K
       (`addressNotation: 'hex'` — the Sorcerer's Monitor and its manuals address
       memory in hex)
-- [ ] re-check the `memoryBlocks.ts` ranges Stage 3 wrote against the map they
+- [x] re-check the `memoryBlocks.ts` ranges Stage 3 wrote against the map they
       now have to agree with — `memoryMapDetail.test.ts` pins the program region
       to `memoryBlocks.programArea`
-- [ ] `vars.ts` → `readVariables()` via **`microsoftBasicVars.ts`**: supply an
-      `MsBasicVarsLayout` naming this machine's `vartab` / `arytab` / `strend` in
-      the `$0100-$014E` control area, plus its `plainChar`. Read the addresses
-      off the booted machine and cross-check them against the Software Internals
-      Manual — do not assume the Altair's or the PMD 85's
-- [ ] `reports.ts` → `readReport()` — the interpreter's error messages
-- [ ] `readMemoryStats()` **counting every pool a program spends**. This family
+- [x] `vars.ts` → `readVariables()` via **`microsoftBasicVars.ts`**: supply an
+      `MsBasicVarsLayout` naming this machine's `vartab` / `arytab` / `strend`,
+      plus its `plainChar`. Read the addresses off the booted machine — do not
+      assume the Altair's or the PMD 85's
+- [x] `reports.ts` → `readReport()` — the interpreter's error messages
+- [x] `readMemoryStats()` **counting every pool a program spends**. This family
       keeps its string pool at the top of memory, not above the arrays, so a
       figure covering only the program area would report a program that allocates
       nothing — which is the PMD 85 bug the skill records, not an absence
-- [ ] memory-activity hooks for the memory-map overlay
-- [ ] tests: memory-map layout, block round-trip
+- [x] memory-activity hooks for the memory-map overlay (Stage 2 wired them; what
+      this stage added is the half `memoryActivity.test.ts` also pins — the
+      machine's own introspection reads through the non-recording path)
+- [x] tests: memory-map layout, block round-trip
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; variable watcher shows live vars.
+
+### What the introspection settled, for the stages after this one
+
+The plan said the pointers were "in the `$0100-$014E` control area". **They are
+not**, and that is the fact the docs stage most needs: the area the Software
+Manual tables ends at `$014E`, and the interpreter keeps its own pointers above
+it, a few dozen bytes below the program text. Everything below was read off the
+booted machine and then confirmed in the ROM PAC's own instructions, which is
+the pair of readings each constant in `addresses.ts` cites.
+
+- **The workspace pointers.** `MEMSIZ` `$0192`, `FRETOP` `$01A6`,
+  `VARTAB`/`ARYTAB`/`STREND` `$01B7`/`$01B9`/`$01BB` — and `$0145`, inside the
+  control area, which is **two things at once**: the floor of the string pool
+  (`CLEAR n` re-seeds it `MEMSIZ - n`) _and_ the top of the stack
+  (`LD HL,($0145) / LD SP,HL` on every NEW and CLEAR). It is named `STKTOP`,
+  after the MSX ROM's name for the same pointer, because it is the same idea.
+- **BASIC's RAM stops a page below the top of the fitted 32K.** The cold start
+  hands the Monitor the top 256 bytes — its variables in the `$6E` at the very
+  top, its stack growing down through the rest — and sets `MEMSIZ` to `$7EFF`.
+  So the block linter's ceiling came down from `$7F91` to `$7EFF`: the page
+  between them is live whenever a Monitor routine runs, which loading a block
+  from tape is.
+- **The banner is not the reading, and the gap is 64 bytes.** `BYTES FREE` is
+  `STKTOP - 17 - $01D4` (`LD DE,$FFEF / ADD HL,DE` at `$C04D`), so it counts the
+  50-byte string pool as spent and holds back 17 bytes below the stack;
+  `readMemoryStats().free` is `FRETOP - STREND`, which counts both as free.
+  That is why `programRamBudget.test.ts` carries a `sorcerer` shortfall
+  allowance, added ahead of the registry line.
+- **The interpreter keeps no error state at all.** No `ON ERROR`, no `ERR`/`ERL`,
+  so there is nothing like the MSX's `ERRFLG` to read: the code exists only in a
+  register on its way to the screen. `readReport()` is therefore a screen scan,
+  and the prompt it looks for is `READY`, not `OK`. The error table in the ROM
+  PAC at `$C232` has **nineteen** codes, one more than the Altair's: `MO`,
+  missing operand.
+- **The cursor is a real byte in screen RAM.** The Monitor parks `$5F` at the
+  point the next character will go, so the row under the prompt is never blank
+  and a reader taking the last non-blank row would never find a prompt.
 
 ## Stage 6 — Reference docs ⬜
 

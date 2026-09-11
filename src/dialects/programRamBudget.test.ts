@@ -100,6 +100,13 @@ const SHORTFALL_ALLOWANCE_BYTES: Record<string, number> = {
   // program text can go there, so the budget is deliberately the program area
   // alone - PROGRAM_BASE to the stack top - and sits a whole pool below it.
   pmd85: 4096,
+  // Exidy Standard BASIC's case, in the same shape: the declared figure is the
+  // machine's own "31976 BYTES FREE" banner, and the reading is FRETOP - STREND
+  // with FRETOP still at MEMSIZ before a program allocates a string. So the
+  // reading counts the 50-byte string pool and the 17 bytes the ROM holds back
+  // below the stack as free, which the banner does not - 64 bytes, less the
+  // three of empty program the two measure from differently.
+  sorcerer: 128,
   // The declared figure is the machine's own "28815 Bytes free" banner, which
   // is MEMSIZ - STREND less the 200-byte string pool and the 14 bytes the ROM
   // keeps below the stack. The reading here is FRETOP - STREND, and FRETOP is
