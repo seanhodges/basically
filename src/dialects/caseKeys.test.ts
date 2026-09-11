@@ -194,6 +194,25 @@ describe('the case a machine types', () => {
     expect(await echo(machine, ['KeyC'])).toBe('C');
     expect(await echo(machine, ['ShiftLeft', 'KeyD'])).toBe('D');
   }, 120000);
+
+  it('types lower case on the Sorcerer, with SHIFT and SHIFT LOCK reaching upper', async () => {
+    // Lower case unshifted in 1978, which was unusual enough to be worth
+    // reading off the ROM rather than assuming either way.
+    const machine = await bootMachine(getDialect('sorcerer'), { ramKb: 32 });
+    await runFrames(machine, 400);
+    expect(await echo(machine, ['KeyA'])).toBe('a');
+    expect(await echo(machine, ['Shift', 'KeyB'])).toBe('B');
+    // SHIFT LOCK is a mechanically latching keycap rather than a keypress the
+    // ROM latches for itself, so it is proved the way the real key behaves -
+    // held down, not tapped. Tapping it changes nothing, which is why the
+    // layout locks SHIFT instead (see sorcerer/keyboardLayout.ts).
+    await tap(machine, ['ShiftLock']);
+    expect(await echo(machine, ['KeyC'])).toBe('c');
+    machine.setKey('ShiftLock', true);
+    expect(await echo(machine, ['KeyD'])).toBe('D');
+    machine.setKey('ShiftLock', false);
+    expect(await echo(machine, ['KeyE'])).toBe('e');
+  }, 120000);
 });
 
 describe('every machine with a second case is covered', () => {
@@ -218,6 +237,7 @@ describe('every machine with a second case is covered', () => {
       'atari800',
       'hb10p',
       'samcoupe',
+      'sorcerer',
     ];
     const covered = new Set([...probed, ...Object.keys(EXCUSED)]);
     const withLowerCase = dialects

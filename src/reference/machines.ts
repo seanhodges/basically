@@ -304,4 +304,17 @@ export const machines: MachineChoice[] = [
     basicDialect: '128 Sinclair BASIC',
     basicFamily: 'Sinclair BASIC',
   },
+  {
+    id: 'sorcerer',
+    page: 'sorcerer',
+    name: 'Sorcerer',
+    manufacturer: 'Exidy',
+    year: 1978,
+    blurb: 'The ROM PAC micro. Runs Exidy Standard BASIC.',
+    basicDialect: 'Exidy Standard BASIC',
+    // The vendor's name, which is where this project draws the family line -
+    // so a licensed Microsoft BASIC is filed under Exidy here, as Commodore
+    // BASIC and Applesoft are under theirs.
+    basicFamily: 'Exidy Standard BASIC',
+  },
 ];

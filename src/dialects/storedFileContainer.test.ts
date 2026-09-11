@@ -54,6 +54,9 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   // the language could open.
   ge235: 'the language has no file statement, so nothing reaches the store',
   samcoupe: 'no file-I/O trap, so nothing reaches the store',
+  // The same as the Altair's, and for the same reason: Exidy Standard BASIC has
+  // no data-file statement to trap, so nothing reaches the store.
+  sorcerer: 'the language has no file statement, so nothing reaches the store',
 };
 
 /** The payload every case below unwraps to, so a partial split is visible. */

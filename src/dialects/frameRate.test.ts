@@ -102,6 +102,11 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // clocks its cells from the same crystal the CPU runs at, so the SAM lands on
   // the ZX81's and 48K Spectrum's rate from quite different arithmetic.
   samcoupe: 50.08,
+  // 12.638MHz / (806 dots x 261 lines). The dot clock, the line length and the
+  // line count are all the machine's, so the rate is what they leave rather
+  // than a round number anyone chose - and it is a little over 60, not the 50 a
+  // European reader of this list expects.
+  sorcerer: 60.08,
 };
 
 describe('machine frame rates', () => {

@@ -51,6 +51,32 @@ const LINES: readonly (readonly (string | null)[])[] = [
 const LINE_KEY_MASK = 0x1f;
 
 /**
+ * The line every modifier is on: Stop, Graphic, Control, Shift Lock, Shift.
+ *
+ * Named because the scan order matters. The Monitor walks the matrix a line at
+ * a time and reads the modifiers once per pass, so a key that appears between
+ * that read and its own line's read is decoded against the modifier state from
+ * *before* it was pressed - and `SHIFT` + `[` types `[`. A hand never trips
+ * that, because a hand holds shift down tens of milliseconds first; a keycap
+ * tapped on screen, or a press driven from a test, puts both down in the same
+ * instant and trips it about half the time. See {@link SorcererKeyboard.apply}.
+ */
+const MODIFIER_LINE = 0;
+
+/**
+ * Port reads a key waits out before it is exposed anyway.
+ *
+ * The gate below normally opens on the next read of {@link MODIFIER_LINE},
+ * which the Monitor's own scan does constantly - it polls the keyboard from its
+ * command loop and checks for a break key between BASIC statements. This is the
+ * backstop for code that never selects that line: a machine-code routine free
+ * to read one line and nothing else would otherwise hold a key out for ever.
+ * A whole pass of the sixteen lines, so it cannot fire inside the pass it is
+ * there to protect.
+ */
+const PENDING_READ_LIMIT = 16;
+
+/**
  * Host `KeyboardEvent.code`s that reach a Sorcerer key the browser spells
  * differently. Everything whose code already matches a token above - the
  * letters, the digits, Space, Comma, Period, Semicolon, the keypad - needs no
@@ -134,6 +160,10 @@ export class SorcererKeyboard {
   private readonly matrix = new Uint8Array(LINES.length);
   private readonly physicalDown = new Set<string>();
   private readonly virtualDown = new Set<string>();
+  /** Keys held down but not yet on the matrix; see {@link MODIFIER_LINE}. */
+  private readonly pending = new Set<string>();
+  /** Port reads since something went pending, for {@link PENDING_READ_LIMIT}. */
+  private pendingReads = 0;
 
   /**
    * A host key event, translated to whatever Sorcerer key sits under it.
@@ -162,6 +192,8 @@ export class SorcererKeyboard {
   releaseAll(): void {
     this.physicalDown.clear();
     this.virtualDown.clear();
+    this.pending.clear();
+    this.pendingReads = 0;
     this.matrix.fill(0);
   }
 
@@ -169,20 +201,56 @@ export class SorcererKeyboard {
    * The five key bits the control port reads with `line` selected, active low.
    * The caller merges them with the rest of the port; everything unconnected -
    * the three empty cells above - reads high, as an unpulled matrix line does.
+   *
+   * Reading the modifier line is also what lets a waiting key onto the matrix,
+   * so the answer is taken first: this read reports the modifiers as they were,
+   * and the key that arrives behind it is the one they belong to.
    */
   readLine(line: number): number {
-    const keys = this.matrix[line & 0x0f]! & LINE_KEY_MASK;
-    return ~keys & LINE_KEY_MASK;
+    const selected = line & 0x0f;
+    const keys = this.matrix[selected]! & LINE_KEY_MASK;
+    const answer = ~keys & LINE_KEY_MASK;
+    if (this.pending.size > 0) {
+      this.pendingReads++;
+      if (selected === MODIFIER_LINE || this.pendingReads >= PENDING_READ_LIMIT)
+        this.flushPending();
+    }
+    return answer;
   }
 
-  /** Sync one matrix cell with the union of the two press sources. */
+  /**
+   * Sync one matrix cell with the union of the two press sources.
+   *
+   * A modifier goes on the matrix at once; anything else waits for the next
+   * read of {@link MODIFIER_LINE}, so it cannot be decoded against a modifier
+   * state read before the two went down together. A key released while it is
+   * still waiting simply never happened, which is what a real scan that missed
+   * it does too.
+   */
   private apply(token: string): void {
     const position = KEY_POSITIONS.get(token);
     if (!position) return;
-    const down =
-      this.physicalDown.has(token) || this.virtualDown.has(token) ? 1 : 0;
     const mask = 1 << position.bit;
-    if (down) this.matrix[position.line]! |= mask;
-    else this.matrix[position.line]! &= ~mask & 0xff;
+    if (!(this.physicalDown.has(token) || this.virtualDown.has(token))) {
+      this.pending.delete(token);
+      this.matrix[position.line]! &= ~mask & 0xff;
+      return;
+    }
+    if (position.line === MODIFIER_LINE) {
+      this.matrix[position.line]! |= mask;
+      return;
+    }
+    // Already on the matrix: a repeated press of a held key changes nothing.
+    if ((this.matrix[position.line]! & mask) === 0) this.pending.add(token);
+  }
+
+  /** Put every waiting key on the matrix. */
+  private flushPending(): void {
+    for (const token of this.pending) {
+      const position = KEY_POSITIONS.get(token)!;
+      this.matrix[position.line]! |= 1 << position.bit;
+    }
+    this.pending.clear();
+    this.pendingReads = 0;
   }
 }

@@ -26,4 +26,5 @@ export const PALETTE_MACHINES = [
   'atari400',
   'hb10p',
   'samcoupe',
+  'sorcerer',
 ];

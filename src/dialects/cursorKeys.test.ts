@@ -99,6 +99,7 @@ const MOVES: [string, 16 | 32 | 64, string, string][] = [
   ['atari800', 16, 'A', 'B'],
   ['hb10p', 64, 'A', 'B'],
   ['samcoupe', 64, 'KeyA', 'KeyB'],
+  ['sorcerer', 32, 'KeyA', 'KeyB'],
 ];
 
 describe("the on-screen cursor keys move the machine's own cursor", () => {
@@ -193,6 +194,11 @@ const CLAIMED: Record<string, string[]> = {
    *  over the same vendored Z80 core: four page registers, a video chip that
    *  fetches from a RAM page, and a matrix of its own. */
   samcoupe: ['samcoupe'],
+  /** The Sorcerer's own bus in src/emulator/sorcerer/, over the same vendored
+   *  Z80 core: RAM the video circuit scans for a picture, a character generator
+   *  half in ROM and half in RAM, and a matrix read a line at a time through
+   *  one control port. */
+  sorcerer: ['sorcerer'],
 };
 
 /** Machines neither battery can reach, and why. */

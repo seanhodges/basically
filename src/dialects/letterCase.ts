@@ -356,6 +356,20 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'and `NAMTOBUF` folds a variable name to lower case before it is looked ' +
       'up, so `Score` and `score` are one variable.',
   },
+  sorcerer: {
+    lowerCase: 'always',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'preserved',
+    note:
+      'The character generator ROM carries both cases across 0x20-0x7F and the ' +
+      'keyboard types lower case unshifted, which was unusual in 1978 - typing ' +
+      'a b SHIFT+c SHIFT+d puts `abCD` on the screen, so the charset stores the ' +
+      'two cases as different bytes. The ROM itself folds, though, and folds the ' +
+      'whole line rather than just the keyword: typing `10 print ab` and then ' +
+      'LIST gives back `10 PRINT AB`, so a lower-case keyword is the keyword and ' +
+      'two spellings of a name are one variable.',
+  },
 };
 
 /** The declared facts for a registered machine, or undefined for an unknown id. */
