@@ -19,6 +19,20 @@ export type Lexeme =
   | { kind: 'name'; name: string }
   | { kind: 'punct'; ch: string };
 
+/**
+ * A string variable's name carries its own `$`, so `A$` and `A` are two
+ * different names and every table keyed by name - the scalars, the vectors, a
+ * `READ` target - separates the two types without a second field to carry.
+ */
+export function isStringName(name: string): boolean {
+  return name.endsWith('$');
+}
+
+/** A name with its type marker removed, which is what a subscript rule reads. */
+export function baseName(name: string): string {
+  return isStringName(name) ? name.slice(0, -1) : name;
+}
+
 /** Every keyword, longest first, so `RETURN` is never read as `REM` + junk. */
 export function keywordWords(
   keywords: readonly KeywordInfo[],
@@ -57,8 +71,18 @@ export function deleteBlanks(text: string): string {
  *
  * `words` is the machine's vocabulary as {@link keywordWords} orders it, which
  * is what decides where a keyword ends and a name begins.
+ *
+ * `strings` opens the one place the two editions lex differently: a `$` after a
+ * name makes it a string variable, and a machine without strings has no reading
+ * of the character at all. Section 2.7: "Any ordinary variable followed by a $
+ * (dollar sign) will stand for a string", so the one-letter-plus-optional-digit
+ * rule carries over unchanged and the marker is simply appended to the name.
  */
-export function lexBody(body: string, words: readonly string[]): Lexeme[] {
+export function lexBody(
+  body: string,
+  words: readonly string[],
+  strings = false,
+): Lexeme[] {
   const out: Lexeme[] = [];
   let i = 0;
   while (i < body.length) {
@@ -107,6 +131,9 @@ export function lexBody(body: string, words: readonly string[]): Lexeme[] {
       i++;
       if (DIGIT.test(body[i] ?? '')) name += body[i++]!;
       if (DIGIT.test(body[i] ?? '')) throw new CompileError('ILLEGAL_VARIABLE');
+      if (strings && body[i] === '$') {
+        name += body[i++]!;
+      }
       out.push({ kind: 'name', name });
       continue;
     }

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from '../../dialects/ge235/tokenizer';
 import { Ge235InterpreterMachine } from '../../dialects/ge235/machine';
-import { formatNumber } from './values';
+import { formatNumber } from '../../dialects/ge235/values';
 
 /**
  * Frames a program gets before a test gives up on it. Generous because every

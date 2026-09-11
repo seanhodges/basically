@@ -3,7 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from './tokenizer';
-import { COLS, ROWS } from '../../emulator/dartmouth/terminal';
+import { ROWS } from '../../emulator/dartmouth/terminal';
+import { GE235_COLUMNS as COLS } from './profile';
 import { Ge235InterpreterMachine } from './machine';
 
 /** As in the interpreter's own tests: enough frames to cover a compile pause. */

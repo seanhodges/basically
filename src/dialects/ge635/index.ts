@@ -40,10 +40,9 @@ import { Ge635InterpreterMachine } from './machine';
  * The manual names its own machine, in the section on the language's limits:
  * "the current implementation on a GE-635 time-sharing system".
  *
- * The language is written and the machine is not: the keyword table, the
- * character set and the tape codec below are real, while the emulator, the
- * keyboard, the samples and the build targets still throw. The dialect is not
- * registered, so nothing offers it until they answer.
+ * The language and the machine are written; the keyboard, the samples and the
+ * build targets still throw. The dialect is not registered, so nothing offers
+ * it until they answer.
  */
 export const ge635: Dialect = {
   id: 'ge635',
@@ -99,8 +98,10 @@ export const ge635: Dialect = {
 
   // No romUrl: the interpreter backend needs no ROM image.
 
-  // A 72-column teletype window, as the GE-235's.
-  displaySize: { width: 576, height: 384 },
+  // A 75-column teletype window, three columns wider than the GE-235's: section
+  // 2.1 numbers the positions on a line "from 0 through 74", which is also
+  // exactly the five fifteen-character print zones the same section describes.
+  displaySize: { width: 600, height: 384 },
 
   addressNotation: 'dec',
 

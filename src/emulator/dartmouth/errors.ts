@@ -7,15 +7,25 @@
  *
  * BASIC was **compiled** here. The compiler read the whole program, listed
  * every fault it could see - one line each, each naming the line it is on - and
- * then refused to run it. The run-time reported one fault, said which line it
- * was on, and stopped there. So a compile fault is plural and a run fault is
- * singular, and nothing in this dialect resumes after either.
+ * then refused to run it. The run-time reported one fault and said which line
+ * it was on. So a compile fault is plural and a run fault is singular.
  *
- * The wording is ours. The machine's own strings survive only inside an image
- * of the 1965 compiler that states no terms for reuse, so these are written
- * from the fault each one reports rather than copied: the set is the machine's,
- * the phrasing is not. All lower case, because the Teletype had one alphabet
- * and the 1965 listings are lower case throughout for the same reason.
+ * Whether a run fault *stops* the program is a machine fact rather than a
+ * language one, and the two machines here differ: the 1965 run-time stopped on
+ * every one of its fourteen, while the GE-635's supplies a value for a dozen of
+ * them and carries on - a division by zero becomes the largest number the
+ * format holds, a square root of a negative one the root of its absolute value.
+ * Which faults a machine survives is the profile's `continues` list; this table
+ * only says what each fault is.
+ *
+ * The wording is two different things for the two machines. The 1965 strings
+ * survive only inside a compiler image of unstated licence, so the entries they
+ * name are written from the fault each one reports rather than copied. The
+ * GE-635's are printed in *BASIC, Fourth Edition* section 2.8, and where that
+ * manual's spelling differs from the reconstruction below the profile carries
+ * the difference as a `messages` override. All lower case either way, because
+ * the Teletype had one alphabet and the surviving listings are lower case
+ * throughout for the same reason.
  */
 
 /** A fault the compiler reports before the program runs. */
@@ -31,20 +41,35 @@ export type CompileErrorCode =
   | 'END_NOT_LAST'
   | 'NO_END'
   | 'NO_DATA'
+  | 'NO_NUMERIC_DATA'
+  | 'NO_STRING_DATA'
   | 'UNDEFINED_FUNCTION'
   | 'UNDEFINED_NUMBER'
   | 'PROGRAM_TOO_LONG'
   | 'TOO_MUCH_DATA'
   | 'TOO_MANY_LOOPS'
   | 'NEXT_WITHOUT_FOR'
-  | 'FOR_WITHOUT_NEXT';
+  | 'FOR_WITHOUT_NEXT'
+  | 'UNFINISHED_DEF'
+  | 'NESTED_DEF'
+  | 'WRONG_ARGUMENT_COUNT'
+  | 'WRONG_SUBSCRIPT_COUNT'
+  | 'ILLEGAL_MAT_TRANSPOSE'
+  | 'ILLEGAL_MAT_FUNCTION'
+  | 'ILLEGAL_MAT_MULTIPLE'
+  | 'MISMATCHED_STRING'
+  | 'OUT_OF_ROOM';
 
-/** A fault the running program reports, after which the run is over. */
+/**
+ * A fault the running program reports. Whether the run survives it is the
+ * machine's to say - see the note above and `DartmouthProfile.continues`.
+ */
 export type RunErrorCode =
   | 'OUT_OF_DATA'
   | 'SQR_OF_NEGATIVE'
   | 'LOG_OF_NEGATIVE'
   | 'LOG_OF_ZERO'
+  | 'EXP_TOO_LARGE'
   | 'RETURN_BEFORE_GOSUB'
   | 'SUBSCRIPT'
   | 'DIVISION_BY_ZERO'
@@ -53,11 +78,16 @@ export type RunErrorCode =
   | 'ZERO_TO_NEGATIVE_POWER'
   | 'NEGATIVE_TO_POWER'
   | 'GOSUBS_TOO_DEEP'
+  | 'DIMENSION_ERROR'
+  | 'ON_OUT_OF_RANGE'
   | 'INPUT_FORMAT';
 
-export type Ge235ErrorCode = CompileErrorCode | RunErrorCode;
+export type DartmouthErrorCode = CompileErrorCode | RunErrorCode;
 
-const MESSAGES: Record<Ge235ErrorCode, string> = {
+/** What a machine spells differently from the table below. */
+export type DartmouthMessages = Partial<Record<DartmouthErrorCode, string>>;
+
+const MESSAGES: Record<DartmouthErrorCode, string> = {
   // Compile time.
   DIMENSION_TOO_LARGE: 'dimension too large',
   ILLEGAL_CONSTANT: 'bad constant',
@@ -70,6 +100,8 @@ const MESSAGES: Record<Ge235ErrorCode, string> = {
   END_NOT_LAST: 'end is not the last line',
   NO_END: 'no end instruction',
   NO_DATA: 'no data to read',
+  NO_NUMERIC_DATA: 'no numeric data',
+  NO_STRING_DATA: 'no string data',
   UNDEFINED_FUNCTION: 'undefined function',
   UNDEFINED_NUMBER: 'undefined line number',
   PROGRAM_TOO_LONG: 'program too long',
@@ -77,12 +109,22 @@ const MESSAGES: Record<Ge235ErrorCode, string> = {
   TOO_MANY_LOOPS: 'too many loops',
   NEXT_WITHOUT_FOR: 'next with no matching for',
   FOR_WITHOUT_NEXT: 'for with no next',
+  UNFINISHED_DEF: 'unfinished def',
+  NESTED_DEF: 'nested def',
+  WRONG_ARGUMENT_COUNT: 'incorrect number of arguments',
+  WRONG_SUBSCRIPT_COUNT: 'incorrect number of subscripts',
+  ILLEGAL_MAT_TRANSPOSE: 'illegal mat transpose',
+  ILLEGAL_MAT_FUNCTION: 'illegal mat function',
+  ILLEGAL_MAT_MULTIPLE: 'illegal mat multiple',
+  MISMATCHED_STRING: 'mismatched string operation',
+  OUT_OF_ROOM: 'out of room',
 
   // Run time.
   OUT_OF_DATA: 'no data left to read',
   SQR_OF_NEGATIVE: 'square root of a negative number',
   LOG_OF_NEGATIVE: 'log of a negative number',
   LOG_OF_ZERO: 'log of zero',
+  EXP_TOO_LARGE: 'exp too large',
   RETURN_BEFORE_GOSUB: 'return with no gosub',
   SUBSCRIPT: 'subscript out of range',
   DIVISION_BY_ZERO: 'division by zero',
@@ -91,12 +133,20 @@ const MESSAGES: Record<Ge235ErrorCode, string> = {
   ZERO_TO_NEGATIVE_POWER: 'zero raised to a negative power',
   NEGATIVE_TO_POWER: 'negative number raised to a power',
   GOSUBS_TOO_DEEP: 'gosubs nested too deeply',
+  DIMENSION_ERROR: 'dimension error',
+  ON_OUT_OF_RANGE: 'on evaluated out of range',
   INPUT_FORMAT: 'input is not a number, type it again',
 };
 
-/** The text the Teletype printed for a fault, without its line number. */
-export function errorMessage(code: Ge235ErrorCode): string {
-  return MESSAGES[code];
+/**
+ * The text a Teletype printed for a fault, without its line number. `spellings`
+ * is the machine's own wording where it differs from the reconstruction.
+ */
+export function errorMessage(
+  code: DartmouthErrorCode,
+  spellings: DartmouthMessages = {},
+): string {
+  return spellings[code] ?? MESSAGES[code];
 }
 
 /**
