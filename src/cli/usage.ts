@@ -59,16 +59,16 @@ usage: basically <operation> [options]
 "run --hold" leaves a machine running until stopped, the following operations act on the running machine:
 
   drive      press keys and wait, through a schedule of actions
-  look       report what is on the screen
-  screenshot write a picture of the screen
+  look       report what's on the screen
+  screenshot save an image of the screen
   view       project the screen to an address a web view can be pointed at
   play       open an address a web view can be pointed at to drive the machine
-  profile    report where the run's time and memory went
+  profile    report where the program's time and memory went
   time       report how long the run took and how it ended
   variables  report what the program's variables hold
-  break      say which BASIC lines the program is to stop before
-  step       run the stopped program on to its next BASIC line
-  continue   run the stopped program on to its next stop or its end
+  break      specify a stop line for debugging
+  step       continue a stopped program to the next line
+  continue   resume a stopped program
   where      report which line the program is stopped before
   expect     judge the machine against written expectations
   server     start, stop, or ask after the host these run on
@@ -97,7 +97,7 @@ usage: basically machines [--json]
 `.trimStart(),
 
   info: `
-describe one machine in full: no ROM is read and no machine is booted
+describe a machine
 
 usage: basically info <machine> [--json]
 
@@ -107,7 +107,7 @@ usage: basically info <machine> [--json]
 `.trimStart(),
 
   lint: `
-report a program's problems without running it: no ROM, no emulator
+report a program's problems without running it
 
 usage: basically lint [file] [-m <machine>] [--json]
 
@@ -121,7 +121,7 @@ Error messages go to standard output; the exit code says whether any was fatal.
 `.trimStart(),
 
   build: `
-write a program as the transfer format its machine really loads
+export a program to a machine-readablke format, ready to load on the machine
 
 usage: basically build [file] [-m <machine>] -o <path> [-t <target>]
                        [--program-name <name>]
@@ -139,7 +139,7 @@ usage: basically build [file] [-m <machine>] -o <path> [-t <target>]
 `.trimStart(),
 
   run: `
-run a program on its machine and report what the screen shows
+run a program on a machine and report at the end
 
 usage: basically run [file] -m <machine> [options]
 
@@ -184,7 +184,7 @@ lists the keys that machine answers to.
 `.trimStart(),
 
   check: `
-check a program against what it should do, and report a pass or a failure
+check what a program should do, and report a pass or a failure
 
 usage: basically check [file] -m <machine> -e <path> [--json]
 
@@ -205,7 +205,7 @@ ${actionLines()}
 `.trimStart(),
 
   drive: `
-act on the running machine, through a script of what to press and when
+act on the running machine, drive inputs with a script
 
 usage: basically drive '<script>' [--json]
 
@@ -236,7 +236,7 @@ usage: basically screenshot <file.png> [--json]
 `,
 
   view: `
-project the screen of the running machine, so it can be watched from elsewhere
+project the screen of the running machine (view only), so it can be watched from elsewhere
 
 usage: basically view [--stop] [--json]
 
@@ -256,7 +256,7 @@ is open reports the address it already has.
 `,
 
   play: `
-play the running machine: see its screen and type at it from a web view
+play the running machine as an interactive session in a web view.
 
 usage: basically play [--stop] [--json]
 
@@ -417,7 +417,7 @@ usage: basically server [start|stop|status] [--json]
   --json   report the answer as JSON
 `,
   convert: `
-read a machine's own binary program file back into the BASIC it holds
+convert a binary program into BASIC
 
 usage: basically convert [file] [-m <machine>] [-o <path>]
 
@@ -431,7 +431,7 @@ usage: basically convert [file] [-m <machine>] [-o <path>]
 `.trimStart(),
 
   ops: `
-serve an application these operations over this process's standard streams
+serve an application
 
 usage: basically ops --stdio [-m <machine>]
 
@@ -452,7 +452,7 @@ neither disturbs it.
 `.trimStart(),
 
   lsp: `
-serve an editor over the Language Server Protocol: no ROM, no emulator
+serve an editor over the Language Server Protocol
 
 usage: basically lsp --stdio [-m <machine>]
 

@@ -135,9 +135,6 @@ const MANIFEST_FILE = 'index.json';
 // still hold one, and it was never an image.
 const ATTRIBUTION_FILE = 'ATTRIBUTION.md';
 
-/** How a build with no publisher of its own is given one. */
-const PUBLISHER_HINT = 'BASICALLY_ROMS_URL names one';
-
 /**
  * Where obtained ROMs are kept.
  *
@@ -351,7 +348,7 @@ export async function fetchRomSet(
   if (base === undefined) {
     return {
       ok: false,
-      reason: `this build names no ROM publisher (${PUBLISHER_HINT})`,
+      reason: 'BASICALLY_ROMS_URL is not set, so no ROMs can be downloaded',
       unchanged: false,
       obtained,
       removed,

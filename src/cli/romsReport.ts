@@ -160,7 +160,7 @@ export function formatRomsStatus(status: RomsStatus): string {
   }
   lines.push(
     status.publishedAt === undefined
-      ? 'this build names no publisher, so nothing can be downloaded (BASICALLY_ROMS_URL names one)'
+      ? 'BASICALLY_ROMS_URL is not set, so no ROMs can be downloaded'
       : `published at ${status.publishedAt}`,
   );
   // The agreement is only worth a line where it governs something: with no

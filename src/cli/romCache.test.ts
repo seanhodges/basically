@@ -150,8 +150,9 @@ describe('obtaining images', () => {
     const outcome = await fetchRomSet({ home });
 
     expect(outcome.ok).toBe(false);
-    expect(outcome.reason).toContain('names no ROM publisher');
-    expect(outcome.reason).toContain('BASICALLY_ROMS_URL');
+    expect(outcome.reason).toContain(
+      'BASICALLY_ROMS_URL is not set, so no ROMs can be downloaded',
+    );
     expect(asked, 'there is nobody to ask').not.toHaveBeenCalled();
   });
 
