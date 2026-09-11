@@ -13,12 +13,20 @@
  * expectations in that file are claims about the machine; where the two
  * disagree, the machine is right and the claim is the bug.
  *
- * One machine cannot be booted on a vendor ROM at all and is held to the family
- * it belongs to instead (see the agreement checks at the foot of this file):
- * the TRS-80, whose default backend is this project's own statement interpreter
- * rather than a Model I ROM. That agreement is the whole point there - it is
- * the only machine here where a wrong answer is our defect and not a
- * documentation error.
+ * Some machines have no vendor ROM to boot, because their backend is this
+ * project's own interpreter rather than a manufacturer's. On those a wrong
+ * answer is our defect and not a documentation error, so where such a machine
+ * belongs to a family that does boot a ROM it is held to that family instead
+ * (see the agreement checks at the foot of this file): the TRS-80's statement
+ * interpreter runs the same Microsoft BASIC the Commodores do, so a Commodore
+ * ROM can say when it is wrong.
+ *
+ * The Dartmouth machines have no such sibling. No vendor implementation of
+ * that BASIC exists to boot or to be held to - which is why they are absent
+ * from {@link AGREEMENTS} rather than excused from it - so their expectations
+ * answer to the documents each dialect was written from and to nothing else. A
+ * misreading there reproduces itself in the probe and in the interpreter alike,
+ * and this file cannot see it.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';

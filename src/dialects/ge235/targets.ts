@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { BuildTarget } from '../types';
-import { assertNoFatalErrors, fileTarget } from '../targetHelpers';
+import { fileTarget, paperTapeListing } from '../targetHelpers';
 import { detokenizeProgram } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 
@@ -25,16 +25,13 @@ import { tokenizeProgram } from './tokenizer';
  */
 
 /**
- * The listing as a paper tape: the line records the tape carries, each closed
- * by the CR LF a Teletype needs.
+ * The listing as a paper tape, built by the same {@link paperTapeListing} the
+ * GE-635 uses: the line records the tape carries, each closed by the CR LF a
+ * Teletype needs. The helper carries why the file is the listing rather than
+ * the machine's own codes.
  *
- * The text comes back off the tokenized image rather than out of the editor, so
- * what is written is what the tape holds - the canonical record the tokenizer
- * punches (line number, one space, the trimmed body), with blank editor lines
- * gone and the lines in the order they were typed.
- *
- * Two things the Altair's paper tape does are deliberately not done here, and
- * both follow from this machine's codes not being ASCII:
+ * Two things follow here that do not on the Altair, and both because this
+ * machine's codes are not ASCII:
  *
  *  - **`{0oNN}` escapes stay spelled out.** On the Altair an escape resolves to
  *    the byte it names, because there that byte *is* the ASCII the punch wrote.
@@ -51,16 +48,7 @@ import { tokenizeProgram } from './tokenizer';
  * which is also the one the editor reads back.
  */
 export function buildPaperTape(source: string): Uint8Array {
-  const { image, errors } = tokenizeProgram(source);
-  assertNoFatalErrors(errors);
-  const listing = detokenizeProgram(image);
-  if (listing === '') throw new Error('Program is empty');
-  return new TextEncoder().encode(
-    listing
-      .split('\n')
-      .map((line) => `${line}\r\n`)
-      .join(''),
-  );
+  return paperTapeListing(tokenizeProgram(source), detokenizeProgram);
 }
 
 export const ge235BuildTargets: BuildTarget[] = [

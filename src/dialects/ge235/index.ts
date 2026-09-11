@@ -106,8 +106,8 @@ export const ge235: Dialect = {
   displaySize: { width: 576, height: 384 },
 
   /**
-   * The machine's core store, in twenty-bit words rather than bytes - the one
-   * map here that is not byte-addressed.
+   * The machine's core store, in twenty-bit words rather than bytes, which is
+   * what the map's own `addressUnit` says and what the viewer reads it by.
    */
   memoryMap: ge235MemoryMap,
 

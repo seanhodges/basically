@@ -182,8 +182,8 @@ export const machines: MachineChoice[] = [
   },
   {
     // The page is named for the language rather than the machine, and the
-    // family is the language's own name: this is the only machine in the list
-    // that runs Dartmouth BASIC, and every other BASIC here descends from it.
+    // family is the language's own name: what it documents is Dartmouth BASIC,
+    // which every other BASIC in this list descends from.
     id: 'ge235',
     page: 'dartmouth',
     name: 'GE-235',
@@ -195,9 +195,10 @@ export const machines: MachineChoice[] = [
     basicFamily: 'Dartmouth BASIC',
   },
   {
-    // The same page and the same family, three years on: *BASIC, Fourth
-    // Edition* is the machine the Dartmouth Time-Sharing System moved to, and
-    // the edition that first had strings, matrices and multi-line functions.
+    // The same page and the same family, three years on: the GE-635 is the
+    // machine the Dartmouth Time-Sharing System moved to, and its *BASIC,
+    // Fourth Edition* the one that first had strings, matrices and multi-line
+    // functions.
     id: 'ge635',
     page: 'dartmouth',
     name: 'GE-635',

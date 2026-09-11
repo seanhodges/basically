@@ -5,7 +5,12 @@ import { describe, it, expect } from 'vitest';
 import { hasFatalErrors } from '../types';
 import { ge235 } from './index';
 import { CR, EOM, ge235Charset } from './charset';
-import { MAX_LINE_NUMBER, MAX_LINES, tokenizeProgram } from './tokenizer';
+import {
+  MAX_LINE_DIGITS,
+  MAX_LINE_NUMBER,
+  MAX_LINES,
+  tokenizeProgram,
+} from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 
 const PROGRAM = ['10 LET A=1', '20 PRINT A', '30 END'].join('\n');
@@ -77,8 +82,15 @@ describe('ge235 tokenizer', () => {
   it('reports the line-number rules the compiler enforces', () => {
     expect(messages('PRINT 1')).toEqual(['Missing line number']);
     expect(messages(`${MAX_LINE_NUMBER + 1} END`)).toEqual([
-      `Line number 100000 out of range 0–${MAX_LINE_NUMBER}`,
+      `Line number 100000 has more than ${MAX_LINE_DIGITS} digits (0–${MAX_LINE_NUMBER})`,
     ]);
+    // `comp` counts the digits it was handed rather than the number they come
+    // to, so a small line number padded past the field is refused too - the
+    // same reading the fourth edition's manual states in words.
+    expect(messages('000010 END')).toEqual([
+      `Line number 10 has more than ${MAX_LINE_DIGITS} digits (0–${MAX_LINE_NUMBER})`,
+    ]);
+    expect(messages(`${MAX_LINE_NUMBER} END`)).toEqual([]);
     expect(messages('20 PRINT 1\n10 END')).toEqual([
       'Line number 10 is not greater than the previous (20)',
     ]);

@@ -68,16 +68,19 @@ needs. `↑` is written as itself here too: it is code 94, the character the
 ASR-33's key face carries and this BASIC raises to a power with, rather than the
 `^` a later ASCII puts there.
 
-Where this parts company with the GE-235's tape is the one place the two
-machines differ underneath:
+Two things follow from that, and only the second is a difference from the
+GE-235's tape:
 
-- **A `{0xNN}` escape resolves to the byte it names.** These codes are ASCII, so
-  the escape names a byte the punch really wrote and the tape carries it, as the
-  Altair's does. Reading the tape back turns an unprintable code into its escape
-  again, so the round trip is exact either way.
-- **Nothing closes the file**, and for a different reason: ASCII has no
-  end-of-message code, the manual names none, and the end of the file says the
-  same thing.
+- **A `{0xNN}` escape stays spelled out**, exactly as the GE-235's `{0oNN}`
+  does. This machine's codes are ASCII, so unlike its sibling it _could_ put the
+  byte itself on the tape — but a `.txt` is opened again as text, and a code the
+  Teletype cannot print is not a character that can be typed back in. Spelled
+  out, it survives the round trip; resolved, it would make a file the IDE could
+  no longer read. The same goes for `↑` and `←`, whose codes a later ASCII reads
+  as `^` and `_`.
+- **Nothing closes the file**, and for a different reason from the GE-235's:
+  there is no end-of-message code to leave out. ASCII has none and the manual
+  names none, so the end of the file says the same thing.
 
 ### Cassette audio {#ge635-cassette-audio}
 

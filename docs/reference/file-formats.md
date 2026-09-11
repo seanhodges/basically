@@ -93,7 +93,8 @@ Every dialect's charset is **total**: each byte 0x00–0xFF has a text form
 that tokenizes back to the same byte, so imported programs never lose data
 silently. Bytes with no printable glyph round-trip through dialect-styled
 escapes (Sinclair `\{NN}`, Spectrum/BBC/TRS-80/Atom `{0xNN}`, C64 `{$xx}`,
-GE-235 `{0oNN}` in octal, plus named forms like `{INK 2}`, `{RED}` or
+GE-235 `{0oNN}` in octal, GE-635 `{0xNN}`, plus named forms like `{INK 2}`,
+`{RED}` or
 `{clr}`), recognised in the
 literal contexts where raw bytes live in a real program. Characters outside a
 machine's set remain tokenizer errors.
@@ -120,8 +121,8 @@ reference page:
   controls
 - [MSX escape codes](./msx/escapes)
 - [SAM Coupé escape codes](./samcoupe/escapes)
-- [GE-235 escape codes](./dartmouth/escapes) — seven codes, written `{0oNN}` in
-  octal
+- [Dartmouth BASIC escape codes](./dartmouth/escapes) — the GE-235's seven,
+  written `{0oNN}` in octal, and the GE-635's ASCII codes in `{0xNN}` hex
 
 ## Native binary formats
 
@@ -145,7 +146,8 @@ reference page:
 | Atari 800 / 400    | `.bas`, `.lst`, `.cas` | `.bas`, `.lst`, `.cas` | tokenized SAVE image; `.lst` the ATASCII LIST listing; `.cas` tape records                        |
 | Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks                             |
 | MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read                                    |
-| GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a plain-ASCII paper tape                                         |
+| GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a paper tape, its 6-bit codes written as text                    |
+| GE-635             | `.txt`                 | `.txt`                 | no binary at all: the listing as a paper tape, its ASCII codes written as text                    |
 | Exidy Sorcerer     | `.tape`                | `.tape`                | a stream of Exidy cassette records: 16-byte header, then checksummed 256-byte blocks              |
 
 All of these are built by the IDE when you export; the ones that can also be
@@ -172,8 +174,8 @@ full on its own page:
 - [Atari 800 / 400 file formats](./atari/formats) — `.bas`, `.lst`, `.cas`
 - [MSX file formats](./msx/formats) — `.bas`, `.cas`
 - [SAM Coupé file formats](./samcoupe/formats) — `.tap`
-- [GE-235 file formats](./dartmouth/formats) — the paper tape `.txt`, and why there
-  is nothing else
+- [Dartmouth BASIC file formats](./dartmouth/formats) — the GE-235's and the
+  GE-635's paper tape `.txt`, and why there is nothing else
 - [Exidy Sorcerer file formats](./sorcerer/formats) — `.tape`
 
 ## Machine code & data blocks

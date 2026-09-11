@@ -123,6 +123,9 @@ per-dialect doc comments are where a reviewer checks. Precedents:
 - `atom/` adds `files.bas` (Data files) in breakout's slot to exercise its filesystem.
 - `trs80/` ships no `kaleido` at all (no machine-code block); `zxspectrum128/`
   has no `kaleido.asm` of its own because it imports the 48K machine's block.
+- `ge235/` and `ge635/` omit **both**, the only machines that do: a teletype
+  gives no non-blocking key read and nothing on a paper roll can be redrawn,
+  and neither dialect supports machine code for a `kaleido` block to carry.
 
 ## Registering the set (`samples.ts`)
 

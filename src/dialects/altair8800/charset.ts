@@ -10,8 +10,9 @@ import { CharsetError, type CharsetMapping } from '../types';
  * There is no video hardware and no character generator: BASIC writes bytes to
  * a serial port and whatever terminal is plugged in decides what they look
  * like. So the mapping is plain 7-bit ASCII, with no block graphics, no
- * inverse-video range and no PETSCII-style reordering - the one dialect here
- * whose charset carries no pictures at all.
+ * inverse-video range and no PETSCII-style reordering - a charset with no
+ * pictures in it at all, which `glyphSources.test.ts` holds this machine and
+ * the teletype ones to together.
  *
  *  - 0x20-0x7E is printable ASCII, straight through both ways. Lower case is
  *    **preserved**: the interpreter's line editor folds what you type to upper

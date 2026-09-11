@@ -43,6 +43,42 @@ export function buildImageOrThrow(
 }
 
 /**
+ * The paper tape both Dartmouth machines punch: the program's listing, each
+ * line closed by the CR LF a Teletype reader needs.
+ *
+ * The text comes back off the tokenized image rather than out of the editor, so
+ * what is written is what the tape holds - the canonical record the tokenizer
+ * punches (line number, one space, the trimmed body), with blank editor lines
+ * gone and the lines in the order they were typed.
+ *
+ * **Why the listing rather than the machine's own codes.** A `.txt` re-opens
+ * through the plain-text path, which reads the file as text and never calls
+ * `detokenize`. A tape punched as raw machine codes therefore comes back as
+ * whatever those bytes mean to a text reader, and a machine whose codes are not
+ * their own ASCII reading loses them: an unprintable code has no character at
+ * all, and a code whose glyph the charset overrides - the ASR-33's up and back
+ * arrows at 94 and 95, which a later ASCII reads as `^` and `_` - comes back as
+ * a character the charset cannot encode. Both are then a fatal error on a file
+ * the machine had just written. Writing the listing puts the characters the
+ * editor reads onto the file, escapes and all, so the round trip holds for
+ * every code.
+ */
+export function paperTapeListing(
+  tokenized: { image: Uint8Array; errors: readonly TokenizeError[] },
+  detokenize: (image: Uint8Array) => string,
+): Uint8Array {
+  assertNoFatalErrors(tokenized.errors);
+  const listing = detokenize(tokenized.image);
+  if (listing === '') throw new Error('Program is empty');
+  return new TextEncoder().encode(
+    listing
+      .split('\n')
+      .map((line) => `${line}\r\n`)
+      .join(''),
+  );
+}
+
+/**
  * A one-file export target, owning the filename convention every dialect
  * shares: the document's name lower-cased, plus the target's own extension.
  *

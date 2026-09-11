@@ -4,13 +4,15 @@ import { basicFamilyOf, referencePageOf } from './referencePage';
 
 describe('dialect registry', () => {
   /**
-   * The one machine whose program space is not a number of bytes.
+   * The machines whose program space is not a number of bytes.
    *
-   * The GE-235's core store is 8,192 twenty-bit words, and the figure its
-   * memory map gives - 4,139 words of object code and variables - is not a byte
-   * count that could be compared against a source length in characters. Zero is
-   * the honest answer to a field asking for bytes on a machine that has none,
-   * and it is what turns the byte budget off rather than making it wrong.
+   * Both Dartmouth machines count words, and not even the same word: the
+   * GE-235's core store is 8,192 twenty-bit ones, the GE-635's user space
+   * 8,000 thirty-six-bit ones. Neither figure is a byte count that could be
+   * compared against a source length in characters. Zero is the honest answer
+   * to a field asking for bytes on a machine that has none, and it is what
+   * turns the byte budget off rather than making it wrong - each machine's
+   * memory map carries the space in the unit it is really measured in.
    */
   const NOT_MEASURED_IN_BYTES = new Set(['ge235', 'ge635']);
 

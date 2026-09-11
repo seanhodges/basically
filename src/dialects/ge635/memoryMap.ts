@@ -9,9 +9,9 @@ import type { MemoryMap } from '../types';
  *
  * **Every address here is a word, not a byte**, and the word is thirty-six
  * bits: section 2.9 counts a program's characters as `C/4`, four to a word.
- * The other machines here address bytes, and the difference is not cosmetic -
- * the same span looks eight times smaller and every figure in a note is a word
- * count.
+ * Almost every other machine here addresses bytes, and the difference is not
+ * cosmetic - the same span looks eight times smaller and every figure in a
+ * note is a word count.
  *
  * **Why this map has one region where the GE-235's has nine.** That machine's
  * February 1965 compiler listing survives, and its map is arithmetic over the

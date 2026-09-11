@@ -7,6 +7,22 @@ import { detokenizeProgram } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 import { ge635Samples } from './samples';
 
+/**
+ * Re-open an exported tape the way the app does.
+ *
+ * A `.txt` goes through the plain-text path in `fileCommands.ts`, which decodes
+ * the file as text and hands it straight to the editor - it never calls
+ * `detokenize`. So this, and not `detokenizeProgram`, is the path a tape has to
+ * survive, and the two are only the same while every code on the tape is its
+ * own ASCII reading.
+ */
+function reopen(tape: Uint8Array): string {
+  return new TextDecoder()
+    .decode(tape)
+    .replace(/\r\n/g, '\n')
+    .replace(/\n$/, '');
+}
+
 /** The exported tape read back as the text a host would see. */
 function readTape(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
@@ -65,23 +81,49 @@ describe('ge635 build targets', () => {
     }
   });
 
-  it('resolves an escape to the byte the punch wrote', () => {
-    // Where the GE-235 has to spell `{0o32}` out - a six-bit BCD code no text
-    // file could show - this machine's codes are ASCII, so the bell is byte 7
-    // on the tape. Reading it back turns it into its escape again.
+  it('spells an escape out, as its sibling has to', () => {
+    // The GE-235 has no choice here - a six-bit BCD code has no text form at
+    // all - and this machine gives up the one it had. Its codes are ASCII, so
+    // the bell really could be byte 7 on the tape, and once was; but a `.txt`
+    // is read back as text and a control code is not a character this charset
+    // can encode, so the more faithful artifact was an unopenable file.
     const source = '10 PRINT "{0x07}"\n20 END\n';
     const tape = buildPaperTape(source);
-    expect([...tape]).toContain(7);
-    expect(readTape(tape)).not.toContain('{0x07}');
-    expect(detokenizeProgram(tape)).toBe('10 PRINT "{0x07}"\n20 END');
+    expect([...tape]).not.toContain(7);
+    expect(readTape(tape)).toContain('{0x07}');
   });
 
   it('writes the power operator as the character the machine had', () => {
-    // Code 94, which the ASR-33 prints as an up arrow and a later ASCII reads
-    // as `^`. The tape carries the code; the editor reads the arrow back.
+    // Code 94 on the tape the machine punched, which the ASR-33 prints as an up
+    // arrow and a later ASCII reads as `^`. On the file it is the arrow: that
+    // is the character the editor reads, and the only one of the two this
+    // charset can encode.
     const tape = buildPaperTape('10 PRINT 2↑8\n20 END\n');
-    expect([...tape]).toContain(94);
-    expect(detokenizeProgram(tape)).toBe('10 PRINT 2↑8\n20 END');
+    expect(readTape(tape)).toBe('10 PRINT 2↑8\r\n20 END\r\n');
+    expect([...tape]).not.toContain(94);
+  });
+
+  it('re-opens through the plain-text path, whatever codes it carries', () => {
+    // What this caught: the tape used to be punched as the machine's own ASCII,
+    // which is the more faithful artifact and a file the IDE refused. A code
+    // whose glyph the charset overrides came back as the later ASCII character
+    // instead - `↑` as `^`, `←` as `_` - and an unprintable code came back as
+    // no character at all. Each was a fatal error on a file the machine had
+    // just written, and the first of them is any program that raises to a
+    // power. Reading a tape back with `detokenizeProgram` cannot see any of
+    // that - it masks and remaps the codes, so it agrees with the tape by
+    // construction - which is why this goes through the text, as the app does.
+    for (const source of [
+      '10 PRINT 2↑8\n20 END\n',
+      '10 PRINT "A←B"\n20 END\n',
+      '10 PRINT "{0x07}"\n20 END\n',
+    ]) {
+      const reread = reopen(buildPaperTape(source));
+      expect(tokenizeProgram(reread).errors, source).toEqual([]);
+      expect([...tokenizeProgram(reread).image], source).toEqual([
+        ...tokenizeProgram(source).image,
+      ]);
+    }
   });
 
   it('refuses a program the machine could not read back', () => {
