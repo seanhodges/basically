@@ -293,7 +293,7 @@ loop, with the reason written at its `runFrame`.
 | **In-tree machine with its own chipset**<br>`src/emulator/<name>/`                | `src/emulator/cpc/` (gate array, CRTC, PPI)                            |
 | **Adapter around a third-party core**<br>`src/emulator/<name>/`                   | `src/emulator/bbc/` around jsbeeb; `src/emulator/c64/` around viciious |
 | **Interpreter, no CPU or ROM**<br>`src/dialects/<name>/interpreter/`              | The TRS-80 Level II backend                                            |
-| **Interpreter shared by several machines**<br>`src/emulator/<language>/`          | `src/emulator/dartmouth/`, parameterised by a `DartmouthProfile`        |
+| **Interpreter shared by several machines**<br>`src/emulator/<language>/`          | `src/emulator/dartmouth/`, parameterised by a `DartmouthProfile`       |
 | **Shared chips and helpers**<br>`src/emulator/<chip>/`, `src/emulator/*.ts`       | `ay/` (AY-3-8912), `i8080/`, `commodore/`, `microsoftBasicVars.ts`     |
 
 Vendored cores (`src/emulator/z80/`, `src/emulator/6502/cpu6502.js`,
