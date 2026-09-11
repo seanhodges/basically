@@ -39,6 +39,8 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
     import('../reference/samcoupe').then((m) => m.samcoupeReference),
   sinclair: () =>
     import('../reference/sinclair').then((m) => m.sinclairReference),
+  sorcerer: () =>
+    import('../reference/sorcerer').then((m) => m.sorcererReference),
   trs80: () => import('../reference/trs80').then((m) => m.trs80Reference),
   zx80: () => import('../reference/zx80').then((m) => m.zx80Reference),
 };
@@ -74,6 +76,8 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
     import('../reference/escapes/samcoupe').then((m) => m.samcoupeEscapes),
   sinclair: () =>
     import('../reference/escapes/sinclair').then((m) => m.sinclairEscapes),
+  sorcerer: () =>
+    import('../reference/escapes/sorcerer').then((m) => m.sorcererEscapes),
   trs80: () => import('../reference/escapes/trs80').then((m) => m.trs80Escapes),
   zx80: () => import('../reference/escapes/zx80').then((m) => m.zx80Escapes),
 };

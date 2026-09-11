@@ -192,6 +192,19 @@ export default withPwa(
               ],
             },
             {
+              // Titled by the name on the machine: Exidy Standard BASIC is a
+              // licensed Microsoft 8K BASIC, as Commodore BASIC and Level II
+              // BASIC are, and each keeps the vendor's own name here.
+              text: 'Exidy Standard BASIC',
+              link: '/reference/sorcerer',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/sorcerer/hardware' },
+                { text: 'Escape codes', link: '/reference/sorcerer/escapes' },
+                { text: 'File formats', link: '/reference/sorcerer/formats' },
+              ],
+            },
+            {
               // One page covers both revisions of Integer BASIC: the Apple 1's
               // and the Apple II's, the later machine's additions tagged on the
               // shared table.

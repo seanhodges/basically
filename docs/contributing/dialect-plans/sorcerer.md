@@ -129,8 +129,8 @@ before wiring it.
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ✅     |
-| 5     | Memory map & runtime introspection | ⬜     |
-| 6     | Reference docs                     | ⬜     |
+| 5     | Memory map & runtime introspection | ✅     |
+| 6     | Reference docs                     | ✅     |
 | 7     | Register & ship                    | ⬜     |
 
 ---
@@ -459,7 +459,7 @@ the pair of readings each constant in `addresses.ts` cites.
   point the next character will go, so the row under the prompt is never blank
   and a reader taking the last non-blank row would never find a prompt.
 
-## Stage 6 — Reference docs ⬜
+## Stage 6 — Reference docs ✅
 
 Everything here is keyed by **docs page**, so it lands and is checked before the
 machine registers. The machine-keyed half of the reference bundle —
@@ -472,24 +472,28 @@ BASIC, but so are Commodore BASIC, Applesoft and Level II BASIC, and all three
 keep their vendor names and their own pages here — see the family note in
 Stage 7.
 
-- [ ] **Ask about the sidebar first.** `CLAUDE.md` forbids adding an entry to
+- [x] **Ask about the sidebar first.** `CLAUDE.md` forbids adding an entry to
       `docs/.vitepress/config.ts` without the user's explicit say-so, and
       `docsNavigation.test.ts` fails without one — so the question is asked
       before this stage starts, not in the middle of it
-- [ ] `src/reference/sorcerer.ts` + `escapes/sorcerer.ts` — scaffold with
-      `npm run gen:reference` / `npm run gen:escapes`, then hand-enrich
-- [ ] `docs/reference/sorcerer.md` + `sorcerer/{hardware,escapes,formats}.md`,
+- [x] `src/reference/sorcerer.ts` + `escapes/sorcerer.ts` — the keyword table
+      scaffolded with `npm run gen:reference` (a `sorcerer` set added to
+      `scripts/gen-reference-scaffold.mts`, which reads keyword tables directly
+      and so needs no registry) and then hand-enriched. **`npm run gen:escapes`
+      cannot seed this page**: it reads `CHARSET_PROBES`, which is held to the
+      registered dialects, so `escapes/sorcerer.ts` is hand-written to the same
+      contract and the generator picks the page up from Stage 7 onwards
+- [x] `docs/reference/sorcerer.md` + `sorcerer/{hardware,escapes,formats}.md`,
       plus a row and a link in `docs/reference/file-formats.md` for the Exidy
       tape record
-- [ ] `pages.ts`, the index bullet, the Z80 assembly page's machine lists, and
+- [x] `pages.ts`, the index bullet, the Z80 assembly page's machine lists, and
       `ai/machineReference.ts`'s lazy loaders
-- [ ] add `'sorcerer'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` —
+- [x] add `'sorcerer'` to `PENDING_PAGE_IDS` in `src/reference/pages.ts` —
       without it `pages.test.ts` and `keyword-crosscheck.test.ts` both reject the
       page as one no registered machine reads from
-- [ ] the `porting.ts` equivalence groups and false friends, and the
-      `domain-guidance.ts` / `escape-guidance.ts` cells for the new page. Author
-      these from the crosschecks' own failures, which name the exact domains and
-      control-code classes a source can lose into this machine
+- [x] ~~the `porting.ts` equivalence groups and false friends, and the
+      `domain-guidance.ts` / `escape-guidance.ts` cells~~ — **moved to Stage 7**,
+      see below
 
 **Depends on:** Stages 1–3 (keywords, charset, memory map, samples).
 **Verify:** `npm run docs:build` (it fails on dead links) + the reference
@@ -499,6 +503,26 @@ Until Stage 7 lands `machines.ts`, the hardware page's `<MemoryMapSingle>` label
 the map with the dialect id rather than the machine's name — it reads the name
 from `machines.ts`. That is the whole visible cost of the split, and it
 disappears with the registry line.
+
+### Why the porting data could not land here
+
+The three tables this stage asked for are keyed by **machine id**, not by page,
+and all three crosschecks hold that key to the registry: `porting-crosscheck`
+asserts `MACHINE_IDS` contains every id a group names, and the two guidance
+crosschecks assert `"<id>" is not a registered machine` on every cell's target.
+So a `sorcerer` entry in any of them fails today, and the failures they were to
+be authored from — which domains and control-code classes a source can lose into
+this machine — are computed by running the real diff across the registered
+machines, which this one is not yet one of. There is nothing to author from and
+nowhere to put the answer until the registry line. The work is real and is now a
+Stage 7 bullet.
+
+Two other page-keyed batteries are also dark until then, and neither needs
+anything doing: `page-structure.test.ts` skips a page with no machines on it
+(`REFERENCE_PAGE_IDS.filter(p => machinesOn(p).length > 0)`), and
+`escapes/escape-crosscheck.test.ts` is driven by `CHARSET_PROBES`, which refuses
+an unregistered dialect. The pages and the escape table below were written to
+both contracts anyway, so Stage 7 turns them on rather than discovering them.
 
 ## Stage 7 — Register & ship ⬜
 
@@ -530,6 +554,15 @@ disappears with the registry line.
 - [ ] delete `'sorcerer'` from `PENDING_PAGE_IDS` in `src/reference/pages.ts` in
       this same change — `pages.test.ts` fails on an entry whose machine has
       arrived, so the list empties itself rather than being remembered
+- [ ] the porting data Stage 6 could not land, because all three tables are keyed
+      by a **registered** machine id: the `porting.ts` equivalence groups and
+      false friends, and the `domain-guidance.ts` / `escape-guidance.ts` cells.
+      Author these from the crosschecks' own failures, which name the exact
+      domains and control-code classes a source can lose into this machine —
+      failures that only exist once the machine is in the registry
+- [ ] the per-dialect probe block in `src/dialects/charsetProbes.ts`, which
+      `charsetProbes.test.ts` holds to exactly the registered dialects and which
+      is what switches `escapes/escape-crosscheck.test.ts` on for this page
 - [ ] **then register, run the whole unit suite, and work the failure list.**
       That is the method, not a list: about twenty tables want an entry and half
       of them want a _reason for an exception_ about this machine, which no list

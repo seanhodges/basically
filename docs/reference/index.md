@@ -44,6 +44,7 @@ each of them runs:
 - [BBC BASIC](./bbc) — BBC Micro (BASIC II), BBC Master (BASIC IV)
 - [Commodore BASIC](./commodore) — PET (4.0), VIC-20 and Commodore 64 (V2)
 - [Dartmouth BASIC](./dartmouth) — GE-235, running the February 1965 language
+- [Exidy Standard BASIC](./sorcerer) — Exidy Sorcerer
 - [Integer BASIC](./integer-basic) — Apple I, Apple II
 - [Locomotive BASIC](./cpc) — Amstrad CPC 464 (1.0), CPC 664 and CPC 6128 (1.1)
 - [Microsoft BASIC](./altair8800) — MITS Altair 8800, running Altair 8K BASIC

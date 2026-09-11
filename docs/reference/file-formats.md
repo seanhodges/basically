@@ -146,6 +146,7 @@ reference page:
 | Sony HB-10P        | `.bas`, `.cas`         | `.bas`, `.cas`         | `0xFF` marker + tokenized program from 0x8001; `.cas` MSX tape blocks                             |
 | MGT SAM Coupé      | `.tap`                 | `.tap`                 | header + data tape blocks, SAM-typed; disc images are not read                                    |
 | GE-235             | `.txt`                 | `.txt`                 | no binary at all: the listing as a plain-ASCII paper tape                                         |
+| Exidy Sorcerer     | `.tape`                | `.tape`                | a stream of Exidy cassette records: 16-byte header, then checksummed 256-byte blocks              |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -173,6 +174,7 @@ full on its own page:
 - [SAM Coupé file formats](./samcoupe/formats) — `.tap`
 - [GE-235 file formats](./dartmouth/formats) — the paper tape `.txt`, and why there
   is nothing else
+- [Exidy Sorcerer file formats](./sorcerer/formats) — `.tape`
 
 ## Machine code & data blocks
 
@@ -286,6 +288,9 @@ its format page:
   own FSK, 2400 Hz against 1850 Hz at 300 baud rather than Kansas City Standard.
 - [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
   whose phase carries the bit, eleven bit periods to a byte.
+- [Exidy Sorcerer](./sorcerer/formats#cassette-audio) — the Computer Users Tape
+  Standard, which at its slow rate is Kansas City Standard exactly; 1200 baud by
+  default and 300 selectable, two stop bits to a byte.
 - [Apple I](./integer-basic/formats#apple-i-cassette-audio) — the cassette card's square wave,
   where a bit's duration is its value: a 2 kHz cycle for a zero, 1 kHz for a
   one, behind ten seconds of leader per memory range.
