@@ -24,7 +24,8 @@ import type { KeywordInfo } from '../types';
  *  - **Matrices** (2.6). A `MAT` statement set, and with it `ZER`, `CON`,
  *    `IDN`, `INV`, `TRN` and the two functions `NUM` and `DET`.
  *  - **`ON ... GO TO`** (1.7.6), **`RESTORE`** and its two halves (2.5, 2.7),
- *    **`RANDOMIZE`** (2.2), **`STOP`** (2.5), **multi-line `DEF`** closed by
+ *    **`RANDOMIZE`** and its short form `RANDOM` (2.2), **`STOP`** (2.5),
+ *    **multi-line `DEF`** closed by
  *    `FNEND` (2.2), **`TAB`** inside `PRINT` (2.1), and **`SGN`** and **`COT`**
  *    in the library (1.2, 2.2).
  *
@@ -96,6 +97,7 @@ const TABLE: [string, KeywordInfo['kind'], string, string][] = [
   ['NEXT', 'command', 'NEXT v', 'Close the innermost FOR loop (1.7.7).'],
   ['ON', 'command', 'ON expr GO TO l1,l2,...', 'Switch on a value (1.7.6).'],
   ['PRINT', 'command', 'PRINT [expr][,|;]', 'Print to the teletype (1.7.3).'],
+  ['RANDOM', 'command', 'RANDOM', 'RANDOMIZE, briefly (2.2).'],
   ['RANDOMIZE', 'command', 'RANDOMIZE', 'Reseed RND, so a run differs (2.2).'],
   [
     'READ',

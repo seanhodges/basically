@@ -6,10 +6,6 @@ import type {
   MachineReport,
   MachineScreenText,
 } from '../types';
-import {
-  DISPLAY_HEIGHT,
-  DISPLAY_WIDTH,
-} from '../../emulator/dartmouth/terminal';
 import { FRAME_HZ, Interpreter } from '../../emulator/dartmouth/interpreter';
 import { GE235_PROFILE } from './profile';
 
@@ -30,10 +26,15 @@ import { GE235_PROFILE } from './profile';
  */
 export class Ge235InterpreterMachine implements MachineEmulator {
   readonly frameHz = FRAME_HZ;
-  readonly displayWidth = DISPLAY_WIDTH;
-  readonly displayHeight = DISPLAY_HEIGHT;
+  readonly displayWidth: number;
+  readonly displayHeight: number;
 
   private readonly interp = new Interpreter(GE235_PROFILE);
+
+  constructor() {
+    this.displayWidth = this.interp.terminal.displayWidth;
+    this.displayHeight = this.interp.terminal.displayHeight;
+  }
 
   reset(): void {
     this.interp.reset();

@@ -12,27 +12,36 @@ import type { DartmouthCharset } from './profile';
  * scrolled off the top is gone, exactly as it would be if the paper had rolled
  * past the platen.
  *
- * 72 columns is the Model 33's own line. The run-time lays a line out in five
- * fifteen-character zones and breaks a semicolon-separated line once the
- * carriage passes column 66, so ordinary output stays well inside the paper;
- * what can reach the margin is a long item printed in the last zone, which
- * wraps here where a real carriage would have jammed against it.
+ * How wide the paper is comes from the machine rather than from here: the
+ * Model 33's own line is 72 characters, while section 2.1 of the fourth-edition
+ * manual numbers the positions on a GE-635 line "from 0 through 74". Either
+ * way the run-time lays a line out in five fifteen-character zones, so ordinary
+ * output stays inside the paper; what can reach the margin is a long item
+ * printed in the last zone, which wraps here where a real carriage would have
+ * jammed against it.
  *
  * The cells hold the machine's own codes rather than Unicode, so the paper
  * stores exactly what was punched and a screen reading decodes through the same
  * charset a listing does.
  */
 
-/** The Model 33's line, and the window of roll kept on screen. */
-export const COLS = 72;
+/**
+ * How much of the roll is kept on screen. A choice rather than a machine fact -
+ * the paper was as long as the program made it - so it is shared, where the
+ * line width is the machine's and arrives with the profile.
+ */
 export const ROWS = 24;
 
-/** Character cell in pixels; 8x16 gives the 576x384 canvas the dialect declares. */
+/** Character cell in pixels; 8x16 is what every dialect's displaySize counts. */
 export const CELL_WIDTH = 8;
 export const CELL_HEIGHT = 16;
 
-export const DISPLAY_WIDTH = COLS * CELL_WIDTH;
 export const DISPLAY_HEIGHT = ROWS * CELL_HEIGHT;
+
+/** The canvas one machine's paper needs, which its `displaySize` must match. */
+export function displayWidth(columns: number): number {
+  return columns * CELL_WIDTH;
+}
 
 /** Paper, and the ink the Model 33's ribbon laid on it. */
 const PAPER = '#e9e4d6';
@@ -41,14 +50,27 @@ const INK = '#22201c';
 /** The Teletype's paper roll: machine codes in, a printed window out. */
 export class DartmouthTerminal {
   /** One machine code per cell, row-major; blank paper is the space code. */
-  readonly cells = new Uint8Array(COLS * ROWS);
+  readonly cells: Uint8Array;
 
   private col = 0;
   private row = 0;
   private bellCount = 0;
 
-  constructor(private readonly charset: DartmouthCharset) {
+  constructor(
+    private readonly charset: DartmouthCharset,
+    readonly columns: number,
+  ) {
+    this.cells = new Uint8Array(columns * ROWS);
     this.clear();
+  }
+
+  /** The canvas this paper paints onto. */
+  get displayWidth(): number {
+    return displayWidth(this.columns);
+  }
+
+  get displayHeight(): number {
+    return DISPLAY_HEIGHT;
   }
 
   /** Feed fresh paper: blank the window and put the carriage at the top left. */
@@ -77,7 +99,7 @@ export class DartmouthTerminal {
   /** Print one machine code. */
   write(code: number): void {
     const cs = this.charset;
-    const c = code & 0o77;
+    const c = code & cs.codeMask;
     switch (c) {
       case cs.cr:
         this.col = 0;
@@ -93,7 +115,9 @@ export class DartmouthTerminal {
       case cs.eom:
         // Fill and end-of-message are tape framing rather than print
         // instructions, and no tab stops are set: the run-time pads with blanks
-        // to reach a zone instead of tabbing to it.
+        // to reach a zone instead of tabbing to it. A machine whose evidence
+        // names no code for one of the three leaves it undefined, which no code
+        // ever matches.
         return;
       default:
         break;
@@ -148,21 +172,23 @@ export class DartmouthTerminal {
   screenText(): MachineScreenText {
     const lines: string[] = [];
     for (let row = 0; row < ROWS; row++) lines.push(this.rowText(row));
-    return { lines, cols: COLS, rows: ROWS };
+    return { lines, cols: this.columns, rows: ROWS };
   }
 
   /** Paint the window onto the emulator canvas. */
   renderTo(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = PAPER;
-    ctx.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    ctx.fillRect(0, 0, this.displayWidth, DISPLAY_HEIGHT);
 
     ctx.fillStyle = INK;
     ctx.textBaseline = 'top';
     ctx.font = `${CELL_HEIGHT}px monospace`;
 
     for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const glyph = this.charset.plainChar(this.cells[row * COLS + col]!);
+      for (let col = 0; col < this.columns; col++) {
+        const glyph = this.charset.plainChar(
+          this.cells[row * this.columns + col]!,
+        );
         if (glyph === undefined || glyph === ' ') continue;
         ctx.fillText(glyph, col * CELL_WIDTH, row * CELL_HEIGHT);
       }
@@ -182,8 +208,9 @@ export class DartmouthTerminal {
 
   private rowText(row: number): string {
     let text = '';
-    for (let col = 0; col < COLS; col++) {
-      text += this.charset.plainChar(this.cells[row * COLS + col]!) ?? ' ';
+    for (let col = 0; col < this.columns; col++) {
+      text +=
+        this.charset.plainChar(this.cells[row * this.columns + col]!) ?? ' ';
     }
     return text;
   }
@@ -191,11 +218,11 @@ export class DartmouthTerminal {
   private put(code: number): void {
     // A real carriage jams against the right-hand margin and overprints the
     // last column; wrapping loses less of what the program said.
-    if (this.col >= COLS) {
+    if (this.col >= this.columns) {
       this.col = 0;
       this.lineFeed();
     }
-    this.cells[this.row * COLS + this.col] = code;
+    this.cells[this.row * this.columns + this.col] = code;
     this.col++;
   }
 
@@ -204,7 +231,7 @@ export class DartmouthTerminal {
       this.row++;
       return;
     }
-    this.cells.copyWithin(0, COLS);
-    this.cells.fill(this.charset.space, COLS * (ROWS - 1));
+    this.cells.copyWithin(0, this.columns);
+    this.cells.fill(this.charset.space, this.columns * (ROWS - 1));
   }
 }
