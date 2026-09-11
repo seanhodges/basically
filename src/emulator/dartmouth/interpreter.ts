@@ -134,7 +134,7 @@ type Target =
  */
 export class Interpreter implements Ctx {
   readonly terminal: DartmouthTerminal;
-  readonly keyboard = new DartmouthKeyboard();
+  readonly keyboard: DartmouthKeyboard;
   private readonly vars = new Vars();
 
   private program: Program = {
@@ -192,6 +192,7 @@ export class Interpreter implements Ctx {
       profile.charset,
       profile.printer.columns,
     );
+    this.keyboard = new DartmouthKeyboard(profile.charset);
   }
 
   get state(): RunStatus {

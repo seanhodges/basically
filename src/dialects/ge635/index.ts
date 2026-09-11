@@ -40,9 +40,8 @@ import { Ge635InterpreterMachine } from './machine';
  * The manual names its own machine, in the section on the language's limits:
  * "the current implementation on a GE-635 time-sharing system".
  *
- * The language and the machine are written; the keyboard, the samples and the
- * build targets still throw. The dialect is not registered, so nothing offers
- * it until they answer.
+ * The dialect is not yet registered, so nothing in the app offers it; what is
+ * here is complete enough to drive headlessly.
  */
 export const ge635: Dialect = {
   id: 'ge635',
