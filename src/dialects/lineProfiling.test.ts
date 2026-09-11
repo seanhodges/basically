@@ -69,6 +69,8 @@ const NO_LINE_COSTS: Record<string, string> = {
     'the interpreter executes statements, so there are no cycles to charge',
   ge235:
     'a clean-room interpreter with no CPU under it, so there are no cycles to charge',
+  ge635:
+    'the same interpreter, and the same absence of a CPU to charge cycles to',
 };
 
 /**
@@ -81,6 +83,7 @@ const NO_LINE_COSTS: Record<string, string> = {
 const NO_MEMORY_FIGURES: Record<string, string> = {
   trs80: 'the interpreter has no RAM image, so there are no BASIC pointers',
   ge235: 'the interpreter has no core image, so there are no pointers to read',
+  ge635: 'the interpreter has no core image, so there are no pointers to read',
 };
 
 /**

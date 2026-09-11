@@ -79,8 +79,14 @@ const PROMPT_CEILINGS: Record<string, number> = {
   // The narrowest language here and not the narrowest prompt, which is the
   // shape of this machine: thirty-one keywords make a short reference table,
   // and being short in all thirteen capability domains makes a long section
-  // about what to do instead.
-  ge235: 32_000,
+  // about what to do instead. It grew again when the GE-635 joined its page:
+  // the rows the two machines share now say which way each reads them, and the
+  // GE-235's own prompt carries that half of the sentence.
+  ge235: 34_000,
+  // The same shape with more language in it: the fourth edition roughly doubles
+  // the keyword table, and being short in eleven domains rather than thirteen
+  // does not shorten that section by much.
+  ge635: 38_000,
   // Second only to the MSX, and for the same reason: SAM BASIC's table is
   // around a hundred and eighty rows, Beta BASIC's structured keywords and the
   // machine's screen, palette, sound and disk vocabulary on top of a Sinclair
@@ -130,11 +136,12 @@ const SECTION_CEILINGS: Record<string, number> = {
   // 0x20 being a symbol in screen RAM and a control on its way through PRINT.
   // Every other machine's page names a handful of named escapes.
   'CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM': 5_200,
-  // The GE-235 sets this, and the reason is the machine: it is the ancestor of
-  // every other BASIC here, so it is short in all thirteen capability domains
-  // and each one earns a paragraph and a worked example. Every other machine
-  // is short in a handful.
-  'WHERE THIS MACHINE IS SHORT': 5_400,
+  // The two Dartmouth machines set this between them, and the reason is what
+  // they are: the ancestor of every other BASIC here and its first revision, so
+  // each is short in eleven or more of the thirteen capability domains and
+  // every one earns a paragraph and a worked example. Every other machine is
+  // short in a handful.
+  'WHERE THIS MACHINE IS SHORT': 5_600,
 };
 
 /**

@@ -12,7 +12,7 @@ describe('dialect registry', () => {
    * the honest answer to a field asking for bytes on a machine that has none,
    * and it is what turns the byte budget off rather than making it wrong.
    */
-  const NOT_MEASURED_IN_BYTES = new Set(['ge235']);
+  const NOT_MEASURED_IN_BYTES = new Set(['ge235', 'ge635']);
 
   it('every dialect declares a positive program RAM estimate', () => {
     for (const d of dialects) {
@@ -64,6 +64,9 @@ describe('dialect registry', () => {
     // no program is ever written in a notation, and the octal its own listings
     // use is carried in the map's notes rather than made a third toggle state.
     ge235: 'dec',
+    // The same, in a wider word: nothing in the fourth edition takes an address
+    // either, and its manual counts a program's space in plain decimal.
+    ge635: 'dec',
     samcoupe: 'dec',
     // The Monitor and both Exidy manuals address memory in hex throughout.
     sorcerer: 'hex',

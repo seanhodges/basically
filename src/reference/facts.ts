@@ -1852,6 +1852,138 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'dec',
   },
   {
+    id: 'ge635',
+    basicDialect: 'Dartmouth BASIC 4th edition',
+    portingNotes: [
+      {
+        text: 'There are strings, and almost nothing to do with them: no concatenation operator and no string function. CHANGE moves a string to a vector of character codes and back, and that is the whole of the machinery.',
+        topics: ['strings'],
+      },
+      {
+        text: 'LET is required on every assignment: a line opening with a letter is an illegal instruction. One statement to a line, too - there is no separator - and END must be the highest-numbered line in the program.',
+        topics: ['statement-layout'],
+      },
+      {
+        text: 'A comparison is not a value: it lives only between IF and THEN, and THEN takes a line number. There is no AND, OR or NOT either, so a compound condition becomes nested IFs.',
+        topics: ['control-flow', 'operators'],
+      },
+      {
+        text: 'A variable name is one letter and at most one digit, with $ on the end for a string - A, A1, A$, Z7$ - so a program needing long names has to be renamed into a very small namespace.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'Most run-time faults print a message, supply a value and carry on - a division by zero, an overflow, LOG or SQR of a negative number. Only out of data, a bad subscript, a GOSUB fault and a bad ON stop the run.',
+        topics: ['numbers', 'control-flow'],
+      },
+      {
+        text: 'The output is a paper roll on a Teletype: PRINT is the whole repertoire, nothing printed can be redrawn, and TAB and the five fifteen-column zones are the only positioning there is.',
+        topics: ['text-screen', 'graphics'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE, and no statement after THEN either: invert the test and let the line below be the other branch.',
+      },
+      {
+        keyword: 'LEN',
+        note: 'CHANGE A$ TO A puts the length in A(0), which is the only way to measure a string.',
+      },
+      {
+        keyword: 'MID$',
+        note: 'No substring function. CHANGE the string to a vector of codes, take the slice you want, set the new length in component 0 and CHANGE it back.',
+      },
+      {
+        keyword: 'CHR$',
+        note: 'Build a one-element vector holding the code, put 1 in component 0 and CHANGE it to a string.',
+      },
+      {
+        keyword: 'ASC',
+        note: 'CHANGE the string to a numeric vector: component 1 is the first character’s code.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'Nothing reads a key. INPUT waits for a typed answer and a carriage return, so a real-time loop becomes one turn per answer.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'Nothing clears paper. PRINT blank lines, or let the earlier output roll up out of view.',
+      },
+      {
+        keyword: 'PLOT',
+        note: 'No graphics of any kind: build the picture in an array and PRINT it a character to a column.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound hardware. The Teletype’s bell is the only noise, and BASIC has no way to ring it.',
+      },
+      {
+        keyword: 'COLOUR',
+        note: 'No colour: the output is black type on paper.',
+      },
+      {
+        keyword: 'POKE',
+        note: 'No PEEK, no POKE and no USR. A compiled program cannot name an address at all, so nothing can be reached outside the language.',
+      },
+    ],
+    // En dash, as every other entry uses.
+    lineNumberRange: '0–99999',
+    lineNumbers: { min: 0, max: 99999 },
+    statementSeparator: null,
+    elseSupported: false,
+    letRequired: 'required',
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
+    variableNaming:
+      'One letter, optionally followed by one digit (A, A1), with $ on the end for a string (A$, Z7$). An array name is the same name with subscripts; $ is the only type marker.',
+    // Nothing truncates: a name is one letter, at most one digit and an
+    // optional $, and anything longer is refused as an illegal variable rather
+    // than shortened. The marker does distinguish, though - A and A$ are two
+    // variables - which is the one thing this differs from the GE-235 in.
+    variableSignificance: {
+      plain: null,
+      marked: null,
+      markerDistinguishes: true,
+      markers: '$',
+      caseSensitive: false,
+    },
+    numberHandling:
+      'Floating point only, six significant digits, magnitudes from about 1.46937E-39 to about 1.70141E+38.',
+    numbers: { fractions: true },
+    exponentOperator: '↑',
+    // No logicalOperators and no comparisonTrue, as on the GE-235: this BASIC
+    // has neither AND, OR nor NOT, and a comparison is a test between IF and
+    // THEN rather than a value. Both absences are pinned to the operator probe,
+    // which asks neither question of this machine because it cannot be asked.
+    unsupportedCharacters: ['^', '_', '`', '{', '|', '}', '~'],
+    screen:
+      '75×24 Teletype Model 33 on a paper roll, black on white; the paper scrolls and nothing already printed can be redrawn.',
+    textScreen: { columns: 75, rows: 24 },
+    // The empty list is the fact, as on the GE-235: there is no pause statement
+    // and no clock a program can read, so a counting loop is the only delay.
+    waitIdiom: {
+      text: 'nothing: no pause statement and no clock to read, so a counting loop is the only delay',
+      keywords: [],
+    },
+    // Measured by `loopSpeed.test.ts`, and a policy rather than a clock for the
+    // same reason as its sibling: there is no GE-600 core to emulate, so the
+    // interpreter spends a fixed statement budget per frame.
+    loopSpeed: 248,
+    // Zero, and the dialect says so too: the figure this field wants is bytes,
+    // and this machine counts thirty-six-bit words. `memoryMap.ts` states the
+    // space a program gets in the unit the manual measures it in.
+    freeRamBytes: 0,
+    // No screenBase: there is no display memory, only a Teletype channel. The
+    // program start is word 0, which is where the one region the manual
+    // supports begins - no compiler listing survives to place anything inside
+    // the 8,000 words, so the map draws the span and no boundary within it.
+    programStart: '0',
+    colour: 'None - black type on paper.',
+    sound: 'None. The Teletype has a bell, and BASIC cannot ring it.',
+    memoryWriteSyntax:
+      'Nothing writes memory: there is no PEEK, no POKE and no USR.',
+    addressNotation: 'dec',
+  },
+  {
     id: 'samcoupe',
     basicDialect: 'SAM BASIC',
     portingNotes: [

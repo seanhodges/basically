@@ -48,6 +48,8 @@ const NO_MEMORY_BUS: Record<string, string> = {
   // implementation in JS or WASM - so the backend is a clean-room interpreter
   // with no core image beneath it and no access to stamp.
   ge235: 'a clean-room interpreter with no core image beneath it',
+  // The same shared interpreter, and no GE-600 core either.
+  ge635: 'a clean-room interpreter with no core image beneath it',
 };
 
 /** Frames of the ROM's own start-up; enough that the CPU has fetched something. */

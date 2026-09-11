@@ -174,6 +174,10 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // 64 codes are letters, digits, punctuation and six controls, which
   // charset.ts asserts outright.
   ge235: [],
+  // Empty for the same reason and the same terminal: the GE-635's Model 33
+  // holds its shapes in a type basket too. Its codes are ASCII rather than BCD,
+  // which widens the set to 32 through 95 and adds not one mosaic to it.
+  ge635: [],
   // The sixteen block-graphic cells and the twenty-five user-defined graphics
   // after them, as `samcoupe/charset.ts` maps them: 0x80-0x8F are the quadrant
   // mosaics `POUDG` builds, and 0x90-0xA8 the UDGs the ROM's 328 bytes of UDG

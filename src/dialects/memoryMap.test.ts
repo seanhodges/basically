@@ -48,9 +48,10 @@ const LINK_BYTE_OFFSET: Record<string, number> = {
  * Named rather than inferred from the absence, which is what "this machine
  * cannot place code at an address" and "nobody wired the blocks up" look like
  * from the outside. The GE-235's BASIC has no PEEK, no POKE, no USR and no
- * assembler: a compiled program there cannot name an address at all.
+ * assembler: a compiled program there cannot name an address at all, and the
+ * fourth edition on the GE-635 adds nothing that can.
  */
-const NO_CODE_AT_AN_ADDRESS = new Set(['ge235']);
+const NO_CODE_AT_AN_ADDRESS = new Set(['ge235', 'ge635']);
 
 /**
  * Where the dialect says its BASIC program begins. `programArea()` is documented

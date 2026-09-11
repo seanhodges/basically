@@ -68,7 +68,10 @@ const parseAddr = (s: string): number =>
  * same thing for the batteries that boot a machine: this file is pure data and
  * must not pull an emulator bringup in behind it.
  */
-const PROGRAM_TAIL: Partial<Record<string, string>> = { ge235: '99 END\n' };
+const PROGRAM_TAIL: Partial<Record<string, string>> = {
+  ge235: '99 END\n',
+  ge635: '99 END\n',
+};
 
 /** Printable ASCII, the range `unsupportedCharacters` is defined over. */
 const PRINTABLE = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
@@ -351,13 +354,14 @@ describe('variable-name significance is the one each lint enforces', () => {
    * Machines whose names are too short for the probe to ask its question of.
    *
    * The probe needs two names of at least two characters differing at the
-   * second, and Dartmouth BASIC has none: a name is one letter and at most one
-   * digit, so `QX` is not a shorter form of anything - it is not a name, and
+   * second, and neither edition of Dartmouth BASIC has one: a name is one letter
+   * and at most one digit (plus `$` on the GE-635), so `QX` is not a shorter
+   * form of anything - it is not a name, and
    * the lint refuses it for a reason that is not significance. Nothing is ever
    * truncated there, which is exactly what `plain: null` says; what the test
    * asserts instead is below.
    */
-  const NAMES_TOO_SHORT_TO_PROBE = new Set(['ge235']);
+  const NAMES_TOO_SHORT_TO_PROBE = new Set(['ge235', 'ge635']);
 
   /** Whether the machine's own linter objects to a program. */
   const flags = (dialect: Dialect, source: string): boolean =>

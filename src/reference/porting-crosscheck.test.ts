@@ -142,6 +142,14 @@ const NOT_IN_GROUP: Record<string, string> = {
   // not machine code at an address: a routine there is reached through DEFUSR
   // and USR, which is the false friend below rather than a rename.
   'run-machine-code:hb10p': 'CALL means something else entirely there',
+  // A collision rather than a command: the GE-635's CON stands for a matrix of
+  // ones inside a MAT statement, where the Apple II's CON resumes a stopped
+  // program. The fourth edition has nothing that resumes a run.
+  'resume-after-break:ge635': 'CON is the MAT ones-matrix word there',
+  // Both of this group's spellings are the GE-635's own: section 2.2 gives
+  // RANDOM as the short form of RANDOMIZE, so there is nothing to rename in
+  // either direction - the Ataris' GOTO/GO TO case exactly.
+  'seed-random:ge635': "it spells the command both of the group's ways",
 };
 
 describe('porting data completeness', () => {

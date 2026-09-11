@@ -195,6 +195,19 @@ export const machines: MachineChoice[] = [
     basicFamily: 'Dartmouth BASIC',
   },
   {
+    // The same page and the same family, three years on: *BASIC, Fourth
+    // Edition* is the machine the Dartmouth Time-Sharing System moved to, and
+    // the edition that first had strings, matrices and multi-line functions.
+    id: 'ge635',
+    page: 'dartmouth',
+    name: 'GE-635',
+    manufacturer: 'General Electric',
+    year: 1966,
+    blurb: 'The BASIC that gained strings. Runs Dartmouth BASIC 4th edition.',
+    basicDialect: 'Dartmouth BASIC 4th edition',
+    basicFamily: 'Dartmouth BASIC',
+  },
+  {
     id: 'cpc464',
     page: 'cpc',
     name: 'CPC 464',

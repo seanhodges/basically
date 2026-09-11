@@ -51,6 +51,7 @@ import { cpc464MemoryMap } from '../../src/dialects/cpc464/memoryMap';
 import { cpc664MemoryMap } from '../../src/dialects/cpc664/memoryMap';
 import { cpc6128MemoryMap } from '../../src/dialects/cpc6128/memoryMap';
 import { ge235MemoryMap } from '../../src/dialects/ge235/memoryMap';
+import { ge635MemoryMap } from '../../src/dialects/ge635/memoryMap';
 import { hb10pMemoryMap } from '../../src/dialects/hb10p/memoryMap';
 import { pmd85MemoryMap } from '../../src/dialects/pmd85/memoryMap';
 import { petMemoryMap } from '../../src/dialects/pet/memoryMap';
@@ -128,6 +129,7 @@ const memoryMapById = {
   cpc664: cpc664MemoryMap,
   cpc6128: cpc6128MemoryMap,
   ge235: ge235MemoryMap,
+  ge635: ge635MemoryMap,
   hb10p: hb10pMemoryMap,
   pet: petMemoryMap,
   pmd85: pmd85MemoryMap,

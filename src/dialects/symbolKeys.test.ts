@@ -135,6 +135,10 @@ const EXCUSED: Record<string, string> = {
   // twenty SYM cells are proved against the teletype adapter cell by cell in
   // ge235/keyboardLayout.test.ts, which is the same seam a boot would follow.
   ge235: 'no prompt to echo into - the SYM cells are proved in its layout test',
+  // The same terminal and the same absence of a prompt. Its SYM pages are
+  // wider, the codes being ASCII, and they are proved the same way - cell by
+  // cell against the teletype adapter in ge635/keyboardLayout.test.ts.
+  ge635: 'no prompt to echo into - the SYM cells are proved in its layout test',
 };
 
 describe('every registered machine is covered', () => {

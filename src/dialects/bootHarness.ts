@@ -210,7 +210,10 @@ export async function runUntil(
  * fragment as it stands, which is why this is a table rather than a member on
  * the dialect. The line number is high enough to sit after any probe.
  */
-const PROGRAM_TAIL: Partial<Record<string, string>> = { ge235: '9999 END\n' };
+const PROGRAM_TAIL: Partial<Record<string, string>> = {
+  ge235: '9999 END\n',
+  ge635: '9999 END\n',
+};
 
 /** A probe program with whatever tail the machine needs to accept it. */
 export function wholeProgram(dialectId: string, source: string): string {

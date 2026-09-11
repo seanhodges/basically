@@ -350,6 +350,7 @@ const NO_CURSOR_KEYS = new Set([
   'apple2',
   'apple2plus',
   'ge235',
+  'ge635',
 ]);
 
 /** Direction → the arrow a CURSOR legend prints for it. */

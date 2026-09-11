@@ -40,16 +40,13 @@ import { ge635MemoryMap } from './memoryMap';
  *
  * The manual names its own machine, in the section on the language's limits:
  * "the current implementation on a GE-635 time-sharing system".
- *
- * The dialect is not yet registered, so nothing in the app offers it; what is
- * here is complete enough to drive headlessly.
  */
 export const ge635: Dialect = {
   id: 'ge635',
   name: 'GE-635',
   manufacturer: 'General Electric',
   year: 1966,
-  blurb: 'Placeholder. Runs Dartmouth BASIC 4th edition.',
+  blurb: 'The BASIC that gained strings. Runs Dartmouth BASIC 4th edition.',
   basicDialect: 'Dartmouth BASIC 4th edition',
   basicFamily: 'Dartmouth BASIC',
 

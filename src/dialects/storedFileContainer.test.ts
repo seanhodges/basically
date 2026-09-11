@@ -53,6 +53,9 @@ const STORES_THE_PAYLOAD: Record<string, string> = {
   // and the paper tape the Teletype punched is the listing rather than a file
   // the language could open.
   ge235: 'the language has no file statement, so nothing reaches the store',
+  // Nor does the fourth edition: Appendix E lists data files among the things
+  // not yet built, so there is still nothing to wire.
+  ge635: 'the language has no file statement, so nothing reaches the store',
   samcoupe: 'no file-I/O trap, so nothing reaches the store',
   // The same as the Altair's, and for the same reason: Exidy Standard BASIC has
   // no data-file statement to trap, so nothing reaches the store.

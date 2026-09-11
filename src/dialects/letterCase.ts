@@ -344,6 +344,21 @@ export const LETTER_CASE: Record<string, LetterCaseFacts> = {
       'reach the compiler in the first place - and a name is a letter and an ' +
       'optional digit, compared as the one code each character has.',
   },
+  ge635: {
+    lowerCase: 'none',
+    keywordScan: 'folded',
+    nameCase: 'folded',
+    encoding: 'folded',
+    note:
+      'The same Teletype three years on, and the same one alphabet: the ' +
+      'fourth edition manual gives characters to codes 32 through 95 and ' +
+      'says of the rest that "some are for teletypes with upper and lower ' +
+      'case letters", which a Model 33 is not. So the charset folds a ' +
+      'lower-case letter onto the capital - the codes are ASCII here, but ' +
+      'only the upper half of its alphabet is reachable - and the compiler ' +
+      'never sees one, which is what makes the scan fold and two spellings ' +
+      'of a name one variable.',
+  },
   samcoupe: {
     lowerCase: 'always',
     keywordScan: 'folded',

@@ -124,6 +124,16 @@ const LOCOMOTIVE: PositionSyntax = {
 
 /** Machines that state positions, by dialect id. */
 const POSITION_SYNTAX: Record<string, PositionSyntax> = {
+  // A column and nothing else, because the paper has no rows to address: the
+  // fourth edition's TAB moves the carriage along the line it is on and a
+  // Teletype cannot go back up. Section 2.1 numbers the positions "from 0
+  // through 74", so the origin is zero, and a TAB to a column already passed
+  // does nothing rather than starting a new line.
+  ge635: {
+    origin: 0,
+    commands: [{ keyword: 'TAB', kind: 'column' }],
+    escapes: [],
+  },
   // TAB is a statement here rather than a print formatter - `TAB 5` on a line
   // of its own moves the print column and prints nothing - and it counts from
   // one: `TAB 1` lands in the leftmost column, read off the running machine.

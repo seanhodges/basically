@@ -124,6 +124,11 @@ const ROM_NAME_FACTS: Record<
   // constants the compiler floats as it reads them - never expressions, so its
   // text is verbatim.
   ge235: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  // The same rule three years on, with `$` back on the end of it: a name is
+  // still one letter and at most one digit, the character set still has one
+  // alphabet, and DATA still holds constants - strings among them now, which
+  // the manual says are recognised by starting with a letter.
+  ge635: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
   // Nothing truncates: `NAMTOBUF` stores a name in full and compares all of
   // it, so `SCORE` and `SCALE` are two variables. It folds the name to lower
   // case as it stores it, so `Score` and `score` are one. DATA holds

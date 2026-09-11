@@ -60,7 +60,8 @@ work, plus any gap a program can run into.
 | Atari 800             | `atari800`      | 6502  | 6502.ts        | ANTIC, GTIA, POKEY, PIA; AltirraOS and Altirra BASIC redistribute freely   |
 | Atari 400             | `atari400`      | 6502  | 6502.ts        | Sibling of `atari800`; the RAM figure is the only divergence               |
 | TRS-80                | `trs80`         | -     | interpreter    | Level II BASIC, ROM-free; a Z80 + ROM mode waits on a user-supplied image  |
-| GE-235                | `ge235`         | -     | interpreter    | Dartmouth BASIC on a teletype. No step debugger, watcher or data capture   |
+| GE-235                | `ge235`         | -     | interpreter    | Dartmouth BASIC on a teletype; sibling of `ge635`. No debugger or watcher  |
+| GE-635                | `ge635`         | -     | interpreter    | Dartmouth 4th ed. on `ge235`'s interpreter, by profile. Strings and MAT    |
 
 ## Tier 1 - Language layer only
 
@@ -75,10 +76,10 @@ divergence expressed as one model parameter (`new BbcMachine('Master')`).
 dialect's page and the docs work stays nearly free. A machine name that links
 out has a plan under `dialect-plans/` already written.
 
-| Status | Machine                                             | BASIC             | Core        | Note                                                                   |
-| ------ | --------------------------------------------------- | ----------------- | ----------- | ---------------------------------------------------------------------- |
-| ⬜     | TRS-80 Model III / 4                                | Model III BASIC   | interpreter | Source-compatible Level II superset, same display; no ROM question     |
-| ⬜     | [General Electric GE-635](./dialect-plans/ge635.md) | Dartmouth 4th ed. | interpreter | Strings, matrices, multi-line functions; shares `ge235`, ASCII not BCD |
+| Status | Machine              | BASIC             | Core        | Note                                                                     |
+| ------ | -------------------- | ----------------- | ----------- | ------------------------------------------------------------------------ |
+| ⬜     | TRS-80 Model III / 4 | Model III BASIC   | interpreter | Source-compatible Level II superset, same display; no ROM question       |
+| ⬜     | Honeywell 6000       | Dartmouth 5th ed. | interpreter | Same architecture as `ge635`, post-1970 DTSS; a delegation sibling of it |
 
 ## Tier 2 - New bus, simple display
 
@@ -130,9 +131,10 @@ the tree, or would add nothing the registry does not already cover.
 Machines older than the microcomputer have no core to reuse and no prospect of
 one being vendored, so they ship as clean-room interpreters on the TRS-80's
 pattern. The first of a family pays for the interpreter; the rest share it
-through a machine profile rather than forking it, which is why the GE-635 sits
-in Tier 1 above and why the Honeywell 6000 becomes a delegation sibling of it
-once it lands.
+through a machine profile rather than forking it, which is how the GE-635
+shipped - `src/emulator/dartmouth/` is parameterised by a `DartmouthProfile`
+and the second machine supplied one - and why the Honeywell 6000 now sits in
+Tier 1 above as a delegation sibling of it.
 
 Adding the GE-235 widened the era bound in `src/dialects/registry.test.ts` to
 1960-1995; widening it again belongs in the plan for the machine that needs it,

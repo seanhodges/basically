@@ -79,6 +79,7 @@ const RESTATED: Record<string, string> = {
   hb10p:
     'lower case always; keyword case folds; names fold; encoding preserves',
   ge235: 'no lower case; keyword case folds; names fold; encoding folds',
+  ge635: 'no lower case; keyword case folds; names fold; encoding folds',
   samcoupe:
     'lower case always; keyword case folds; names fold; encoding preserves',
   sorcerer:

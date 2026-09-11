@@ -64,6 +64,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(COMMODORES, 'GOTO'),
       ...sameFor(CPCS, 'GOTO'),
       ge235: 'GOTO',
+      ge635: 'GOTO',
       hb10p: 'GOTO',
       pmd85: 'GOTO',
       trs80: 'GOTO',
@@ -89,6 +90,7 @@ export const keywordEquivalences: KeywordEquivalence[] = [
       ...sameFor(COMMODORES, 'GOSUB'),
       ...sameFor(CPCS, 'GOSUB'),
       ge235: 'GOSUB',
+      ge635: 'GOSUB',
       hb10p: 'GOSUB',
       pmd85: 'GOSUB',
       trs80: 'GOSUB',
@@ -260,6 +262,7 @@ export const falseFriends: FalseFriend[] = [
       // The oldest answer here, and the one the rest inherited: the 1965
       // library has no base-10 logarithm and no LN either.
       ge235: 'Natural (base-e) logarithm. There is no LN.',
+      ge635: 'Natural (base-e) logarithm. There is no LN.',
       hb10p: 'Natural (base-e) logarithm. There is no LN.',
       pmd85: 'Natural (base-e) logarithm. There is no LN.',
       trs80: 'Natural (base-e) logarithm.',

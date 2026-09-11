@@ -2922,6 +2922,221 @@ export const domainGuidance: DomainGuidance[] = [
     },
   },
 
+  // ---------------------------------------------------------------- ge635 --
+  {
+    to: 'ge635',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, ON...GO TO, DEF FN over one line or several to an FNEND, and STOP or END to finish.',
+    instead:
+      'THEN takes a line number, never a statement, and there is no ELSE: invert the test and let the line below be the other branch. ON...GO TO is the only computed jump, and END must be the last line.',
+    example: {
+      caption: 'THEN jumps; ON picks a line',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 ON X GO TO 50,60,70',
+        '30 GOTO 80',
+        '40 PRINT "ZERO"',
+        '80 END',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'ge635',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'LET assigns and may chain, DIM declares a list or table, DATA/READ walk two blocks of constants, and the MAT statements move a whole array at a time.',
+    instead:
+      'LET is required on every assignment. Numeric and string DATA are separate blocks matched by type: RESTORE rewinds both, RESTORE* the numeric, RESTORE$ the string. MAT ignores row and column 0.',
+    example: {
+      caption: 'MAT reads a whole table, then RESTORE rewinds it',
+      code: [
+        '10 MAT READ M(2,2)',
+        '20 MAT PRINT M;',
+        '30 RESTORE',
+        '40 DATA 1,2,3,4',
+        '50 END',
+      ],
+    },
+    reachFor: ['LET', 'DIM', 'MAT', 'RESTORE'],
+  },
+  {
+    to: 'ge635',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Floating point throughout: ABS, SGN, INT, SQR, LOG, EXP, RND, the five trig functions, DET after a MAT INV, and ↑ to raise to a power.',
+    instead:
+      'RND takes no argument - write INT(10*RND), never RND(1) - and RANDOMIZE makes a run differ. There is no PI and no integer division: write 4*ATN(1), and INT(A/B) for a whole quotient.',
+    example: {
+      caption: 'A random digit, and a whole quotient',
+      code: [
+        '10 RANDOMIZE',
+        '20 LET D=INT(10*RND)',
+        '30 LET Q=INT(A/B)',
+        '40 PRINT D;SGN(Q)',
+        '50 END',
+      ],
+    },
+    reachFor: ['ABS', 'SGN', 'INT', 'RND'],
+  },
+  {
+    to: 'ge635',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'String variables and vectors - A$, Z7$, V$(7) - in LET, PRINT, INPUT, READ and comparison, which is alphabetical and ignores trailing blanks.',
+    instead:
+      'There is no concatenation operator and no string function. CHANGE is the whole of the machinery: it puts the length of a string in component 0 of a vector and its codes above, and turns one back.',
+    example: {
+      caption: 'CHANGE takes a string apart and puts one back',
+      code: [
+        '10 LET A$="BASIC"',
+        '20 CHANGE A$ TO A',
+        '30 PRINT A(0);A(1)',
+        '40 CHANGE A TO B$',
+        '50 END',
+      ],
+    },
+    reachFor: ['CHANGE'],
+  },
+  {
+    to: 'ge635',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT writes to a 75-column Teletype, with a comma stepping to the next of five fifteen-column zones and TAB placing the carriage.',
+    instead:
+      'Nothing clears paper and nothing goes back up it: TAB moves along the line it is on, and does nothing where the carriage is already past. Print blank lines where a port cleared the screen.',
+    example: {
+      caption: 'Zones with a comma, a column with TAB',
+      code: ['10 PRINT "A","B"', '20 PRINT TAB(30);"C"', '30 PRINT', '40 END'],
+    },
+    reachFor: ['PRINT', 'TAB'],
+  },
+  {
+    to: 'ge635',
+    domain: 'graphics',
+    support: 'none',
+    summary: 'None. The output device is a Teletype printing on a paper roll.',
+    instead:
+      'There is nothing to plot to. Build each row in a vector of codes, CHANGE it to a string and PRINT that - one statement a row - and remember a row printed cannot be changed afterwards.',
+    example: {
+      caption: 'A row of the picture, built and printed whole',
+      code: ['10 LET R(0)=20', '20 CHANGE R TO R$', '30 PRINT R$', '40 END'],
+    },
+  },
+  {
+    to: 'ge635',
+    domain: 'colour',
+    support: 'none',
+    summary: 'None. The Teletype prints black type on white paper.',
+    instead:
+      'Nothing here has a colour. Where a port used colour to tell things apart, use a different character - the printable set runs from the space to the up arrow - or print a label beside the value.',
+    example: {
+      caption: 'Tell things apart by character',
+      code: [
+        '10 IF H=0 THEN 40',
+        '20 PRINT "#";',
+        '30 GOTO 50',
+        '40 PRINT ".";',
+      ],
+    },
+  },
+  {
+    to: 'ge635',
+    domain: 'sound',
+    support: 'none',
+    summary:
+      'None. The Teletype has a bell, and this BASIC has no way to ring it.',
+    instead:
+      'There is no sound of any kind and no statement that reaches the bell. Where a port made a noise to mark an event, print a line saying what happened instead.',
+    example: {
+      caption: 'Say it rather than sound it',
+      code: ['10 IF L>0 THEN 30', '20 PRINT "GAME OVER."', '30 END'],
+    },
+  },
+  {
+    to: 'ge635',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a comma-separated list from the Teletype and waits for the carriage return; MAT INPUT fills a whole vector, and NUM says how many it got.',
+    instead:
+      'Nothing reads a key as it is pressed, and INPUT takes no prompt: PRINT the question first, ending it with a semicolon. A string variable takes typed text, the only way to read a letter.',
+    example: {
+      caption: 'Prompt with PRINT, then read a letter',
+      code: [
+        '10 PRINT "DIRECTION";',
+        '20 INPUT D$',
+        '30 IF D$="W" THEN 50',
+        '40 END',
+      ],
+    },
+    reachFor: ['INPUT', 'NUM'],
+  },
+  {
+    to: 'ge635',
+    domain: 'storage',
+    support: 'none',
+    summary:
+      'None from inside the language: a program is punched to paper tape by the Teletype, not by a statement.',
+    instead:
+      'There is no SAVE, LOAD or file of any kind - Appendix E lists data files among the things not yet built. Data a port kept between runs has to be written into DATA lines and edited by hand.',
+    example: {
+      caption: 'Kept data lives in DATA lines',
+      code: ['10 READ H', '20 PRINT "BEST";H', '30 DATA 1200', '40 END'],
+    },
+  },
+  {
+    to: 'ge635',
+    domain: 'memory-hardware',
+    support: 'none',
+    summary:
+      'None. There is no PEEK, no POKE and no USR: a compiled program cannot name an address at all.',
+    instead:
+      'Nothing reaches outside the language, so a port that read or wrote memory has to do the job in BASIC - keep the value in a variable, or in an array where it was a table in memory.',
+    example: {
+      caption: 'A table in an array, not in memory',
+      code: ['10 DIM T(16)', '20 LET T(1)=255', '30 PRINT T(1)', '40 END'],
+    },
+  },
+  {
+    to: 'ge635',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'REM carries a comment to the end of its line, and an apostrophe at the end of a working line starts a remark.',
+    instead:
+      'The editing commands are the time-sharing system’s, so there is no LIST, RUN or NEW to write in a program. The apostrophe form fails on a line ending inside a string, which swallows it.',
+    example: {
+      caption: 'Two ways to write the same remark',
+      code: ['10 REM MOVE THE PLAYER', "20 LET P=P+1 'ONE STEP", '30 END'],
+    },
+    reachFor: ['REM'],
+  },
+  {
+    to: 'ge635',
+    domain: 'error-handling',
+    support: 'none',
+    summary:
+      'None. There is nothing to trap with, though most faults print their message and let the run go on.',
+    instead:
+      'Nothing traps an error, and most do not stop the run: a division by zero, an overflow, LOG or SQR of a negative each print a fault, supply a value and carry on. Test before dividing.',
+    example: {
+      caption: 'Test before dividing',
+      code: [
+        '10 IF B=0 THEN 40',
+        '20 LET Q=A/B',
+        '30 GOTO 50',
+        '40 PRINT "NO."',
+      ],
+    },
+  },
+
   // ------------------------------------------------------------- samcoupe --
   {
     to: 'samcoupe',

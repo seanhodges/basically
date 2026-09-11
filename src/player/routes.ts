@@ -39,6 +39,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'setcolor', dialectId: 'atari400' }, // SETCOLOR - Atari BASIC's palette command
   { verb: 'vpoke', dialectId: 'hb10p' }, // VPOKE - MSX BASIC's write-to-video-RAM command
   { verb: 'let', dialectId: 'ge235' }, // LET - Dartmouth BASIC required it on every assignment
+  { verb: 'change', dialectId: 'ge635' }, // CHANGE - the fourth edition's only way into a string
   { verb: 'palette', dialectId: 'samcoupe' }, // PALETTE - SAM BASIC's CLUT command
   { verb: 'usr', dialectId: 'sorcerer' }, // USR - Exidy Standard BASIC's machine-code call
 ];
