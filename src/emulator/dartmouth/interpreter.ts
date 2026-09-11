@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { MachineReport } from '../../types';
+import type { MachineReport } from '../../dialects/types';
 import { BasicError, CompileError, errorMessage } from './errors';
 import type { CompileFault } from './errors';
 import { Stream, type Lexeme } from './lex';
 import { parseProgram, type BasicLine, type Program } from './program';
-import { Ge235Terminal } from './terminal';
-import { Ge235Keyboard } from './keyboard';
+import { DartmouthTerminal } from './terminal';
+import { DartmouthKeyboard } from './keyboard';
 import { Vars } from './vars';
 import { evalExpr } from './expr';
 import { formatNumber } from './values';
 import type { Ctx } from './builtins';
+import type { DartmouthProfile } from './profile';
 
 /**
  * Frames a second this backend is paced at. A scheduling convention rather than
  * hardware: there is no video here and no CPU cycles to budget, so the figure
  * exists to give {@link STATEMENTS_PER_FRAME} a denominator and to give the
  * host something to sleep on between slices.
+ *
+ * It stays a core constant rather than a profile field for that reason - it is
+ * a property of how this interpreter slices its work, not of any machine, and
+ * the budget beside it is quoted against it. A machine that wanted a different
+ * pace would change the budget, which is the same figure said in the units that
+ * mean something.
  */
 export const FRAME_HZ = 50;
 
@@ -45,27 +52,6 @@ const STATEMENTS_PER_FRAME = 10;
  */
 const COMPILE_FRAMES_MIN = FRAME_HZ;
 const COMPILE_FRAMES_MAX = 4 * FRAME_HZ;
-/** Lines at which the compile pause reaches its ceiling: the line limit. */
-const COMPILE_SCALE_LINES = 240;
-
-/**
- * How many `DATA` constants a program may carry. The run-time's data region is
- * 256 words and a number is two of them.
- */
-export const MAX_DATA_CONSTANTS = 128;
-
-/**
- * How deep `FOR` loops may nest. The compiler builds its loop table three words
- * to a loop in a 42-word area and gives up on the fourteenth.
- */
-const MAX_LOOP_DEPTH = 13;
-
-/**
- * How deep `GOSUB` may nest. The run-time's return stack is the gap between the
- * end of its working storage and the start of the generated constants, one word
- * to a return.
- */
-export const MAX_GOSUB_DEPTH = 162;
 
 /** The width of a `PRINT` comma zone, and how many of them fit on a line. */
 const ZONE_WIDTH = 15;
@@ -117,8 +103,8 @@ interface UserFn {
  * are the same either way; only the moment differs.
  */
 export class Interpreter implements Ctx {
-  readonly terminal = new Ge235Terminal();
-  readonly keyboard = new Ge235Keyboard();
+  readonly terminal: DartmouthTerminal;
+  readonly keyboard = new DartmouthKeyboard();
   private readonly vars = new Vars();
 
   private program: Program = { lines: [], index: new Map(), faults: [] };
@@ -150,6 +136,14 @@ export class Interpreter implements Ctx {
    */
   private seed = 0;
 
+  /**
+   * `profile` is the machine this runs as: its vocabulary, its character set
+   * and the sizes of its tables. Nothing else here knows which machine it is.
+   */
+  constructor(private readonly profile: DartmouthProfile) {
+    this.terminal = new DartmouthTerminal(profile.charset);
+  }
+
   get state(): RunStatus {
     return this.status;
   }
@@ -160,7 +154,7 @@ export class Interpreter implements Ctx {
 
   /** Read a paper tape, list what is wrong with it, and arm the compile pause. */
   load(image: Uint8Array): void {
-    this.program = parseProgram(image);
+    this.program = parseProgram(image, this.profile);
     this.reset();
   }
 
@@ -184,7 +178,10 @@ export class Interpreter implements Ctx {
     const lines = this.program.lines;
     this.data = collectData(lines);
     this.faults = [...this.program.faults, ...this.compileFaults()];
-    this.compileFrames = compilePause(lines.length);
+    this.compileFrames = compilePause(
+      lines.length,
+      this.profile.limits.maxLines,
+    );
     this.status =
       lines.length === 0 && this.faults.length === 0 ? 'ended' : 'compiling';
   }
@@ -352,7 +349,7 @@ export class Interpreter implements Ctx {
       if (word === 'FOR') {
         const name = line.lexemes[1];
         loops.push(name?.kind === 'name' ? name.name : '');
-        if (loops.length > MAX_LOOP_DEPTH) {
+        if (loops.length > this.profile.limits.maxLoopDepth) {
           faults.push({ code: 'TOO_MANY_LOOPS', line: line.lineNo });
         }
       }
@@ -375,7 +372,7 @@ export class Interpreter implements Ctx {
     if (sawRead && !sawData) {
       faults.push({ code: 'NO_DATA', line: lines[0]!.lineNo });
     }
-    if (this.data.length > MAX_DATA_CONSTANTS) {
+    if (this.data.length > this.profile.limits.maxDataConstants) {
       faults.push({ code: 'TOO_MUCH_DATA', line: lines[0]!.lineNo });
     }
     const last = lines[lines.length - 1]!;
@@ -506,7 +503,7 @@ export class Interpreter implements Ctx {
         break;
       case 'GOSUB': {
         const target = this.lineNumber(s);
-        if (this.gosubStack.length >= MAX_GOSUB_DEPTH) {
+        if (this.gosubStack.length >= this.profile.limits.maxGosubDepth) {
           throw new BasicError('GOSUBS_TOO_DEEP');
         }
         this.gosubStack.push({ lineIdx: this.lineIdx, pos: s.pos });
@@ -873,10 +870,14 @@ function collectData(lines: readonly BasicLine[]): number[] {
   return out;
 }
 
-/** How long the compiler takes on a program of this many lines, in frames. */
-function compilePause(lines: number): number {
+/**
+ * How long the compiler takes on a program of this many lines, in frames. The
+ * pause reaches its ceiling at the machine's own line limit, which is the
+ * longest program it could have been handed.
+ */
+function compilePause(lines: number, maxLines: number): number {
   const span = COMPILE_FRAMES_MAX - COMPILE_FRAMES_MIN;
-  const share = Math.min(1, lines / COMPILE_SCALE_LINES);
+  const share = Math.min(1, lines / maxLines);
   return COMPILE_FRAMES_MIN + Math.round(span * share);
 }
 

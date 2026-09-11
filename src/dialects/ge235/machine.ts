@@ -5,14 +5,23 @@ import type {
   MachineEmulator,
   MachineReport,
   MachineScreenText,
-} from '../../types';
-import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './terminal';
-import { FRAME_HZ, Interpreter } from './interpreter';
+} from '../types';
+import {
+  DISPLAY_HEIGHT,
+  DISPLAY_WIDTH,
+} from '../../emulator/dartmouth/terminal';
+import { FRAME_HZ, Interpreter } from '../../emulator/dartmouth/interpreter';
+import { GE235_PROFILE } from './profile';
 
 /**
  * The GE-235 backend is a clean-room interpreter, not a CPU emulation: no core
  * for this machine exists to vendor, and the surviving 1965 compiler is a
  * memory image of unstated licence. The TRS-80's interpreter is the pattern.
+ *
+ * The interpreter itself is the Dartmouth runtime in `src/emulator/dartmouth/`,
+ * which is shared rather than this machine's; what makes it a GE-235 is the
+ * profile handed to it here. This class is the shim between that and the
+ * `MachineEmulator` the app talks to.
  *
  * `frameHz` is a pacing convention rather than a video rate - the machine had
  * no video, and the paper roll advanced whenever a line ended - so the figure
@@ -24,7 +33,7 @@ export class Ge235InterpreterMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
 
-  private readonly interp = new Interpreter();
+  private readonly interp = new Interpreter(GE235_PROFILE);
 
   reset(): void {
     this.interp.reset();

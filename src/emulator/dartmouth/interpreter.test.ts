@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import { tokenizeProgram } from '../tokenizer';
-import { Ge235InterpreterMachine } from './machine';
+import { tokenizeProgram } from '../../dialects/ge235/tokenizer';
+import { Ge235InterpreterMachine } from '../../dialects/ge235/machine';
 import { formatNumber } from './values';
 
 /**

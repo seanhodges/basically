@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { CharsetError, type MachineScreenText } from '../../types';
-import { plainChar, parseChar, SPACE } from '../charset';
+import { CharsetError, type MachineScreenText } from '../../dialects/types';
+import type { DartmouthCharset } from './profile';
 
 /**
  * The DTSS terminal was a Teletype Model 33 ASR printing on a paper roll, so
@@ -18,9 +18,9 @@ import { plainChar, parseChar, SPACE } from '../charset';
  * what can reach the margin is a long item printed in the last zone, which
  * wraps here where a real carriage would have jammed against it.
  *
- * The cells hold BCD codes rather than Unicode, so the paper stores exactly
- * what was punched and a screen reading decodes through the same charset a
- * listing does.
+ * The cells hold the machine's own codes rather than Unicode, so the paper
+ * stores exactly what was punched and a screen reading decodes through the same
+ * charset a listing does.
  */
 
 /** The Model 33's line, and the window of roll kept on screen. */
@@ -34,39 +34,26 @@ export const CELL_HEIGHT = 16;
 export const DISPLAY_WIDTH = COLS * CELL_WIDTH;
 export const DISPLAY_HEIGHT = ROWS * CELL_HEIGHT;
 
-/**
- * Control codes the paper acts on. A carriage return moves the carriage and
- * nothing else, and a line feed advances the paper and nothing else - the two
- * are separate mechanisms on a teletype, and a program that sends only one of
- * them overprints or steps down a column, which is what the machine did.
- */
-const CR = 0o37;
-const LF = 0o72;
-const BELL = 0o32;
-const TAB = 0o52;
-const FILL = 0o77;
-const EOM = 0o55;
-
 /** Paper, and the ink the Model 33's ribbon laid on it. */
 const PAPER = '#e9e4d6';
 const INK = '#22201c';
 
-/** The GE-235's paper roll: BCD codes in, a printed window out. */
-export class Ge235Terminal {
-  /** One BCD code per cell, row-major; blank paper is the space code. */
+/** The Teletype's paper roll: machine codes in, a printed window out. */
+export class DartmouthTerminal {
+  /** One machine code per cell, row-major; blank paper is the space code. */
   readonly cells = new Uint8Array(COLS * ROWS);
 
   private col = 0;
   private row = 0;
   private bellCount = 0;
 
-  constructor() {
+  constructor(private readonly charset: DartmouthCharset) {
     this.clear();
   }
 
   /** Feed fresh paper: blank the window and put the carriage at the top left. */
   clear(): void {
-    this.cells.fill(SPACE);
+    this.cells.fill(this.charset.space);
     this.col = 0;
     this.row = 0;
     this.bellCount = 0;
@@ -87,22 +74,23 @@ export class Ge235Terminal {
     return this.bellCount;
   }
 
-  /** Print one BCD code. */
+  /** Print one machine code. */
   write(code: number): void {
+    const cs = this.charset;
     const c = code & 0o77;
     switch (c) {
-      case CR:
+      case cs.cr:
         this.col = 0;
         return;
-      case LF:
+      case cs.lf:
         this.lineFeed();
         return;
-      case BELL:
+      case cs.bell:
         this.bellCount++;
         return;
-      case TAB:
-      case FILL:
-      case EOM:
+      case cs.tab:
+      case cs.fill:
+      case cs.eom:
         // Fill and end-of-message are tape framing rather than print
         // instructions, and no tab stops are set: the run-time pads with blanks
         // to reach a zone instead of tabbing to it.
@@ -110,7 +98,7 @@ export class Ge235Terminal {
       default:
         break;
     }
-    if (plainChar(c) === undefined) return; // no glyph, nothing to strike
+    if (cs.plainChar(c) === undefined) return; // no glyph, nothing to strike
     this.put(c);
   }
 
@@ -119,7 +107,7 @@ export class Ge235Terminal {
     let i = 0;
     while (i < text.length) {
       try {
-        const { code, length } = parseChar(text, i);
+        const { code, length } = this.charset.parseChar(text, i);
         this.write(code);
         i += length;
       } catch (e) {
@@ -131,8 +119,8 @@ export class Ge235Terminal {
 
   /** End the line: return the carriage, then advance the paper. */
   newline(): void {
-    this.write(CR);
-    this.write(LF);
+    this.write(this.charset.cr);
+    this.write(this.charset.lf);
   }
 
   /** One row of the window as text, trailing blanks trimmed (for tests). */
@@ -174,7 +162,7 @@ export class Ge235Terminal {
 
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
-        const glyph = plainChar(this.cells[row * COLS + col]!);
+        const glyph = this.charset.plainChar(this.cells[row * COLS + col]!);
         if (glyph === undefined || glyph === ' ') continue;
         ctx.fillText(glyph, col * CELL_WIDTH, row * CELL_HEIGHT);
       }
@@ -195,7 +183,7 @@ export class Ge235Terminal {
   private rowText(row: number): string {
     let text = '';
     for (let col = 0; col < COLS; col++) {
-      text += plainChar(this.cells[row * COLS + col]!) ?? ' ';
+      text += this.charset.plainChar(this.cells[row * COLS + col]!) ?? ' ';
     }
     return text;
   }
@@ -217,6 +205,6 @@ export class Ge235Terminal {
       return;
     }
     this.cells.copyWithin(0, COLS);
-    this.cells.fill(SPACE, COLS * (ROWS - 1));
+    this.cells.fill(this.charset.space, COLS * (ROWS - 1));
   }
 }

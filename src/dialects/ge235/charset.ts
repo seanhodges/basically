@@ -119,8 +119,31 @@ const GLYPHS: readonly (string | undefined)[] = [
   undefined, // 0o77 fill
 ];
 
+/**
+ * The codes the paper acts on rather than prints. All but the space are slots
+ * {@link GLYPHS} marks undefined, so a code that gained a glyph there would
+ * stop being one of these rather than quietly be both.
+ *
+ * A carriage return moves the carriage and nothing else, and a line feed
+ * advances the paper and nothing else - the two are separate mechanisms on a
+ * teletype, and a program that sends only one of them overprints or steps down
+ * a column, which is what the machine did.
+ */
+
 /** Carriage return: the code that ends a line on the paper tape. */
 export const CR = 0o37;
+
+/** Line feed: advances the paper without returning the carriage. */
+export const LF = 0o72;
+
+/** The bell the Model 33 rang, which strikes nothing. */
+export const BELL = 0o32;
+
+/** Tab, which reaches no stop: the run-time pads with blanks instead. */
+export const TAB = 0o52;
+
+/** Fill: the blank tape between records, and never a print instruction. */
+export const FILL = 0o77;
 
 /** End of message: the code that ends the whole tape. */
 export const EOM = 0o55;

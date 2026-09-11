@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import { tokenizeProgram } from '../tokenizer';
-import { COLS, ROWS } from './terminal';
+import { tokenizeProgram } from './tokenizer';
+import { COLS, ROWS } from '../../emulator/dartmouth/terminal';
 import { Ge235InterpreterMachine } from './machine';
 
 /** As in the interpreter's own tests: enough frames to cover a compile pause. */

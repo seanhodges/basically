@@ -33,7 +33,7 @@ import {
  *   here would press nothing.
  *
  * **SHIFT is a bit-4 flip**, which is what makes the SYM pages more than
- * decoration: `interpreter/keyboard.ts` queues the character the teletype's
+ * decoration: `src/emulator/dartmouth/keyboard.ts` queues the character the teletype's
  * code bars would have sent, so SHIFT-K really is `[`, SHIFT-N really is the
  * `↑` this BASIC raises to a power with, and SHIFT-4 really is `$`. Those pairs
  * are the SYM table's rather than keycap legends - the keycaps carry the letter

@@ -17,7 +17,7 @@ import {
   ge235MemoryMap,
 } from './memoryMap';
 import { MAX_LINES } from './tokenizer';
-import { MAX_DATA_CONSTANTS, MAX_GOSUB_DEPTH } from './interpreter/interpreter';
+import { MAX_DATA_CONSTANTS, MAX_GOSUB_DEPTH } from './profile';
 
 /**
  * The map is arithmetic over the compiler's own allocation table, so most of
