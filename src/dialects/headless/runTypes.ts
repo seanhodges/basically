@@ -118,6 +118,21 @@ export interface RunOptions {
    * {@link RunTimings.runMs}, so the reported time does not move either.
    */
   view?: FrameSink;
+  /**
+   * BASIC line numbers this run is to stop before.
+   *
+   * Breakpoints have to be in place before the program starts or the program is
+   * over before anyone could set one, so the run is where the first ones arrive;
+   * changing them between stops is the held machine's business rather than a
+   * run's. Naming any has the run take the machine's own stopping path in place
+   * of a plain frame advance, and a run that stopped reports
+   * {@link RunResult.stoppedAt} and leaves the machine there rather than
+   * settling its picture past the stop. A machine that cannot say which BASIC
+   * line it is executing takes the ordinary path whatever is named here; whether
+   * it can be stepped is asked of the machine before a run is started, not
+   * discovered afterwards.
+   */
+  breakpoints?: readonly number[];
   /** Paint the machine's picture as well as reading its screen text. */
   pixels?: boolean;
   /** `public/` to read the ROMs from; the runner finds one when absent. */
@@ -161,6 +176,15 @@ export interface RunResult {
   ended: boolean;
   /** Whether {@link RunOptions.until} held before the cap; true when unused. */
   reached: boolean;
+  /**
+   * The BASIC line the run stopped before, or null when it did not stop.
+   *
+   * The third way a run can finish, beside reaching the end of its program and
+   * using up the frames it was given, and told apart from both structurally
+   * rather than in prose: a caller that ignores this reports a run that is still
+   * going, which is true.
+   */
+  stoppedAt: number | null;
   screen: MachineScreenText | null;
   /** The painted frame, when `pixels` was asked for. */
   picture: {

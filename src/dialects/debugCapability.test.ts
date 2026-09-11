@@ -18,11 +18,19 @@
  * Same construction shim as `src/ai/machineObservability.test.ts`: several
  * machines fetch their own ROM sets rather than taking the image the seam hands
  * them.
+ *
+ * The machine's description (`src/ops/info.ts`) reports the same fact to a
+ * caller that wants to know before it asks a machine to stop somewhere, so it is
+ * crosschecked here too rather than against the dialect's flag alone: the
+ * machine is already constructed, and a description that agreed with the flag
+ * while the flag had drifted would agree about nothing.
  */
 import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest';
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { describeMachine } from '../ops/info';
+import { pureContext } from '../ops/testSupport';
 import { dialects } from './registry';
 import { romTail } from './romRef';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
@@ -97,6 +105,12 @@ describe('the debuggable flag matches the machines', () => {
           `${dialect.id} ${steps ? 'implements' : 'does not implement'} ` +
             `debugStep, so the dialect should ${steps ? '' : 'not '}` +
             'set debuggable',
+        ).toBe(steps);
+        // And what a caller is told about the machine before it asks the
+        // machine to stop somewhere agrees with what the machine does.
+        expect(
+          describeMachine({ machine: dialect.id }, pureContext()).canStep,
+          `${dialect.id} is described as ${steps ? 'not ' : ''}steppable`,
         ).toBe(steps);
       } finally {
         machine.dispose();

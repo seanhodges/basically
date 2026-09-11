@@ -6,6 +6,7 @@ import {
   createWorkerHolder,
   createWorkerViewLink,
   serveMachineWorker,
+  type MachineHolder,
   type MessageChannelLike,
   type WorkerAnswer,
   type WorkerNote,
@@ -143,6 +144,73 @@ describe('a machine held across a boundary', () => {
     });
     await expect(holder.dispose()).resolves.toBeUndefined();
   });
+});
+
+/**
+ * Stopping a program, stepping it and asking where it is, across the boundary.
+ *
+ * A held machine is in this thread for a caller served over its own streams and
+ * in a worker for a caller reaching a host, and both must answer the same
+ * operations. Asking where is the first of these that needs an answer back
+ * where pressing a key needed none, so the whole sequence is run twice and the
+ * two sets of answers compared.
+ *
+ * One program at a time, because the stand-ins are installed on the process and
+ * the stand-in worker here shares it: the first holder goes before the second
+ * runs anything.
+ */
+describe('stopping a program across the thread boundary', () => {
+  const COUNTING =
+    '10 LET A=0\n' +
+    '20 LET A=A+1\n' +
+    '30 IF A<4 THEN GOTO 20\n' +
+    '40 PRINT A\n';
+
+  /** Run one program that stops, then ask the four questions about it. */
+  async function debugOnce(holder: MachineHolder): Promise<unknown[]> {
+    const answers: unknown[] = [];
+    const run = await holder.call('run', {
+      machine: 'zx81',
+      source: COUNTING,
+      breakpoints: [30],
+      screenText: true,
+      screenshot: false,
+      profile: false,
+      time: false,
+      variables: false,
+    });
+    answers.push((run.outcome as { stoppedAt: number | null }).stoppedAt);
+    for (const [operation, input] of [
+      ['where', {}],
+      ['step', { maxFrames: 400 }],
+      ['continue', { maxFrames: 400 }],
+      ['break', { lines: [] }],
+      ['where', {}],
+    ] as const) {
+      // The frames are dropped from what is compared: a step costs what the
+      // ROM takes, and that is the machine's business rather than the
+      // boundary's.
+      const { outcome } = await holder.call(operation, input);
+      const { frames, seconds, ...rest } = outcome as Record<string, unknown>;
+      expect(typeof frames === 'number' || frames === undefined).toBe(true);
+      expect(typeof seconds === 'number' || seconds === undefined).toBe(true);
+      answers.push(rest);
+    }
+    return answers;
+  }
+
+  it('answers the same as a machine held in this thread', async () => {
+    const across = overAChannel();
+    const remote = await debugOnce(across);
+    await across.dispose();
+
+    const here = createInProcessHolder();
+    const local = await debugOnce(here);
+    await here.dispose();
+
+    expect(remote[0]).toBe(30);
+    expect(remote).toEqual(local);
+  }, 60_000);
 });
 
 describe('the fact one worker per caller rests on', () => {

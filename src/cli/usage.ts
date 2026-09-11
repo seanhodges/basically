@@ -66,6 +66,10 @@ usage: basically <operation> [options]
   profile    report where the run's time and memory went
   time       report how long the run took and how it ended
   variables  report what the program's variables hold
+  break      say which BASIC lines the program is to stop before
+  step       run the stopped program on to its next BASIC line
+  continue   run the stopped program on to its next stop or its end
+  where      report which line the program is stopped before
   expect     judge the machine against written expectations
   server     start, stop, or ask after the host these run on
 
@@ -156,6 +160,11 @@ usage: basically run [file] -m <machine> [options]
   --time            report how long the run took, in the machine's own time,
                     and how it ended
   --variables       report what the program's variables hold at the end
+  --break <lines>   BASIC lines to stop the program before, separated by commas
+                    or spaces. The run reports which line it stopped at and
+                    leaves the machine there, for "where", "variables", "step"
+                    and "continue" to act on. Requires the machine's ROM, and a
+                    machine that can be stepped ("info" says which can)
   --hold            leave the machine running afterwards, for "drive", "look",
                     "profile" and the rest to act on; without it the machine is
                     let go when the run is reported
@@ -303,6 +312,67 @@ report what the program's variables hold, on the running machine
 usage: basically variables [--json]
 
   --json   report the variables as JSON
+`,
+
+  break: `
+say which BASIC lines the running program is to stop before
+
+usage: basically break [<lines>...] [--json]
+
+  --json   report the lines in force as JSON
+
+Replaces whatever was in force; naming no line at all clears them, so the
+program stops nowhere. Lines may be written "20 30" or "20,30". A line this
+program does not carry is accepted and simply never reached.
+
+The first breakpoints of a run are given to the run itself ("run --break"),
+because a machine is held by having run something - by the time one is up, the
+program you wanted to stop has already finished. This is how they are changed
+between stops.
+`,
+
+  step: `
+run the stopped program on to its next BASIC line
+
+usage: basically step [--max-frames <n>] [--json]
+
+  --max-frames <n>   emulated frames this may spend before reporting that it
+                     reached neither the next line nor the end of the program
+  --json             report where the program then is as JSON
+
+Runs until the line about to be executed differs from the one the program
+stopped at, so a line the program dwells on is one step rather than many. Says
+what the step cost in the machine's own time, so a stretch of a program can be
+timed a line at a time. A step that ends the program says so rather than naming
+a line it never reached.
+`,
+
+  continue: `
+run the stopped program on to its next stop or its end
+
+usage: basically continue [--max-frames <n>] [--json]
+
+  --max-frames <n>   emulated frames this may spend before reporting that it
+                     reached neither a stop nor the end of the program
+  --json             report where the program then is as JSON
+
+Continuing off a line that is itself one of the lines to stop before runs on
+rather than stopping again at once, so the loop comes round before it stops
+there again. Running out of frames is an ordinary outcome, not a failure: a
+program that loops forever is an ordinary BASIC program.
+`,
+
+  where: `
+report where the running machine's program is
+
+usage: basically where [--json]
+
+  --json   report the position as JSON
+
+Reports the BASIC line a stopped program is stopped before, whether a program is
+running at all, which lines are in force to stop on, and whether this machine can
+be stepped. Changes nothing and spends none of the machine's frames, so it can be
+asked of a machine you have only just been handed.
 `,
 
   expect: `

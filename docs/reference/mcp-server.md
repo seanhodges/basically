@@ -57,21 +57,28 @@ Every operation the command line has, as a tool of its own. Asking the server
 what it offers lists them, each with the same description and the same inputs
 the toolchain uses everywhere else:
 
-| Tool                               | What it does                                                                  |
-| ---------------------------------- | ----------------------------------------------------------------------------- |
-| `machines`<br>`info`               | List every machine, or describe one in full                                   |
-| `lint`<br>`build`                  | Report a program's problems; write it as a file the machine loads             |
-| `run`<br>`check`                   | Run a program; check one against what it should do                            |
-| `drive`<br>`look`<br>`screenshot`  | Press keys on the machine; read its screen; picture its display               |
-| `profile`<br>`time`<br>`variables` | Where a run's time and memory went; how long it took; what its variables hold |
-| `expect`                           | Say what the machine should be showing, and check it                          |
-| `view`                             | Project the display to an address a web view can be pointed at                |
+| Tool                                       | What it does                                                                  |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `machines`<br>`info`                       | List every machine, or describe one in full                                   |
+| `lint`<br>`build`                          | Report a program's problems; write it as a file the machine loads             |
+| `run`<br>`check`                           | Run a program; check one against what it should do                            |
+| `drive`<br>`look`<br>`screenshot`          | Press keys on the machine; read its screen; picture its display               |
+| `profile`<br>`time`<br>`variables`         | Where a run's time and memory went; how long it took; what its variables hold |
+| `expect`                                   | Say what the machine should be showing, and check it                          |
+| `break`<br>`step`<br>`continue`<br>`where` | Stop the program on a BASIC line; step it; continue it; say where it is       |
+| `view`                                     | Project the display to an address a web view can be pointed at                |
 
 One operation the command line has is deliberately not here: `play`, which hands
 a machine's keyboard to a person at a web view. An agent works in turns and
 cannot type at a machine that keeps running between them, and a machine on that
 clock is not one an agent's own measurements could trust —
 [playing the machine](./playing-the-machine) says so at more length.
+
+The four that stop a program are what [debugging a
+program](./debugging-a-program) is about: the lines to stop before are given to
+the run, because a machine is held by having run something, and the machine is
+then left sitting before the line it stopped at for `where`, `variables`, `step`
+and `continue` to act on.
 
 Apart from that one, there is nothing here the command line cannot also do and
 nothing the command line can do that isn't here. The two are the same

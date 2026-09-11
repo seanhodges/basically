@@ -34,6 +34,11 @@ export function formatMachineDescription(machine: MachineDescription): string {
     }`,
     `program RAM    ${bytes(machine.programRamBytes)}`,
     `runs here      ${machine.canRun ? 'yes' : 'no'}`,
+    `can be stepped ${
+      machine.canStep
+        ? 'yes - "run --break" stops a program on a line'
+        : 'no - it cannot say which BASIC line it is executing'
+    }`,
   ];
 
   if (machine.memoryMap) {

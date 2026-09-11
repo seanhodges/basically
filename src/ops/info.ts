@@ -59,6 +59,13 @@ export interface MachineDescription {
   description: string;
   /** Whether this installation can run the machine. */
   canRun: boolean;
+  /**
+   * Whether this machine can be stepped a BASIC line at a time, so a caller can
+   * tell before asking it to stop somewhere. Read from what the machine
+   * declares; `src/dialects/debugCapability.test.ts` holds every registered
+   * machine's declaration to what it actually implements.
+   */
+  canStep: boolean;
   /** Bytes a BASIC program may occupy, as the machine's byte counter budgets it. */
   programRamBytes: number;
   /** The machine's address space, where it declares one. */
@@ -106,6 +113,7 @@ export function describeMachine(
     basicFamily: dialect.basicFamily,
     description: dialect.blurb,
     canRun: ctx.roms.canRun(dialect, input.romRoot),
+    canStep: dialect.debuggable === true,
     programRamBytes: dialect.programRamBytes,
     memoryMap: dialect.memoryMap ?? null,
     basic: {
@@ -142,7 +150,8 @@ export function describeMachineForModel(machine: MachineDescription): string {
   const lines = [
     `${machine.name} (${machine.id}) - ${machine.manufacturer}, ${machine.year}. ${machine.description}`,
     `BASIC: ${machine.basicDialect}${machine.basicFamily ? ` (${machine.basicFamily})` : ''}.`,
-    `Program RAM: ${machine.programRamBytes} bytes. Runs here: ${machine.canRun ? 'yes' : 'no'}.`,
+    `Program RAM: ${machine.programRamBytes} bytes. Runs here: ${machine.canRun ? 'yes' : 'no'}. ` +
+      `Can be stepped a BASIC line at a time: ${machine.canStep ? 'yes' : 'no'}.`,
     `Statements per line: ${
       basic.statementSeparator === null
         ? 'one'
@@ -188,8 +197,9 @@ export const infoOp: Operation<InfoInput, MachineDescription> = {
   description:
     'Describe a machine from what it declares: its BASIC and the rules that ' +
     'BASIC has for the text of a program, its program RAM, the key names a ' +
-    'schedule may press, its keywords, and the file formats it builds to and ' +
-    'reads from. Nothing is booted. With no machine named, describes the one ' +
+    'schedule may press, its keywords, the file formats it builds to and ' +
+    'reads from, and whether it can be stepped a BASIC line at a time. ' +
+    'Nothing is booted. With no machine named, describes the one ' +
     'this conversation is for.',
   input: {
     type: 'object',

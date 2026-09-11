@@ -211,6 +211,10 @@ describe('inputs and outcomes', () => {
       profile: ['profile'],
       time: ['time'],
       variables: ['variables'],
+      break: ['break', '20,30'],
+      step: ['step'],
+      continue: ['continue', '--max-frames', '50'],
+      where: ['where'],
       expect: ['expect', 'checks.txt'],
     };
     for (const op of OPERATIONS) {
@@ -258,6 +262,10 @@ describe('inputs and outcomes', () => {
       profile: {},
       time: {},
       variables: {},
+      break: { lines: [20] },
+      step: {},
+      continue: {},
+      where: {},
       expect: { expectations: 'EXPECT VAR A = 1' },
     };
     for (const op of OPERATIONS) {

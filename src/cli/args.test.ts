@@ -327,3 +327,79 @@ describe('asking after the host', () => {
     );
   });
 });
+
+describe('stopping the held machine on a line', () => {
+  it('takes the lines to stop before, written either way a shell makes easy', () => {
+    expect(parseArgs(['break', '20', '30'])).toEqual({
+      operation: 'break',
+      json: false,
+      input: { lines: [20, 30] },
+    });
+    expect(parseArgs(['break', '20,30'])).toMatchObject({
+      input: { lines: [20, 30] },
+    });
+    // Naming none is how they are cleared, so it is a whole invocation rather
+    // than a missing argument.
+    expect(parseArgs(['break'])).toMatchObject({ input: { lines: [] } });
+  });
+
+  it('takes stepping and continuing, with the frames each may spend', () => {
+    expect(parseArgs(['step'])).toEqual({
+      operation: 'step',
+      json: false,
+      input: { maxFrames: undefined },
+    });
+    expect(parseArgs(['continue', '--max-frames', '60', '--json'])).toEqual({
+      operation: 'continue',
+      json: true,
+      input: { maxFrames: 60 },
+    });
+    expect(parseArgs(['where', '--json'])).toEqual({
+      operation: 'where',
+      json: true,
+      input: {},
+    });
+  });
+
+  it('takes the lines to stop before as an option on a run', () => {
+    expect(
+      parseArgs(['run', 'prog.bas', '-m', 'zx81', '--break', '20,30']),
+    ).toMatchObject({ input: { breakpoints: [20, 30] } });
+    expect(
+      parseArgs(['run', 'prog.bas', '-m', 'zx81', '--break', '20 30']),
+    ).toMatchObject({ input: { breakpoints: [20, 30] } });
+    // Nothing named is nothing asked for, as it is for every other option.
+    expect(parseArgs(['run', 'prog.bas', '-m', 'zx81'])).toMatchObject({
+      input: { breakpoints: undefined },
+    });
+  });
+
+  it("reads a malformed list of lines as the caller's mistake", () => {
+    // The same rule every count option beside it is held to, so "line 20.5" and
+    // "line banana" are refused where they are written rather than where they
+    // would have failed.
+    for (const argv of [
+      ['break', 'twenty'],
+      ['break', '20,x'],
+      ['break', '-5'],
+      ['run', 'prog.bas', '-m', 'zx81', '--break', '0'],
+      ['run', 'prog.bas', '-m', 'zx81', '--break', '20.5'],
+    ]) {
+      expect(() => parseArgs(argv), argv.join(' ')).toThrow(
+        /whole number|no option/,
+      );
+    }
+    expect(() =>
+      parseArgs(['run', 'p.bas', '-m', 'zx81', '--break', ' ']),
+    ).toThrow(/wants BASIC line numbers/);
+    expect(() => parseArgs(['step', '20'])).toThrow(/takes no arguments/);
+  });
+
+  it('names each of them, and the run option, in the help', () => {
+    for (const operation of ['break', 'step', 'continue', 'where'] as const) {
+      expect(usage(), operation).toContain(operation);
+      expect(usage(operation), operation).toContain(`basically ${operation}`);
+    }
+    expect(usage('run')).toContain('--break');
+  });
+});
