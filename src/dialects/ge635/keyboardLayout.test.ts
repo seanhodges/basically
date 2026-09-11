@@ -2,20 +2,20 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { describe, expect, it } from 'vitest';
-import { ge235KeyboardLayout } from './keyboardLayout';
+import { ge635KeyboardLayout } from './keyboardLayout';
 import {
   dartmouthKeyTokens,
   dartmouthTypeableChars,
   tokenToChar,
 } from '../../emulator/dartmouth/keyboard';
 import { plainChar } from './charset';
-import { GE235_PROFILE } from './profile';
+import { GE635_PROFILE } from './profile';
 import { resolveEditorAction } from '../../keyboard/editorActions';
 import { GRID_COLUMNS, KEY_SPAN } from '../../keyboard/templateRows';
 import type { KeyDef } from '../../keyboard/layoutSchema';
 
-const layout = ge235KeyboardLayout;
-const charset = GE235_PROFILE.charset;
+const layout = ge635KeyboardLayout;
+const charset = GE635_PROFILE.charset;
 const keys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
 /** Every key that actually drives the machine (spacers emit nothing). */
 const driving = keys.filter((k) => k.emits.length > 0);
@@ -31,7 +31,7 @@ function insertOn(key: KeyDef, layerId: string): string | null {
   return action && 'insert' in action ? action.insert : null;
 }
 
-describe('ge235 keyboard layout', () => {
+describe('ge635 keyboard layout', () => {
   it('emits a token for every key the teletype adapter can translate', () => {
     // The layout and `src/emulator/dartmouth/keyboard.ts` are two halves of one
     // vocabulary: a key emitting a token the adapter does not know queues
@@ -68,22 +68,21 @@ describe('ge235 keyboard layout', () => {
     // `keyboard/layoutGeometry.test.ts` records by name.
     expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'sym']);
     // No CTRL: nothing in this run-time reads a control code, so a CTRL
-    // keycap would press nothing. The Altair keeps one because 8K BASIC
-    // breaks a program on CTRL-C.
+    // keycap would press nothing.
     expect(layout.modifiers.map((m) => m.id)).toEqual(['shift']);
   });
 
   it('declares no graphics palette, so it stays out of paletteMachines', () => {
-    // There are no block shapes in the 64-code set - see charset.ts. Adding a
-    // palette here would also have to add the id to e2e/paletteMachines.ts,
-    // which src/dialects/graphicsPalette.test.ts pins to the registry.
+    // The 128-code set is ASCII, which has no block shapes. Adding a palette
+    // here would also have to add the id to e2e/paletteMachines.ts, which
+    // src/dialects/graphicsPalette.test.ts pins to the registry.
     expect(layout.graphicsPalette).toBeUndefined();
   });
 
   it('types the character its SYM cells actually send', () => {
-    // The crosscheck that matters: the ASR-33's SHIFT is a bit-4 flip, so
-    // SHIFT-K is `[`, SHIFT-N is `↑` and SHIFT-4 is `$`. A legend copied from
-    // a modern keyboard would insert one character and send another.
+    // The crosscheck that matters: SHIFT is a bit-4 flip, so SHIFT-K is `[`,
+    // SHIFT-N is `↑` and SHIFT-7 is `'`. A legend copied from a modern
+    // keyboard would insert one character and send another.
     let checked = 0;
     for (const layerId of ['symbols', 'symbols2']) {
       const idx = layout.layers.findIndex((l) => l.id === layerId);
@@ -99,35 +98,37 @@ describe('ge235 keyboard layout', () => {
         checked++;
       }
     }
-    expect(checked).toBe(20);
+    // Every canonical slot but `£`, which is not an ASCII character.
+    expect(checked).toBe(27);
   });
 
-  it('carries the up arrow this BASIC raises to a power with', () => {
-    // `↑` is the one SYM cell that is an operator rather than punctuation, and
-    // it sits in the canonical `^` slot because that is the position a reader
-    // looks in - there is no `^` on this machine to put there instead.
-    const arrow = layout.rows
-      .flat()
-      .flatMap((k) => k.labels)
-      .find((l) => l?.text === '↑');
-    expect(arrow?.editor).toEqual({ insert: '↑' });
-    expect(arrow?.emits).toEqual(['Shift', 'KeyN']);
+  it('carries the two arrows the ASR-33 prints at 94 and 95', () => {
+    // `↑` is the exponent operator and sits in the canonical `^` slot; `←`
+    // sits in the `_` slot. Both positions are where a reader looks, and
+    // neither `^` nor `_` exists on this machine to put there instead.
+    const labels = layout.rows.flat().flatMap((k) => k.labels);
+    const up = labels.find((l) => l?.text === '↑');
+    expect(up?.editor).toEqual({ insert: '↑' });
+    expect(up?.emits).toEqual(['Shift', 'KeyN']);
+    const back = labels.find((l) => l?.text === '←');
+    expect(back?.editor).toEqual({ insert: '←' });
+    expect(back?.emits).toEqual(['Shift', 'KeyO']);
   });
 
   it('reaches every character the Teletype could print', () => {
-    // The 64-code set has 57 printable characters, and every one of them is
-    // typeable: the letters and digits on their keycaps, the rest through the
-    // SYM pages. A character the machine can punch and the keyboard cannot
-    // reach would have to be typed on a host keyboard instead.
+    // This is where the machine parts company with its sibling: the GE-235's
+    // six-bit set leaves `! # % & ' @` and the back arrow unreachable, and
+    // here the codes are ASCII, so the keyboard covers 32 through 95 with
+    // nothing left over for a host keyboard to supply.
     const typeable = new Set(dartmouthTypeableChars(charset));
-    for (let code = 0; code < 64; code++) {
+    let printable = 0;
+    for (let code = 0; code < 128; code++) {
       const ch = plainChar(code);
       if (ch === undefined) continue;
-      expect(
-        typeable.has(ch),
-        `no key types "${ch}" (0o${code.toString(8)})`,
-      ).toBe(true);
+      printable++;
+      expect(typeable.has(ch), `no key types "${ch}" (${code})`).toBe(true);
     }
+    expect(printable, 'codes 32 through 95').toBe(64);
 
     // …and the keyboard offers all of them, rather than stopping at what the
     // adapter can translate.

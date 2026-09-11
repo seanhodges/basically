@@ -18,6 +18,7 @@ import { ge635BuildTargets } from './targets';
 import { ge635KeyboardLayout } from './keyboardLayout';
 import { ge635Samples } from './samples';
 import { Ge635InterpreterMachine } from './machine';
+import { ge635MemoryMap } from './memoryMap';
 
 /**
  * The GE-635 running Dartmouth BASIC's fourth edition - the machine the
@@ -40,9 +41,8 @@ import { Ge635InterpreterMachine } from './machine';
  * The manual names its own machine, in the section on the language's limits:
  * "the current implementation on a GE-635 time-sharing system".
  *
- * The language and the machine are written; the keyboard, the samples and the
- * build targets still throw. The dialect is not registered, so nothing offers
- * it until they answer.
+ * The dialect is not yet registered, so nothing in the app offers it; what is
+ * here is complete enough to drive headlessly.
  */
 export const ge635: Dialect = {
   id: 'ge635',
@@ -58,8 +58,10 @@ export const ge635: Dialect = {
   docsReference: 'dartmouth',
 
   // The machine measures a program's space in thirty-six-bit words rather than
-  // bytes, so there is no byte figure to report here.
+  // bytes, so there is no byte figure to report here - `memoryMap` carries the
+  // budget instead, in the unit the manual states it in.
   programRamBytes: 0,
+  memoryMap: ge635MemoryMap,
 
   fileExtensions: ['.txt', '.bas'],
   keywords: ge635Keywords,
