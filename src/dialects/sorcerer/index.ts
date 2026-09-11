@@ -3,6 +3,7 @@
 
 import type {
   Dialect,
+  DetokenizeResult,
   MachineEmulator,
   TokenizeError,
   TokenizeResult,
@@ -12,6 +13,12 @@ import { sorcererCharset } from './charset';
 import { sorcererKeywords, sorcererOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { detokenizeTape } from './tapeImport';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { buildBasicImage } from './basicImage';
 import { sorcererVariableErrors } from '../../editor/variableLint';
 import {
@@ -41,9 +48,9 @@ import { SorcererMachine } from '../../emulator/sorcerer/sorcererMachine';
  * `src/dialects/registry.ts`: the line in that file turns on some seventy
  * registry-driven test batteries at once, so it goes in last, once everything
  * they ask for is in place. The machine below is real, boots the ROM, and runs
- * the bundled samples off its own keyboard; what is still a stub is the
- * runtime introspection above it - the memory map, the variable watcher and the
- * run report - and the file exports.
+ * the bundled samples off its own keyboard, and it exports and imports its own
+ * tapes; what is still a stub is the runtime introspection above it - the
+ * memory map, the variable watcher and the run report.
  *
  * ## Sourcing
  *
@@ -130,6 +137,16 @@ export const sorcerer: Dialect = {
     };
   },
   detokenize: detokenizeProgram,
+
+  /**
+   * The import path, which is handed whatever file the user opened: a `.tape`
+   * stream of Exidy cassette records, or the bare program area. See
+   * `tapeImport.ts` for which record on a tape becomes the editable program.
+   */
+  detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+    return detokenizeTape(image);
+  },
+
   lint(source: string): TokenizeError[] {
     return [
       ...tokenizeProgram(source).errors,
@@ -172,5 +189,28 @@ export const sorcerer: Dialect = {
   keyboardLayout: sorcererKeyboardLayout,
   samples: sorcererSamples,
   buildTargets: sorcererBuildTargets,
+
+  /** The one container this machine has, and the one the `.wav` carries too. */
+  binaryImports: [{ extension: '.tape', label: 'Import .tape cassette…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust, opts) =>
+      buildCassetteSamples(source, programName, robust, {
+        ...(opts?.blocks ? { blocks: opts.blocks } : {}),
+      }),
+    loadInstructions:
+      'On the Sorcerer type CLOAD "NAME" and press RETURN before starting ' +
+      'playback; the header keeps only the first five letters of the name, ' +
+      'and READY comes back when the program has loaded. Robust mode records ' +
+      'at 300 baud, the slower of the two rates, which the machine has to be ' +
+      'set to first: BYE to the Monitor, SE T=1, then PP to come back. A ' +
+      'memory block rides on the same tape as its own file - BYE, LO NAME, PP.',
+    decodeSamples: (samples, sampleRate) => decodeCassette(samples, sampleRate),
+    saveInstructions:
+      'Start the recorder, then on the Sorcerer type CSAVE "NAME" and press ' +
+      'RETURN; the tape tone plays from the cassette port. Feed that into ' +
+      'this device, then start listening.',
+  },
   aiProfile: sorcererAiProfile,
 };

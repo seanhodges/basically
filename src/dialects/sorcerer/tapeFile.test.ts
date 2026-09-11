@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  TAPE_BASIC_MARK,
   TAPE_BLOCK_BYTES,
   TAPE_FILE_TYPE,
   TAPE_HEADER_BYTES,
@@ -11,8 +12,10 @@ import {
   TAPE_NAME_BYTES,
   TapeRecordError,
   buildTapeFile,
+  hasTapeLead,
   parseTapeFile,
   parseTapeRecord,
+  parseTapeRecords,
   tapeName,
 } from './tapeFile';
 import { PROGRAM_BASE } from './addresses';
@@ -126,6 +129,63 @@ describe('sorcerer tape file', () => {
     );
     const truncated = buildTapeFile(payload(4), OPTS).slice(0, HEADER_AT + 4);
     expect(() => parseTapeFile(truncated)).toThrow(/ends inside its header/);
+  });
+
+  it('stamps header offset 6 only for a CSAVEd BASIC program', () => {
+    const code = buildTapeFile(payload(3), OPTS);
+    expect(code[HEADER_AT + 6]).toBe(0x00);
+    expect(parseTapeRecord(code).basic).toBe(false);
+
+    const basic = buildTapeFile(payload(3), { ...OPTS, basic: true });
+    expect(basic[HEADER_AT + 6]).toBe(TAPE_BASIC_MARK);
+    expect(parseTapeRecord(basic).basic).toBe(true);
+  });
+
+  it('reads back every record on a tape of several', () => {
+    // A tape is a stream of records with no directory in front of it, which is
+    // how a program and the machine-code file beside it travel together.
+    const files = [
+      buildTapeFile(payload(300), { ...OPTS, basic: true }),
+      buildTapeFile(payload(4), {
+        programName: 'CODE',
+        loadAddress: 0x7000,
+        execAddress: 0x7000,
+      }),
+    ];
+    const tape = new Uint8Array(files[0]!.length + files[1]!.length);
+    tape.set(files[0]!);
+    tape.set(files[1]!, files[0]!.length);
+
+    const records = parseTapeRecords(tape);
+    expect(records).toHaveLength(2);
+    expect(records[0]!.basic).toBe(true);
+    expect(records[0]!.payload).toHaveLength(300);
+    expect(records[1]!.name).toBe('CODE ');
+    expect(records[1]!.loadAddress).toBe(0x7000);
+    expect(records[1]!.execAddress).toBe(0x7000);
+    expect([...records[1]!.payload]).toEqual([...payload(4)]);
+  });
+
+  it('stops at the end of the tape but still rejects a corrupt record', () => {
+    const record = buildTapeFile(payload(4), OPTS);
+    // Trailing silence decodes to nothing that opens a lead, so the scan ends.
+    const padded = new Uint8Array(record.length + 40);
+    padded.set(record);
+    expect(parseTapeRecords(padded)).toHaveLength(1);
+
+    const two = new Uint8Array(record.length * 2);
+    two.set(record);
+    two.set(record, record.length);
+    two[two.length - 1] ^= 0xff;
+    expect(() => parseTapeRecords(two)).toThrow(TapeRecordError);
+  });
+
+  it('says whether bytes open with a lead without parsing them', () => {
+    expect(hasTapeLead(buildTapeFile(payload(1), OPTS))).toBe(true);
+    expect(hasTapeLead(Uint8Array.of(0x01, 0x02, 0x03))).toBe(false);
+    expect(hasTapeLead(new Uint8Array(0))).toBe(false);
+    // The program area as the interpreter holds it: a link, not a lead.
+    expect(hasTapeLead(Uint8Array.of(0xde, 0x01, 0x0a, 0x00))).toBe(false);
   });
 
   it('fits a name to what the Monitor’s parser would store', () => {
