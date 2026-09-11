@@ -4,16 +4,27 @@
       cost: newly processed, served from cache, written to cache, and the answer's
       own size. Every field optional; absent means the provider did not say, which
       is not the same as nought and the type must not let the two be confused.
-- [ ] 1.2 `src/ai/providers/anthropic.ts` — read the usage off the final message.
-      This is the only backend with cache figures to report.
-- [ ] 1.3 `src/ai/providers/openai.ts` and `gemini.ts` — read what each reports;
-      leave the cache figures absent.
+- [ ] 1.2 `src/ai/providers/anthropic.ts` — read the usage off the final message:
+      `cache_read_input_tokens` and `cache_creation_input_tokens` alongside the
+      input and output counts. This is the only backend that reports a cache
+      write, because it is the only one asked to cache anything.
+- [ ] 1.3 `src/ai/providers/openai.ts` and `gemini.ts` — both report what was
+      served from cache and neither reports a write. Read
+      `usage.prompt_tokens_details.cached_tokens` and
+      `usageMetadata.cachedContentTokenCount` respectively; leave the write
+      absent. Do not assume either reports nothing about caching — check the
+      installed SDK's types before deciding a figure is unavailable.
 - [ ] 1.4 `src/ai/aiClient.ts` — sum across the rounds of one turn, so a turn that
       drove the machine reports the whole turn rather than its last exchange.
       Summing here rather than in each backend keeps the backends reporting one
       exchange and knowing nothing about turns.
-- [ ] 1.5 Colocated tests: a missing figure arrives missing rather than as nought,
-      per backend; a three-round turn reports the sum of its rounds.
+- [ ] 1.5 `src/ai/providers/registry.ts` — each provider declares the size at
+      which it begins to cache, alongside what it accepts and whether it supports
+      tools. A provider with no published figure declares none rather than
+      borrowing another's.
+- [ ] 1.6 Colocated tests: a missing figure arrives missing rather than as nought,
+      per backend; a backend that reports a read but no write yields exactly that,
+      not a pair of noughts; a three-round turn reports the sum of its rounds.
 
 ## 2. Keep it with the conversation
 
@@ -43,6 +54,10 @@
 - [ ] 3.4 Labels describe the request, not the invoice: what was newly processed,
       what was served from cache, what the answer came to. Tokens as the unit,
       because it is the only unit the IDE knows.
+- [ ] 3.5 A request below the chosen provider's caching size reads as too small to
+      cache, not as nothing served from cache. Above that size, nothing served
+      from cache reads as exactly that, with no explanation attached — the two
+      have to stay distinguishable or the figure answers nothing.
 
 ## 4. Tests
 
@@ -59,24 +74,36 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 `docs/guide/` — the assistant's page gains a short section on reading
-      what an answer cost, and on why some providers report less than others.
-      Guide conventions: no `src/` paths, no internal symbols, relative links.
+- [ ] 5.1 `docs/guide/getting-started.md` — the existing "Generate code with AI"
+      section gains a short passage on reading what an answer cost, and on why
+      some providers report less than others. There is no dedicated assistant page
+      to add this to; do not create one as a side effect of this change. Guide
+      conventions: no `src/` paths, no internal symbols, relative links.
 - [ ] 5.2 Do not touch the sidebar in `docs/.vitepress/config.ts`. This is a
-      section within an existing page, not a new one.
+      passage within an existing page, not a new one.
 
 ## 6. Verify against the thing it was built to see
 
 - [ ] 6.1 With a real key, run a conversation of three turns and read the figures
-      the panel now shows. Before `stabilise-the-cached-prefix` lands, expect
-      nothing served from cache on any turn — that is this change reporting
-      honestly, not failing.
-- [ ] 6.2 After that change lands, the same three turns should show most of the
-      request served from cache from turn two. This is the check neither change
-      can make on its own, and the reason to land them together.
-- [ ] 6.3 Record the per-machine system prompt sizes the pinning tests measure
-      alongside these figures, so what a machine costs to describe is finally a
-      number and stays one.
+      the panel now shows. `stabilise-the-cached-prefix` has already landed, and a
+      hand measurement at the time showed the second turn reading the whole prefix
+      back, so expect most of the request served from cache from turn two. Nothing
+      served from cache is now a finding, not the expected state.
+- [ ] 6.2 Repeat on each of the other two providers. Both report what was served
+      from cache and neither reports a write, so what should appear is a read
+      figure and an unavailable write — the shape no test can prove is wired to
+      the right field.
+- [ ] 6.3 Record, per machine and per provider, the input tokens the provider
+      reported on the first turn. This is the number the machine's full language
+      definition was undertaken to produce and never did; the pinning tests
+      measure characters, and characters are not what anyone is billed in. Note
+      which machines have no figure yet rather than estimating one.
+- [ ] 6.4 Check the smallest machine on the smallest capability form against each
+      provider's caching size. The prompt-stability suite proves the prefix clears
+      one provider's minimum, with a margin, on the largest form — but the three
+      minimums differ several-fold, and the form that would fail is the smallest
+      machine on the provider with the highest floor and no tool block to pad the
+      prefix. That case is unchecked.
 
 ## 7. Quality gates
 

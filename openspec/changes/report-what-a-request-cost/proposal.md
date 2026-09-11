@@ -9,9 +9,11 @@ That silence has cost something concrete. When the machine's full language
 definition replaced a prose summary, the design behind that change undertook that
 "sizes per machine are recorded during implementation so the cost is a number
 rather than a feeling". No number was ever recorded. The same change argued the
-larger description would pay for itself through the provider's cache — and because
-nothing reads the cache figures back, nobody noticed the cache has never once been
-read.
+larger description would pay for itself through the provider's cache. Whether it
+does was settled once, by hand, while the cached prefix was being stabilised — and
+the answer lives in a code comment, where no user can see it and no test holds it
+true. Nothing in the running product reads a cache figure back, so nobody would
+know if it stopped paying.
 
 A user cannot see any of this either. They can see an answer arrive; they cannot
 see that it re-processed several thousand tokens that a working cache would have
@@ -26,9 +28,14 @@ from an expensive one until the bill arrives somewhere the IDE cannot show them.
   processed, how much was served from the provider's cache, and how large the
   answer itself was.
 - A figure the chosen provider does not report SHALL be shown as unavailable
-  rather than as zero. Only one of the three backends reports cache figures at
-  all, and showing a missing figure as nought would read as "nothing was cached"
-  — which is a claim, and a different one.
+  rather than as zero. All three backends report how much of a request was served
+  from cache; only one reports how much was written to it. Showing a figure the
+  provider withheld as nought would read as "nothing was cached" — which is a
+  claim, and a different one.
+- A request too small to cache on the chosen provider SHALL say so, rather than
+  reporting nothing served from cache and leaving that to read as a cache that has
+  stopped working. Providers differ several-fold in how large a request must be
+  before they will cache it at all.
 - A conversation SHALL state its running total, so the cost of a session is
   visible without adding up answers.
 - An answer that did not finish — stopped by the user, cut off by the output
@@ -45,7 +52,9 @@ None.
 
 - `ai-assistant`: gains a requirement that what an answer cost is stated to the
   user, including how much of it the provider served from cache, and that a figure
-  the provider does not report is shown as unavailable rather than as zero.
+  the provider does not report is shown as unavailable rather than as zero; and a
+  requirement that a request too small for the chosen provider to cache is stated
+  as such.
 
 ## Non-goals
 
@@ -56,8 +65,9 @@ None.
   count-tokens call. This reports what a request actually cost, after the fact.
 - **Budgets, warnings or caps.** Nothing here refuses or throttles a request. The
   output budget the user already tunes is a separate control and is unaffected.
-- **Making anything cheaper.** This measures; `stabilise-the-cached-prefix` is
-  what moves the figure.
+- **Making anything cheaper.** This measures. Moving the figure was
+  `stabilise-the-cached-prefix`'s job and that has already landed; what is missing
+  is any way to see whether it is still doing it.
 - **Settling whether the machine's full command set is worth carrying.** These
   figures are the evidence that question needs, and it stays open until there is
   some. Whether a request should carry less, or reach for it through a tool
@@ -71,8 +81,8 @@ None.
   field optional, because only one backend reports cache figures and none of them
   is obliged to report anything.
 - `src/ai/providers/anthropic.ts`, `openai.ts`, `gemini.ts` — each reads the usage
-  its own API returns and fills in what it has. The Anthropic backend is the only
-  one with cache figures to report.
+  its own API returns and fills in what it has. All three report what was served
+  from cache; only the Anthropic backend reports what was written to it.
 - `src/ai/aiClient.ts` — the exchange loop accumulates cost across the rounds of
   one turn rather than reporting only the last, or a turn that used tools would
   under-report.
