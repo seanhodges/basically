@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SORCERER_KEY_TOKENS,
   SorcererKeyboard,
-  tokenForHostCode,
+  tokensForHostCode,
 } from './keyboard';
 
 /** An event carrying only what the keyboard reads off it. */
@@ -77,16 +77,18 @@ describe('SorcererKeyboard', () => {
    * than by position, because this keyboard's unshifted symbols are not a PC's.
    */
   it('maps host codes onto the key with the same legend', () => {
-    expect(tokenForHostCode('KeyA')).toBe('KeyA');
-    expect(tokenForHostCode('ControlRight')).toBe('Control');
-    expect(tokenForHostCode('Quote')).toBe('Colon');
-    expect(tokenForHostCode('Equal')).toBe('Caret');
-    expect(tokenForHostCode('Backspace')).toBe('Underscore');
-    // The cursor cluster: this machine has none of its own, and the keys the
-    // firmware reads for cursor movement are on the numeric keypad.
-    expect(tokenForHostCode('ArrowLeft')).toBe('Numpad4');
+    expect(tokensForHostCode('KeyA')).toEqual(['KeyA']);
+    expect(tokensForHostCode('ControlRight')).toEqual(['Control']);
+    expect(tokensForHostCode('Quote')).toEqual(['Colon']);
+    expect(tokensForHostCode('Equal')).toEqual(['Caret']);
+    expect(tokensForHostCode('Backspace')).toEqual(['Underscore']);
+    // The cursor cluster: this machine has none of its own, so a host arrow
+    // presses the Monitor's own CTRL + W/A/S/Z diamond. The keypad is not it:
+    // its 4 and 8 type `4` and `8`.
+    expect(tokensForHostCode('ArrowLeft')).toEqual(['Control', 'KeyA']);
+    expect(tokensForHostCode('Numpad4')).toEqual(['Numpad4']);
     // A host key with nothing under it, so the browser keeps its own handling.
-    expect(tokenForHostCode('F12')).toBeNull();
+    expect(tokensForHostCode('F12')).toEqual([]);
   });
 
   it('ignores a token that is not on the matrix', () => {
