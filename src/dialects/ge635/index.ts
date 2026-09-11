@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
+import { hasFatalErrors } from '../types';
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { ge635Charset } from './charset';
 import { ge635Keywords, ge635Operators } from './keywords';
@@ -11,6 +12,7 @@ import {
 } from './language';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { ge635VariableErrors } from '../../editor/variableLint';
 import { ge635AiProfile } from './aiProfile';
 import { ge635BuildTargets } from './targets';
 import { ge635KeyboardLayout } from './keyboardLayout';
@@ -38,8 +40,10 @@ import { Ge635InterpreterMachine } from './machine';
  * The manual names its own machine, in the section on the language's limits:
  * "the current implementation on a GE-635 time-sharing system".
  *
- * Not implemented yet: this folder is scaffolding, and the dialect is not
- * registered.
+ * The language is written and the machine is not: the keyword table, the
+ * character set and the tape codec below are real, while the emulator, the
+ * keyboard, the samples and the build targets still throw. The dialect is not
+ * registered, so nothing offers it until they answer.
  */
 export const ge635: Dialect = {
   id: 'ge635',
@@ -66,9 +70,20 @@ export const ge635: Dialect = {
   languageSupport: ge635LanguageSupport,
   completionSource: ge635CompletionSource,
 
+  /**
+   * There is nothing to tokenize: the machine compiled its source at RUN, so
+   * the "program bytes" are the source itself, punched as ASCII onto a paper
+   * tape. The tape carries no terminator - see `tokenizer.ts` - so the image
+   * is those same bytes.
+   */
   tokenize(source: string): TokenizeResult {
     const { program, image, errors } = tokenizeProgram(source);
-    return { programBytes: program, image, errors, byteSize: program.length };
+    return {
+      programBytes: program,
+      image: hasFatalErrors(errors) ? new Uint8Array(0) : image,
+      errors,
+      byteSize: program.length,
+    };
   },
 
   detokenize(image: Uint8Array): string {
@@ -76,7 +91,10 @@ export const ge635: Dialect = {
   },
 
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...ge635VariableErrors(source, ge635Keywords),
+    ];
   },
 
   // No romUrl: the interpreter backend needs no ROM image.
@@ -86,8 +104,9 @@ export const ge635: Dialect = {
 
   addressNotation: 'dec',
 
-  // One statement to a line, so there is no separator to name. Confirm against
-  // the fourth edition before relying on it.
+  // One statement to a line, so there is no separator to name. The manual's
+  // statement summaries (1.7) each give one form per line and it names no
+  // separator anywhere, as the February 1965 language has none.
   statementSeparator: null,
 
   debuggable: false,

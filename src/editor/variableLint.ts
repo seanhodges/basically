@@ -40,6 +40,7 @@ import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import { eachOccurrence, type Occurrence } from './variables';
 import {
   GE235_LEXIS,
+  GE635_LEXIS,
   lexisFor,
   MSX_LEXIS,
   SAMCOUPE_LEXIS,
@@ -190,6 +191,31 @@ export function ge235VariableErrors(
     label: 'GE-235',
     digitSuffix: true,
     options: GE235_LEXIS,
+  });
+}
+
+/**
+ * Editor diagnostics for the fourth edition's names, which are the same shape
+ * with `$` allowed back on the end.
+ *
+ * Section 1.7 of *BASIC, Fourth Edition* states the rule for the whole
+ * language: "[variable] refers to any variable, which is a single letter,
+ * possibly followed by a single digit". Section 2.7 adds the marker, and its
+ * own examples use both halves - `A$` and `Z7$`. A list or table is still
+ * named by a bare letter (section 1.4: "a single letter, which we call the
+ * name of the list"), so `A1(3)` is a subscript on a name that cannot have
+ * one, which is what `digitSuffix` reports; `L$(J)`, the string vector of
+ * 2.7's alphabetiser, is fine because the marker comes off before the letter
+ * is counted.
+ */
+export function ge635VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return singleLetterVariableErrors(source, keywords, {
+    label: 'GE-635',
+    digitSuffix: true,
+    options: GE635_LEXIS,
   });
 }
 
