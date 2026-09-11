@@ -54,6 +54,10 @@ import {
   samcoupeOperators,
 } from '../src/dialects/samcoupe/keywords';
 import { ge235Keywords, ge235Operators } from '../src/dialects/ge235/keywords';
+import {
+  sorcererKeywords,
+  sorcererOperators,
+} from '../src/dialects/sorcerer/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -418,6 +422,33 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       entries: dedupe([
         ...ge235Keywords.map((k) => toEntry(k)),
         ...ge235Operators.map(
+          (word): ReferenceEntry => ({
+            name: word,
+            kind: 'operator',
+            syntax: word,
+            description: '',
+          }),
+        ),
+      ]),
+    },
+  },
+  {
+    // The page slug is the dialect id here, and the title is the name on the
+    // machine: Exidy Standard BASIC is a licensed Microsoft 8K BASIC, but so
+    // are Commodore BASIC and Level II BASIC, and this project files a BASIC
+    // under the vendor whose name is on it.
+    id: 'sorcerer',
+    varName: 'sorcererReference',
+    data: {
+      title: 'Exidy Standard BASIC',
+      machines: ['Exidy Sorcerer'],
+      // The three relational spellings this interpreter accepts and stores as
+      // two operator tokens are declared on the dialect rather than held in the
+      // keyword table, and the reference page lists both (see
+      // src/dialects/operators.ts).
+      entries: dedupe([
+        ...sorcererKeywords.map((k) => toEntry(k)),
+        ...sorcererOperators.map(
           (word): ReferenceEntry => ({
             name: word,
             kind: 'operator',

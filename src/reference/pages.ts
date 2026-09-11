@@ -29,6 +29,7 @@ import { dartmouthReference } from './dartmouth';
 import { pmd85Reference } from './pmd85';
 import { samcoupeReference } from './samcoupe';
 import { sinclairReference } from './sinclair';
+import { sorcererReference } from './sorcerer';
 import { trs80Reference } from './trs80';
 import { zx80Reference } from './zx80';
 
@@ -45,6 +46,7 @@ import { dartmouthEscapes } from './escapes/dartmouth';
 import { pmd85Escapes } from './escapes/pmd85';
 import { samcoupeEscapes } from './escapes/samcoupe';
 import { sinclairEscapes } from './escapes/sinclair';
+import { sorcererEscapes } from './escapes/sorcerer';
 import { trs80Escapes } from './escapes/trs80';
 import { zx80Escapes } from './escapes/zx80';
 
@@ -65,7 +67,10 @@ export { referencePageOf } from '../dialects/referencePage';
  * page or whose machines have arrived - so the exemption cannot outlive the
  * staging it exists for. Empty is the ordinary state.
  */
-export const PENDING_PAGE_IDS: readonly string[] = [];
+export const PENDING_PAGE_IDS: readonly string[] = [
+  // The Exidy Sorcerer's reference set, written ahead of its registry line.
+  'sorcerer',
+];
 
 /** Every BASIC keyword table, keyed by the page slug its machines name. */
 export const referencePages: Record<string, BasicReferenceTableData> = {
@@ -82,6 +87,7 @@ export const referencePages: Record<string, BasicReferenceTableData> = {
   pmd85: pmd85Reference,
   samcoupe: samcoupeReference,
   sinclair: sinclairReference,
+  sorcerer: sorcererReference,
   trs80: trs80Reference,
   zx80: zx80Reference,
 };
@@ -109,6 +115,7 @@ export const escapePages: Record<string, EscapeTableData> = {
   pmd85: pmd85Escapes,
   samcoupe: samcoupeEscapes,
   sinclair: sinclairEscapes,
+  sorcerer: sorcererEscapes,
   trs80: trs80Escapes,
   zx80: zx80Escapes,
 };
