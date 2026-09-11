@@ -18,9 +18,12 @@
  * needs the "read on every scan" row the PMD 85 has.
  *
  * The numeric keypad - the whole right-hand block, lines 12-15 - is on the same
- * matrix as the main keyboard and is included: its keys are what the Monitor
- * and BASIC read for cursor movement, and leaving them out would make a
- * keyboard that cannot move a cursor.
+ * matrix as the main keyboard and is included: it is a second way to type the
+ * digits and the arithmetic symbols, and GRAPHIC with one of its keys types a
+ * graphic no other key carries. It is *not* a cursor cluster, whatever its
+ * arrangement suggests: the booted Monitor types `4` for its 4 and `8` for its
+ * 8, and moves the cursor only for CTRL and the W/A/S/Z diamond (see
+ * {@link HOST_COMBOS}).
  */
 const LINES: readonly (readonly (string | null)[])[] = [
   //  bit0        bit1        bit2        bit3          bit4
@@ -72,18 +75,29 @@ const HOST_CODES: Readonly<Record<string, string>> = {
   Backquote: 'At',
   Quote: 'Colon',
   NumpadEnter: 'Enter',
-  // The cursor keys the Monitor and BASIC read are keypad keys, and a PC
-  // keyboard's arrows are the only cluster most users have.
-  ArrowUp: 'Numpad8',
-  ArrowDown: 'Numpad2',
-  ArrowLeft: 'Numpad4',
-  ArrowRight: 'Numpad6',
   // F-keys for the four Sorcerer keys a PC keyboard has nothing at all like.
   F1: 'Graphic',
   F2: 'Sel',
   F4: 'Repeat',
   F5: 'Clear',
   F6: 'LineFeed',
+};
+
+/**
+ * Host keys that reach a Sorcerer *combination* rather than one key.
+ *
+ * The machine has no cursor cluster: the Monitor moves the cursor with CTRL
+ * and the W/A/S/Z diamond, and takes it home with CTRL+Q. Its numeric keypad
+ * is not that cluster - its 4 and 8 type `4` and `8` like any other digit key
+ * - so a host arrow mapped there would put a digit on the screen instead of
+ * moving anything.
+ */
+const HOST_COMBOS: Readonly<Record<string, readonly string[]>> = {
+  ArrowUp: ['Control', 'KeyW'],
+  ArrowDown: ['Control', 'KeyZ'],
+  ArrowLeft: ['Control', 'KeyA'],
+  ArrowRight: ['Control', 'KeyS'],
+  Home: ['Control', 'KeyQ'],
 };
 
 interface KeyPosition {
@@ -102,13 +116,16 @@ LINES.forEach((keys, line) =>
 export const SORCERER_KEY_TOKENS: readonly string[] = [...KEY_POSITIONS.keys()];
 
 /**
- * The Sorcerer key a host `KeyboardEvent.code` reaches, or null where the host
- * key has no equivalent on this machine. Exported because it is the only
- * statement of which matrix keys are typeable without a keycap.
+ * The Sorcerer keys a host `KeyboardEvent.code` reaches: one cell for most of
+ * them, two for the arrows, and none where the host key has no equivalent on
+ * this machine. Exported because it is the only statement of which matrix keys
+ * are typeable without a keycap.
  */
-export function tokenForHostCode(code: string): string | null {
+export function tokensForHostCode(code: string): readonly string[] {
+  const combo = HOST_COMBOS[code];
+  if (combo) return combo;
   const token = HOST_CODES[code] ?? code;
-  return KEY_POSITIONS.has(token) ? token : null;
+  return KEY_POSITIONS.has(token) ? [token] : [];
 }
 
 /** The Sorcerer keyboard as the control port sees it. */
@@ -124,11 +141,13 @@ export class SorcererKeyboard {
    * keeps its own handling of it.
    */
   handleEvent(e: KeyboardEvent, down: boolean): boolean {
-    const token = tokenForHostCode(e.code);
-    if (token === null) return false;
-    if (down) this.physicalDown.add(token);
-    else this.physicalDown.delete(token);
-    this.apply(token);
+    const tokens = tokensForHostCode(e.code);
+    if (tokens.length === 0) return false;
+    for (const token of tokens) {
+      if (down) this.physicalDown.add(token);
+      else this.physicalDown.delete(token);
+      this.apply(token);
+    }
     return true;
   }
 

@@ -127,7 +127,7 @@ before wiring it.
 | ----- | ---------------------------------- | ------ |
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
-| 3     | Wire-up: keyboard + samples        | ⬜     |
+| 3     | Wire-up: keyboard + samples        | ✅     |
 | 4     | Transfer & tape I/O                | ⬜     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
@@ -245,17 +245,17 @@ INC.` / `31976 BYTES FREE`** — the year is in it, and `programRamBytes` is
 `loadProgram`).
 **Verify:** emulator boot test passes.
 
-## Stage 3 — Wire-up: keyboard + samples ⬜
+## Stage 3 — Wire-up: keyboard + samples ✅
 
 No registry change here: the machine is finished and driven headlessly, and is
 offered to the user in Stage 7. Verify it by booting the real ROM through
 `src/dialects/bootHarness.ts` and reading `readScreenText()` back.
 
-- [ ] `keyboardLayout.ts` — 63 keys including the dedicated `GRAPHIC` key. Key
+- [x] `keyboardLayout.ts` — 63 keys including the dedicated `GRAPHIC` key. Key
       tokens match the emulator's `setKey`; geometry comes from `templateRows`
       (`gridColumns: GRID_COLUMNS`, every key `KEY_SPAN`, `ROW_KEYS` to a band,
       `centerRow`/`bottomRow`) — never author a width
-- [ ] read `src/keyboard/layoutGeometry.test.ts` **while writing the layout**: it
+- [x] read `src/keyboard/layoutGeometry.test.ts` **while writing the layout**: it
       only picks this dialect up at Stage 7, and what it holds is this stage's
       work. Symbols are reached only through the SYM pages — a typing band
       carries its base character alone, and the Sorcerer's real shifted key faces
@@ -264,38 +264,84 @@ offered to the user in Stage 7. Verify it by booting the real ROM through
       (the Monitor moves the cursor with Control-Q / Control-Z), so it needs
       either a CURSOR mode or a named entry in that battery's `NO_CURSOR_KEYS`
       with a reason
-- [ ] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard and the
+- [x] `graphics.ts` — a `GraphicEntry[]` read by **both** the keyboard and the
       charset so they cannot drift, derived from the generator bitmaps. The
       Sorcerer did print its graphics on the keycaps and reaches them with
       `SHIFT`+`GRAPHIC`, so these entries carry `key` and `modifier`
-- [ ] the `palette: 'graphics'` editor mode + `graphicsPalette` on the layout
-- [ ] `samples/` + `samples.ts` — the canonical set from `sampleKit.ts`
+- [x] the `palette: 'graphics'` editor mode + `graphicsPalette` on the layout
+- [x] `samples/` + `samples.ts` — the canonical set from `sampleKit.ts`
       (`hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC. Use
       the **`authoring-dialect-samples`** sub-skill. With a 64×30 mono character
       display and no `PLOT`, `circles` and `kaleido` are drawn out of the
       graphics characters — degrade gracefully, do not drop
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport`, and `loadProgram` writing the
+- [x] `memoryBlocks.ts` — `MemoryBlocksSupport`, and `loadProgram` writing the
       blocks it is handed if Stage 2 did not already. **`kaleido.bas` carries its
       routine as a memory block** and `src/app/sampleBlocks.ts` will not assemble
       one without this, so the sample cannot load until it exists. Only what the
       sample needs: `cpu: 'z80'`, a `defaultAddress` in RAM that neither the
       Monitor workarea nor BASIC touches, and `validRanges` wide enough to hold
       the routine there. Stage 5 checks the figures against the map
-- [ ] every sample **run on the machine** and fixed until its screen is right
+- [x] every sample **run on the machine** and fixed until its screen is right
       (tokenizing clean proves nothing)
-- [ ] `aiProfile.ts`, **under 5000 characters composed** —
+- [x] `aiProfile.ts`, **under 5000 characters composed** —
       `ai/promptStability.test.ts` caps it there and only says so at Stage 7. A
       profile running long is usually restating the keyword table and the
       `facts.ts` substitutions the same prompt already carries
-- [ ] `index.ts` — assemble the full `Dialect` (placeholder picker identity until
+- [x] `index.ts` — assemble the full `Dialect` (placeholder picker identity until
       Stage 7, which writes it for real)
-- [ ] tests: keyboard matrix (every token reachable by keycap or host key),
+- [x] tests: keyboard matrix (every token reachable by keycap or host key),
       samples tokenize cleanly **and run**
 
 **Depends on:** Stages 1–2. Owns the memory-block declaration despite its name,
 because the kaleidoscope sample cannot load without one.
 **Verify:** `npm run typecheck` + `npm test` (the app and e2e cannot see the
 machine yet — that is Stage 7's verify).
+
+### What the keyboard and the samples settled, for the stages after this one
+
+Everything here was read off the booted ROM, and several of them contradict what
+this plan assumed:
+
+- **The machine does have cursor keys, and they are not on the keypad.** The
+  Monitor moves the cursor for `CTRL` + `W` / `A` / `S` / `Z` — up, left, right,
+  down — and homes it for `CTRL` + `Q`. The numeric keypad's 4 and 8 type `4`
+  and `8` like any other digit key, so the arrow entries Stage 2 put in the
+  emulator's host-key map were wrong and now press the diamond instead. The
+  layout therefore carries a CURSOR mode rather than a `NO_CURSOR_KEYS` excuse,
+  and **Stage 7 owes `sorcerer` a family in `cursorKeys.test.ts`'s `CLAIMED`**
+  (its own: no other machine here has this bus) and an entry in
+  `symbolKeys.test.ts`'s `BOOTABLE`.
+- **A BASIC program cannot poll the keyboard through the port.** Between every
+  two statements the interpreter asks the Monitor whether a break key is down,
+  which selects keyboard line 1, then line 0, and leaves line 0 selected. So
+  `OUT 254,3 : K=INP(254)` read the line it asked for **twice in two hundred
+  tries**, while `K=INP(254)` with no `OUT` at all reads line 0 — the four
+  modifier keys — 198 times in 200. That is why `breakout` and `maze` carry a
+  twenty-byte scanner block whose write and read are two instructions apart, and
+  why `kaleido` waits on SHIFT.
+- **Only `CTRL`+`C` breaks a running program**, despite the break check reading
+  the RUN/STOP key's cell too; the key alone does nothing.
+- **The screen is driven by the ASCII control codes of those same keys.**
+  `PRINT CHR$(12);` clears and homes (the semicolon matters — without it
+  everything lands a row low), 17 homes, and 1, 19, 23 and 26 are the four
+  moves.
+- **The USR vector is 260/261**, the address field of the `JP` at 259 in the
+  control area; the `JP` at 256 is something else and pointing it anywhere gives
+  `?FC ERROR`. Stage 5 will want the other half of this: **the Monitor's own
+  workarea is at the top of fitted RAM**, `IY` = 0x7F92 on the 32K machine, not
+  at 0xF000 — the fixed area below screen RAM is a different thing.
+- **The keyboard's shift pairs are the ASCII typewriter ones** (`1!` `2"` `3#`
+  `4$` `5%` `6&` `7'` `8(` `9)` `:*` `-=` `^~` ``@` `` `[{` `]}` `;+` `\|` `,<`
+  `.>` `/?`), SHIFT+`0` is `0`, and `£` is the one canonical SYM symbol this
+  machine has no key for.
+- **GRAPHIC and a key types the standard graphics set**, not SHIFT+GRAPHIC: the
+  codes run in keyboard order from `0x80` on the `1` key to `0xBF` on the
+  keypad's `=`, and SHIFT+GRAPHIC types the same key's code 0x40 higher, in the
+  user-definable band. `graphics.ts` is that walk.
+- **The interpreter is slow in a way the samples had to be written around.** An
+  empty `FOR`/`NEXT` iteration is about 2 ms, but a `POKE` whose address needs a
+  multiply is about 15 ms — so a whole-screen repaint is half a minute, and
+  `breakout` holds the ball and the paddle as screen _addresses_ it adds to.
 
 ## Stage 4 — Transfer & tape I/O ⬜
 

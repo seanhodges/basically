@@ -40,9 +40,10 @@ import { SorcererMachine } from '../../emulator/sorcerer/sorcererMachine';
  * **Not registered yet.** The dialect is deliberately absent from
  * `src/dialects/registry.ts`: the line in that file turns on some seventy
  * registry-driven test batteries at once, so it goes in last, once everything
- * they ask for is in place. The machine below is real and boots the ROM; the
- * keyboard layout, the samples and the runtime introspection above it are still
- * stubs.
+ * they ask for is in place. The machine below is real, boots the ROM, and runs
+ * the bundled samples off its own keyboard; what is still a stub is the
+ * runtime introspection above it - the memory map, the variable watcher and the
+ * run report - and the file exports.
  *
  * ## Sourcing
  *
