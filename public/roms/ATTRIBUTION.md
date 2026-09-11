@@ -564,3 +564,44 @@ If you are the rights holder and want this file removed, please open an
 issue — the IDE also supports supplying your own ROM image at runtime, from
 Settings ▸ Emulator. A replacement image may be any size; it is fitted to the
 machine's ROM area.
+
+# Exidy ROM attribution
+
+`sorcerer/sorcerer.rom` is the Exidy Sorcerer firmware set, copyright © 1978–1979
+Exidy Inc. It is three chips in one file, because the machine needs all three and
+the emulator seam carries one image:
+
+    offset  size   part
+    0x0000  4096   the Power-On Monitor, which lives at $E000
+    0x1000  8192   the Standard BASIC ROM PAC, the cartridge at $C000
+    0x3000  1024   the character generator, which the video circuit scans at $F800
+
+Firmware, cartridge, then font — not address order, so that the two parts a user
+is most likely to want to replace sit at fixed offsets from the start. The third
+is the one that is easy to leave out and impossible to do without: nothing else
+in the machine holds the shapes of character codes 0–127, so an image carrying
+only the first two boots a Sorcerer whose screen stays blank whatever is written
+to it. (The graphics codes above 127 are *not* in it: the Monitor carries that
+set in its own table and copies it into character-generator RAM at boot, which is
+why a program can redefine any of them.)
+
+The three parts are the standard MAME/TOSEC images, identified by their CRC32s:
+
+    Monitor      4096 bytes   ac924f67 + ead1d0f6 (exmo1-1, exmo1-2)
+    ROM PAC      8192 bytes   3468d561 ("Exidy Standard Basic v1.0", serial DP 2002)
+    generator    1024 bytes   4a7e1cdd (exchr-1)
+
+and the SHA-256 of the assembled file is
+63a07c8456023a921a7bd5a3355403a5dcb8c50708a97a90cd6e4532e66f96ce.
+
+Exidy Inc. left the computer business in 1980 and the company is long gone. As
+with the Acorn, Commodore and Tesla ROMs above there is no formal blanket
+permission from a rights holder, but these images have been distributed with
+Sorcerer emulators — MAME, and the preservation archives the Sorcerer community
+has maintained since the 1990s — for decades on a de-facto-tolerated basis. They
+are included here, unmodified, solely for use with the bundled emulator.
+
+If you are the rights holder and want this file removed, please open an
+issue — the IDE also supports supplying your own ROM image at runtime, from
+Settings ▸ Emulator. A replacement image is fitted to the machine's ROM area,
+which for this machine is the full 13312 bytes, all three parts.

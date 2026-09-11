@@ -25,6 +25,18 @@
 /** Bottom of fitted RAM. The Sorcerer's address space starts in RAM. */
 export const RAM_BASE = 0x0000;
 
+/**
+ * Fitted RAM, in bytes: the 32K machine, which is the configuration the
+ * dialect's `programRamBytes` was read off the sign-on banner of.
+ *
+ * A Sorcerer shipped with 8, 16, 32 or 48K, and the Monitor's cold start finds
+ * the top by walking up from address zero until a write no longer reads back -
+ * so what is *above* this has to answer as an empty bus rather than as more
+ * RAM, or the machine sizes itself wrong and puts its stack where nothing
+ * holds it. See `src/emulator/sorcerer/memory.ts`.
+ */
+export const RAM_FITTED_BYTES = 32 * 1024;
+
 /** The BASIC control area - the interpreter's own workspace pointers. */
 export const BASIC_CONTROL_BASE = 0x0100;
 
@@ -68,8 +80,14 @@ export const SCREEN_ROWS = 30;
 /** Character generator ROM - the bitmaps for codes 0-127. */
 export const CHARGEN_ROM_BASE = 0xf800;
 
+/** Size of the character generator ROM: 128 codes of {@link CHAR_CELL_HEIGHT}. */
+export const CHARGEN_ROM_SIZE = 0x400;
+
 /** Character generator RAM - the bitmaps for codes 128-255. */
 export const CHARGEN_RAM_BASE = 0xfc00;
+
+/** Size of the character generator RAM, which runs to the top of memory. */
+export const CHARGEN_RAM_SIZE = 0x400;
 
 /** Scan lines in one character cell, and so bytes per generator entry. */
 export const CHAR_CELL_HEIGHT = 8;
@@ -147,6 +165,29 @@ export const CONTROL_AREA_IMAGE_BASE = 0xc258;
 
 /** Bytes the cold start copies to {@link BASIC_CONTROL_BASE}. */
 export const CONTROL_AREA_IMAGE_BYTES = 0x4e;
+
+/**
+ * CURLIN - the line number the interpreter is executing, the Microsoft
+ * convention, written as it moves from line to line.
+ *
+ * Two bytes below TXTTAB in the same control area, which is where the cold
+ * start's image confirms it: the word at that offset is seeded 0xFFFE, a value
+ * with the direct-mode high byte and no line number under it, and the running
+ * machine is seen writing 10, 20 and 30 into it for a three-line program and
+ * 0xFFFF on every route back to the prompt.
+ */
+export const CURLIN = 0x0147;
+
+/**
+ * The high byte of {@link CURLIN} that means "not executing a program".
+ *
+ * The whole byte rather than the whole word, because two values carry it: the
+ * cold start seeds 0xFFFE and every return to the prompt - running off the end,
+ * END, STOP, an error, the user's own interrupt - writes 0xFFFF. Testing the
+ * high byte is also what makes the check safe against the two-byte write, whose
+ * intermediate state always still carries it.
+ */
+export const DIRECT_MODE_HIGH = 0xff;
 
 /**
  * TXTTAB - where the interpreter looks for the start of the program text. It

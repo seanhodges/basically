@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { dialects } from './registry';
@@ -47,6 +47,23 @@ const JSBEEB_DIALECTS = ['bbcmicro', 'bbcmaster'];
 const SHARED_FOLDERS: Record<string, readonly string[]> = {
   atari: ['atari400', 'atari800'],
 };
+
+/**
+ * Folders whose machine is built but has not joined the registry yet.
+ *
+ * A target system's image lands before its registry line does, because an
+ * emulator is only worth having once it boots the real ROM and registering is
+ * what turns every registry-driven battery on at once. Until the switch is
+ * thrown such a folder is real - the machine's own tests read the image out of
+ * it - but no registered dialect is named for it, so the case that would
+ * otherwise call it stray consults this list instead.
+ *
+ * Naming a folder here is a promise to delete the name in the change that
+ * registers its dialect, and the case below fails on an entry whose dialect has
+ * arrived - so the exemption cannot outlive the staging it exists for. Empty is
+ * the ordinary state.
+ */
+const PENDING_FOLDERS: readonly string[] = ['sorcerer'];
 
 const ids = new Set(dialects.map((d) => d.id));
 
@@ -112,9 +129,24 @@ describe('the ROM folder layout', () => {
         `public/roms/${file} sits at the top of the folder - put it in the folder named for the dialect id that runs it`,
       ).toBeGreaterThan(0);
       expect(
-        ids.has(folder!) || folder! in SHARED_FOLDERS,
+        ids.has(folder!) ||
+          folder! in SHARED_FOLDERS ||
+          PENDING_FOLDERS.includes(folder!),
         `public/roms/${file} is in a folder no registered dialect is named for - name it for the dialect id, or declare it in SHARED_FOLDERS with the reason`,
       ).toBe(true);
+    }
+  });
+
+  it('keeps no exemption for a machine that has registered', () => {
+    for (const folder of PENDING_FOLDERS) {
+      expect(
+        existsSync(join(__dirname, folder)),
+        `${folder} is exempted as a machine still being built, but src/dialects/${folder}/ does not exist`,
+      ).toBe(true);
+      expect(
+        ids.has(folder),
+        `${folder} is registered now - delete it from PENDING_FOLDERS, which exists only until a machine's registry line lands`,
+      ).toBe(false);
     }
   });
 

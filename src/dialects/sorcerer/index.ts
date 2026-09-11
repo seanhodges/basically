@@ -28,19 +28,21 @@ import { sorcererMemoryBlocks } from './memoryBlocks';
 import {
   CHAR_CELL_HEIGHT,
   CHAR_CELL_WIDTH,
-  MONITOR_SIZE,
-  ROM_PAC_SIZE,
   SCREEN_COLUMNS,
   SCREEN_ROWS,
 } from './addresses';
+import { ROM_IMAGE_SIZE, splitRomImage } from './romImage';
+import { SorcererMachine } from '../../emulator/sorcerer/sorcererMachine';
 
 /**
  * The Exidy Sorcerer (Exidy Standard BASIC).
  *
- * **Scaffolding.** Every component this file assembles is a throwing stub, and
- * the dialect is deliberately absent from `src/dialects/registry.ts`: the line
- * in that file turns on some seventy registry-driven test batteries at once, so
- * it goes in last, once everything they ask for is in place.
+ * **Not registered yet.** The dialect is deliberately absent from
+ * `src/dialects/registry.ts`: the line in that file turns on some seventy
+ * registry-driven test batteries at once, so it goes in last, once everything
+ * they ask for is in place. The machine below is real and boots the ROM; the
+ * keyboard layout, the samples and the runtime introspection above it are still
+ * stubs.
  *
  * ## Sourcing
  *
@@ -68,10 +70,14 @@ import {
  *
  * ## Three things worth knowing before working on it
  *
- *  - **Two ROMs, one image.** The 4K Monitor at 0xE000 and the 8K Standard BASIC
- *    ROM PAC at 0xC000 are different devices, and the dialect seam hands a
- *    machine one `rom: Uint8Array`. They travel concatenated, Monitor first, the
- *    way `pmd85.rom` carries its two halves.
+ *  - **Three ROMs, one image.** The 4K Monitor at 0xE000, the 8K Standard BASIC
+ *    ROM PAC at 0xC000 and the 1K character generator at 0xF800 are different
+ *    devices on different chip selects, and the dialect seam hands a machine one
+ *    `rom: Uint8Array`. They travel concatenated - firmware, cartridge, font -
+ *    the way `pmd85.rom` carries its two halves. The font is the part that is
+ *    easy to forget and impossible to do without: nothing else holds the shapes
+ *    of codes 0-127, so an image without it boots a machine whose screen stays
+ *    blank whatever is written to it. See `romImage.ts`.
  *  - **The character generator is half RAM.** Codes 0-127 come from ROM at
  *    0xF800; codes 128-255 are bitmaps in RAM at 0xFC00, into which the Monitor
  *    copies the "standard" graphics set at boot. So those shapes are a
@@ -134,12 +140,13 @@ export const sorcerer: Dialect = {
   crunched: sorcererCrunched,
 
   /**
-   * The 4K Monitor and the 8K Standard BASIC ROM PAC concatenated, Monitor
-   * first. `romBytes` is declared so a user may replace the pair from Settings,
-   * the way every other bundled-ROM machine here does.
+   * The Monitor, the Standard BASIC ROM PAC and the character generator
+   * concatenated in that order (see `romImage.ts`). `romBytes` is declared so a
+   * user may replace the set from Settings, the way every other bundled-ROM
+   * machine here does.
    */
   romUrl: `${import.meta.env.BASE_URL}roms/sorcerer/sorcerer.rom`,
-  romBytes: MONITOR_SIZE + ROM_PAC_SIZE,
+  romBytes: ROM_IMAGE_SIZE,
 
   /** 64x30 characters of 8x8 dots, monochrome - not the 256x192 default. */
   displaySize: {
@@ -157,8 +164,8 @@ export const sorcerer: Dialect = {
   memoryMap: sorcererMemoryMap,
   memoryBlocks: sorcererMemoryBlocks,
 
-  createEmulator(_opts): MachineEmulator {
-    throw new Error('sorcerer: emulator not implemented');
+  createEmulator(opts): MachineEmulator {
+    return new SorcererMachine(splitRomImage(opts.rom));
   },
 
   keyboardLayout: sorcererKeyboardLayout,
