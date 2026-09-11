@@ -485,9 +485,6 @@ const ALTAIR: ConstructTemplate[] = [
  * same one-argument function library. `BYE` is the only word Exidy added and it
  * is a bare command with nothing to fill in, so it stays a plain keyword
  * completion rather than a block.
- *
- * Exported rather than wired into {@link constructsByDialect}: that map is held
- * to the registered dialects, so the entry goes in with the registry line.
  */
 export const SORCERER_CONSTRUCTS: ConstructTemplate[] = [
   ifThen(),
@@ -953,6 +950,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   hb10p: MSX_CONSTRUCTS,
   ge235: GE235_CONSTRUCTS,
   samcoupe: SAMCOUPE_CONSTRUCTS,
+  sorcerer: SORCERER_CONSTRUCTS,
 };
 
 /**

@@ -63,7 +63,7 @@ const SHARED_FOLDERS: Record<string, readonly string[]> = {
  * arrived - so the exemption cannot outlive the staging it exists for. Empty is
  * the ordinary state.
  */
-const PENDING_FOLDERS: readonly string[] = ['sorcerer'];
+const PENDING_FOLDERS: readonly string[] = [];
 
 const ids = new Set(dialects.map((d) => d.id));
 

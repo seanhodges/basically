@@ -40,6 +40,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'vpoke', dialectId: 'hb10p' }, // VPOKE - MSX BASIC's write-to-video-RAM command
   { verb: 'let', dialectId: 'ge235' }, // LET - Dartmouth BASIC required it on every assignment
   { verb: 'palette', dialectId: 'samcoupe' }, // PALETTE - SAM BASIC's CLUT command
+  { verb: 'usr', dialectId: 'sorcerer' }, // USR - Exidy Standard BASIC's machine-code call
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).

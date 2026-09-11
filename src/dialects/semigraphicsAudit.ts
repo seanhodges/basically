@@ -2,6 +2,7 @@ import type { Dialect } from './types';
 import { dialects } from './registry';
 import { codeCountOf, probeFor, type CharsetProbe } from './charsetProbes';
 import { resolveEditorAction } from '../keyboard/editorActions';
+import { SORCERER_GRAPHIC_CODES } from './sorcerer/charset';
 
 /**
  * What each machine's semigraphics support actually amounts to, derived rather
@@ -178,6 +179,12 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // mosaics `POUDG` builds, and 0x90-0xA8 the UDGs the ROM's 328 bytes of UDG
   // RAM holds.
   samcoupe: [...range(0x80, 0x8f), ...range(0x90, 0xa8)],
+  // The standard graphics band, taken from the charset that maps it rather than
+  // restated here: those bitmaps live in character-generator RAM, copied there
+  // by the Monitor at boot, so the band is what `sorcerer/charset.ts` reads out
+  // of the generator. The user-definable band above it is deliberately not
+  // graphics - those codes are whatever a running program made them.
+  sorcerer: SORCERER_GRAPHIC_CODES,
 };
 
 /** Classify one byte from its canonical text form. */

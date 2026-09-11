@@ -3087,4 +3087,213 @@ export const domainGuidance: DomainGuidance[] = [
     },
     reachFor: ['ON ERROR', 'OFF'],
   },
+  // ------------------------------------------------------------ sorcerer --
+  // The Altair's interpreter on a machine with a screen, so the language cells
+  // read like the Altair's and the screen ones do not: there is a 64x30 grid
+  // here, reached with control codes and POKE rather than with statements.
+  {
+    to: 'sorcerer',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, ON...GOTO and DEF FN cover jumps, loops and single-expression functions.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. A loop with its test at the bottom is IF...THEN <line>.',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'DATA/READ/RESTORE for constants, DIM for arrays, LET for assignment, and CLEAR to reset the variables and size the string space.',
+    instead:
+      'No CLR or DEFINT/DEFSTR: CLEAR does the resetting, and there is no integer or double type to declare - every number is single-precision floating point.',
+    example: {
+      caption: 'CLEAR resets and sizes strings',
+      code: ['10 CLEAR 2000', '20 DIM A(20)', '30 READ A(1)', '40 DATA 42'],
+    },
+    reachFor: ['DATA', 'READ', 'DIM', 'CLEAR'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Single-precision maths in full: SQR, LOG, EXP, the four trig functions, RND, INT, ABS, SGN and the ^ operator.',
+    instead:
+      'No PI, DEG, RAD, MIN/MAX or integer conversions: write PI out as a constant, convert degrees by multiplying, and use INT where FIX is meant.',
+    example: {
+      caption: 'PI and degrees, written out',
+      code: ['10 P=3.14159265', '20 D=45', '30 R=D*P/180', '40 PRINT SIN(R)'],
+    },
+    reachFor: ['SQR', 'RND', 'INT', 'ATN'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, LEFT$, RIGHT$, MID$, ASC, CHR$, STR$ and VAL, with + joining two strings.',
+    instead:
+      'No INSTR, STRING$, SPACE$ or UPPER$: search with a MID$ loop and build a run of characters by concatenating. MID$ is a function only and cannot be assigned to.',
+    example: {
+      caption: 'Search a string with MID$',
+      code: [
+        '10 FOR I=1 TO LEN(A$)',
+        '20 IF MID$(A$,I,1)="X" THEN 40',
+        '30 NEXT I',
+        '40 PRINT I',
+      ],
+    },
+    reachFor: ['MID$', 'LEN', 'CHR$', 'VAL'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT with TAB( and SPC( for layout and POS for the current column, over a 64x30 screen the Monitor drives with control codes.',
+    instead:
+      'No CLS, LOCATE or PRINT AT: PRINT CHR$(12); clears and homes, CHR$(17) homes, and a cell is reached by POKEing it at -3968+row*64+col.',
+    example: {
+      caption: 'Clear, then write to one cell',
+      code: ['10 PRINT CHR$(12);', '20 POKE -3968+5*64+10,65'],
+    },
+    reachFor: ['PRINT', 'TAB(', 'SPC(', 'POS'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'graphics',
+    support: 'none',
+    summary:
+      'None: there is no plotting command and no pixel to address - the video hardware scans a grid of character codes.',
+    instead:
+      'Draw with the graphics characters instead: codes 128-191 are rules, junctions, quadrants and dithers, POKEd into a screen cell or printed with CHR$.',
+    example: {
+      caption: 'A graphics character is the pixel',
+      code: [
+        '10 P=-3968+10*64',
+        '20 FOR I=0 TO 20',
+        '30 POKE P+I,151',
+        '40 NEXT I',
+      ],
+    },
+  },
+  {
+    to: 'sorcerer',
+    domain: 'colour',
+    support: 'none',
+    summary: 'None: the display is monochrome.',
+    instead:
+      'Nothing sets a colour. Where a program used colour to tell things apart, use different characters from the graphics set instead.',
+    example: {
+      caption: 'Tell things apart by character',
+      code: ['10 PRINT "PLAYER *"', '20 PRINT "WALL   ="'],
+    },
+  },
+  {
+    to: 'sorcerer',
+    domain: 'sound',
+    support: 'none',
+    summary: 'None: the machine has no sound hardware at all.',
+    instead:
+      'There is nothing to make a noise with, not even a bell: show the event on screen, or flash a character where a program would have beeped.',
+    example: {
+      caption: 'Show it instead of sounding it',
+      code: ['10 PRINT CHR$(12);"HIT!"'],
+    },
+  },
+  {
+    to: 'sorcerer',
+    domain: 'input',
+    support: 'partial',
+    summary: 'INPUT reads a whole typed line, with an optional prompt string.',
+    instead:
+      'No INKEY$, GET or joystick. Polling the keyboard port does not substitute: the break check between statements reselects line 0 under it, so a turn is one INPUT.',
+    example: {
+      caption: 'One typed line per turn',
+      code: [
+        '10 INPUT "L,R OR S";M$',
+        '20 IF M$="L" THEN X=X-1',
+        '30 IF M$="R" THEN X=X+1',
+        '40 GOTO 10',
+      ],
+    },
+    reachFor: ['INPUT'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'CSAVE and CLOAD move the whole program to and from cassette, the header keeping the first five letters of its name.',
+    instead:
+      'There is no file system: no OPEN, no PRINT#, no directory. Only the program itself can be saved, so hold data in DATA statements rather than in a file.',
+    example: {
+      caption: 'Constants live in DATA',
+      code: [
+        '10 FOR I=1 TO 3',
+        '20 READ N',
+        '30 PRINT N',
+        '40 NEXT I',
+        '50 DATA 10,20,30',
+      ],
+    },
+    reachFor: ['CSAVE', 'CLOAD'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE, INP, OUT, WAIT, USR and FRE reach the whole 64K and the Z80 ports, in signed decimal.',
+    instead:
+      'No hex literals, and an address is SIGNED: everything from 32768 up is written negative, so screen RAM is -3968 and the generator RAM -1024. The positive form is ?FC ERROR.',
+    example: {
+      caption: 'Redefine a character, negative address',
+      code: ['10 FOR I=0 TO 7', '20 POKE -1024+64*8+I,255', '30 NEXT I'],
+    },
+    reachFor: ['PEEK', 'POKE', 'INP', 'USR'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'RUN, LIST, NEW and CONT at the READY prompt, REM for comments, and BYE to leave BASIC for the Monitor.',
+    instead:
+      'No AUTO, RENUM, DELETE or TRACE, and no apostrophe shorthand for REM: retype a line to change it, and number in tens so there is room to insert.',
+    example: {
+      caption: 'Full REM, no apostrophe form',
+      code: ['10 REM SET UP THE BOARD', '20 W=20:H=12'],
+    },
+    reachFor: ['RUN', 'LIST', 'NEW', 'REM'],
+  },
+  {
+    to: 'sorcerer',
+    domain: 'error-handling',
+    support: 'none',
+    summary: 'None: an error stops the program and prints its two-letter code.',
+    instead:
+      'No ON ERROR, ERR or RESUME. Test the value before the operation that would fail - guard a divide with IF, and range-check a subscript yourself.',
+    example: {
+      caption: 'Guard instead of trapping',
+      code: [
+        '10 IF D=0 THEN 40',
+        '20 PRINT N/D',
+        '30 GOTO 50',
+        '40 PRINT "CANNOT DIVIDE"',
+      ],
+    },
+  },
 ];

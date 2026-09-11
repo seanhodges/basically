@@ -135,10 +135,8 @@ const GRAPHIC_CODES = new Map<string, number>(
  * they are not a fixed set.
  *
  * This is what the semigraphics audit's own declaration reads. It lives here
- * rather than there because that table is held to the registered dialects, so
- * its entry goes in with the registry line - and because the band is a fact
- * about the generator bitmaps this file already maps, not a second opinion
- * about them.
+ * rather than there because the band is a fact about the generator bitmaps this
+ * file already maps, not a second opinion about them.
  */
 export const SORCERER_GRAPHIC_CODES: number[] = Array.from(
   { length: STANDARD_GRAPHICS_COUNT },

@@ -44,16 +44,6 @@ import { SorcererMachine } from '../../emulator/sorcerer/sorcererMachine';
 /**
  * The Exidy Sorcerer (Exidy Standard BASIC).
  *
- * **Not registered yet.** The dialect is deliberately absent from
- * `src/dialects/registry.ts`: the line in that file turns on some seventy
- * registry-driven test batteries at once, so it goes in last, once everything
- * they ask for is in place. The machine below is real, boots the ROM, and runs
- * the bundled samples off its own keyboard; it exports and imports its own
- * tapes; and it introspects itself - the memory map, the variable watcher, the
- * run report and the RAM figures all read this interpreter's own pointers.
- * What is not here yet is the reference-docs set, which is the last thing owed
- * before the registry line.
- *
  * ## Sourcing
  *
  * Every fact in this dialect cites one of these rather than a recollection of
@@ -102,10 +92,8 @@ import { SorcererMachine } from '../../emulator/sorcerer/sorcererMachine';
  */
 export const sorcerer: Dialect = {
   id: 'sorcerer',
-  // Picker identity, written to the rules in the `adding-a-target-system`
-  // skill and revisited when the dialect registers, which is the first time
-  // anything checks it. A new picker group: no other Exidy machine ships, so
-  // there is no sibling spelling to match.
+  // A picker group of its own: no other Exidy machine ships, so there is no
+  // sibling spelling to match.
   name: 'Sorcerer',
   manufacturer: 'Exidy',
   year: 1978,
@@ -180,6 +168,13 @@ export const sorcerer: Dialect = {
   /** The Monitor and its manuals both address memory in hex. */
   addressNotation: 'hex',
   statementSeparator: ':',
+
+  /**
+   * The interpreter keeps its current line where the Microsoft family always
+   * does, immediately below TXTTAB (`addresses.ts`'s `CURLIN`), so the machine
+   * can say which line it is on and the stepper follows from that.
+   */
+  debuggable: true,
 
   memoryMap: sorcererMemoryMap,
   memoryBlocks: sorcererMemoryBlocks,

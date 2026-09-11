@@ -51,6 +51,10 @@ import {
   parseChar as samcoupeParseChar,
   decodeSpan as samcoupeDecodeSpan,
 } from './samcoupe/charset';
+import {
+  parseChar as sorcererParseChar,
+  decodeSpan as sorcererDecodeSpan,
+} from './sorcerer/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -432,6 +436,20 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     // directives and the raw bytes, and `\\a`-`\\y` are the user-defined
     // graphics, which is why this is not BRACED_ESCAPE_FORM.
     isEscapeForm: (t) => /^\{.+\}$/.test(t) || t.startsWith('\\'),
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
+  },
+  {
+    id: 'sorcerer',
+    varName: 'sorcererEscapes',
+    title: 'Exidy Standard BASIC escape codes',
+    machines: ['Exidy Sorcerer'],
+    dialects: ['sorcerer'],
+    decode: (b) => sorcererDecodeSpan(Uint8Array.of(b), 0, 1).text,
+    ...parseAll(sorcererParseChar),
+    // The raw byte is the only escape this charset has: every code without a
+    // printable form is spelled `{0xNN}` and none of them is named.
+    isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',
   },

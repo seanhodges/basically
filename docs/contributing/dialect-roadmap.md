@@ -44,6 +44,7 @@ work, plus any gap a program can run into.
 | Amstrad CPC 664       | `cpc664`        | Z80   | Z80.js         | Sibling of `cpc464`; BASIC 1.1. Tape only - no FDC, no `.dsk`              |
 | Amstrad CPC 6128      | `cpc6128`       | Z80   | Z80.js         | Sibling of `cpc464`; BASIC 1.1 and 128K banking. Tape only                 |
 | SAM Coupé             | `samcoupe`      | Z80   | Z80.js         | Four ASIC modes, SAA1099; ROM ships by permission. Discs import-only       |
+| Exidy Sorcerer        | `sorcerer`      | Z80   | Z80.js         | 64×30 mono; the character generator is half RAM, so graphics are definable |
 | Sony HB-10P (MSX1)    | `hb10p`         | Z80   | Z80.js         | TMS9918A VDP and PSG, parameterised for later MSX1s. MSX2 out of scope     |
 | MITS Altair 8800      | `altair8800`    | 8080  | Z80.js + i8080 | No video: an 88-2SIO board and a terminal. String churn invisible to stats |
 | Tesla PMD 85-2        | `pmd85`         | 8080  | Z80.js + i8080 | 288×256 bitmap; BASIC-G is paged in from a ROM module, not mapped          |
@@ -85,13 +86,12 @@ The CPU is free and the display is a memory-mapped character grid or a plain
 bitmap, with no custom chip to work out first. Wire the core into an in-tree bus
 as `pet` and `vic20` do, then proceed as for any dialect.
 
-| Status | Machine                                       | BASIC                    | Core    | Note                                                                          |
-| ------ | --------------------------------------------- | ------------------------ | ------- | ----------------------------------------------------------------------------- |
-| ⬜     | Compukit UK101 / OSI Superboard II            | Microsoft 6502 BASIC     | 6502.ts | 1K character display, 6850 ACIA, no video chip. Commodore BASIC's ancestor    |
-| ⬜     | Mattel Aquarius                               | Microsoft BASIC (subset) | Z80.js  | 40×24 text, 80×72 semigraphics; 4K RAM, so very little program space          |
-| ⬜     | [Exidy Sorcerer](./dialect-plans/sorcerer.md) | Exidy Standard BASIC     | Z80.js  | 64×30 mono display, charset half in RAM; the MS variable lint fits            |
-| ⬜     | Nascom 2                                      | Microsoft BASIC          | Z80.js  | Mono character display, programmable charset; a kit machine, so no one config |
-| ⬜     | Commodore CBM 8032                            | Commodore BASIC 4.0      | 6502.ts | Language free via `CbmVariant`, but the 80-column 6545 CRTC is new            |
+| Status | Machine                            | BASIC                    | Core    | Note                                                                          |
+| ------ | ---------------------------------- | ------------------------ | ------- | ----------------------------------------------------------------------------- |
+| ⬜     | Compukit UK101 / OSI Superboard II | Microsoft 6502 BASIC     | 6502.ts | 1K character display, 6850 ACIA, no video chip. Commodore BASIC's ancestor    |
+| ⬜     | Mattel Aquarius                    | Microsoft BASIC (subset) | Z80.js  | 40×24 text, 80×72 semigraphics; 4K RAM, so very little program space          |
+| ⬜     | Nascom 2                           | Microsoft BASIC          | Z80.js  | Mono character display, programmable charset; a kit machine, so no one config |
+| ⬜     | Commodore CBM 8032                 | Commodore BASIC 4.0      | 6502.ts | Language free via `CbmVariant`, but the 80-column 6545 CRTC is new            |
 
 ## Tier 3 - New bus, custom video or sound chip
 

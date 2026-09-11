@@ -127,6 +127,9 @@ const SAM_KEYS = '#44464c'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-keycap
 const SAM_FN = '#2c2e33'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-style-fn
 const SAM_RED = '#c8564a'; // VirtualKeyboard.css .vk-theme-samcoupe .vk-layer-symbols
 const SAM_DRIVE = '#3a3c42';
+const SORCERER_CASE = '#cfc8b4'; // VirtualKeyboard.css .vk-theme-sorcerer
+const SORCERER_KEYS = '#4a433a'; // VirtualKeyboard.css .vk-theme-sorcerer .vk-keycap
+const SORCERER_PAC = '#d29a4e'; // VirtualKeyboard.css .vk-theme-sorcerer .vk-layer-symbols
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
 const BASE = {
@@ -149,6 +152,7 @@ const BASE = {
   hitbit: '#bab8b1',
   sam: '#0b0b0d',
   teletype: '#5e5a51',
+  sorcerer: '#b0a992',
 };
 
 /* ---------------------------------------------------------------------------
@@ -953,6 +957,47 @@ function SamCoupeArt({ size }: ArtProps) {
 }
 
 /**
+ * Exidy Sorcerer: the cream wedge with a numeric keypad beside the main
+ * keyboard and the ROM PAC cartridge standing out of its left flank, which is
+ * the one thing about this machine a reader will recognise on sight.
+ */
+function SorcererArt({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 24h42v5H3z" fill={BASE.sorcerer} />
+      <path d="M3 10h42v14H3z" fill={SORCERER_CASE} />
+      {/* The PAC, plugged into the left flank and proud of the case. */}
+      <rect x="1" y="12" width="3.5" height="6" fill={SORCERER_PAC} />
+      {/* Four rows of the main keyboard, with the keypad to their right. */}
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: 13 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={6 + c * 2.3}
+            y={12 + r * 2.5}
+            width="1.8"
+            height="2"
+            fill={SORCERER_KEYS}
+          />
+        )),
+      )}
+      {[0, 1, 2, 3].map((r) =>
+        Array.from({ length: 4 }, (_, c) => (
+          <rect
+            key={`n${r}-${c}`}
+            x={37 + c * 2.3}
+            y={12 + r * 2.5}
+            width="1.8"
+            height="2"
+            fill={SORCERER_KEYS}
+          />
+        )),
+      )}
+    </svg>
+  );
+}
+
+/**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
  */
@@ -981,6 +1026,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   hb10p: Hb10pArt,
   samcoupe: SamCoupeArt,
   ge235: Ge235Art,
+  sorcerer: SorcererArt,
 };
 
 /** A machine's portrait, `size` px tall. */

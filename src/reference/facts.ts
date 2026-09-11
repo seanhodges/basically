@@ -1955,6 +1955,118 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'dec',
     hexPrefix: '&',
   },
+  {
+    id: 'sorcerer',
+    basicDialect: 'Exidy Standard BASIC',
+    portingNotes: [
+      {
+        text: 'There are no pixels: the video hardware scans 1920 bytes of screen RAM, a character code per cell, so drawing is POKE -3968+row*64+col,code. The 8x8 cell is square, so a circle plotted 1:1 in cells comes out round.',
+        topics: ['graphics'],
+      },
+      {
+        text: 'POKE and PEEK take a signed 16-bit address, so everything from 32768 up is written as a negative number: screen RAM is -3968 and the character generator RAM is -1024. The positive form answers ?FC ERROR.',
+        topics: ['memory'],
+      },
+      {
+        text: 'The screen is driven by control codes, not statements: PRINT CHR$(12); clears and homes, CHR$(17) homes, and 1/19/23/26 move the cursor. There is no CLS and no PRINT AT.',
+        topics: ['text-screen'],
+      },
+      {
+        text: 'No key-at-a-time read: a program takes a whole typed line per turn through INPUT. Polling the keyboard port from BASIC does not help - the break check between statements reselects line 0 under it.',
+        topics: ['input'],
+      },
+      {
+        text: 'Spaces are ignored outside strings, REM and DATA, so FORI=1TO5 is valid - and only the first two characters of a name are significant, so a name containing a reserved word is mis-read rather than rejected.',
+        topics: ['variable-names', 'statement-layout'],
+      },
+      {
+        text: 'String space is 50 bytes until a program says CLEAR n. Assigning a literal costs nothing; concatenating does.',
+        topics: ['strings'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: write a second IF, or invert the test and jump.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'No key-at-a-time read: INPUT takes a whole line, so a real-time loop becomes one turn per typed line.',
+      },
+      {
+        keyword: 'PLOT',
+        note: 'No pixels: POKE a graphics character into a screen cell at -3968+row*64+col instead.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'No CLS: PRINT CHR$(12); clears the screen and homes the cursor. Keep the semicolon, or everything lands one row low.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound hardware of any kind. Show the event on screen instead.',
+      },
+      { keyword: 'COLOUR', note: 'No colour: the display is monochrome.' },
+    ],
+    // En dash, as every other entry uses.
+    lineNumberRange: '0–65529',
+    lineNumbers: { min: 0, max: 65529 },
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'none',
+      symbols: [{ spelling: '?', keyword: 'PRINT' }],
+      shrinksProgram: false,
+    },
+    variableNaming:
+      'Only the first two characters are significant; $ marks a string, and there is no integer or double type tag.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$',
+      caseSensitive: false,
+    },
+    numberHandling: 'Floating point, single precision only.',
+    numbers: { fractions: true },
+    // The Altair's interpreter, so the Altair's trap: 8K BASIC predates the
+    // %/!/# type tags and does not reject the spelling it does not know. The
+    // line is stored as typed and answers ?SN ERROR when it runs, so a program
+    // arriving from a machine that has % loads looking converted.
+    markerTraps: [
+      {
+        marker: '%',
+        note: 'stored as typed and answers ?SN ERROR when the line runs',
+      },
+    ],
+    exponentOperator: '^',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
+    // The character generator carries ASCII in full, both cases.
+    unsupportedCharacters: [],
+    screen: '64×30 characters of 8×8 dots, monochrome; no pixel graphics.',
+    textScreen: { columns: 64, rows: 30 },
+    // Measured: `loopSpeed.test.ts` counts the frames a 2000-iteration empty
+    // FOR/NEXT loop takes on the booted ROM. The 8K interpreter runs the whole
+    // loop in floating point, having no integer type to fall back on, which is
+    // why a 2.1MHz Z80 lands near the 8080 machines rather than above them.
+    loopSpeed: 536,
+    // Named only to rule it out: a reader meeting WAIT in the keyword list
+    // would take it for a delay. It spins on an input port until a handshake
+    // arrives, which is not a clock, and this machine has no timer BASIC can
+    // read - there is no TIME and no TI.
+    waitIdiom: {
+      text: 'nothing: the machine has no timer BASIC can read, and WAIT spins on an input port rather than a clock. An empty FOR/NEXT loop is the only delay.',
+      keywords: [],
+    },
+    freeRamBytes: 31976,
+    screenBase: '$F080',
+    programStart: '$01D5',
+    colour: 'None - the display is monochrome.',
+    sound: 'None: the machine has no sound hardware.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'hex',
+  },
 ];
 
 /** Machine facts with every `extends` folded in; see {@link resolvePortingFacts}. */

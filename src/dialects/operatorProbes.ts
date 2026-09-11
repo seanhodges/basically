@@ -626,4 +626,13 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
       CAT: 'AB',
     },
   },
+  {
+    id: 'sorcerer',
+    machines: ['Exidy Sorcerer'],
+    dialects: ['sorcerer'],
+    // The Altair's 8K interpreter, so the Altair's answers and the Altair's `^`
+    // for the power operator; there is no up-arrow form.
+    program: microsoftProgram('^'),
+    expect: MICROSOFT_EXPECT,
+  },
 ];

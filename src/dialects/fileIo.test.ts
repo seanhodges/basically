@@ -119,6 +119,11 @@ const NO_DATA_FILE_TRAPS: Record<string, string> = {
   // store and traps nothing, so a file statement reaches a tape deck or a disk
   // drive that is not there and the program waits.
   samcoupe: 'never handed the store; its file I/O is not trapped',
+  // The Altair's interpreter, so the Altair's limitation rather than
+  // outstanding work: Exidy Standard BASIC has no data-file statement at all.
+  // CLOAD and CSAVE move whole programs over the cassette port, which this IDE
+  // serves as a WAV the user plays in.
+  sorcerer: 'no data-file statements; CLOAD/CSAVE move programs, not files',
 };
 
 let restoreRomLoading: () => void;

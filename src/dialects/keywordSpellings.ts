@@ -55,6 +55,7 @@ import { atariKeywords, atariStatements } from './atari800/keywords';
 import { hb10pKeywords, HB10P_ALIASES } from './hb10p/keywords';
 import { ge235Keywords } from './ge235/keywords';
 import { samcoupeKeywords } from './samcoupe/keywords';
+import { sorcererKeywords, SORCERER_ALIASES } from './sorcerer/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -120,6 +121,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   // command - `?` is not even in the character set.
   ge235: ge235Keywords,
   samcoupe: samcoupeKeywords,
+  sorcerer: [...sorcererKeywords, ...SORCERER_ALIASES],
 };
 
 /** The registered machines this module knows a keyword table for. */
