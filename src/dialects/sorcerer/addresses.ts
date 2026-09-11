@@ -5,13 +5,15 @@
  * The Exidy Sorcerer's fixed addresses and I/O ports, declared once for the
  * whole dialect, so a layout fact has exactly one definition to change.
  *
- * The hardware constants below are transcribed from the Sorcerer Technical
- * Manual (Exidy Inc., March 1979) and the Sorcerer Software Manual (April
- * 1979). The interpreter's own workspace addresses - its reserved-word table
- * and the control-area pointers the variable watcher needs - are deliberately
- * *not* here yet: they must be read out of the ROM PAC image and off the booted
- * machine, and a plausible-looking guess in this file would propagate silently
- * into the memory map, the linter and the emulator.
+ * The file is in two halves, and they have different provenance. The hardware
+ * constants are transcribed from the Sorcerer Technical Manual (Exidy Inc.,
+ * March 1979) and the Sorcerer Software Manual (April 1979). Everything under
+ * the second heading is the interpreter's own workspace, and none of it is
+ * quoted from a manual: each address was read out of the ROM PAC image or off
+ * the booted machine, and the comment on it says which reading fixed it. That
+ * discipline is the point of the file - a plausible-looking guess here would
+ * propagate silently into the memory map, the variable watcher, the linter and
+ * the emulator, and every one of them would look right.
  *
  * Note the machine's unusual shape, which is what makes it worth having this
  * file before anything reads it: the Sorcerer's character generator is half ROM
@@ -115,7 +117,7 @@ export const PORT_PARALLEL = 0xff;
 export const CONTROL_VSYNC_BIT = 0x20;
 
 // ---------------------------------------------------------------------------
-// Read out of the ROM PAC image
+// Read out of the ROM PAC image, and off the booted machine
 // ---------------------------------------------------------------------------
 
 /**
@@ -209,6 +211,63 @@ export const ARYTAB = 0x01b9;
 
 /** STREND - the first byte past the arrays, the end of storage in use. */
 export const STREND = 0x01bb;
+
+/**
+ * MEMSIZ - the top of the memory BASIC will use, and so the top of its string
+ * space. Strings are filled *downwards* from here.
+ *
+ * Written once by the cold start and never again: `SE`/`CLEAR` move the pool's
+ * floor, not its ceiling. The ROM PAC's own arithmetic is what puts it
+ * {@link MONITOR_RAM_RESERVE_BYTES} below the top of the RAM the Monitor found
+ * - `LD DE,0xFF00 / ADD HL,DE / LD (0x0192),HL` at 0xC030 - which is where
+ * {@link BASIC_MEMORY_TOP} comes from rather than from an estimate of overhead.
+ */
+export const MEMSIZ = 0x0192;
+
+/**
+ * STKTOP - the boundary between the two pools a program spends, named as the
+ * MSX ROM names the same pointer because it is the same idea.
+ *
+ * Two things at once, which is why it is one pointer and not two: it is the
+ * floor of the string space (the cold start seeds it MEMSIZ - 50, and `CLEAR n`
+ * re-seeds it MEMSIZ - n), *and* it is the top of the stack - the interpreter's
+ * `LD HL,(0x0145) / LD SP,HL` at 0xC441 sets SP from it on every NEW and CLEAR.
+ * So the stack grows down from here towards the arrays and the strings grow
+ * down from {@link MEMSIZ} towards here.
+ */
+export const STKTOP = 0x0145;
+
+/**
+ * FRETOP - how far down from {@link MEMSIZ} the string data currently reaches,
+ * and so the moving half of the string pool's account.
+ *
+ * It holds MEMSIZ when no string exists (NEW and CLEAR both copy it straight
+ * across), walks down as strings are made, and jumps back up when the
+ * interpreter collects. A request that would take it below {@link STKTOP} is
+ * the `?OS ERROR` an out-of-string-space program stops on.
+ */
+export const FRETOP = 0x01a6;
+
+/**
+ * Bytes at the top of fitted RAM the ROM PAC's cold start leaves to the
+ * Monitor, which is what {@link MEMSIZ} is set below.
+ *
+ * Larger than {@link MONITOR_RAM_TAIL_BYTES}, and deliberately: the Monitor's
+ * variables are the tail, and the rest is headroom for the Monitor's own stack,
+ * which grows down into it. Both are live whenever a Monitor routine runs -
+ * tape I/O included - so nothing in the 256 bytes is free for a program.
+ */
+export const MONITOR_RAM_RESERVE_BYTES = 0x100;
+
+/**
+ * The highest address BASIC will use: {@link MEMSIZ}'s value on the modelled
+ * 32K machine, and the ceiling a memory block has to stay under.
+ *
+ * Confirmed off the booted machine rather than only computed: the word at
+ * {@link MEMSIZ} reads 0x7EFF at the Ready prompt.
+ */
+export const BASIC_MEMORY_TOP =
+  RAM_BASE + RAM_FITTED_BYTES - MONITOR_RAM_RESERVE_BYTES - 1;
 
 // ---------------------------------------------------------------------------
 // The character bands

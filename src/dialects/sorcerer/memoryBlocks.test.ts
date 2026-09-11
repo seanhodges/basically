@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { sorcererMemoryBlocks } from './memoryBlocks';
 import {
   BASIC_CONTROL_BASE,
-  MONITOR_RAM_TAIL_BYTES,
+  BASIC_MEMORY_TOP,
   PROGRAM_BASE,
   RAM_FITTED_BYTES,
   ROM_PAC_BASE,
@@ -22,22 +22,24 @@ describe('Sorcerer memory-block support metadata', () => {
     expect(sorcererMemoryBlocks.cpu).toBe('z80');
   });
 
-  it('spans the RAM above the control area, up to the Monitor’s tail', () => {
+  it('spans the RAM above the control area, up to where BASIC’s memory ends', () => {
     expect(sorcererMemoryBlocks.validRanges).toEqual([
-      {
-        start: PROGRAM_BASE,
-        end: RAM_FITTED_BYTES - MONITOR_RAM_TAIL_BYTES - 1,
-      },
+      { start: PROGRAM_BASE, end: BASIC_MEMORY_TOP },
     ]);
+    // A page short of the top of fitted RAM, not at it: the Monitor's workarea
+    // and its stack are up there, and a block among them would be overwritten
+    // the moment a Monitor routine ran - which loading the block is.
+    expect(RAM_FITTED_BYTES - 1 - BASIC_MEMORY_TOP).toBe(0x100);
   });
 
   it('keeps the default address clear of BASIC and the Monitor workarea', () => {
     const { defaultAddress } = sorcererMemoryBlocks;
     expect(inRange(defaultAddress)).toBe(true);
-    // 4K below the top of usable RAM: far above any plausible program and its
-    // variables, far below the string pool growing down from the top.
+    // Just under 4K below the top of BASIC's memory: far above any plausible
+    // program and its variables, far below the stack and the string pool
+    // growing down from the top.
     const top = sorcererMemoryBlocks.validRanges[0]!.end;
-    expect(top - defaultAddress).toBe(0x0f91);
+    expect(top - defaultAddress).toBe(0x0eff);
     // And low enough to POKE in decimal: this interpreter takes a signed
     // 16-bit address, so a block at or above 32768 could not be poked at all
     // without negative arithmetic.

@@ -14,21 +14,31 @@ import type {
   DebugStepResult,
   LineCost,
   MachineEmulator,
+  MachineMemoryStats,
+  MachineReport,
   MachineScreenText,
+  MachineVariable,
   TapeFile,
 } from '../../dialects/types';
 import { basicImagePointers } from '../../dialects/sorcerer/basicImage';
 import {
   CURLIN,
   DIRECT_MODE_HIGH,
+  FRETOP,
   MAX_LINE_NUMBER,
+  MEMSIZ,
   PORT_CONTROL,
   PORT_DATA,
   PORT_PARALLEL,
   PORT_STATUS,
   PROGRAM_BASE,
+  STKTOP,
+  STREND,
+  TXTTAB,
   VARTAB,
 } from '../../dialects/sorcerer/addresses';
+import { readSorcererReport } from '../../dialects/sorcerer/reports';
+import { readSorcererVariables } from '../../dialects/sorcerer/vars';
 import { CPU_HZ, CYCLES_PER_FRAME, VBLANK_START_CYCLES } from './clock';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH, SorcererDisplay } from './display';
 import { SorcererKeyboard } from './keyboard';
@@ -156,8 +166,17 @@ export class SorcererMachine implements MachineEmulator {
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for a whole run, and the CPU step charges the cycles it consumes to
    * whichever line {@link currentLine} names at the time.
+   *
+   * It is handed the machine's in-use figure as well, so a line is charged the
+   * bytes it took as well as the cycles. That is only worth doing because
+   * {@link readMemoryStats} counts the string pool: a figure spanning the
+   * program area alone would stay flat through exactly the string churn the
+   * per-line memory column exists to explain.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
   /** Whether every part of the ROM image arrived; see {@link hasRom}. */
   private readonly firmware: boolean;
 
@@ -401,6 +420,95 @@ export class SorcererMachine implements MachineEmulator {
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
     return this.loop.debugStep(opts);
+  }
+
+  /**
+   * The BASIC runtime report - an error, a break, or the Ready prompt - read
+   * off the screen (`../../dialects/sorcerer/reports.ts`).
+   *
+   * The screen rather than a system variable because this interpreter keeps no
+   * error state to read; the reader's own comment says what that costs.
+   */
+  readReport(): MachineReport | null {
+    if (!this.hasRom || this.disposed) return null;
+    return readSorcererReport(
+      readSorcererScreenText(this.memory.screenRam).lines,
+    );
+  }
+
+  /**
+   * The live BASIC variables, decoded from the interpreter's own stores
+   * (`../../dialects/sorcerer/vars.ts`, over the walk shared with the Altair
+   * and the PMD 85).
+   *
+   * Empty rather than wrong until the ROM PAC's cold start has laid the
+   * workspace down: the pointers are ordinary RAM reading zero from reset, and
+   * a walk from zero to zero would report the bottom of memory as variables.
+   * {@link laidOut} is that guard, and it is the same one the memory figures
+   * keep.
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.hasRom || this.disposed || !this.laidOut) return [];
+    return readSorcererVariables(this.memory);
+  }
+
+  /**
+   * BASIC RAM in use and still free, over both of the pools a program spends.
+   *
+   * Program text, variables and arrays share one run upwards from TXTTAB, and
+   * STREND is where the last of them ends. Strings are not in that run: this
+   * interpreter fills them *downwards* from MEMSIZ at the top of its memory,
+   * and FRETOP is how far down they have reached.
+   *
+   * Both are counted, because a program that takes memory usually takes it in
+   * strings - a figure spanning the program area alone reads as flat through
+   * exactly the churn the memory chart and the profiler's per-line column exist
+   * to explain. The two pools cannot spill into each other, so `used + free` is
+   * a constant: the whole of BASIC's RAM.
+   *
+   * `free` is FRETOP - STREND, everything between the arrays and the lowest
+   * string. The sign-on banner's own figure is smaller than that, and for two
+   * reasons worth naming rather than papering over: it counts the string pool
+   * as spent rather than as free, and it keeps back the 17 bytes below the
+   * stack that its arithmetic subtracts (`LD DE,0xFFEF / ADD HL,DE` at 0xC04D).
+   *
+   * Null while the pointers cannot be believed, so the IDE falls back to its
+   * tokenized-size estimate rather than showing nonsense.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.hasRom || this.disposed || !this.laidOut) return null;
+    const strend = this.memory.rawReadWord(STREND);
+    const fretop = this.memory.rawReadWord(FRETOP);
+    const memsiz = this.memory.rawReadWord(MEMSIZ);
+    return {
+      used: strend - PROGRAM_BASE + (memsiz - fretop),
+      free: fretop - strend,
+    };
+  }
+
+  /**
+   * Whether the interpreter's workspace means anything yet.
+   *
+   * TXTTAB is checked against the base this dialect models rather than merely
+   * read, because every pointer here is plain RAM: from reset they are all
+   * zero, and mid-boot they are whatever the cold start has reached so far. The
+   * rest is the order the four pointers are in on a machine that has finished
+   * starting up - the arrays below the stack, the stack below the strings, the
+   * strings below the top - which no half-written workspace satisfies.
+   */
+  private get laidOut(): boolean {
+    const mem = this.memory;
+    if (mem.rawReadWord(TXTTAB) !== PROGRAM_BASE) return false;
+    const strend = mem.rawReadWord(STREND);
+    const stktop = mem.rawReadWord(STKTOP);
+    const fretop = mem.rawReadWord(FRETOP);
+    const memsiz = mem.rawReadWord(MEMSIZ);
+    return (
+      PROGRAM_BASE <= strend &&
+      strend <= stktop &&
+      stktop <= fretop &&
+      fretop <= memsiz
+    );
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

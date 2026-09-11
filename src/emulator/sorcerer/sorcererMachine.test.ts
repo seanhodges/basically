@@ -9,11 +9,14 @@ import { sorcererCharset } from '../../dialects/sorcerer/charset';
 import { tokenizeProgram } from '../../dialects/sorcerer/tokenizer';
 import { buildBasicImage } from '../../dialects/sorcerer/basicImage';
 import {
+  BASIC_MEMORY_TOP,
   CHARGEN_RAM_BASE,
   CURLIN,
+  FRETOP,
   PROGRAM_BASE,
   SCREEN_BASE,
   STANDARD_GRAPHICS_FIRST,
+  STREND,
   VARTAB,
 } from '../../dialects/sorcerer/addresses';
 import { HeadlessCanvas } from '../../dialects/headless/headlessCanvas';
@@ -47,6 +50,13 @@ function program(source: string): Uint8Array {
  * costs nothing when the predicate trips early, and every program here does.
  */
 const MAX_RUN_FRAMES = 300;
+
+/**
+ * The free-memory figure Exidy Standard BASIC prints on its own sign-on banner
+ * on the modelled 32K machine, and what the dialect's `programRamBytes` is
+ * quoted from. Read off the booted screen, not computed.
+ */
+const BANNER_BYTES_FREE = 31976;
 
 function runUntil(
   sorcerer: SorcererMachine,
@@ -256,6 +266,136 @@ describe('SorcererMachine', () => {
     sorcerer.setProfileRecording(false);
     expect(sorcerer.drainProfile()).toBeNull();
     sorcerer.dispose();
+  });
+
+  /**
+   * The cold-start memory figures, against the arithmetic the machine printed
+   * on its own sign-on banner.
+   *
+   * They do not match, and are not meant to: the reading is FRETOP - STREND,
+   * everything between the arrays and the lowest string, while the banner
+   * counts the string pool as already spent and keeps back the bytes its own
+   * `LD DE,0xFFEF / ADD HL,DE` subtracts below the stack. Pinning the gap is
+   * what makes either figure checkable at all - a change to the reading that
+   * silently drifted from the ROM's own would otherwise look like a new number
+   * rather than a wrong one.
+   */
+  it('measures BASIC RAM against the banner the ROM printed', () => {
+    const sorcerer = machine();
+    sorcerer.bootToReady();
+
+    const stats = sorcerer.readMemoryStats()!;
+    // An empty program is a bare end-of-program link, and nothing else is
+    // allocated yet.
+    expect(stats.used).toBe(2);
+    expect(screen(sorcerer)).toContain(`${BANNER_BYTES_FREE} BYTES FREE`);
+    // 50 bytes of string pool the banner calls spent, plus the 17 it holds back
+    // below the stack, less the three bytes of empty program the reading counts
+    // as used and the banner measures from.
+    expect(stats.free - BANNER_BYTES_FREE).toBe(50 + 17 - 3);
+    // The two pools are disjoint and neither can spill into the other, so the
+    // total is the machine's whatever a program does with it.
+    expect(stats.used + stats.free).toBe(BASIC_MEMORY_TOP - PROGRAM_BASE);
+    sorcerer.dispose();
+  });
+
+  /**
+   * Both pools a program spends are counted, which on this family is the whole
+   * point: strings are filled downwards from the top of memory rather than
+   * above the arrays, so a figure spanning the program area alone would report
+   * a program that churns strings as one that allocates nothing.
+   */
+  it('counts the string pool as well as the program area', () => {
+    // CLEAR first: the default pool is 50 bytes, and a string built a character
+    // at a time needs room for the old copy and the new one at once.
+    const sorcerer = machine();
+    sorcerer.loadProgram(
+      program(
+        '10 CLEAR 200\n20 A$=""\n30 FOR I=1 TO 30\n' +
+          '40 A$=A$+"X"\n50 NEXT I\n60 END\n',
+      ),
+    );
+    runUntil(sorcerer, () => sorcerer.isProgramRunning() === false);
+
+    const stats = sorcerer.readMemoryStats()!;
+    const programArea = sorcerer.mem.rawReadWord(STREND) - PROGRAM_BASE;
+    expect(stats.used - programArea).toBeGreaterThanOrEqual(30);
+    expect(stats.used + stats.free).toBe(BASIC_MEMORY_TOP - PROGRAM_BASE);
+    sorcerer.dispose();
+  });
+
+  /**
+   * ...and the same movement is charged to the line that caused it, which is
+   * only possible because the figure above can see the pool.
+   */
+  it('charges the bytes a line takes to that line', () => {
+    const sorcerer = machine();
+    sorcerer.loadProgram(
+      program(
+        '10 CLEAR 200\n20 A$=""\n30 FOR I=1 TO 20\n' +
+          '40 A$=A$+"X"\n50 NEXT I\n60 A$=""\n70 GOTO 20\n',
+      ),
+    );
+    runUntil(sorcerer, () => sorcerer.currentLine() === 40, 120);
+
+    sorcerer.setProfileRecording(true);
+    for (let i = 0; i < 40; i++) sorcerer.runFrame();
+    const costs = sorcerer.drainProfile()!;
+    const bytes = (line: number) =>
+      costs.find((c) => c.line === line)?.allocated ?? 0;
+    expect(bytes(40)).toBeGreaterThan(0);
+    // NEXT takes nothing, and is the line that would collect the charge if the
+    // reading were taken a line late.
+    expect(bytes(50)).toBe(0);
+
+    sorcerer.setProfileRecording(false);
+    sorcerer.dispose();
+  });
+
+  /**
+   * The IDE polls this machine while a program runs - the watcher, the memory
+   * figures, the profiler's line sampling, the screen reader - and every one of
+   * those reads has to miss the memory-activity overlay, or the panel paints
+   * accesses the program never made.
+   */
+  it('does not stamp the overlay with what the IDE itself reads', () => {
+    const sorcerer = machine();
+    sorcerer.loadProgram(program('10 A=1\n20 A$="HI"+""\n30 END\n'));
+    runUntil(sorcerer, () => sorcerer.isProgramRunning() === false);
+
+    sorcerer.setMemoryActivityRecording(true);
+    sorcerer.drainMemoryActivity();
+
+    // No frames run here: nothing but the IDE's own reading happens.
+    expect(sorcerer.readVariables().length).toBeGreaterThan(0);
+    expect(sorcerer.readMemoryStats()).not.toBeNull();
+    expect(sorcerer.readReport()).not.toBeNull();
+    sorcerer.currentLine();
+    sorcerer.readScreenText();
+
+    expect(sorcerer.drainMemoryActivity()!.some((byte) => byte !== 0)).toBe(
+      false,
+    );
+    sorcerer.dispose();
+  });
+
+  /**
+   * Every pointer the figures rest on is ordinary RAM, so "not yet written"
+   * and "written with something else" both have to read as no answer rather
+   * than as a machine with a strange amount of memory.
+   */
+  it('refuses to guess figures from pointers BASIC has not set', () => {
+    const cold = machine();
+    expect(cold.readMemoryStats()).toBeNull();
+    expect(cold.readVariables()).toEqual([]);
+
+    cold.bootToReady();
+    expect(cold.readMemoryStats()).not.toBeNull();
+    // A string pointer outside its own pool is not a figure: the whole reading
+    // is withheld rather than half of it reported.
+    cold.mem.writeWord(FRETOP, 0x1234);
+    expect(cold.readMemoryStats()).toBeNull();
+    cold.dispose();
   });
 
   /**

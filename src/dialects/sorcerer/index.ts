@@ -48,9 +48,11 @@ import { SorcererMachine } from '../../emulator/sorcerer/sorcererMachine';
  * `src/dialects/registry.ts`: the line in that file turns on some seventy
  * registry-driven test batteries at once, so it goes in last, once everything
  * they ask for is in place. The machine below is real, boots the ROM, and runs
- * the bundled samples off its own keyboard, and it exports and imports its own
- * tapes; what is still a stub is the runtime introspection above it - the
- * memory map, the variable watcher and the run report.
+ * the bundled samples off its own keyboard; it exports and imports its own
+ * tapes; and it introspects itself - the memory map, the variable watcher, the
+ * run report and the RAM figures all read this interpreter's own pointers.
+ * What is not here yet is the reference-docs set, which is the last thing owed
+ * before the registry line.
  *
  * ## Sourcing
  *

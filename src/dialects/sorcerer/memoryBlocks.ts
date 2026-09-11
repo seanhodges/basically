@@ -2,12 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
-import {
-  MONITOR_RAM_TAIL_BYTES,
-  PROGRAM_BASE,
-  RAM_BASE,
-  RAM_FITTED_BYTES,
-} from './addresses';
+import { BASIC_MEMORY_TOP, PROGRAM_BASE } from './addresses';
 
 /**
  * Where a document's machine-code {@link import('../types').Block}s may live,
@@ -27,10 +22,13 @@ import {
  *     range" error rather than a warning, which is the right severity for the
  *     first group: there is no hardware saying no, and a block that lands on
  *     the control area takes BASIC down with it.
- *  3. **The ceiling is the top of fitted RAM less the Monitor's own tail.** The
- *     Monitor claims {@link MONITOR_RAM_TAIL_BYTES} bytes at the top of
- *     whatever RAM it found, which is also what keeps the BASIC program area
- *     clear of it.
+ *  3. **The ceiling is where BASIC's own memory ends, not where RAM does.** The
+ *     ROM PAC's cold start hands the Monitor the top 256 bytes of whatever RAM
+ *     it found - its variables at the very top and its stack growing down into
+ *     the rest - and sets MEMSIZ below them. Both halves are live whenever a
+ *     Monitor routine runs, which loading a block from tape is, so the page
+ *     between {@link BASIC_MEMORY_TOP} and the top of RAM is not the free space
+ *     it looks like.
  */
 
 /**
@@ -45,25 +43,24 @@ import {
  */
 const PROGRAM_AREA_SLACK_BYTES = 768;
 
-/** The last byte of RAM BASIC and a block can use; above it is the Monitor's. */
-const RAM_TOP = RAM_BASE + RAM_FITTED_BYTES - MONITOR_RAM_TAIL_BYTES - 1;
-
 /**
- * Everything from the program base to the top of usable RAM. The control area
- * below {@link PROGRAM_BASE} and the whole top half of the address map are both
- * outside it.
+ * Everything from the program base to the top of the RAM BASIC uses. The
+ * control area below {@link PROGRAM_BASE} and the whole top half of the address
+ * map are both outside it, as is the Monitor's page above
+ * {@link BASIC_MEMORY_TOP}.
  */
 const VALID_RANGES: readonly MemoryRange[] = [
-  { start: PROGRAM_BASE, end: RAM_TOP },
+  { start: PROGRAM_BASE, end: BASIC_MEMORY_TOP },
 ];
 
 /** See the note above: the interpreter's own RAM is excluded, not discouraged. */
 const RESERVED_RANGES: readonly MemoryRange[] = [];
 
 /**
- * Suggested address for a new block: 4K below the top of RAM, high enough to be
- * clear of any plausible BASIC program and its variables, low enough to leave
- * the string pool at the very top of memory room to grow downwards.
+ * Suggested address for a new block: just under 4K below the top of BASIC's
+ * memory, high enough to be clear of any plausible BASIC program and its
+ * variables, low enough to leave the stack and the string pool at the top of
+ * that memory room to grow downwards.
  *
  * It is also small enough to `POKE` in decimal without explaining two's
  * complement first, which matters here: this interpreter takes a signed 16-bit
