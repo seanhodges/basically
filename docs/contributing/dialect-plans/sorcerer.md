@@ -128,7 +128,7 @@ before wiring it.
 | 1     | Language core                      | ✅     |
 | 2     | Emulator core                      | ✅     |
 | 3     | Wire-up: keyboard + samples        | ✅     |
-| 4     | Transfer & tape I/O                | ⬜     |
+| 4     | Transfer & tape I/O                | ✅     |
 | 5     | Memory map & runtime introspection | ⬜     |
 | 6     | Reference docs                     | ⬜     |
 | 7     | Register & ship                    | ⬜     |
@@ -343,25 +343,59 @@ this plan assumed:
   multiply is about 15 ms — so a whole-screen repaint is half a minute, and
   `breakout` holds the ball and the paddle as screen _addresses_ it adds to.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
 The Sorcerer's cassette format is fully documented and self-checking, so this
 stage is mostly encoder/decoder work over the record `tapeFile.ts` already
 builds.
 
-- [ ] `targets.ts` — `BuildTarget[]`: the tape image, plus cassette `.wav`
+- [x] `targets.ts` — `BuildTarget[]`: the tape image, plus cassette `.wav`
       through `audio`
-- [ ] `audio/cassetteEncoder.ts` / `audio/cassetteDecoder.ts` — FSK at 1200 baud
+- [x] `audio/cassetteEncoder.ts` / `audio/cassetteDecoder.ts` — FSK at 1200 baud
       (and 300 baud, which the Software Manual calls the reliable rate), over
       `src/transfer/wav.ts`
-- [ ] `audio.loadInstructions` / `saveInstructions` — `CLOAD "NAME"` /
+- [x] `audio.loadInstructions` / `saveInstructions` — `CLOAD "NAME"` /
       `CSAVE "NAME"`, with the 5-character name limit the header imposes
-- [ ] `binaryImports` — the tape image `detokenize()` can read back
-- [ ] tests: cassette encode→decode round-trip, and a header whose checksum is
+- [x] `binaryImports` — the tape image `detokenize()` can read back
+- [x] tests: cassette encode→decode round-trip, and a header whose checksum is
       wrong is rejected rather than half-decoded
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
+
+### What the tape settled, for the stages after this one
+
+Four of these came off the booted ROM rather than off a manual, and the first
+two contradict what `tapeFile.ts` assumed:
+
+- **`CSAVE` writes one byte more than the program occupies.** It hands the
+  Monitor's save routine TXTTAB as the start and VARTAB as the _inclusive_ end,
+  and `CLOAD` sets VARTAB back to the start plus that span — so a record cut to
+  the program's own length leaves VARTAB pointing inside the end-of-program link
+  and the first variable assigned overwrites it. Captured off the UART for a
+  two-line program: eighteen bytes for a seventeen-byte program.
+- **Header offset 6 is not always zero.** `CSAVE` stamps it `0xC2`; the
+  Monitor's own `SA` leaves whatever its workarea held. Nothing in either ROM
+  reads it back, so it is a label rather than a check — but it is what tells a
+  BASIC program on a tape from a memory dump beside it, and the import path
+  picks the record to open in the editor by it.
+- **The tape rate is 1200 baud by default and the Monitor's `SE T=1` selects 300.** The cold start leaves the control-port shadow at `IY+0x3D` holding
+  `0x40`, which is the 1200-baud state; `SE T=0` restores it. The UART's frame
+  comes off the cold start too, which writes `0xFF` to the mode register at port
+  0xFD: eight data bits, no parity, **two** stop bits.
+- **A BASIC program cannot load a memory-range file.** `CLOAD` reads a BASIC
+  program and `CLOAD"*n"` / `CSAVE"*n"` are the cassette motor controls; a code
+  file is the Monitor's `LO`. So the tape targets carry the document's memory
+  blocks as further records — which is the ordinary shape of a Sorcerer tape —
+  but `opts.loader` is ignored, because there is nothing a generated BASIC
+  loader could usefully say.
+- **The shared Kansas City decoder needed a knob for this machine.** Its
+  threshold took the _median_ half-cycle as a 2400 Hz one, which holds only
+  where a carrier tone dominates the tape. An Exidy record opens each of its two
+  leads with a hundred `0x00` bytes — nine slow bit cells against two fast stop
+  bits — so the median of a real Sorcerer recording is a _slow_ half and every
+  half-cycle would read as fast. `KcsFraming.fastQuantile` is that knob, and it
+  defaults to the median so no other machine changes.
 
 ## Stage 5 — Memory map & runtime introspection ⬜
 

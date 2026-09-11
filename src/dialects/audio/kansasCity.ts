@@ -23,6 +23,20 @@ export interface KcsFraming {
   oneCycles: number;
   /** `1` bits after the eight data bits. */
   stopBits: number;
+  /**
+   * Which quantile of a recording's half-cycle lengths {@link halfCycles} takes
+   * as a 2400 Hz half when it classifies them. Default 0.5, the median.
+   *
+   * The median holds wherever a carrier tone is the most common thing on the
+   * tape, which is true of every machine here that leads its blocks with one.
+   * It is false where a record leads with *bytes*: the Sorcerer opens each of
+   * its two leads with a hundred 0x00 bytes, and a 0x00 at that machine's fast
+   * rate is eighteen slow half-cycles against eight fast ones - so the median
+   * of such a tape is a slow half, the threshold derived from it is twice too
+   * long, and every half-cycle on the tape reads as fast. A lower quantile
+   * lands inside the fast population whichever way the mixture falls.
+   */
+  fastQuantile?: number;
 }
 
 const CYCLE_2400_MICROS = 1e6 / 2400;
@@ -107,7 +121,8 @@ export function decodeKcsBytes(
   sampleRate: number,
   framing: KcsFraming,
 ): Uint8Array {
-  const halves = halfCycles(samples, sampleRate); // true = fast (2400 Hz)
+  // true = fast (2400 Hz)
+  const halves = halfCycles(samples, sampleRate, framing.fastQuantile);
   const zeroHalves = framing.zeroCycles * 2;
   const oneHalves = framing.oneCycles * 2;
   const bytes: number[] = [];
@@ -148,12 +163,15 @@ export function decodeKcsBytes(
 
 /**
  * Collapse the high-passed, Schmitt-gated signal into half-cycles, each tagged
- * fast (2400 Hz) or slow (1200 Hz). The threshold is derived from the signal:
- * the carrier makes fast halves the most common, so the median is a fast half.
+ * fast (2400 Hz) or slow (1200 Hz). The threshold is derived from the signal
+ * rather than from the nominal tones, so a recorder running fast or slow still
+ * reads: `fastQuantile` of the measured lengths is taken as a 2400 Hz half and
+ * the split sits halfway to the 1200 Hz one (see {@link KcsFraming.fastQuantile}).
  */
 export function halfCycles(
   samples: Float32Array,
   sampleRate: number,
+  fastQuantile = 0.5,
 ): boolean[] {
   const hp = highPass(samples, sampleRate, 5);
   const peak = percentileAbs(hp, 0.99);
@@ -181,7 +199,11 @@ export function halfCycles(
   if (lengths.length === 0) return [];
 
   const sorted = [...lengths].sort((a, b) => a - b);
-  const fastHalf = sorted[sorted.length >> 1]!; // median ≈ a 2400 Hz half-cycle
+  const at = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.round(fastQuantile * (sorted.length - 1))),
+  );
+  const fastHalf = sorted[at]!;
   const threshold = fastHalf * 1.5; // 1200 Hz half is ≈2× the 2400 Hz half
   return lengths.map((d) => d < threshold);
 }
