@@ -104,17 +104,23 @@ machine anything can act on or measure: it is being driven by whoever is playing
 rather than by requests. "profile" is refused until the play channel is given
 up - "basically play --stop" - after which the machine advances only when a
 request asks it to again, and everything you can measure of it means what it
-used to. Reading the screen ("look", "screenshot") is answered while playing, of
-a machine that is moving.
+used to. Reading the screen ("look", "screenshot") and the variables
+("variables") is answered while playing, of a machine that is moving.
 ```
 
-That covers `drive`, `profile`, `time`, `variables` and `expect`. Give the
-channel up and every one of them is answered again, on a machine that is once
-more where the last command left it.
+That covers `drive`, `profile`, `time` and `expect`. Give the channel up and
+every one of them is answered again, on a machine that is once more where the
+last command left it.
 
-**Reading still works.** `look` and `screenshot` spend none of the machine's
-frames, so they're answered while you play — of a machine that is moving. Two
-reads a moment apart may differ, and that is the machine running, not a fault.
+**Reading still works.** `look`, `screenshot` and `variables` spend none of the
+machine's frames, so they're answered while you play — of a machine that is
+moving. Two reads a moment apart may differ, and that is the machine running,
+not a fault. It's what lets you watch a program's variables change under your
+own typing: run the program, open the channel, and read them as often as you
+like.
+
+A machine that can't report its variables still says so, which is a different
+answer from the refusal above — playing it is not what's stopping it.
 
 **Running a program still works too**, and the channel follows you: run a second
 program and you're playing the new machine at the same address. Release the

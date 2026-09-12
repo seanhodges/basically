@@ -233,8 +233,10 @@ export const profileOp: Operation<Record<never, never>, ProfileOutcome> = {
   cli: { kind: 'operation', name: 'profile' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
-  // A profile is a statement about where a run's time went, and a machine
-  // being driven by a person is not a run.
+  // A profile is a statement about where a run's time went, counted in frames,
+  // and a machine being driven by a person is spending frames no request asked
+  // for - so it is not a run. Refused for that, not for being about a machine
+  // that is moving, which reading it is too.
   played: 'refuse',
   run: (_input, ctx: OpContext) =>
     profileFromSession(requireSession(ctx.session)),
@@ -285,7 +287,8 @@ export const timeOp: Operation<Record<never, never>, TimeOutcome> = {
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
   // How long a run took stops meaning anything the moment the machine goes
-  // on running with nothing having asked it to.
+  // on running with nothing having asked it to: the seconds would include the
+  // ones somebody spent typing.
   played: 'refuse',
   run: (_input, ctx) => {
     const timing = requireSession(ctx.session).timing();
@@ -335,9 +338,13 @@ export const variablesOp: Operation<Record<never, never>, VariablesOutcome> = {
   cli: { kind: 'operation', name: 'variables' },
   assistant: { kind: 'tool' },
   mcp: { kind: 'tool' },
-  // What a variable holds is read from a machine that is moving as somebody
-  // types at it, so the answer would be about a moment already gone.
-  played: 'refuse',
+  // Read out of the machine's memory without spending a frame, the way the
+  // screen is, so it is answered while the machine is being played: the caller
+  // has caught a moment of a machine that is moving, which is what every read
+  // of a played machine is. Not a measurement - a value has no denominator,
+  // where a run's time and its shares are counted in frames whoever is playing
+  // is spending.
+  played: 'answer',
   run: (_input, ctx) => {
     const variables = requireSession(ctx.session).variables();
     return {

@@ -115,7 +115,7 @@ describe('what a machine being played costs the requests about it', () => {
     const { channel } = stubChannel();
     const ctx = pureContext({ session: PICTURED, play: channel });
     await playOp.run({}, ctx);
-    for (const operation of ['profile', 'time', 'variables', 'drive']) {
+    for (const operation of ['profile', 'time', 'drive']) {
       const refused = await call(operation, ctx, { script: 'PRESS A' }).catch(
         (error: unknown) => error,
       );
@@ -131,21 +131,38 @@ describe('what a machine being played costs the requests about it', () => {
 
   it('answers a read, and two of them may differ without that being a fault', async () => {
     // Reading spends none of the machine's frames, so it is answered - having
-    // caught a machine that is moving.
+    // caught a machine that is moving. What a variable holds is read the same
+    // way the screen is, so it is answered on the same terms.
     let line = 0;
+    let count = 0;
     const moving = stubSession({
       capture: () => ({ width: 2, height: 1, png: 'AA==' }),
       readText: () => ({ cols: 8, rows: 1, lines: [`FRAME ${line++}`] }),
+      variables: () => [{ name: 'A', kind: 'number', value: String(count++) }],
     });
     const { channel } = stubChannel();
     const ctx = pureContext({ session: moving, play: channel });
     await playOp.run({}, ctx);
-    const first = await call('look', ctx);
-    const again = await call('look', ctx);
-    expect(first.failed).toBe(false);
-    expect(again.failed).toBe(false);
-    expect(first.outcome).not.toEqual(again.outcome);
+    for (const operation of ['look', 'variables']) {
+      const first = await call(operation, ctx);
+      const again = await call(operation, ctx);
+      expect(first.failed, operation).toBe(false);
+      expect(again.failed, operation).toBe(false);
+      expect(first.outcome, operation).not.toEqual(again.outcome);
+    }
     expect((await call('screenshot', ctx)).failed).toBe(false);
+  });
+
+  it('says a played machine cannot report its variables rather than refusing', async () => {
+    // Told apart from the refusal: the machine being played is not the reason
+    // this machine has nothing to say, and a caller that conflated the two
+    // would stop playing to no purpose.
+    const { channel } = stubChannel();
+    const ctx = pureContext({ session: PICTURED, play: channel });
+    await playOp.run({}, ctx);
+    const answered = await call('variables', ctx);
+    expect(answered.failed).toBe(false);
+    expect(answered.outcome).toEqual({ variables: null });
   });
 
   it('stops refusing the moment the channel ends', async () => {
