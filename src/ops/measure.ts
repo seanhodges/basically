@@ -319,10 +319,7 @@ export function describeVariables(outcome: VariablesOutcome): string {
   if (outcome.variables.length === 0) {
     return 'The program holds no variables.';
   }
-  return [
-    'The variables, as the machine displays them:',
-    ...outcome.variables.map((v) => `  ${v.name} = ${v.value}`),
-  ].join('\n');
+  return outcome.variables.map((v) => `${v.name} = ${v.value}`).join('\n');
 }
 
 export const variablesOp: Operation<Record<never, never>, VariablesOutcome> = {

@@ -44,8 +44,7 @@ basically variables
 ```
 
 ```
-The variables, as the machine displays them:
-  A = 1
+A = 1
 ```
 
 ## Stepping and continuing
