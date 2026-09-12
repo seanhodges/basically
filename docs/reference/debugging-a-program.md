@@ -44,8 +44,7 @@ basically variables
 ```
 
 ```
-The variables, as the machine displays them:
-  A = 1
+A = 1
 ```
 
 ## Stepping and continuing
@@ -192,8 +191,10 @@ A machine being [played](./playing-the-machine) is being driven by a person on
 its own clock, so it is not a machine anything can be asked to stop: the lines
 you named would be lines it runs straight past. `break`, `step` and `continue`
 are refused while a play channel is open, saying so and saying how to give the
-channel up, exactly as the measuring commands are. `where` is answered, of a
-machine that is moving — so two answers may differ, and that is not a fault.
+channel up, exactly as the measuring commands are. `where` and `variables` are
+answered, of a machine that is moving — so two answers may differ, and that is
+not a fault. Watching what a played program holds is the one thing you can still
+do while somebody is typing at it.
 
 ## If you're told no
 

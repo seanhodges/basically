@@ -52,8 +52,8 @@ export function beingPlayed(operation: string): string {
     'until the play channel is given up - "basically play --stop" - after ' +
     'which the machine advances only when a request asks it to again, and ' +
     'everything you can measure of it means what it used to. Reading the ' +
-    'screen ("look", "screenshot") is answered while playing, of a machine ' +
-    'that is moving.'
+    'screen ("look", "screenshot") and the variables ("variables") is ' +
+    'answered while playing, of a machine that is moving.'
   );
 }
 
@@ -66,10 +66,10 @@ export const playOp: Operation<Record<never, never>, PlayOutcome> = {
     'screen and type at it. Returns the address. While the channel is open ' +
     'the machine runs on its own clock rather than only when a request asks ' +
     'it to, so requests that act on it or measure it are refused until you ' +
-    'give the channel up; reading the screen still works and catches a ' +
-    'machine that is moving. A machine has a play channel or a view, never ' +
-    'both, and asking for one ends the other. Asking again while a channel ' +
-    'is open returns the same address.',
+    'give the channel up; reading the screen and the variables still works ' +
+    'and catches a machine that is moving. A machine has a play channel or a ' +
+    'view, never both, and asking for one ends the other. Asking again while ' +
+    'a channel is open returns the same address.',
   input: { type: 'object', properties: {}, additionalProperties: false },
   needs: 'session',
   cli: { kind: 'operation', name: 'play' },

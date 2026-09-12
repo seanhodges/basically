@@ -224,8 +224,10 @@ describe('the variables', () => {
         { name: 'N$', kind: 'string', value: '"HI"' },
       ],
     });
-    expect(describeVariables(outcome)).toContain('A = 42');
-    expect(describeVariables(outcome)).toContain('N$ = "HI"');
+    // The variables and nothing else: no heading above them and no margin
+    // beside them, so a caller reading the answer reads variables from its
+    // first line and a script need skip nothing.
+    expect(describeVariables(outcome)).toBe('A = 42\nN$ = "HI"');
   });
 
   it('says a machine that cannot report them cannot, and an empty program holds none', () => {
