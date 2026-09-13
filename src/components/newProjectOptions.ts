@@ -5,7 +5,7 @@
  * The New-project dialog's decisions, as pure functions: which starting points
  * are available, and what document a set of choices produces. Kept out of the
  * component so they are unit-testable (the project's component logic lives in
- * plain `.ts` siblings - see `inputOverlayMode.ts`, `memoryBands.ts`).
+ * plain `.ts` siblings - see `inputOverlayMode.ts`, `memoryScale.ts`).
  *
  * Machine grouping lives in `machinePicker.ts`, which the toolbar's target
  * switcher shares.

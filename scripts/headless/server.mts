@@ -158,6 +158,7 @@ function workerHolder(
     },
     projection.view,
     projection.play,
+    projection.map,
   );
 }
 
@@ -220,8 +221,8 @@ async function main(): Promise<number> {
 
   const address = hostAddress(buildId, environment);
   // Nothing is bound here: the projection host binds a port on the first caller
-  // that asks for a view or a play channel, and stops listening again when the
-  // last one ends.
+  // that asks for any projection, and stops listening again when the last one
+  // ends.
   const projections = createProjectionHost({
     note: (message) => err(`[basically-server] ${message}\n`),
   });
@@ -338,6 +339,7 @@ function serveOverStdio(options: { defaultMachine?: string }): Promise<void> {
         reachesFromCli,
         projection.view,
         projection.play,
+        projection.map,
       ),
     projections,
   );

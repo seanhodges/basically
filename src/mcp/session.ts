@@ -45,6 +45,13 @@ import {
   type FrameSink,
   type FrameTap,
 } from '../dialects/headless/frameTap';
+import {
+  createActivityTap,
+  type ActivityTap,
+} from '../dialects/headless/activityTap';
+import { createMapActivities } from '../server/map/activity';
+import type { MapLayout, MapSink } from '../server/map/link';
+import { memoryBands } from '../dialects/memoryBands';
 import { RunError } from '../dialects/headless/runError';
 import {
   findRomRoot,
@@ -108,6 +115,23 @@ export interface ServerMachine {
    */
   settleView(): void;
   /**
+   * Show whoever is mapping the machine's memory what the last request touched.
+   *
+   * Called where {@link settleView} is and for the same reason, with one
+   * difference: what a skipped display sample showed is gone, where a skipped
+   * drain merges into the next one. So this is not catching up but showing the
+   * request's own work while it is still the newest thing the machine did.
+   */
+  settleMap(): void;
+  /**
+   * Say again what machine is up, for a map that has only just opened.
+   *
+   * The layout is sent when a machine boots, and a map asked for afterwards
+   * was not there to hear it - so whoever opens one is told what they would
+   * have been told had they been watching all along.
+   */
+  showMap(): void;
+  /**
    * The display as it is now, or null when there is no machine or no painting
    * it. Spends none of the machine's frames, exactly as the view's tap does:
    * painting reads the picture the machine already has.
@@ -117,19 +141,32 @@ export interface ServerMachine {
   dispose(): void;
 }
 
-export function createServerMachine(viewSink?: FrameSink): ServerMachine {
+export function createServerMachine(
+  viewSink?: FrameSink,
+  mapSink?: MapSink,
+): ServerMachine {
   /** The process-wide stand-ins come off in the order they went on. */
   let held:
     | (HeldMachine & { restore: (() => void)[]; repaint: () => PaintedFrame })
     | null = null;
   /** The tap over the machine that is up; there is nothing to sample without one. */
   let tap: FrameTap | null = null;
+  /** The same, over what the machine that is up is touching. */
+  let activity: ActivityTap | null = null;
+  /** The layout of the machine that is up, or null when none is. */
+  let layout: MapLayout | null = null;
 
   function dispose(): void {
     if (!held) return;
     const { machine, restore } = held;
     held = null;
     tap = null;
+    // Recording stops with the machine that was doing it, so nothing is left
+    // stamping a bus for a map that is now of nothing.
+    activity?.disarm();
+    activity = null;
+    layout = null;
+    mapSink?.show(null);
     machine.dispose();
     for (const undo of restore.reverse()) undo();
   }
@@ -245,12 +282,48 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
     tap = sink ? createFrameTap({ sink, paint: repaint, encodePng }) : null;
     const sampling = tap;
 
+    // The map's tap, on the same terms and beside the display's: armed from
+    // whether anything is watching, so a machine nobody is mapping records
+    // nothing, and drained through the recycle buffer the seam documents.
+    const map = dialect.memoryMap;
+    activity =
+      mapSink && map
+        ? createActivityTap({
+            sink: mapSink,
+            addressSpace: map.addressSpace,
+            record: machine.setMemoryActivityRecording?.bind(machine),
+            drain: machine.drainMemoryActivity?.bind(machine),
+            encode: createMapActivities().encode,
+          })
+        : null;
+    const touching = activity;
+    layout =
+      map === undefined
+        ? null
+        : {
+            machine: dialect.name,
+            addressSpace: map.addressSpace,
+            addressUnit: map.addressUnit ?? 'byte',
+            // Collapsed rather than leaf regions: the page is given bands ready
+            // to draw, and which regions collapse into which band is a rule it
+            // should not have to carry.
+            bands: memoryBands(map, false).map((band) => ({
+              label: band.label,
+              kind: band.kind,
+              start: band.start,
+              end: band.end,
+            })),
+            reports: touching?.taps ?? false,
+          };
+    if (layout) mapSink?.show(layout);
+
     const observe = opts.observe;
     const runFrame = () => {
       machine.runFrame();
       measurements.frame(machine);
       observe?.frame?.(machine);
       sampling?.frame();
+      touching?.frame();
     };
     // The same fold, around a slice of the machine's own stopping path instead
     // of a whole frame: a frame spent stopping is a frame the run counted, the
@@ -261,6 +334,7 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
           measurements.frame(machine);
           observe?.frame?.(machine);
           sampling?.frame();
+          touching?.frame();
           return result;
         }
       : undefined;
@@ -393,9 +467,14 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
       const settle = opts.settleFrames ?? SETTLE_FRAMES;
       for (let i = 0; i < settle; i++, frames++) runFrame();
     }
-    // What the view cost comes back out: the tap fires inside this window, and
-    // a run must not report having taken longer for being watched.
-    timings.runMs = performance.now() - runAt - (sampling?.costMs ?? 0);
+    // What being watched cost comes back out: both taps fire inside this
+    // window, and a run must not report having taken longer for having been
+    // watched or mapped.
+    timings.runMs =
+      performance.now() -
+      runAt -
+      (sampling?.costMs ?? 0) -
+      (touching?.costMs ?? 0);
 
     const screen =
       opts.until !== undefined && reached && !settled
@@ -440,6 +519,8 @@ export function createServerMachine(viewSink?: FrameSink): ServerMachine {
     session: () => held?.session ?? null,
     run,
     settleView: () => tap?.settle(),
+    settleMap: () => activity?.settle(),
+    showMap: () => mapSink?.show(layout),
     paint: () => held?.repaint() ?? null,
     dispose,
   };

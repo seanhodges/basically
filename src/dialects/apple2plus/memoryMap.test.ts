@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { apple2plusMemoryMap } from './memoryMap';
 import { apple2plusMemoryBlocks } from './memoryBlocks';
-import { memoryBands } from '../../components/memoryBands';
+import { memoryBands } from '../memoryBands';
 import { apple2MemoryMap } from '../apple2/memoryMap';
 import {
   HIRES_PAGE1,

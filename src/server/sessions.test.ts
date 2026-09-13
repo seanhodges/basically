@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSessions } from './sessions';
 import type { MachineHolder } from './machineWorker';
 import type { SessionView } from './view/link';
+import { noMap } from './map/link';
 import { noPlay } from './play/link';
 import type { ProjectionHost, SessionProjection } from './projection/link';
 
@@ -199,6 +200,7 @@ function stubViews(): ProjectionHost & { made: StubView[] } {
       return {
         view,
         play: noPlay(),
+        map: noMap(),
         end: () => view.end(),
       };
     },

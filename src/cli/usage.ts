@@ -63,6 +63,7 @@ usage: basically <operation> [options]
   screenshot save an image of the screen
   view       project the screen to an address a web view can be pointed at
   play       open an address a web view can be pointed at to drive the machine
+  map        project the machine's memory to an address a web view can be pointed at
   profile    report where the program's time and memory went
   time       report how long the run took and how it ended
   variables  report what the program's variables hold
@@ -284,6 +285,41 @@ A machine has a play channel or a view, never both: asking for one ends the
 other and says so. The channel ends when the machine's holder releases it, gives
 the channel up, or the host stops; asking again while one is open reports the
 address it already has.
+`,
+
+  map: `
+project the memory of the running machine, so where the program is living can be watched
+
+usage: basically map [--stop] [--json]
+
+  --stop   give the map up; the machine stays up and is unchanged by it
+  --json   report the address as JSON
+
+Prints an address anything that can show a web page can be pointed at - a
+browser tab, or a frame inside an application of your own. What is there shows
+the machine's memory regions and, over them, the addresses its processor is
+reading and writing as the program runs, the reads told apart from the writes
+and recent activity fading as it ages.
+
+The address is reachable from this computer only, and holding it is the whole of
+what admits a watcher: treat it as a secret. A watcher sees which addresses were
+touched and nothing else - not what any of them holds, which is not something
+the machine records at all - and cannot press a key, run a program, or reach any
+operation.
+
+A map is not a display, so it does not displace one: it can be open beside a
+view or a play channel, and opening it ends neither. Watching costs the machine
+nothing - it records what it touches only while something is watching, and every
+measurement is the same mapped or not.
+
+A machine whose memory layout the toolchain does not describe has no map, and
+says so. A machine with a layout but no way to report what its processor touches
+shows its layout and says that it cannot report the rest, rather than showing an
+empty map.
+
+The map ends when its holder gives it up or the host stops; the machine being
+released does not end it, and a program run afterwards is mapped at the same
+address. Asking again while one is open reports the address it already has.
 `,
 
   profile: `

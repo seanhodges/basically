@@ -14,8 +14,13 @@ that can show a web page can show what's there — a browser tab, or a frame
 inside an application of your own. It shows the machine's screen, and keeps
 showing it as the machine changes.
 
+There is a second thing worth watching, and it is not the screen: a **map** of
+the machine's memory, showing its regions and, over them, the addresses the
+program is reading and writing as it runs. That is further down, under
+[watching the memory](#watching-the-memory).
+
 This is written for two people: someone supervising an agent who'd like to keep
-an eye on the screen while it works, and someone building an application around
+an eye on the machine while it works, and someone building an application around
 the toolchain that needs to show its user the machine it's driving.
 
 ## Getting a view
@@ -133,10 +138,61 @@ rather than being left with an address that has quietly stopped answering.
 Until somebody asks for a view, none exists: a toolchain nobody has asked to be
 watched is reachable at no network address at all.
 
+## Watching the memory
+
+A view shows what the program printed. A **map** shows where in memory it is
+living: the machine's whole address space as labelled bands — ROM, screen,
+system variables, your program — and over them the addresses its processor is
+touching right now, reads in teal, writes in coral, fading as they age.
+
+Ask for one the same way:
+
+```bash
+basically run game.bas -m zx81 --hold
+basically map
+```
+
+`map` prints an address, exactly as `view` does, and it goes in a frame exactly
+as a view does. Asking again while a map is open gives you the address it
+already has; `--json` prints it as data; `basically map --stop` gives the map up
+and leaves the machine alone.
+
+**A map is not a display, so it does not displace one.** A machine has a view or
+a play channel, never both — but a map can be open beside either, and opening it
+ends neither. That pairing is the useful one: a map beside a play channel shows
+you where a program is working while somebody is actually playing it, which is
+the only time a held machine runs of its own accord.
+
+**Watching costs the machine nothing.** Nothing is recorded until a map is open,
+nothing is recorded once it has gone, and every measurement the toolchain
+reports — the frames, the timings, the profile — is the same whether a map was
+open or not.
+
+**A map never says what an address holds.** What the machine records is that an
+address was touched, and whether it was read or written. There is no value
+anywhere in what a map shows, and nothing at its address can ask for one or
+change one.
+
+Two machines decline, and they decline differently, because they are different
+facts:
+
+- A machine whose memory layout the toolchain doesn't describe has no map at
+  all, and you're told so rather than given an address showing nothing.
+- A machine that has a layout but can't report what its processor touches shows
+  its layout and says plainly that it cannot report the rest — so an unmarked
+  map is never mistaken for a program that touched nothing.
+
+Everything under [who can see it](#who-can-see-it) applies to a map's address
+exactly as it does to a view's: your computer only, one address per map, never
+reissued, and the address is the whole of what protects it.
+
 ## If you're told no
 
-- **"No machine is up."** A view is a view of a machine you're holding. Run
+- **"No machine is up."** A view or a map is of a machine you're holding. Run
   something with `--hold` first.
 - **"This machine cannot be pictured."** A few machines can't hand over a
   picture of their display. You're told so rather than given an address that
   would show nothing — `basically look` still reads the screen as characters.
+- **"The toolchain does not describe this machine's memory layout."** There is
+  no map of that machine to show. `basically info` reports what is known about
+  it either way.

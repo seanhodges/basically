@@ -55,7 +55,7 @@ which machine it means each time.
 Every operation the command line has, reached the same way and answered the
 same way: describe a machine, check a listing, build one into a file the machine
 loads, run one, drive it, look at its screen, measure it, check it against what
-it should do. Three of them are what an embedding application usually wants next:
+it should do. Four of them are what an embedding application usually wants next:
 
 - [`view`](./watching-the-machine) hands back an address anything that can show
   a web page can be pointed at, so your user can watch the machine you are
@@ -65,6 +65,11 @@ it should do. Three of them are what an embedding application usually wants next
   address admits acting on the machine rather than watching it — read
   [who can play it](./playing-the-machine#who-can-play-it) before you put one
   anywhere.
+- [`map`](./watching-the-machine#watching-the-memory) hands back an address
+  showing the machine's memory layout and the addresses the program is reading
+  and writing as it runs. It is not a display, so it can sit in a frame beside
+  a view or a play channel rather than instead of one, and it never reports what
+  any address holds.
 - [`break`, `step`, `continue` and `where`](./debugging-a-program) stop a program
   on a BASIC line, step it on a line at a time and say where it is, so your user
   can find out where a program goes wrong rather than adding `PRINT` statements

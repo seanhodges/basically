@@ -1,0 +1,422 @@
+<!doctype html>
+<!--
+  The page a map of a machine's memory is shown through.
+
+  Hand-written and standalone, as the view's and the play channel's are: no
+  framework, no build step of its own, nothing from the IDE. It is inlined into
+  the host's bundle as text, so an installed toolchain resolves nothing at
+  runtime to serve it. The one rule it does not write for itself is which
+  regions collapse into which band - that is computed beside the machine and
+  arrives ready to draw, so the rule lives in one place rather than two.
+
+  What it contracts to do is show the machine's memory. How it does that is
+  private and may change - the third party's contract is "a URL you put in a
+  frame", which is why the wire below is not documented anywhere a watcher can
+  see.
+
+  What this address admits, in its own words: whoever holds it sees the
+  machine's memory layout and which addresses it is touching, and nothing else.
+  It cannot act on the machine, cannot learn what any address holds - the
+  machine records that an address was touched, never its value - and reaches no
+  operation the toolchain offers. It is a smaller claim than the view's, which
+  shows what the program printed, and far smaller than the play channel's, which
+  types at the machine.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- The address is the only thing protecting this map, so it must not
+         travel to whatever the embedding page reaches next. -->
+    <meta name="referrer" content="no-referrer" />
+    <title>Basically - the machine's memory</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #e8e8ea;
+        --quiet: #8b8b94;
+        --ground: #16161a;
+        --edge: #2a2a31;
+        --live: #6ee7a0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font:
+          13px/1.4 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      #map {
+        flex: 1 1 auto;
+        min-height: 0;
+        position: relative;
+      }
+      #bands {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #nothing {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 16px;
+        color: var(--quiet);
+      }
+      #nothing[hidden] {
+        display: none;
+      }
+      #status {
+        flex: 0 0 auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 10px;
+        border-top: 1px solid var(--edge);
+        color: var(--quiet);
+        /* A frame narrow enough that the words do not fit gets the dot and as
+           much of them as there is room for, rather than a sideways scroll. */
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      #dot {
+        width: 8px;
+        height: 8px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--quiet);
+      }
+      #status[data-state='working'] #dot {
+        background: var(--live);
+      }
+      #said {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #keys {
+        margin-left: auto;
+        display: flex;
+        gap: 10px;
+        flex: 0 0 auto;
+      }
+      .key {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .swatch {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map">
+      <canvas id="bands"></canvas>
+      <p id="nothing">Waiting for the machine.</p>
+    </div>
+    <div id="status" data-state="no-machine">
+      <span id="dot"></span>
+      <span id="said">Connecting.</span>
+      <span id="keys" hidden>
+        <span class="key"
+          ><span class="swatch" style="background: #00a896"></span>read</span
+        >
+        <span class="key"
+          ><span class="swatch" style="background: #f05d5e"></span>write</span
+        >
+      </span>
+    </div>
+    <script>
+      (function () {
+        var canvas = document.getElementById('bands');
+        var paint = canvas.getContext('2d');
+        var nothing = document.getElementById('nothing');
+        var status = document.getElementById('status');
+        var said = document.getElementById('said');
+        var keys = document.getElementById('keys');
+
+        /* The hues say what a region is for, and they are the IDE's own: ROM is
+           the same violet here as in the panel, so a reader who knows one map
+           knows this one. */
+        var HUES = {
+          rom: '#a986ff',
+          screen: '#4f8cff',
+          attributes: '#38c8c0',
+          buffer: '#e0c060',
+          system: '#ff8a5c',
+          program: '#4fce6a',
+          reserved: '#ff6f7d',
+        };
+        var READ = '#00a896';
+        var WRITE = '#f05d5e';
+
+        var WORDS = {
+          idle: 'Idle - the machine advances only when a request asks it to.',
+          working: 'Working - a request is running the machine.',
+          'no-machine': 'No machine is up. Run a program to start one.',
+          gone: 'The map has ended.',
+        };
+
+        /* A line fades to nothing in about half a second at sixty frames, which
+           is what tells what the program is doing now from what it did a moment
+           ago. Below the floor a row is dark and is not drawn. */
+        var FADE = 0.9;
+        var FLOOR = 0.02;
+
+        var layout = null;
+        var state = 'no-machine';
+        /* Each band's top and height in CSS pixels, and the read and write
+           intensity of every device-pixel row. */
+        var placed = [];
+        var readInt = new Float32Array(0);
+        var writeInt = new Float32Array(0);
+        var height = 0;
+        var width = 0;
+        var dpr = 1;
+
+        function show(next) {
+          state = next;
+          status.setAttribute('data-state', next);
+          said.textContent = WORDS[next] || next;
+          if (next === 'no-machine' || next === 'gone') {
+            layout = null;
+            keys.hidden = true;
+            nothing.hidden = false;
+            nothing.textContent = WORDS[next];
+          }
+        }
+
+        /* A band's share of the column.
+        
+           Proportional to the square root of its span rather than to the span
+           itself: on every machine here one or two regions are most of the
+           address space, and a linear column would draw the rest as hairlines
+           nothing could be seen happening in. */
+        function place() {
+          placed = [];
+          if (!layout || layout.bands.length === 0) return;
+          var weights = layout.bands.map(function (band) {
+            return Math.sqrt(band.end - band.start + 1);
+          });
+          var total = weights.reduce(function (a, b) {
+            return a + b;
+          }, 0);
+          var gap = 1;
+          var room = height - gap * (layout.bands.length - 1);
+          var top = 0;
+          for (var i = 0; i < layout.bands.length; i++) {
+            var share = (weights[i] / total) * room;
+            placed.push({
+              start: layout.bands[i].start,
+              end: layout.bands[i].end,
+              label: layout.bands[i].label,
+              kind: layout.bands[i].kind,
+              top: top,
+              height: share,
+            });
+            top += share + gap;
+          }
+          readInt = new Float32Array(Math.max(1, Math.round(height * dpr)));
+          writeInt = new Float32Array(readInt.length);
+        }
+
+        function resize() {
+          var box = canvas.parentElement.getBoundingClientRect();
+          dpr = window.devicePixelRatio || 1;
+          width = Math.max(1, Math.floor(box.width));
+          height = Math.max(1, Math.floor(box.height));
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+          place();
+        }
+
+        /* The device-pixel row an address falls on, or -1 when it falls in no
+           band - which a machine whose bands cover its space never has. */
+        function rowOf(address) {
+          for (var i = 0; i < placed.length; i++) {
+            var band = placed[i];
+            if (address < band.start || address > band.end) continue;
+            var span = band.end - band.start + 1;
+            var y = band.top + ((address - band.start) / span) * band.height;
+            return Math.min(readInt.length - 1, Math.floor(y * dpr));
+          }
+          return -1;
+        }
+
+        /* One sample: every cell's rows light to full intensity for the kinds
+           of access it saw. A cell covers several addresses, so it lights the
+           rows from its first address to its last - which is what makes a line
+           thick enough to see without zooming. */
+        function ingest(cells, addressesPerCell) {
+          for (var cell = 0; cell < cells.length; cell++) {
+            var bits = cells[cell];
+            if (bits === 0) continue;
+            var lo = rowOf(cell * addressesPerCell);
+            var hi = rowOf((cell + 1) * addressesPerCell - 1);
+            if (lo < 0) lo = hi;
+            if (hi < 0) hi = lo;
+            if (lo < 0) continue;
+            for (var row = lo; row <= hi; row++) {
+              if (bits & 1) readInt[row] = 1;
+              if (bits & 2) writeInt[row] = 1;
+            }
+          }
+        }
+
+        function draw() {
+          paint.setTransform(1, 0, 0, 1, 0, 0);
+          paint.clearRect(0, 0, canvas.width, canvas.height);
+          if (!layout) return;
+          paint.scale(dpr, dpr);
+          paint.font = '11px system-ui, -apple-system, "Segoe UI", sans-serif';
+          paint.textBaseline = 'middle';
+          for (var i = 0; i < placed.length; i++) {
+            var band = placed[i];
+            paint.fillStyle = HUES[band.kind] || '#6b6b74';
+            paint.globalAlpha = 0.22;
+            paint.fillRect(0, band.top, width, band.height);
+            paint.globalAlpha = 1;
+            /* The undiluted hue down the left edge, as the panel draws it: it
+               is what makes a band readable where its fill is faint. */
+            paint.fillRect(0, band.top, 3, band.height);
+            if (band.height >= 12) {
+              paint.fillStyle = '#e8e8ea';
+              paint.fillText(band.label, 9, band.top + band.height / 2);
+            }
+          }
+          paint.setTransform(1, 0, 0, 1, 0, 0);
+          for (var row = 0; row < readInt.length; row++) {
+            var r = readInt[row];
+            var w = writeInt[row];
+            if (r >= FLOOR) {
+              paint.globalAlpha = r;
+              paint.fillStyle = READ;
+              paint.fillRect(0, row, canvas.width, 1);
+            }
+            if (w >= FLOOR) {
+              paint.globalAlpha = w;
+              paint.fillStyle = WRITE;
+              paint.fillRect(0, row, canvas.width, 1);
+            }
+          }
+          paint.globalAlpha = 1;
+        }
+
+        function step() {
+          for (var i = 0; i < readInt.length; i++) {
+            var r = readInt[i] * FADE;
+            readInt[i] = r < FLOOR ? 0 : r;
+            var w = writeInt[i] * FADE;
+            writeInt[i] = w < FLOOR ? 0 : w;
+          }
+          draw();
+          requestAnimationFrame(step);
+        }
+
+        /* Relative, so the map works at whatever address it was given and the
+           page never has to know its own token. */
+        var where = new URL('socket', location.href);
+        where.protocol = where.protocol === 'https:' ? 'wss:' : 'ws:';
+        var socket = new WebSocket(where.href);
+        socket.binaryType = 'arraybuffer';
+
+        /* Inflating a sample is asynchronous and the machine goes on running
+           while it happens. A few are held rather than one, because unlike a
+           picture every sample is addresses nothing else will report; past a
+           handful the far end is not keeping up at all and the oldest go. */
+        var pending = [];
+        var decoding = false;
+
+        function decode() {
+          if (decoding || pending.length === 0) return;
+          decoding = true;
+          var sample = pending.shift();
+          new Response(
+            new Blob([sample.cells])
+              .stream()
+              .pipeThrough(new DecompressionStream('deflate-raw')),
+          )
+            .arrayBuffer()
+            .then(function (cells) {
+              if (layout)
+                ingest(new Uint8Array(cells), sample.addressesPerCell);
+            })
+            .catch(function () {
+              /* A sample that will not inflate is one sample; what it covered
+                 is touched again in the next. */
+            })
+            .then(function () {
+              decoding = false;
+              decode();
+            });
+        }
+
+        socket.addEventListener('message', function (message) {
+          var bytes = new Uint8Array(message.data);
+          if (bytes[0] === 0x01) {
+            layout = JSON.parse(new TextDecoder().decode(bytes.subarray(1)));
+            pending.length = 0;
+            resize();
+            nothing.hidden = !!layout;
+            keys.hidden = !layout || !layout.reports;
+            if (layout && !layout.reports) {
+              /* Not an unmarked layout: a machine that cannot say what it
+                 touches and a program that touched nothing are different
+                 facts, and this is the one that says which. */
+              said.textContent =
+                layout.machine +
+                ' cannot report which addresses it is touching, so this map ' +
+                'shows its layout only.';
+            }
+            return;
+          }
+          if (bytes[0] === 0x02) {
+            pending.push({
+              addressesPerCell: new DataView(message.data, 1, 2).getUint16(0),
+              cells: bytes.subarray(3),
+            });
+            if (pending.length > 4) pending.shift();
+            decode();
+            return;
+          }
+          if (bytes[0] === 0x03) {
+            var next = new TextDecoder().decode(bytes.subarray(1));
+            show(next);
+            if (layout && !layout.reports) {
+              said.textContent =
+                layout.machine +
+                ' cannot report which addresses it is touching, so this map ' +
+                'shows its layout only.';
+            }
+          }
+        });
+
+        /* A map ends with the caller that asked for it, and the host then stops
+           answering at this address. */
+        socket.addEventListener('close', function () {
+          show('gone');
+        });
+
+        window.addEventListener('resize', resize);
+        resize();
+        requestAnimationFrame(step);
+      })();
+    </script>
+  </body>
+</html>

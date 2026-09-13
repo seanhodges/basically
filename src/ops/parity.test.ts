@@ -208,6 +208,7 @@ describe('inputs and outcomes', () => {
       screenshot: ['screenshot', 'a.png'],
       view: ['view'],
       play: ['play'],
+      map: ['map'],
       profile: ['profile'],
       time: ['time'],
       variables: ['variables'],

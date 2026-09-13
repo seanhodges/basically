@@ -31,6 +31,7 @@ import type { CheckOutcome } from '../../src/ops/check';
 import type { ConvertOutcome } from '../../src/ops/convert';
 import { breakOp, continueOp, stepOp, whereOp } from '../../src/ops/debug';
 import { profileOp, timeOp, variablesOp } from '../../src/ops/measure';
+import { mapOp } from '../../src/ops/map';
 import { playOp } from '../../src/ops/play';
 import { viewOp } from '../../src/ops/view';
 import type { RunOutcome } from '../../src/ops/run';
@@ -414,6 +415,7 @@ async function onTheHeldMachine(
         | 'screenshot'
         | 'view'
         | 'play'
+        | 'map'
         | 'profile'
         | 'time'
         | 'variables'
@@ -498,6 +500,8 @@ function describeHeld(operation: string, value: unknown): string {
       return viewOp.describe(value as never);
     case 'play':
       return playOp.describe(value as never);
+    case 'map':
+      return mapOp.describe(value as never);
     default:
       return '';
   }
@@ -815,6 +819,17 @@ async function main(): Promise<number> {
           const { holding } = await host.ask('unview');
           if (args.json) json({ viewing: false, holding: holding ?? null });
           else err('the view has ended\n');
+          return 0;
+        }
+        return await onTheHeldMachine(args, host);
+
+      case 'map':
+        // As with a view: the map is the host's arrangement, and the machine
+        // is untouched by it either way.
+        if (args.stop) {
+          const { holding } = await host.ask('unmap');
+          if (args.json) json({ mapping: false, holding: holding ?? null });
+          else err('the map has ended\n');
           return 0;
         }
         return await onTheHeldMachine(args, host);

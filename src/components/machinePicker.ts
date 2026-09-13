@@ -6,7 +6,7 @@
  * for the list, and the labels the collapsed trigger and the list rows carry.
  * Kept out of the components so they are unit-testable (the project's component
  * logic lives in plain `.ts` siblings - see `inputOverlayMode.ts`,
- * `memoryBands.ts`).
+ * `memoryScale.ts`).
  *
  * Shared with the toolbar's target switcher, so nothing here is new-project
  * specific.

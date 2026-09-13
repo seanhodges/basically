@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { parseDriveScript, runDriveScript } from '../app/driveScript';
 import { decodeBytes } from '../ops/bytes';
 import type { FrameSink, ViewFrame } from '../dialects/headless/frameTap';
+import type { MapActivity } from '../dialects/headless/activityTap';
+import type { MapLayout, MapSink } from '../server/map/link';
 import { createServerMachine, type ServerMachine } from './session';
 
 /**
@@ -21,9 +23,26 @@ const WAITING =
 let server: ServerMachine | null = null;
 
 /** A server whose machine is let go however the test ends. */
-function serving(view?: FrameSink): ServerMachine {
-  server = createServerMachine(view);
+function serving(view?: FrameSink, map?: MapSink): ServerMachine {
+  server = createServerMachine(view, map);
   return server;
+}
+
+/** Somebody mapping the machine's memory, taking every sample offered. */
+function mapping(): MapSink & {
+  samples: MapActivity[];
+  layouts: (MapLayout | null)[];
+} {
+  const samples: MapActivity[] = [];
+  const layouts: (MapLayout | null)[] = [];
+  return {
+    samples,
+    layouts,
+    watching: () => true,
+    free: () => true,
+    send: (activity) => samples.push(activity),
+    show: (layout) => layouts.push(layout),
+  };
 }
 
 /** A viewer that takes every frame offered and keeps them. */
@@ -244,6 +263,85 @@ describe('a machine that is being watched', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(session.readText()).toEqual(before);
     expect(viewer.frames.length).toBe(sampled);
+  }, 30_000);
+});
+
+describe('a machine whose memory is being mapped', () => {
+  /** Something that touches memory as it goes: a loop with a running total. */
+  const MEASURED = '10 FOR I=1 TO 200\n20 LET S=S+I\n30 NEXT I\n40 PRINT S\n';
+
+  /** A fixed count, so both runs spend exactly the same frames. */
+  const FRAMES = 60;
+
+  it('answers exactly as it would unmapped, and records nothing when nobody is', async () => {
+    const unmapped = serving();
+    const alone = await unmapped.run({
+      machine: 'zx81',
+      source: MEASURED,
+      frames: FRAMES,
+    });
+    const aloneSession = unmapped.session()!;
+    const aloneReadings = {
+      profile: aloneSession.measurements().profile,
+      variables: aloneSession.variables(),
+      screen: aloneSession.readText(),
+    };
+    // A machine nobody is mapping records nothing: the seam is there and was
+    // never armed, so there is nothing to drain.
+    expect(unmapped.held()!.machine.drainMemoryActivity!()).toBeNull();
+    unmapped.dispose();
+
+    const watcher = mapping();
+    const mapped = serving(undefined, watcher);
+    const seen = await mapped.run({
+      machine: 'zx81',
+      source: MEASURED,
+      frames: FRAMES,
+    });
+    mapped.settleMap();
+    const seenSession = mapped.session()!;
+
+    // Somebody really was mapping, or the comparison proves nothing.
+    expect(watcher.samples.length).toBeGreaterThan(1);
+    // The layout arrives once, ready to draw, and says the ZX81 can report
+    // what it touches - which is a different answer from a machine that
+    // cannot, and is given as one.
+    expect(watcher.layouts[0]?.machine).toBe('ZX81');
+    expect(watcher.layouts[0]?.reports).toBe(true);
+    expect(watcher.layouts[0]!.bands.length).toBeGreaterThan(1);
+    expect(watcher.layouts[0]!.addressSpace).toBe(0x10000);
+
+    // Machine time: identical, not merely close.
+    expect(seen.frames).toBe(alone.frames);
+    expect(seenSession.measurements().profile).toEqual(aloneReadings.profile);
+    expect(seenSession.variables()).toEqual(aloneReadings.variables);
+    expect(seenSession.readText()).toEqual(aloneReadings.screen);
+
+    // Host time: what the tap cost is taken back out, so the reported run time
+    // stays a figure about the run. Compared with room for the ordinary
+    // variation between two runs on a shared machine.
+    expect(seen.timings.runMs).toBeLessThan(alone.timings.runMs * 3 + 50);
+  }, 40_000);
+
+  it('says what machine is up again, for a map opened after it booted', async () => {
+    // A map asked for after the machine booted was not there to be told what
+    // it is looking at, so it is told what it would have been told all along.
+    const watcher = mapping();
+    const mapped = serving(undefined, watcher);
+    await mapped.run({ machine: 'zx81', source: MEASURED, frames: 10 });
+    const shown = watcher.layouts.length;
+    mapped.showMap();
+    expect(watcher.layouts.length).toBe(shown + 1);
+    expect(watcher.layouts.at(-1)?.machine).toBe('ZX81');
+  }, 30_000);
+
+  it('says there is no machine to map once the machine has gone', async () => {
+    const watcher = mapping();
+    const mapped = serving(undefined, watcher);
+    await mapped.run({ machine: 'zx81', source: MEASURED, frames: 10 });
+    expect(watcher.layouts.at(-1)).not.toBeNull();
+    mapped.dispose();
+    expect(watcher.layouts.at(-1)).toBeNull();
   }, 30_000);
 });
 

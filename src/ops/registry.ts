@@ -16,6 +16,7 @@ import { expectOp } from './expect';
 import { infoOp } from './info';
 import { lintOp } from './lint';
 import { machinesOp } from './machines';
+import { mapOp } from './map';
 import { playOp } from './play';
 import { profileOp, timeOp, variablesOp } from './measure';
 import { runOp } from './run';
@@ -45,6 +46,7 @@ export const OPERATIONS: readonly Operation[] = [
   convertOp,
   viewOp,
   playOp,
+  mapOp,
 ] as Operation[];
 
 /** The operation of that name, or undefined. */

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { apple2MemoryMap } from './memoryMap';
 import { apple2MemoryBlocks } from './memoryBlocks';
-import { memoryBands } from '../../components/memoryBands';
+import { memoryBands } from '../memoryBands';
 import {
   BASIC_BASE,
   BASIC_TOP,

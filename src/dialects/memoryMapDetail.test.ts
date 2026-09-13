@@ -2,7 +2,7 @@
  * The memory map has two levels of detail, and zooming in has to actually reach
  * the second one: contiguous leaves sharing a `group` collapse into one band
  * when the map is zoomed out, and open into the regions they group when it is
- * zoomed in (see `src/components/memoryBands.ts`).
+ * zoomed in (see `src/dialects/memoryBands.ts`).
  *
  * Four machines described their whole 64K in five flat regions once, so zooming
  * in showed nothing new. Each `detail` label below exists *only* as a
@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { getDialect } from './registry';
-import { memoryBands } from '../components/memoryBands';
+import { memoryBands } from './memoryBands';
 
 /**
  * `coarse` is a band the map shows at every zoom level; `detail` is one of the

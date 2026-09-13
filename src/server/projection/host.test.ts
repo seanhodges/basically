@@ -398,6 +398,173 @@ describe('a play channel onto a held machine', () => {
   });
 });
 
+/** Open a socket onto a map and collect what it says. */
+function mapAt(address: string) {
+  const socket = new WebSocket(`${address.replace(/^http/, 'ws')}socket`);
+  socket.binaryType = 'arraybuffer';
+  const layouts: unknown[] = [];
+  const samples: { addressesPerCell: number; cells: Uint8Array }[] = [];
+  const states: string[] = [];
+  socket.addEventListener('message', (message) => {
+    const bytes = new Uint8Array(message.data as ArrayBuffer);
+    if (bytes[0] === 0x01) {
+      layouts.push(JSON.parse(new TextDecoder().decode(bytes.subarray(1))));
+      return;
+    }
+    if (bytes[0] === 0x02) {
+      const head = new DataView(message.data as ArrayBuffer, 1, 2);
+      samples.push({
+        addressesPerCell: head.getUint16(0),
+        cells: inflateRawSync(Buffer.from(bytes.subarray(3))),
+      });
+      return;
+    }
+    if (bytes[0] === 0x03) {
+      states.push(new TextDecoder().decode(bytes.subarray(1)));
+    }
+  });
+  return {
+    socket,
+    layouts,
+    samples,
+    states,
+    open: () =>
+      new Promise<void>((resolve, reject) => {
+        socket.addEventListener('open', () => resolve());
+        socket.addEventListener('error', () => reject(new Error('refused')));
+      }),
+    close: () => socket.close(),
+  };
+}
+
+const A_LAYOUT = {
+  machine: 'ZX81',
+  addressSpace: 0x10000,
+  addressUnit: 'byte' as const,
+  bands: [{ label: 'ROM', kind: 'rom' as const, start: 0, end: 0x1fff }],
+  reports: true,
+};
+
+describe('a map of a held machine’s memory', () => {
+  it('binds nothing until a caller asks for one', async () => {
+    const maps = serving();
+    const map = maps.forSession().map;
+    expect(map.watching()).toBe(false);
+
+    const { address } = await map.open();
+    expect(address).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/m\/[\w-]+\/$/);
+    expect(map.watching()).toBe(true);
+  });
+
+  it('serves the page to whoever holds the address', async () => {
+    const maps = serving();
+    const { address } = await maps.forSession().map.open();
+    const page = await get(address!);
+    expect(page.status).toBe(200);
+    expect(page.headers.get('content-type')).toContain('text/html');
+    expect(page.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(await page.text()).toContain('<canvas id="bands">');
+  });
+
+  it('hands one caller the same map twice rather than opening a second', async () => {
+    const maps = serving();
+    const map = maps.forSession().map;
+    const first = await map.open();
+    const again = await map.open();
+    expect(again.address).toBe(first.address);
+    expect(again.already).toBe(true);
+  });
+
+  it('shows nothing at an address it was not given, or at one that has ended', async () => {
+    const maps = serving();
+    const session = maps.forSession();
+    const { address } = await session.map.open();
+    const elsewhere = address!.replace(/\/m\/[^/]+\//, '/m/nothingwasgiven/');
+    expect((await get(elsewhere)).status).toBe(404);
+
+    // A second map keeps the listener up, so the first address can be tried
+    // after its own map has gone.
+    const other = await maps.forSession().map.open();
+    await session.map.end();
+    expect((await get(address!)).status).toBe(404);
+    // Told apart from an address that never existed by nothing at all, which
+    // is the point: they are the same answer.
+    expect((await get(elsewhere)).status).toBe(404);
+    expect((await get(other.address!)).status).toBe(200);
+  });
+
+  it('refuses a request that calls the listener by another name', async () => {
+    const maps = serving();
+    const { address } = await maps.forSession().map.open();
+    // A page anywhere can point a request at a loopback address; what stops it
+    // being answered is the name it called this listener by.
+    expect(await withHost(address!, 'memory.example.com')).toBe(403);
+    expect(await withHost(address!, `127.0.0.1:${portOf(address!)}`)).toBe(200);
+  });
+
+  it('refuses an upgrade that calls the listener by another name', async () => {
+    const maps = serving();
+    const { address } = await maps.forSession().map.open();
+    expect(await upgradeCalling(address!, 'memory.example.com')).toContain(
+      '403',
+    );
+  });
+
+  it('refuses anything but a read: a watcher receives and never sends', async () => {
+    const maps = serving();
+    const { address } = await maps.forSession().map.open();
+    expect((await get(address!, { method: 'POST' })).status).toBe(405);
+  });
+
+  it('carries the layout and the activity out, and takes nothing back in', async () => {
+    const maps = serving();
+    const session = maps.forSession();
+    const { address } = await session.map.open();
+    session.map.show(A_LAYOUT);
+    session.map.settled('ZX81');
+
+    const watching = mapAt(address!);
+    await watching.open();
+    await until(
+      () => watching.layouts.length > 0,
+      'the map never carried a layout',
+    );
+    session.map.send({
+      addressesPerCell: 16,
+      cells: deflateRawSync(Buffer.from([1, 2, 0, 3])),
+    });
+    await until(
+      () => watching.samples.length > 0,
+      'the map never carried a sample',
+    );
+    expect(watching.layouts[0]).toEqual(A_LAYOUT);
+    expect(watching.samples[0]!.addressesPerCell).toBe(16);
+    expect([...watching.samples[0]!.cells]).toEqual([1, 2, 0, 3]);
+    expect(watching.states).toContain('idle');
+
+    // Whoever holds the address can send; nothing is done with it, and the
+    // map goes on carrying what it was carrying.
+    watching.socket.send(JSON.stringify({ key: 'A', down: true }));
+    session.map.send({
+      addressesPerCell: 16,
+      cells: deflateRawSync(Buffer.from([4])),
+    });
+    await until(
+      () => watching.samples.length > 1,
+      'the map stopped carrying samples',
+    );
+    watching.close();
+  });
+
+  it('stops listening once the last projection has ended', async () => {
+    const maps = serving();
+    const map = maps.forSession().map;
+    const { address } = await map.open();
+    await map.end();
+    await expect(get(address!)).rejects.toThrow();
+  });
+});
+
 describe('a machine is projected one way or the other', () => {
   it('ends the view when the same machine is asked to be played, and says so', async () => {
     const host = serving();
@@ -420,5 +587,28 @@ describe('a machine is projected one way or the other', () => {
     expect(session.play.playing()).toBe(false);
     expect((await get(play.address!)).status).toBe(404);
     await expect(playAt(play.address!).open()).rejects.toThrow();
+  });
+
+  it('leaves a map exactly as it was, and is left exactly as it was by one', async () => {
+    // The exclusion is about the display, and a map is not one: it stands
+    // outside the pair rather than becoming a third arm of the same choice.
+    const host = serving();
+    const session = host.forSession();
+    const map = await session.map.open();
+    const view = await session.view.open();
+    expect(view.endedPlay).toBe(false);
+    expect(session.map.watching()).toBe(true);
+    expect((await get(map.address!)).status).toBe(200);
+
+    const play = await session.play.open();
+    expect(play.endedView).toBe(true);
+    expect(session.map.watching()).toBe(true);
+    expect((await get(map.address!)).status).toBe(200);
+
+    // And asking for the map while the machine is being played ends nothing.
+    const again = await session.map.open();
+    expect(again.address).toBe(map.address);
+    expect(session.play.playing()).toBe(true);
+    expect((await get(play.address!)).status).toBe(200);
   });
 });

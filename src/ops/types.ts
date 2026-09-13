@@ -179,6 +179,41 @@ export interface PlayOpened {
   endedView: boolean;
 }
 
+/**
+ * A map of the held machine's memory, at an address something that can show a
+ * web page can be pointed at.
+ *
+ * Handed in for the reason the other two projections are: projecting one needs
+ * a listener on the network, and this layer imports nothing of node's. A caller
+ * with no way to project - the browser IDE, where the map is already a panel on
+ * the screen - simply carries none.
+ */
+export interface MapProjection {
+  /**
+   * Open a map of the machine that is up, or hand back the one already open.
+   * Answers rather than throws when no map can be projected, so the operation
+   * can say why.
+   */
+  open(): Promise<MapOpened>;
+  /**
+   * Whether the machine that is up has a memory layout the toolchain
+   * describes, and so whether there is a map of it at all. Asked here rather
+   * than of the session because the layout belongs to the machine's dialect,
+   * which is beside the machine and not on the session.
+   */
+  mappable(): boolean;
+}
+
+/** What asking for a map produced. */
+export interface MapOpened {
+  /** Where to point something that can show a web page, or null when nowhere. */
+  address: string | null;
+  /** Why there is no address, when there is none. */
+  problem: string | null;
+  /** Whether a map was already open, and this is that one. */
+  already: boolean;
+}
+
 /** Everything an operation may be given, by the caller that knows it. */
 export interface OpContext {
   roms: RomProbe;
@@ -192,6 +227,12 @@ export interface OpContext {
   view?: ViewProjection;
   /** Present only for a caller that can serve one; see {@link PlayProjection}. */
   play?: PlayProjection;
+  /**
+   * Present only for a caller that can project a map of a machine's memory;
+   * see {@link MapProjection}. A map is not a display, so it is carried
+   * alongside a view or a play channel rather than instead of one.
+   */
+  map?: MapProjection;
   /**
    * The machine a program-reading operation defaults to when its input names
    * none and the program declares none. The assistant's conversation is pinned

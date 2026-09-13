@@ -42,6 +42,7 @@ export const OPERATIONS = [
   'screenshot',
   'view',
   'play',
+  'map',
   'profile',
   'time',
   'variables',
@@ -195,6 +196,24 @@ export interface PlayArgs {
   input: Record<never, never>;
 }
 
+/**
+ * Asking for a map of the held machine's memory, and giving that up again.
+ *
+ * Takes nothing for the reason `view` takes nothing: the machine is the one
+ * that is up, and where the map is reachable is the host's to decide.
+ */
+export interface MapArgs {
+  operation: 'map';
+  json: boolean;
+  /**
+   * Give the map up rather than asking for one. The machine stays and is
+   * unchanged by it: it recorded what it touched only while something was
+   * watching, and records nothing once nothing is.
+   */
+  stop: boolean;
+  input: Record<never, never>;
+}
+
 export interface MeasureArgs {
   operation: 'profile' | 'time' | 'variables';
   json: boolean;
@@ -333,6 +352,7 @@ export type CliArgs =
   | ScreenshotArgs
   | ViewArgs
   | PlayArgs
+  | MapArgs
   | MeasureArgs
   | BreakArgs
   | DebugRunArgs
@@ -521,6 +541,24 @@ function parsePlay(argv: string[]): PlayArgs {
     throw new RunError(`play takes no arguments, got "${rest[0]}"`);
   }
   return { operation: 'play', json, stop, input: {} };
+}
+
+/**
+ * `map` and `map --stop`: asking for the machine's memory to be mapped, and
+ * giving that up again.
+ */
+function parseMap(argv: string[]): MapArgs {
+  let json = false;
+  let stop = false;
+  const rest = scan(argv, (name) => {
+    if (name === '--json') json = true;
+    else if (name === '--stop') stop = true;
+    else throw unknownOption('map', name);
+  });
+  if (rest.length > 0) {
+    throw new RunError(`map takes no arguments, got "${rest[0]}"`);
+  }
+  return { operation: 'map', json, stop, input: {} };
 }
 
 function parseExpect(argv: string[]): ExpectArgs {
@@ -963,6 +1001,8 @@ export function parseArgs(argv: string[]): CliArgs {
       return parseView(rest);
     case 'play':
       return parsePlay(rest);
+    case 'map':
+      return parseMap(rest);
     case 'profile':
     case 'time':
     case 'variables':

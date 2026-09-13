@@ -229,6 +229,16 @@ export function serveConnection(connection: Duplex, host: HostServices): void {
           holding: (await session?.held()) ?? null,
         });
         return;
+      case 'unmap':
+        // The map goes; the machine stays exactly as it was, having been
+        // unchanged by being mapped in the first place.
+        await session?.unmap();
+        send({
+          kind: 'host-result',
+          id: request.id,
+          holding: (await session?.held()) ?? null,
+        });
+        return;
       case 'stop':
         // Answered before the host goes, so the caller learns it was stopped
         // rather than only that the connection ended.

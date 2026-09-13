@@ -775,40 +775,62 @@ because one convenience import puts the whole toolchain back.
 
 Because the host outlives a command, **the command line holds a machine between
 commands**: `run --hold` leaves the machine it booted running, and `drive`,
-`look`, `screenshot`, `profile`, `time`, `variables`, `expect`, `view` and
-`play` act on it until it is released. The options on `run` and `check` remain the
+`look`, `screenshot`, `profile`, `time`, `variables`, `expect`, `view`, `play`
+and `map` act on it until it is released. The options on `run` and `check` remain the
 one-shot spelling of those same capabilities.
 
 ### The projections
 
 Beside the conversations it serves, the host can **project a held machine** to
-something that can show a web page. There are two kinds, both asked for by the
-caller that holds the machine, both served from one listener
-(`src/server/projection/host.ts`), and a machine has at most one of them at a
-time - asking for either ends the other, and the outcome says which
-(`ViewOpened.endedPlay`, `PlayOpened.endedView`).
+something that can show a web page. There are three kinds, each asked for by the
+caller that holds the machine and all served from one listener
+(`src/server/projection/host.ts`).
 
-| Projection                                                 | What its address admits                                                                                                     |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **A view**<br>`view` operation, `src/server/view/`         | Watching. Sampled frames as pictures over Server-Sent Events; nothing travels back, and no measurement changes              |
-| **A play channel**<br>`play` operation, `src/server/play/` | Acting. Every frame as raw-deflated pixels over a WebSocket, keys back on the same socket, and the machine on its own clock |
+| Projection                                                 | What its address admits                                                                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **A view**<br>`view` operation, `src/server/view/`         | Watching the screen. Sampled frames as pictures over Server-Sent Events; nothing travels back, and no measurement changes       |
+| **A play channel**<br>`play` operation, `src/server/play/` | Acting. Every frame as raw-deflated pixels over a WebSocket, keys back on the same socket, and the machine on its own clock     |
+| **A map**<br>`map` operation, `src/server/map/`            | Watching memory. The layout and bands once, then raw-deflated per-cell activity over a WebSocket; never the value at an address |
+
+The view and the play channel are two ways of showing one **display**, so a
+machine has at most one of them at a time - asking for either ends the other,
+and the outcome says which (`ViewOpened.endedPlay`, `PlayOpened.endedView`). A
+map shows what neither of them shows and stands outside that pair: it may be
+open beside either, opening it ends neither, and neither ends it. That is
+load-bearing rather than tidy - a held machine advances unasked only while it is
+being played, so a map that ended the play channel would show a still picture of
+a stopped machine.
 
 Each serves a standalone `page.html`, inlined into the bundle as text by the
 build's `raw-imports` plugin, so an application embedding the toolchain puts the
-machine in a frame of its own without knowing how the picture is carried.
+machine in a frame of its own without knowing how what it shows is carried. Each
+page states in its own words what its own address admits, because that is a
+different claim in each.
 
 | What is guaranteed<br>and where it is held                                      | How                                                                                                                                                                                   |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A viewer or player is not a caller<br>`src/server/sessions.test.ts`             | A projection hangs off an existing `HostSession`; whoever is shown it gets no session, no machine and no operation dispatch, so "a machine belongs to one caller" is untouched        |
 | Nothing is bound until one is asked for<br>`src/server/projection/host.test.ts` | The `node:http` listener starts on the first projection and stops when the last one ends; no dependency is added, the WebSocket handshake included                                    |
 | The address is the whole of admission<br>`src/server/projection/host.test.ts`   | Loopback only, an unguessable per-projection path, never reused; the `Host` header is checked against DNS rebinding - on the upgrade as well as the request - and no referrer is sent |
-| Being watched changes no answer<br>`src/mcp/session.test.ts`                    | The tap paints without advancing the machine, so machine-time measurements are identical; what it costs the host is accumulated and taken back out of `timings.runMs`                 |
+| Being watched changes no answer<br>`src/mcp/session.test.ts`                    | Each tap reads the machine without advancing it, so machine-time measurements are identical; what either costs the host is accumulated and taken back out of `timings.runMs`          |
 | A played machine is not one anything measures<br>`src/ops/play.test.ts`         | Every `needs: 'session'` operation declares `Operation.played`; `runOperation` refuses the ones that act or measure while `ctx.play.playing()`, with the reason and the remedy        |
 
 The view's tap is `src/dialects/headless/frameTap.ts`, driven from the same
 `runFrame` both runners already call. It samples every _N_ th frame and drops a
 sample whose predecessor is still on its way, so a viewer sees the machine's
 present rather than a backlog.
+
+**The map's tap hangs in the same place** and is armed from whether anything is
+watching, so a machine nobody is mapping records nothing
+(`src/dialects/headless/activityTap.ts`, over the
+`setMemoryActivityRecording` / `drainMemoryActivity` seam every machine with a
+bus to tap already owns). It is the simpler of the two, because a drain reports
+every address touched since the last one: a sample skipped for the rate or for a
+far end that is behind widens the next sample's window rather than losing
+anything. Each drain is reduced to cells and compressed beside the machine
+before it crosses a thread (`src/server/map/activity.ts`), and the band rule the
+page draws by is the IDE's own (`src/dialects/memoryBands.ts`), computed beside
+the machine so the page receives bands ready to draw.
 
 **The clock is what a play channel adds to the arrangement.** Nothing else in
 the host advances a machine of its own accord: `src/server/play/clock.ts` is a
@@ -821,13 +843,14 @@ the frame is the last one over again (`frames.ts`) or the far end is behind. It
 starts with the channel and stops with it, which is what confines the exception
 to a machine that is explicitly being played.
 
-**The seam gained a direction.** A machine in a worker sends its frames across
+**The seam gained a direction.** A machine in a worker sends its frames and its
+memory activity across
 and its caller's request for an address back the other way (`WorkerNote` /
 `WorkerAnswer` in `src/server/machineWorker.ts`). A key is the first thing to
 travel _toward_ the machine unprompted - a `play-key` answer sent when somebody
 typed - and the names it carries are resolved through the same
 `resolveKeyName` a written schedule goes through, so a key pressed live and the
-same key in a schedule reach the machine identically. Either projection follows
+same key in a schedule reach the machine identically. Every projection follows
 the session rather than any one machine, so a caller that runs a second program
 keeps its address. Nothing else needs a direction of its own: an operation runs
 beside the machine it acts on, so asking a machine in a worker where its program
