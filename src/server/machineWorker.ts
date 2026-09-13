@@ -24,7 +24,10 @@
  */
 
 import type { ViewFrame } from '../dialects/headless/frameTap';
+import type { MapActivity } from '../dialects/headless/activityTap';
 import type {
+  MapOpened,
+  MapProjection,
   Operation,
   PlayOpened,
   PlayProjection,
@@ -33,6 +36,12 @@ import type {
 import { serverContext, type ServerContextOptions } from '../mcp/context';
 import { CANNOT_PROJECT } from '../ops/view';
 import type { ViewLink } from './view/link';
+import {
+  CANNOT_PROJECT_MAP,
+  type MapLayout,
+  type MapLink,
+  type SessionMap,
+} from './map/link';
 import type { PlayFrame } from './play/frames';
 import {
   CANNOT_PLAY,
@@ -72,8 +81,9 @@ export function createInProcessHolder(
   reaches: (op: Operation) => boolean = reachesFromCli,
   view?: ViewLink,
   play?: PlayLink,
+  map?: MapLink,
 ): MachineHolder {
-  const server: ServerMachine = createServerMachine(view);
+  const server: ServerMachine = createServerMachine(view, map);
   // The clock and the keys, beside the machine. Made whether or not a channel
   // is ever asked for: it starts nothing until one is, and a caller that never
   // plays pays for a closure.
@@ -99,6 +109,20 @@ export function createInProcessHolder(
           playing: () => play.playing(),
         }
       : undefined;
+  // A machine with no described layout has no map, and what describes it is
+  // the dialect beside the machine rather than anything the session carries.
+  const mapping: MapProjection | undefined = map
+    ? {
+        open: async (): Promise<MapOpened> => {
+          const opened = await map.open();
+          // A map opened after the machine booted was not there to be told
+          // what machine it is looking at, and nothing else would say again.
+          if (opened.address !== null && !opened.already) server.showMap();
+          return opened;
+        },
+        mappable: () => server.held()?.dialect.memoryMap !== undefined,
+      }
+    : undefined;
   return {
     call: async (operation, input) => {
       try {
@@ -106,7 +130,8 @@ export function createInProcessHolder(
           operation,
           input,
           {
-            context: () => serverContext(server, options, view, projection),
+            context: () =>
+              serverContext(server, options, view, projection, mapping),
             heldMachine: () => {
               const held = server.held();
               return held && { name: held.dialect.name, token: held.machine };
@@ -120,6 +145,9 @@ export function createInProcessHolder(
         // have skipped it. Refused and failed calls settle too: what the
         // machine shows now is what it shows.
         server.settleView();
+        // And what it touched doing so, so a map shows the request's own work
+        // rather than whatever the last sample happened to catch.
+        server.settleMap();
       }
     },
     held: () => Promise.resolve(server.held()?.dialect.name ?? null),
@@ -156,10 +184,10 @@ export type WorkerReply =
 /**
  * What the thread holding the machine says without having been asked.
  *
- * The only traffic that starts on the worker's side. Both projections are
- * served from the host's thread, because that is where a listener can be, while
- * the machine and its picture are here - so the frames travel one way and the
- * address that answers the caller travels back.
+ * The only traffic that starts on the worker's side. Every projection is served
+ * from the host's thread, because that is where a listener can be, while the
+ * machine, its picture and what it touches are here - so those travel one way
+ * and the address that answers the caller travels back.
  *
  * A key is the one thing that travels the other way, from the host to the
  * machine: a `play-key` answer, sent when somebody typed rather than in reply
@@ -179,7 +207,13 @@ export type WorkerNote =
   /** One frame of a played machine, already compressed. */
   | { kind: 'play-frame'; frame: PlayFrame }
   /** What the play channel is showing. */
-  | { kind: 'play-state'; state: PlayState };
+  | { kind: 'play-state'; state: PlayState }
+  /** Asking the host to open (or hand back) this caller's map. */
+  | { kind: 'map-open'; id: number }
+  /** The machine a map is showing, or null when the caller holds none. */
+  | { kind: 'map-layout'; layout: MapLayout | null }
+  /** One sample of what a mapped machine touched, already compressed. */
+  | { kind: 'map-activity'; activity: MapActivity };
 
 /** What the host says back to a {@link WorkerNote}. */
 export type WorkerAnswer =
@@ -192,7 +226,10 @@ export type WorkerAnswer =
   /** Somebody typed. Unprompted: the one thing that travels toward the machine. */
   | { kind: 'play-key'; key: string; down: boolean }
   /** The channel has ended, so the machine stops advancing unasked. */
-  | { kind: 'play-ended' };
+  | { kind: 'play-ended' }
+  | { kind: 'map-opened'; id: number; opened: MapOpened }
+  /** The last sample has reached the watchers; another may be sent. */
+  | { kind: 'map-free' };
 
 const NOTE_KINDS = new Set([
   'view-open',
@@ -200,6 +237,9 @@ const NOTE_KINDS = new Set([
   'play-open',
   'play-frame',
   'play-state',
+  'map-open',
+  'map-layout',
+  'map-activity',
 ]);
 
 const ANSWER_KINDS = new Set([
@@ -209,6 +249,8 @@ const ANSWER_KINDS = new Set([
   'play-free',
   'play-key',
   'play-ended',
+  'map-opened',
+  'map-free',
 ]);
 
 /** Whether a message from the worker is one of its own notes. */
@@ -343,6 +385,55 @@ export function createWorkerPlayLink(post: (note: WorkerNote) => void): {
   };
 }
 
+/**
+ * The machine's side of a map, over the port to the thread serving it.
+ *
+ * The view's link exactly, with the layout added: `free` is a flag the host
+ * clears rather than a question, because the tap asks it in the middle of a
+ * frame. Nothing arrives from the far end at all - a map is the one projection
+ * with no direction back, since whoever watches it can do nothing.
+ */
+export function createWorkerMapLink(post: (note: WorkerNote) => void): {
+  link: MapLink;
+  answer(message: WorkerAnswer): void;
+} {
+  const waiting = new Map<number, (opened: MapOpened) => void>();
+  let nextId = 1;
+  let mapping = false;
+  let inFlight = false;
+
+  return {
+    link: {
+      open: () =>
+        new Promise<MapOpened>((resolve) => {
+          const id = nextId++;
+          waiting.set(id, (opened) => {
+            if (opened.address !== null) mapping = true;
+            resolve(opened);
+          });
+          post({ kind: 'map-open', id });
+        }),
+      watching: () => mapping,
+      free: () => !inFlight,
+      send: (activity) => {
+        inFlight = true;
+        post({ kind: 'map-activity', activity });
+      },
+      show: (layout) => post({ kind: 'map-layout', layout }),
+    },
+    answer(message) {
+      if (message.kind !== 'map-opened') {
+        if (message.kind === 'map-free') inFlight = false;
+        return;
+      }
+      const pending = waiting.get(message.id);
+      if (!pending) return;
+      waiting.delete(message.id);
+      pending(message.opened);
+    },
+  };
+}
+
 /** Enough of a `MessagePort` for either side; the real ones satisfy it. */
 export interface MessageChannelLike {
   postMessage(value: unknown): void;
@@ -367,12 +458,20 @@ export function serveMachineWorker(
   const post = (note: WorkerNote) => port.postMessage(note);
   const view = createWorkerViewLink(post);
   const play = createWorkerPlayLink(post);
-  const holder = createInProcessHolder(options, reaches, view.link, play.link);
+  const map = createWorkerMapLink(post);
+  const holder = createInProcessHolder(
+    options,
+    reaches,
+    view.link,
+    play.link,
+    map.link,
+  );
   port.on('message', (request: WorkerRequest) => {
     const answer = asAnswer(request);
     if (answer) {
       view.answer(answer);
       play.answer(answer);
+      map.answer(answer);
       return;
     }
     const reply = (message: WorkerReply) => port.postMessage(message);
@@ -433,6 +532,7 @@ export function createWorkerHolder(
   },
   view?: ViewLink,
   play?: SessionPlay,
+  map?: SessionMap,
 ): MachineHolder {
   let worker: ReturnType<typeof spawn> | null = null;
   let nextId = 1;
@@ -490,6 +590,32 @@ export function createWorkerHolder(
       case 'play-state':
         play?.say(note.state);
         return;
+      case 'map-layout':
+        map?.show(note.layout);
+        return;
+      case 'map-activity':
+        map?.send(note.activity);
+        // The tap holds off until this lands, so a machine touching memory
+        // faster than a watcher can be shown drops samples rather than
+        // queueing them - and what a dropped sample covered turns up in the
+        // next one, because a drain reports everything since the last.
+        port.postMessage({ kind: 'map-free' } satisfies WorkerAnswer);
+        return;
+      case 'map-open': {
+        const opened = map
+          ? await map.open()
+          : {
+              address: null,
+              problem: CANNOT_PROJECT_MAP,
+              already: false,
+            };
+        port.postMessage({
+          kind: 'map-opened',
+          id: note.id,
+          opened,
+        } satisfies WorkerAnswer);
+        return;
+      }
       case 'play-open': {
         const opened = play
           ? await play.open()

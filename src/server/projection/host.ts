@@ -17,23 +17,30 @@
  * - **The loopback interface only**, so nothing off this computer can reach it.
  * - **Possession of the address is the whole of admission.** It is unguessable,
  *   different for every projection, and never handed out twice. There is
- *   nothing else, and `openspec/specs/display-view` and
- *   `openspec/specs/machine-play` each say so plainly rather than implying
- *   depth that is not here.
+ *   nothing else, and `openspec/specs/display-view`,
+ *   `openspec/specs/machine-play` and `openspec/specs/memory-view` each say so
+ *   plainly rather than implying depth that is not here.
  *
- * Two projections, and what an address admits is not the same in each. A view
- * mirrors: whoever holds its address watches and can do nothing. A play channel
- * drives: whoever holds its address types at the machine. That is a larger
- * claim about a longer string, and it is why the play page and the play
- * documentation state it in their own words rather than by reference to the
- * view's.
+ * Three projections, and what an address admits is not the same in any two. A
+ * view mirrors: whoever holds its address watches the screen and can do
+ * nothing. A play channel drives: whoever holds its address types at the
+ * machine. A map shows neither - it shows the machine's memory layout and which
+ * addresses it is touching, and never what any of them holds. Each is a
+ * different claim about a different string, which is why each page and each
+ * piece of documentation states its own rather than pointing at another's.
  *
- * A machine has one or the other and never both, which is settled here rather
- * than by whoever asks: opening one ends the other, and the caller is told
- * which happened. A view exists so a machine driven by requests can be watched
- * by somebody who is not driving it, and a machine being played is already
- * being seen by whoever is driving it - so a second projection of one display
- * would double what carrying it costs and serve nobody.
+ * A machine has a view or a play channel and never both, which is settled here
+ * rather than by whoever asks: opening one ends the other, and the caller is
+ * told which happened. A view exists so a machine driven by requests can be
+ * watched by somebody who is not driving it, and a machine being played is
+ * already being seen by whoever is driving it - so a second projection of one
+ * display would double what carrying it costs and serve nobody.
+ *
+ * That rule is about the display, and a map is not one. It stands outside the
+ * pair: it may be open beside either, opening it ends neither, and it is not
+ * ended by either. Which is what makes it worth having - a held machine
+ * advances unasked only while it is being played, so a map that ended the play
+ * channel would show a still picture of a stopped machine.
  *
  * Two things are defended specifically. A page anywhere on the internet can
  * point a request at a loopback address, so the `Host` header is checked and a
@@ -52,13 +59,16 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { Duplex } from 'node:stream';
 import VIEW_PAGE from '../view/page.html?raw';
 import PLAY_PAGE from '../play/page.html?raw';
+import MAP_PAGE from '../map/page.html?raw';
 import { createViewFeed, type ViewFeed } from '../view/feed';
 import type { SessionView } from '../view/link';
 import { createPlayChannel, type PlayChannel } from '../play/channel';
 import type { SessionPlay } from '../play/link';
+import { createMapChannel, type MapChannel } from '../map/channel';
+import type { SessionMap } from '../map/link';
 import { serveWebSocket, upgradeKeyOf } from '../play/socket';
 import type { ProjectionHost, SessionProjection } from './link';
-import type { PlayOpened, ViewOpened } from '../../ops/types';
+import type { MapOpened, PlayOpened, ViewOpened } from '../../ops/types';
 
 export { noProjections } from './link';
 export type { ProjectionHost, SessionProjection } from './link';
@@ -94,6 +104,7 @@ export function createProjectionHost(
 ): ProjectionHost {
   const views = new Map<string, ViewFeed>();
   const plays = new Map<string, PlayChannel>();
+  const maps = new Map<string, MapChannel>();
   // Kept so an address is never handed to a second projection, and so one that
   // has ended is refused as pointedly as one that never existed.
   const retired = new Set<string>();
@@ -124,7 +135,12 @@ export function createProjectionHost(
   /** A fresh address that has never been issued and never will be again. */
   function mint(): string {
     let fresh = randomBytes(TOKEN_BYTES).toString('base64url');
-    while (views.has(fresh) || plays.has(fresh) || retired.has(fresh)) {
+    while (
+      views.has(fresh) ||
+      plays.has(fresh) ||
+      maps.has(fresh) ||
+      retired.has(fresh)
+    ) {
       fresh = randomBytes(TOKEN_BYTES).toString('base64url');
     }
     return fresh;
@@ -133,15 +149,12 @@ export function createProjectionHost(
   /** What a request is asking for, or null when it is asking for nothing. */
   function route(
     url: string,
-  ): { kind: 'view' | 'play'; token: string; tail: string } | null {
+  ): { kind: 'view' | 'play' | 'map'; token: string; tail: string } | null {
     const path = url.split('?')[0] ?? '';
-    const match = /^\/([vp])\/([A-Za-z0-9_-]+)\/([a-z]*)$/.exec(path);
+    const match = /^\/([vpm])\/([A-Za-z0-9_-]+)\/([a-z]*)$/.exec(path);
     if (!match) return null;
-    return {
-      kind: match[1] === 'v' ? 'view' : 'play',
-      token: match[2]!,
-      tail: match[3]!,
-    };
+    const kind = match[1] === 'v' ? 'view' : match[1] === 'p' ? 'play' : 'map';
+    return { kind, token: match[2]!, tail: match[3]! };
   }
 
   function serve(request: IncomingMessage, response: ServerResponse): void {
@@ -163,14 +176,22 @@ export function createProjectionHost(
       refuse(response, 404);
       return;
     }
-    if (asked.kind === 'play') {
+    if (asked.kind === 'play' || asked.kind === 'map') {
       // The socket is reached by upgrading, which never arrives here.
-      if (!plays.has(asked.token) || asked.tail !== '') {
+      const open =
+        asked.kind === 'play' ? plays.has(asked.token) : maps.has(asked.token);
+      if (!open || asked.tail !== '') {
         refuse(response, 404);
         return;
       }
       head(response, 200, 'text/html; charset=utf-8');
-      response.end(request.method === 'HEAD' ? undefined : PLAY_PAGE);
+      response.end(
+        request.method === 'HEAD'
+          ? undefined
+          : asked.kind === 'play'
+            ? PLAY_PAGE
+            : MAP_PAGE,
+      );
       return;
     }
     const feed = views.get(asked.token);
@@ -209,14 +230,27 @@ export function createProjectionHost(
     };
     if (!addressedHere(request.headers.host, port)) return deny();
     const asked = route(request.url ?? '');
-    if (!asked || asked.kind !== 'play' || asked.tail !== 'socket') {
+    if (!asked || asked.kind === 'view' || asked.tail !== 'socket') {
       return deny();
     }
-    const channel = plays.get(asked.token);
-    if (!channel) return deny();
     const key = upgradeKeyOf(request.headers);
     if (!key) return deny();
     let detach: (() => void) | null = null;
+    if (asked.kind === 'map') {
+      const channel = maps.get(asked.token);
+      if (!channel) return deny();
+      const watcher = serveWebSocket(socket, key, {
+        // A map is read and never written to: whoever is watching has nothing
+        // to say, so what arrives is somebody else's protocol and is dropped
+        // rather than parsed.
+        message: () => {},
+        closed: () => detach?.(),
+      });
+      detach = channel.attach(watcher);
+      return;
+    }
+    const channel = plays.get(asked.token);
+    if (!channel) return deny();
     const player = serveWebSocket(socket, key, {
       message: (payload, binary) => channel.received(payload, binary),
       closed: () => detach?.(),
@@ -257,7 +291,7 @@ export function createProjectionHost(
 
   /** Stop listening as soon as there is no projection left to serve. */
   async function stopIfSpent(): Promise<void> {
-    if (views.size > 0 || plays.size > 0 || !server) return;
+    if (views.size > 0 || plays.size > 0 || maps.size > 0 || !server) return;
     const bound = server;
     server = null;
     port = 0;
@@ -271,9 +305,11 @@ export function createProjectionHost(
       let playToken: string | null = null;
       let channel: PlayChannel | null = null;
       let pressed: ((key: string, down: boolean) => void) | null = null;
+      let mapToken: string | null = null;
+      let chart: MapChannel | null = null;
       const whenPlayEnds = new Set<() => void>();
 
-      const at = (kind: 'v' | 'p', token: string) =>
+      const at = (kind: 'v' | 'p' | 'm', token: string) =>
         `http://${LOOPBACK}:${port}/${kind}/${token}/`;
 
       const endView = (): boolean => {
@@ -295,6 +331,16 @@ export function createProjectionHost(
         playToken = null;
         pressed = null;
         for (const tell of whenPlayEnds) tell();
+        return true;
+      };
+
+      const endMap = (): boolean => {
+        if (!chart || mapToken === null) return false;
+        maps.delete(mapToken);
+        retired.add(mapToken);
+        chart.end();
+        chart = null;
+        mapToken = null;
         return true;
       };
 
@@ -396,12 +442,50 @@ export function createProjectionHost(
         },
       };
 
+      const map: SessionMap = {
+        open: async (): Promise<MapOpened> => {
+          if (chart && mapToken) {
+            return { address: at('m', mapToken), problem: null, already: true };
+          }
+          try {
+            await listening();
+          } catch (error) {
+            return {
+              address: null,
+              problem: `no map could be opened: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              already: false,
+            };
+          }
+          // Nothing is ended here, and that is the whole of the map standing
+          // outside the view/play exclusion: the pair is left exactly as it is.
+          const fresh = mint();
+          mapToken = fresh;
+          chart = createMapChannel();
+          maps.set(fresh, chart);
+          return { address: at('m', fresh), problem: null, already: false };
+        },
+        watching: () => chart !== null,
+        free: () => chart?.free() ?? true,
+        send: (activity) => chart?.push(activity),
+        show: (layout) => chart?.show(layout),
+        working: () => chart?.say('working'),
+        settled: (held) => chart?.say(held === null ? 'no-machine' : 'idle'),
+        end: async () => {
+          endMap();
+          await stopIfSpent();
+        },
+      };
+
       return {
         view,
         play,
+        map,
         end: async () => {
           endView();
           endPlay();
+          endMap();
           await stopIfSpent();
         },
       };
@@ -418,6 +502,11 @@ export function createProjectionHost(
         channel.end();
       }
       plays.clear();
+      for (const [was, channel] of maps) {
+        retired.add(was);
+        channel.end();
+      }
+      maps.clear();
       await stopIfSpent();
     },
   };

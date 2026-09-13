@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { memoryBands } from './memoryBands';
-import type { MemoryMap } from '../dialects/types';
+import type { MemoryMap } from './types';
 
 const map: MemoryMap = {
   addressSpace: 0x100,

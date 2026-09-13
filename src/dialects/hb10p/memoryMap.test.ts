@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hb10pMemoryMap } from './memoryMap';
 import { hb10pMemoryBlocks } from './memoryBlocks';
 import { TXTTAB } from './addresses';
-import { memoryBands } from '../../components/memoryBands';
+import { memoryBands } from '../memoryBands';
 
 /**
  * The map's own shape, and the agreement it has to keep with the block linter.

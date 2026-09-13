@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { MemoryMap } from '../dialects/types';
-import { memoryBands, type Band } from './memoryBands';
+import { memoryBands, type Band } from '../dialects/memoryBands';
 import { addressTicks, columnHeight } from './memoryScale';
 import { bandLayout, type BandGeometry } from './memoryActivity/bandLayout';
 import styles from './MemoryMapView.module.css';

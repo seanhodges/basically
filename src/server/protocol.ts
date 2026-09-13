@@ -73,10 +73,11 @@ export interface HostRequest {
   id: number;
   /**
    * `status` reports what is served and what is held; `release` lets this
-   * caller's machine go; `unview` ends its view and `unplay` its play channel,
-   * neither touching the machine; `stop` ends the host.
+   * caller's machine go; `unview` ends its view, `unplay` its play channel and
+   * `unmap` the map of its memory, none of them touching the machine; `stop`
+   * ends the host.
    */
-  action: 'status' | 'stop' | 'release' | 'unview' | 'unplay';
+  action: 'status' | 'stop' | 'release' | 'unview' | 'unplay' | 'unmap';
 }
 
 /**

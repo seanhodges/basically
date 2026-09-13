@@ -130,6 +130,19 @@ export const EXEMPTIONS: readonly Exemption[] = [
       'its machine is offered it.',
   },
   {
+    operation: 'map',
+    caller: 'assistant',
+    reason:
+      'The memory map is a panel of the IDE the assistant runs in, open ' +
+      'beside the editor with the machine it would map already drawing into ' +
+      'it, and there is no host beside that page to project from - the ' +
+      'machine is the page’s own. Projecting a second map to an address ' +
+      'would hand the user a copy of what is already on their screen, and ' +
+      'one they would have to find a frame for. The reason is that panel and ' +
+      'that arrangement, so a caller whose machine has no map already in ' +
+      'front of it is offered the operation.',
+  },
+  {
     operation: 'view',
     caller: 'assistant',
     reason:

@@ -2,7 +2,7 @@
  * Address-scale ticks for the memory-map viewer: given a region's address span
  * and the pixel height its band is drawn at, decide the round decimal addresses
  * to label inside it. A pure, testable transform in the mould of
- * {@link ./memoryBands}, so the component stays thin.
+ * {@link ../dialects/memoryBands}, so the component stays thin.
  *
  * The scale only appears once a band is physically tall enough to fit a couple
  * of ticks - {@link addressTicks} returns an empty list otherwise - which is what

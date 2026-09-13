@@ -1,4 +1,4 @@
-import type { Band } from '../memoryBands';
+import type { Band } from '../../dialects/memoryBands';
 
 /**
  * One band's placement in the stacked memory-map column, in CSS pixels. `top` is

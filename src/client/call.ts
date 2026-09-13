@@ -80,7 +80,9 @@ export interface HostClient {
     input: unknown,
   ): Promise<{ value: unknown; notes: string[]; failed: boolean }>;
   /** Ask the host about itself. */
-  ask(action: 'status' | 'stop' | 'release' | 'unview' | 'unplay'): Promise<{
+  ask(
+    action: 'status' | 'stop' | 'release' | 'unview' | 'unplay' | 'unmap',
+  ): Promise<{
     serving?: readonly Conversation[];
     holding?: string | null;
     stopping?: boolean;

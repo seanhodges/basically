@@ -1,4 +1,14 @@
-import type { MemoryMap, MemoryRegion } from '../dialects/types';
+import type { MemoryMap, MemoryRegion } from './types';
+
+/*
+ * Which regions collapse into which bands: a pure transform over a machine's
+ * layout table, with nothing of the browser in it.
+ *
+ * Beside the layout it reads rather than among the components that draw it,
+ * because two things draw a memory map now - the IDE's panel, and the page the
+ * toolchain's host projects a map to - and the host may not reach into the
+ * browser application's modules.
+ */
 
 /**
  * A region span as shown by a single band in the memory-map viewer: either one

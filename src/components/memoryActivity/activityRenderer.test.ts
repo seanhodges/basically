@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Band } from '../memoryBands';
+import type { Band } from '../../dialects/memoryBands';
 import { bandLayout } from './bandLayout';
 import {
   ActivityRenderer,

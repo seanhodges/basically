@@ -49,6 +49,12 @@ export interface HostSession {
    * when a request asks it to.
    */
   unplay(): Promise<void>;
+  /**
+   * Give up this caller's map, keeping the machine and the session. The
+   * machine is unchanged by it: nothing was recorded for the map but the
+   * addresses it touched, and nothing at all is recorded once it has gone.
+   */
+  unmap(): Promise<void>;
   /** The caller is gone: let go of the machine and the worker under it. */
   close(): Promise<void>;
 }
@@ -77,7 +83,7 @@ export interface Sessions {
  * projected to the same address: a projection follows the caller, not any one
  * machine.
  *
- * `projections` is where a caller's view and play channel come from. The
+ * `projections` is where a caller's view, play channel and map come from. The
  * default projects nothing, which is a host that binds no network address at
  * all.
  */
@@ -97,17 +103,22 @@ export function createSessions(
       let holder: MachineHolder | null = null;
       const projection = projections.forSession();
       const view = projection.view;
+      const map = projection.map;
       const require = () => (holder ??= newHolder(projection));
 
       const letGo = async () => {
         const held = holder;
         holder = null;
         // The machine has gone; whoever is watching is told so rather than
-        // left looking at a picture of it, and whoever is playing is told
-        // there is nothing to play. Both projections stay open, and their
-        // addresses stay valid, because they belong to the caller.
+        // left looking at a picture of it, whoever is playing is told there is
+        // nothing to play, and whoever is mapping is told there is nothing to
+        // map rather than left with a layout of what has gone. Every
+        // projection stays open, and their addresses stay valid, because they
+        // belong to the caller.
         view.settled(null);
         projection.play.say('no-machine');
+        map.settled(null);
+        map.show(null);
         await held?.dispose();
       };
 
@@ -116,20 +127,25 @@ export function createSessions(
         call: async (operation, input) => {
           const machine = require();
           view.working();
+          map.working();
           try {
             return await machine.call(operation, input);
           } finally {
-            // Asked only while somebody is watching, so a caller with no view
-            // pays nothing for the state a view would have shown.
-            view.settled(
-              view.watching() ? await machine.held().catch(() => null) : null,
-            );
+            // Asked only while somebody is watching, so a caller with neither
+            // projection pays nothing for the state they would have shown.
+            const held =
+              view.watching() || map.watching()
+                ? await machine.held().catch(() => null)
+                : null;
+            view.settled(held);
+            map.settled(held);
           }
         },
         held: () => holder?.held() ?? Promise.resolve(null),
         release: letGo,
         unview: () => view.end(),
         unplay: () => projection.play.end(),
+        unmap: () => map.end(),
         close: async () => {
           live.delete(id);
           await projection.end();
