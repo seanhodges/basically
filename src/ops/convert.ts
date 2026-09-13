@@ -12,6 +12,7 @@
 import { importProgram } from '../app/importProgram';
 import { dialectsForExtension } from '../dialects/binaryFormatLookup';
 import { RunError } from '../dialects/headless/runError';
+import { formatMachineDirective } from '../dialects/machineDirective';
 import type { Block, Dialect } from '../dialects/types';
 import { decodeBytes, encodeBytes } from './bytes';
 import { requireMachine } from './resolve';
@@ -27,6 +28,12 @@ export interface ConvertInput {
    */
   fileName?: string;
   machine?: string;
+  /**
+   * Open the returned source with a `#MACHINE` line naming the machine it was
+   * read as, so the text alone settles the question for whatever reads it
+   * next. Absent leaves the source the program's own lines and nothing else.
+   */
+  declareMachine?: boolean;
 }
 
 /** One recovered block, its bytes base64 so the outcome survives JSON. */
@@ -93,9 +100,15 @@ export function convertProgram(
 ): ConvertOutcome {
   const dialect = resolveConvertMachine(input, ctx);
   const imported = importProgram(dialect, decodeBytes(input.base64));
+  // A `#MACHINE` line is stripped before a listing is tokenized, so none can
+  // survive into a machine's binary and come back out of a detokenizer: there
+  // is never an existing declaration here to replace.
+  const source = input.declareMachine
+    ? `${formatMachineDirective(dialect.id)}\n${imported.source}`
+    : imported.source;
   return {
     machine: { id: dialect.id, name: dialect.name },
-    source: imported.source,
+    source,
     warnings: imported.warnings,
     ...(imported.blocks ? { blocks: imported.blocks.map(encodeBlock) } : {}),
     ...(imported.tapeFiles && imported.tapeFiles.length > 0
@@ -136,6 +149,13 @@ export const convertOp: Operation<ConvertInput, ConvertOutcome> = {
         description:
           "A machine's id or name; inferred from `fileName`'s extension " +
           'when absent and exactly one registered machine matches.',
+      },
+      declareMachine: {
+        type: 'boolean',
+        description:
+          'Open the source with a `#MACHINE` line naming the machine it was ' +
+          'read as, so the text alone is enough to check, build or run it as ' +
+          'that machine; absent returns the program lines alone.',
       },
     },
     required: ['base64'],

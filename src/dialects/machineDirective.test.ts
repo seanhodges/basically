@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  formatMachineDirective,
   isMachineDirective,
   parseMachineDirective,
   readMachineDirective,
@@ -21,6 +22,23 @@ describe('isMachineDirective', () => {
     expect(isMachineDirective('#MACHINERY zx81')).toBe(false);
     expect(isMachineDirective('REM #MACHINE zx81')).toBe(false);
     expect(isMachineDirective('')).toBe(false);
+  });
+});
+
+describe('formatMachineDirective', () => {
+  it('writes a line the reader reads back as that machine', () => {
+    const source = `${formatMachineDirective('commodore64')}\n10 PRINT "HI"`;
+    const result = readMachineDirective(source);
+    expect(result.name).toBe('commodore64');
+    expect(result.problems).toEqual([]);
+    expect(result.source).toBe('10 PRINT "HI"');
+  });
+
+  it('writes a line the recogniser recognises', () => {
+    expect(isMachineDirective(formatMachineDirective('zx81'))).toBe(true);
+    expect(parseMachineDirective(formatMachineDirective('zx81'))).toEqual({
+      name: 'zx81',
+    });
   });
 });
 

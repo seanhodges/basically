@@ -868,6 +868,7 @@ function parseCheck(argv: string[]): CheckArgs {
 function parseConvert(argv: string[]): ConvertArgs {
   let machine: string | undefined;
   let out: string | undefined;
+  let declareMachine: boolean | undefined;
   const rest = scan(argv, (name, value) => {
     switch (name) {
       case '-m':
@@ -878,6 +879,9 @@ function parseConvert(argv: string[]): ConvertArgs {
       case '--out':
         out = value();
         break;
+      case '--declare-machine':
+        declareMachine = true;
+        break;
       default:
         throw unknownOption('convert', name);
     }
@@ -886,7 +890,7 @@ function parseConvert(argv: string[]): ConvertArgs {
     operation: 'convert',
     file: programFrom('convert', rest),
     out,
-    input: { machine },
+    input: { machine, ...(declareMachine ? { declareMachine } : {}) },
   };
 }
 

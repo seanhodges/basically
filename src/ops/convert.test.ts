@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getDialect } from '../dialects/registry';
+import { isMachineDirective } from '../dialects/machineDirective';
+import { resolveListing, resolveTokenize } from '../dialects/resolveListing';
 import { RunError } from '../dialects/headless/runError';
 import { buildPFile } from '../dialects/zx81/pfile';
 import { convertOp, convertProgram, type ConvertInput } from './convert';
@@ -90,6 +92,58 @@ describe('converting a program back to BASIC', () => {
     expect(outcome.blocks).toBeUndefined();
     // Round-trips through JSON, the shape every caller receives it in.
     expect(JSON.parse(JSON.stringify(outcome))).toEqual(outcome);
+  });
+
+  it('declares the machine in the source only when asked', () => {
+    const base64 = zx81PFile(SOURCE);
+    expect(convert({ base64, machine: 'zx81' }).source).not.toMatch(
+      /#MACHINE/i,
+    );
+    const declared = convert({ base64, machine: 'zx81', declareMachine: true });
+    expect(declared.source.split('\n')[0]).toBe('#MACHINE zx81');
+    // The program's own lines are untouched below the declaration.
+    expect(declared.source.split('\n').slice(1).join('\n')).toBe(
+      convert({ base64, machine: 'zx81' }).source,
+    );
+  });
+
+  it('declares a machine the source alone then settles', () => {
+    const outcome = convert({
+      base64: zx81PFile(SOURCE),
+      fileName: 'game.p',
+      declareMachine: true,
+    });
+    // Read back with nothing else naming a machine, the way any other
+    // operation handed the text would read it.
+    expect(resolveListing(outcome.source).dialect?.id).toBe('zx81');
+  });
+
+  it('declares the machine the caller named, since that is what it read', () => {
+    // ".tap" is claimed by more than one machine, so the file's own name
+    // settles nothing: the declaration can only be recording the caller's
+    // choice, which is what the conversion actually used.
+    const outcome = convert({
+      base64: encodeBytes(getDialect('zxspectrum').tokenize(SOURCE).image),
+      fileName: 'game.tap',
+      machine: 'zxspectrum128',
+      declareMachine: true,
+    });
+    expect(outcome.machine.id).toBe('zxspectrum128');
+    expect(outcome.source.split('\n')[0]).toBe('#MACHINE zxspectrum128');
+  });
+
+  it('never doubles the declaration, since none survives a build', () => {
+    // A `#MACHINE` line is stripped before a listing is tokenized, so a
+    // program built from declared text holds no directive to come back out.
+    const dialect = getDialect('zx81');
+    const built = resolveTokenize(dialect, `#MACHINE zx81\n${SOURCE}`);
+    const outcome = convert({
+      base64: encodeBytes(built.image),
+      machine: 'zx81',
+      declareMachine: true,
+    });
+    const directives = outcome.source.split('\n').filter(isMachineDirective);
+    expect(directives).toEqual(['#MACHINE zx81']);
   });
 
   it('tells a model the source length and every warning, never the input bytes', () => {
