@@ -1,21 +1,4 @@
 <!doctype html>
-<!--
-  The page a machine is played through.
-
-  Hand-written and standalone: no framework, no build step of its own, nothing
-  from the IDE. It is inlined into the host's bundle as text, so an installed
-  toolchain resolves nothing at runtime to serve it.
-
-  What it contracts to do is show the machine and type at it. How it does that
-  is private and may change - the third party's contract is "a URL you put in a
-  frame", which is why the socket below is not documented anywhere a player can
-  see.
-
-  The browser's key codes are mapped onto the machine's key names here, so the
-  host never sees a browser event. The names are the ones a written schedule
-  uses, which is what makes a key pressed by hand and the same key in a
-  schedule the same key to the machine.
--->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -23,7 +6,7 @@
     <!-- The address is the only thing admitting whoever plays, so it must not
          travel to whatever the embedding page reaches next. -->
     <meta name="referrer" content="no-referrer" />
-    <title>Basically - playing the machine</title>
+    <title>Basically</title>
     <style>
       :root {
         color-scheme: dark;
@@ -135,9 +118,9 @@
         var paint = picture.getContext('2d');
 
         var WORDS = {
-          playing: 'Playing - type at the machine.',
-          'no-machine': 'No machine is up. Run a program to start one.',
-          gone: 'The play channel has ended.',
+          playing: 'Playing',
+          'no-machine': 'Not started',
+          gone: 'Finished',
         };
 
         function show(state) {
