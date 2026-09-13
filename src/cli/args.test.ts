@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { OPERATIONS, parseArgs } from './args';
 import { RunError } from '../dialects/headless/runListing';
 import { usage } from './usage';
+import { convertOp } from '../ops/convert';
+import { schemaProblem, withoutUndefined } from '../ops/schema';
 
 describe('the command line grammar', () => {
   it('names every operation in the summary, and gives each its own help', () => {
@@ -170,6 +172,25 @@ describe('the command line grammar', () => {
         file: { kind: 'stdin' },
       });
     }
+  });
+
+  it('asks for the machine to be declared only when the flag is given', () => {
+    const declared = (argv: string[]) => {
+      const args = parseArgs(argv);
+      if (args.operation !== 'convert') throw new Error('not a convert');
+      return args.input.declareMachine;
+    };
+    expect(declared(['convert', 'game.p'])).toBeUndefined();
+    expect(declared(['convert', 'game.p', '--declare-machine'])).toBe(true);
+    // What the flag parses to is an input the operation itself accepts.
+    const args = parseArgs(['convert', 'game.p', '--declare-machine']);
+    if (args.operation !== 'convert') throw new Error('not a convert');
+    expect(
+      schemaProblem(
+        convertOp.input,
+        withoutUndefined({ ...args.input, base64: '' }),
+      ),
+    ).toBeNull();
   });
 
   it('reports the screen as text unless only something else was asked for', () => {
