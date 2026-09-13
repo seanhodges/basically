@@ -626,6 +626,11 @@ conversion could not carry over — a warning the machine's own detokenizer
 raises, a part of the file that is not BASIC, an auto-start line — SHALL be
 reported rather than dropped silently.
 
+The caller SHALL be able to ask that the source say which machine it was read
+as, in the listing's own way of declaring one, so that the text alone is enough
+to check, build or run the program as what it is. Where the caller does not ask,
+the source SHALL be exactly what it is today.
+
 #### Scenario: Converting a named binary file
 
 - **WHEN** the user converts a file whose format belongs to exactly one
@@ -645,6 +650,18 @@ reported rather than dropped silently.
   block that is not BASIC, or an auto-start line
 - **THEN** the source is returned alongside a report of everything the
   conversion could not carry, rather than the source alone
+
+#### Scenario: Asking the source to say which machine it is for
+
+- **WHEN** the user converts a file and asks for the machine to be declared
+- **THEN** the source returned declares that machine, and reading that source
+  back settles the same machine without anything else being named
+
+#### Scenario: Not asking for the declaration
+
+- **WHEN** the user converts a file without asking for the machine to be
+  declared
+- **THEN** the source returned is the program's own lines and nothing else
 
 ### Requirement: The command line can hold a machine between commands
 

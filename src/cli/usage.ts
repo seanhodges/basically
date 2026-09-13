@@ -419,13 +419,16 @@ usage: basically server [start|stop|status] [--json]
   convert: `
 convert a binary program into BASIC
 
-usage: basically convert [file] [-m <machine>] [-o <path>]
+usage: basically convert [file] [-m <machine>] [--declare-machine] [-o <path>]
 
   [file]            the machine's own program file, or "-"/nothing to read
                      standard input
   -m, --machine     the machine the file belongs to; optional when the
                      file's own extension matches exactly one registered
                      machine, and overrides that inference when both settle it
+  --declare-machine open the recovered BASIC with a "#MACHINE <id>" line
+                     naming the machine it was read as, so the source alone
+                     says what to lint, build or run it as
   -o, --out         where to write the recovered BASIC; standard output when
                      absent
 `.trimStart(),

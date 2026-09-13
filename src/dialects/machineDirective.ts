@@ -32,6 +32,16 @@ function directiveColumn(lineText: string): number {
   return payloadColumn(m[0].length, lineText.slice(m[0].length));
 }
 
+/**
+ * Render a machine's id as its canonical `#MACHINE <id>` source line. The id
+ * rather than the display name: both parse back, but an id is what a listing
+ * a person wrote carries, is stable across display name changes, and has no
+ * spaces in it.
+ */
+export function formatMachineDirective(machineId: string): string {
+  return `#MACHINE ${machineId}`;
+}
+
 /** Whether this physical line is a `#MACHINE` directive (well-formed or not). */
 export function isMachineDirective(lineText: string): boolean {
   return PREFIX_RE.test(lineText);
