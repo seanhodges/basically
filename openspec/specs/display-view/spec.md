@@ -221,6 +221,14 @@ played machine is already being seen by whoever is driving it, no machine SHALL
 be projected both ways at once, and nothing about a view's guarantees SHALL be
 read as applying to a play channel.
 
+This rule is about the machine's **display**, and holds between the projections
+that show it. A projection showing something other than the display SHALL be
+neither ended by asking for a view or a play channel nor able to end one, and
+SHALL be able to be open alongside either. In particular a map of the machine's
+memory, on the terms `memory-view` states, is such a projection: asking for one
+SHALL leave a view or a play channel exactly as it was, and asking for a view or
+a play channel SHALL leave a map exactly as it was.
+
 #### Scenario: Playing a machine that is being viewed
 
 - **WHEN** the caller holding a machine that is being viewed asks for it to be
@@ -241,4 +249,18 @@ read as applying to a play channel.
   address is used again
 - **THEN** it shows nothing, on the same terms as any address whose projection
   has ended
+
+#### Scenario: Mapping a machine's memory while it is being played
+
+- **WHEN** the caller holding a machine that is being played asks for a map of
+  its memory
+- **THEN** the map opens, the play channel goes on unchanged, and the caller is
+  told nothing has ended
+
+#### Scenario: Viewing a machine whose memory is being mapped
+
+- **WHEN** the caller holding a machine whose memory is being mapped asks for a
+  view of it, and then asks for it to be played
+- **THEN** the view and then the play channel come and go as they always do, and
+  the map stays open throughout at the address it was given
 
