@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-13
+goal: Serve every jump to a line from that line, and rename a variable as the
+  machine understands it
